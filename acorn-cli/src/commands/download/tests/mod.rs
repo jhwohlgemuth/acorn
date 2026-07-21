@@ -11,14 +11,17 @@
 extern crate alloc;
 use super::run;
 use crate::cli::arguments::OutputFormat;
-use crate::test::server::{spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server};
+use crate::test::server::{
+    spawn_huggingface_model_info_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
+    spawn_sidecar_server,
+};
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
-use acorn::prelude::{create_dir_all, env, read_to_string, write};
+use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet};
 use acorn::util::merge;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
@@ -36,6 +39,28 @@ fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
         path: path.to_string(),
         size: None,
     }
+}
+fn model_plan_matches_base(base_model: &str) -> bool {
+    let identifier = "unsloth/gpt-oss-2b-gguf";
+    let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, base_model);
+    let whitelist = HashSet::from(["openai/gpt-oss-2b".to_string()]);
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+            let entries = vec![ModelEntry::Selector(identifier.to_string())];
+            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+                .await
+                .expect("resolve model plan");
+            plans
+                .into_iter()
+                .next()
+                .expect("model plan")
+                .matches(&whitelist, false)
+                .await
+                .expect("match model whitelist")
+        })
+    });
+    handle.join().expect("join metadata server");
+    result
 }
 
 #[test]
@@ -1093,6 +1118,11 @@ fn test_huggingface_filter_works_with_complex_patterns() {
     let files = vec![candidate_file("model.gguf")];
     let result = files.filter(Some("[a-z]+"), None);
     assert!(result.is_ok());
+}
+#[test]
+fn test_model_download_plan_matches_base() {
+    assert!(model_plan_matches_base("openai/gpt-oss-2b"));
+    assert!(!model_plan_matches_base("other/model"));
 }
 #[test]
 fn test_model_merge_patterns_keeps_config_and_cli_patterns() {

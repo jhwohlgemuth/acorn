@@ -61,6 +61,25 @@ fn response_404() -> Vec<u8> {
 fn response_500() -> Vec<u8> {
     b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
 }
+/// Spawn a local Hugging Face API server that returns model metadata with a declared base model.
+pub(crate) fn spawn_huggingface_model_info_server(identifier: &str, base_model: &str) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind metadata server");
+    let endpoint = format!("http://{}", listener.local_addr().expect("metadata server address"));
+    let identifier = identifier.to_string();
+    let base_model = base_model.to_string();
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept metadata request");
+        let parsed = parse_request(&mut stream);
+        assert!(parsed.path.starts_with(format!("/api/models/{identifier}").as_str()));
+        let body = format!(r#"{{"id":"{identifier}","baseModels":["{base_model}"]}}"#);
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(response.as_bytes()).expect("write metadata response");
+    });
+    (endpoint, handle)
+}
 /// Spawn a local HTTP server that supports HEAD plus full and range GET responses for `/model.gguf`.
 pub(crate) fn spawn_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");

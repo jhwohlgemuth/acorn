@@ -31,6 +31,15 @@ pub type Candidates = Vec<Candidate>;
 pub type CandidateSelector = fn(Candidates, &Options) -> ApiResult<String>;
 /// Repository files returned by the Hugging Face repository tree API
 pub type HuggingFaceRepositoryFiles = Vec<HuggingFaceRepositoryFile>;
+/// Select a repository from model search candidates.
+pub trait CandidateSelection {
+    /// Select a candidate using the selector configured in `options` when interaction is required.
+    fn select(self, options: &Options) -> ApiResult<String>;
+    /// Fallback selector used when the interactive picker is unavailable.
+    ///
+    /// Picks the most-downloaded candidate and warns the user.
+    fn select_interactively(self, options: &Options) -> ApiResult<String>;
+}
 /// Trait for selecting and filtering files from a Hugging Face repository.
 #[async_trait]
 pub trait HuggingFaceRepository {
@@ -53,14 +62,10 @@ pub trait HuggingFaceRepository {
     where
         Self: Sized;
 }
-/// Select a repository from model search candidates.
-pub trait CandidateSelection {
-    /// Select a candidate using the selector configured in `options` when interaction is required.
-    fn select(self, options: &Options) -> ApiResult<String>;
-    /// Fallback selector used when the interactive picker is unavailable.
-    ///
-    /// Picks the most-downloaded candidate and warns the user.
-    fn select_interactively(self, options: &Options) -> ApiResult<String>;
+/// Extension trait for Hugging Face model metadata
+pub trait ModelInfoExtension {
+    /// Determine whether a Hugging Face model declares a given model as its base model
+    fn is_declared_derivative_of(&self, identifier: &str) -> bool;
 }
 /// Errors produced by Hugging Face repository selection and download helpers
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -396,6 +401,31 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         }
     }
 }
+impl ModelInfoExtension for ModelInfo {
+    fn is_declared_derivative_of(&self, identifier: &str) -> bool {
+        let declares_base_model = self
+            .base_models
+            .as_ref()
+            .is_some_and(|models| models.iter().any(|value| value.eq_ignore_ascii_case(identifier)));
+        let declares_card_base_model = self
+            .card_data
+            .as_ref()
+            .and_then(|value| value.get("base_model"))
+            .is_some_and(|value| match value {
+                | Value::String(value) => value.eq_ignore_ascii_case(identifier),
+                | Value::Array(values) => values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|value| value.eq_ignore_ascii_case(identifier)),
+                | _ => false,
+            });
+        let has_quantized_base_model_tag = self
+            .tags
+            .as_ref()
+            .is_some_and(|tags| tags.iter().any(|tag| is_quantized_base_model_tag(tag, identifier)));
+        declares_base_model || declares_card_base_model || has_quantized_base_model_tag
+    }
+}
 impl From<&Source> for Weights {
     fn from(source: &Source) -> Self {
         match source {
@@ -458,9 +488,34 @@ pub fn auth_headers() -> HeaderMap {
         .build()
         .into_headers()
 }
+/// Fetch model metadata from Hugging Face API with base model and tag expansion
+pub async fn fetch_model_info(provider: &str, name: &str) -> ApiResult<ModelInfo> {
+    let client = HFClient::new().map_err(|why| {
+        eyre!(HuggingFaceError::ClientInitializationFailed {
+            reason: why.to_string().into()
+        })
+    });
+    match client {
+        | Ok(client) => client
+            .model(provider, name)
+            .info()
+            .expand(vec!["baseModels".to_string(), "cardData".to_string(), "tags".to_string()])
+            .send()
+            .await
+            .map_err(|why| eyre!("Failed to read Hugging Face metadata for '{provider}/{name}' — {why}")),
+        | Err(e) => Err(e),
+    }
+}
 /// Return whether a non-empty Hugging Face token is configured
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
+}
+/// Validate and parse a Hugging Face model identifier into (owner, name)
+pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {
+    match identifier.split_once('/') {
+        | Some((owner, name)) if !owner.is_empty() && !name.is_empty() && !name.contains('/') => Ok((owner, name)),
+        | _ => Err(eyre!("Invalid Hugging Face model identifier — {identifier}")),
+    }
 }
 /// List files in a Hugging Face model repository at `revision`
 pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
@@ -510,7 +565,7 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
                     | Ok(models) => {
                         let mut candidates = models
                             .into_iter()
-                            .filter(|model| is_declared_quantization_of(model, identifier))
+                            .filter(|model| model.is_declared_derivative_of(identifier))
                             .map(Candidate::from)
                             .collect::<Vec<_>>();
                         candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
@@ -544,29 +599,6 @@ fn extract_sha256(content: &str) -> Option<String> {
         .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
         .map(|value| value.to_ascii_lowercase())
 }
-fn is_declared_quantization_of(model: &ModelInfo, identifier: &str) -> bool {
-    let declares_base_model = model
-        .base_models
-        .as_ref()
-        .is_some_and(|models| models.iter().any(|value| value.eq_ignore_ascii_case(identifier)));
-    let declares_card_base_model = model
-        .card_data
-        .as_ref()
-        .and_then(|value| value.get("base_model"))
-        .is_some_and(|value| match value {
-            | Value::String(value) => value.eq_ignore_ascii_case(identifier),
-            | Value::Array(values) => values
-                .iter()
-                .filter_map(Value::as_str)
-                .any(|value| value.eq_ignore_ascii_case(identifier)),
-            | _ => false,
-        });
-    let has_quantized_base_model_tag = model
-        .tags
-        .as_ref()
-        .is_some_and(|tags| tags.iter().any(|tag| is_quantized_base_model_tag(tag, identifier)));
-    declares_base_model || declares_card_base_model || has_quantized_base_model_tag
-}
 fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
     let mut parts = tag.splitn(3, ':');
     match (parts.next(), parts.next(), parts.next()) {
@@ -592,7 +624,7 @@ fn target_path_from_sidecar(path: &str) -> Option<String> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use super::{extract_sha256, is_declared_quantization_of, target_path_from_sidecar, Candidate, ModelInfo, Value};
+    use super::{extract_sha256, target_path_from_sidecar, Candidate, ModelInfo, ModelInfoExtension, Value};
     use crate::schema::agent::{Weight, Weights};
     use serde_json::json;
 
@@ -601,17 +633,17 @@ mod tests {
     }
 
     #[test]
-    fn test_is_declared_quantization() {
+    fn test_is_declared_derivative() {
         let candidate = model(json!({"id": "community/quantized", "baseModels": ["OpenAI/GPT-OSS-2B"]}));
-        assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+        assert!(candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
         let candidate = model(json!({"id": "community/quantized", "tags": ["base_model:quantized:openai/gpt-oss-2b"]}));
-        assert!(is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+        assert!(candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
         let candidate = model(json!({
             "id": "community/quantized",
             "baseModels": ["other/model"],
             "tags": ["base_model:quantized:other/model"]
         }));
-        assert!(!is_declared_quantization_of(&candidate, "openai/gpt-oss-2b"));
+        assert!(!candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
     }
     #[test]
     fn test_gguf_candidate_includes_sorted_unique_quantizations() {

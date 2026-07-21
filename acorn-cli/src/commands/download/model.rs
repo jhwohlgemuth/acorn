@@ -1,6 +1,6 @@
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
-use acorn::io::api::huggingface::{self, CandidateSelection, HuggingFaceError, HuggingFaceRepository};
+use acorn::io::api::huggingface::{self, CandidateSelection, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension};
 use acorn::io::api::models_dev;
 use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
@@ -130,150 +130,159 @@ pub async fn run(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<HashSet<_>>();
-    let planned = match resolve_plans(model, &entries, action, database_path, offline).await {
-        | Ok(value) => value,
+    match resolve_plans(model, &entries, action, database_path, offline).await {
+        | Ok(planned) => match FilterSet::filter(planned, filter, ignore, |plan| plan.selector.identifier(), |_| true) {
+            | Ok(plans) => {
+                let futures = plans
+                    .into_iter()
+                    .map(|plan| async { plan.matches(&whitelist, offline).await.map(|matches| matches.then_some(plan)) });
+                match join_all(futures).await.into_iter().collect::<ApiResult<Vec<_>>>().map_err(|why| {
+                    error!("=> {} Validate model whitelist — {why}", Label::fail());
+                    why
+                }) {
+                    | Ok(value) => {
+                        let selectors = value.into_iter().flatten().collect::<Vec<_>>();
+                        if offline && selectors.iter().any(ModelDownloadPlan::is_remote) {
+                            let remote_names: Vec<String> = selectors
+                                .iter()
+                                .filter(|plan| plan.is_remote())
+                                .map(|plan| plan.selector.identifier())
+                                .collect();
+                            error!(
+                                "=> {} Offline mode cannot download remote models: {}",
+                                Label::fail(),
+                                remote_names.join(", ")
+                            );
+                            Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
+                        } else if selectors.is_empty() {
+                            let msg = if model.is_empty() && entries.is_empty() {
+                                "No models specified — provide model IDs or --config"
+                            } else if !whitelist.is_empty() {
+                                "No models matched --whitelist"
+                            } else {
+                                "No models matched --filter/--ignore"
+                            };
+                            error!("=> {} {msg}", Label::fail());
+                            Err(eyre!(msg))
+                        } else if dry_run {
+                            let models = resolve_models(&selectors, offline, gguf_search_limit).await;
+                            if raw {
+                                output_raw(&models, format)
+                            } else {
+                                info!(
+                                    "=> {} {} model{} resolved",
+                                    Label::run(),
+                                    models.len().cyan().bold(),
+                                    suffix(models.len())
+                                );
+                                for details in models {
+                                    let (id, context) = details.report();
+                                    match context {
+                                        | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
+                                        | None => info!("  {} {}", "→".cyan(), id.green()),
+                                    }
+                                }
+                                Ok(())
+                            }
+                        } else {
+                            match output.clone().map_or_else(|| home_directory(".models"), Ok) {
+                                | Ok(root) => {
+                                    let mut success_count = 0usize;
+                                    let mut failure_count = 0usize;
+                                    let mut results: Vec<ModelDetails> = Vec::new();
+                                    for plan in &selectors {
+                                        let filter = merge(&plan.filter, Some(filter));
+                                        let ignore = merge(&plan.ignore, Some(ignore));
+                                        let options = CommandOptions::init()
+                                            .selector(plan.selector.clone())
+                                            .maybe_action(match &plan.selector {
+                                                | Source::Local { action, .. } => *action,
+                                                | _ => plan.action,
+                                            })
+                                            .output(root.clone())
+                                            .maybe_database_path(database_path.clone())
+                                            .offline(offline)
+                                            .no_fallback(no_fallback)
+                                            .gguf_search_limit(gguf_search_limit)
+                                            .interactive(interactive)
+                                            .quiet(quiet || raw)
+                                            .skip_verify_checksum(skip_verify_checksum)
+                                            .maybe_filter(regex_join(&filter))
+                                            .maybe_ignore(regex_join(&ignore))
+                                            .build();
+                                        match plan.execute(options).await {
+                                            | Ok(resolved_id) => {
+                                                success_count = success_count.saturating_add(1);
+                                                let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
+                                                results.push(details);
+                                            }
+                                            | Err(why) => {
+                                                failure_count = failure_count.saturating_add(1);
+                                                error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
+                                            }
+                                        }
+                                    }
+                                    if raw {
+                                        output_raw(&results, format)
+                                    } else {
+                                        if !quiet {
+                                            let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
+                                            let remote_count = selectors.len().saturating_sub(local_count);
+                                            let parts = [(local_count, "local"), (remote_count, "remote")]
+                                                .into_iter()
+                                                .filter(|(count, _)| *count > 0)
+                                                .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
+                                                .collect::<Vec<_>>();
+                                            info!(
+                                                "=> {} {} model{} to download ({})",
+                                                Label::run(),
+                                                selectors.len().cyan().bold(),
+                                                suffix(selectors.len()),
+                                                parts.join(", ")
+                                            );
+                                            for plan in selectors {
+                                                info!("  {} {}", "→".cyan(), plan.selector.green());
+                                            }
+                                        }
+                                        super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
+                                        if failure_count > 0 {
+                                            Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
+                                        } else {
+                                            if !quiet {
+                                                println!(
+                                                    "\n\n   => {} Resolved {} model{} to {}\n",
+                                                    Label::pass(),
+                                                    success_count.green(),
+                                                    suffix(success_count),
+                                                    root.display()
+                                                );
+                                            }
+                                            Ok(())
+                                        }
+                                    }
+                                }
+                                | Err(why) => Err(why),
+                            }
+                        }
+                    }
+                    | Err(why) => {
+                        error!("=> {} Validate model whitelist — {why}", Label::fail());
+                        Err(why)
+                    }
+                }
+            }
+            | Err(why) => {
+                error!("=> {} Filter model selectors — {why}", Label::fail());
+                Err(why)
+            }
+        },
         | Err(why) => {
             error!("=> {} Resolve model selectors — {why}", Label::fail());
-            return Err(why);
-        }
-    };
-    let plans = FilterSet::filter(
-        planned,
-        filter,
-        ignore,
-        |plan| plan.selector.identifier(),
-        |plan| plan.matches_whitelist(&whitelist),
-    );
-    let selectors = match plans {
-        | Ok(value) => value,
-        | Err(why) => {
-            error!("=> {} Filter model selectors — {why}", Label::fail());
-            return Err(why);
-        }
-    };
-    if offline && selectors.iter().any(ModelDownloadPlan::is_remote) {
-        let remote_names: Vec<String> = selectors
-            .iter()
-            .filter(|plan| plan.is_remote())
-            .map(|plan| plan.selector.identifier())
-            .collect();
-        error!(
-            "=> {} Offline mode cannot download remote models: {}",
-            Label::fail(),
-            remote_names.join(", ")
-        );
-        Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
-    } else if selectors.is_empty() {
-        let msg = if model.is_empty() && entries.is_empty() {
-            "No models specified — provide model IDs or --config"
-        } else if !whitelist.is_empty() {
-            "No models matched --whitelist"
-        } else {
-            "No models matched --filter/--ignore"
-        };
-        error!("=> {} {msg}", Label::fail());
-        Err(eyre!(msg))
-    } else if dry_run {
-        let models = resolve_models(&selectors, offline, gguf_search_limit).await;
-        if raw {
-            output_raw(&models, format)
-        } else {
-            info!(
-                "=> {} {} model{} resolved",
-                Label::run(),
-                models.len().cyan().bold(),
-                suffix(models.len())
-            );
-            for details in models {
-                let (id, context) = details.report();
-                match context {
-                    | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
-                    | None => info!("  {} {}", "→".cyan(), id.green()),
-                }
-            }
-            Ok(())
-        }
-    } else {
-        match output.clone().map_or_else(|| home_directory(".models"), Ok) {
-            | Ok(root) => {
-                let mut success_count = 0usize;
-                let mut failure_count = 0usize;
-                let mut results: Vec<ModelDetails> = Vec::new();
-                for plan in &selectors {
-                    let filter = merge(&plan.filter, Some(filter));
-                    let ignore = merge(&plan.ignore, Some(ignore));
-                    let options = CommandOptions::init()
-                        .selector(plan.selector.clone())
-                        .maybe_action(match &plan.selector {
-                            | Source::Local { action, .. } => *action,
-                            | _ => plan.action,
-                        })
-                        .output(root.clone())
-                        .maybe_database_path(database_path.clone())
-                        .offline(offline)
-                        .no_fallback(no_fallback)
-                        .gguf_search_limit(gguf_search_limit)
-                        .interactive(interactive)
-                        .quiet(quiet || raw)
-                        .skip_verify_checksum(skip_verify_checksum)
-                        .maybe_filter(regex_join(&filter))
-                        .maybe_ignore(regex_join(&ignore))
-                        .build();
-                    match plan.execute(options).await {
-                        | Ok(resolved_id) => {
-                            success_count = success_count.saturating_add(1);
-                            let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
-                            results.push(details);
-                        }
-                        | Err(why) => {
-                            failure_count = failure_count.saturating_add(1);
-                            error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
-                        }
-                    }
-                }
-                if raw {
-                    output_raw(&results, format)
-                } else {
-                    if !quiet {
-                        let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
-                        let remote_count = selectors.len().saturating_sub(local_count);
-                        let parts = [(local_count, "local"), (remote_count, "remote")]
-                            .into_iter()
-                            .filter(|(count, _)| *count > 0)
-                            .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
-                            .collect::<Vec<_>>();
-                        info!(
-                            "=> {} {} model{} to download ({})",
-                            Label::run(),
-                            selectors.len().cyan().bold(),
-                            suffix(selectors.len()),
-                            parts.join(", ")
-                        );
-                        for plan in selectors {
-                            info!("  {} {}", "→".cyan(), plan.selector.green());
-                        }
-                    }
-                    super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
-                    if failure_count > 0 {
-                        Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
-                    } else {
-                        if !quiet {
-                            println!(
-                                "\n\n   => {} Resolved {} model{} to {}\n",
-                                Label::pass(),
-                                success_count.green(),
-                                suffix(success_count),
-                                root.display()
-                            );
-                        }
-                        Ok(())
-                    }
-                }
-            }
-            | Err(why) => Err(why),
+            Err(why)
         }
     }
 }
+
 #[derive(Clone, Debug)]
 pub(crate) enum ModelDownloadError {
     UnknownModel(String),
@@ -347,8 +356,22 @@ impl ModelDownloadPlan {
     fn is_remote(&self) -> bool {
         self.selector.is_remote()
     }
-    fn matches_whitelist(&self, whitelist: &HashSet<String>) -> bool {
-        whitelist.is_empty() || whitelist.contains(&self.name())
+    pub(crate) async fn matches(&self, whitelist: &HashSet<String>, offline: bool) -> ApiResult<bool> {
+        let name = self.name();
+        if whitelist.is_empty() || whitelist.contains(&name) {
+            Ok(true)
+        } else if offline || !self.is_remote() || is_http_or_https(&self.selector.identifier()) {
+            Ok(false)
+        } else {
+            let identifier = self.selector.identifier();
+            match huggingface::parse_identifier(&identifier) {
+                | Ok((owner, name)) => {
+                    let info = huggingface::fetch_model_info(owner, name).await;
+                    info.map(|model| whitelist.iter().any(|base| model.is_declared_derivative_of(base)))
+                }
+                | Err(e) => Err(e),
+            }
+        }
     }
     pub(crate) fn name(&self) -> String {
         self.selector.name()
