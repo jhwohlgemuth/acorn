@@ -1,0 +1,43 @@
+{
+    "models": [
+        "meta-llama/Llama-2-7b-hf",
+        "./models/qwen.gguf",
+        "https://huggingface.co/microsoft/phi-2",
+        {
+            "name": "tiny-bert",
+            "source": {
+                "provider": "huggingface",
+                "location": "https://huggingface.co/hf-internal-testing/tiny-random-bert"
+            }
+        },
+        {
+            "name": "qwen-gguf",
+            "source": {
+                "provider": "huggingface",
+                "location": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+            },
+            "revision": "main",
+            "auth": "optional",
+            "filter": ["Q4_K_M.*\\.gguf$"],
+            "ignore": ["Q2_", "Q3_"]
+        },
+        {
+            "name": "tiny-bert-detailed",
+            "source": {
+                "provider": "huggingface",
+                "location": {
+                    "scheme": "https",
+                    "uri": "https://huggingface.co/hf-internal-testing/tiny-random-bert",
+                    "revision": "main"
+                }
+            }
+        },
+        {
+            "name": "qwen-local",
+            "source": {
+                "provider": "git",
+                "location": "file:./models/qwen.gguf"
+            }
+        }
+    ]
+}

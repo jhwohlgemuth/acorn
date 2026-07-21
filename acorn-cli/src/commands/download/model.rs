@@ -679,7 +679,7 @@ pub(crate) async fn resolve_plans(
         .collect();
     Ok(plans)
 }
-async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, limit: usize) -> Vec<ModelDetails> {
+pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, limit: usize) -> Vec<ModelDetails> {
     let results = join_all(plans.iter().map(|plan| {
         let plan = plan.clone();
         async move {

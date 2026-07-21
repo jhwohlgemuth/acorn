@@ -20,8 +20,8 @@ use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, Hugging
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
-use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, SourceAction};
-use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet};
+use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
+use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet, PathBuf};
 use acorn::util::merge;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
@@ -63,6 +63,49 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     result
 }
 
+#[tokio::test]
+async fn test_config_fixture_resolves_model_fallbacks() {
+    let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
+    let plans = super::model::resolve_plans(&[], &config.models.unwrap(), None, &None, true)
+        .await
+        .unwrap();
+    let fallbacks = super::model::resolve_models(&plans, true, 200)
+        .await
+        .into_iter()
+        .map(|model| (model.id, model.fallback))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        fallbacks,
+        vec![
+            (Some("meta-llama/Llama-2-7b-hf".to_string()), None),
+            (Some(PathBuf::from("./models/qwen.gguf").display().to_string()), None),
+            (Some("https://huggingface.co/microsoft/phi-2".to_string()), None),
+            (Some("hf-internal-testing/tiny-random-bert".to_string()), None),
+            (Some("Qwen/Qwen2.5-0.5B-Instruct-GGUF".to_string()), None),
+        ]
+    );
+}
+#[tokio::test]
+async fn test_config_fixture_resolves_models() {
+    let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
+    let plans = super::model::resolve_plans(&[], &config.models.unwrap(), None, &None, true)
+        .await
+        .unwrap();
+    let resolved = plans.iter().map(|plan| (plan.name(), plan.selector.identifier())).collect::<Vec<_>>();
+    assert_eq!(
+        resolved,
+        vec![
+            ("meta-llama/Llama-2-7b-hf".to_string(), "meta-llama/Llama-2-7b-hf".to_string()),
+            ("qwen".to_string(), PathBuf::from("./models/qwen.gguf").display().to_string()),
+            (
+                "https://huggingface.co/microsoft/phi-2".to_string(),
+                "https://huggingface.co/microsoft/phi-2".to_string(),
+            ),
+            ("tiny-bert".to_string(), "hf-internal-testing/tiny-random-bert".to_string()),
+            ("qwen-gguf".to_string(), "Qwen/Qwen2.5-0.5B-Instruct-GGUF".to_string()),
+        ]
+    );
+}
 #[test]
 fn test_config_parses_hugging_face_location_model_entry() {
     let content = r#"{"models": [{"name": "tiny-bert", "source": {"provider": "huggingface", "location": {"scheme": "https", "uri": "https://huggingface.co/hf-internal-testing/tiny-random-bert", "revision": "main"}}}]}"#;
