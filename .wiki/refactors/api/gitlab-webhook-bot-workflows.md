@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-cli]
 tags: [feature, api, gitlab, bot, webhook, citation]
-status: planned
+status: in-progress
 priority: next
 ---
 
@@ -93,7 +93,7 @@ Steps are ordered by impact, then by estimated difficulty within the same impact
 
 | Order | Impact | Difficulty | Step | Verification gate |
 |---:|---|---|---|---|
-| 1 | high | medium | Add authenticated webhook ingress and immutable payload DTOs. Capture the exact raw body with a 1 MiB limit, validate a five-minute Standard Webhooks timestamp window, authenticate before deserialization, allow only the configured project, and normalize supported merge request and Note Hook payloads. | Router tests cover valid and invalid legacy tokens, valid and invalid HMAC signatures, stale timestamps, signature precedence, malformed JSON, oversized bodies, wrong projects, bot/system authors, and unsupported events without contacting GitLab. |
+| 1 ✅ | high | medium | Add authenticated webhook ingress and immutable payload DTOs. Capture the exact raw body with a 1 MiB limit, validate a five-minute Standard Webhooks timestamp window, authenticate before deserialization, allow only the configured project, and normalize supported merge request and Note Hook payloads. | Router tests cover valid and invalid legacy tokens, valid and invalid HMAC signatures, stale timestamps, signature precedence, malformed JSON, oversized bodies, wrong projects, bot/system authors, and unsupported events without contacting GitLab. |
 | 2 | high | medium | Add durable delivery and operation tables through the existing SQLite/DuckDB boundary. Transactionally record the normalized event and unique operation key before returning `202`; return `503` when persistence fails. Let workers claim database rows, recover stale running work after restart, retry five times with bounded backoff, and retain terminal failures. Do not persist raw webhook bodies. | Duplicate-delivery, duplicate-operation, database-failure, retry-exhaustion, and restart tests observe one operation and no lost or duplicated mutation. Database inspection confirms raw payloads are absent. |
 | 3 | high | medium | Extract the CLI-private check collection path into a reusable library analysis service. Return structured `Check` results without printing or process exit. Classify CFF, JSON/JSONC, YAML, text, and DOCX inputs and add pure identifier normalization, candidate grouping, creator-slug generation, and report rendering helpers. | Existing CLI check tests remain unchanged in behavior; focused unit tests cover mixed standards, identifier normalization, grouping, username normalization/fallback, and deterministic hashes. |
 | 4 | high | high | Implement automatic merge request analysis. Publish `acorn/check=running`, fetch paginated diffs, materialize non-deleted supported files at the head SHA in an isolated temporary workspace, analyze the title and description as text, and upsert one hidden-marker bot note containing checked files, errors/warnings, citation candidates, skipped inputs, and the analyzed SHA. Publish `success` only when analysis completes without failure-severity checks; publish `failed` for failure-severity checks, required supported-content failures, or terminal workflow errors. | Mock end-to-end tests cover open, reopen, update, duplicate SHA, forks, pagination, renamed/deleted/generated/oversized files, mixed standards, inaccessible content, terminal errors, status transitions, and updating rather than duplicating the report note. |

@@ -610,6 +610,19 @@ pub fn create_rsa_keypair() -> ApiResult<RsaKeyPair> {
 pub fn current_date() -> String {
     Utc::now().format("%Y-%m-%d").to_string()
 }
+/// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
+///
+/// # Errors
+///
+/// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
+pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
+    let now = Utc::now().timestamp();
+    if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
+        Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
+    } else {
+        Ok(())
+    }
+}
 /// Downloads a binary file from the given URL to the destination path.
 ///
 /// # Arguments

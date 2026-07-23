@@ -3,6 +3,7 @@
 ## Next
 
 - [OOXML interpolation and slide-copy hardening](ooxml-interpolation-and-slide-copy.md) - Replace remaining fragile OOXML mutations.
+- [OOXML slide-list fuzzing](ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
 - [Shared export context](export-context.md) - Centralize renderer input extraction.
 
 ## Planned

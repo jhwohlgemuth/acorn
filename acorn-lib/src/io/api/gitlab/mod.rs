@@ -20,6 +20,7 @@ use core::fmt;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::EnumIs;
 use tracing::debug;
 
 pub mod bot;
@@ -72,7 +73,7 @@ pub enum Emoji {
 /// GitLab event action name
 ///
 /// See <https://docs.gitlab.com/user/profile/contributions_calendar/#user-contribution-events> for more information
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, EnumIs, Serialize, Deserialize)]
 pub enum EventAction {
     /// Approved a merge request
     #[serde(rename = "approved")]
@@ -253,7 +254,7 @@ pub enum SortValue {
     Ascending,
 }
 /// GitLab event target type
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, EnumIs, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub enum TargetType {
     /// Epic

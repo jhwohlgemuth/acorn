@@ -970,6 +970,12 @@ pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
             }
         })
 }
+/// Returns `true` if `a` and `b` have the same length and equal contents, without short-circuiting on the first
+/// differing byte. Suitable for comparing secrets where timing side-channels must be avoided.
+pub fn constant_time_eq<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> bool {
+    let (a, b) = (a.as_ref(), b.as_ref());
+    a.len() == b.len() && a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
 /// Returns true when any pattern exists in the haystack.
 pub fn contains_any(patterns: &[&str], haystack: &str) -> bool {
     match AhoCorasick::new(patterns) {

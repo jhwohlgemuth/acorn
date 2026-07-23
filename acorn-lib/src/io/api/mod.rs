@@ -48,6 +48,10 @@ lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
 }
+/// Returns the value of the first header in `names` that is present and valid UTF-8.
+pub fn first_header<'a>(headers: &'a HeaderMap, names: &[&str]) -> Option<&'a str> {
+    names.iter().filter_map(|name| headers.get(*name)).find_map(|value| value.to_str().ok())
+}
 /// Trait to standardize configuration loading from environment variables and modification with new values
 pub trait Configuration {
     /// Populate values from environment (e.g., `.env` file or environment variables)

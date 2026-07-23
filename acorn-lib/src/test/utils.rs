@@ -13,11 +13,28 @@ use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, write, CommandOutput, PathBuf};
 use chrono::Utc;
 use core::time::Duration;
+use data_encoding::BASE64;
+use ring::hmac as ring_hmac;
 use std::env::temp_dir;
 use std::time::SystemTime;
-
 pub(crate) fn cleanup(path: &PathBuf) {
     let _ = write(path, []);
+}
+/// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
+pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {
+    let key_bytes = BASE64.decode(signing_token_base64.strip_prefix("whsec_").unwrap().as_bytes()).unwrap();
+    let key = ring_hmac::Key::new(ring_hmac::HMAC_SHA256, &key_bytes);
+    let mut message = format!("{webhook_id}.{timestamp}.").into_bytes();
+    message.extend_from_slice(body);
+    format!("v1,{}", BASE64.encode(ring_hmac::sign(&key, &message).as_ref()))
+}
+/// Returns the current UTC time as a Unix timestamp string.
+pub(crate) fn current_unix_timestamp() -> String {
+    Utc::now().timestamp().to_string()
+}
+/// Returns a Unix timestamp string that is `stale_by_secs` seconds in the past.
+pub(crate) fn stale_unix_timestamp(stale_by_secs: u64) -> String {
+    (Utc::now().timestamp() - stale_by_secs as i64).to_string()
 }
 /// Get path to test fixtures relative to workspace root
 pub fn fixture_path(path: &str) -> PathBuf {
