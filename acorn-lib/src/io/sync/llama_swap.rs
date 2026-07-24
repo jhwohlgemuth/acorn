@@ -65,6 +65,27 @@ pub struct ModelOverride {
     pub executable: Option<String>,
 }
 impl Config {
+    /// Merge populated runtime overrides into this configuration
+    pub fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            executable: overrides.executable.or(self.executable),
+            context_size: overrides.context_size.or(self.context_size),
+            ttl: overrides.ttl.or(self.ttl),
+            extra_args: overrides.extra_args.or(self.extra_args),
+            environment: overrides.environment.or(self.environment),
+            models: overrides.models.or(self.models),
+        }
+    }
+    /// Merge CLI-supported overrides while preserving configured model defaults
+    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            ..self
+        }
+    }
     /// Build a shell-safe `llama-server` command string for a given GGUF model path
     /// ### Note
     /// The command uses `${PORT}` as a placeholder that llama-swap replaces at runtime

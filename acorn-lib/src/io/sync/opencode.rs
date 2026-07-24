@@ -62,6 +62,23 @@ impl Default for Config {
     }
 }
 impl Config {
+    /// Merge populated runtime overrides into this configuration
+    pub fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            base_url: overrides.base_url,
+            provider_id: overrides.provider_id,
+            provider_name: overrides.provider_name,
+            default_model: overrides.default_model.or(self.default_model),
+        }
+    }
+    /// Merge CLI-supported overrides while preserving configured provider values
+    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            ..self
+        }
+    }
     /// Build the JSON structure for an OpenCode provider entry.
     pub fn provider_entry(&self) -> Value {
         serde_json::to_value(Entry::Provider {

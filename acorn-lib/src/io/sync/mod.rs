@@ -75,11 +75,30 @@ struct Shard {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Shards(Vec<Shard>);
 impl Config {
-    /// Merge two sync configs, preferring `other` values for overlapping fields
-    pub fn merge(self, other: Self) -> Self {
+    /// Merge populated runtime overrides into configured synchronization targets
+    pub fn merge(self, overrides: Self) -> Self {
         Self {
-            llama_swap: other.llama_swap.or(self.llama_swap),
-            opencode: other.opencode.or(self.opencode),
+            llama_swap: match (self.llama_swap, overrides.llama_swap) {
+                | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
+                | (config, overrides) => overrides.or(config),
+            },
+            opencode: match (self.opencode, overrides.opencode) {
+                | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
+                | (config, overrides) => overrides.or(config),
+            },
+        }
+    }
+    /// Merge CLI-supported overrides into configured synchronization targets
+    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            llama_swap: match (self.llama_swap, overrides.llama_swap) {
+                | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
+                | (config, overrides) => overrides.or(config),
+            },
+            opencode: match (self.opencode, overrides.opencode) {
+                | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
+                | (config, overrides) => overrides.or(config),
+            },
         }
     }
     /// Resolve the model directory from a CLI override, configuration, or the user default

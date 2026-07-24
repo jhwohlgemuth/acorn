@@ -385,6 +385,10 @@ impl ApplicationConfiguration {
     pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
         self.config.clone().unwrap_or_default().merge(overrides)
     }
+    /// Merge configured synchronization settings with CLI-supported overrides.
+    pub fn resolve_sync_config_cli_overrides(&self, overrides: sync::Config) -> sync::Config {
+        self.config.clone().unwrap_or_default().merge_cli_overrides(overrides)
+    }
     /// Resolve configured model entries to local GGUF model details.
     pub fn resolve_models(&self, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
         let names = self.models.as_ref().map_or_else(Vec::new, |entries| {

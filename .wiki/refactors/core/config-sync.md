@@ -15,7 +15,7 @@ Add an idempotent `acorn sync` command that resolves ACORN model entries to down
 
 # Status
 
-In progress. The command, configuration schema, GGUF discovery, llama-swap generation, OpenCode upsert/pruning, target selection, dry-run write suppression, and atomic per-file writes are implemented. Remaining work includes field-level CLI/config merging, fail-fast model resolution, llama-swap merge/pruning, unified dry-run diffs, validation of configured overrides, and validation of every selected output before any write.
+In progress. The command, model/provider configuration schema, GGUF discovery, llama-swap generation, OpenCode upsert/pruning, target selection, field-level CLI/config merging, dry-run write suppression, and atomic per-file writes are implemented. Remaining work includes configured target-path deserialization, fail-fast model resolution, llama-swap merge/pruning, unified dry-run diffs, validation of configured overrides, and validation of every selected output before any write.
 
 # Evidence
 
@@ -26,7 +26,8 @@ In progress. The command, configuration schema, GGUF discovery, llama-swap gener
 - Application configuration loading and GGUF model resolution, plus OpenCode provider upsert, default-model selection, and pruning, live on their owning configuration types.
 - llama-swap model rendering and path resolution, `Options`-based target synchronization, and atomic per-file output writing live on sync configuration implementations.
 - CLI sync arguments convert into target overrides through `From<&arguments::Sync>`.
-- `Config::merge` currently replaces an entire configured target when any CLI override for that target is present, so path-only overrides can discard configured target defaults.
+- `Config::merge` applies full field-level runtime overrides, while `Config::merge_cli_overrides` overlays only CLI-supported path and models-directory fields so configured llama-swap model defaults and OpenCode provider values survive path-only CLI overrides.
+- Target `path` fields currently use `#[serde(skip)]`, so paths shown in the proposed `ApplicationConfiguration.config` schema are not yet deserialized; output paths currently come from CLI overrides or target defaults.
 - `ApplicationConfiguration::resolve_models` currently reduces detailed entries to names, does not forward entry filters, and logs and skips GGUF resolution errors.
 - llama-swap synchronization currently serializes a new root containing `modelsDir` and `models`; it does not load or preserve an existing YAML configuration.
 - OpenCode synchronization loads the existing configuration and preserves unrelated root values and providers while replacing ACORN's managed provider.
@@ -109,12 +110,13 @@ acorn sync
 # Validation
 
 - Completed: `cargo test --package acorn-lib io::sync --lib` (17 passed).
-- Completed: `cargo test --package acorn-cli commands::sync` (2 passed).
+- Completed: `cargo test --package acorn-cli commands::sync` (4 passed).
+- Completed: field-level merge regression tests cover llama-swap path/models-directory precedence, OpenCode path precedence, preservation of configured target values, full runtime overrides, and addition of an otherwise unconfigured target.
 - Completed: `cargo clippy --package acorn-lib --package acorn-cli --all-targets --no-deps -- -D warnings`.
 - Completed: `cargo fmt --all -- --check`.
-- Reconfirmed after adding the visible `--what-if` dry-run alias: `make test` (756 passed, 13 skipped).
-- Current focused tests cover command construction, default paths and provider values, GGUF discovery/filtering/shard selection, config precedence at the target level, and parent-directory creation.
-- Remaining validation must cover field-level path precedence, detailed model filters, duplicate and ambiguous models, reserved arguments, llama-swap preservation/pruning, unified dry-run output, repeated-sync stability, and failure atomicity across both targets.
+- Reconfirmed after implementing field-level CLI/config merging: `make test` (758 passed, 13 skipped).
+- Current focused tests cover command construction, default paths and provider values, GGUF discovery/filtering/shard selection, field-level CLI/config precedence, and parent-directory creation.
+- Remaining validation must cover configured target-path deserialization, detailed model filters, duplicate and ambiguous models, reserved arguments, llama-swap preservation/pruning, unified dry-run output, repeated-sync stability, and failure atomicity across both targets.
 - After the remaining implementation, regenerate CLI help and run focused tests, `make lint`, `make test`, and `make help`.
 
 # Acceptance criteria
@@ -124,7 +126,7 @@ acorn sync
 - [x] Default sync paths are defined once in the shared application constants module.
 - [x] Application and OpenCode configuration behavior is implemented by their owning configuration types rather than CLI-only wrappers.
 - [x] The CLI command delegates llama-swap rendering, target synchronization, and output writing to library configuration methods.
-- [ ] CLI path overrides preserve all non-overridden values from `ApplicationConfiguration.config`.
+- [x] CLI path overrides preserve all non-path values from `ApplicationConfiguration.config`.
 - [ ] Detailed model entries apply their configured filters and invalid or ambiguous models fail with actionable errors.
 - [ ] Valid configured GGUF models appear in llama-swap and the dedicated OpenCode provider with unique, consistent model IDs.
 - [ ] Existing unrelated configuration survives synchronization for both targets, and repeated sync is stable.
