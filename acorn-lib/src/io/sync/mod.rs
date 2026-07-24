@@ -5,7 +5,7 @@
 //! llama-swap and OpenCode project configuration.
 use crate::io::{
     config::{FilterSet, ModelEntry},
-    files_all, home_directory, write_file, ApiResult, Source,
+    files_all, home_directory, read_file, write_file, ApiResult, Source,
 };
 use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
 use crate::schema::agent::{self, ModelDetails};
@@ -15,10 +15,12 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 use color_eyre::eyre::eyre;
-use core::{fmt, iter::once};
+use core::fmt;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+use serde_norway::Value;
 use serde_with::skip_serializing_none;
+use similar::TextDiff;
 use tracing::info;
 use validator::Validate;
 
@@ -89,6 +91,13 @@ pub struct ModelRequest {
     source: Source,
     filter: Vec<String>,
     ignore: Vec<String>,
+}
+#[derive(Clone, Debug)]
+struct RenderedOutput {
+    target: &'static str,
+    path: PathBuf,
+    before: String,
+    content: String,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Shard {
@@ -172,110 +181,200 @@ impl Config {
                     Ok(())
                 }
                 | false => sync_llama_swap
-                    .then(|| self.sync_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
+                    .then(|| self.render_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
                     .transpose()
-                    .and_then(|llama_swap_config_path| {
+                    .and_then(|llama_swap_output| {
                         sync_opencode
-                            .then(|| self.sync_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
+                            .then(|| self.render_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
                             .transpose()
-                            .map(|opencode_config_path| {
-                                let paths = [llama_swap_config_path, opencode_config_path].into_iter().flatten().collect::<Vec<_>>();
+                            .and_then(|opencode_output| {
+                                let outputs = [llama_swap_output, opencode_output].into_iter().flatten().collect::<Vec<_>>();
                                 match options.dry_run {
-                                    | true => info!("{} Dry run complete — no files were modified", Label::pass()),
-                                    | false => paths.iter().for_each(|path| info!("{} Updated {}", Label::pass(), path.cyan())),
+                                    | true => {
+                                        outputs.iter().for_each(|output| {
+                                            let path = output.path.display().to_string();
+                                            let diff = TextDiff::from_lines(&output.before, &output.content)
+                                                .unified_diff()
+                                                .header(&path, &path)
+                                                .to_string();
+                                            match diff.is_empty() {
+                                                | true => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
+                                                | false => println!("{diff}"),
+                                            }
+                                        });
+                                        info!("=> {} Dry run complete — no files were modified", Label::pass());
+                                        Ok(Vec::new())
+                                    }
+                                    | false => Self::commit(&outputs),
                                 }
+                            })
+                            .map(|paths| {
+                                paths
+                                    .iter()
+                                    .for_each(|path| info!("=> {} Updated {}", Label::pass(), path.display().cyan()));
                             })
                     }),
             })
     }
-    /// Synchronize resolved models into llama-swap configuration
-    pub fn sync_llama_swap(&self, options: Options<'_>) -> ApiResult<String> {
+    fn commit(outputs: &[RenderedOutput]) -> ApiResult<Vec<PathBuf>> {
+        let changed = outputs.iter().filter(|output| output.before != output.content).collect::<Vec<_>>();
+        let paths = changed.iter().map(|output| output.path.clone()).collect::<Vec<_>>();
+        let unique_paths = paths.iter().collect::<BTreeSet<_>>();
+        match unique_paths.len() == paths.len() {
+            | true => Ok(()),
+            | false => Err(eyre!("Selected synchronization targets resolve to the same output path")),
+        }
+        .and_then(|()| {
+            changed
+                .iter()
+                .try_for_each(|output| match (output.temp_path().exists(), output.backup_path().exists()) {
+                    | (true, _) => Err(eyre!("Temporary sync path already exists — {}", output.temp_path().display())),
+                    | (_, true) => Err(eyre!("Backup sync path already exists — {}", output.backup_path().display())),
+                    | _ => Ok(()),
+                })
+        })
+        .and_then(|()| {
+            changed
+                .iter()
+                .try_for_each(|output| {
+                    output
+                        .path
+                        .parent()
+                        .map_or(Ok(()), create_dir_all)
+                        .map_err(|why| eyre!("Failed to create parent directory for {} config — {why}", output.target))
+                        .and_then(|()| write_file(output.temp_path(), output.content.clone()))
+                        .map_err(|why| eyre!("Failed to stage {} config — {why}", output.target))
+                })
+                .inspect_err(|_why| {
+                    changed.iter().for_each(|output| output.cleanup_temp());
+                })
+        })
+        .and_then(|()| {
+            changed
+                .iter()
+                .filter(|output| output.path.is_file())
+                .try_fold(Vec::new(), |mut backed_up, output| match rename(&output.path, output.backup_path()) {
+                    | Ok(()) => {
+                        backed_up.push(*output);
+                        Ok(backed_up)
+                    }
+                    | Err(why) => {
+                        backed_up.iter().for_each(|output: &&RenderedOutput| output.restore_backup());
+                        changed.iter().for_each(|output| output.cleanup_temp());
+                        Err(eyre!("Failed to prepare coordinated configuration update: {why}"))
+                    }
+                })
+                .and_then(|backed_up| {
+                    changed
+                        .iter()
+                        .try_fold(Vec::new(), |mut committed, output| match rename(output.temp_path(), &output.path) {
+                            | Ok(()) => {
+                                committed.push(*output);
+                                Ok(committed)
+                            }
+                            | Err(why) => {
+                                committed.iter().for_each(|output: &&RenderedOutput| output.cleanup_target());
+                                backed_up.iter().for_each(|output| output.restore_backup());
+                                changed.iter().for_each(|output| output.cleanup_temp());
+                                Err(eyre!("Failed to commit coordinated configuration update: {why}"))
+                            }
+                        })
+                        .map(|_| {
+                            backed_up.iter().for_each(|output| {
+                                remove_file(output.backup_path()).ok();
+                            });
+                        })
+                })
+        })
+        .map(|()| paths)
+    }
+    fn render_llama_swap(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
         self.llama_swap
             .as_ref()
             .ok_or_else(|| eyre!("llama-swap configuration is not set"))
             .and_then(|config| {
                 config.resolve_path().and_then(|config_path| {
-                    let models = options
-                        .models
-                        .iter()
-                        .map(|model| {
-                            let model_name = model.name.as_deref().or(model.id.as_deref()).unwrap_or("unknown");
-                            (serde_norway::Value::String(model_name.to_string()), config.model_entry(model))
+                    let path = PathBuf::from(config_path);
+                    path.is_file()
+                        .then(|| read_file(path.clone()))
+                        .transpose()
+                        .map(|content| content.unwrap_or_default())
+                        .and_then(|before| {
+                            let existing = match before.is_empty() {
+                                | true => Ok(Value::Mapping(Default::default())),
+                                | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
+                            };
+                            existing
+                                .and_then(|existing| config.upsert(existing, options.models, options.prune))
+                                .and_then(|merged| {
+                                    serde_norway::to_string(&merged)
+                                        .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
+                                        .and_then(|content| {
+                                            serde_norway::from_str::<Value>(&content)
+                                                .map(|_| RenderedOutput {
+                                                    target: "llama-swap",
+                                                    path,
+                                                    before,
+                                                    content,
+                                                })
+                                                .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
+                                        })
+                                })
                         })
-                        .collect();
-                    let root = config
-                        .models_directory
-                        .as_ref()
-                        .map(|directory| {
-                            (
-                                serde_norway::Value::String("modelsDir".to_string()),
-                                serde_norway::Value::String(directory.clone()),
-                            )
-                        })
-                        .into_iter()
-                        .chain(once((
-                            serde_norway::Value::String("models".to_string()),
-                            serde_norway::Value::Mapping(models),
-                        )))
-                        .collect();
-                    serde_norway::to_string(&serde_norway::Value::Mapping(root))
-                        .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
-                        .and_then(|content| Self::write_output("llama-swap", config_path, content, options.dry_run))
                 })
             })
     }
-    /// Synchronize resolved models into OpenCode configuration
-    pub fn sync_opencode(&self, options: Options<'_>) -> ApiResult<String> {
+    fn render_opencode(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
         self.opencode
             .as_ref()
             .ok_or_else(|| eyre!("OpenCode configuration is not set"))
             .and_then(|config| {
                 opencode::Config::resolve_path(config.path.as_deref()).and_then(|config_path| {
+                    let path = PathBuf::from(config_path);
                     let models = options
                         .models
                         .iter()
                         .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
                         .map(|name| (name.clone(), name.clone()))
                         .collect::<Vec<_>>();
-                    match options.prune {
-                        | true => config.prune(agent::opencode::Config::load(PathBuf::from(&config_path)), &models),
-                        | false => Ok(agent::opencode::Config::load(PathBuf::from(&config_path))),
-                    }
-                    .map(|existing| config.upsert(&existing, &models))
-                    .map(|opencode| match config.default_model.as_ref() {
-                        | Some(default_model) => opencode.with_model(format!("{}/{default_model}", config.provider_id)),
-                        | None => opencode,
-                    })
-                    .and_then(|opencode| serde_json::to_string_pretty(&opencode).map_err(|why| eyre!("Failed to serialize OpenCode config: {why}")))
-                    .and_then(|content| Self::write_output("OpenCode", config_path, content, options.dry_run))
+                    path.is_file()
+                        .then(|| read_file(path.clone()))
+                        .transpose()
+                        .map(|content| content.unwrap_or_default())
+                        .and_then(|before| {
+                            match path.is_file() {
+                                | true => agent::opencode::Config::from_path(&path),
+                                | false => Ok(agent::opencode::Config::default()),
+                            }
+                            .and_then(|existing| config.upsert(&existing, &models, options.prune))
+                            .and_then(|opencode| config.render(&opencode))
+                            .map(|content| RenderedOutput {
+                                target: "OpenCode",
+                                path,
+                                before,
+                                content,
+                            })
+                        })
                 })
             })
     }
-    /// Write synchronized configuration atomically or print it during a dry run
-    pub fn write_output(target: &str, path: String, content: String, dry_run: bool) -> ApiResult<String> {
-        match dry_run {
-            | true => {
-                info!("{} {target} configuration that would be written:", Label::run());
-                println!("{content}");
-                Ok(path)
-            }
-            | false => {
-                let temp_path = PathBuf::from(format!("{path}.acorn-sync-tmp"));
-                temp_path
-                    .parent()
-                    .map_or(Ok(()), create_dir_all)
-                    .map_err(|why| eyre!("Failed to create parent directory for {target} config: {why}"))
-                    .and_then(|()| write_file(&temp_path, content))
-                    .map_err(|why| eyre!("Failed to write temporary {target} config: {why}"))
-                    .and_then(|()| {
-                        rename(&temp_path, &path).map_err(|why| {
-                            let _ = remove_file(&temp_path);
-                            eyre!("Failed to rename temporary {target} config: {why}")
-                        })
-                    })
-                    .map(|()| path)
-            }
-        }
+}
+impl RenderedOutput {
+    fn backup_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.acorn-sync-backup", self.path.display()))
+    }
+    fn cleanup_target(&self) {
+        remove_file(&self.path).ok();
+    }
+    fn cleanup_temp(&self) {
+        remove_file(self.temp_path()).ok();
+    }
+    fn restore_backup(&self) {
+        self.cleanup_target();
+        rename(self.backup_path(), &self.path).ok();
+    }
+    fn temp_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.acorn-sync-tmp", self.path.display()))
     }
 }
 impl ModelRequest {
@@ -576,7 +675,7 @@ mod tests {
     )]
     use super::*;
     use crate::io::config::{ApplicationConfiguration, ModelEntry, ModelEntryOptions};
-    use crate::prelude::{create_dir_all, remove_dir_all, write};
+    use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write};
     use crate::test::utils::temp_dir;
     use crate::{Location, Repository};
 
@@ -632,6 +731,115 @@ mod tests {
             }"#,
         );
         assert!(configuration.is_err());
+    }
+    #[test]
+    fn test_commit_creates_parent_directories() {
+        let dir = temp_dir("sync-output");
+        let path = dir.join("nested").join("config.yaml");
+        let result = Config::commit(&[RenderedOutput {
+            target: "test",
+            path: path.clone(),
+            before: String::new(),
+            content: "models: {}".to_string(),
+        }]);
+        assert!(result.is_ok());
+        assert!(path.is_file());
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_commit_rolls_back_when_a_later_rename_fails() {
+        let dir = temp_dir("sync-rollback");
+        create_dir_all(&dir).unwrap();
+        let first = dir.join("first.yaml");
+        let second = dir.join("second.jsonc");
+        write(&first, "original").unwrap();
+        create_dir_all(&second).unwrap();
+        let result = Config::commit(&[
+            RenderedOutput {
+                target: "first",
+                path: first.clone(),
+                before: "original".to_string(),
+                content: "updated".to_string(),
+            },
+            RenderedOutput {
+                target: "second",
+                path: second.clone(),
+                before: String::new(),
+                content: "{}".to_string(),
+            },
+        ]);
+        assert!(result.is_err());
+        assert_eq!(read_to_string(&first).unwrap(), "original");
+        assert!(second.is_dir());
+        assert!(!PathBuf::from(format!("{}.acorn-sync-tmp", first.display())).exists());
+        assert!(!PathBuf::from(format!("{}.acorn-sync-backup", first.display())).exists());
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_dry_run_diff_is_unified_and_creates_no_directories() {
+        let dir = temp_dir("sync-dry-run");
+        let config = Config {
+            llama_swap: Some(llama_swap::Config {
+                path: Some(dir.join("nested").join("llama.yaml").display().to_string()),
+                ..Default::default()
+            }),
+            opencode: Some(opencode::Config {
+                path: Some(dir.join("nested").join("opencode.jsonc").display().to_string()),
+                ..Default::default()
+            }),
+        };
+        let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
+        let output = config
+            .render_llama_swap(Options {
+                models: &models,
+                dry_run: true,
+                ..Default::default()
+            })
+            .unwrap();
+        let path = output.path.display().to_string();
+        let diff = TextDiff::from_lines(&output.before, &output.content)
+            .unified_diff()
+            .header(&path, &path)
+            .to_string();
+        assert!(diff.starts_with("--- "));
+        assert!(diff.contains("+++ "));
+        assert!(config
+            .sync(Options {
+                models: &models,
+                dry_run: true,
+                ..Default::default()
+            })
+            .is_ok());
+        assert!(!dir.exists());
+    }
+    #[test]
+    fn test_render_failure_leaves_all_targets_unchanged() {
+        let dir = temp_dir("sync-render-failure");
+        create_dir_all(&dir).unwrap();
+        let llama_path = dir.join("llama.yaml");
+        let opencode_path = dir.join("opencode.jsonc");
+        write(&llama_path, "models: {}\n").unwrap();
+        write(&opencode_path, "{ invalid").unwrap();
+        let config = Config {
+            llama_swap: Some(llama_swap::Config {
+                path: Some(llama_path.display().to_string()),
+                ..Default::default()
+            }),
+            opencode: Some(opencode::Config {
+                path: Some(opencode_path.display().to_string()),
+                ..Default::default()
+            }),
+        };
+        let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
+        assert!(config
+            .sync(Options {
+                models: &models,
+                ..Default::default()
+            })
+            .is_err());
+        assert_eq!(read_to_string(&llama_path).unwrap(), "models: {}\n");
+        assert_eq!(read_to_string(&opencode_path).unwrap(), "{ invalid");
+        let _ = remove_dir_all(dir);
     }
     #[test]
     fn test_resolve_gguf_applies_filter_and_ignore_patterns() {
@@ -760,6 +968,38 @@ mod tests {
         assert!(Shards::from(vec![PathBuf::from("model-00004-of-00003.gguf")]).candidates().is_err());
     }
     #[test]
+    fn test_sync_is_stable_after_successful_two_target_write() {
+        let dir = temp_dir("sync-stable");
+        let llama_path = dir.join("llama.yaml");
+        let opencode_path = dir.join("opencode.jsonc");
+        let config = Config {
+            llama_swap: Some(llama_swap::Config {
+                path: Some(llama_path.display().to_string()),
+                ..Default::default()
+            }),
+            opencode: Some(opencode::Config {
+                path: Some(opencode_path.display().to_string()),
+                ..Default::default()
+            }),
+        };
+        let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
+        assert!(config
+            .sync(Options {
+                models: &models,
+                ..Default::default()
+            })
+            .is_ok());
+        let first = (read_to_string(&llama_path).unwrap(), read_to_string(&opencode_path).unwrap());
+        assert!(config
+            .sync(Options {
+                models: &models,
+                ..Default::default()
+            })
+            .is_ok());
+        assert_eq!(first, (read_to_string(&llama_path).unwrap(), read_to_string(&opencode_path).unwrap()));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
     fn test_sync_rejects_invalid_settings() {
         let invalid_config = Config {
             llama_swap: Some(llama_swap::Config {
@@ -839,14 +1079,5 @@ mod tests {
             })
             .is_ok());
         assert!(invalid_opencode.sync(Options::default()).is_err());
-    }
-    #[test]
-    fn test_write_output_creates_parent_directories() {
-        let dir = temp_dir("sync-output");
-        let path = dir.join("nested").join("config.yaml");
-        let result = Config::write_output("test", path.display().to_string(), "models: {}".to_string(), false);
-        assert!(result.is_ok());
-        assert!(path.is_file());
-        let _ = remove_dir_all(dir);
     }
 }

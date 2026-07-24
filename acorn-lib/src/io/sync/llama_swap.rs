@@ -11,11 +11,13 @@ use crate::prelude::OsString;
 use crate::schema::agent::ModelDetails;
 use crate::util::cmd::command_string;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
+use crate::util::ToStrings;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
+use serde_norway::{Mapping, Number, Value};
 use serde_with::skip_serializing_none;
 use validator::{Validate, ValidationError, ValidationErrors};
 
@@ -151,17 +153,12 @@ impl Config {
         }
     }
     /// Build a llama-swap model entry from resolved model details
-    pub fn model_entry(&self, model: &ModelDetails) -> serde_norway::Value {
+    pub fn model_entry(&self, model: &ModelDetails) -> Value {
         let model_name = model.name.as_deref().or(model.id.as_deref()).unwrap_or("unknown");
         let overrides = self.models.as_ref().and_then(|models| models.get(model_name));
-        let aliases = overrides.and_then(|config| config.aliases.as_ref()).map(|aliases| {
-            serde_norway::Value::Sequence(
-                aliases
-                    .iter()
-                    .map(|alias| serde_norway::Value::String(alias.as_str().to_string()))
-                    .collect(),
-            )
-        });
+        let aliases = overrides
+            .and_then(|config| config.aliases.as_ref())
+            .map(|aliases| Value::Sequence(aliases.iter().map(|alias| Value::String(alias.as_str().to_string())).collect()));
         let context_size = overrides.and_then(|config| config.context_size).or(self.context_size);
         let command = Self::build_command(
             overrides
@@ -173,16 +170,18 @@ impl Config {
             overrides.and_then(|config| config.environment.as_deref()).or(self.environment.as_deref()),
             context_size,
         );
-        let mapping = once((serde_norway::Value::String("command".to_string()), serde_norway::Value::String(command)))
-            .chain(overrides.and_then(|config| config.ttl).or(self.ttl).map(|ttl| {
-                (
-                    serde_norway::Value::String("ttl".to_string()),
-                    serde_norway::Value::Number(serde_norway::Number::from(ttl)),
-                )
-            }))
-            .chain(aliases.map(|value| (serde_norway::Value::String("aliases".to_string()), value)))
+        let metadata = Value::Mapping(once((Value::String("acorn".to_string()), Value::Bool(true))).collect());
+        let mapping = once((Value::String("cmd".to_string()), Value::String(command)))
+            .chain(
+                overrides
+                    .and_then(|config| config.ttl)
+                    .or(self.ttl)
+                    .map(|ttl| (Value::String("ttl".to_string()), Value::Number(Number::from(ttl)))),
+            )
+            .chain(aliases.map(|value| (Value::String("aliases".to_string()), value)))
+            .chain(once((Value::String("metadata".to_string()), metadata)))
             .collect();
-        serde_norway::Value::Mapping(mapping)
+        Value::Mapping(mapping)
     }
     /// Resolve the configured llama-swap path or the user default.
     pub fn resolve_path(&self) -> ApiResult<String> {
@@ -190,6 +189,49 @@ impl Config {
             || home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).map(|path| path.display().to_string()),
             Ok,
         )
+    }
+    /// Merge synchronized models into an existing llama-swap document
+    pub fn upsert(&self, existing: Value, models: &[ModelDetails], prune: bool) -> ApiResult<Value> {
+        match existing {
+            | Value::Null => self.upsert(Value::Mapping(Default::default()), models, prune),
+            | Value::Mapping(mut root) => {
+                let models_key = Value::String("models".to_string());
+                root.remove(Value::String("modelsDir".to_string()));
+                let existing_models = root
+                    .remove(&models_key)
+                    .and_then(|value| match value {
+                        | Value::Mapping(models) => Some(models),
+                        | _ => None,
+                    })
+                    .unwrap_or_default();
+                let current_ids = models
+                    .iter()
+                    .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
+                    .cloned()
+                    .collect::<BTreeSet<_>>();
+                let retained = existing_models
+                    .into_iter()
+                    .filter(|(identifier, model)| {
+                        !prune || identifier.as_str().is_some_and(|identifier| current_ids.contains(identifier)) || !is_managed(model)
+                    })
+                    .collect::<Mapping>();
+                let merged = models.iter().fold(retained, |mut entries, model| {
+                    let identifier = model
+                        .name
+                        .as_ref()
+                        .or(model.id.as_ref())
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string());
+                    let key = Value::String(identifier);
+                    let existing = entries.remove(&key).unwrap_or_else(|| Value::Mapping(Default::default()));
+                    entries.insert(key, merge_model(existing, self.model_entry(model)));
+                    entries
+                });
+                root.insert(models_key, Value::Mapping(merged));
+                Ok(Value::Mapping(root))
+            }
+            | _ => Err(color_eyre::eyre::eyre!("Existing llama-swap configuration root must be a mapping")),
+        }
     }
 }
 impl Alias {
@@ -304,6 +346,57 @@ fn is_keyvalue_string(value: &str) -> Result<(), ValidationError> {
         | false => Err(ValidationError::new("keyvalue").with_message("Provide a valid KEY=VALUE entry".into())),
     }
 }
+fn is_managed(model: &Value) -> bool {
+    model
+        .as_mapping()
+        .and_then(|model| model.get(Value::String("metadata".to_string())))
+        .and_then(Value::as_mapping)
+        .and_then(|metadata| metadata.get(Value::String("acorn".to_string())))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+fn merge_model(existing: Value, generated: Value) -> Value {
+    let owned = vec!["cmd", "command", "ttl", "aliases"]
+        .to_strings()
+        .into_iter()
+        .map(Value::String)
+        .collect::<Vec<_>>();
+    let mut existing = match existing {
+        | Value::Mapping(mapping) => mapping,
+        | _ => Default::default(),
+    };
+    let mut generated = match generated {
+        | Value::Mapping(mapping) => mapping,
+        | _ => Default::default(),
+    };
+    let metadata_key = Value::String("metadata".to_string());
+    let metadata = existing
+        .remove(&metadata_key)
+        .and_then(|value| match value {
+            | Value::Mapping(mapping) => Some(mapping),
+            | _ => None,
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .chain(
+            generated
+                .remove(&metadata_key)
+                .and_then(|value| match value {
+                    | Value::Mapping(mapping) => Some(mapping),
+                    | _ => None,
+                })
+                .unwrap_or_default(),
+        )
+        .collect();
+    Value::Mapping(
+        existing
+            .into_iter()
+            .filter(|(key, _)| !owned.contains(key))
+            .chain(generated)
+            .chain(once((metadata_key, Value::Mapping(metadata))))
+            .collect(),
+    )
+}
 fn validation_errors(code: &'static str, message: String) -> ValidationErrors {
     let mut errors = ValidationErrors::new();
     errors.add("models", ValidationError::new(code).with_message(message.into()));
@@ -356,6 +449,45 @@ mod tests {
             Config::default().resolve_path().unwrap(),
             home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).unwrap().display().to_string()
         );
+    }
+    #[test]
+    fn test_upsert_preserves_unrelated_values_and_prunes_only_managed_models() {
+        let existing: Value = serde_norway::from_str(
+            r#"modelsDir: /legacy/models
+healthCheckTimeout: 120
+models:
+  qwen:
+    cmd: old
+    proxy: http://127.0.0.1:9000
+    metadata:
+      owner: user
+  stale:
+    cmd: stale
+    metadata:
+      acorn: true
+  custom:
+    cmd: custom
+"#,
+        )
+        .unwrap();
+        let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
+        let config = Config::default();
+        let additive = config.upsert(existing.clone(), &models, false).unwrap();
+        let additive_text = serde_norway::to_string(&additive).unwrap();
+        assert!(additive_text.contains("healthCheckTimeout: 120"));
+        assert!(additive_text.contains("proxy: http://127.0.0.1:9000"));
+        assert!(additive_text.contains("owner: user"));
+        assert!(additive_text.contains("acorn: true"));
+        assert!(additive_text.contains("stale:"));
+        assert!(additive_text.contains("custom:"));
+        assert!(additive_text.contains("cmd: llama-server"));
+        assert!(!additive_text.contains("modelsDir"));
+        let pruned = config.upsert(existing, &models, true).unwrap();
+        let pruned_text = serde_norway::to_string(&pruned).unwrap();
+        assert!(!pruned_text.contains("stale:"));
+        assert!(pruned_text.contains("custom:"));
+        let repeated = config.upsert(pruned, &models, true).unwrap();
+        assert_eq!(pruned_text, serde_norway::to_string(&repeated).unwrap());
     }
     #[test]
     fn test_validate_rejects_invalid_context_ttl_environment_and_aliases() {

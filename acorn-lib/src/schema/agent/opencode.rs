@@ -5,7 +5,7 @@ use crate::io::{parse_jsonc_cst, read_file, write_file, ApiResult, CstRootNode, 
 #[cfg(feature = "std")]
 use crate::prelude::Path;
 use crate::prelude::PathBuf;
-use crate::schema::agent::{Provider, ProviderDetails};
+use crate::schema::agent::Provider;
 use crate::util::MimeType;
 use alloc::collections::BTreeMap;
 use color_eyre::eyre::eyre;
@@ -291,7 +291,7 @@ pub struct Config {
     /// Plugins loaded from packages or configured with options
     pub plugin: Option<Vec<PluginConfig>>,
     /// Custom provider configuration and model overrides
-    pub provider: Option<StringMap<ProviderDetails>>,
+    pub provider: Option<StringMap<Value>>,
     /// Named references field
     #[deprecated(note = "Use `references` instead")]
     pub reference: Option<StringMap<ReferenceConfig>>,
@@ -557,7 +557,7 @@ impl Config {
             .unwrap_or_default()
     }
     /// Replace the configured providers and return the updated configuration.
-    pub fn with_provider(self, provider: StringMap<ProviderDetails>) -> Self {
+    pub fn with_provider(self, provider: StringMap<Value>) -> Self {
         Self {
             provider: Some(provider),
             ..self
