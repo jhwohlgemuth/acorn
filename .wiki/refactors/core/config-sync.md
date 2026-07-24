@@ -87,6 +87,7 @@ acorn sync
 
 - With neither target flag, synchronize both configurations.
 - With `--opencode` or `--llama-swap`, synchronize only the selected target; allow both flags together.
+- Accept `--what-if` as a visible alias for `--dry-run`, consistent with other dry-run CLI arguments.
 - Resolve `--config` through existing ACORN JSON, JSONC, and YAML loading. Path flags override paths in `ApplicationConfiguration.config`.
 - Default to `~/.models`, `~/.config/llama-swap/config.yaml`, and the first existing project OpenCode file (`opencode.jsonc`, then `opencode.json`), creating `opencode.jsonc` when neither exists.
 - Default the OpenCode provider to `llama-swap`, display name to `Llama Swap`, base URL to `http://localhost:8080/v1`, and executable to `llama-server`. Omit context size and TTL unless configured.
@@ -111,7 +112,7 @@ acorn sync
 - Completed: `cargo test --package acorn-cli commands::sync` (2 passed).
 - Completed: `cargo clippy --package acorn-lib --package acorn-cli --all-targets --no-deps -- -D warnings`.
 - Completed: `cargo fmt --all -- --check`.
-- Reconfirmed after shared constants and inline GGUF filtering refinements: `make test` (755 passed, 13 skipped).
+- Reconfirmed after adding the visible `--what-if` dry-run alias: `make test` (756 passed, 13 skipped).
 - Current focused tests cover command construction, default paths and provider values, GGUF discovery/filtering/shard selection, config precedence at the target level, and parent-directory creation.
 - Remaining validation must cover field-level path precedence, detailed model filters, duplicate and ambiguous models, reserved arguments, llama-swap preservation/pruning, unified dry-run output, repeated-sync stability, and failure atomicity across both targets.
 - After the remaining implementation, regenerate CLI help and run focused tests, `make lint`, `make test`, and `make help`.

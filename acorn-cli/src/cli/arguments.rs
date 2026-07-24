@@ -385,7 +385,7 @@ pub(crate) struct DownloadModel {
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) interactive: bool,
     /// Preview resolved models and fallbacks without downloading
-    #[arg(long = "dry-run", help_heading = "FLAGS")]
+    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     /// Output structured JSON (or YAML with --format yaml) of resolved models
     #[arg(long, help_heading = "FLAGS")]
@@ -412,7 +412,13 @@ pub(crate) struct Export {
     #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) commit: Option<String>,
     /// Run export without making changes. Will print what would happen.
-    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
+    #[arg(
+        long = "dry-run",
+        visible_alias = "what-if",
+        value_name = "BOOL",
+        help_heading = "FLAGS",
+        conflicts_with = "schema"
+    )]
     pub(crate) dry_run: bool,
     /// Export target file format
     ///
@@ -496,7 +502,7 @@ pub(crate) struct Format {
     #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
     pub(crate) commit: Option<String>,
     /// Run format without making changes to target file(s). Will print a diff of changes.
-    #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     /// Regex pattern applied to absolute paths of files to include in formatting process
     ///
@@ -565,7 +571,7 @@ pub(crate) struct Link {
     #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
     pub(crate) commit: Option<String>,
     /// Run link without making changes to target file(s). Will print a diff of changes.
-    #[arg(short, long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     /// Regex pattern applied to absolute paths of files that determines whether they should be included in processing
     ///
@@ -607,7 +613,7 @@ pub(crate) struct Spec {
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     /// Print generated endpoint JSON without writing a file
-    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
@@ -644,7 +650,7 @@ pub(crate) struct Sync {
     #[arg(long = "llama-swap-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) llama_swap_config: Option<PathBuf>,
     /// Preview changes without writing any files
-    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    #[arg(long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
     /// Remove stale managed models from target configurations
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]

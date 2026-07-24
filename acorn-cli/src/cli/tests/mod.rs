@@ -91,6 +91,15 @@ fn test_cli() {
     .is_err());
 }
 #[test]
+fn test_what_if_aliases_dry_run_flags() {
+    assert!(Arguments::try_parse_from(["acorn", "download", "model", "--what-if"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "export", "--what-if"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "format", "--what-if"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "link", "--what-if"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
+}
+#[test]
 fn test_download_model_gguf_fallback_arguments() {
     let arguments = Arguments::try_parse_from([
         "acorn",

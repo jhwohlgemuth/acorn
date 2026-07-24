@@ -380,7 +380,7 @@ Download model weights for use with ACORN research harnesses and local inference
   Default value: `20`
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
 * `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
-* `--dry-run` — Preview resolved models and fallbacks without downloading
+* `--dry-run` [alias: `what-if`] — Preview resolved models and fallbacks without downloading
 * `--raw` — Output structured JSON (or YAML with --format yaml) of resolved models
 * `--format <FORMAT>` — Output format for --raw results
 
@@ -427,7 +427,7 @@ Export research activity data to a specific target
 * `-b`, `--branch <BRANCH>` — Export files that were changed in a given Git branch
 * `--combine` — Combine all export artifacts into a single artifact
 * `-c`, `--commit <COMMIT>` — Export files that were changed in a given Git commit
-* `--dry-run` — Run export without making changes. Will print what would happen
+* `--dry-run` [alias: `what-if`] — Run export without making changes. Will print what would happen
 * `-f`, `--format <FORMAT>` — Export target file format
 
    When used with --schema, specifies the output format (json or yaml)
@@ -503,7 +503,7 @@ Formats research activity data in place (inherently includes some elements of `a
 
 * `-b`, `--branch <BRANCH>` — Format files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
-* `-d`, `--dry-run` — Run format without making changes to target file(s). Will print a diff of changes
+* `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process
 
    Only files matching the pattern will be processed
@@ -606,7 +606,7 @@ Import endpoint resources from an API specification
 * `--root <ROOT>` — Optional API root path for the generated endpoint object
 * `--auth-token <TOKEN>` — Optional bearer token value for the generated endpoint object
 * `-o`, `--output <PATH>` — Write generated endpoint JSON to this file
-* `--dry-run` — Print generated endpoint JSON without writing a file
+* `--dry-run` [alias: `what-if`] — Print generated endpoint JSON without writing a file
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -630,7 +630,7 @@ Add linked data context to research activity data
 
 * `-b`, `--branch <BRANCH>` — Process files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Process files that were changed in a given Git commit
-* `-d`, `--dry-run` — Run link without making changes to target file(s). Will print a diff of changes
+* `-d`, `--dry-run` [alias: `what-if`] — Run link without making changes to target file(s). Will print a diff of changes
 * `-i`, `--ignore <REGEX>` — Regex pattern applied to absolute paths of files that determines whether they should be included in processing
 
    Only applies to path values that point to a directory
@@ -733,7 +733,7 @@ Synchronize local inference configuration from ACORN model entries
 * `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)
 * `--opencode-config <PATH>` — Path to OpenCode configuration file (overrides config)
 * `--llama-swap-config <PATH>` — Path to llama-swap configuration file (overrides config)
-* `--dry-run` — Preview changes without writing any files
+* `--dry-run` [alias: `what-if`] — Preview changes without writing any files
 * `--prune` — Remove stale managed models from target configurations
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
