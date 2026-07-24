@@ -15,7 +15,7 @@ use chrono::Utc;
 use core::time::Duration;
 use data_encoding::BASE64;
 use ring::hmac as ring_hmac;
-use std::env::temp_dir;
+use std::env::temp_dir as system_temp_dir;
 use std::time::SystemTime;
 pub(crate) fn cleanup(path: &PathBuf) {
     let _ = write(path, []);
@@ -67,10 +67,22 @@ pub(crate) async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
     Ok(path)
 }
 pub(crate) fn temp_file() -> PathBuf {
-    let dir = temp_dir();
+    let dir = system_temp_dir();
     let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
     let filename = format!("test_docx_{}.docx", timestamp);
     dir.join(filename)
+}
+/// Build a unique temporary directory path under `target/test_artifacts`.
+pub(crate) fn temp_dir(name: &str) -> PathBuf {
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or(Duration::from_nanos(0))
+        .as_nanos();
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("target")
+        .join("test_artifacts")
+        .join(format!("{name}-{timestamp}"))
 }
 /// Build a unique path under `target/test_artifacts`.
 pub(crate) fn unique_path(name: &str, extension: &str) -> PathBuf {

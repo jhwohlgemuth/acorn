@@ -613,6 +613,46 @@ pub(crate) struct Spec {
     pub(crate) verbose: Verbosity,
 }
 #[derive(Clone, Debug, Args)]
+#[command(
+    long_about = "Synchronize local inference configuration from ACORN model entries.\n\
+        \n\
+        Resolves configured models to downloaded GGUF files and merges them into\n\
+        llama-swap and/or OpenCode configuration.\n\
+        \n\
+        With neither target flag, synchronizes both configurations.\n\
+        With --opencode or --llama-swap, synchronizes only the selected target.\n\
+        Both flags may be used together.",
+    verbatim_doc_comment
+)]
+pub(crate) struct Sync {
+    /// Path to ACORN configuration file (JSON, JSONC, or YAML)
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Synchronize OpenCode configuration only
+    #[arg(long, help_heading = "TARGETS")]
+    pub(crate) opencode: bool,
+    /// Synchronize llama-swap configuration only
+    #[arg(long, help_heading = "TARGETS")]
+    pub(crate) llama_swap: bool,
+    /// Default directory where downloaded model weights live (overrides config)
+    #[arg(long = "models-dir", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) models_dir: Option<PathBuf>,
+    /// Path to OpenCode configuration file (overrides config)
+    #[arg(long = "opencode-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) opencode_config: Option<PathBuf>,
+    /// Path to llama-swap configuration file (overrides config)
+    #[arg(long = "llama-swap-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) llama_swap_config: Option<PathBuf>,
+    /// Preview changes without writing any files
+    #[arg(long = "dry-run", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    /// Remove stale managed models from target configurations
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) prune: bool,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Runner {
     /// Path to configuration file for creating the resource

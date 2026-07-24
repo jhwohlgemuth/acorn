@@ -73,6 +73,7 @@ pub mod mcp;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod source;
+pub mod sync;
 
 pub use jsonc_parser::cst::CstRootNode;
 pub use source::{Source, SourceAction};

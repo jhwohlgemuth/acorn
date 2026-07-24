@@ -338,6 +338,22 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<ServeCommands>,
     },
+    /// Synchronize local inference configuration from ACORN model entries
+    ///
+    ///     Synchronize both llama-swap and OpenCode configuration
+    ///     $> acorn sync
+    ///
+    ///     Synchronize OpenCode configuration only
+    ///     $> acorn sync --opencode
+    ///
+    ///     Synchronize llama-swap configuration only
+    ///     $> acorn sync --llama-swap
+    ///
+    ///     Preview changes without writing files
+    ///     $> acorn sync --dry-run
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Sync(Box<arguments::Sync>),
     /// Launch the interactive terminal user interface (TUI)
     ///
     ///     $> acorn tui

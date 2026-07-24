@@ -24,6 +24,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
 * [`acorn-cli serve mcp`↴](#acorn-cli-serve-mcp)
+* [`acorn-cli sync`↴](#acorn-cli-sync)
 * [`acorn-cli tui`↴](#acorn-cli-tui)
 
 ## `acorn-cli`
@@ -60,6 +61,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `link` — Add linked data context to research activity data
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
 * `serve` — Start a server (bot, MCP, etc.)
+* `sync` — Synchronize local inference configuration from ACORN model entries
 * `tui` — Launch the interactive terminal user interface (TUI)
 
 ###### **Options:**
@@ -378,6 +380,14 @@ Download model weights for use with ACORN research harnesses and local inference
   Default value: `20`
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
 * `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
+* `--dry-run` — Preview resolved models and fallbacks without downloading
+* `--raw` — Output structured JSON (or YAML with --format yaml) of resolved models
+* `--format <FORMAT>` — Output format for --raw results
+
+  Default value: `json`
+
+  Possible values: `json`, `yaml`
+
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -694,6 +704,39 @@ Webhook/API bot server that polls GitLab for merge request note events
 Model context protocol (MCP) server
 
 **Usage:** `acorn-cli serve mcp`
+
+
+
+## `acorn-cli sync`
+
+Synchronize local inference configuration from ACORN model entries
+
+    Synchronize both llama-swap and OpenCode configuration
+    $> acorn sync
+
+    Synchronize OpenCode configuration only
+    $> acorn sync --opencode
+
+    Synchronize llama-swap configuration only
+    $> acorn sync --llama-swap
+
+    Preview changes without writing files
+    $> acorn sync --dry-run
+
+**Usage:** `acorn-cli sync [OPTIONS]`
+
+###### **Options:**
+
+* `-c`, `--config <PATH>` — Path to ACORN configuration file (JSON, JSONC, or YAML)
+* `--opencode` — Synchronize OpenCode configuration only
+* `--llama-swap` — Synchronize llama-swap configuration only
+* `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)
+* `--opencode-config <PATH>` — Path to OpenCode configuration file (overrides config)
+* `--llama-swap-config <PATH>` — Path to llama-swap configuration file (overrides config)
+* `--dry-run` — Preview changes without writing any files
+* `--prune` — Remove stale managed models from target configurations
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
 
 
 

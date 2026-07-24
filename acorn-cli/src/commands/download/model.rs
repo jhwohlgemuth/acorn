@@ -11,7 +11,7 @@ use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
 use acorn::schema::agent::{ModelDetails, Weights};
-use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_MODELS_DIRECTORY};
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
@@ -115,7 +115,7 @@ pub async fn run(
                                 Ok(())
                             }
                         } else {
-                            match output.clone().map_or_else(|| home_directory(".models"), Ok) {
+                            match output.clone().map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok) {
                                 | Ok(root) => {
                                     let mut success_count = 0usize;
                                     let mut failure_count = 0usize;

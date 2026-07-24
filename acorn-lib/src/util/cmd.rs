@@ -206,6 +206,14 @@ pub fn try_from_output(result: io::Result<Output>) -> Result<String, String> {
         | Err(e) => Err(format!("command execution failed: {e}")),
     }
 }
+/// Render a binary and its arguments as a shell-safe command string.
+#[doc(hidden)]
+pub fn command_string(binary: &str, args: &[OsString]) -> String {
+    once(escape(binary))
+        .chain(args.iter().map(|argument| escape(&argument.to_string_lossy())))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 fn command_with_args<I, S>(binary: &str, args: I, dir: Option<&Path>) -> Command
 where
     I: IntoIterator<Item = S>,
@@ -228,13 +236,7 @@ fn escape(value: &str) -> String {
     }
 }
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
-    let redacted = redact(args);
-    let rendered = if redacted.is_empty() {
-        binary.to_string()
-    } else {
-        let oneline = redacted.join(" ");
-        format!("{binary} {oneline}")
-    };
+    let rendered = once(escape(binary)).chain(redact(args)).collect::<Vec<_>>().join(" ");
     let cwd = dir.map(|path| path.display().to_string()).unwrap_or_else(|| "<current>".to_string());
     warn!(cwd, "=> {} {rendered}", Label::run());
 }

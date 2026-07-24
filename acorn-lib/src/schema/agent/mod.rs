@@ -466,6 +466,8 @@ pub struct ModelDetails {
     pub open_weights: Option<bool>,
     /// Number of parameters (in billions) (e.g., 14 for "14B")
     pub parameters: Option<i64>,
+    /// Resolved local path to model weights
+    pub path: Option<String>,
     /// Whether the model supports extended reasoning/thinking
     pub reasoning: Option<bool>,
     /// Release date of the model
@@ -668,6 +670,7 @@ impl ToMarkdown for ModelDetails {
             self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
             self.name.as_ref().map(|value| format!("- Name: {value}")),
             self.open_weights.map(|value| format!("- Open Weights: {value}")),
+            self.path.as_ref().map(|value| format!("- Path: {value}")),
             self.cost.as_ref().map(|c| {
                 let parts = [
                     c.input.map(|v| format!("input=${v}")),

@@ -6,11 +6,12 @@
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
 use crate::io::{
-    files_all, parse_jsonc_cst, read_file, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath, InputOutput,
-    ProgressType, Source,
+    files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath,
+    InputOutput, ProgressType, Source,
 };
-use crate::prelude::{self, env, exit, Arc, PathBuf};
-use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
+use crate::prelude::{self, env, exit, Arc, Path, PathBuf};
+use crate::schema::agent::ModelDetails;
+use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
@@ -22,9 +23,7 @@ use fancy_regex::Regex;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::error;
-
-const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
+use tracing::{error, info};
 
 /// Authentication requirement for a configured model download source
 #[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
@@ -225,6 +224,9 @@ pub struct ApplicationConfiguration {
     /// List of buckets
     #[eserde(compat)]
     pub buckets: Option<Vec<Bucket>>,
+    /// Synchronization targets for llama-swap and OpenCode
+    #[eserde(compat)]
+    pub config: Option<sync::Config>,
     /// List of endpoints
     #[eserde(compat)]
     pub endpoints: Option<Vec<Endpoint>>,
@@ -375,6 +377,37 @@ pub struct WhitelistLookup {
     pub models: Option<Vec<String>>,
 }
 impl ApplicationConfiguration {
+    /// Load resolved application configuration or return the default configuration.
+    pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
+        Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read)
+    }
+    /// Merge configured synchronization settings with runtime overrides.
+    pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
+        self.config.clone().unwrap_or_default().merge(overrides)
+    }
+    /// Resolve configured model entries to local GGUF model details.
+    pub fn resolve_models(&self, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
+        let names = self.models.as_ref().map_or_else(Vec::new, |entries| {
+            entries
+                .iter()
+                .map(|entry| match entry {
+                    | ModelEntry::Selector(selector) => selector.trim().to_string(),
+                    | ModelEntry::Entry(options) => options.name.clone(),
+                })
+                .collect::<Vec<_>>()
+        });
+        let models_directory = models_dir.display().to_string();
+        Ok(names
+            .iter()
+            .flat_map(|name| match sync::resolve_gguf(&models_directory, name, None, None) {
+                | Ok(models) => models,
+                | Err(why) => {
+                    info!("{} Skipping model '{}' — {why}", Label::CAUTION, name.yellow());
+                    Vec::new()
+                }
+            })
+            .collect())
+    }
     /// Resolve application configuration path
     pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
         path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {

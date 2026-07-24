@@ -241,6 +241,9 @@ pub struct Config {
     /// CST root for JSONC comment-preserving round-trips
     #[serde(skip)]
     pub cst: Option<CstRootNode>,
+    /// Source path used to load this configuration
+    #[serde(skip)]
+    pub path: Option<PathBuf>,
     /// Named agent configurations
     pub agent: Option<StringMap<AgentConfig>>,
     /// Attachment processing configuration
@@ -544,6 +547,26 @@ pub struct WatcherConfig {
     pub ignore: Option<Vec<String>>,
 }
 impl Config {
+    /// Load OpenCode configuration from a path or return an empty configuration.
+    #[cfg(feature = "std")]
+    pub fn load(path: impl AsRef<Path>) -> Self {
+        path.as_ref()
+            .is_file()
+            .then(|| Self::read(path.as_ref()).ok())
+            .flatten()
+            .unwrap_or_default()
+    }
+    /// Replace the configured providers and return the updated configuration.
+    pub fn with_provider(self, provider: StringMap<ProviderDetails>) -> Self {
+        Self {
+            provider: Some(provider),
+            ..self
+        }
+    }
+    /// Set the primary model and return the updated configuration.
+    pub fn with_model(self, model: String) -> Self {
+        Self { model: Some(model), ..self }
+    }
     /// Parse OpenCode configuration from a JSON string
     fn parse_json(content: impl AsRef<str>) -> ApiResult<Self> {
         serde_json::from_str(content.as_ref()).map_err(|why| eyre!("JSON parse error — {why}"))
@@ -603,6 +626,10 @@ impl InputOutput for Config {
             | MimeType::Jsonc => Self::read_jsonc(source.clone()),
             | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
         }
+        .map(|config| Self {
+            path: Some(source),
+            ..config
+        })
     }
     /// Read OpenCode configuration from a JSON file
     fn read_json(path: PathBuf) -> ApiResult<Self> {
