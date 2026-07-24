@@ -1,29 +1,44 @@
 use crate::cli::{arguments, Void};
-use acorn::io::config::ApplicationConfiguration;
+use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::sync::{self, Config};
 use acorn::util::Label;
 use tracing::info;
 
 /// Synchronize local inference configuration from ACORN model entries
 pub async fn run(args: &arguments::Sync) -> Void {
-    ApplicationConfiguration::load(&args.config).and_then(|configuration| {
-        let llama_swap = sync::llama_swap::Config::from(args);
-        let opencode = sync::opencode::Config::from(args);
+    let &arguments::Sync {
+        ref config,
+        opencode,
+        llama_swap,
+        ref models_dir,
+        dry_run,
+        prune,
+        ..
+    } = args;
+    ApplicationConfiguration::load(config).and_then(|configuration| {
+        let llama_swap_config = sync::llama_swap::Config::from(args);
+        let opencode_config = sync::opencode::Config::from(args);
         let overrides = Config {
-            llama_swap: (llama_swap.path.is_some() || llama_swap.models_directory.is_some()).then_some(llama_swap),
-            opencode: opencode.path.is_some().then_some(opencode),
+            llama_swap: (llama_swap_config.path.is_some() || llama_swap_config.models_directory.is_some()).then_some(llama_swap_config),
+            opencode: opencode_config.path.is_some().then_some(opencode_config),
         };
-        let sync_config = configuration.resolve_sync_config_cli_overrides(overrides);
-        sync_config.resolve_models_dir(args.models_dir.clone()).and_then(|models_dir| {
+        let sync_config = configuration.config.clone().unwrap_or_default().merge_cli_overrides(overrides);
+        sync_config.resolve_models_dir(models_dir.as_deref()).and_then(|models_dir| {
             info!("{} Resolving models from configuration", Label::run());
-            configuration.resolve_models(&models_dir).and_then(|resolved| {
-                sync_config.sync(sync::Options {
-                    models: &resolved,
-                    opencode: args.opencode,
-                    llama_swap: args.llama_swap,
-                    dry_run: args.dry_run,
-                    prune: args.prune,
-                })
+            ModelEntry::requests(configuration.models.as_deref().unwrap_or_default()).and_then(|requests| {
+                requests
+                    .into_iter()
+                    .map(|request| request.resolve(&models_dir))
+                    .collect::<Result<Vec<_>, _>>()
+                    .and_then(|resolved| {
+                        sync_config.sync(sync::Options {
+                            models: &resolved,
+                            opencode,
+                            llama_swap,
+                            dry_run,
+                            prune,
+                        })
+                    })
             })
         })
     })
@@ -89,7 +104,7 @@ mod tests {
             llama_swap: (llama_swap.path.is_some() || llama_swap.models_directory.is_some()).then_some(llama_swap),
             opencode: opencode.path.is_some().then_some(opencode),
         };
-        let resolved = configuration.resolve_sync_config_cli_overrides(overrides);
+        let resolved = configuration.config.clone().unwrap_or_default().merge_cli_overrides(overrides);
         let llama = resolved.llama_swap.unwrap();
         assert_eq!(llama.path.as_deref(), Some("cli.yaml"));
         assert_eq!(llama.models_directory.as_deref(), Some("cli-models"));
@@ -123,7 +138,7 @@ mod tests {
             verbose: clap_verbosity_flag::Verbosity::new(0, 0),
         };
         let opencode = sync::opencode::Config::from(&args);
-        let resolved = configuration.resolve_sync_config_cli_overrides(Config {
+        let resolved = configuration.config.clone().unwrap_or_default().merge_cli_overrides(Config {
             llama_swap: None,
             opencode: Some(opencode),
         });

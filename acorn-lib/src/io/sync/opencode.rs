@@ -14,6 +14,7 @@ use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
+use validator::Validate;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
@@ -32,22 +33,27 @@ enum Entry {
 }
 /// Configuration for synchronizing models into OpenCode
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// Path to the OpenCode configuration file on disk
-    #[serde(skip)]
+    #[serde(skip_serializing)]
+    #[validate(length(min = 1))]
     pub path: Option<String>,
     /// Base URL for the OpenAI-compatible endpoint (e.g., `http://localhost:8080/v1`)
     #[serde(default = "default_base_url")]
+    #[validate(length(min = 1))]
     pub base_url: String,
     /// Provider identifier in the OpenCode configuration
     #[serde(default = "default_provider_id")]
+    #[validate(length(min = 1))]
     pub provider_id: String,
     /// Human-readable provider display name
     #[serde(default = "default_provider_name")]
+    #[validate(length(min = 1))]
     pub provider_name: String,
     /// Default model to use when none is specified
+    #[validate(length(min = 1))]
     pub default_model: Option<String>,
 }
 impl Default for Config {
@@ -79,14 +85,6 @@ impl Config {
             ..self
         }
     }
-    /// Build the JSON structure for an OpenCode provider entry.
-    pub fn provider_entry(&self) -> Value {
-        serde_json::to_value(Entry::Provider {
-            sdk: BTreeMap::new(),
-            options: core::iter::once(("baseURL".to_string(), self.base_url.clone())).collect(),
-        })
-        .unwrap_or(Value::Null)
-    }
     /// Build the JSON structure for a model entry.
     pub fn model_entry(&self, model_id: &str, display_name: &str) -> Value {
         serde_json::to_value(Entry::Model {
@@ -95,6 +93,56 @@ impl Config {
             name: display_name.to_string(),
         })
         .unwrap_or(Value::Null)
+    }
+    /// Build the JSON structure for an OpenCode provider entry.
+    pub fn provider_entry(&self) -> Value {
+        serde_json::to_value(Entry::Provider {
+            sdk: BTreeMap::new(),
+            options: core::iter::once(("baseURL".to_string(), self.base_url.clone())).collect(),
+        })
+        .unwrap_or(Value::Null)
+    }
+    /// Remove stale managed models from the OpenCode provider
+    ///
+    /// Models that are inside the managed provider but not in `current_models` are removed.
+    /// If the root `model` field points to a removed entry and no `default_model` is configured, returns an error.
+    pub fn prune(&self, mut config: opencode::Config, current_models: &[(String, String)]) -> ApiResult<opencode::Config> {
+        let managed_provider = &self.provider_id;
+        let current_ids: BTreeMap<&str, ()> = current_models.iter().map(|(id, _)| (id.as_str(), ())).collect();
+        // Check root model
+        if let Some(ref root_model) = config.model {
+            let parts: Vec<&str> = root_model.splitn(2, '/').collect();
+            let model_id = parts.get(1).copied().unwrap_or_default();
+            if parts.first().copied() == Some(managed_provider.as_str()) && !current_ids.contains_key(model_id) {
+                if self.default_model.is_some() {
+                    config.model = self.default_model.clone();
+                } else {
+                    return Err(eyre!(
+                        "Root model '{}' points to a removed entry without a configured defaultModel",
+                        root_model
+                    ));
+                }
+            }
+        }
+        // Remove stale models from provider
+        if let Some(ref mut providers) = config.provider {
+            if let Some(provider_val) = providers.get_mut(managed_provider) {
+                let raw = serde_json::to_value(&*provider_val).unwrap_or(Value::Null);
+                if let Some(obj) = raw.as_object() {
+                    let cleaned: serde_json::Map<String, Value> = obj
+                        .iter()
+                        .filter(|(k, _)| {
+                            matches!(k.as_str(), "models" | "@ai-sdk/openai-compatible" | "options") || current_ids.contains_key(k.as_str())
+                        })
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect();
+                    if let Ok(rebuilt) = serde_json::from_value(Value::Object(cleaned)) {
+                        *provider_val = rebuilt;
+                    }
+                }
+            }
+        }
+        Ok(config)
     }
     /// Determine the path to the OpenCode config file.
     ///
@@ -156,48 +204,6 @@ impl Config {
             .collect::<BTreeMap<_, _>>();
         existing.clone().with_provider(providers)
     }
-    /// Remove stale managed models from the OpenCode provider
-    ///
-    /// Models that are inside the managed provider but not in `current_models` are removed.
-    /// If the root `model` field points to a removed entry and no `default_model` is configured, returns an error.
-    pub fn prune(&self, mut config: opencode::Config, current_models: &[(String, String)]) -> ApiResult<opencode::Config> {
-        let managed_provider = &self.provider_id;
-        let current_ids: BTreeMap<&str, ()> = current_models.iter().map(|(id, _)| (id.as_str(), ())).collect();
-        // Check root model
-        if let Some(ref root_model) = config.model {
-            let parts: Vec<&str> = root_model.splitn(2, '/').collect();
-            let model_id = parts.get(1).copied().unwrap_or_default();
-            if parts.first().copied() == Some(managed_provider.as_str()) && !current_ids.contains_key(model_id) {
-                if self.default_model.is_some() {
-                    config.model = self.default_model.clone();
-                } else {
-                    return Err(eyre!(
-                        "Root model '{}' points to a removed entry without a configured defaultModel",
-                        root_model
-                    ));
-                }
-            }
-        }
-        // Remove stale models from provider
-        if let Some(ref mut providers) = config.provider {
-            if let Some(provider_val) = providers.get_mut(managed_provider) {
-                let raw = serde_json::to_value(&*provider_val).unwrap_or(Value::Null);
-                if let Some(obj) = raw.as_object() {
-                    let cleaned: serde_json::Map<String, Value> = obj
-                        .iter()
-                        .filter(|(k, _)| {
-                            matches!(k.as_str(), "models" | "@ai-sdk/openai-compatible" | "options") || current_ids.contains_key(k.as_str())
-                        })
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect();
-                    if let Ok(rebuilt) = serde_json::from_value(Value::Object(cleaned)) {
-                        *provider_val = rebuilt;
-                    }
-                }
-            }
-        }
-        Ok(config)
-    }
 }
 fn default_base_url() -> String {
     "http://localhost:8080/v1".to_string()
@@ -221,18 +227,18 @@ mod tests {
         assert_eq!(config.provider_name, "Llama Swap");
     }
     #[test]
+    fn test_model_json_structure() {
+        let json = Config::default().model_entry("qwen-gguf", "Qwen GGUF");
+        assert_eq!(json.get("providerID").unwrap().as_str().unwrap(), "llama-swap");
+        assert_eq!(json.get("model").unwrap().as_str().unwrap(), "qwen-gguf");
+        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Qwen GGUF");
+    }
+    #[test]
     fn test_provider_json_structure() {
         let config = Config::default();
         let json = config.provider_entry();
         assert!(json.get("@ai-sdk/openai-compatible").is_some());
         let options = json.get("options").unwrap();
         assert_eq!(options.get("baseURL").unwrap().as_str().unwrap(), "http://localhost:8080/v1");
-    }
-    #[test]
-    fn test_model_json_structure() {
-        let json = Config::default().model_entry("qwen-gguf", "Qwen GGUF");
-        assert_eq!(json.get("providerID").unwrap().as_str().unwrap(), "llama-swap");
-        assert_eq!(json.get("model").unwrap().as_str().unwrap(), "qwen-gguf");
-        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Qwen GGUF");
     }
 }

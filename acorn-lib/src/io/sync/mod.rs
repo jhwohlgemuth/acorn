@@ -3,12 +3,15 @@
 //! Provides types for the `acorn sync` command, which resolves ACORN model
 //! entries to downloaded GGUF files and merges the corresponding models into
 //! llama-swap and OpenCode project configuration.
-use crate::io::{config::FilterSet, files_all, home_directory, write_file, ApiResult};
-use crate::prelude::{create_dir_all, remove_file, rename, PathBuf};
+use crate::io::{
+    config::{FilterSet, ModelEntry},
+    files_all, home_directory, write_file, ApiResult, Source,
+};
+use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
 use crate::schema::agent::{self, ModelDetails};
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::Label;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 use color_eyre::eyre::eyre;
@@ -17,6 +20,7 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::info;
+use validator::Validate;
 
 pub mod llama_swap;
 pub mod opencode;
@@ -25,6 +29,15 @@ pub mod opencode;
 enum SyncError {
     LlamaSwap(color_eyre::Report),
     OpenCode(color_eyre::Report),
+}
+#[derive(Debug)]
+enum ShardError {
+    Ambiguous { model: String, paths: Vec<String> },
+    Canonicalize { model: String, why: color_eyre::Report },
+    Malformed(Shard),
+    EmptyCandidate,
+    EmptyGroup,
+    Incomplete { key: String, count: u64 },
 }
 /// Top-level synchronization configuration section
 ///
@@ -45,12 +58,14 @@ enum SyncError {
 ///     providerId: llama-swap
 /// ```
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// llama-swap configuration for local inference
+    #[validate(nested)]
     pub llama_swap: Option<llama_swap::Config>,
     /// OpenCode configuration for local inference
+    #[validate(nested)]
     pub opencode: Option<opencode::Config>,
 }
 /// Inputs controlling a configuration synchronization operation
@@ -67,9 +82,20 @@ pub struct Options<'a> {
     /// Remove stale managed models.
     pub prune: bool,
 }
+/// A normalized model entry ready for local GGUF resolution.
+#[derive(Clone, Debug)]
+pub struct ModelRequest {
+    id: String,
+    source: Source,
+    filter: Vec<String>,
+    ignore: Vec<String>,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Shard {
     key: String,
+    index: Option<u64>,
+    count: Option<u64>,
+    malformed: bool,
     path: PathBuf,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -102,8 +128,9 @@ impl Config {
         }
     }
     /// Resolve the model directory from a CLI override, configuration, or the user default
-    pub fn resolve_models_dir(&self, override_directory: Option<PathBuf>) -> ApiResult<PathBuf> {
+    pub fn resolve_models_dir(&self, override_directory: Option<&Path>) -> ApiResult<PathBuf> {
         override_directory
+            .map(PathBuf::from)
             .or_else(|| {
                 self.llama_swap
                     .as_ref()
@@ -114,31 +141,52 @@ impl Config {
     }
     /// Synchronize all selected configuration targets
     pub fn sync(&self, options: Options<'_>) -> ApiResult<()> {
-        match options.models.is_empty() {
-            | true => {
-                info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
-                Ok(())
-            }
-            | false => {
-                let sync_llama_swap = options.llama_swap || !options.opencode;
-                let sync_opencode = options.opencode || !options.llama_swap;
-                let llama_swap = sync_llama_swap
-                    .then(|| self.sync_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
-                    .transpose();
-                llama_swap.and_then(|llama_swap| {
-                    sync_opencode
-                        .then(|| self.sync_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
-                        .transpose()
-                        .map(|opencode| {
-                            let paths = [llama_swap, opencode].into_iter().flatten().collect::<Vec<_>>();
-                            match options.dry_run {
-                                | true => info!("{} Dry run complete — no files were modified", Label::pass()),
-                                | false => paths.iter().for_each(|path| info!("{} Updated {}", Label::pass(), path.cyan())),
-                            }
-                        })
+        let sync_llama_swap = options.llama_swap || !options.opencode;
+        let sync_opencode = options.opencode || !options.llama_swap;
+        let selected = Self {
+            llama_swap: sync_llama_swap.then(|| self.llama_swap.clone()).flatten(),
+            opencode: sync_opencode.then(|| self.opencode.clone()).flatten(),
+        };
+        let model_ids = options.models.iter().filter_map(|model| model.id.as_ref()).cloned().collect::<Vec<_>>();
+        Validate::validate(&selected)
+            .map_err(|why| eyre!("Invalid synchronization configuration: {why}"))
+            .and_then(|()| {
+                selected.llama_swap.as_ref().map_or(Ok(()), |config| {
+                    Validate::validate(&llama_swap::ModelValidation::from((config, model_ids.as_slice())))
+                        .map_err(|why| eyre!("Invalid llama-swap model configuration: {why}"))
                 })
-            }
-        }
+            })
+            .and_then(|()| {
+                selected
+                    .opencode
+                    .as_ref()
+                    .and_then(|config| config.default_model.as_ref())
+                    .map_or(Ok(()), |default_model| match model_ids.iter().any(|model_id| model_id == default_model) {
+                        | true => Ok(()),
+                        | false => Err(eyre!("opencode.defaultModel references unknown model '{default_model}'")),
+                    })
+            })
+            .and_then(|()| match options.models.is_empty() {
+                | true => {
+                    info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
+                    Ok(())
+                }
+                | false => sync_llama_swap
+                    .then(|| self.sync_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
+                    .transpose()
+                    .and_then(|llama_swap_config_path| {
+                        sync_opencode
+                            .then(|| self.sync_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
+                            .transpose()
+                            .map(|opencode_config_path| {
+                                let paths = [llama_swap_config_path, opencode_config_path].into_iter().flatten().collect::<Vec<_>>();
+                                match options.dry_run {
+                                    | true => info!("{} Dry run complete — no files were modified", Label::pass()),
+                                    | false => paths.iter().for_each(|path| info!("{} Updated {}", Label::pass(), path.cyan())),
+                                }
+                            })
+                    }),
+            })
     }
     /// Synchronize resolved models into llama-swap configuration
     pub fn sync_llama_swap(&self, options: Options<'_>) -> ApiResult<String> {
@@ -230,11 +278,122 @@ impl Config {
         }
     }
 }
+impl ModelRequest {
+    fn details(self, path: PathBuf) -> ApiResult<ModelDetails> {
+        canonicalize(&path)
+            .map_err(|why| {
+                eyre!(ShardError::Canonicalize {
+                    model: self.id.clone(),
+                    why: why.into(),
+                })
+            })
+            .map(|path| ModelDetails {
+                id: Some(self.id.clone()),
+                name: Some(self.id),
+                path: Some(path.display().to_string()),
+                ..Default::default()
+            })
+    }
+    pub(crate) fn id(&self) -> &str {
+        &self.id
+    }
+    fn is_gguf(path: &Path) -> bool {
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("gguf"))
+    }
+    fn new(id: String, source: Source, filter: Vec<String>, ignore: Vec<String>) -> ApiResult<Self> {
+        match id.trim() {
+            | "" => Err(eyre!("Configured model ID cannot be empty")),
+            | id => Ok(Self {
+                id: id.to_string(),
+                source,
+                filter,
+                ignore,
+            }),
+        }
+    }
+    /// Resolve this request to one local GGUF model.
+    pub fn resolve(self, models_dir: &Path) -> ApiResult<ModelDetails> {
+        let direct_path = match &self.source {
+            | Source::Local { path, .. } if path.is_file() || Self::is_gguf(path) => Some(path.clone()),
+            | _ => None,
+        };
+        match direct_path {
+            | Some(path) => self.resolve_direct(&path),
+            | None => {
+                resolve_gguf(&models_dir.display().to_string(), &self.id, Some(&self.filter), Some(&self.ignore)).and_then(|models| {
+                    match models.as_slice() {
+                        | [model] => model
+                            .path
+                            .as_ref()
+                            .map(PathBuf::from)
+                            .ok_or_else(|| eyre!("Resolved model '{}' has no GGUF path", self.id))
+                            .and_then(|path| self.details(path)),
+                        | [] => Err(eyre!("No GGUF candidates resolved for model '{}'", self.id)),
+                        | _ => Err(eyre!(ShardError::Ambiguous {
+                            model: self.id.clone(),
+                            paths: models.iter().filter_map(|model| model.path.clone()).collect(),
+                        })),
+                    }
+                })
+            }
+        }
+    }
+    fn resolve_direct(self, path: &Path) -> ApiResult<ModelDetails> {
+        match (path.is_file(), Self::is_gguf(path)) {
+            | (false, _) => Err(eyre!("Direct local GGUF source for '{}' does not exist — {}", self.id, path.display())),
+            | (_, true) => FilterSet::filter(
+                vec![path.to_path_buf()],
+                &self.filter,
+                &self.ignore,
+                |path| path.file_name().and_then(|value| value.to_str()).unwrap_or("").to_string(),
+                |_| true,
+            )
+            .and_then(|paths| match paths.as_slice() {
+                | [path] => self.details(path.clone()),
+                | _ => Err(eyre!("Direct GGUF source for '{}' was excluded by filter/ignore patterns", self.id)),
+            }),
+            | _ => Err(eyre!(
+                "Direct local model source for '{}' is not a GGUF file — {}",
+                self.id,
+                path.display()
+            )),
+        }
+    }
+}
+impl TryFrom<&ModelEntry> for ModelRequest {
+    type Error = color_eyre::Report;
+    fn try_from(entry: &ModelEntry) -> Result<Self, Self::Error> {
+        match entry {
+            | ModelEntry::Selector(selector) => {
+                let selector = selector.trim();
+                let source = Source::from(selector);
+                let id = match &source {
+                    | Source::Local { path, .. } if path.is_file() || Self::is_gguf(path) => source.name(),
+                    | _ => selector.to_string(),
+                };
+                Self::new(id, source, Vec::new(), Vec::new())
+            }
+            | ModelEntry::Entry(options) => Self::new(
+                options.name.clone(),
+                Source::from(&options.source).with_name(options.name.as_str()),
+                options.filter.clone().unwrap_or_default(),
+                options.ignore.clone().unwrap_or_default(),
+            ),
+        }
+    }
+}
 impl From<PathBuf> for Shard {
     fn from(path: PathBuf) -> Self {
         let filename = path.file_name().and_then(|value| value.to_str()).unwrap_or("").to_string();
+        let parts = Self::parts(&filename);
+        let malformed = Self::is_sharded(&filename) && parts.is_none();
         Self {
-            key: Self::key(&filename).unwrap_or(filename),
+            key: parts.as_ref().map_or_else(|| filename.clone(), |(key, _, _)| key.clone()),
+            index: parts.as_ref().map(|(_, index, _)| *index),
+            count: parts.map(|(_, _, count)| count),
+            malformed,
             path,
         }
     }
@@ -248,40 +407,121 @@ impl fmt::Display for SyncError {
     }
 }
 impl core::error::Error for SyncError {}
+impl fmt::Display for Shard {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.path.display().fmt(formatter)
+    }
+}
+impl fmt::Display for ShardError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Ambiguous { model, paths } => {
+                write!(
+                    formatter,
+                    "Multiple independent GGUF candidates resolved for model '{model}': {}",
+                    paths.join(", ")
+                )
+            }
+            | Self::Canonicalize { model, why } => {
+                write!(formatter, "Failed to resolve absolute GGUF path for '{model}': {why}")
+            }
+            | Self::Malformed(shard) => write!(formatter, "Malformed GGUF shard filename '{shard}'"),
+            | Self::EmptyCandidate => formatter.write_str("GGUF candidate group is empty"),
+            | Self::EmptyGroup => formatter.write_str("GGUF shard group is empty"),
+            | Self::Incomplete { key, count } => {
+                write!(
+                    formatter,
+                    "Incomplete or inconsistent GGUF shard set '{key}' — expected shards 1 through {count}"
+                )
+            }
+        }
+    }
+}
+impl core::error::Error for ShardError {}
 impl From<Vec<PathBuf>> for Shards {
     fn from(paths: Vec<PathBuf>) -> Self {
         Self(paths.into_iter().map(Shard::from).collect())
     }
 }
 impl Shard {
-    fn key(filename: &str) -> Option<String> {
+    fn is_sharded(filename: &str) -> bool {
+        filename
+            .strip_suffix(".gguf")
+            .and_then(|stem| stem.rsplit_once("-of-"))
+            .and_then(|(before_count, count)| before_count.rsplit_once('-').map(|(base, index)| (base, index, count)))
+            .is_some_and(|(base, index, count)| {
+                !base.is_empty()
+                    && !index.is_empty()
+                    && index.chars().all(|c| c.is_ascii_digit())
+                    && !count.is_empty()
+                    && count.chars().all(|c| c.is_ascii_digit())
+            })
+    }
+    fn parts(filename: &str) -> Option<(String, u64, u64)> {
         filename
             .strip_suffix(".gguf")
             .and_then(|stem| stem.rsplit_once("-of-"))
             .filter(|(_, count)| !count.is_empty() && count.chars().all(|character| character.is_ascii_digit()))
             .and_then(|(before_count, count)| {
+                let count_label = count.to_string();
                 before_count
                     .rsplit_once('-')
                     .filter(|(base, index)| !base.is_empty() && !index.is_empty() && index.chars().all(|character| character.is_ascii_digit()))
-                    .map(|(base, _)| format!("{base}-of-{count}"))
+                    .and_then(|(base, index)| {
+                        index
+                            .parse::<u64>()
+                            .ok()
+                            .zip(count.parse::<u64>().ok())
+                            .filter(|(index, count)| *index > 0 && *count > 0 && index <= count)
+                            .map(|(index, count)| (format!("{base}-of-{count_label}"), index, count))
+                    })
             })
     }
 }
 impl Shards {
-    fn into_paths(self) -> Vec<PathBuf> {
-        self.0.into_iter().map(|shard| shard.path).collect()
-    }
-    fn unique(self) -> Self {
-        Self(
-            self.0
+    fn candidates(self) -> ApiResult<Vec<PathBuf>> {
+        match self.0.iter().find(|shard| shard.malformed) {
+            | Some(_) => self.0.into_iter().find(|shard| shard.malformed).map_or_else(
+                || Err(eyre!(ShardError::EmptyCandidate)),
+                |shard| Err(eyre!(ShardError::Malformed(shard))),
+            ),
+            | None => self
+                .0
                 .into_iter()
-                .fold(BTreeMap::new(), |mut groups, shard| {
-                    groups.entry(shard.key.clone()).or_insert(shard);
+                .fold(BTreeMap::<String, Self>::new(), |mut groups, shard| {
+                    groups.entry(shard.key.clone()).or_default().0.push(shard);
                     groups
                 })
                 .into_values()
+                .map(|group| {
+                    let expected_count = group.0.iter().find_map(|shard| shard.count);
+                    match expected_count {
+                        | None => group
+                            .0
+                            .into_iter()
+                            .map(|shard| shard.path)
+                            .min()
+                            .ok_or_else(|| eyre!(ShardError::EmptyCandidate)),
+                        | Some(count) => {
+                            let indexes = group.0.iter().filter_map(|shard| shard.index).collect::<BTreeSet<_>>();
+                            let expected = (1..=count).collect::<BTreeSet<_>>();
+                            match indexes == expected && usize::try_from(count).ok() == Some(group.0.len()) {
+                                | true => group
+                                    .0
+                                    .into_iter()
+                                    .min_by_key(|shard| shard.index)
+                                    .map(|shard| shard.path)
+                                    .ok_or_else(|| eyre!(ShardError::EmptyGroup)),
+                                | false => Err(eyre!(ShardError::Incomplete {
+                                    key: group.0.first().map_or_else(|| "unknown".to_string(), |shard| shard.key.clone()),
+                                    count,
+                                })),
+                            }
+                        }
+                    }
+                })
                 .collect(),
-        )
+        }
     }
 }
 /// Discover GGUF files beneath a model's expected directory
@@ -307,17 +547,18 @@ pub fn resolve_gguf(models_directory: &str, model_name: &str, filter: Option<&[S
                     );
                     filter.and_then(|filtered| match filtered.is_empty() {
                         | true => Err(eyre!("All GGUF files for '{}' were excluded by filter/ignore patterns", model_name)),
-                        | false => Ok(Shards::from(filtered)
-                            .unique()
-                            .into_paths()
-                            .into_iter()
-                            .map(|path| ModelDetails {
-                                id: Some(model_name.to_string()),
-                                name: Some(model_name.to_string()),
-                                path: Some(path.display().to_string()),
-                                ..Default::default()
-                            })
-                            .collect()),
+                        | false => Shards::from(filtered).candidates().map(|paths| {
+                            paths
+                                .into_iter()
+                                .map(|path| {
+                                    ModelDetails::init()
+                                        .id(model_name)
+                                        .name(model_name)
+                                        .path(path.display().to_string())
+                                        .build()
+                                })
+                                .collect()
+                        }),
                     })
                 }
             }
@@ -334,44 +575,77 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::*;
+    use crate::io::config::{ApplicationConfiguration, ModelEntry, ModelEntryOptions};
     use crate::prelude::{create_dir_all, remove_dir_all, write};
     use crate::test::utils::temp_dir;
+    use crate::{Location, Repository};
+
+    fn detailed_model(name: &str, filter: Option<Vec<String>>) -> ModelEntry {
+        ModelEntry::Entry(ModelEntryOptions {
+            name: name.to_string(),
+            source: Repository::HuggingFace {
+                location: Location::Simple(format!("https://huggingface.co/example/{name}")),
+            },
+            revision: None,
+            auth: None,
+            filter,
+            ignore: None,
+            copy: None,
+            symlink: None,
+        })
+    }
+    fn resolve_models(configuration: &ApplicationConfiguration, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
+        ModelEntry::requests(configuration.models.as_deref().unwrap_or_default())
+            .and_then(|requests| requests.into_iter().map(|request| request.resolve(models_dir)).collect())
+    }
 
     #[test]
-    fn test_shard_key_matches_pattern() {
-        assert_eq!(Shard::key("qwen-00001-of-00003.gguf"), Some("qwen-of-00003".to_string()));
-        assert_eq!(Shard::key("model-00003-of-00010.gguf"), Some("model-of-00010".to_string()));
+    fn test_application_config_deserializes_sync_paths_without_serializing_them() {
+        let configuration = ApplicationConfiguration::parse(
+            r#"{
+                "config": {
+                    "llamaSwap": {"path": "./llama-swap.yaml"},
+                    "opencode": {"path": "./opencode.jsonc"}
+                }
+            }"#,
+        )
+        .unwrap();
+        let config = configuration.config.unwrap();
+        assert_eq!(
+            config.llama_swap.as_ref().and_then(|value| value.path.as_deref()),
+            Some("./llama-swap.yaml")
+        );
+        assert_eq!(config.opencode.as_ref().and_then(|value| value.path.as_deref()), Some("./opencode.jsonc"));
+        let serialized = serde_json::to_value(config).unwrap();
+        assert!(serialized["llamaSwap"].get("path").is_none());
+        assert!(serialized["opencode"].get("path").is_none());
     }
     #[test]
-    fn test_shard_key_returns_none_for_non_shard() {
-        assert_eq!(Shard::key("qwen-Q4_K_M.gguf"), None);
-        assert_eq!(Shard::key("model.gguf"), None);
+    fn test_application_config_rejects_unknown_model_override_fields() {
+        let configuration = ApplicationConfiguration::parse(
+            r#"{
+                "config": {
+                    "llamaSwap": {
+                        "models": {"qwen": {"unknownOption": true}}
+                    }
+                }
+            }"#,
+        );
+        assert!(configuration.is_err());
     }
     #[test]
-    fn test_deduplicate_shards_keeps_first() {
-        let dir = temp_dir("dedup-shards");
-        create_dir_all(&dir).unwrap();
-        let files = vec![
-            dir.join("model-00001-of-00003.gguf"),
-            dir.join("model-00002-of-00003.gguf"),
-            dir.join("model-00003-of-00003.gguf"),
-            dir.join("standalone.gguf"),
-        ];
-        let deduped = Shards::from(files).unique();
-        assert_eq!(deduped.0.len(), 2);
-        let _ = remove_dir_all(dir);
-    }
-    #[test]
-    fn test_resolve_gguf_finds_files() {
-        let dir = temp_dir("resolve-gguf");
-        let model_dir = dir.join("test-model");
+    fn test_resolve_gguf_applies_filter_and_ignore_patterns() {
+        let dir = temp_dir("resolve-gguf-filter");
+        let model_dir = dir.join("test-model").join("nested");
         create_dir_all(&model_dir).unwrap();
-        write(model_dir.join("model.gguf"), b"fake").unwrap();
-        let resolved = resolve_gguf(&dir.display().to_string(), "test-model", None, None);
-        assert!(resolved.is_ok());
-        let models = resolved.unwrap();
-        assert_eq!(models.len(), 1);
-        assert_eq!(models[0].name.as_deref(), Some("test-model"));
+        write(model_dir.join("alpha.gguf"), b"alpha").unwrap();
+        write(model_dir.join("beta.gguf"), b"beta").unwrap();
+        let filtered = resolve_gguf(&dir.display().to_string(), "test-model", Some(&["alpha".to_string()]), None).unwrap();
+        let ignored = resolve_gguf(&dir.display().to_string(), "test-model", None, Some(&["alpha".to_string()])).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered[0].path.as_deref().is_some_and(|path| path.ends_with("alpha.gguf")));
+        assert_eq!(ignored.len(), 1);
+        assert!(ignored[0].path.as_deref().is_some_and(|path| path.ends_with("beta.gguf")));
         let _ = remove_dir_all(dir);
     }
     #[test]
@@ -389,19 +663,182 @@ mod tests {
         let _ = remove_dir_all(dir);
     }
     #[test]
-    fn test_resolve_gguf_applies_filter_and_ignore_patterns() {
-        let dir = temp_dir("resolve-gguf-filter");
-        let model_dir = dir.join("test-model").join("nested");
+    fn test_resolve_gguf_finds_files() {
+        let dir = temp_dir("resolve-gguf");
+        let model_dir = dir.join("test-model");
         create_dir_all(&model_dir).unwrap();
-        write(model_dir.join("alpha.gguf"), b"alpha").unwrap();
-        write(model_dir.join("beta.gguf"), b"beta").unwrap();
-        let filtered = resolve_gguf(&dir.display().to_string(), "test-model", Some(&["alpha".to_string()]), None).unwrap();
-        let ignored = resolve_gguf(&dir.display().to_string(), "test-model", None, Some(&["alpha".to_string()])).unwrap();
-        assert_eq!(filtered.len(), 1);
-        assert!(filtered[0].path.as_deref().is_some_and(|path| path.ends_with("alpha.gguf")));
-        assert_eq!(ignored.len(), 1);
-        assert!(ignored[0].path.as_deref().is_some_and(|path| path.ends_with("beta.gguf")));
+        write(model_dir.join("model.gguf"), b"fake").unwrap();
+        let resolved = resolve_gguf(&dir.display().to_string(), "test-model", None, None);
+        assert!(resolved.is_ok());
+        let models = resolved.unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].name.as_deref(), Some("test-model"));
         let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_resolve_models_applies_detailed_filters() {
+        let dir = temp_dir("sync-detailed-filter");
+        let model_dir = dir.join("qwen");
+        create_dir_all(&model_dir).unwrap();
+        write(model_dir.join("qwen-q4.gguf"), b"q4").unwrap();
+        write(model_dir.join("qwen-q8.gguf"), b"q8").unwrap();
+        let configuration = ApplicationConfiguration {
+            models: Some(vec![detailed_model("qwen", Some(vec!["q4".to_string()]))]),
+            ..Default::default()
+        };
+        let resolved = resolve_models(&configuration, &dir).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert!(resolved[0].path.as_deref().is_some_and(|path| path.ends_with("qwen-q4.gguf")));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_resolve_models_fails_for_missing_ambiguous_and_duplicate_models() {
+        let dir = temp_dir("sync-resolution-errors");
+        let ambiguous_dir = dir.join("ambiguous");
+        create_dir_all(&ambiguous_dir).unwrap();
+        write(ambiguous_dir.join("one.gguf"), b"one").unwrap();
+        write(ambiguous_dir.join("two.gguf"), b"two").unwrap();
+        let missing = ApplicationConfiguration {
+            models: Some(vec![ModelEntry::Selector("missing".to_string())]),
+            ..Default::default()
+        };
+        assert!(resolve_models(&missing, &dir).is_err());
+        let missing_direct = ApplicationConfiguration {
+            models: Some(vec![ModelEntry::Selector(dir.join("missing.gguf").display().to_string())]),
+            ..Default::default()
+        };
+        assert!(resolve_models(&missing_direct, &dir).is_err());
+        let ambiguous = ApplicationConfiguration {
+            models: Some(vec![ModelEntry::Selector("ambiguous".to_string())]),
+            ..Default::default()
+        };
+        assert!(resolve_models(&ambiguous, &dir).is_err());
+        let duplicate = ApplicationConfiguration {
+            models: Some(vec![detailed_model("duplicate", None), detailed_model("duplicate", None)]),
+            ..Default::default()
+        };
+        assert!(resolve_models(&duplicate, &dir).is_err());
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_resolve_models_uses_direct_local_gguf_source() {
+        let dir = temp_dir("sync-direct-gguf");
+        create_dir_all(&dir).unwrap();
+        let path = dir.join("direct.gguf");
+        write(&path, b"gguf").unwrap();
+        let configuration = ApplicationConfiguration {
+            models: Some(vec![ModelEntry::Selector(path.display().to_string())]),
+            ..Default::default()
+        };
+        let resolved = resolve_models(&configuration, &dir).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].id.as_deref(), Some("direct"));
+        assert_eq!(resolved[0].path.as_deref(), Some(path.canonicalize().unwrap().to_str().unwrap()));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_shard_candidates_keep_first_complete_shard() {
+        let dir = temp_dir("dedup-shards");
+        create_dir_all(&dir).unwrap();
+        let files = vec![
+            dir.join("model-00001-of-00003.gguf"),
+            dir.join("model-00002-of-00003.gguf"),
+            dir.join("model-00003-of-00003.gguf"),
+            dir.join("standalone.gguf"),
+            dir.join("mixture-of-8.gguf"),
+        ];
+        let candidates = Shards::from(files).candidates().unwrap();
+        assert_eq!(candidates.len(), 3);
+        assert!(candidates.iter().any(|path| path.ends_with("model-00001-of-00003.gguf")));
+        assert!(candidates.iter().any(|path| path.ends_with("mixture-of-8.gguf")));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_shard_candidates_reject_incomplete_set() {
+        let files = vec![PathBuf::from("model-00001-of-00003.gguf"), PathBuf::from("model-00003-of-00003.gguf")];
+        assert!(Shards::from(files).candidates().is_err());
+        assert!(Shards::from(vec![PathBuf::from("model-00004-of-00003.gguf")]).candidates().is_err());
+    }
+    #[test]
+    fn test_sync_rejects_invalid_settings() {
+        let invalid_config = Config {
+            llama_swap: Some(llama_swap::Config {
+                executable: Some(String::new()),
+                ..Default::default()
+            }),
+            opencode: None,
+        };
+        assert!(invalid_config.sync(Options::default()).is_err());
+        let invalid_config = Config {
+            llama_swap: None,
+            opencode: Some(opencode::Config {
+                default_model: Some("missing".to_string()),
+                ..Default::default()
+            }),
+        };
+        let models = [ModelDetails::init().id("qwen").build()];
+        assert!(invalid_config
+            .sync(Options {
+                models: &models,
+                ..Default::default()
+            })
+            .is_err());
+    }
+    #[test]
+    fn test_sync_rejects_reserved_args_and_unknown_overrides() {
+        let reserved_args = Config {
+            llama_swap: Some(llama_swap::Config {
+                extra_args: Some(vec![llama_swap::Argument::from("--model")]),
+                ..Default::default()
+            }),
+            opencode: None,
+        };
+        assert!(reserved_args.sync(Options::default()).is_err());
+        let unknown_override = Config {
+            llama_swap: Some(llama_swap::Config {
+                models: Some([("missing".to_string(), llama_swap::ModelOverride::default())].into_iter().collect()),
+                ..Default::default()
+            }),
+            opencode: None,
+        };
+        let models = [ModelDetails::init().id("qwen").build()];
+        assert!(unknown_override
+            .sync(Options {
+                models: &models,
+                ..Default::default()
+            })
+            .is_err());
+    }
+    #[test]
+    fn test_sync_validation_ignores_unselected_target() {
+        let invalid_llama_swap = Config {
+            llama_swap: Some(llama_swap::Config {
+                executable: Some(String::new()),
+                ..Default::default()
+            }),
+            opencode: Some(opencode::Config::default()),
+        };
+        let invalid_opencode = Config {
+            llama_swap: Some(llama_swap::Config::default()),
+            opencode: Some(opencode::Config {
+                default_model: Some("missing".to_string()),
+                ..Default::default()
+            }),
+        };
+        assert!(invalid_llama_swap
+            .sync(Options {
+                opencode: true,
+                ..Default::default()
+            })
+            .is_ok());
+        assert!(invalid_llama_swap.sync(Options::default()).is_err());
+        assert!(invalid_opencode
+            .sync(Options {
+                llama_swap: true,
+                ..Default::default()
+            })
+            .is_ok());
+        assert!(invalid_opencode.sync(Options::default()).is_err());
     }
     #[test]
     fn test_write_output_creates_parent_directories() {

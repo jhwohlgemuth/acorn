@@ -9,8 +9,7 @@ use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
-use crate::prelude::{self, env, exit, Arc, Path, PathBuf};
-use crate::schema::agent::ModelDetails;
+use crate::prelude::{self, env, exit, Arc, HashSet, PathBuf};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
@@ -23,7 +22,7 @@ use fancy_regex::Regex;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::{error, info};
+use tracing::error;
 
 /// Authentication requirement for a configured model download source
 #[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
@@ -141,6 +140,24 @@ pub enum ModelEntry {
     Selector(String),
     /// Detailed model download entry
     Entry(ModelEntryOptions),
+}
+impl ModelEntry {
+    /// Normalize model entries into unique synchronization requests
+    pub fn requests(entries: &[Self]) -> ApiResult<Vec<sync::ModelRequest>> {
+        entries
+            .iter()
+            .map(sync::ModelRequest::try_from)
+            .try_fold((HashSet::new(), Vec::new()), |(mut identifiers, mut requests), request| {
+                request.and_then(|request| match identifiers.insert(request.id().to_string()) {
+                    | true => {
+                        requests.push(request);
+                        Ok((identifiers, requests))
+                    }
+                    | false => Err(eyre!("Duplicate generated model ID '{}'", request.id())),
+                })
+            })
+            .map(|(_, requests)| requests)
+    }
 }
 /// Runner status for CI/CD pipelines
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
@@ -384,33 +401,6 @@ impl ApplicationConfiguration {
     /// Merge configured synchronization settings with runtime overrides.
     pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
         self.config.clone().unwrap_or_default().merge(overrides)
-    }
-    /// Merge configured synchronization settings with CLI-supported overrides.
-    pub fn resolve_sync_config_cli_overrides(&self, overrides: sync::Config) -> sync::Config {
-        self.config.clone().unwrap_or_default().merge_cli_overrides(overrides)
-    }
-    /// Resolve configured model entries to local GGUF model details.
-    pub fn resolve_models(&self, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
-        let names = self.models.as_ref().map_or_else(Vec::new, |entries| {
-            entries
-                .iter()
-                .map(|entry| match entry {
-                    | ModelEntry::Selector(selector) => selector.trim().to_string(),
-                    | ModelEntry::Entry(options) => options.name.clone(),
-                })
-                .collect::<Vec<_>>()
-        });
-        let models_directory = models_dir.display().to_string();
-        Ok(names
-            .iter()
-            .flat_map(|name| match sync::resolve_gguf(&models_directory, name, None, None) {
-                | Ok(models) => models,
-                | Err(why) => {
-                    info!("{} Skipping model '{}' — {why}", Label::CAUTION, name.yellow());
-                    Vec::new()
-                }
-            })
-            .collect())
     }
     /// Resolve application configuration path
     pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
