@@ -15,7 +15,3 @@
 - [CLI parse and execution models](cli-parse-execution-models.md) - Separate clap parsing from execution options.
 - [Safe path abstraction](safe-path.md) - Centralize normalization and containment.
 - [CLI error boundary](cli-error-boundary.md) - Map internal errors to exit codes in one place.
-
-## Completed
-
-- [Configuration synchronization](config-sync.md) - Update llama-swap and OpenCode configuration from ACORN models.
