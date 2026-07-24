@@ -10,6 +10,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 - [Refactor plans](refactors/) - Reliability, maintainability, extensibility, and portability work.
 - [Migration plans](migrations/) - Changes that replace an existing dependency, architecture, or workflow.
+- [Testing plans](testing/) - CLI test coverage, integration testing, and quality assurance work.
 
 ## Adding a plan
 
