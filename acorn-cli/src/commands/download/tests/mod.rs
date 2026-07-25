@@ -12,8 +12,8 @@ extern crate alloc;
 use super::run;
 use crate::cli::arguments::OutputFormat;
 use crate::test::server::{
-    spawn_huggingface_model_info_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
-    spawn_sidecar_server,
+    spawn_huggingface_model_info_server, spawn_huggingface_model_search_server, spawn_ignored_range_server, spawn_no_range_server,
+    spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server,
 };
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
@@ -305,6 +305,49 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     .await;
     assert!(result.is_ok(), "config-only model resolution should succeed");
     Ok(())
+}
+#[test]
+fn test_download_model_config_skips_unresolved_models() {
+    let temp_dir = temp_test_dir("download_model_config_skips_unresolved");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    let config_path = temp_dir.join(".acorn.json");
+    write(&model_file, b"fake model data").expect("write local model");
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [{{"name": "tiny", "copy": true, "source": {{"provider": "git", "location": "file:{}"}}}}, "openai/gpt-oss-2b"]}}"#,
+            model_file.display().to_string().replace('\\', "/")
+        ),
+    )
+    .expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", None, 2);
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(output_dir.clone()),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            20,
+            false,
+            false,
+            false,
+            &OutputFormat::default(),
+        ))
+    });
+    handle.join().expect("join model search server");
+    assert!(result.is_ok(), "resolved models should download without unresolved model failures");
+    assert!(output_dir.join("tiny").join("tiny.gguf").exists());
 }
 #[tokio::test]
 async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()> {
@@ -1366,4 +1409,45 @@ async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
     let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
     assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
     Ok(())
+}
+#[test]
+fn test_resolve_models_excludes_failed_fallbacks() {
+    let base_model = "openai/gpt-oss-20b";
+    let fallback = "unsloth/gpt-oss-20b-GGUF";
+    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 4);
+    let (plans, resolved) = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+            let entries = vec![
+                ModelEntry::Selector(base_model.to_string()),
+                ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
+            ];
+            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+                .await
+                .expect("resolve model plans");
+            let resolved = super::model::resolve_models(&plans, false, 20).await;
+            (plans, resolved)
+        })
+    });
+    handle.join().expect("join model search server");
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].id.as_deref(), Some(fallback));
+    assert_eq!(resolved[0].fallback.as_deref(), Some(base_model));
+}
+#[test]
+fn test_resolve_models_keeps_direct_gguf_repository() {
+    let identifier = "mozilla/test-llama";
+    let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", Some(identifier), 1);
+    let resolved = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+            let entries = vec![ModelEntry::Selector(identifier.to_string())];
+            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+                .await
+                .expect("resolve model plan");
+            super::model::resolve_models(&plans, false, 20).await
+        })
+    });
+    handle.join().expect("join model metadata server");
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].id.as_deref(), Some(identifier));
+    assert_eq!(resolved[0].fallback, None);
 }

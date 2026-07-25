@@ -277,12 +277,13 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 filter,
                 ignore,
                 dry_run,
+                no_color,
                 merge_request,
                 verbose,
                 ..
             } = arguments.as_ref();
             initialize_database(config).await?;
-            format::run(path, branch, commit, filter, ignore, *dry_run, merge_request, verbose, offline).await
+            format::run(path, branch, commit, filter, ignore, *dry_run, *no_color, merge_request, verbose, offline).await
         }),
         | Some(Commands::Gather(arguments)) => with_runtime(async {
             let arguments::Gather {

@@ -236,7 +236,7 @@ pub enum Commands {
     ///     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
     ///     
     ///     Download using default configuration in current directory (first match):
-    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
+    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
     ///     $> acorn download
     ///
     ///     Download default GGUF (Q4_K_M) model from a Hugging Face repository

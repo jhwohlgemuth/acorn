@@ -10,7 +10,7 @@ use crate::io::{
 use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
 use crate::schema::agent::{self, ModelDetails};
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
-use crate::util::Label;
+use crate::util::{text_diff_changes_with_color, Label};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -20,7 +20,6 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
 use serde_with::skip_serializing_none;
-use similar::TextDiff;
 use tracing::info;
 use validator::Validate;
 
@@ -81,6 +80,8 @@ pub struct Options<'a> {
     pub llama_swap: bool,
     /// Preview configuration without writing files.
     pub dry_run: bool,
+    /// Disable color in dry-run output.
+    pub no_color: bool,
     /// Remove stale managed models.
     pub prune: bool,
 }
@@ -150,12 +151,7 @@ impl Config {
     }
     /// Synchronize all selected configuration targets
     pub fn sync(&self, options: Options<'_>) -> ApiResult<()> {
-        let sync_llama_swap = options.llama_swap || !options.opencode;
-        let sync_opencode = options.opencode || !options.llama_swap;
-        let selected = Self {
-            llama_swap: sync_llama_swap.then(|| self.llama_swap.clone()).flatten(),
-            opencode: sync_opencode.then(|| self.opencode.clone()).flatten(),
-        };
+        let selected = self.selected(&options);
         let model_ids = options.models.iter().filter_map(|model| model.id.as_ref()).cloned().collect::<Vec<_>>();
         Validate::validate(&selected)
             .map_err(|why| eyre!("Invalid synchronization configuration: {why}"))
@@ -180,12 +176,16 @@ impl Config {
                     info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
                     Ok(())
                 }
-                | false => sync_llama_swap
-                    .then(|| self.render_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
+                | false => selected
+                    .llama_swap
+                    .is_some()
+                    .then(|| selected.render_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
                     .transpose()
                     .and_then(|llama_swap_output| {
-                        sync_opencode
-                            .then(|| self.render_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
+                        selected
+                            .opencode
+                            .is_some()
+                            .then(|| selected.render_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
                             .transpose()
                             .and_then(|opencode_output| {
                                 let outputs = [llama_swap_output, opencode_output].into_iter().flatten().collect::<Vec<_>>();
@@ -193,13 +193,18 @@ impl Config {
                                     | true => {
                                         outputs.iter().for_each(|output| {
                                             let path = output.path.display().to_string();
-                                            let diff = TextDiff::from_lines(&output.before, &output.content)
-                                                .unified_diff()
-                                                .header(&path, &path)
-                                                .to_string();
-                                            match diff.is_empty() {
-                                                | true => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
-                                                | false => println!("{diff}"),
+                                            match (output.before == output.content, options.no_color) {
+                                                | (true, true) => info!("=> {} No changes for {path}", Label::CAUTION),
+                                                | (true, false) => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
+                                                | (false, _) => {
+                                                    match options.no_color {
+                                                        | true => println!("\n{path}"),
+                                                        | false => println!("\n{}", path.cyan().bold()),
+                                                    }
+                                                    text_diff_changes_with_color(&output.before, &output.content, !options.no_color)
+                                                        .iter()
+                                                        .for_each(|(_, line)| print!("{line}"));
+                                                }
                                             }
                                         });
                                         info!("=> {} Dry run complete — no files were modified", Label::pass());
@@ -215,6 +220,14 @@ impl Config {
                             })
                     }),
             })
+    }
+    fn selected(&self, options: &Options<'_>) -> Self {
+        let sync_llama_swap = options.llama_swap || !options.opencode;
+        let sync_opencode = options.opencode || !options.llama_swap;
+        Self {
+            llama_swap: sync_llama_swap.then(|| self.llama_swap.clone().unwrap_or_default()),
+            opencode: sync_opencode.then(|| self.opencode.clone().unwrap_or_default()),
+        }
     }
     fn commit(outputs: &[RenderedOutput]) -> ApiResult<Vec<PathBuf>> {
         let changed = outputs.iter().filter(|output| output.before != output.content).collect::<Vec<_>>();
@@ -393,7 +406,8 @@ impl ModelRequest {
                 ..Default::default()
             })
     }
-    pub(crate) fn id(&self) -> &str {
+    /// Return the configured model identifier.
+    pub fn id(&self) -> &str {
         &self.id
     }
     fn is_gguf(path: &Path) -> bool {
@@ -776,7 +790,7 @@ mod tests {
         let _ = remove_dir_all(dir);
     }
     #[test]
-    fn test_dry_run_diff_is_unified_and_creates_no_directories() {
+    fn test_dry_run_diff_is_colored_and_creates_no_directories() {
         let dir = temp_dir("sync-dry-run");
         let config = Config {
             llama_swap: Some(llama_swap::Config {
@@ -796,13 +810,17 @@ mod tests {
                 ..Default::default()
             })
             .unwrap();
-        let path = output.path.display().to_string();
-        let diff = TextDiff::from_lines(&output.before, &output.content)
-            .unified_diff()
-            .header(&path, &path)
-            .to_string();
-        assert!(diff.starts_with("--- "));
-        assert!(diff.contains("+++ "));
+        let changes = text_diff_changes_with_color(&output.before, &output.content, true);
+        assert!(changes
+            .iter()
+            .any(|(tag, line)| *tag == similar::ChangeTag::Insert && line.contains("+ models:")));
+        assert!(changes
+            .iter()
+            .filter(|(tag, _)| *tag == similar::ChangeTag::Insert)
+            .all(|(_, line)| line.contains("\u{1b}[32m")));
+        assert!(text_diff_changes_with_color(&output.before, &output.content, false)
+            .iter()
+            .all(|(_, line)| !line.contains('\u{1b}')));
         assert!(config
             .sync(Options {
                 models: &models,
@@ -998,6 +1016,25 @@ mod tests {
             .is_ok());
         assert_eq!(first, (read_to_string(&llama_path).unwrap(), read_to_string(&opencode_path).unwrap()));
         let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_sync_selected_targets_use_defaults_when_unconfigured() {
+        let config = Config::default();
+        let both = config.selected(&Options::default());
+        assert!(both.llama_swap.is_some());
+        assert!(both.opencode.is_some());
+        let llama_swap = config.selected(&Options {
+            llama_swap: true,
+            ..Default::default()
+        });
+        assert!(llama_swap.llama_swap.is_some());
+        assert!(llama_swap.opencode.is_none());
+        let opencode = config.selected(&Options {
+            opencode: true,
+            ..Default::default()
+        });
+        assert!(opencode.llama_swap.is_none());
+        assert!(opencode.opencode.is_some());
     }
     #[test]
     fn test_sync_rejects_invalid_settings() {

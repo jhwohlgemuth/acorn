@@ -44,6 +44,18 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
 }
 #[test]
+fn test_text_diff_changes_without_color_has_no_ansi_sequences() {
+    let changes = text_diff_changes_with_color("old\n", "new\n", false);
+    assert_eq!(
+        changes,
+        vec![
+            (similar::ChangeTag::Delete, "- old\n".to_string()),
+            (similar::ChangeTag::Insert, "+ new\n".to_string())
+        ]
+    );
+    assert!(changes.iter().all(|(_, line)| !line.contains('\u{1b}')));
+}
+#[test]
 fn test_last_values() {
     let values: Vec<String> = Constant::last_values("technology").collect();
     assert!(!values.is_empty());

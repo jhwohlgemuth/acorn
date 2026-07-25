@@ -504,6 +504,9 @@ pub(crate) struct Format {
     /// Run format without making changes to target file(s). Will print a diff of changes.
     #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+    /// Disable color in dry-run output
+    #[arg(long = "no-color", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) no_color: bool,
     /// Regex pattern applied to absolute paths of files to include in formatting process
     ///
     /// Only files matching the pattern will be processed
@@ -652,6 +655,9 @@ pub(crate) struct Sync {
     /// Preview changes without writing any files
     #[arg(long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+    /// Disable color in dry-run output
+    #[arg(long = "no-color", value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) no_color: bool,
     /// Remove stale managed models from target configurations
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) prune: bool,

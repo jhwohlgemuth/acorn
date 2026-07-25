@@ -555,9 +555,11 @@ impl Label {
     /// Template string for progress counter (simple X of Y)
     pub const PROGRESS_COUNTER_TEMPLATE: &str = "{pos:>5} of{len:^5} {msg}";
     /// "Dry run" label
+    pub const DRY_RUN: &str = " DRY_RUN ■ ";
+    /// Styled "dry run" label
     pub fn dry_run() -> Styled<&'static &'static str> {
         let style = Style::new().black().on_yellow();
-        " DRY_RUN ■ ".style(style)
+        Self::DRY_RUN.style(style)
     }
     /// "Invalid" label
     pub fn invalid() -> String {
@@ -1216,7 +1218,11 @@ where
 /// present in `new` but not `old`, `-` indicating lines that are present in `old` but
 /// not `new`, and lines that are the same in both are prefixed with a space.
 pub fn print_changes(old: &str, new: &str) {
-    let changes = text_diff_changes(old, new);
+    print_changes_with_color(old, new, true);
+}
+/// Prints a diff of changes between two strings, optionally using ANSI colors.
+pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
+    let changes = text_diff_changes_with_color(old, new, color);
     let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
     if has_no_changes {
         skip!("No format changes");
@@ -1414,14 +1420,21 @@ where
 ///
 /// A vector of tuples, each containing a `ChangeTag` and a formatted `String` representing the changes.
 pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
+    text_diff_changes_with_color(old, new, true)
+}
+/// Returns line-oriented diff changes, optionally formatted with ANSI colors.
+pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(ChangeTag, String)> {
     TextDiff::from_lines(old, new)
         .iter_all_changes()
         .map(|line| {
             let tag = line.tag();
-            let text = match tag {
-                | Delete => format!("- {line}").red().to_string(),
-                | Insert => format!("+ {line}").green().to_string(),
-                | Equal => format!("  {line}").dimmed().to_string(),
+            let text = match (color, tag) {
+                | (true, Delete) => format!("- {line}").red().to_string(),
+                | (true, Insert) => format!("+ {line}").green().to_string(),
+                | (true, Equal) => format!("  {line}").dimmed().to_string(),
+                | (false, Delete) => format!("- {line}"),
+                | (false, Insert) => format!("+ {line}"),
+                | (false, Equal) => format!("  {line}"),
             };
             (tag, text)
         })

@@ -80,6 +80,46 @@ pub(crate) fn spawn_huggingface_model_info_server(identifier: &str, base_model: 
     });
     (endpoint, handle)
 }
+/// Spawn a local Hugging Face server for direct GGUF and fallback model resolution.
+pub(crate) fn spawn_huggingface_model_search_server(
+    identifier: &str,
+    base_model: &str,
+    direct_gguf: Option<&str>,
+    requests: usize,
+) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind model search server");
+    let endpoint = format!("http://{}", listener.local_addr().expect("model search server address"));
+    let identifier = identifier.to_string();
+    let base_model = base_model.to_string();
+    let direct_gguf = direct_gguf.map(str::to_string);
+    let search_term = base_model.rsplit('/').next().unwrap_or_default().to_string();
+    let handle = thread::spawn(move || {
+        for stream in listener.incoming().take(requests) {
+            let mut stream = stream.expect("accept model search request");
+            let parsed = parse_request(&mut stream);
+            let body = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
+                format!(r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{base_model}"]}}]"#)
+            } else if parsed.path.starts_with("/api/models?") {
+                "[]".to_string()
+            } else if direct_gguf
+                .as_ref()
+                .is_some_and(|direct| parsed.path.starts_with(format!("/api/models/{direct}").as_str()))
+            {
+                let direct = direct_gguf.as_deref().unwrap_or_default();
+                format!(r#"{{"id":"{direct}","siblings":[{{"rfilename":"tiny-llama.gguf"}}]}}"#)
+            } else {
+                let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
+                format!(r#"{{"id":"{model}","siblings":[]}}"#)
+            };
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).expect("write model search response");
+        }
+    });
+    (endpoint, handle)
+}
 /// Spawn a local HTTP server that supports HEAD plus full and range GET responses for `/model.gguf`.
 pub(crate) fn spawn_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");

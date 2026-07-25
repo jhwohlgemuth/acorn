@@ -64,6 +64,8 @@ pub trait HuggingFaceRepository {
 }
 /// Extension trait for Hugging Face model metadata
 pub trait ModelInfoExtension {
+    /// Determine whether a Hugging Face model repository contains GGUF files
+    fn has_gguf_files(&self) -> bool;
     /// Determine whether a Hugging Face model declares a given model as its base model
     fn is_declared_derivative_of(&self, identifier: &str) -> bool;
 }
@@ -402,6 +404,11 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
     }
 }
 impl ModelInfoExtension for ModelInfo {
+    fn has_gguf_files(&self) -> bool {
+        self.siblings
+            .as_ref()
+            .is_some_and(|siblings| siblings.iter().any(|file| file.rfilename.to_ascii_lowercase().ends_with(".gguf")))
+    }
     fn is_declared_derivative_of(&self, identifier: &str) -> bool {
         let declares_base_model = self
             .base_models
@@ -499,7 +506,12 @@ pub async fn fetch_model_info(provider: &str, name: &str) -> ApiResult<ModelInfo
         | Ok(client) => client
             .model(provider, name)
             .info()
-            .expand(vec!["baseModels".to_string(), "cardData".to_string(), "tags".to_string()])
+            .expand(vec![
+                "baseModels".to_string(),
+                "cardData".to_string(),
+                "siblings".to_string(),
+                "tags".to_string(),
+            ])
             .send()
             .await
             .map_err(|why| eyre!("Failed to read Hugging Face metadata for '{provider}/{name}' — {why}")),
@@ -565,7 +577,7 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
                     | Ok(models) => {
                         let mut candidates = models
                             .into_iter()
-                            .filter(|model| model.is_declared_derivative_of(identifier))
+                            .filter(|model| model.id.eq_ignore_ascii_case(identifier) || model.is_declared_derivative_of(identifier))
                             .map(Candidate::from)
                             .collect::<Vec<_>>();
                         candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
@@ -632,6 +644,13 @@ mod tests {
         serde_json::from_value(value).unwrap()
     }
 
+    #[test]
+    fn test_has_gguf_files() {
+        let gguf = model(json!({"id": "mozilla/test-llama", "siblings": [{"rfilename": "tiny-llama.gguf"}]}));
+        assert!(gguf.has_gguf_files());
+        let non_gguf = model(json!({"id": "openai/gpt-oss-20b", "siblings": [{"rfilename": "model.safetensors"}]}));
+        assert!(!non_gguf.has_gguf_files());
+    }
     #[test]
     fn test_is_declared_derivative() {
         let candidate = model(json!({"id": "community/quantized", "baseModels": ["OpenAI/GPT-OSS-2B"]}));

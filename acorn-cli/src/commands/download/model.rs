@@ -94,104 +94,119 @@ pub async fn run(
                             };
                             error!("=> {} {msg}", Label::fail());
                             Err(eyre!(msg))
-                        } else if dry_run {
-                            let models = resolve_models(&selectors, offline, gguf_search_limit).await;
-                            if raw {
-                                output_raw(&models, format)
-                            } else {
-                                info!(
-                                    "=> {} {} model{} resolved",
-                                    Label::run(),
-                                    models.len().cyan().bold(),
-                                    suffix(models.len())
-                                );
-                                for details in models {
-                                    let (id, context) = details.report();
-                                    match context {
-                                        | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
-                                        | None => info!("  {} {}", "→".cyan(), id.green()),
-                                    }
-                                }
-                                Ok(())
-                            }
                         } else {
-                            match output.clone().map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok) {
-                                | Ok(root) => {
-                                    let mut success_count = 0usize;
-                                    let mut failure_count = 0usize;
-                                    let mut results: Vec<ModelDetails> = Vec::new();
-                                    for plan in &selectors {
-                                        let filter = merge(&plan.filter, Some(filter));
-                                        let ignore = merge(&plan.ignore, Some(ignore));
-                                        let options = CommandOptions::init()
-                                            .selector(plan.selector.clone())
-                                            .maybe_action(match &plan.selector {
-                                                | Source::Local { action, .. } => *action,
-                                                | _ => plan.action,
-                                            })
-                                            .output(root.clone())
-                                            .maybe_database_path(database_path.clone())
-                                            .offline(offline)
-                                            .no_fallback(no_fallback)
-                                            .gguf_search_limit(gguf_search_limit)
-                                            .interactive(interactive)
-                                            .quiet(quiet || raw)
-                                            .skip_verify_checksum(skip_verify_checksum)
-                                            .maybe_filter(regex_join(&filter))
-                                            .maybe_ignore(regex_join(&ignore))
-                                            .build();
-                                        match plan.execute(options).await {
-                                            | Ok(resolved_id) => {
-                                                success_count = success_count.saturating_add(1);
-                                                let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
-                                                results.push(details);
-                                            }
-                                            | Err(why) => {
-                                                failure_count = failure_count.saturating_add(1);
-                                                error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
-                                            }
+                            let models = resolve_models(&selectors, offline, gguf_search_limit).await;
+                            if dry_run {
+                                if raw {
+                                    output_raw(&models, format)
+                                } else {
+                                    info!(
+                                        "=> {} {} model{} resolved",
+                                        Label::run(),
+                                        models.len().cyan().bold(),
+                                        suffix(models.len())
+                                    );
+                                    for details in models {
+                                        let (id, context) = details.report();
+                                        match context {
+                                            | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
+                                            | None => info!("  {} {}", "→".cyan(), id.green()),
                                         }
                                     }
-                                    if raw {
-                                        output_raw(&results, format)
-                                    } else {
-                                        if !quiet {
-                                            let local_count = selectors.iter().filter(|plan| plan.selector.is_local()).count();
-                                            let remote_count = selectors.len().saturating_sub(local_count);
-                                            let parts = [(local_count, "local"), (remote_count, "remote")]
-                                                .into_iter()
-                                                .filter(|(count, _)| *count > 0)
-                                                .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
-                                                .collect::<Vec<_>>();
-                                            info!(
-                                                "=> {} {} model{} to download ({})",
-                                                Label::run(),
-                                                selectors.len().cyan().bold(),
-                                                suffix(selectors.len()),
-                                                parts.join(", ")
-                                            );
-                                            for plan in selectors {
-                                                info!("  {} {}", "→".cyan(), plan.selector.green());
+                                    Ok(())
+                                }
+                            } else {
+                                let resolved = models
+                                    .iter()
+                                    .filter_map(|details| details.fallback.as_ref().or(details.id.as_ref()))
+                                    .map(String::as_str)
+                                    .collect::<HashSet<_>>();
+                                let plans = selectors
+                                    .into_iter()
+                                    .filter(|plan| resolved.contains(plan.selector.identifier().as_str()))
+                                    .collect::<Vec<_>>();
+                                if plans.is_empty() {
+                                    Err(eyre!("No models resolved"))
+                                } else {
+                                    match output.clone().map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok) {
+                                        | Ok(root) => {
+                                            let mut success_count = 0usize;
+                                            let mut failure_count = 0usize;
+                                            let mut results: Vec<ModelDetails> = Vec::new();
+                                            for plan in &plans {
+                                                let filter = merge(&plan.filter, Some(filter));
+                                                let ignore = merge(&plan.ignore, Some(ignore));
+                                                let options = CommandOptions::init()
+                                                    .selector(plan.selector.clone())
+                                                    .maybe_action(match &plan.selector {
+                                                        | Source::Local { action, .. } => *action,
+                                                        | _ => plan.action,
+                                                    })
+                                                    .output(root.clone())
+                                                    .maybe_database_path(database_path.clone())
+                                                    .offline(offline)
+                                                    .no_fallback(no_fallback)
+                                                    .gguf_search_limit(gguf_search_limit)
+                                                    .interactive(interactive)
+                                                    .quiet(quiet || raw)
+                                                    .skip_verify_checksum(skip_verify_checksum)
+                                                    .maybe_filter(regex_join(&filter))
+                                                    .maybe_ignore(regex_join(&ignore))
+                                                    .build();
+                                                match plan.execute(options).await {
+                                                    | Ok(resolved_id) => {
+                                                        success_count = success_count.saturating_add(1);
+                                                        let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
+                                                        results.push(details);
+                                                    }
+                                                    | Err(why) => {
+                                                        failure_count = failure_count.saturating_add(1);
+                                                        error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
+                                                    }
+                                                }
+                                            }
+                                            if raw {
+                                                output_raw(&results, format)
+                                            } else {
+                                                if !quiet {
+                                                    let local_count = plans.iter().filter(|plan| plan.selector.is_local()).count();
+                                                    let remote_count = plans.len().saturating_sub(local_count);
+                                                    let parts = [(local_count, "local"), (remote_count, "remote")]
+                                                        .into_iter()
+                                                        .filter(|(count, _)| *count > 0)
+                                                        .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
+                                                        .collect::<Vec<_>>();
+                                                    info!(
+                                                        "=> {} {} model{} to download ({})",
+                                                        Label::run(),
+                                                        plans.len().cyan().bold(),
+                                                        suffix(plans.len()),
+                                                        parts.join(", ")
+                                                    );
+                                                    for plan in plans {
+                                                        info!("  {} {}", "→".cyan(), plan.selector.green());
+                                                    }
+                                                }
+                                                super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
+                                                if failure_count > 0 {
+                                                    Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
+                                                } else {
+                                                    if !quiet {
+                                                        println!(
+                                                            "\n\n   => {} Resolved {} model{} to {}\n",
+                                                            Label::pass(),
+                                                            success_count.green(),
+                                                            suffix(success_count),
+                                                            root.display()
+                                                        );
+                                                    }
+                                                    Ok(())
+                                                }
                                             }
                                         }
-                                        super::log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
-                                        if failure_count > 0 {
-                                            Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
-                                        } else {
-                                            if !quiet {
-                                                println!(
-                                                    "\n\n   => {} Resolved {} model{} to {}\n",
-                                                    Label::pass(),
-                                                    success_count.green(),
-                                                    suffix(success_count),
-                                                    root.display()
-                                                );
-                                            }
-                                            Ok(())
-                                        }
+                                        | Err(why) => Err(why),
                                     }
                                 }
-                                | Err(why) => Err(why),
                             }
                         }
                     }
@@ -691,37 +706,50 @@ pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, l
         let plan = plan.clone();
         async move {
             match &plan.selector {
-                | Source::Remote { identifier, .. } if !offline => {
+                | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
                     let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
-                    match huggingface::search(identifier, None, Some(limit)).await {
-                        | Ok(candidates) => {
-                            let options = huggingface::Options::init()
-                                .identifier(identifier.clone())
-                                .offline(offline)
-                                .search_limit(limit)
-                                .quiet(true)
-                                .build();
-                            match candidates.select(&options) {
-                                | Ok(resolved) if resolved != *identifier => base.with_id(&resolved).with_fallback(identifier),
-                                | Ok(_) => base,
-                                | Err(why) => {
-                                    error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
-                                    base
+                    match huggingface::parse_identifier(identifier) {
+                        | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
+                            | Ok(info) if info.has_gguf_files() => Some(base),
+                            | Ok(_) => match huggingface::search(identifier, None, Some(limit)).await {
+                                | Ok(candidates) => {
+                                    let options = huggingface::Options::init()
+                                        .identifier(identifier.clone())
+                                        .offline(offline)
+                                        .search_limit(limit)
+                                        .quiet(true)
+                                        .build();
+                                    match candidates.select(&options) {
+                                        | Ok(resolved) if resolved != *identifier => Some(base.with_id(&resolved).with_fallback(identifier)),
+                                        | Ok(_) => Some(base),
+                                        | Err(why) => {
+                                            error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
+                                            None
+                                        }
+                                    }
                                 }
+                                | Err(why) => {
+                                    error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
+                                    None
+                                }
+                            },
+                            | Err(why) => {
+                                error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                                None
                             }
-                        }
+                        },
                         | Err(why) => {
-                            error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
-                            base
+                            error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                            None
                         }
                     }
                 }
-                | _ => ModelDetails::from(&plan),
+                | _ => Some(ModelDetails::from(&plan)),
             }
         }
     }))
     .await;
-    results
+    results.into_iter().flatten().collect()
 }
 async fn resolve_positional_plan(
     selector: &str,

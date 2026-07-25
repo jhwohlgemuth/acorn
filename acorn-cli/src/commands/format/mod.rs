@@ -4,7 +4,7 @@ use acorn::fail;
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{print_changes, Label, MimeType, StringConversion};
+use acorn::util::{print_changes_with_color, Label, MimeType, StringConversion};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
@@ -19,6 +19,7 @@ pub async fn run(
     filter: &Option<String>,
     ignore: &Option<String>,
     dry_run: bool,
+    no_color: bool,
     merge_request: &bool,
     verbose: &Verbosity,
     offline: bool,
@@ -59,15 +60,19 @@ pub async fn run(
                         })
                         .and_then(|(old_content, new_content)| {
                             if dry_run {
-                                println!("{} Format {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
+                                let path = path.clone().to_absolute_string();
+                                match no_color {
+                                    | true => println!("{} Format {path}", Label::DRY_RUN),
+                                    | false => println!("{} Format {}", Label::dry_run(), path.yellow()),
+                                }
                             }
                             match verbose.log_level() {
                                 | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
-                                    print_changes(&old_content, &new_content);
+                                    print_changes_with_color(&old_content, &new_content, !no_color);
                                 }
                                 | _ => {
                                     if dry_run {
-                                        print_changes(&old_content, &new_content);
+                                        print_changes_with_color(&old_content, &new_content, !no_color);
                                     }
                                 }
                             }

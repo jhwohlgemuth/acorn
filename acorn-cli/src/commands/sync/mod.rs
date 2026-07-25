@@ -1,9 +1,32 @@
 use crate::cli::{arguments, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
-use acorn::io::sync::{self, Config};
+use acorn::io::sync::{self, Config, ModelRequest};
+use acorn::io::ApiResult;
+use acorn::prelude::Path;
+use acorn::schema::agent::ModelDetails;
 use acorn::util::Label;
-use tracing::info;
+use tracing::{info, warn};
 
+struct ModelEntries(Vec<ModelEntry>);
+impl ModelEntries {
+    fn resolve(&self, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
+        ModelEntry::requests(&self.0).map(|requests| {
+            requests
+                .into_iter()
+                .filter_map(|request: ModelRequest| {
+                    let id = request.id().to_string();
+                    match request.resolve(models_dir) {
+                        | Ok(model) => Some(model),
+                        | Err(why) => {
+                            warn!("{} Skipping model '{id}' — {why}", Label::CAUTION);
+                            None
+                        }
+                    }
+                })
+                .collect()
+        })
+    }
+}
 /// Synchronize local inference configuration from ACORN model entries
 pub async fn run(args: &arguments::Sync) -> Void {
     let &arguments::Sync {
@@ -12,6 +35,7 @@ pub async fn run(args: &arguments::Sync) -> Void {
         llama_swap,
         ref models_dir,
         dry_run,
+        no_color,
         prune,
         ..
     } = args;
@@ -25,21 +49,18 @@ pub async fn run(args: &arguments::Sync) -> Void {
         let sync_config = configuration.config.clone().unwrap_or_default().merge_cli_overrides(overrides);
         sync_config.resolve_models_dir(models_dir.as_deref()).and_then(|models_dir| {
             info!("{} Resolving models from configuration", Label::run());
-            ModelEntry::requests(configuration.models.as_deref().unwrap_or_default()).and_then(|requests| {
-                requests
-                    .into_iter()
-                    .map(|request| request.resolve(&models_dir))
-                    .collect::<Result<Vec<_>, _>>()
-                    .and_then(|resolved| {
-                        sync_config.sync(sync::Options {
-                            models: &resolved,
-                            opencode,
-                            llama_swap,
-                            dry_run,
-                            prune,
-                        })
+            ModelEntries(configuration.models.unwrap_or_default())
+                .resolve(&models_dir)
+                .and_then(|resolved| {
+                    sync_config.sync(sync::Options {
+                        models: &resolved,
+                        opencode,
+                        llama_swap,
+                        dry_run,
+                        no_color,
+                        prune,
                     })
-            })
+                })
         })
     })
 }
@@ -71,8 +92,24 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::*;
-    use acorn::prelude::PathBuf;
+    use crate::test::util::{temp_test_dir, TestCleanup};
+    use acorn::prelude::{create_dir_all, write, PathBuf};
 
+    #[test]
+    fn test_resolve_models_skips_unresolved_entries() {
+        let models_dir = temp_test_dir("sync_skip_unresolved");
+        let _cleanup = TestCleanup::new(models_dir.clone());
+        let model_dir = models_dir.join("mozilla").join("test-llama");
+        create_dir_all(&model_dir).unwrap();
+        write(model_dir.join("tiny-llama.gguf"), b"model").unwrap();
+        let entries = vec![
+            ModelEntry::Selector("mozilla/test-llama".to_string()),
+            ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
+        ];
+        let resolved = ModelEntries(entries).resolve(&models_dir).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].id.as_deref(), Some("mozilla/test-llama"));
+    }
     #[test]
     fn test_resolve_sync_config_preserves_llama_swap_values_with_path_overrides() {
         let configuration = ApplicationConfiguration {
@@ -95,6 +132,7 @@ mod tests {
             opencode_config: None,
             llama_swap_config: Some(PathBuf::from("cli.yaml")),
             dry_run: false,
+            no_color: false,
             prune: false,
             verbose: clap_verbosity_flag::Verbosity::new(0, 0),
         };
@@ -134,6 +172,7 @@ mod tests {
             opencode_config: Some(PathBuf::from("cli.jsonc")),
             llama_swap_config: None,
             dry_run: false,
+            no_color: false,
             prune: false,
             verbose: clap_verbosity_flag::Verbosity::new(0, 0),
         };

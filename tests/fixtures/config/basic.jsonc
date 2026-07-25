@@ -1,0 +1,7 @@
+{
+    "models": [
+        // "openai/gpt-oss-20b",
+        "mozilla/test-llama",
+        "openai/gpt-oss-2b"
+    ]
+}

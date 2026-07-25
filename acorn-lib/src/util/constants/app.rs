@@ -51,7 +51,7 @@ pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 /// Default ACORN configuration filenames searched in the current working directory.
-pub const DEFAULT_CONFIG_FILENAMES: [&str; 4] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"];
+pub const DEFAULT_CONFIG_FILENAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn"];
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 /// Default affiliation.

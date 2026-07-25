@@ -100,6 +100,25 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
 }
 #[test]
+fn test_no_color_flags_for_dry_run_diffs() {
+    let arguments = Arguments::try_parse_from(["acorn", "format", "--dry-run", "--no-color"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Format(arguments)) => {
+            assert!(arguments.dry_run);
+            assert!(arguments.no_color);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let arguments = Arguments::try_parse_from(["acorn", "sync", "--dry-run", "--no-color"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Sync(arguments)) => {
+            assert!(arguments.dry_run);
+            assert!(arguments.no_color);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_download_model_gguf_fallback_arguments() {
     let arguments = Arguments::try_parse_from([
         "acorn",

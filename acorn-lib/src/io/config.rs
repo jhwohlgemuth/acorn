@@ -394,9 +394,12 @@ pub struct WhitelistLookup {
     pub models: Option<Vec<String>>,
 }
 impl ApplicationConfiguration {
-    /// Load resolved application configuration or return the default configuration.
+    /// Load explicit or discovered application configuration, rejecting a missing explicit path.
     pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
-        Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read)
+        match path {
+            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
+            | _ => Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read),
+        }
     }
     /// Merge configured synchronization settings with runtime overrides.
     pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
@@ -474,11 +477,14 @@ impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON, JSONC, or YAML)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
-        match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-            | MimeType::Yaml => Self::read_yaml(source.clone()),
-            | _ => Err(eyre!("Unsupported configuration file extension")),
+        match source.file_name().and_then(|name| name.to_str()) {
+            | Some(".acorn") => Self::read_jsonc(source),
+            | _ => match MimeType::from_path(&source) {
+                | MimeType::Json => Self::read_json(source.clone()),
+                | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+                | MimeType::Yaml => Self::read_yaml(source.clone()),
+                | _ => Err(eyre!("Unsupported configuration file extension")),
+            },
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
@@ -542,10 +548,13 @@ impl InputOutput for ApplicationConfiguration {
     /// JSONC files are written as strict JSON (no comments generated).
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
-        match MimeType::from_path(&target) {
-            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-            | MimeType::Yaml => self.write_yaml(&target),
-            | _ => Err(eyre!("Unsupported configuration file extension")),
+        match target.file_name().and_then(|name| name.to_str()) {
+            | Some(".acorn") => self.write_json(&target),
+            | _ => match MimeType::from_path(&target) {
+                | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+                | MimeType::Yaml => self.write_yaml(&target),
+                | _ => Err(eyre!("Unsupported configuration file extension")),
+            },
         }
     }
     /// Write configuration as JSON to specified path
@@ -968,6 +977,16 @@ mod tests {
     }
 
     #[test]
+    fn test_load_rejects_missing_explicit_path() {
+        let missing = temp_resolve_dir("load-missing").join("missing.json");
+        let result = ApplicationConfiguration::load(&Some(missing.clone()));
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Configuration file does not exist — {}", missing.display())
+        );
+    }
+    #[test]
     fn test_resolve_returns_explicit_existing_path() {
         let directory = temp_resolve_dir("resolve-explicit");
         create_dir_all(&directory).unwrap();
@@ -992,6 +1011,18 @@ mod tests {
         let resolved = ApplicationConfiguration::resolve(&Some(directory.join("missing.json")));
         env::set_current_dir(previous).unwrap();
         assert_eq!(resolved, Some(default));
+        let _ = remove_dir_all(directory);
+    }
+    #[test]
+    fn test_extensionless_config_is_last_and_read_as_jsonc() {
+        assert_eq!(DEFAULT_CONFIG_FILENAMES.last(), Some(&".acorn"));
+        let directory = temp_resolve_dir("extensionless-jsonc");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let extensionless = directory.join(".acorn");
+        write(&extensionless, "{\n  // Comment\n}\n").unwrap();
+        let config = ApplicationConfiguration::read(extensionless.clone()).unwrap();
+        assert!(config.write(extensionless).is_ok());
         let _ = remove_dir_all(directory);
     }
     #[test]

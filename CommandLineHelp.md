@@ -300,7 +300,7 @@ Download research activity data from buckets or model weights for local inferenc
     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
     
     Download using default configuration in current directory (first match):
-    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
+    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
     $> acorn download
 
     Download default GGUF (Q4_K_M) model from a Hugging Face repository
@@ -504,6 +504,7 @@ Formats research activity data in place (inherently includes some elements of `a
 * `-b`, `--branch <BRANCH>` — Format files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
+* `--no-color` — Disable color in dry-run output
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process
 
    Only files matching the pattern will be processed
@@ -734,6 +735,7 @@ Synchronize local inference configuration from ACORN model entries
 * `--opencode-config <PATH>` — Path to OpenCode configuration file (overrides config)
 * `--llama-swap-config <PATH>` — Path to llama-swap configuration file (overrides config)
 * `--dry-run` [alias: `what-if`] — Preview changes without writing any files
+* `--no-color` — Disable color in dry-run output
 * `--prune` — Remove stale managed models from target configurations
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
