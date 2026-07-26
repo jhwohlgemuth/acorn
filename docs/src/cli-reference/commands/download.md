@@ -37,6 +37,84 @@ acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
 acorn download model --config .acorn.json
 ```
 
+### Model Whitelists
+
+A model whitelist restricts downloads to matching user-facing model names. Whitelist entries from the application configuration are combined with values supplied through `--whitelist` and `--whitelist-file`. An empty whitelist does not restrict downloads.
+
+Configure an inline whitelist with `whitelist.models`:
+
+```json
+{
+    "models": [
+        "openai/gpt-oss-20b",
+        "meta-llama/Llama-3.1-8B",
+        "https://huggingface.co/Qwen/Qwen3-8B"
+    ],
+    "whitelist": {
+        "models": [
+            "openai/gpt-oss-20b",
+            "https://huggingface.co/Qwen/Qwen3-8B"
+        ]
+    }
+}
+```
+
+The `models` value in the `whitelist` object accepts either one string or an array of strings:
+
+- One HTTP or HTTPS URL is treated as a remote whitelist document and fetched when the command runs.
+- An array is treated as inline whitelist entries. Each string may be a model name, model ID, or model URL. URLs inside an array are entries and are not fetched as nested whitelist documents.
+- One non-URL string is treated as one inline whitelist entry.
+
+For example, this configuration loads the whitelist from a remote document:
+
+```json
+{
+    "models": [
+        "openai/gpt-oss-20b",
+        "meta-llama/Llama-3.1-8B"
+    ],
+    "whitelist": {
+        "models": "https://example.org/acorn/models.json"
+    }
+}
+```
+
+The remote document may contain one model-details JSON object with a `name` or `id`:
+
+```json
+{
+    "name": "openai/gpt-oss-20b"
+}
+```
+
+It may instead contain a JSON array of model names, IDs, or URLs:
+
+```json
+[
+    "openai/gpt-oss-20b",
+    "meta-llama/Llama-3.1-8B",
+    "https://huggingface.co/Qwen/Qwen3-8B"
+]
+```
+
+An array of model-details objects is also accepted:
+
+```json
+[
+    {
+        "name": "gpt-oss",
+        "id": "openai/gpt-oss-20b"
+    },
+    {
+        "id": "meta-llama/Llama-3.1-8B"
+    }
+]
+```
+
+For model-details objects, ACORN uses `name` when present and otherwise uses `id`. At least one of these fields is required. YAML arrays and newline-separated plain-text entries are also supported.
+
+Remote whitelist documents cannot be loaded with `--offline`. Use `--whitelist-file <URI_OR_PATH>` when the whitelist document is a local path or `file://` URI. An explicitly supplied configuration path must exist; otherwise, ACORN reports `Configuration file does not exist`.
+
 ### Filter and Ignore Semantics
 
 The `--filter` flag behaves as an **include** rule: only sources matching at least one pattern will be downloaded. The `--ignore` flag behaves as an **exclude** rule: sources matching any ignore pattern are excluded even if they match a filter pattern. Both flags accept regular expression patterns, not Hugging Face glob patterns. Simple patterns are automatically optimized to glob matching for Hugging Face repositories.

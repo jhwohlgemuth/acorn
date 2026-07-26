@@ -6,11 +6,12 @@ use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, Fil
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{home_directory, ApiResult, InputOutput, Source, SourceAction};
+use acorn::io::{home_directory, ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
 use acorn::schema::agent::{ModelDetails, Weights};
+use acorn::schema::OneOrMany;
 use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_MODELS_DIRECTORY};
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use bon::Builder;
@@ -52,8 +53,21 @@ pub async fn run(
 ) -> Void {
     let quiet = verbose.is_silent();
     let action = SourceAction::from_options(copy, symlink);
-    let configuration = ApplicationConfiguration::resolve(config).and_then(|path| ApplicationConfiguration::read(path).ok());
+    let configuration = match ApplicationConfiguration::load(config) {
+        | Ok(configuration) => Some(configuration),
+        | Err(why) => {
+            error!("=> {} Read application configuration — {why}", Label::fail());
+            return Err(why);
+        }
+    };
     let (entries, configured_whitelist) = configured_models(configuration);
+    let configured_whitelist = match Whitelist::from_configuration(configured_whitelist, offline).await {
+        | Ok(whitelist) => whitelist.0,
+        | Err(why) => {
+            error!("=> {} Read configured model whitelist — {why}", Label::fail());
+            return Err(why);
+        }
+    };
     let whitelist = whitelist
         .iter()
         .chain(&configured_whitelist)
@@ -239,6 +253,7 @@ pub(crate) enum ModelDownloadError {
 enum WhitelistFile {
     Names(Vec<String>),
     Models(Vec<ModelDetails>),
+    Model(Box<ModelDetails>),
 }
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
@@ -501,6 +516,13 @@ impl Whitelist {
             | None => Ok(self),
         }
     }
+    pub(crate) async fn from_configuration(values: Option<OneOrMany<String>>, offline: bool) -> ApiResult<Self> {
+        match values {
+            | Some(OneOrMany::One(value)) if is_http_or_https(&value) => Self(Vec::new()).resolve(&Some(value), offline).await,
+            | Some(values) => Ok(Self(values.into_vec())),
+            | None => Ok(Self(Vec::new())),
+        }
+    }
 }
 impl WhitelistFile {
     fn names(self) -> ApiResult<Vec<String>> {
@@ -515,15 +537,18 @@ impl WhitelistFile {
                         .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'"))
                 })
                 .collect(),
+            | Self::Model(details) => details
+                .name
+                .or(details.id)
+                .map(|name| vec![name])
+                .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'")),
         }
     }
 }
-pub(crate) fn configured_models(configuration: Option<ApplicationConfiguration>) -> (Vec<ModelEntry>, Vec<String>) {
+pub(crate) fn configured_models(configuration: Option<ApplicationConfiguration>) -> (Vec<ModelEntry>, Option<OneOrMany<String>>) {
     match configuration {
-        | Some(ApplicationConfiguration { models, whitelist, .. }) => {
-            (models.unwrap_or_default(), whitelist.and_then(|lookup| lookup.models).unwrap_or_default())
-        }
-        | None => (Vec::new(), Vec::new()),
+        | Some(ApplicationConfiguration { models, whitelist, .. }) => (models.unwrap_or_default(), whitelist.and_then(|lookup| lookup.models)),
+        | None => (Vec::new(), None),
     }
 }
 async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {

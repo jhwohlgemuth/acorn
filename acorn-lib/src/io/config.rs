@@ -10,6 +10,7 @@ use crate::io::{
     InputOutput, ProgressType, Source,
 };
 use crate::prelude::{self, env, exit, Arc, HashSet, PathBuf};
+use crate::schema::OneOrMany;
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
@@ -390,8 +391,8 @@ pub struct RunnerDetails {
 pub struct WhitelistLookup {
     /// Whitelisted buckets
     pub buckets: Option<Vec<String>>,
-    /// Whitelisted models
-    pub models: Option<Vec<String>>,
+    /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
+    pub models: Option<OneOrMany<String>>,
 }
 impl ApplicationConfiguration {
     /// Load explicit or discovered application configuration, rejecting a missing explicit path.

@@ -22,6 +22,7 @@ use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet, PathBuf};
+use acorn::schema::OneOrMany;
 use acorn::util::merge;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
@@ -110,6 +111,7 @@ async fn test_config_fixture_resolves_models() {
 async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json"))?;
     let (entries, whitelist) = super::model::configured_models(Some(config));
+    let whitelist = whitelist.map(OneOrMany::into_vec).unwrap_or_default();
     assert_eq!(whitelist, vec!["meta-llama/Llama-2-7b-hf".to_string(), "openai/gpt-oss-2b".to_string()]);
     let whitelist = whitelist.into_iter().collect::<HashSet<_>>();
     let plans = super::model::resolve_plans(&[], &entries, None, &None, true).await?;
@@ -132,6 +134,12 @@ fn test_config_parses_hugging_face_location_model_entry() {
     let config = ApplicationConfiguration::parse(content).unwrap();
     let models = config.models.unwrap();
     assert_eq!(models.len(), 1);
+}
+#[test]
+fn test_config_parses_single_model_whitelist_url() {
+    let url = "https://example.com/models.json";
+    let config = ApplicationConfiguration::parse(format!(r#"{{"whitelist":{{"models":"{url}"}}}}"#).as_str()).unwrap();
+    assert_eq!(config.whitelist.and_then(|lookup| lookup.models), Some(OneOrMany::One(url.to_string())));
 }
 #[test]
 fn test_config_parses_local_model_entry() {
@@ -722,6 +730,39 @@ async fn test_download_model_no_models_errors() -> Result<()> {
     )
     .await;
     assert!(result.is_err(), "empty model list should return an error");
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_missing_config_reports_missing_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_missing_config");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let missing = temp_dir.join("missing.json");
+    let verbose = Verbosity::new(0, 1);
+    let result = super::model::run(
+        &[],
+        &[],
+        &[],
+        &Some(missing.clone()),
+        &None,
+        &None,
+        &verbose,
+        false,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        200,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        format!("Configuration file does not exist — {}", missing.display())
+    );
     Ok(())
 }
 #[tokio::test]
@@ -1320,6 +1361,21 @@ fn test_model_select_preferred_file_prefers_marker() {
 fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
     let names = super::model::Whitelist::parse(r#"[{"name":"keep"},{"id":"drop"}]"#.to_string())?;
     assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    Ok(())
+}
+#[test]
+fn test_parse_model_whitelist_file_from_json_model_detail() -> Result<()> {
+    let names = super::model::Whitelist::parse(r#"{"name":"keep"}"#.to_string())?;
+    assert_eq!(names.0, vec!["keep".to_string()]);
+    Ok(())
+}
+#[tokio::test]
+async fn test_resolve_configured_model_whitelist_url() -> Result<()> {
+    let (endpoint, handle) = spawn_huggingface_model_info_server("keep", "acme/base");
+    let source = format!("{endpoint}/api/models/keep");
+    let names = super::model::Whitelist::from_configuration(Some(OneOrMany::One(source)), false).await?;
+    handle.join().expect("join whitelist server");
+    assert_eq!(names.0, vec!["keep".to_string()]);
     Ok(())
 }
 #[test]
