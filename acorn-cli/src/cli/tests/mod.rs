@@ -265,6 +265,62 @@ fn test_create_bot_webhook_deployment_options() {
     }
 }
 #[test]
+fn test_create_remote_targets() {
+    let bot = Arguments::try_parse_from([
+        "acorn",
+        "create",
+        "bot",
+        "16689",
+        "--remote",
+        "ssh://deploy@example.org:2222/var/run/docker.sock",
+    ])
+    .unwrap();
+    match bot.command {
+        | Some(Commands::Create {
+            command: Some(CreateCommands::Bot(arguments)),
+        }) => assert_eq!(
+            arguments.target.remote.as_ref().map(|remote| remote.as_str()),
+            Some("ssh://deploy@example.org:2222/var/run/docker.sock")
+        ),
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    let runner = Arguments::try_parse_from([
+        "acorn",
+        "create",
+        "runner",
+        "--group",
+        "42",
+        "--description",
+        "remote-runner",
+        "--remote",
+        "ssh://builder",
+    ])
+    .unwrap();
+    match runner.command {
+        | Some(Commands::Create {
+            command: Some(CreateCommands::Runner(arguments)),
+        }) => assert_eq!(arguments.target.remote.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_create_remote_rejects_invalid_ssh_uris() {
+    [
+        "http://builder",
+        "ssh://",
+        "ssh://user:password@builder",
+        "ssh://builder/path?query=value",
+        " ssh://builder",
+    ]
+    .into_iter()
+    .for_each(|remote| {
+        assert!(
+            Arguments::try_parse_from(["acorn", "create", "bot", "16689", "--remote", remote]).is_err(),
+            "remote should be rejected: {remote}"
+        );
+    });
+}
+#[test]
 fn test_filter_paths_by_pattern_keeps_only_matching_relative_paths() {
     let root = fixture_content_root();
     let paths = vec![

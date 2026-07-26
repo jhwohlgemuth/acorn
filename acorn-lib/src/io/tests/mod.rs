@@ -13,11 +13,11 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Source, SourceAction,
+    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Remote, Source, SourceAction,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
-use crate::{Location, Repository, Scheme};
+use crate::{args, Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
 use rsa::traits::PublicKeyParts;
@@ -625,6 +625,25 @@ fn test_executor_gitlab_name() {
     assert_eq!(Executor::Sandbox.gitlab_runner_type(), "docker");
     assert_eq!(Executor::from("anything").gitlab_runner_type(), "docker");
     assert!(["virtualbox", "parallels"].contains(&Executor::VirtualMachine.gitlab_runner_type()));
+}
+#[test]
+fn test_remote_docker_args() {
+    let command = args!["run", "--detach", "acorn:latest"];
+    let remote = "ssh://builder".parse::<Remote>().unwrap();
+    assert_eq!(
+        remote.docker_args(command),
+        args!["--host", "ssh://builder", "run", "--detach", "acorn:latest"]
+    );
+}
+#[test]
+fn test_remote_parse_and_docker_executor() {
+    let remote = "ssh://deploy@example.org:2222/var/run/docker.sock".parse::<Remote>().unwrap();
+    assert_eq!(remote.as_str(), "ssh://deploy@example.org:2222/var/run/docker.sock");
+    assert!(Executor::Docker.is_docker());
+    assert!(!Executor::Podman.is_docker());
+    ["http://builder", "ssh://", "ssh://user:password@builder", "ssh://builder?query=value"]
+        .into_iter()
+        .for_each(|value| assert!(value.parse::<Remote>().is_err()));
 }
 #[test]
 fn test_first_env_var() {

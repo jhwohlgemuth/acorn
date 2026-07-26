@@ -153,10 +153,11 @@ Inspect help before these networked or environment-changing workflows:
 acorn gather --help
 acorn import spec --help
 acorn create runner --help
+acorn create bot <PROJECT_ID> --remote ssh://user@docker-host
 acorn serve mcp --help
 ```
 
-Use `import spec --dry-run` before writing generated endpoint metadata. Treat runner, bot, server, and external API operations as stateful actions and confirm their target, credentials, runtime, and network access before execution.
+Use `import spec --dry-run` before writing generated endpoint metadata. `create bot` is already detached. A create command using `--remote` requires the local Docker client, an SSH-configured remote Docker host, and permission for the SSH user to access the remote Docker socket; published ports and volumes belong to that remote host. Treat runner, bot, server, and external API operations as stateful actions and confirm their target, credentials, runtime, and network access before execution.
 
 ### Diagnose or use the TUI
 

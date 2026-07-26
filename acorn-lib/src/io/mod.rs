@@ -19,21 +19,21 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
-use crate::cmd;
 #[cfg(unix)]
 use crate::prelude;
 use crate::prelude::{
-    canonicalize, consts, create_dir_all, current_dir, io, remove_file, var, var_os, write, BufReader, CommandOutput, Cursor, File, HashSet,
-    OpenOptions, Path, PathBuf, Read, Write,
+    canonicalize, consts, create_dir_all, current_dir, io, remove_file, temp_dir, var, var_os, write, BufReader, CommandOutput, Cursor, File,
+    HashSet, OpenOptions, OsString, Path, PathBuf, Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
 #[cfg(windows)]
 use crate::prelude::{symlink_dir, symlink_file};
-use crate::util::constants::app::{APPLICATION, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
+use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
+use crate::{args, cmd, Location};
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
@@ -42,19 +42,21 @@ use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::{BaseDirs, ProjectDirs};
 use fancy_regex::Regex;
+use fluent_uri::Uri;
 use futures::stream::{self, StreamExt};
 use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use jsonc_parser::{parse_to_serde_value, ParseOptions};
+use nanoid::nanoid;
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use strum::AsRefStr;
+use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
 use which::which;
@@ -137,7 +139,7 @@ pub trait InputOutput: Sized {
 /// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code
 /// ### Note
 /// At a minimum, choosing an executor also determines level of isolation and security for code execution.
-#[derive(AsRefStr, Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged, rename_all = "snake_case")]
 pub enum Executor {
     /// Simplifies the creation and execution of containers, ensuring software components are encapsulated for portability and reproducibility
@@ -177,6 +179,78 @@ pub enum Executor {
     VirtualMachine,
     /// Custom or unspecified execution method
     Other(String),
+}
+/// SSH endpoint for a remote Docker daemon.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Remote(Location);
+impl Remote {
+    /// Return the validated SSH endpoint.
+    pub fn as_str(&self) -> &str {
+        (&self.0).into()
+    }
+    /// Copy a GPU runner template into a container on this remote Docker daemon.
+    pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
+        let copy = self.docker_args(args!["cp", template, format!("{name}:/etc/gitlab-runner/gpu.template.toml")]);
+        match cmd!(runtime, copy) {
+            | Ok(output) if output.status.success() => Ok(()),
+            | Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
+            }
+            | Err(why) => Err(eyre!("Failed to execute docker cp for {self} — {why}")),
+        }
+    }
+    /// Create an optional GPU runner template for a local or remote Docker daemon.
+    pub fn create_gpu_template(remote: Option<&Self>, config_host_dir: &str) -> io::Result<Option<PathBuf>> {
+        let parent = remote.map_or_else(|| PathBuf::from(config_host_dir), |_| temp_dir());
+        let filename = remote.map_or_else(|| "gpu.template.toml".to_string(), |_| format!("acorn-gpu-{}.template.toml", nanoid!()));
+        let template = parent.join(filename);
+        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
+        match create_dir_all(parent).and_then(|_| write(&template, content)) {
+            | Ok(()) => Ok(Some(template)),
+            | Err(why) if remote.is_some() => Err(why),
+            | Err(_) => Ok(None),
+        }
+    }
+    /// Target this remote Docker daemon with command arguments.
+    pub fn docker_args(&self, command: Vec<OsString>) -> Vec<OsString> {
+        args!["--host", self.as_str(), ..command]
+    }
+}
+impl fmt::Display for Remote {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl core::str::FromStr for Remote {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let invalid = || format!("invalid remote '{value}' — expected ssh://[user@]host[:port][/socket]");
+        match Uri::parse(value) {
+            | Ok(uri) => {
+                let is_ssh = uri.scheme().as_str() == "ssh";
+                let is_trimmed = value.trim() == value;
+                let has_no_fragment = uri.fragment().is_none();
+                let has_no_query = uri.query().is_none();
+                let has_no_whitespace = !value.chars().any(char::is_whitespace);
+                let is_valid_uri = is_ssh && is_trimmed && has_no_fragment && has_no_query && has_no_whitespace;
+                match uri.authority() {
+                    | Some(authority) => {
+                        let has_host = !authority.host().is_empty();
+                        let has_no_password = authority.userinfo().is_none_or(|userinfo| !userinfo.as_str().contains(':'));
+                        let has_valid_port = authority.port_to_u16().is_ok();
+                        let is_valid_authority = has_host && has_no_password && has_valid_port;
+                        match is_valid_uri && is_valid_authority {
+                            | true => Ok(Self(Location::from(value))),
+                            | false => Err(invalid()),
+                        }
+                    }
+                    | None => Err(invalid()),
+                }
+            }
+            | Err(_) => Err(invalid()),
+        }
+    }
 }
 /// Root-level or reference-level license declaration.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -250,9 +324,9 @@ pub struct GitlabMergeRequestDiffResponse {
 }
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
-impl fmt::Display for Executor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
+impl AsRef<str> for Executor {
+    fn as_ref(&self) -> &str {
+        match self {
             | Executor::Apptainer => "apptainer",
             | Executor::Docker => "docker",
             | Executor::Podman => "podman",
@@ -262,8 +336,12 @@ impl fmt::Display for Executor {
             | Executor::Kubernetes => "kubernetes",
             | Executor::VirtualMachine => "virtual_machine",
             | Executor::Other(value) => value.as_str(),
-        };
-        write!(f, "{value}")
+        }
+    }
+}
+impl fmt::Display for Executor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_ref())
     }
 }
 impl From<&str> for Executor {
@@ -326,12 +404,16 @@ impl Executor {
             },
         }
     }
+    /// Returns whether the executable used to manage this executor is available.
+    pub fn is_available(&self) -> bool {
+        command_exists(self.as_ref())
+    }
     /// Returns the path to the socket file used to manage this executor, if applicable.
     pub fn socket(&self) -> Option<String> {
         match self {
             | Executor::Docker | Executor::Apptainer => {
                 // Assumes linux-based image is used for GitLab runner
-                Some("/var/run/docker.sock".to_string())
+                Some(DOCKER_SOCKET.to_string())
             }
             | Executor::Podman => {
                 // TODO: Windows support
@@ -353,6 +435,21 @@ impl Executor {
                 }
             }
             | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other(_) => None,
+        }
+    }
+    /// Validate this runtime and configured runners for an optional remote Docker daemon
+    pub fn validate(&self, runners: Option<&[config::RunnerDetails]>, remote: Option<&Remote>) -> ApiResult<()> {
+        match (remote, self.is_docker()) {
+            | (Some(endpoint), false) => Err(eyre!("Remote Docker target '{endpoint}' requires the docker runtime, not {self}")),
+            | (Some(endpoint), true) => runners
+                .and_then(|values| values.iter().find(|runner| !runner.executor.is_docker()))
+                .map_or(Ok(()), |runner| {
+                    Err(eyre!(
+                        "Remote Docker target '{endpoint}' requires docker runner executors, not {}",
+                        runner.executor
+                    ))
+                }),
+            | (None, _) => Ok(()),
         }
     }
 }

@@ -6,6 +6,10 @@
 - [OOXML slide-list fuzzing](ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
 - [Shared export context](export-context.md) - Centralize renderer input extraction.
 
+## In Progress
+
+- [Remote create container targets](remote-create-container-targets.md) - Automated implementation is complete; live SSH Docker smoke testing remains.
+
 ## Planned
 
 - [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.

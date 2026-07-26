@@ -11,7 +11,7 @@ pub use alloc::{
 #[allow(unused_imports)]
 mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
-    pub use std::env::{self, consts, current_dir, var, var_os};
+    pub use std::env::{self, consts, current_dir, temp_dir, var, var_os};
     pub use std::ffi::{OsStr, OsString};
     pub use std::fs::{
         canonicalize, copy, create_dir_all, read, read_dir, read_to_string, remove_dir_all, remove_file, rename, write, File, OpenOptions,

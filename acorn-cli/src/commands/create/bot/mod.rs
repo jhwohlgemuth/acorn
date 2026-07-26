@@ -1,7 +1,6 @@
 use crate::cli::arguments::bot::EventSource;
 use acorn::io::api::gitlab::WebhookOptions;
-use acorn::io::command_exists;
-use acorn::io::Executor;
+use acorn::io::{Executor, Remote};
 use acorn::prelude::OsString;
 use acorn::util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV};
 use acorn::util::Label;
@@ -24,26 +23,31 @@ pub async fn run(
     public_url: &Option<String>,
     register_webhook: bool,
     volume: &Option<String>,
+    remote: &Option<Remote>,
 ) -> Result<(), Report> {
-    let runtime_binary = runtime.as_ref().and_then(|r| r.command()).unwrap_or("docker");
+    let selected = runtime.as_ref().unwrap_or(&Executor::Docker);
     let container_name = name.clone().unwrap_or(format!("acorn-bot-{identifier}"));
     let image_tag = image.as_deref().unwrap_or("acorn:latest");
     let webhook_options = WebhookOptions::from_env(public_url.as_deref());
     let webhooks_enabled = event_source.is_webhook() || event_source.is_hybrid() || register_webhook;
-    let validation = if webhooks_enabled {
+    let validated = if webhooks_enabled {
         webhook_options.validate().map_err(Report::from)
     } else {
         Ok(())
     };
-    match (command_exists(runtime_binary), validation) {
-        | (false, _) => {
-            let err = eyre!("{runtime_binary} is required to create a bot container but was not found");
+    let is_valid = match (remote.as_ref(), selected.is_docker()) {
+        | (Some(endpoint), false) => Err(eyre!("Remote Docker target '{endpoint}' requires the docker runtime, not {selected}")),
+        | _ => Ok(()),
+    };
+    match (is_valid, selected.is_available(), validated) {
+        | (Err(why), _, _) | (_, true, Err(why)) => Err(why),
+        | (_, false, _) => {
+            let err = eyre!("{selected} is required to create a bot container but was not found");
             error!("=> {} {err}", Label::fail());
             Err(err)
         }
-        | (true, Err(why)) => Err(why),
-        | (true, Ok(())) => {
-            let container_args = create_bot_args(
+        | (_, true, Ok(())) => {
+            let command = create_bot_args(
                 identifier,
                 &container_name,
                 image_tag,
@@ -56,7 +60,11 @@ pub async fn run(
                 register_webhook,
                 volume.as_deref(),
             );
-            match cmd!(runtime_binary, container_args) {
+            let container_args = match remote.as_ref() {
+                | Some(remote) => remote.docker_args(command),
+                | None => command,
+            };
+            match cmd!(selected, container_args) {
                 | Ok(output) if output.status.success() => {
                     info!("{} Bot container '{container_name}' created", Label::pass());
                     Ok(())
@@ -68,7 +76,7 @@ pub async fn run(
                     Err(err)
                 }
                 | Err(why) => {
-                    let err = eyre!("Failed to spawn {runtime_binary} — {why}");
+                    let err = eyre!("Failed to spawn {selected} — {why}");
                     error!("=> {} {err}", Label::fail());
                     Err(err)
                 }
@@ -141,9 +149,34 @@ fn bind_port(bind: &str) -> Option<u16> {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-
     #[test]
-    fn webhook_container_is_reachable_durable_and_redacts_credentials() {
+    fn test_remote_container_targets_the_requested_docker_host() {
+        let remote = "ssh://builder".parse::<Remote>().unwrap();
+        let command = remote
+            .docker_args(create_bot_args(
+                "42",
+                "acorn-bot-42",
+                "acorn:latest",
+                None,
+                Some(10),
+                None,
+                None,
+                EventSource::Poll,
+                None,
+                false,
+                None,
+            ))
+            .into_iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(command
+            .iter()
+            .map(String::as_str)
+            .take(4)
+            .eq(["--host", "ssh://builder", "run", "--detach"]));
+    }
+    #[test]
+    fn test_webhook_container_is_reachable_durable_and_redacts_credentials() {
         temp_env::with_vars(
             [
                 ("GITLAB_TOKEN", Some("outbound-secret")),

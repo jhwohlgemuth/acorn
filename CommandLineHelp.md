@@ -218,6 +218,9 @@ GitLab runner
 * `-t`, `--tags <LIST>` — Tags to register the runner with (alternative to providing a configuration file)
 * `-u`, `--untagged` — Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
 * `-R`, `--runtime <RUNTIME>` — Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime
+* `--remote <URI>` — SSH endpoint of the remote Docker daemon
+
+   The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -262,6 +265,9 @@ Bot server container
   Default value: `acorn:latest`
 * `-d`, `--domain <DOMAIN>` — GitLab domain override (e.g., code.ornl.gov)
 * `--volume <VOLUME>` — Persistent named volume for bot state
+* `--remote <URI>` — SSH endpoint of the remote Docker daemon
+
+   The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

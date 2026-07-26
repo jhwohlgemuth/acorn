@@ -1,16 +1,25 @@
-use super::parse::{parse_check_category, parse_executor, parse_readability, parse_standard};
+use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
 use super::DownloadCommands;
 use acorn::analyzer::{self, Standard};
-use acorn::io::Executor;
+use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
+/// Remote Docker target arguments shared by container-producing create commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct RemoteTarget {
+    /// SSH endpoint of the remote Docker daemon
+    ///
+    /// The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
+    #[arg(long, value_name = "URI", value_parser = parse_ssh_remote, help_heading = "OPTIONS")]
+    pub(crate) remote: Option<Remote>,
+}
 /// Bot command arguments.
 pub(crate) mod bot {
-    use super::{parse_executor, Executor, ValueEnum, Verbosity};
+    use super::{parse_executor, Executor, RemoteTarget, ValueEnum, Verbosity};
     use clap::Args;
 
     const DEFAULT_HOST: &str = "localhost";
@@ -77,6 +86,8 @@ pub(crate) mod bot {
         /// Persistent named volume for bot state
         #[arg(long, value_name = "VOLUME", help_heading = "OPTIONS")]
         pub(crate) volume: Option<String>,
+        #[command(flatten)]
+        pub(crate) target: RemoteTarget,
         #[command(flatten)]
         pub(crate) verbose: Verbosity,
     }
@@ -731,6 +742,8 @@ pub(crate) struct Runner {
     /// Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime.
     #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
     pub(crate) runtime: Option<Executor>,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

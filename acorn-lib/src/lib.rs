@@ -56,7 +56,7 @@ use strum::EnumIs;
 /// Supports both raw URI strings (`Simple`) and structured scheme+URI pairs (`Detailed`).
 ///
 /// See [`io::Source`] for the complementary **operational/transient** type that handles I/O.
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum Location {
     /// Just the URI string (assumes remote location)
@@ -127,7 +127,7 @@ pub enum Repository {
 /// See [RFC 8089] for more information
 ///
 /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, EnumIs)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     /// Secure HTTP
@@ -179,6 +179,13 @@ impl From<&str> for Location {
                 revision: None,
             },
             | None => Location::Simple(s.to_string()),
+        }
+    }
+}
+impl<'a> From<&'a Location> for &'a str {
+    fn from(value: &'a Location) -> Self {
+        match value {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value.as_str(),
         }
     }
 }

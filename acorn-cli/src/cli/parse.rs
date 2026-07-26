@@ -4,7 +4,7 @@
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
 use acorn::io::ApiResult;
-use acorn::io::Executor;
+use acorn::io::{Executor, Remote};
 use acorn::util::MimeType;
 use color_eyre::eyre::eyre;
 use serde_json;
@@ -64,6 +64,10 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
              virtual-machine, other"
         )),
     }
+}
+/// Parse an SSH URI used to target a remote Docker daemon.
+pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
+    value.parse()
 }
 /// Parse a CLI readability metric name into a `ReadabilityType` variant.
 pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {

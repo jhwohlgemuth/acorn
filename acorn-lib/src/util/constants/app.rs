@@ -66,6 +66,8 @@ pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default base name used for configured GitLab runner containers.
 pub const DEFAULT_RUNNER_NAME: &str = "acorn-runner";
+/// Default Docker daemon socket path.
+pub const DOCKER_SOCKET: &str = "/var/run/docker.sock";
 /// Default ACORN HTTP User-Agent header value when std is available.
 #[cfg(feature = "std")]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");

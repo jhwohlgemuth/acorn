@@ -141,6 +141,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     &args.common.public_url,
                     args.common.register_webhook,
                     &args.volume,
+                    &args.target.remote,
                 )
                 .await
             }),
@@ -157,6 +158,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     &args.tags,
                     &args.untagged,
                     &args.runtime,
+                    &args.target.remote,
                     &args.verbose,
                 )
                 .await

@@ -122,6 +122,7 @@ async fn run_detached(
         &public_url.map(String::from),
         register_webhook,
         &None,
+        &None,
     )
     .await
 }
