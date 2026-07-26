@@ -137,6 +137,10 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     &poll_interval,
                     &args.common.after,
                     &args.domain,
+                    args.common.event_source,
+                    &args.common.public_url,
+                    args.common.register_webhook,
+                    &args.volume,
                 )
                 .await
             }),
@@ -344,6 +348,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     Some(args.common.poll_interval),
                     args.detach,
                     &args.common.runtime,
+                    args.common.event_source,
+                    args.common.public_url.as_deref(),
+                    args.common.register_webhook,
                 )
                 .await
             }),

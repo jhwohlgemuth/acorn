@@ -30,6 +30,14 @@ pub const BASE_URL: &str = "https://research.ornl.gov";
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Application name.
 pub const APPLICATION: &str = "acorn";
+/// Maximum file size accepted by merge request analysis
+pub const MAX_ANALYSIS_FILE_BYTES: u64 = 1_048_576;
+/// Maximum number of durable GitLab operation attempts
+pub const MAX_GITLAB_OPERATION_ATTEMPTS: u32 = 5;
+/// Maximum durable GitLab operation retry delay
+pub const MAX_GITLAB_OPERATION_BACKOFF_SECONDS: i64 = 300;
+/// Hidden marker used to find the bot-authored merge request analysis note
+pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis -->";
 /// Organization name.
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.

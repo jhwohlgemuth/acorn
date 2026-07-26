@@ -1,5 +1,6 @@
 //! ## Data model for patent data
 //!
+use super::PersistentIdentifierParse;
 use crate::prelude::*;
 use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
 use crate::util::regex_capture_lookup;
@@ -341,5 +342,23 @@ impl Patent {
             }
             | _ => None,
         }
+    }
+}
+impl PersistentIdentifierParse for Patent {
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let value = value.to_string();
+        match Self::parse(&value) {
+            | Some(identifier) => vec![identifier],
+            | None => Self::find_all(&value),
+        }
+    }
+    fn format(value: impl ToString) -> String {
+        Self::from_string(value).to_string()
+    }
+    fn from_string(value: impl ToString) -> Self {
+        Self::from(value.to_string())
+    }
+    fn is_valid(value: impl ToString) -> bool {
+        Self::is_valid(value.to_string())
     }
 }

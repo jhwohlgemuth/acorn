@@ -16,8 +16,13 @@ use crate::util::constants::{
 use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;
 use core::fmt;
+#[cfg(feature = "std")]
+use data_encoding::HEXLOWER;
+#[cfg(feature = "std")]
+use ring::digest::{digest, SHA256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::EnumIs;
 
 pub mod patent;
 pub mod raid;
@@ -162,7 +167,7 @@ pub struct PersistentIdentifierInternal {
 /// Persistent Identifier (PID) types
 ///
 /// PIDs are globally unique identifiers, resolvable on the Web, and associated with a set of additional descriptive metadata (ex. [`raid::Metadata`])
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, EnumIs, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum PID {
     /// Unknown PID
     #[default]
@@ -207,6 +212,99 @@ pub enum PID {
     ///
     /// See <https://www.ror.org/> for more information
     ROR,
+    /// Public HTTP or HTTPS artifact URL
+    URL,
+}
+impl PID {
+    /// Whether this PID type participates in artifact discovery
+    pub fn is_discoverable(&self) -> bool {
+        self.is_ark() || self.is_doi() || self.is_isbn() || self.is_patent() || self.is_raid() || self.is_url()
+    }
+    /// Return the stable lowercase path component
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            | Self::DOI => "doi",
+            | Self::ISBN => "isbn",
+            | Self::Patent => "patent",
+            | Self::ARK => "ark",
+            | Self::RAID => "raid",
+            | Self::URL => "url",
+            | _ => "unknown",
+        }
+    }
+}
+/// A persistent identifier type paired with its value.
+#[derive(Clone, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+pub struct Identifier {
+    /// Persistent identifier type.
+    pub kind: PID,
+    /// Identifier value, either raw or normalized.
+    pub value: String,
+}
+impl Identifier {
+    /// Create an identifier with an unknown type.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            kind: PID::Unknown,
+            value: value.into(),
+        }
+    }
+    /// Normalize this identifier as one supported persistent or URL artifact identifier.
+    pub fn normalize(&self) -> Option<Self> {
+        let trimmed = self
+            .value
+            .trim()
+            .trim_matches(|character: char| matches!(character, '<' | '>' | '(' | ')' | '[' | ']' | ',' | ';'));
+        match self.kind {
+            | PID::DOI => Self::parsed::<DOI>(PID::DOI, trimmed),
+            | PID::ISBN => Self::parsed::<ISBN>(PID::ISBN, trimmed),
+            | PID::ARK => Self::parsed::<ARK>(PID::ARK, trimmed),
+            | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
+            | PID::Patent => Self::parsed::<Patent>(PID::Patent, trimmed),
+            | PID::URL if trimmed.starts_with("https://") || trimmed.starts_with("http://") => Some(Self {
+                kind: PID::URL,
+                value: trimmed.trim_end_matches('/').to_string(),
+            }),
+            | PID::Unknown => {
+                let lowercase = trimmed.to_ascii_lowercase();
+                let primary = if lowercase.starts_with("raid:") || lowercase.starts_with("https://raid.org/") {
+                    PID::RAID
+                } else {
+                    PID::DOI
+                };
+                [primary, PID::ISBN, PID::ARK, PID::Patent, PID::URL].into_iter().find_map(|kind| {
+                    Self {
+                        kind,
+                        value: self.value.clone(),
+                    }
+                    .normalize()
+                })
+            }
+            | _ => None,
+        }
+    }
+    fn parsed<T: PersistentIdentifierParse + fmt::Display>(kind: PID, value: &str) -> Option<Self> {
+        T::find_all(value)
+            .first()
+            .map(T::format)
+            .filter(|value| T::is_valid(value))
+            .map(|value| Self { kind, value })
+    }
+    /// Return the deterministic identifier hash used in artifact paths
+    #[cfg(feature = "std")]
+    pub fn identifier_hash(&self) -> String {
+        HEXLOWER.encode(digest(&SHA256, self.value.as_bytes()).as_ref())[..12].to_string()
+    }
+}
+impl<'a> From<&'a Identifier> for &'a str {
+    fn from(identifier: &'a Identifier) -> Self {
+        identifier.kind.as_str()
+    }
+}
+impl From<&str> for Identifier {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
 }
 /// Archival Resource Key (ARK)
 /// ### Notes

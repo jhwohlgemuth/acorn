@@ -1415,7 +1415,7 @@ fn test_resolve_models_excludes_failed_fallbacks() {
     let base_model = "openai/gpt-oss-20b";
     let fallback = "unsloth/gpt-oss-20b-GGUF";
     let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 4);
-    let (plans, resolved) = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let (_plans, resolved) = with_var("HF_ENDPOINT", Some(endpoint), || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![
                 ModelEntry::Selector(base_model.to_string()),

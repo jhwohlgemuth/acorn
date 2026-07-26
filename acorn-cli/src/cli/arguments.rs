@@ -10,11 +10,23 @@ use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
 /// Bot command arguments.
 pub(crate) mod bot {
-    use super::{parse_executor, Executor, Verbosity};
+    use super::{parse_executor, Executor, ValueEnum, Verbosity};
     use clap::Args;
 
     const DEFAULT_HOST: &str = "localhost";
     const DEFAULT_PORT: u16 = 3000;
+    /// GitLab event delivery source used by the bot.
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::Display, strum::EnumIs, ValueEnum)]
+    #[strum(serialize_all = "kebab-case")]
+    pub(crate) enum EventSource {
+        /// Poll GitLab's Events API.
+        #[default]
+        Poll,
+        /// Receive authenticated GitLab webhooks.
+        Webhook,
+        /// Receive webhooks and retain polling as best-effort reconciliation.
+        Hybrid,
+    }
 
     /// Arguments shared by bot commands
     #[derive(Clone, Debug, Args)]
@@ -37,6 +49,15 @@ pub(crate) mod bot {
         /// Container runtime (docker, podman, apptainer)
         #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
         pub(crate) runtime: Option<Executor>,
+        /// Event delivery source
+        #[arg(long, default_value_t, value_enum, help_heading = "OPTIONS")]
+        pub(crate) event_source: EventSource,
+        /// Externally reachable HTTPS base URL for webhook delivery
+        #[arg(long, value_name = "URL", help_heading = "OPTIONS")]
+        pub(crate) public_url: Option<String>,
+        /// Register the project webhook before starting
+        #[arg(long, requires = "public_url", help_heading = "FLAGS")]
+        pub(crate) register_webhook: bool,
     }
     /// Arguments for `acorn create bot`
     #[derive(Clone, Debug, Args)]
@@ -53,6 +74,9 @@ pub(crate) mod bot {
         /// GitLab domain override (e.g., code.ornl.gov)
         #[arg(short = 'd', long, env = "CI_SERVER_HOST", value_name = "DOMAIN", help_heading = "OPTIONS")]
         pub(crate) domain: Option<String>,
+        /// Persistent named volume for bot state
+        #[arg(long, value_name = "VOLUME", help_heading = "OPTIONS")]
+        pub(crate) volume: Option<String>,
         #[command(flatten)]
         pub(crate) verbose: Verbosity,
     }
@@ -89,7 +113,7 @@ pub(crate) mod bot {
 
     #[cfg(test)]
     mod tests {
-        use super::Common;
+        use super::{Common, EventSource};
 
         fn common(bind: Option<&str>, port: Option<u16>) -> Common {
             Common {
@@ -99,6 +123,9 @@ pub(crate) mod bot {
                 after: None,
                 poll_interval: 10,
                 runtime: None,
+                event_source: EventSource::Poll,
+                public_url: None,
+                register_webhook: false,
             }
         }
 

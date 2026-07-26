@@ -2,25 +2,16 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{self, checks_to_csv, summary, Analysis, Check, CheckCategory, CheckOptions, Standard};
-use acorn::io::unique_file_extensions;
+use acorn::analyzer::{analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Standard};
 use acorn::prelude::PathBuf;
-use acorn::schema::pid::raid;
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::schema::standard::cff::Cff;
-use acorn::schema::standard::text::{Docx, Text};
-use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, suffix, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use color_eyre::owo_colors::OwoColorize;
-use core::iter::once;
 use dotenvy::dotenv;
-use futures::stream::{self, StreamExt};
-use strum::IntoEnumIterator;
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -29,7 +20,7 @@ pub async fn run(
     commit: &Option<String>,
     filter: &[String],
     ignore: &[String],
-    skip: &[analyzer::CheckCategory],
+    skip: &[CheckCategory],
     disable_website_checks: &bool,
     all: &bool,
     exit_on_first_error: &bool,
@@ -66,7 +57,7 @@ pub async fn run(
                 .quiet(is_silent || *raw)
                 .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
                 .skip_verify_checksum(*skip_verify_checksum)
-                .standard(resolve_standard(&paths, standard))
+                .standard(*standard)
                 .terse(*terse)
                 .readability_metric(resolve_readability_metric(readability_metric))
                 .build();
@@ -93,34 +84,15 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
     }
     filtered_results
 }
-async fn collect(paths: &[PathBuf], check_options: &CheckOptions) -> Vec<Check> {
-    match check_options.standard {
-        | Standard::CitationFileFormat => collect_checks_for::<Cff>(paths, check_options).await,
-        | Standard::Datacite => collect_checks_for::<datacite::Record>(paths, check_options).await,
-        | Standard::Dcat => collect_checks_for::<dcat::Dataset>(paths, check_options).await,
-        | Standard::Docx => collect_checks_for::<Docx>(paths, check_options).await,
-        | Standard::Huwise => collect_checks_for::<huwise::Dataset>(paths, check_options).await,
-        | Standard::Invenio => collect_checks_for::<invenio::Record>(paths, check_options).await,
-        | Standard::ResearchActivityData => collect_checks_for::<ResearchActivity>(paths, check_options).await,
-        | Standard::Raid => collect_checks_for::<raid::Metadata>(paths, check_options).await,
-        | Standard::Text => collect_checks_for::<Text>(paths, check_options).await,
-        | _ => {
-            warn!("Unsupported standard for checks");
-            vec![]
-        }
-    }
-}
-async fn collect_checks_for<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
-    let skipped_categories = resolve_skipped_categories(options);
-    let (skipped, non_skipped): (Vec<CheckCategory>, Vec<CheckCategory>) = CheckCategory::iter().partition(|cat| skipped_categories.contains(cat));
-    skipped.iter().for_each(|category| skip!("{} checks", category));
-    stream::iter(non_skipped)
-        .fold(Vec::new(), |acc, category| async move {
-            let results = T::check(category.clone(), paths, Some(options)).await;
-            let results = apply_early_exit_policy(results, &category, options);
-            acc.into_iter().chain(results).collect()
-        })
-        .await
+async fn collect(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
+    let report = analyze_paths(paths, options).await;
+    report.skipped_categories.iter().for_each(|category| skip!("{} checks", category));
+    report
+        .batches
+        .into_iter()
+        .flat_map(|batch| batch.categories)
+        .flat_map(|category| apply_early_exit_policy(category.checks, &category.category, options))
+        .collect()
 }
 fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
     let CheckOptions { quiet, no_fail, terse, .. } = options;
@@ -167,21 +139,6 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
 }
-fn infer_standard(paths: &[PathBuf]) -> Standard {
-    let extensions = unique_file_extensions(paths);
-    if extensions.len() == 1 && extensions.contains(&"cff".to_string()) {
-        warn!("=> {} Inferred standard (CFF)", Label::using());
-        Standard::CitationFileFormat
-    } else if extensions.len() == 1 && extensions.contains(&"docx".to_string()) {
-        warn!("=> {} Inferred standard (DOCX)", Label::using());
-        Standard::Docx
-    } else if extensions.len() == 1 && extensions.contains(&"txt".to_string()) {
-        warn!("=> {} Inferred standard (Text)", Label::using());
-        Standard::Text
-    } else {
-        Standard::ResearchActivityData
-    }
-}
 fn render(issues: &[Check], terse: bool) {
     let mut sorted_issues = issues.to_vec();
     sorted_issues.sort_by_cached_key(|issue| {
@@ -212,25 +169,6 @@ fn resolve_readability_metric(readability_metric: &ReadabilityType) -> Readabili
             | _ => *readability_metric,
         },
         | _ => *readability_metric,
-    }
-}
-fn resolve_skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
-    let CheckOptions {
-        disable_website_checks,
-        offline,
-        skip,
-        ..
-    } = options;
-    skip.iter()
-        .map(CheckCategory::from)
-        .chain(once(CheckCategory::Quality))
-        .chain((*offline || *disable_website_checks).then_some(CheckCategory::Link))
-        .collect()
-}
-fn resolve_standard(paths: &[PathBuf], standard: &Standard) -> Standard {
-    match standard {
-        | Standard::ResearchActivityData => infer_standard(paths),
-        | value => *value,
     }
 }
 #[cfg(test)]

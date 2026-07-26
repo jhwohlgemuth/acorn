@@ -234,6 +234,37 @@ fn test_create_bot_domain_option_overrides_ci_server_host_env() {
     });
 }
 #[test]
+fn test_create_bot_webhook_deployment_options() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "create",
+        "bot",
+        "16689",
+        "--event-source",
+        "hybrid",
+        "--public-url",
+        "https://bot.example.org",
+        "--register-webhook",
+        "--volume",
+        "acorn-state",
+        "--port",
+        "8080",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Create {
+            command: Some(CreateCommands::Bot(arguments)),
+        }) => {
+            assert_eq!(arguments.common.event_source, crate::cli::arguments::bot::EventSource::Hybrid);
+            assert_eq!(arguments.common.public_url.as_deref(), Some("https://bot.example.org"));
+            assert!(arguments.common.register_webhook);
+            assert_eq!(arguments.volume.as_deref(), Some("acorn-state"));
+            assert_eq!(arguments.common.bind_address(), "localhost:8080");
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_filter_paths_by_pattern_keeps_only_matching_relative_paths() {
     let root = fixture_content_root();
     let paths = vec![

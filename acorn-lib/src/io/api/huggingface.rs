@@ -1,6 +1,6 @@
 //! Hugging Face Hub API helpers.
 use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, TreeEntry};
-use crate::io::api::Param;
+use crate::io::api::{Param, RepositoryFileMetadata};
 use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult, Source};
@@ -174,6 +174,14 @@ pub struct HuggingFaceRepositoryFile {
     pub path: String,
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
+}
+impl RepositoryFileMetadata for HuggingFaceRepositoryFile {
+    fn path(&self) -> &str {
+        &self.path
+    }
+    fn size(&self) -> Option<u64> {
+        self.size
+    }
 }
 impl fmt::Display for Candidate {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

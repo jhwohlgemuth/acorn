@@ -1,16 +1,15 @@
-use acorn::cmd;
+use crate::cli::arguments::bot::EventSource;
+use acorn::io::api::gitlab::WebhookOptions;
 use acorn::io::command_exists;
 use acorn::io::Executor;
+use acorn::prelude::OsString;
+use acorn::util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV};
 use acorn::util::Label;
+use acorn::{args, cmd};
 use color_eyre::eyre::{eyre, Report, Result};
 use tracing::{error, info};
+use validator::Validate;
 
-/// Create a bot container.
-///
-/// Creates a detached Docker/Podman container using the acorn image, passes the
-/// `GITLAB_TOKEN` environment variable for GitLab API authentication, and runs
-/// `acorn serve bot <identifier>` with any provided flags forwarded to the
-/// serve command.
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     identifier: &str,
@@ -21,71 +20,162 @@ pub async fn run(
     poll_interval: &Option<u64>,
     after: &Option<String>,
     domain: &Option<String>,
+    event_source: EventSource,
+    public_url: &Option<String>,
+    register_webhook: bool,
+    volume: &Option<String>,
 ) -> Result<(), Report> {
     let runtime_binary = runtime.as_ref().and_then(|r| r.command()).unwrap_or("docker");
     let container_name = name.clone().unwrap_or(format!("acorn-bot-{identifier}"));
     let image_tag = image.as_deref().unwrap_or("acorn:latest");
-
-    if !command_exists(runtime_binary) {
-        let err = eyre!("{runtime_binary} is required to create a bot container but was not found");
-        error!("=> {} {err}", Label::fail());
-        return Err(err);
-    }
-
-    let mut container_args = vec![
-        std::ffi::OsString::from("run"),
-        std::ffi::OsString::from("--detach"),
-        std::ffi::OsString::from("--name"),
-        std::ffi::OsString::from(&container_name),
-        std::ffi::OsString::from("--restart"),
-        std::ffi::OsString::from("always"),
-    ];
-
-    if let Some(token) = std::env::var("GITLAB_TOKEN").ok().filter(|t| !t.is_empty()) {
-        container_args.push(std::ffi::OsString::from("--env"));
-        container_args.push(std::ffi::OsString::from(format!("GITLAB_TOKEN={token}")));
-    }
-
-    if let Some(domain) = domain {
-        container_args.push(std::ffi::OsString::from("--env"));
-        container_args.push(std::ffi::OsString::from(format!("GITLAB_HOST={domain}")));
-    }
-
-    container_args.push(std::ffi::OsString::from(&image_tag));
-    container_args.push(std::ffi::OsString::from("serve"));
-    container_args.push(std::ffi::OsString::from("bot"));
-    container_args.push(std::ffi::OsString::from(identifier));
-
-    if let Some(bind) = bind {
-        container_args.push(std::ffi::OsString::from("--bind"));
-        container_args.push(std::ffi::OsString::from(bind));
-    }
-
-    if let Some(interval) = poll_interval {
-        container_args.push(std::ffi::OsString::from("--poll-interval"));
-        container_args.push(std::ffi::OsString::from(interval.to_string()));
-    }
-
-    if let Some(after) = after {
-        container_args.push(std::ffi::OsString::from("--after"));
-        container_args.push(std::ffi::OsString::from(after));
-    }
-
-    match cmd!(runtime_binary, container_args) {
-        | Ok(output) if output.status.success() => {
-            info!("{} Bot container '{container_name}' created", Label::pass());
-            Ok(())
-        }
-        | Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let err = eyre!("Failed to create bot container — {stderr}");
+    let webhook_options = WebhookOptions::from_env(public_url.as_deref());
+    let webhooks_enabled = event_source.is_webhook() || event_source.is_hybrid() || register_webhook;
+    let validation = if webhooks_enabled {
+        webhook_options.validate().map_err(Report::from)
+    } else {
+        Ok(())
+    };
+    match (command_exists(runtime_binary), validation) {
+        | (false, _) => {
+            let err = eyre!("{runtime_binary} is required to create a bot container but was not found");
             error!("=> {} {err}", Label::fail());
             Err(err)
         }
-        | Err(why) => {
-            let err = eyre!("Failed to spawn {runtime_binary} — {why}");
-            error!("=> {} {err}", Label::fail());
-            Err(err)
+        | (true, Err(why)) => Err(why),
+        | (true, Ok(())) => {
+            let container_args = create_bot_args(
+                identifier,
+                &container_name,
+                image_tag,
+                bind.as_deref(),
+                *poll_interval,
+                after.as_deref(),
+                domain.as_deref(),
+                event_source,
+                public_url.as_deref(),
+                register_webhook,
+                volume.as_deref(),
+            );
+            match cmd!(runtime_binary, container_args) {
+                | Ok(output) if output.status.success() => {
+                    info!("{} Bot container '{container_name}' created", Label::pass());
+                    Ok(())
+                }
+                | Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let err = eyre!("Failed to create bot container — {stderr}");
+                    error!("=> {} {err}", Label::fail());
+                    Err(err)
+                }
+                | Err(why) => {
+                    let err = eyre!("Failed to spawn {runtime_binary} — {why}");
+                    error!("=> {} {err}", Label::fail());
+                    Err(err)
+                }
+            }
         }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+fn create_bot_args(
+    identifier: &str,
+    container_name: &str,
+    image: &str,
+    bind: Option<&str>,
+    poll_interval: Option<u64>,
+    after: Option<&str>,
+    domain: Option<&str>,
+    event_source: EventSource,
+    public_url: Option<&str>,
+    register_webhook: bool,
+    volume: Option<&str>,
+) -> Vec<OsString> {
+    let port = bind.and_then(bind_port).unwrap_or(3000);
+    let internal_bind = format!("0.0.0.0:{port}");
+    let volume = volume.map(str::to_string).unwrap_or_else(|| format!("acorn-bot-{identifier}-state"));
+    let environment_args = GITLAB_CONTAINER_ENV
+        .into_iter()
+        .filter(|name| std::env::var(name).is_ok_and(|value| !value.trim().is_empty()))
+        .flat_map(|name| args!["--env", name])
+        .collect::<Vec<_>>();
+    let domain_args = domain.map_or_else(|| args![], |domain| args!["--env", format!("{CI_SERVER_HOST}={domain}")]);
+    let poll_args = poll_interval.map_or_else(|| args![], |interval| args!["--poll-interval", interval.to_string()]);
+    let after_args = after.map_or_else(|| args![], |after| args!["--after", after]);
+    let public_url_args = public_url.map_or_else(|| args![], |public_url| args!["--public-url", public_url]);
+    let register_args = if register_webhook { args!["--register-webhook"] } else { args![] };
+    args![
+        "run",
+        "--detach",
+        "--name",
+        container_name,
+        "--restart",
+        "always",
+        "--publish",
+        format!("{port}:{port}"),
+        "--mount",
+        format!("type=volume,source={volume},target=/var/lib/acorn"),
+        "--env",
+        "ACORN_DATABASE_PATH=/var/lib/acorn/acorn.db",
+        ..environment_args,
+        ..domain_args,
+        image,
+        "serve",
+        "bot",
+        identifier,
+        "--bind",
+        internal_bind,
+        "--event-source",
+        event_source.to_string(),
+        ..poll_args,
+        ..after_args,
+        ..public_url_args,
+        ..register_args
+    ]
+}
+fn bind_port(bind: &str) -> Option<u16> {
+    bind.rsplit_once(':')
+        .and_then(|(_, port)| port.parse().ok())
+        .or_else(|| bind.parse().ok())
+}
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn webhook_container_is_reachable_durable_and_redacts_credentials() {
+        temp_env::with_vars(
+            [
+                ("GITLAB_TOKEN", Some("outbound-secret")),
+                ("GITLAB_WEBHOOK_TOKEN", Some("inbound-secret")),
+                ("GITLAB_WEBHOOK_SIGNING_TOKEN", None),
+            ],
+            || {
+                let args = create_bot_args(
+                    "42",
+                    "acorn-bot-42",
+                    "acorn:latest",
+                    Some("localhost:8080"),
+                    Some(10),
+                    None,
+                    None,
+                    EventSource::Webhook,
+                    Some("https://bot.example.org"),
+                    true,
+                    None,
+                )
+                .into_iter()
+                .map(|value| value.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+                assert!(args.windows(2).any(|values| values == ["--publish", "8080:8080"]));
+                assert!(args
+                    .windows(2)
+                    .any(|values| { values == ["--mount", "type=volume,source=acorn-bot-42-state,target=/var/lib/acorn",] }));
+                assert!(args.windows(2).any(|values| values == ["--bind", "0.0.0.0:8080"]));
+                assert!(args.windows(2).any(|values| values == ["--env", "GITLAB_TOKEN"]));
+                assert!(args.windows(2).any(|values| values == ["--env", "GITLAB_WEBHOOK_TOKEN"]));
+                assert!(!args.iter().any(|value| value.contains("secret")));
+            },
+        );
     }
 }

@@ -83,6 +83,21 @@
           "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
         },
         {
+          "name": "hooks",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/hooks{{ query }}"
+        },
+        {
+          "name": "hook::create",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/hooks"
+        },
+        {
+          "name": "hook::update",
+          "method": "put",
+          "template": "{{ base }}/projects/{{ identifier }}/hooks/{{ hook_id }}"
+        },
+        {
           "name": "jobs",
           "method": "get",
           "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
@@ -98,9 +113,39 @@
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes"
         },
         {
+          "name": "merge-request-note::update",
+          "method": "put",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes/{{ note_id }}"
+        },
+        {
+          "name": "merge-request-notes",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes{{ query }}"
+        },
+        {
+          "name": "merge-request-diffs",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/diffs{{ query }}"
+        },
+        {
           "name": "merge-requests",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
+        },
+        {
+          "name": "repository-file",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/files/{{ file_path }}{{ query }}"
+        },
+        {
+          "name": "commit-status",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/statuses/{{ sha }}"
+        },
+        {
+          "name": "current-user",
+          "method": "get",
+          "template": "{{ base }}/user"
         },
         {
           "name": "projects",
@@ -136,6 +181,11 @@
           "name": "tree",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/repository/tree{{ query }}"
+        },
+        {
+          "name": "version",
+          "method": "get",
+          "template": "{{ base }}/version"
         }
       ]
     },

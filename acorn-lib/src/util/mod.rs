@@ -1220,6 +1220,12 @@ where
 pub fn print_changes(old: &str, new: &str) {
     print_changes_with_color(old, new, true);
 }
+impl SemanticVersion {
+    /// Parse the numeric components of a semantic version string
+    pub fn from_string(value: impl AsRef<str>) -> Self {
+        Self::from(value.as_ref())
+    }
+}
 /// Prints a diff of changes between two strings, optionally using ANSI colors.
 pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
     let changes = text_diff_changes_with_color(old, new, color);

@@ -6,13 +6,43 @@
     clippy::unwrap_used
 )]
 use super::*;
-use crate::io::api;
 use crate::io::api::gitlab::{
     handle_tree_paths_response, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
 };
+use crate::io::api::{self, sluggify};
 use crate::param;
-use crate::prelude::HashMap;
+use crate::prelude::{HashMap, Mutex};
+use crate::test::server::TestServer;
+use crate::util::constants::app::MERGE_REQUEST_REPORT_MARKER;
+use alloc::sync::Arc;
+use axum::extract::{Request, State};
+use axum::routing::{get, post, put};
+use axum::{Json, Router};
 
+#[derive(Clone, Default)]
+struct MergeRequestWorkflowState {
+    statuses: Arc<Mutex<Vec<serde_json::Value>>>,
+    notes: Arc<Mutex<Vec<serde_json::Value>>>,
+    file_queries: Arc<Mutex<Vec<String>>>,
+}
+
+#[test]
+fn test_creator_slug_normalizes_and_falls_back() {
+    assert_eq!(sluggify(" Alice.Example ", 42), "alice-example");
+    assert_eq!(sluggify("---", 42), "user-42");
+}
+#[test]
+fn test_webhook_options_validate_reachability_and_credentials() {
+    assert!(WebhookOptions::new(Some("not a URL"), Some("legacy-secret"), Some("signing-secret"))
+        .validate()
+        .is_err());
+    assert!(WebhookOptions::new(Some("https://bot.example.org"), None, None).validate().is_err());
+    assert!(
+        WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("signing-secret"))
+            .validate()
+            .is_ok()
+    );
+}
 #[test]
 fn test_query_string() {
     let param = param!(KeyValuePair, "per_page", "100");
@@ -107,541 +137,647 @@ fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
     let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
     assert!(why.to_string().contains("expected value"));
 }
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod bot {
-    use super::*;
-    use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};
-    use crate::test::server::TestServer;
-    use crate::test::utils;
-    fn user() -> UserMetadata {
-        UserMetadata {
-            avatar_url: "https://example.com/avatar.png".to_string(),
-            identifier: 1,
-            locked: false,
-            name: "Test User".to_string(),
-            email: None,
-            state: "active".to_string(),
-            username: "tester".to_string(),
-            url: "https://example.com/tester".to_string(),
-        }
-    }
-    fn note(noteable_type: &str, noteable_iid: u64) -> NoteMetadata {
-        NoteMetadata {
-            identifier: 10,
-            note_type: None,
-            body: "hello".to_string(),
-            author: user(),
-            created_at: "2026-07-06T00:00:01Z".to_string(),
-            updated_at: "2026-07-06T00:00:01Z".to_string(),
-            system: false,
-            noteable_id: Some(20),
-            noteable_iid: Some(noteable_iid),
-            noteable_type: noteable_type.to_string(),
-            project_id: 30,
-            resolvable: false,
-            confidential: false,
-            internal: false,
-            imported: false,
-            imported_from: "none".to_string(),
-            commands_changes: serde_json::json!({}),
-        }
-    }
-    fn event(created_at: &str, noteable_type: &str) -> EventDetails {
-        EventDetails {
-            identifier: 100,
-            project_id: 30,
-            action_name: EventAction::Commented,
-            target_id: Some(10),
-            target_iid: Some(11),
-            target_type: TargetType::Note,
-            author_id: 1,
-            target_title: "note".to_string(),
-            created_at: created_at.to_string(),
-            author: user(),
-            imported: false,
-            imported_from: "none".to_string(),
-            push_data: None,
-            author_username: "tester".to_string(),
-            note: Some(note(noteable_type, 42)),
-        }
-    }
-    fn mr_payload(project_id: u64, action: &str) -> serde_json::Value {
-        serde_json::json!({
-            "object_kind": "merge_request",
-            "user": { "id": 1, "username": "alice", "bot": false },
-            "project": { "id": project_id },
-            "object_attributes": {
-                "iid": 5,
-                "title": "Add feature",
-                "description": "A description",
-                "action": action,
-                "last_commit": { "id": "abc123" }
-            }
-        })
-    }
-    fn note_payload(project_id: u64, noteable_type: &str, system: bool, bot: bool) -> serde_json::Value {
-        serde_json::json!({
-            "object_kind": "note",
-            "user": { "id": 2, "username": "bob", "bot": bot },
-            "project": { "id": project_id },
-            "object_attributes": {
-                "id": 10,
-                "note": "/acorn check",
-                "noteable_type": noteable_type,
-                "noteable_id": 20,
-                "system": system,
-                "confidential": false,
-                "internal": false
-            },
-            "issue": { "iid": 3 }
-        })
-    }
-    async fn post_webhook(server_url: &str, payload: &serde_json::Value, headers: &[(&str, &str)]) -> reqwest::Response {
-        let client = reqwest::Client::new();
-        let body = serde_json::to_string(payload).unwrap();
-        let mut req = client
-            .post(format!("{server_url}/webhooks/gitlab"))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("X-Gitlab-Webhook-UUID", "legacy-delivery-id")
-            .body(body);
-        for (k, v) in headers {
-            req = req.header(*k, *v);
-        }
-        req.send().await.unwrap()
-    }
-    #[test]
-    fn test_deserializes_event_with_null_target_ids() {
-        let event = serde_json::json!({
-            "id": 100,
-            "project_id": 30,
-            "action_name": "commented on",
-            "target_id": null,
-            "target_iid": null,
-            "target_type": "Note",
-            "author_id": 1,
-            "target_title": "note",
-            "created_at": "2026-07-06T00:00:01Z",
-            "author": {
-                "id": 1,
-                "username": "tester",
-                "public_email": null,
-                "name": "Test User",
-                "state": "active",
-                "locked": false,
-                "avatar_url": "https://example.com/avatar.png",
-                "web_url": "https://example.com/tester"
-            },
-            "imported": false,
-            "imported_from": "none",
-            "push_data": null,
-            "author_username": "tester",
-            "note": {
-                "id": 10,
-                "type": null,
-                "body": "hello",
-                "author": {
-                    "id": 1,
-                    "username": "tester",
-                    "public_email": null,
-                    "name": "Test User",
-                    "state": "active",
-                    "locked": false,
-                    "avatar_url": "https://example.com/avatar.png",
-                    "web_url": "https://example.com/tester"
+#[tokio::test]
+async fn test_project_webhook_registration_uses_signing_token_on_gitlab_19() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route(
+            "/api/v4/version",
+            get(|| async { Json(serde_json::json!({"version":"19.1.0","revision":"abc"})) }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 7,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
                 },
-                "created_at": "2026-07-06T00:00:01Z",
-                "updated_at": "2026-07-06T00:00:01Z",
-                "system": false,
-                "noteable_id": null,
-                "noteable_iid": null,
-                "noteable_type": "MergeRequest",
-                "project_id": 30,
-                "resolvable": false,
-                "confidential": false,
-                "internal": false,
-                "imported": false,
-                "imported_from": "none",
-                "commands_changes": {}
-            }
-        });
-
-        let event: EventDetails = serde_json::from_value(event).unwrap();
-        assert_eq!(event.target_id, None);
-        assert_eq!(event.target_iid, None);
-        assert!(MergeRequestNoteEvent::try_from(&event).is_err());
-    }
-    #[test]
-    fn test_extracts_merge_request_iid_from_note_event() {
-        let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "MergeRequest")).unwrap();
-        assert_eq!(extracted.merge_request_iid, 42);
-    }
-    #[test]
-    fn test_ignores_merge_request_note_without_iid() {
-        let mut event = event("2026-07-06T00:00:01Z", "MergeRequest");
-        if let Some(note) = event.note.as_mut() {
-            note.noteable_iid = None;
-        }
-        let extracted = MergeRequestNoteEvent::try_from(&event);
-        assert!(extracted.is_err());
-    }
-    #[test]
-    fn test_ignores_non_merge_request_note_event() {
-        let extracted = MergeRequestNoteEvent::try_from(&event("2026-07-06T00:00:01Z", "Issue"));
-        assert!(extracted.is_err());
-    }
-    #[test]
-    fn test_processing_updates_after_to_latest_event_timestamp() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let bot = Server::new(config);
-        let summary = bot
-            .process_events(vec![
-                event("2026-07-06T00:00:01Z", "MergeRequest"),
-                event("2026-07-06T00:00:03Z", "Issue"),
-            ])
-            .unwrap();
-        assert_eq!(summary.latest_after, Some("2026-07-06T00:00:03Z".to_string()));
-        assert_eq!(summary.processed_count, 1);
-        assert_eq!(bot.snapshot().unwrap().after, "2026-07-06T00:00:03Z");
-    }
-    #[tokio::test]
-    async fn test_router_health_endpoint_returns_ok() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let bot = Server::new(config);
-        let server = TestServer::start(bot.router()).await.unwrap();
-        let response = reqwest::get(format!("{}/health", server.base_url)).await.unwrap();
-        let status = response.status();
-        let body = response.text().await.unwrap();
-        assert_eq!(status, reqwest::StatusCode::OK);
-        assert_eq!(body, "ok");
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_router_state_endpoint_returns_initial_snapshot() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_after("2026-07-06T00:00:00Z");
-        let bot = Server::new(config);
-        let server = TestServer::start(bot.router()).await.unwrap();
-        let response = reqwest::get(format!("{}/state", server.base_url)).await.unwrap();
-        let status = response.status();
-        let json = response.json::<serde_json::Value>().await.unwrap();
-        assert_eq!(status, reqwest::StatusCode::OK);
-        assert_eq!(json.get("after").and_then(serde_json::Value::as_str), Some("2026-07-06T00:00:00Z"));
-        assert_eq!(json.get("poll_count").and_then(serde_json::Value::as_u64), Some(0));
-        assert_eq!(json.get("processed_count").and_then(serde_json::Value::as_u64), Some(0));
-        assert!(json.get("last_error").is_some_and(serde_json::Value::is_null));
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_accepts_bot_author_with_flag_set() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("test-token")
-            .with_project_id(30);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body_val = note_payload(30, "Issue", false, true);
-        let body_str = serde_json::to_string(&body_val).unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Note Hook")
-            .header("X-Gitlab-Token", "test-token")
-            .header("X-Gitlab-Webhook-UUID", "bot-note-id")
-            .body(body_str)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 202);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_no_auth_when_not_configured() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[]).await;
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_accepts_system_note_with_flag_set() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("test-token")
-            .with_project_id(30);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body_val = note_payload(30, "MergeRequest", true, false);
-        let body_str = serde_json::to_string(&body_val).unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Note Hook")
-            .header("X-Gitlab-Token", "test-token")
-            .header("X-Gitlab-Webhook-UUID", "system-note-id")
-            .body(body_str)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 202);
-        server.stop().await.unwrap();
-    }
-    #[test]
-    fn test_standard_webhook_signature_matches_fixed_vector() {
-        let signature =
-            utils::compute_standard_webhook_signature("whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==", "wh-id-1", "1700000000", br#"{"hello":"world"}"#);
-        assert_eq!(signature, "v1,GvvDAfrKjm6zfPxjHVFe3fLaHJSqQi8ZDA7gRiqVHsY=");
-    }
-    #[tokio::test]
-    async fn test_webhook_accepts_valid_hmac_signature() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_signing_token(signing_token_base64)
-            .with_project_id(30);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::current_unix_timestamp();
-        let sig = utils::compute_standard_webhook_signature(signing_token_base64, "wh-id-1", &timestamp, body.as_bytes());
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-id", "wh-id-1")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", sig)
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 202);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_accepts_valid_legacy_token() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("secret")
-            .with_project_id(30);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "secret")]).await;
-        assert_eq!(res.status(), 202);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_hmac_takes_precedence_over_legacy_token() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("legacy-token")
-            .with_webhook_signing_token(signing_token_base64)
-            .with_project_id(30);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::current_unix_timestamp();
-        let sig = utils::compute_standard_webhook_signature(signing_token_base64, "wh-id-1", &timestamp, body.as_bytes());
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-id", "wh-id-1")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", sig)
-            .header("X-Gitlab-Token", "wrong-legacy-token")
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 202);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_invalid_hmac_even_with_valid_legacy_token() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("legacy-token")
-            .with_webhook_signing_token(signing_token_base64);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::current_unix_timestamp();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-id", "wh-id-1")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", "v1,invalidsig")
-            .header("X-Gitlab-Token", "legacy-token")
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_invalid_hmac_signature() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_signing_token(signing_token_base64);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::current_unix_timestamp();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-id", "wh-id-1")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", "v1,badsignature")
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_invalid_legacy_token() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("secret");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "wrong")]).await;
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_malformed_json() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("tok");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("X-Gitlab-Token", "tok")
-            .header("X-Gitlab-Webhook-UUID", "malformed-json-id")
-            .body("{not valid json}")
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 400);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_missing_event_header() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("test-token");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Token", "test-token")
-            .body(serde_json::to_string(&mr_payload(30, "open")).unwrap())
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 400);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_missing_legacy_token_when_configured() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("secret");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[]).await;
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_missing_delivery_identifier() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("secret");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("X-Gitlab-Token", "secret")
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 400);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_missing_webhook_id_for_hmac() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_signing_token(signing_token_base64);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::current_unix_timestamp();
-        let sig = utils::compute_standard_webhook_signature(signing_token_base64, "wh-id-1", &timestamp, body.as_bytes());
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", sig)
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 400);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_oversized_body() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let big_body = "x".repeat(1024 * 1024 + 1);
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .body(big_body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 413);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_stale_timestamp() {
-        let signing_token_base64 = "whsec_c2VjcmV0a2V5Zm9ydGVzdGluZw==";
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_signing_token(signing_token_base64);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let body = serde_json::to_string(&mr_payload(30, "open")).unwrap();
-        let timestamp = utils::stale_unix_timestamp(400);
-        let sig = utils::compute_standard_webhook_signature(signing_token_base64, "wh-id-1", &timestamp, body.as_bytes());
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Merge Request Hook")
-            .header("webhook-id", "wh-id-1")
-            .header("webhook-timestamp", timestamp)
-            .header("webhook-signature", sig)
-            .body(body)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 401);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_rejects_wrong_project() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
-            .with_webhook_token("test-token")
-            .with_project_id(99);
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "test-token")]).await;
-        assert_eq!(res.status(), 403);
-        server.stop().await.unwrap();
-    }
-    #[tokio::test]
-    async fn test_webhook_returns_ok_for_unsupported_event_type() {
-        let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_webhook_token("test-token");
-        let server = TestServer::start(Server::new(config).router()).await.unwrap();
-        let res = reqwest::Client::new()
-            .post(format!("{}/webhooks/gitlab", server.base_url))
-            .header("Content-Type", "application/json")
-            .header("X-Gitlab-Event", "Push Hook")
-            .header("X-Gitlab-Token", "test-token")
-            .header("X-Gitlab-Webhook-UUID", "unsupported-event-id")
-            .body("{}")
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(res.status(), 200);
-        server.stop().await.unwrap();
-    }
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    let body = bodies.lock().unwrap()[0].clone();
+    assert!(result.created);
+    assert_eq!(body.get("signing_token").and_then(serde_json::Value::as_str), Some("whsec_c2lnbmluZw=="));
+    assert!(body.get("token").is_none());
+    assert_eq!(body.get("merge_requests_events").and_then(serde_json::Value::as_bool), Some(true));
+    assert_eq!(body.get("note_events").and_then(serde_json::Value::as_bool), Some(true));
+    server.stop().await.unwrap();
 }
+#[tokio::test]
+async fn test_project_webhooks_reads_every_page() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/hooks",
+        get(|request: Request| async move {
+            let page = request
+                .uri()
+                .query()
+                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
+                .unwrap_or("1");
+            let hooks = if page == "1" {
+                (0..100)
+                    .map(|id| {
+                        serde_json::json!({
+                            "id": id,
+                            "url": format!("https://bot.example.org/{id}"),
+                            "merge_requests_events": true,
+                            "note_events": true,
+                            "enable_ssl_verification": true
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                vec![serde_json::json!({
+                    "id": 100,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": true,
+                    "note_events": true,
+                    "enable_ssl_verification": true
+                })]
+            };
+            Json(hooks)
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    assert_eq!(project_webhooks(&options).await.unwrap().len(), 101);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_uses_legacy_token_before_gitlab_19() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route(
+            "/api/v4/version",
+            get(|| async { Json(serde_json::json!({"version":"18.11.2","revision":"abc"})) }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 8,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    let body = bodies.lock().unwrap()[0].clone();
+    assert_eq!(body.get("token").and_then(serde_json::Value::as_str), Some("legacy-secret"));
+    assert!(body.get("signing_token").is_none());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_refreshes_exact_existing_hook_credential() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 9,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": true,
+                    "note_events": true,
+                    "enable_ssl_verification": true,
+                    "signing_token_present": true
+                }]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks/9",
+            put(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 9,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org/"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    assert!(!result.created);
+    assert_eq!(result.hook.id, 9);
+    assert_eq!(
+        bodies.lock().unwrap()[0].get("signing_token").and_then(serde_json::Value::as_str),
+        Some("whsec_c2lnbmluZw==")
+    );
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_updates_mismatched_hook_without_duplication() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 10,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": false,
+                    "note_events": true,
+                    "enable_ssl_verification": true
+                }]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks/10",
+            put(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 10,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    assert!(!result.created);
+    assert_eq!(bodies.lock().unwrap().len(), 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_surfaces_permission_error_without_credentials() {
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"18.11.2"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { (axum::http::StatusCode::FORBIDDEN, Json(serde_json::json!({"message":"403 Forbidden"}))) }),
+        );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound-secret").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("inbound-secret"), Some("whsec_c2lnbmluZw=="));
+    let error = upsert_project_webhook(&options, &webhook_options).await.unwrap_err().to_string();
+    assert!(!error.contains("outbound-secret"));
+    assert!(!error.contains("inbound-secret"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_diffs_reads_every_page() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/merge_requests/7/diffs",
+        get(|request: Request| async move {
+            let page = request
+                .uri()
+                .query()
+                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
+                .unwrap_or("1");
+            let diffs = if page == "1" {
+                (0..100)
+                    .map(|index| serde_json::json!({"old_path":format!("old-{index}.json"),"new_path":format!("new-{index}.json")}))
+                    .collect::<Vec<_>>()
+            } else {
+                vec![serde_json::json!({"old_path":"last.json","new_path":"last.json"})]
+            };
+            Json(diffs)
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .build();
+    assert_eq!(merge_request_diffs(&options).await.unwrap().len(), 101);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report() {
+    let state = MergeRequestWorkflowState::default();
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/7",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid": 7,
+                    "project_id": 30,
+                    "source_project_id": 31,
+                    "sha": "abc123",
+                    "title": "Document the result",
+                    "description": "Artifact doi:10.1234/example",
+                    "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/diffs",
+            get(|| async {
+                Json(serde_json::json!([
+                    {"old_path":"old-activity.json","new_path":"activity.json","renamed_file":true},
+                    {"old_path":"notes.md","new_path":"notes.md","collapsed":true},
+                    {"old_path":"CITATION.cff","new_path":"CITATION.cff","too_large":true},
+                    {"old_path":"removed.cff","new_path":"removed.cff","deleted_file":true},
+                    {"old_path":"generated.md","new_path":"generated.md","generated_file":true},
+                    {"old_path":"src/main.rs","new_path":"src/main.rs"}
+                ]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/31/repository/files/activity.json",
+            get(|State(state): State<MergeRequestWorkflowState>, request: Request| async move {
+                state
+                    .file_queries
+                    .lock()
+                    .unwrap()
+                    .push(request.uri().query().unwrap_or_default().to_string());
+                Json(serde_json::json!({
+                    "file_path": "activity.json",
+                    "size": 2,
+                    "encoding": "base64",
+                    "content": data_encoding::BASE64.encode(b"{}")
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/31/statuses/abc123",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.statuses.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "name": "acorn/check",
+                        "sha": "abc123",
+                        "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
+                        "description": body.get("description").cloned(),
+                        "target_url": body.get("target_url").cloned()
+                    }))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/31/repository/files/notes.md",
+            get(|| async {
+                Json(serde_json::json!({
+                    "file_path": "notes.md",
+                    "size": 14,
+                    "encoding": "base64",
+                    "content": data_encoding::BASE64.encode(b"Project notes")
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/31/repository/files/CITATION.cff",
+            get(|| async {
+                Json(serde_json::json!({
+                    "file_path": "CITATION.cff",
+                    "size": 31,
+                    "encoding": "base64",
+                    "content": data_encoding::BASE64.encode(b"title: Result\nauthors:\n- name: A")
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.notes.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({"id": 88, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .sha("abc123")
+        .build();
+    let check_options = crate::analyzer::CheckOptions {
+        offline: true,
+        skip: vec![
+            "schema".to_string(),
+            "link".to_string(),
+            "prose".to_string(),
+            "quality".to_string(),
+            "readability".to_string(),
+            "crosswalk".to_string(),
+        ],
+        ..crate::analyzer::CheckOptions::default()
+    };
+    let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
+    let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
+        panic!("expected published analysis");
+    };
+    assert_eq!(
+        report
+            .inputs
+            .iter()
+            .filter(|input| matches!(input, review::Input::Checked { .. }))
+            .count(),
+        3
+    );
+    assert_eq!(
+        report
+            .inputs
+            .iter()
+            .filter(|input| matches!(input, review::Input::Skipped { .. }))
+            .count(),
+        3
+    );
+    assert_eq!(report.citation_candidates.len(), 1);
+    assert_eq!(state.file_queries.lock().unwrap().as_slice(), ["ref=abc123"]);
+    let statuses = state.statuses.lock().unwrap().clone();
+    assert_eq!(statuses.len(), 2);
+    assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
+    assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("success"));
+    let notes = state.notes.lock().unwrap().clone();
+    assert_eq!(notes.len(), 1);
+    let note = notes[0].get("body").and_then(serde_json::Value::as_str).unwrap_or_default();
+    assert!(note.contains(MERGE_REQUEST_REPORT_MARKER));
+    assert!(note.contains("`abc123`"));
+    assert!(note.contains("doi"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/merge_requests/7",
+        get(|| async {
+            Json(serde_json::json!({
+                "iid": 7,
+                "project_id": 30,
+                "source_project_id": 30,
+                "sha": "new-sha",
+                "title": "Updated",
+                "description": "",
+                "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+            }))
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .sha("old-sha")
+        .build();
+    let outcome = review::analyze_merge_request(&options, &crate::analyzer::CheckOptions::default())
+        .await
+        .unwrap();
+    assert!(matches!(
+        outcome,
+        review::MergeRequestAnalysisOutcome::Stale {
+            queued_sha,
+            current_sha
+        } if queued_sha == "old-sha" && current_sha == "new-sha"
+    ));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_analysis_fails_status_for_oversized_supported_file() {
+    let state = MergeRequestWorkflowState::default();
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/7",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid": 7,
+                    "project_id": 30,
+                    "source_project_id": 30,
+                    "sha": "large-sha",
+                    "title": "Large metadata",
+                    "description": "",
+                    "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/diffs",
+            get(|| async { Json(serde_json::json!([{"old_path":"large.json","new_path":"large.json"}])) }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/files/large.json",
+            get(|| async {
+                Json(serde_json::json!({
+                    "file_path": "large.json",
+                    "size": 1_048_577,
+                    "encoding": "base64",
+                    "content": ""
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/statuses/large-sha",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.statuses.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "name": "acorn/check",
+                        "sha": "large-sha",
+                        "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
+                        "description": body.get("description").cloned(),
+                        "target_url": body.get("target_url").cloned()
+                    }))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.notes.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({"id": 89, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .sha("large-sha")
+        .build();
+    let check_options = crate::analyzer::CheckOptions {
+        offline: true,
+        skip: vec![
+            "schema".to_string(),
+            "link".to_string(),
+            "prose".to_string(),
+            "quality".to_string(),
+            "readability".to_string(),
+            "crosswalk".to_string(),
+        ],
+        ..crate::analyzer::CheckOptions::default()
+    };
+    let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
+    let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
+        panic!("expected published analysis");
+    };
+    assert!(report.failed());
+    assert!(!report.requires_retry());
+    assert_eq!(
+        report.inputs.iter().filter(|input| matches!(input, review::Input::Failed { .. })).count(),
+        1
+    );
+    let statuses = state.statuses.lock().unwrap().clone();
+    assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
+    assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("failed"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_analysis_retries_inaccessible_supported_content_after_reporting_failure() {
+    let state = MergeRequestWorkflowState::default();
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/7",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid": 7,
+                    "project_id": 30,
+                    "source_project_id": 30,
+                    "sha": "missing-sha",
+                    "title": "Missing metadata",
+                    "description": "",
+                    "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/diffs",
+            get(|| async { Json(serde_json::json!([{"old_path":"missing.json","new_path":"missing.json"}])) }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/files/missing.json",
+            get(|| async {
+                (
+                    axum::http::StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({"message":"404 File Not Found"})),
+                )
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/statuses/missing-sha",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.statuses.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "name": "acorn/check",
+                        "sha": "missing-sha",
+                        "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
+                        "description": body.get("description").cloned(),
+                        "target_url": body.get("target_url").cloned()
+                    }))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.notes.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({"id": 90, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .sha("missing-sha")
+        .build();
+    let check_options = crate::analyzer::CheckOptions {
+        offline: true,
+        skip: vec![
+            "schema".to_string(),
+            "link".to_string(),
+            "prose".to_string(),
+            "quality".to_string(),
+            "readability".to_string(),
+            "crosswalk".to_string(),
+        ],
+        ..crate::analyzer::CheckOptions::default()
+    };
+    let error = review::analyze_merge_request(&options, &check_options).await.unwrap_err().to_string();
+    assert!(error.contains("could not be fetched"));
+    let statuses = state.statuses.lock().unwrap().clone();
+    assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
+    assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("failed"));
+    assert_eq!(state.notes.lock().unwrap().len(), 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_upsert_merge_request_note_updates_existing_marker() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 91,
+                    "body": "<!-- acorn:merge-request-analysis -->\nold",
+                    "author": {"id": 500}
+                }]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes/91",
+            put(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({"id": 91, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .build();
+    let result = upsert_merge_request_note(&options, MERGE_REQUEST_REPORT_MARKER, "<!-- acorn:merge-request-analysis -->\nnew")
+        .await
+        .unwrap();
+    assert_eq!(result.identifier, 91);
+    assert_eq!(bodies.lock().unwrap().len(), 1);
+    server.stop().await.unwrap();
+}
+#[cfg(test)]
+mod bot;

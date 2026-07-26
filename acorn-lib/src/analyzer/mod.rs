@@ -45,14 +45,20 @@ use validator::ValidationErrorsKind;
 use which::which;
 
 pub mod check;
+#[cfg(feature = "analysis")]
+pub mod discovery;
 pub mod error;
 pub mod readability;
+#[cfg(feature = "analysis")]
+mod service;
 pub mod vale;
 
 pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, Standard};
 
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow};
+#[cfg(feature = "analysis")]
+pub use service::{analyze_paths, classify_paths, AnalysisBatch, AnalysisReport, CategoryChecks, StandardPaths};
 
 #[cfg(feature = "analysis")]
 use check::{check_prose_for, check_readability_for};

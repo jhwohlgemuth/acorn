@@ -52,6 +52,30 @@ lazy_static! {
 pub fn first_header<'a>(headers: &'a HeaderMap, names: &[&str]) -> Option<&'a str> {
     names.iter().filter_map(|name| headers.get(*name)).find_map(|value| value.to_str().ok())
 }
+/// Normalize an external username into a stable path component
+pub fn sluggify(username: &str, user_id: u64) -> String {
+    let (slug, _) = username
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .fold((String::new(), false), |(mut value, separator), character| {
+            if character.is_ascii_alphanumeric() {
+                value.push(character);
+                (value, false)
+            } else if !value.is_empty() && !separator {
+                value.push('-');
+                (value, true)
+            } else {
+                (value, separator)
+            }
+        });
+    let slug = slug.trim_matches('-');
+    if slug.is_empty() {
+        format!("user-{user_id}")
+    } else {
+        slug.to_string()
+    }
+}
 /// Trait to standardize configuration loading from environment variables and modification with new values
 pub trait Configuration {
     /// Populate values from environment (e.g., `.env` file or environment variables)
@@ -92,6 +116,20 @@ pub trait IntoHeaders {
 }
 /// Helper trait combining common bounds for API query field types
 pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
+/// Common repository file metadata exposed by provider APIs
+pub trait RepositoryFileMetadata {
+    /// Return the repository-relative path
+    fn path(&self) -> &str;
+    /// Return the reported file size when available
+    fn size(&self) -> Option<u64>;
+}
+/// Generic API response containing a single identifier
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Identifier<T> {
+    /// Provider-specific identifier
+    #[serde(rename = "id", alias = "iid")]
+    pub identifier: T,
+}
 /// Trait for types that can serve as a fallback error response parser
 ///
 /// When `handle_or` fails to parse the primary response type, it calls

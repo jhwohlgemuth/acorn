@@ -242,11 +242,26 @@ Bot server container
 
   Default value: `10`
 * `-R`, `--runtime <RUNTIME>` — Container runtime (docker, podman, apptainer)
+* `--event-source <EVENT_SOURCE>` — Event delivery source
+
+  Default value: `poll`
+
+  Possible values:
+  - `poll`:
+    Poll GitLab's Events API
+  - `webhook`:
+    Receive authenticated GitLab webhooks
+  - `hybrid`:
+    Receive webhooks and retain polling as best-effort reconciliation
+
+* `--public-url <URL>` — Externally reachable HTTPS base URL for webhook delivery
+* `--register-webhook` — Register the project webhook before starting
 * `-n`, `--name <NAME>` — Container name (defaults to `acorn-bot-{identifier}`)
 * `-i`, `--image <IMAGE>` — Acorn Docker image to use for the bot container
 
   Default value: `acorn:latest`
 * `-d`, `--domain <DOMAIN>` — GitLab domain override (e.g., code.ornl.gov)
+* `--volume <VOLUME>` — Persistent named volume for bot state
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -696,6 +711,20 @@ Webhook/API bot server that polls GitLab for merge request note events
 
   Default value: `10`
 * `-R`, `--runtime <RUNTIME>` — Container runtime (docker, podman, apptainer)
+* `--event-source <EVENT_SOURCE>` — Event delivery source
+
+  Default value: `poll`
+
+  Possible values:
+  - `poll`:
+    Poll GitLab's Events API
+  - `webhook`:
+    Receive authenticated GitLab webhooks
+  - `hybrid`:
+    Receive webhooks and retain polling as best-effort reconciliation
+
+* `--public-url <URL>` — Externally reachable HTTPS base URL for webhook delivery
+* `--register-webhook` — Register the project webhook before starting
 * `-d`, `--detach` — Create and run the bot in a detached Docker/Podman container instead of in-process
 
 
