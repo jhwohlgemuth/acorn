@@ -76,7 +76,7 @@ impl ExportHandler for CffExportHandler {
 impl ExportHandler for StructuredExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
-            let extension = request.format.to_string();
+            let extension = request.format.to_string().to_lowercase();
             export_as_format(
                 &request.path,
                 request.options,
@@ -90,7 +90,7 @@ impl ExportHandler for StructuredExportHandler {
     }
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
-            let extension = request.format.to_string();
+            let extension = request.format.to_string().to_lowercase();
             export_as_format_crosswalk(
                 &request.path,
                 request.options,

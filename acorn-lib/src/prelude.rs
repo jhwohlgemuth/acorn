@@ -8,7 +8,7 @@ pub use alloc::{
 };
 /// Module that provides `std` support
 #[cfg(feature = "std")]
-#[allow(unused_imports)]
+#[allow(unused_imports, clippy::std_instead_of_core)]
 mod std {
     pub use hashbrown::{DefaultHashBuilder, HashMap, HashSet};
     pub use std::env::{self, consts, current_dir, temp_dir, var, var_os};
