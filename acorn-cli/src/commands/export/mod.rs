@@ -154,11 +154,10 @@ impl ExportHandler for PdfExportHandler {
                                 Some(1),
                                 _request.progress_type,
                             );
-                            match progress.await {
-                                | Ok(_) => {
-                                    let _close = page.close(Some(false)).await;
-                                    Ok(())
-                                }
+                            let result = progress.await;
+                            session.close().await;
+                            match result {
+                                | Ok(_) => Ok(()),
                                 | Err(why) => {
                                     fail!("Generate PDF — {}", why);
                                     Err(eyre!("Generate PDF — {why}"))

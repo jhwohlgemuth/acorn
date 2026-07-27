@@ -6,7 +6,7 @@
 //! - JSON export (from YAML source)
 //! - YAML export (from JSON source)
 //! - Markdown export (from JSON source)
-//! - PDF export (ignored by default - requires playwright)
+//! - PDF export (ignored by default - requires a Chromium download)
 //! - Combine flag for multiple files
 //!
 //! Test artifacts are created in `target/test_artifacts/` and cleaned up
@@ -121,7 +121,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
 }
 #[cfg(all(feature = "pdf", not(target_os = "macos")))]
 #[tokio::test]
-#[ignore = "Requires Playwright for PDF generation"]
+#[ignore = "Requires a Chromium download for PDF generation"]
 async fn test_export_pdf_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_pdf");
     let _cleanup = TestCleanup::new(temp_dir.clone());

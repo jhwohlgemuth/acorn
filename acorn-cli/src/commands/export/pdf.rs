@@ -5,23 +5,42 @@
 use crate::cli::CommandOptions;
 use crate::template::Convert;
 use acorn::io::{ApiResult, InputOutput};
-use acorn::prelude::{absolute, create_dir_all, remove_file, ErrorKind, OpenOptions, PathBuf};
+use acorn::prelude::{absolute, create_dir_all, remove_dir_all, remove_file, ErrorKind, OpenOptions, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
+use chromiumoxide::browser::{Browser, BrowserConfig};
+use chromiumoxide::cdp::browser_protocol::page::PrintToPdfParams;
+use chromiumoxide::fetcher::{BrowserFetcher, BrowserFetcherOptions, BrowserKind, Version};
+use chromiumoxide::Page;
 use color_eyre::eyre::eyre;
-use playwright::api::{Browser, BrowserContext, Page};
-use playwright::Playwright;
+use directories::BaseDirs;
+use futures::StreamExt;
+use nanoid::nanoid;
+use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
 pub(crate) struct PdfSession {
-    _playwright: Playwright,
-    _browser: Browser,
-    _context: BrowserContext,
+    browser: Browser,
+    handler: JoinHandle<()>,
     page: Page,
+    profile: PathBuf,
 }
 impl PdfSession {
     pub(crate) fn page(&self) -> &Page {
         &self.page
+    }
+    pub(crate) async fn close(self) {
+        let Self {
+            mut browser,
+            handler,
+            page,
+            profile,
+        } = self;
+        let _close_page = page.close().await;
+        let _close_browser = browser.close().await;
+        let _wait_browser = browser.wait().await;
+        let _close_handler = handler.await;
+        let _remove_profile = remove_dir_all(profile);
     }
 }
 /// Create PDF document from Research Activity data
@@ -74,10 +93,10 @@ pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
                     }
                 };
                 if can_navigate {
-                    let _goto = page.goto_builder(&format!("file://{}", index.display())).goto().await;
+                    let _goto = page.goto(format!("file://{}", index.display())).await;
                 }
             }
-            match page.set_content_builder(&content).set_content().await {
+            match page.set_content(&content).await {
                 | Ok(_) => match output {
                     | Some(output_dir) => match create_dir_all(output_dir.clone()) {
                         | Ok(_) => {
@@ -85,17 +104,24 @@ pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
                             match absolute(output_dir.join(format!("{id}.pdf"))) {
                                 | Ok(output_path) => {
                                     debug!(path = output_path.to_absolute_string(), "=> {} Output", Label::using());
-                                    page.pdf_builder()
-                                        .prefer_css_page_size(true)
-                                        .path(output_path.clone())
-                                        .print_background(true)
-                                        .pdf()
-                                        .await
-                                        .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.to_absolute_string()))
-                                        .and_then(|_| match output_path.is_file() {
-                                            | true => Ok(()),
-                                            | false => Err(eyre!("Playwright did not create PDF at {}", output_path.to_absolute_string())),
-                                        })
+                                    page.save_pdf(
+                                        PrintToPdfParams {
+                                            margin_bottom: Some(0.0),
+                                            margin_left: Some(0.0),
+                                            margin_right: Some(0.0),
+                                            margin_top: Some(0.0),
+                                            prefer_css_page_size: Some(true),
+                                            print_background: Some(true),
+                                            ..PrintToPdfParams::default()
+                                        },
+                                        &output_path,
+                                    )
+                                    .await
+                                    .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.to_absolute_string()))
+                                    .and_then(|_| match output_path.is_file() {
+                                        | true => Ok(()),
+                                        | false => Err(eyre!("Chromium did not create PDF at {}", output_path.to_absolute_string())),
+                                    })
                                 }
                                 | Err(why) => Err(eyre!("Failed to resolve PDF output path — {why}")),
                             }
@@ -119,32 +145,78 @@ pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
     }
 }
 pub(crate) async fn initialize_page() -> ApiResult<PdfSession> {
-    match Playwright::initialize()
-        .await
-        .map_err(|why| eyre!("Failed to initialize Playwright — {why}"))
-        .and_then(install_chromium)
-    {
-        | Ok(playwright) => match playwright.chromium().launcher().headless(true).launch().await {
-            | Ok(browser) => match browser.context_builder().build().await {
-                | Ok(context) => match context.new_page().await {
-                    | Ok(page) => Ok(PdfSession {
-                        _playwright: playwright,
-                        _browser: browser,
-                        _context: context,
-                        page,
-                    }),
-                    | Err(why) => Err(eyre!("Failed to create browser page — {why}")),
+    match browser_cache_dir().and_then(|path| {
+        BrowserFetcherOptions::builder()
+            .with_kind(BrowserKind::Chrome)
+            .with_version(Version::exact(151, 0, 7922, 47))
+            .with_path(path)
+            .build()
+            .map_err(|why| eyre!("Failed to configure Chromium download — {why}"))
+    }) {
+        | Ok(options) => match BrowserFetcher::new(options).fetch().await {
+            | Ok(installation) => match browser_profile_dir() {
+                | Ok(profile) => match BrowserConfig::builder()
+                    .chrome_executable(installation.executable_path)
+                    .user_data_dir(&profile)
+                    .no_sandbox()
+                    .arg("--disable-gpu")
+                    .build()
+                {
+                    | Ok(config) => match Browser::launch(config).await {
+                        | Ok((mut browser, mut handler)) => {
+                            let handler = tokio::spawn(async move {
+                                while let Some(message) = handler.next().await {
+                                    if message.is_err() {
+                                        break;
+                                    }
+                                }
+                            });
+                            match browser.new_page("about:blank").await {
+                                | Ok(page) => Ok(PdfSession {
+                                    browser,
+                                    handler,
+                                    page,
+                                    profile,
+                                }),
+                                | Err(why) => {
+                                    let _close_browser = browser.close().await;
+                                    let _wait_browser = browser.wait().await;
+                                    let _close_handler = handler.await;
+                                    let _remove_profile = remove_dir_all(profile);
+                                    Err(eyre!("Failed to create browser page — {why}"))
+                                }
+                            }
+                        }
+                        | Err(why) => {
+                            let _remove_profile = remove_dir_all(profile);
+                            Err(eyre!("Failed to launch Chromium — {why}"))
+                        }
+                    },
+                    | Err(why) => {
+                        let _remove_profile = remove_dir_all(profile);
+                        Err(eyre!("Failed to configure Chromium — {why}"))
+                    }
                 },
-                | Err(why) => Err(eyre!("Failed to create browser context — {why}")),
+                | Err(why) => Err(why),
             },
-            | Err(why) => Err(eyre!("Failed to launch Chromium — {why}")),
+            | Err(why) => Err(eyre!("Failed to install Chromium — {why}")),
         },
         | Err(why) => Err(why),
     }
 }
-fn install_chromium(playwright: Playwright) -> ApiResult<Playwright> {
-    playwright
-        .install_chromium()
-        .map_err(|why| eyre!("Failed to install Chromium for Playwright — {why}"))
-        .map(|_| playwright)
+fn browser_profile_dir() -> ApiResult<PathBuf> {
+    let path = std::env::temp_dir().join(format!("acorn-chromiumoxide-{}", nanoid!()));
+    create_dir_all(&path)
+        .map(|_| path)
+        .map_err(|why| eyre!("Failed to create Chromium profile directory — {why}"))
+}
+fn browser_cache_dir() -> ApiResult<PathBuf> {
+    BaseDirs::new()
+        .map(|dirs| dirs.cache_dir().join("acorn").join("chromiumoxide"))
+        .ok_or_else(|| eyre!("Failed to resolve Chromium cache directory"))
+        .and_then(|path| {
+            create_dir_all(&path)
+                .map(|_| path)
+                .map_err(|why| eyre!("Failed to create Chromium cache directory — {why}"))
+        })
 }

@@ -70,12 +70,12 @@ validator = { workspace = true }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-playwright = { version = "0.0.20", optional = true }
+chromiumoxide = { version = "0.9.1", features = ["fetcher", "rustls", "zip8"], optional = true }
 
 [features]
 default = ["pdf", "tui"]
 duckdb = ["acorn-lib/duckdb"]
-pdf = ["dep:playwright", "dep:percy-dom", "dep:fast_qr"]
+pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr"]
 tui = ["dep:acorn-tui"]
 
 [dev-dependencies]
