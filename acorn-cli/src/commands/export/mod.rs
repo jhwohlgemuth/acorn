@@ -18,7 +18,7 @@ use core::iter::once;
 use owo_colors::OwoColorize;
 use tracing::{debug, info};
 
-#[cfg(all(feature = "pdf", not(target_os = "macos")))]
+#[cfg(feature = "pdf")]
 mod pdf;
 mod powerpoint;
 
@@ -133,7 +133,7 @@ impl ExportHandler for BagExportHandler {
 impl ExportHandler for PdfExportHandler {
     fn export<'a>(&'a self, _request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
-            #[cfg(all(feature = "pdf", not(target_os = "macos")))]
+            #[cfg(feature = "pdf")]
             {
                 match resolve_paths(&_request.path, &_request.options).await {
                     | Ok(paths) => match pdf::initialize_page().await {
@@ -168,10 +168,6 @@ impl ExportHandler for PdfExportHandler {
                     },
                     | Err(why) => Err(why),
                 }
-            }
-            #[cfg(all(feature = "pdf", target_os = "macos"))]
-            {
-                Err(eyre!("PDF export is not supported on macOS"))
             }
             #[cfg(not(feature = "pdf"))]
             {

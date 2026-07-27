@@ -1,7 +1,6 @@
 //! PDF export helpers
 //!
-//! This module renders Research Activity data to HTML and uses Playwright to
-//! generate a PDF output file.
+//! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
 use crate::cli::CommandOptions;
 use crate::template::Convert;
 use acorn::io::{ApiResult, InputOutput};
