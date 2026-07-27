@@ -248,7 +248,7 @@ pub enum Provider {
 ///
 /// IQ is a separate I-quant family that uses an importance matrix for reconstruction.
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, Serialize, JsonSchema)]
 pub enum Quantization {
     /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
     #[default]
@@ -283,6 +283,10 @@ pub enum Quantization {
     #[display("Q8_0")]
     #[serde(rename = "Q8_0")]
     Q8_0,
+    /// 8-bit floating-point weights
+    #[display("F8")]
+    #[serde(rename = "F8")]
+    F8,
     /// Full-ish precision, huge file (`F16`)
     #[display("F16")]
     #[serde(rename = "F16")]
@@ -293,7 +297,16 @@ pub enum Quantization {
     BF16,
     /// Catch-all for quantization tags added by upstream catalogs
     #[display("{}", _0)]
+    #[serde(untagged)]
     Other(String),
+}
+impl<'de> Deserialize<'de> for Quantization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Self::from)
+    }
 }
 impl Quantization {
     /// Detect a quantization tag in a GGUF filename.
@@ -841,6 +854,7 @@ impl From<&str> for Quantization {
             | "Q8_0" => Self::Q8_0,
             | "F16" => Self::F16,
             | "BF16" => Self::BF16,
+            | "F8" | "FP8" => Self::F8,
             | _ => Self::Other(value.to_string()),
         }
     }

@@ -19,7 +19,7 @@ fn all_known_assets() -> [PromptFileAsset; 6] {
         PromptFileAsset::Translate,
     ]
 }
-fn all_known_quantizations() -> [Quantization; 10] {
+fn all_known_quantizations() -> [Quantization; 11] {
     [
         Quantization::Q2k,
         Quantization::Q3kS,
@@ -31,11 +31,12 @@ fn all_known_quantizations() -> [Quantization; 10] {
         Quantization::Q8_0,
         Quantization::F16,
         Quantization::BF16,
+        Quantization::F8,
     ]
 }
 
 #[test]
-fn prompt_file_asset_from_str_round_trips_for_known_assets() {
+fn test_prompt_file_asset_from_str_round_trips_for_known_assets() {
     all_known_assets().iter().for_each(|asset| {
         let name = asset.to_string();
         let mapped = PromptFileAsset::from(name.as_str());
@@ -43,13 +44,13 @@ fn prompt_file_asset_from_str_round_trips_for_known_assets() {
     });
 }
 #[test]
-fn prompt_file_asset_unknown_from_str_round_trips() {
+fn test_prompt_file_asset_unknown_from_str_round_trips() {
     let value = "does-not-exist.prompt";
     let mapped = PromptFileAsset::from(value);
     assert_eq!(mapped.to_string(), value);
 }
 #[test]
-fn quantization_from_str_round_trips_for_known_values() {
+fn test_quantization_from_str_round_trips_for_known_values() {
     all_known_quantizations().iter().for_each(|quantization| {
         let name = quantization.to_string();
         let mapped = Quantization::from(name.as_str());
@@ -57,19 +58,27 @@ fn quantization_from_str_round_trips_for_known_values() {
     });
 }
 #[test]
-fn quantization_unknown_from_str_round_trips() {
+fn test_quantization_unknown_from_str_round_trips() {
     let value = "Q3_K_X";
     let mapped = Quantization::from(value);
     assert_eq!(mapped.to_string(), value);
 }
 #[test]
-fn quantization_lowercase_from_str_round_trips() {
+fn test_quantization_lowercase_from_str_round_trips() {
     let value = "q2_k";
     let mapped = Quantization::from(value);
     assert_eq!(mapped.to_string(), "Q2_K");
 }
 #[test]
-fn quantization_from_gguf_filename_detects_known_and_custom_values() {
+fn test_quantization_f8_aliases_deserialize_canonically() {
+    ["F8", "f8", "FP8", "fp8", "Fp8", "fP8"].iter().for_each(|alias| {
+        let decoded: Quantization = serde_json::from_str(&format!(r#""{alias}""#)).unwrap();
+        assert!(matches!(decoded, Quantization::F8));
+        assert_eq!(serde_json::to_string(&decoded).unwrap(), r#""F8""#);
+    });
+}
+#[test]
+fn test_quantization_from_gguf_filename_detects_known_and_custom_values() {
     assert_eq!(
         Quantization::from_gguf_filename("model-Q4_K_M.gguf").map(|value| value.to_string()),
         Some("Q4_K_M".to_string())
@@ -81,7 +90,7 @@ fn quantization_from_gguf_filename_detects_known_and_custom_values() {
     assert!(Quantization::from_gguf_filename("model-Q4_K_M.safetensors").is_none());
 }
 #[test]
-fn weight_quantization_round_trips_in_json() {
+fn test_weight_quantization_round_trips_in_json() {
     let weight = crate::schema::agent::Weight {
         label: "Q4_K_M".to_string(),
         url: "https://example.com/model.gguf".to_string(),
@@ -94,14 +103,21 @@ fn weight_quantization_round_trips_in_json() {
     assert_eq!(decoded.quantization.as_ref().map(ToString::to_string), Some("Q4_K_M".to_string()));
 }
 #[test]
-fn from_asset_returns_some_for_all_known_assets() {
+fn test_weight_unknown_quantization_round_trips_in_json() {
+    let json = r#"{"label":"MXFP4","url":"https://example.com/model.safetensors","quantization":"mxfp4"}"#;
+    let decoded: crate::schema::agent::Weight = serde_json::from_str(json).unwrap();
+    assert!(matches!(decoded.quantization.as_ref(), Some(Quantization::Other(value)) if value == "mxfp4"));
+    assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+}
+#[test]
+fn test_from_asset_returns_some_for_all_known_assets() {
     all_known_assets().iter().for_each(|asset| {
         let content = PromptTemplate::from_asset(&asset.to_string());
         assert!(content.is_some(), "Expected embedded asset to exist: {}", asset);
     });
 }
 #[test]
-fn render_accepts_prompt_asset_str_and_string_inputs() {
+fn test_render_accepts_prompt_asset_str_and_string_inputs() {
     let config = PromptTemplateConfiguration::init().build();
     let from_enum = PromptTemplate::render(PromptFileAsset::Summarize, &config);
     let from_str = PromptTemplate::render("summarize", &config);
@@ -110,18 +126,18 @@ fn render_accepts_prompt_asset_str_and_string_inputs() {
     assert_eq!(from_str.is_ok(), from_string.is_ok());
 }
 #[test]
-fn render_unknown_asset_returns_error() {
+fn test_render_unknown_asset_returns_error() {
     let config = PromptTemplateConfiguration::init().build();
     let result = PromptTemplate::render("unknown.prompt", &config);
     assert!(result.is_err());
 }
 #[test]
-fn snapshot_prompt_asset_file_names() {
+fn test_snapshot_prompt_asset_file_names() {
     let names: Vec<String> = all_known_assets().iter().map(ToString::to_string).collect();
     insta::assert_yaml_snapshot!("prompt_asset_file_names", names);
 }
 #[test]
-fn snapshot_prompt_asset_template_headers() {
+fn test_snapshot_prompt_asset_template_headers() {
     let headers: Vec<String> = all_known_assets()
         .iter()
         .filter_map(|asset| PromptTemplate::from_asset(&asset.to_string()).map(|content| content.lines().take(6).collect::<Vec<&str>>().join("\n")))
