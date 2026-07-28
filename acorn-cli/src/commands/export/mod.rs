@@ -131,15 +131,15 @@ impl ExportHandler for BagExportHandler {
     }
 }
 impl ExportHandler for PdfExportHandler {
-    fn export<'a>(&'a self, _request: ExportRequest) -> ApiFuture<'a> {
+    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
             #[cfg(feature = "pdf")]
             {
-                match resolve_paths(&_request.path, &_request.options).await {
-                    | Ok(paths) => match pdf::initialize_page().await {
+                match resolve_paths(&request.path, &request.options).await {
+                    | Ok(paths) => match pdf::initialize_page(request.options.offline).await {
                         | Ok(session) => {
                             let page = session.page();
-                            let output = _request.output.clone();
+                            let output = request.output.clone();
                             let progress = with_progress(
                                 paths,
                                 |path| format!("Generating PDF for {}", path.file_name_with_parent()),
@@ -152,7 +152,7 @@ impl ExportHandler for PdfExportHandler {
                                 },
                                 |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
                                 Some(1),
-                                _request.progress_type,
+                                request.progress_type,
                             );
                             let result = progress.await;
                             session.close().await;
@@ -268,26 +268,31 @@ pub async fn run(
         .merge_request(*merge_request)
         .offline(offline)
         .quiet(is_silent)
+        .supported(true)
         .threads(threads)
         .build();
     preflight!(&options);
-    let request = ExportRequest::init()
-        .maybe_output(output.clone())
-        .maybe_path(path.clone())
-        .format(format.clone())
-        .maybe_reference(reference.clone())
-        .combine(*combine)
-        .dry_run(dry_run)
-        .strict(strict)
-        .skip(skip.to_vec())
-        .progress_type(progress_type)
-        .options(options)
-        .build();
-    let exporter = exporter_for(&request.format);
-    if (from.is_some() || to.is_some()) && format.is_structured() {
-        exporter.crosswalk(request, *from, *to).await
+    if offline && *merge_request {
+        Err(eyre!("Export cannot resolve a remote merge request in offline mode"))
     } else {
-        exporter.export(request).await
+        let request = ExportRequest::init()
+            .maybe_output(output.clone())
+            .maybe_path(path.clone())
+            .format(format.clone())
+            .maybe_reference(reference.clone())
+            .combine(*combine)
+            .dry_run(dry_run)
+            .strict(strict)
+            .skip(skip.to_vec())
+            .progress_type(progress_type)
+            .options(options)
+            .build();
+        let exporter = exporter_for(&request.format);
+        if (from.is_some() || to.is_some()) && format.is_structured() {
+            exporter.crosswalk(request, *from, *to).await
+        } else {
+            exporter.export(request).await
+        }
     }
 }
 async fn export_as_format(

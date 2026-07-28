@@ -60,6 +60,8 @@ pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 /// Default ACORN configuration filenames searched in the current working directory.
 pub const DEFAULT_CONFIG_FILENAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn"];
+/// Pinned Chrome for Testing version used for PDF export.
+pub const CHROME_VERSION: (u32, u32, u32, u32) = (151, 0, 7922, 47);
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
 /// Default affiliation.

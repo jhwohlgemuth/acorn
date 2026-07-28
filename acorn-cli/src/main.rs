@@ -69,6 +69,7 @@ fn main() -> Void {
         Ok(())
     };
     let config = DatabaseConfig {
+        offline,
         no_local_database,
         database_backend: selected_database_backend.as_ref().map(|b| b.to_string()),
         database_path,

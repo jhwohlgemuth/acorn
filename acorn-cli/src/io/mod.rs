@@ -1,7 +1,9 @@
 //! # Input / Output Handling
 //!
 //! This module contains functions for handling input and output from the terminal such as handling input passed via `stdin` (e.g., `cat file.txt | acorn`).
-use acorn::prelude::{io, BufRead, Write};
+use acorn::prelude::{io, BufRead, PathBuf, Write};
+use acorn::util::constants::app::APPLICATION;
+use directories::BaseDirs;
 use is_terminal::IsTerminal;
 
 /// Enum for representing input/output stream state (e.g., "piped" or "not piped")
@@ -14,6 +16,10 @@ use is_terminal::IsTerminal;
 pub enum InputOutputStreamState {
     Piped,
     NotPiped,
+}
+/// Resolve the directory used for downloaded Chromium artifacts
+pub fn chromium_cache_dir() -> Option<PathBuf> {
+    BaseDirs::new().map(|dirs| dirs.cache_dir().join(APPLICATION).join("chromiumoxide"))
 }
 /// Check if stdout is piped (e.g., `acorn | process`)
 pub fn is_stdout_piped() -> bool {

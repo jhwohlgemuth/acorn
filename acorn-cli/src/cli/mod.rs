@@ -150,7 +150,7 @@ pub struct Arguments {
     /// See Rayon documentation for more information
     #[arg(default_value_t = 10, short, long, value_name = "N", help_heading = "FLAGS")]
     pub threads: usize,
-    /// Clear cache data from database (link_cache, validation_history, research_activity_cache tables)
+    /// Clear database cache data and downloaded Chromium artifacts
     #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
     pub clear_cache: bool,
     /// Clear all data from database (all tables)

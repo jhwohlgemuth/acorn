@@ -85,7 +85,7 @@ This document contains the help content for the `acorn-cli` command-line program
    See Rayon documentation for more information
 
   Default value: `10`
-* `--clear-cache` — Clear cache data from database (link_cache, validation_history, research_activity_cache tables)
+* `--clear-cache` — Clear database cache data and downloaded Chromium artifacts
 * `--reset-database` — Clear all data from database (all tables)
 * `--no-clear-cache` — Disable automatic cache cleanup on startup (expires old cache entries)
 * `--cache-ttl <SECONDS>` — Override default cache TTL (in seconds). Default is 2592000 (30 days)

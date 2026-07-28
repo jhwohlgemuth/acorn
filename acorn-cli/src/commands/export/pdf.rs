@@ -2,17 +2,18 @@
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
 use crate::cli::CommandOptions;
+use crate::io::chromium_cache_dir;
 use crate::template::Convert;
 use acorn::io::{ApiResult, InputOutput};
-use acorn::prelude::{absolute, create_dir_all, remove_dir_all, remove_file, ErrorKind, OpenOptions, PathBuf};
+use acorn::prelude::{absolute, consts, create_dir_all, remove_dir_all, remove_file, temp_dir, ErrorKind, OpenOptions, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
+use acorn::util::constants::app::CHROME_VERSION;
 use acorn::util::{Label, StringConversion};
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::page::PrintToPdfParams;
 use chromiumoxide::fetcher::{BrowserFetcher, BrowserFetcherOptions, BrowserKind, Version};
 use chromiumoxide::Page;
 use color_eyre::eyre::eyre;
-use directories::BaseDirs;
 use futures::StreamExt;
 use nanoid::nanoid;
 use tokio::task::JoinHandle;
@@ -143,24 +144,17 @@ pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
         | Err(e) => Err(e),
     }
 }
-pub(crate) async fn initialize_page() -> ApiResult<PdfSession> {
-    match browser_cache_dir().and_then(|path| {
-        BrowserFetcherOptions::builder()
-            .with_kind(BrowserKind::Chrome)
-            .with_version(Version::exact(151, 0, 7922, 47))
-            .with_path(path)
-            .build()
-            .map_err(|why| eyre!("Failed to configure Chromium download — {why}"))
-    }) {
-        | Ok(options) => match BrowserFetcher::new(options).fetch().await {
-            | Ok(installation) => match browser_profile_dir() {
-                | Ok(profile) => match BrowserConfig::builder()
-                    .chrome_executable(installation.executable_path)
-                    .user_data_dir(&profile)
-                    .no_sandbox()
-                    .arg("--disable-gpu")
-                    .build()
-                {
+pub(crate) async fn initialize_page(offline: bool) -> ApiResult<PdfSession> {
+    match browser_executable(offline).await {
+        | Ok(executable) => match browser_profile_dir() {
+            | Ok(profile) => {
+                let builder = BrowserConfig::builder().user_data_dir(&profile).no_sandbox().arg("--disable-gpu");
+                let config = match executable {
+                    | Some(path) => builder.chrome_executable(path),
+                    | None => builder,
+                }
+                .build();
+                match config {
                     | Ok(config) => match Browser::launch(config).await {
                         | Ok((mut browser, mut handler)) => {
                             let handler = tokio::spawn(async move {
@@ -195,27 +189,65 @@ pub(crate) async fn initialize_page() -> ApiResult<PdfSession> {
                         let _remove_profile = remove_dir_all(profile);
                         Err(eyre!("Failed to configure Chromium — {why}"))
                     }
-                },
-                | Err(why) => Err(why),
-            },
-            | Err(why) => Err(eyre!("Failed to install Chromium — {why}")),
+                }
+            }
+            | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
 }
 fn browser_profile_dir() -> ApiResult<PathBuf> {
-    let path = std::env::temp_dir().join(format!("acorn-chromiumoxide-{}", nanoid!()));
+    let path = temp_dir().join(format!("acorn-chromiumoxide-{}", nanoid!()));
     create_dir_all(&path)
         .map(|_| path)
         .map_err(|why| eyre!("Failed to create Chromium profile directory — {why}"))
 }
 fn browser_cache_dir() -> ApiResult<PathBuf> {
-    BaseDirs::new()
-        .map(|dirs| dirs.cache_dir().join("acorn").join("chromiumoxide"))
+    chromium_cache_dir()
         .ok_or_else(|| eyre!("Failed to resolve Chromium cache directory"))
         .and_then(|path| {
             create_dir_all(&path)
                 .map(|_| path)
                 .map_err(|why| eyre!("Failed to create Chromium cache directory — {why}"))
         })
+}
+async fn browser_executable(offline: bool) -> ApiResult<Option<PathBuf>> {
+    let (major, minor, build, patch) = CHROME_VERSION;
+    match browser_cache_dir() {
+        | Ok(path) if offline => Ok(cached_browser_executable(path)),
+        | Ok(path) => {
+            let options = BrowserFetcherOptions::builder()
+                .with_kind(BrowserKind::Chrome)
+                .with_version(Version::exact(major, minor, build, patch))
+                .with_path(path)
+                .build();
+            match options {
+                | Ok(options) => BrowserFetcher::new(options)
+                    .fetch()
+                    .await
+                    .map(|installation| Some(installation.executable_path))
+                    .map_err(|why| eyre!("Failed to install Chromium — {why}")),
+                | Err(why) => Err(eyre!("Failed to configure Chromium download — {why}")),
+            }
+        }
+        | Err(why) => Err(why),
+    }
+}
+fn cached_browser_executable(cache: PathBuf) -> Option<PathBuf> {
+    let platform = (consts::OS, consts::ARCH);
+    let (major, minor, build, patch) = CHROME_VERSION;
+    let version = format!("{major}.{minor}.{build}.{patch}");
+    let relative = match platform {
+        | ("linux", "x86_64") => Some(format!("linux-{version}/chrome-linux64/chrome")),
+        | ("macos", "x86_64") => Some(format!(
+            "mac-{version}/chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+        )),
+        | ("macos", "aarch64") => Some(format!(
+            "mac_arm-{version}/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+        )),
+        | ("windows", "x86") => Some(format!("win32-{version}/chrome-win32/chrome.exe")),
+        | ("windows", "x86_64" | "aarch64") => Some(format!("win64-{version}/chrome-win64/chrome.exe")),
+        | _ => None,
+    };
+    relative.map(|path| cache.join(path)).filter(|path| path.is_file())
 }

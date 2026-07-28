@@ -6,13 +6,13 @@
 //! - JSON export (from YAML source)
 //! - YAML export (from JSON source)
 //! - Markdown export (from JSON source)
-//! - PDF export (ignored by default - requires a Chromium download)
+//! - PDF export (ignored by default - requires cached or installed Chromium)
 //! - Combine flag for multiple files
 //!
 //! Test artifacts are created in `target/test_artifacts/` and cleaned up
 //! automatically via the `TestCleanup` Drop implementation.
 //!
-//! Note: Tests run in online mode as export command doesn't support offline yet.
+//! Tests run in offline mode; the PDF test remains ignored because it launches an external browser.
 use crate::cli::arguments::FileFormat;
 use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
@@ -27,7 +27,7 @@ fn silent() -> Verbosity {
     Verbosity::new(0, 1)
 }
 
-const OFFLINE: bool = false;
+const OFFLINE: bool = true;
 const TEST_THREADS: usize = 4;
 #[tokio::test]
 async fn test_export_bag_format() -> Result<()> {
@@ -121,7 +121,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
 }
 #[cfg(feature = "pdf")]
 #[tokio::test]
-#[ignore = "Requires a Chromium download for PDF generation"]
+#[ignore = "Requires cached or installed Chromium for offline PDF generation"]
 async fn test_export_pdf_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_pdf");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -198,7 +198,32 @@ async fn test_export_json_format() -> Result<()> {
     assert!(json_file.exists(), "JSON file should be created");
     Ok(())
 }
-
+#[tokio::test]
+async fn test_export_offline_rejects_remote_merge_request() {
+    let result = run(
+        &None,
+        &Some(fixture_path("data/valid_project")),
+        &None,
+        &None,
+        &[],
+        &[],
+        &FileFormat::Json,
+        &None,
+        &None,
+        &None,
+        &false,
+        &true,
+        &false,
+        &[],
+        false,
+        false,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err_and(|why| why.to_string().contains("remote merge request")));
+}
 #[tokio::test]
 async fn test_export_yaml_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_yaml");
