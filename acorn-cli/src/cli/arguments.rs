@@ -3,6 +3,7 @@ use super::DownloadCommands;
 use acorn::analyzer::{self, Standard};
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
+use acorn::util::constants::env::CHROME_PATH;
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
@@ -443,6 +444,9 @@ pub(crate) struct Export {
     /// Export files that were changed in a given Git branch
     #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) branch: Option<String>,
+    /// Chrome or Chromium executable to use for PDF export
+    #[arg(long, env = CHROME_PATH, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS", conflicts_with = "schema")]
+    pub(crate) chrome_path: Option<PathBuf>,
     /// Combine all export artifacts into a single artifact
     #[arg(long = "combine", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) combine: bool,

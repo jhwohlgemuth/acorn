@@ -1,5 +1,7 @@
 /// Environment variable name for cache TTL override.
 pub const CACHE_TTL: &str = "ACORN_CACHE_TTL";
+/// Environment variable used to select a Chrome or Chromium executable for PDF export.
+pub const CHROME_PATH: &str = "CHROME_PATH";
 /// Environment variable used to select a database backend at runtime.
 pub const DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
 /// Environment variable used to override database path at runtime.

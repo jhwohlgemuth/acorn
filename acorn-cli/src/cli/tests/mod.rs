@@ -11,6 +11,7 @@
 use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
+use acorn::util::constants::env::CHROME_PATH;
 use clap::{CommandFactory, Parser};
 use futures::executor::block_on;
 
@@ -89,6 +90,26 @@ fn test_cli() {
         "api.example.com"
     ])
     .is_err());
+}
+#[test]
+fn test_export_chrome_path_argument_and_environment() {
+    temp_env::with_var(CHROME_PATH, Some("/environment/chrome"), || {
+        let environment = Arguments::try_parse_from(["acorn", "export", "--format", "pdf"]).expect("parse CHROME_PATH");
+        match environment.command {
+            | Some(Commands::Export(arguments)) => {
+                assert_eq!(arguments.chrome_path, Some(PathBuf::from("/environment/chrome")));
+            }
+            | other => panic!("unexpected command: {other:?}"),
+        }
+        let explicit =
+            Arguments::try_parse_from(["acorn", "export", "--format", "pdf", "--chrome-path", "/explicit/chrome"]).expect("parse --chrome-path");
+        match explicit.command {
+            | Some(Commands::Export(arguments)) => {
+                assert_eq!(arguments.chrome_path, Some(PathBuf::from("/explicit/chrome")));
+            }
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_what_if_aliases_dry_run_flags() {

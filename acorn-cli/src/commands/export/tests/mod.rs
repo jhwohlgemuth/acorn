@@ -14,9 +14,13 @@
 //!
 //! Tests run in offline mode; the PDF test remains ignored because it launches an external browser.
 use crate::cli::arguments::FileFormat;
+#[cfg(feature = "pdf")]
+use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
 use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
+#[cfg(feature = "pdf")]
+use acorn::prelude::canonicalize;
 use acorn::prelude::{copy, create_dir_all, read_dir, read_to_string, write, PathBuf};
 use acorn::schema::standard::datacite;
 use acorn::schema::standard::invenio;
@@ -29,6 +33,28 @@ fn silent() -> Verbosity {
 
 const OFFLINE: bool = true;
 const TEST_THREADS: usize = 4;
+
+#[cfg(feature = "pdf")]
+#[tokio::test]
+async fn test_browser_executable_prefers_configured_path_offline() -> Result<()> {
+    let directory = temp_test_dir("configured-chrome");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let executable = directory.join("chrome");
+    write(&executable, b"browser")?;
+    let expected = canonicalize(&executable)?;
+    let selected = browser_executable(OFFLINE, Some(&executable)).await?;
+    assert_eq!(selected, Some(expected));
+    Ok(())
+}
+#[cfg(feature = "pdf")]
+#[test]
+fn test_configured_browser_executable_rejects_non_files() {
+    let directory = temp_test_dir("invalid-configured-chrome");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let missing = directory.join("missing-chrome");
+    assert!(configured_browser_executable(&missing).is_err_and(|why| why.to_string().contains("is not a file")));
+    assert!(configured_browser_executable(&directory).is_err_and(|why| why.to_string().contains("is not a file")));
+}
 #[tokio::test]
 async fn test_export_bag_format() -> Result<()> {
     let temp_dir = temp_test_dir("export_bag");
@@ -48,6 +74,7 @@ async fn test_export_bag_format() -> Result<()> {
     let result = run(
         &Some(output_dir.clone()),
         &Some(test_data_dir),
+        &None,
         &None,
         &None,
         &[],
@@ -94,6 +121,7 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &Some(test_data_dir.clone()),
         &None,
         &None,
+        &None,
         &[],
         &[],
         &FileFormat::Powerpoint,
@@ -138,6 +166,7 @@ async fn test_export_pdf_format() -> Result<()> {
         &Some(test_data_dir),
         &None,
         &None,
+        &None,
         &[],
         &[],
         &FileFormat::Pdf,
@@ -176,6 +205,7 @@ async fn test_export_json_format() -> Result<()> {
         &Some(test_data_dir.clone()),
         &None,
         &None,
+        &None,
         &[],
         &[],
         &FileFormat::Json,
@@ -203,6 +233,7 @@ async fn test_export_offline_rejects_remote_merge_request() {
     let result = run(
         &None,
         &Some(fixture_path("data/valid_project")),
+        &None,
         &None,
         &None,
         &[],
@@ -236,6 +267,7 @@ async fn test_export_yaml_format() -> Result<()> {
     let result = run(
         &None,
         &Some(test_data_dir.clone()),
+        &None,
         &None,
         &None,
         &[],
@@ -273,6 +305,7 @@ async fn test_export_markdown_format() -> Result<()> {
     let result = run(
         &None,
         &Some(test_data_dir.clone()),
+        &None,
         &None,
         &None,
         &[],
@@ -328,6 +361,7 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &Some(test_data_dir),
         &None,
         &None,
+        &None,
         &[],
         &[],
         &FileFormat::Json,
@@ -363,6 +397,7 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
     let result = run(
         &Some(output_dir.clone()),
         &Some(dest.clone()),
+        &None,
         &None,
         &None,
         &[],
@@ -412,6 +447,7 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     let result = run(
         &Some(output_dir.clone()),
         &Some(dest.clone()),
+        &None,
         &None,
         &None,
         &[],

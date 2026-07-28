@@ -38,6 +38,8 @@ trait ExportHandler {
 struct ExportRequest {
     output: Option<PathBuf>,
     path: Option<PathBuf>,
+    #[cfg_attr(not(feature = "pdf"), allow(dead_code))]
+    chrome_path: Option<PathBuf>,
     #[builder(default)]
     format: FileFormat,
     reference: Option<PathBuf>,
@@ -131,12 +133,12 @@ impl ExportHandler for BagExportHandler {
     }
 }
 impl ExportHandler for PdfExportHandler {
-    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
+    fn export<'a>(&'a self, #[cfg_attr(not(feature = "pdf"), allow(unused_variables))] request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
             #[cfg(feature = "pdf")]
             {
                 match resolve_paths(&request.path, &request.options).await {
-                    | Ok(paths) => match pdf::initialize_page(request.options.offline).await {
+                    | Ok(paths) => match pdf::initialize_page(request.options.offline, request.chrome_path.as_deref()).await {
                         | Ok(session) => {
                             let page = session.page();
                             let output = request.output.clone();
@@ -238,6 +240,7 @@ pub async fn run(
     output: &Option<PathBuf>,
     path: &Option<PathBuf>,
     branch: &Option<String>,
+    chrome_path: &Option<PathBuf>,
     commit: &Option<String>,
     filter: &[String],
     ignore: &[String],
@@ -278,6 +281,7 @@ pub async fn run(
         let request = ExportRequest::init()
             .maybe_output(output.clone())
             .maybe_path(path.clone())
+            .maybe_chrome_path(chrome_path.clone())
             .format(format.clone())
             .maybe_reference(reference.clone())
             .combine(*combine)

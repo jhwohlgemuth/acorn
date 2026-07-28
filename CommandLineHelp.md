@@ -446,6 +446,7 @@ Export research activity data to a specific target
 ###### **Options:**
 
 * `-b`, `--branch <BRANCH>` — Export files that were changed in a given Git branch
+* `--chrome-path <PATH>` — Chrome or Chromium executable to use for PDF export
 * `--combine` — Combine all export artifacts into a single artifact
 * `-c`, `--commit <COMMIT>` — Export files that were changed in a given Git commit
 * `--dry-run` [alias: `what-if`] — Run export without making changes. Will print what would happen

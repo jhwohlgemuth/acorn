@@ -5,7 +5,7 @@ use crate::cli::CommandOptions;
 use crate::io::chromium_cache_dir;
 use crate::template::Convert;
 use acorn::io::{ApiResult, InputOutput};
-use acorn::prelude::{absolute, consts, create_dir_all, remove_dir_all, remove_file, temp_dir, ErrorKind, OpenOptions, PathBuf};
+use acorn::prelude::{absolute, canonicalize, consts, create_dir_all, remove_dir_all, remove_file, temp_dir, ErrorKind, OpenOptions, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::app::CHROME_VERSION;
 use acorn::util::{Label, StringConversion};
@@ -144,8 +144,8 @@ pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
         | Err(e) => Err(e),
     }
 }
-pub(crate) async fn initialize_page(offline: bool) -> ApiResult<PdfSession> {
-    match browser_executable(offline).await {
+pub(crate) async fn initialize_page(offline: bool, chrome_path: Option<&Path>) -> ApiResult<PdfSession> {
+    match browser_executable(offline, chrome_path).await {
         | Ok(executable) => match browser_profile_dir() {
             | Ok(profile) => {
                 let builder = BrowserConfig::builder().user_data_dir(&profile).no_sandbox().arg("--disable-gpu");
@@ -211,7 +211,19 @@ fn browser_cache_dir() -> ApiResult<PathBuf> {
                 .map_err(|why| eyre!("Failed to create Chromium cache directory — {why}"))
         })
 }
-async fn browser_executable(offline: bool) -> ApiResult<Option<PathBuf>> {
+pub(crate) async fn browser_executable(offline: bool, chrome_path: Option<&Path>) -> ApiResult<Option<PathBuf>> {
+    match chrome_path {
+        | Some(path) => configured_browser_executable(path).map(Some),
+        | None => fallback_browser_executable(offline).await,
+    }
+}
+pub(crate) fn configured_browser_executable(path: &Path) -> ApiResult<PathBuf> {
+    match path.is_file() {
+        | true => canonicalize(path).map_err(|why| eyre!("Failed to resolve Chrome executable at {} — {why}", path.display())),
+        | false => Err(eyre!("Chrome executable is not a file: {}", path.display())),
+    }
+}
+async fn fallback_browser_executable(offline: bool) -> ApiResult<Option<PathBuf>> {
     let (major, minor, build, patch) = CHROME_VERSION;
     match browser_cache_dir() {
         | Ok(path) if offline => Ok(cached_browser_executable(path)),
