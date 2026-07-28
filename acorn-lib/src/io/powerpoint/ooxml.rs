@@ -496,6 +496,59 @@ impl Relationships {
         Ok(format!("{}{}", XML_DECLARATION, xml))
     }
 }
+/// Add an image element to a PowerPoint slide shape tree.
+pub fn add_picture_to_slide_xml(
+    xml: &str,
+    relationship_id: &str,
+    shape_identifier: u32,
+    x: u64,
+    y: u64,
+    width: u64,
+    height: u64,
+) -> ApiResult<String> {
+    let picture = format!(
+        r#"<p:pic><p:nvPicPr><p:cNvPr id="{shape_identifier}" name="ASPECT rose chart" descr="ASPECT rose chart"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="{relationship_id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{width}" cy="{height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr></p:pic>"#
+    );
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new(Vec::new());
+    let mut inserted = false;
+    loop {
+        match reader.read_event() {
+            | Ok(Event::End(end)) if end.name().as_ref() == b"p:spTree" => {
+                let mut picture_reader = Reader::from_str(&picture);
+                let picture_result = loop {
+                    match picture_reader.read_event() {
+                        | Ok(Event::Eof) => break Ok(()),
+                        | Ok(event) => match writer.write_event(event.into_owned()) {
+                            | Ok(_) => {}
+                            | Err(why) => break Err(eyre!("Failed to write PowerPoint chart picture — {why}")),
+                        },
+                        | Err(why) => break Err(eyre!("Failed to parse PowerPoint chart picture — {why}")),
+                    }
+                };
+                match picture_result.and_then(|_| {
+                    inserted = true;
+                    writer
+                        .write_event(Event::End(end))
+                        .map_err(|why| eyre!("Failed to close PowerPoint slide shape tree — {why}"))
+                }) {
+                    | Ok(_) => {}
+                    | Err(why) => break Err(why),
+                }
+            }
+            | Ok(Event::Eof) if inserted => match String::from_utf8(writer.into_inner()) {
+                | Ok(value) => break Ok(value),
+                | Err(why) => break Err(eyre!("PowerPoint slide XML is not UTF-8 — {why}")),
+            },
+            | Ok(Event::Eof) => break Err(eyre!("PowerPoint slide has no shape tree")),
+            | Ok(event) => match writer.write_event(event.into_owned()) {
+                | Ok(_) => {}
+                | Err(why) => break Err(eyre!("Failed to write PowerPoint slide XML — {why}")),
+            },
+            | Err(why) => break Err(eyre!("Failed to parse PowerPoint slide XML — {why}")),
+        }
+    }
+}
 /// Add a slide identifier to a PowerPoint `presentation.xml` document.
 pub fn add_slide_to_presentation_xml(xml: &str, slide_identifier: u32, revision_identifier: u32) -> ApiResult<String> {
     let mut reader = Reader::from_str(xml);

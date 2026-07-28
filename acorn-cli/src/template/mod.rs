@@ -15,7 +15,7 @@ use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
 pub trait Convert {
-    fn to_html(&self) -> ApiResult<VirtualNode>;
+    fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode>;
 }
 /// Target artifact branding available when exporting research activity data using acorn
 ///
@@ -164,7 +164,7 @@ impl HtmlHead<'_> {
     }
 }
 impl Convert for ResearchActivity {
-    fn to_html(&self) -> ApiResult<VirtualNode> {
+    fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode> {
         let ResearchActivity {
             meta,
             title,
@@ -192,6 +192,7 @@ impl Convert for ResearchActivity {
         let path = format!("fact-sheet/{folder}/header.jpg");
         let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
+        let aspect_chart = aspect_chart.map(|bytes| DataUri::from_bytes(bytes, MimeType::Svg));
         let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
             | Some(bytes) => DataUri::from_bytes(&bytes, MimeType::Png),
             | None => {
@@ -236,7 +237,14 @@ impl Convert for ResearchActivity {
                                     </section>
                                 </main>
                                 <aside>
-                                    <div class="graphic"><img src={ graphic }/></div>
+                                    <div class="graphic">
+                                        <img src={ graphic }/>
+                                        {
+                                            aspect_chart.map(|chart| html! {
+                                                <img class="aspect-chart" src={ chart } alt="ASPECT rose chart"/>
+                                            })
+                                        }
+                                    </div>
                                     <div class="caption">{ caption }</div>
                                     <div class="research-focus">
                                         <h3>{ "Research Focus" }</h3>

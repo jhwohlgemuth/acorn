@@ -41,6 +41,7 @@ dependencies = [
  "pretty_assertions",
  "rayon",
  "reqwest 0.13.4",
+ "resvg",
  "rusqlite",
  "rust-embed",
  "secrecy",

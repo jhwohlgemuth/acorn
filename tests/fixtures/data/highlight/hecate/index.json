@@ -28,6 +28,12 @@
   },
   "title": "HECATE: Path to Truly Self-Driving Networks",
   "subtitle": "Machine learning to optimize network flows in real time",
+  "aspect": {
+    "portability": "Containerized",
+    "motivity": "Adaptive",
+    "autonomy": "MachinePrimary",
+    "maturity": 7
+  },
   "sections": {
     "mission": "Placeholder",
     "challenge": "Placeholder",

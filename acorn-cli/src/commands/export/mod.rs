@@ -7,7 +7,7 @@ use acorn::io::bagit::{Bag, BagInfo, Save};
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
-use acorn::prelude::{remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
+use acorn::prelude::{remove_dir_all, Arc, HashMap, HashSet, Mutex, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, print_values_as_table, regex_join, suffix, Label, MimeType, StringConversion};
 use acorn::{fail, skip};
@@ -18,6 +18,8 @@ use core::iter::once;
 use owo_colors::OwoColorize;
 use tracing::{debug, info};
 
+#[cfg(feature = "chart")]
+mod chart;
 #[cfg(feature = "pdf")]
 mod pdf;
 mod powerpoint;
@@ -42,6 +44,12 @@ struct ExportRequest {
     chrome_path: Option<PathBuf>,
     #[builder(default)]
     format: FileFormat,
+    #[builder(default)]
+    #[cfg_attr(not(feature = "chart"), allow(dead_code))]
+    show_aspect_labels: bool,
+    #[builder(default)]
+    #[cfg_attr(not(feature = "chart"), allow(dead_code))]
+    show_aspect_scores: bool,
     reference: Option<PathBuf>,
     combine: bool,
     #[builder(default)]
@@ -60,6 +68,16 @@ struct StructuredExportHandler;
 struct BagExportHandler;
 struct PdfExportHandler;
 struct PowerPointExportHandler;
+#[cfg(feature = "chart")]
+fn render_aspect_charts(paths: &[PathBuf], options: chart::ChartOptions) -> ApiResult<HashMap<PathBuf, Option<Vec<u8>>>> {
+    paths
+        .iter()
+        .map(|path| match ResearchActivity::read(path.clone()) {
+            | Ok(data) => chart::aspect_rose_png(data.aspect.as_ref(), options).map(|chart| (path.clone(), chart)),
+            | Err(why) => Err(eyre!("Read data for ASPECT chart at {} — {why}", path.to_absolute_string())),
+        })
+        .collect()
+}
 impl ExportHandler for CffExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
@@ -142,6 +160,10 @@ impl ExportHandler for PdfExportHandler {
                         | Ok(session) => {
                             let page = session.page();
                             let output = request.output.clone();
+                            let chart_options = chart::ChartOptions {
+                                show_labels: request.show_aspect_labels,
+                                show_scores: request.show_aspect_scores,
+                            };
                             let progress = with_progress(
                                 paths,
                                 |path| format!("Generating PDF for {}", path.file_name_with_parent()),
@@ -149,7 +171,7 @@ impl ExportHandler for PdfExportHandler {
                                     let output = output.clone();
                                     async move {
                                         let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output).build();
-                                        pdf::create(page, pdf_options).await
+                                        pdf::create(page, pdf_options, chart_options).await
                                     }
                                 },
                                 |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
@@ -189,6 +211,15 @@ impl ExportHandler for PowerPointExportHandler {
                         .maybe_reference(request.reference.clone())
                         .build();
                     let create_options = Arc::new(_options);
+                    #[cfg(feature = "chart")]
+                    let chart_options = chart::ChartOptions {
+                        show_labels: request.show_aspect_labels,
+                        show_scores: request.show_aspect_scores,
+                    };
+                    #[cfg(feature = "chart")]
+                    let aspect_charts = Arc::new(render_aspect_charts(&paths, chart_options)?);
+                    #[cfg(not(feature = "chart"))]
+                    let aspect_charts: Arc<HashMap<PathBuf, Option<Vec<u8>>>> = Arc::new(HashMap::new());
                     if request.combine {
                         let progress = create_progress_bar(
                             1,
@@ -198,7 +229,13 @@ impl ExportHandler for PowerPointExportHandler {
                             },
                         );
                         progress.set_message("Generating combined PowerPoint artifact");
-                        match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
+                        let charts = Arc::new(
+                            paths
+                                .iter()
+                                .map(|path| aspect_charts.get(path).cloned().unwrap_or_default())
+                                .collect::<Vec<_>>(),
+                        );
+                        match powerpoint::create(paths, Some(Arc::clone(&create_options)), charts) {
                             | Ok(_) => {
                                 progress.inc(1);
                                 finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
@@ -215,7 +252,8 @@ impl ExportHandler for PowerPointExportHandler {
                             |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
                             |path| {
                                 let options = Arc::clone(&create_options);
-                                async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
+                                let chart = aspect_charts.get(&path).cloned().unwrap_or_default();
+                                async move { powerpoint::create(once(path), Some(options), Arc::new(vec![chart])).map(|_| ()) }
                             },
                             |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
                             Some(1),
@@ -244,6 +282,8 @@ pub async fn run(
     commit: &Option<String>,
     filter: &[String],
     ignore: &[String],
+    show_aspect_labels: bool,
+    show_aspect_scores: bool,
     format: &FileFormat,
     reference: &Option<PathBuf>,
     from: &Option<Standard>,
@@ -283,6 +323,8 @@ pub async fn run(
             .maybe_path(path.clone())
             .maybe_chrome_path(chrome_path.clone())
             .format(format.clone())
+            .show_aspect_labels(show_aspect_labels)
+            .show_aspect_scores(show_aspect_scores)
             .maybe_reference(reference.clone())
             .combine(*combine)
             .dry_run(dry_run)

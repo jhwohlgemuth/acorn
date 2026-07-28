@@ -1,6 +1,7 @@
 //! PDF export helpers
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
+use super::chart;
 use crate::cli::CommandOptions;
 use crate::io::chromium_cache_dir;
 use crate::template::Convert;
@@ -44,34 +45,42 @@ impl PdfSession {
     }
 }
 /// Create PDF document from Research Activity data
-pub async fn create(page: &Page, options: CommandOptions) -> ApiResult<()> {
+pub async fn create(page: &Page, options: CommandOptions, chart_options: chart::ChartOptions) -> ApiResult<()> {
     let CommandOptions { output, .. } = options;
-    let validated = options
-        .path
-        .ok_or_else(|| eyre!("Missing path for PDF export"))
-        .and_then(|path| -> ApiResult<(PathBuf, PathBuf, ResearchActivity)> {
-            ResearchActivity::read(path.clone())
-                .map_err(|why| {
-                    error!(path = path.to_absolute_string(), "=> {} Read data for PDF export — {why}", Label::fail());
-                    eyre!("Read data for PDF export — {why}")
-                })
-                .and_then(|data| {
-                    let formatted = data.format_with(Some(path.clone()));
-                    path.parent()
-                        .map(|p| (p.to_path_buf(), formatted))
-                        .ok_or_else(|| {
-                            error!(
-                                path = path.to_absolute_string(),
-                                "=> {} Cannot resolve parent directory for PDF export input",
-                                Label::fail()
-                            );
-                            eyre!("Cannot resolve parent directory for PDF export input")
-                        })
-                        .map(|(parent, formatted)| (path, parent, formatted))
-                })
-        })
-        .and_then(|(path, parent, data)| data.to_html().map(|content| (path, parent, data, content.to_string())));
-    match validated {
+    let validated =
+        options
+            .path
+            .ok_or_else(|| eyre!("Missing path for PDF export"))
+            .and_then(|path| -> ApiResult<(PathBuf, PathBuf, ResearchActivity)> {
+                ResearchActivity::read(path.clone())
+                    .map_err(|why| {
+                        error!(path = path.to_absolute_string(), "=> {} Read data for PDF export — {why}", Label::fail());
+                        eyre!("Read data for PDF export — {why}")
+                    })
+                    .and_then(|data| {
+                        let formatted = data.format_with(Some(path.clone()));
+                        path.parent()
+                            .map(|p| (p.to_path_buf(), formatted))
+                            .ok_or_else(|| {
+                                error!(
+                                    path = path.to_absolute_string(),
+                                    "=> {} Cannot resolve parent directory for PDF export input",
+                                    Label::fail()
+                                );
+                                eyre!("Cannot resolve parent directory for PDF export input")
+                            })
+                            .map(|(parent, formatted)| (path, parent, formatted))
+                    })
+            });
+    let rendered = match validated {
+        | Ok((path, parent, data)) => {
+            let aspect_chart = chart::aspect_rose_svg(data.aspect.as_ref(), chart_options);
+            data.to_html(aspect_chart.as_deref().map(str::as_bytes))
+                .map(|content| (path, parent, data, content.to_string()))
+        }
+        | Err(why) => Err(why),
+    };
+    match rendered {
         | Ok((path, parent, data, content)) => {
             let index_path = absolute(parent.join("index.html"))
                 .map_err(|why| {

@@ -71,6 +71,16 @@ aside>.qrcode {
 aside>.graphic>img {
     height: 200px;
 }
+aside>.graphic>img.aspect-chart {
+    background-color: #FFFFFF;
+    border: 2px solid #FFFFFF;
+    bottom: 0;
+    box-shadow: 0 0 3px #555555;
+    height: 145px;
+    position: absolute;
+    right: 0;
+    width: 145px;
+}
 aside>.caption {
     font-family: "aptos";
     font-size: 9pt;

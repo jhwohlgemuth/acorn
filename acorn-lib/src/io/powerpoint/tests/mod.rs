@@ -6,7 +6,7 @@
     clippy::unwrap_used
 )]
 use super::escape_xml_text;
-use super::ooxml::{add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationships};
+use super::ooxml::{add_picture_to_slide_xml, add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationships};
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use crate::prelude::PathBuf;
@@ -188,6 +188,21 @@ fn add_slide_to_presentation_xml_appends_slide_id() {
 #[test]
 fn add_slide_to_presentation_xml_rejects_malformed_xml() {
     let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
+    assert!(result.is_err());
+}
+#[test]
+fn add_picture_to_slide_xml_appends_chart_picture() {
+    let xml = r#"<p:sld xmlns:p="presentation" xmlns:a="drawing" xmlns:r="relationships"><p:cSld><p:spTree></p:spTree></p:cSld></p:sld>"#;
+    let result = add_picture_to_slide_xml(xml, "rId4", 10001, 10, 20, 30, 40).unwrap();
+    assert!(result.contains(r#"name="ASPECT rose chart""#));
+    assert!(result.contains(r#"r:embed="rId4""#));
+    assert!(result.contains(r#"<a:off x="10" y="20"/>"#));
+    assert!(result.contains(r#"<a:ext cx="30" cy="40"/>"#));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn add_picture_to_slide_xml_requires_shape_tree() {
+    let result = add_picture_to_slide_xml("<p:sld></p:sld>", "rId4", 10001, 10, 20, 30, 40);
     assert!(result.is_err());
 }
 #[test]
