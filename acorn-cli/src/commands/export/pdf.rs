@@ -1,10 +1,10 @@
 //! PDF export helpers
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
-use super::chart;
 use crate::cli::CommandOptions;
 use crate::io::chromium_cache_dir;
 use crate::template::Convert;
+use acorn::io::chart::ChartOptions;
 use acorn::io::{ApiResult, InputOutput};
 use acorn::prelude::{absolute, canonicalize, consts, create_dir_all, remove_dir_all, remove_file, temp_dir, ErrorKind, OpenOptions, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
@@ -45,7 +45,7 @@ impl PdfSession {
     }
 }
 /// Create PDF document from Research Activity data
-pub async fn create(page: &Page, options: CommandOptions, chart_options: chart::ChartOptions) -> ApiResult<()> {
+pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOptions) -> ApiResult<()> {
     let CommandOptions { output, .. } = options;
     let validated =
         options
@@ -72,14 +72,12 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: chart::
                             .map(|(parent, formatted)| (path, parent, formatted))
                     })
             });
-    let rendered = match validated {
-        | Ok((path, parent, data)) => {
-            let aspect_chart = chart::aspect_rose_svg(data.aspect.as_ref(), chart_options);
-            data.to_html(aspect_chart.as_deref().map(str::as_bytes))
+    let rendered = validated.and_then(|(path, parent, data)| {
+        chart_options.render(data.aspect.as_ref()).and_then(|aspect_chart| {
+            data.to_html(aspect_chart.as_deref())
                 .map(|content| (path, parent, data, content.to_string()))
-        }
-        | Err(why) => Err(why),
-    };
+        })
+    });
     match rendered {
         | Ok((path, parent, data, content)) => {
             let index_path = absolute(parent.join("index.html"))

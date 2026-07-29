@@ -111,7 +111,6 @@ fn test_export_chrome_path_argument_and_environment() {
         }
     });
 }
-
 #[test]
 fn test_export_aspect_chart_visibility_arguments() {
     let parsed = Arguments::try_parse_from([

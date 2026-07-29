@@ -76,10 +76,38 @@ pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), 
 /// Default ACORN HTTP User-Agent header value when std is unavailable.
 #[cfg(not(feature = "std"))]
 pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
-/// RGB ORNL brand primary color.
-///
-/// See <https://www.olcf.ornl.gov/about-olcf/media-assets/>.
-pub const COLOR_PRIMARY: [u8; 4] = [0, 121, 52, 255];
+/// ORNL Green brand color.
+pub const ORNL_COLOR_GREEN: [u8; 3] = [0x00, 0x66, 0x2C];
+/// Hale Navy brand color.
+pub const ORNL_COLOR_HALE_NAVY: [u8; 3] = [0x00, 0x45, 0x4D];
+/// Dark Matter brand color.
+pub const ORNL_COLOR_DARK_MATTER: [u8; 3] = [0x37, 0x3A, 0x36];
+/// Graphite brand color.
+pub const ORNL_COLOR_GRAPHITE: [u8; 3] = [0xDB, 0xDC, 0xDB];
+/// Polar brand color.
+pub const ORNL_COLOR_POLAR: [u8; 3] = [0xFF, 0xFF, 0xFF];
+/// Energy brand color.
+pub const ORNL_COLOR_ENERGY: [u8; 3] = [0x7D, 0xBA, 0x00];
+/// Mist brand color.
+pub const ORNL_COLOR_MIST: [u8; 3] = [0x8B, 0xFE, 0xBF];
+/// Biome brand color.
+pub const ORNL_COLOR_BIOME: [u8; 3] = [0x00, 0xB3, 0x8F];
+/// Aqua brand color.
+pub const ORNL_COLOR_AQUA: [u8; 3] = [0x00, 0xBD, 0xB5];
+/// Infinity brand color.
+pub const ORNL_COLOR_INFINITY: [u8; 3] = [0x00, 0x6B, 0xA6];
+/// Hydro brand color.
+pub const ORNL_COLOR_HYDRO: [u8; 3] = [0x00, 0x57, 0x76];
+/// Forge brand color.
+pub const ORNL_COLOR_FORGE: [u8; 3] = [0xFF, 0x9E, 0x1B];
+/// Spark brand color.
+pub const ORNL_COLOR_SPARK: [u8; 3] = [0xFE, 0x50, 0x00];
+/// Plasma brand color.
+pub const ORNL_COLOR_PLASMA: [u8; 3] = [0xB5, 0x00, 0x94];
+/// Pulsar brand color.
+pub const ORNL_COLOR_PULSAR: [u8; 3] = [0x4E, 0x00, 0x8E];
+/// RGB ORNL brand primary color with full opacity.
+pub const COLOR_PRIMARY: [u8; 4] = [ORNL_COLOR_GREEN[0], ORNL_COLOR_GREEN[1], ORNL_COLOR_GREEN[2], 255];
 /// RGB color for transparency.
 pub const COLOR_TRANSPARENT: [u8; 4] = [255, 255, 255, 0];
 /// Automated Readability Index (ARI) maximum allowed value.

@@ -7,7 +7,7 @@ use crate::io::{read_file, ApiResult};
 use crate::prelude::PathBuf;
 use crate::util::{Label, StringConversion};
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Report};
 use core::fmt;
 use core::iter::once;
 use core::str::from_utf8;
@@ -496,51 +496,246 @@ impl Relationships {
         Ok(format!("{}{}", XML_DECLARATION, xml))
     }
 }
-/// Add an image element to a PowerPoint slide shape tree.
-pub fn add_picture_to_slide_xml(
-    xml: &str,
-    relationship_id: &str,
+fn is_png_content_type(element: &BytesStart<'_>) -> ApiResult<bool> {
+    element.attributes().try_fold(false, |found, attribute| {
+        attribute
+            .map(|attribute| found || (attribute.key.as_ref() == b"Extension" && attribute.value.as_ref().eq_ignore_ascii_case(b"png")))
+            .map_err(|why| eyre!("Failed to read OOXML content-type attribute — {why}"))
+    })
+}
+fn contains_content_types_root(xml: &str) -> ApiResult<bool> {
+    let mut reader = Reader::from_str(xml);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Start(element)) if element.name().local_name().as_ref() == b"Types" => break Ok(true),
+            | Ok(Event::Eof) => break Ok(false),
+            | Ok(_) => {}
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+fn contains_png_content_type(xml: &str) -> ApiResult<bool> {
+    let mut reader = Reader::from_str(xml);
+    loop {
+        match reader.read_event() {
+            | Ok(Event::Start(element) | Event::Empty(element)) if element.name().local_name().as_ref() == b"Default" => {
+                match is_png_content_type(&element) {
+                    | Ok(true) => break Ok(true),
+                    | Ok(false) => {}
+                    | Err(why) => break Err(why),
+                }
+            }
+            | Ok(Event::Eof) => break Ok(false),
+            | Ok(_) => {}
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+fn add_png_content_type(xml: &str) -> ApiResult<String> {
+    let mut reader = Reader::from_str(xml);
+    let mut writer = Writer::new(Vec::new());
+    loop {
+        match reader.read_event() {
+            | Ok(Event::End(end)) if end.name().local_name().as_ref() == b"Types" => {
+                let name = from_utf8(end.name().as_ref())
+                    .map_err(|why| eyre!("OOXML content-types root is not UTF-8 — {why}"))
+                    .and_then(|name| {
+                        name.strip_suffix("Types")
+                            .map(|prefix| format!("{prefix}Default"))
+                            .ok_or_else(|| eyre!("OOXML content-types document has no Types root"))
+                    });
+                match name.and_then(|name| {
+                    let mut content_type = BytesStart::new(name);
+                    content_type.push_attribute(("Extension", "png"));
+                    content_type.push_attribute(("ContentType", "image/png"));
+                    writer
+                        .write_event(Event::Empty(content_type))
+                        .and_then(|_| writer.write_event(Event::End(end)))
+                        .map_err(|why| eyre!("Failed to add PNG OOXML content type — {why}"))
+                        .and_then(|_| {
+                            String::from_utf8(writer.into_inner()).map_err(|why| eyre!("OOXML content-types document is not UTF-8 — {why}"))
+                        })
+                }) {
+                    | Ok(value) => break Ok(value),
+                    | Err(why) => break Err(why),
+                }
+            }
+            | Ok(Event::Eof) => break Err(eyre!("OOXML content-types document has no Types root")),
+            | Ok(event) => match writer.write_event(event.into_owned()) {
+                | Ok(_) => {}
+                | Err(why) => break Err(eyre!("Failed to write OOXML content-types document — {why}")),
+            },
+            | Err(why) => break Err(eyre!("Failed to parse OOXML content-types document — {why}")),
+        }
+    }
+}
+/// Ensure an OOXML content-types document declares PNG media.
+pub fn ensure_png_content_type(xml: &str) -> ApiResult<String> {
+    contains_content_types_root(xml).and_then(|has_root| {
+        if has_root {
+            contains_png_content_type(xml).and_then(|has_png| if has_png { Ok(xml.to_string()) } else { add_png_content_type(xml) })
+        } else {
+            Err(eyre!("OOXML content-types document has no Types root"))
+        }
+    })
+}
+#[derive(Clone, Copy)]
+struct PicturePlacement {
     shape_identifier: u32,
     x: u64,
     y: u64,
     width: u64,
     height: u64,
-) -> ApiResult<String> {
-    let picture = format!(
-        r#"<p:pic><p:nvPicPr><p:cNvPr id="{shape_identifier}" name="ASPECT rose chart" descr="ASPECT rose chart"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="{relationship_id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{width}" cy="{height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr></p:pic>"#
-    );
+}
+fn unsigned_attribute(element: &BytesStart<'_>, name: &[u8]) -> ApiResult<Option<u64>> {
+    element
+        .attributes()
+        .find_map(|attribute| match attribute {
+            | Ok(attribute) if attribute.key.as_ref() == name => Some(
+                from_utf8(attribute.value.as_ref())
+                    .map_err(|why| eyre!("PowerPoint shape attribute is not UTF-8 — {why}"))
+                    .and_then(|value| {
+                        value
+                            .parse::<u64>()
+                            .map_err(|why| eyre!("PowerPoint shape attribute is not unsigned — {why}"))
+                    }),
+            ),
+            | Ok(_) => None,
+            | Err(why) => Some(Err(eyre!("Failed to read PowerPoint shape attribute — {why}"))),
+        })
+        .transpose()
+}
+fn event_unsigned_attribute(events: &[Event<'static>], element_name: &[u8], attribute_name: &[u8]) -> ApiResult<Option<u64>> {
+    events
+        .iter()
+        .find_map(|event| match event {
+            | Event::Start(element) | Event::Empty(element) if element.name().as_ref() == element_name => {
+                Some(unsigned_attribute(element, attribute_name))
+            }
+            | _ => None,
+        })
+        .transpose()
+        .map(Option::flatten)
+}
+impl PicturePlacement {
+    fn is_aspect_placeholder(events: &[Event<'static>]) -> bool {
+        events
+            .iter()
+            .filter_map(|event| match event {
+                | Event::Text(text) => from_utf8(text.as_ref()).ok(),
+                | _ => None,
+            })
+            .flat_map(str::chars)
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>()
+            .contains("{{aspect}}")
+    }
+    fn write(self, writer: &mut Writer<Vec<u8>>, relationship_id: &str) -> ApiResult<()> {
+        let Self {
+            shape_identifier,
+            x,
+            y,
+            width,
+            height,
+        } = self;
+        let picture = format!(
+            r#"<p:pic><p:nvPicPr><p:cNvPr id="{shape_identifier}" name="ASPECT rose chart" descr="ASPECT rose chart"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="{relationship_id}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{width}" cy="{height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr></p:pic>"#
+        );
+        let mut reader = Reader::from_str(&picture);
+        loop {
+            match reader.read_event() {
+                | Ok(Event::Eof) => break Ok(()),
+                | Ok(event) => match writer.write_event(event.into_owned()) {
+                    | Ok(_) => {}
+                    | Err(why) => break Err(eyre!("Failed to write PowerPoint chart picture — {why}")),
+                },
+                | Err(why) => break Err(eyre!("Failed to parse PowerPoint chart picture — {why}")),
+            }
+        }
+    }
+}
+impl TryFrom<&[Event<'static>]> for PicturePlacement {
+    type Error = Report;
+    fn try_from(events: &[Event<'static>]) -> Result<Self, Self::Error> {
+        event_unsigned_attribute(events, b"p:cNvPr", b"id")
+            .and_then(|shape_identifier| event_unsigned_attribute(events, b"a:off", b"x").map(|x| (shape_identifier, x)))
+            .and_then(|(shape_identifier, x)| event_unsigned_attribute(events, b"a:off", b"y").map(|y| (shape_identifier, x, y)))
+            .and_then(|(shape_identifier, x, y)| event_unsigned_attribute(events, b"a:ext", b"cx").map(|width| (shape_identifier, x, y, width)))
+            .and_then(|(shape_identifier, x, y, width)| {
+                event_unsigned_attribute(events, b"a:ext", b"cy").map(|height| (shape_identifier, x, y, width, height))
+            })
+            .and_then(|(shape_identifier, x, y, width, height)| {
+                shape_identifier
+                    .and_then(|value| u32::try_from(value).ok())
+                    .zip(x)
+                    .zip(y)
+                    .zip(width)
+                    .zip(height)
+                    .map(|((((shape_identifier, x), y), width), height)| Self {
+                        shape_identifier,
+                        x,
+                        y,
+                        width,
+                        height,
+                    })
+                    .ok_or_else(|| eyre!("PowerPoint ASPECT placeholder has no complete shape bounds"))
+            })
+    }
+}
+/// Replace each `{{ aspect }}` slide shape with an image at the same bounds.
+pub fn replace_aspect_placeholders_with_picture(xml: &str, relationship_id: &str) -> ApiResult<Option<String>> {
     let mut reader = Reader::from_str(xml);
     let mut writer = Writer::new(Vec::new());
-    let mut inserted = false;
+    let mut replacement_count = 0_u32;
     loop {
         match reader.read_event() {
-            | Ok(Event::End(end)) if end.name().as_ref() == b"p:spTree" => {
-                let mut picture_reader = Reader::from_str(&picture);
-                let picture_result = loop {
-                    match picture_reader.read_event() {
-                        | Ok(Event::Eof) => break Ok(()),
-                        | Ok(event) => match writer.write_event(event.into_owned()) {
-                            | Ok(_) => {}
-                            | Err(why) => break Err(eyre!("Failed to write PowerPoint chart picture — {why}")),
-                        },
-                        | Err(why) => break Err(eyre!("Failed to parse PowerPoint chart picture — {why}")),
+            | Ok(Event::Start(start)) if start.name().as_ref() == b"p:sp" => {
+                let mut depth = 1_u32;
+                let mut events = vec![Event::Start(start.into_owned())];
+                let shape_result = loop {
+                    match reader.read_event() {
+                        | Ok(Event::Start(event)) => {
+                            depth = depth.saturating_add(1);
+                            events.push(Event::Start(event.into_owned()));
+                        }
+                        | Ok(Event::End(event)) => {
+                            depth = depth.saturating_sub(1);
+                            events.push(Event::End(event.into_owned()));
+                            if depth == 0 {
+                                break Ok(());
+                            }
+                        }
+                        | Ok(Event::Eof) => break Err(eyre!("PowerPoint slide ended inside a shape")),
+                        | Ok(event) => events.push(event.into_owned()),
+                        | Err(why) => break Err(eyre!("Failed to parse PowerPoint slide shape — {why}")),
                     }
                 };
-                match picture_result.and_then(|_| {
-                    inserted = true;
-                    writer
-                        .write_event(Event::End(end))
-                        .map_err(|why| eyre!("Failed to close PowerPoint slide shape tree — {why}"))
-                }) {
+                match shape_result
+                    .and_then(|_| {
+                        PicturePlacement::is_aspect_placeholder(&events)
+                            .then(|| PicturePlacement::try_from(events.as_slice()))
+                            .transpose()
+                    })
+                    .and_then(|placement| match placement {
+                        | Some(placement) => {
+                            replacement_count = replacement_count.saturating_add(1);
+                            placement.write(&mut writer, relationship_id)
+                        }
+                        | None => events.into_iter().try_for_each(|event| {
+                            writer
+                                .write_event(event)
+                                .map_err(|why| eyre!("Failed to write PowerPoint slide shape — {why}"))
+                        }),
+                    }) {
                     | Ok(_) => {}
                     | Err(why) => break Err(why),
                 }
             }
-            | Ok(Event::Eof) if inserted => match String::from_utf8(writer.into_inner()) {
-                | Ok(value) => break Ok(value),
+            | Ok(Event::Eof) => match String::from_utf8(writer.into_inner()) {
+                | Ok(value) if replacement_count > 0 => break Ok(Some(value)),
+                | Ok(_) => break Ok(None),
                 | Err(why) => break Err(eyre!("PowerPoint slide XML is not UTF-8 — {why}")),
             },
-            | Ok(Event::Eof) => break Err(eyre!("PowerPoint slide has no shape tree")),
             | Ok(event) => match writer.write_event(event.into_owned()) {
                 | Ok(_) => {}
                 | Err(why) => break Err(eyre!("Failed to write PowerPoint slide XML — {why}")),

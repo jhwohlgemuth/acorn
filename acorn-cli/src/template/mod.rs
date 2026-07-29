@@ -239,11 +239,6 @@ impl Convert for ResearchActivity {
                                 <aside>
                                     <div class="graphic">
                                         <img src={ graphic }/>
-                                        {
-                                            aspect_chart.map(|chart| html! {
-                                                <img class="aspect-chart" src={ chart } alt="ASPECT rose chart"/>
-                                            })
-                                        }
                                     </div>
                                     <div class="caption">{ caption }</div>
                                     <div class="research-focus">
@@ -251,8 +246,13 @@ impl Convert for ResearchActivity {
                                         <p>{ focus }</p>
                                         <ul><li>{ areas.join("</li><li>") }</li></ul>
                                     </div>
-                                    <div class="qrcode">
-                                        <img src={ qrcode }/>
+                                    <div class="codes">
+                                        {
+                                            aspect_chart.map(|chart| html! {
+                                                <img class="aspect-chart" src={ chart } alt="ASPECT rose chart"/>
+                                            })
+                                        }
+                                        <img class="qrcode" src={ qrcode } alt="Research activity QR code"/>
                                     </div>
                                 </aside>
                             </div>
@@ -303,11 +303,15 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
-    use super::{DataUri, Style};
+    #![allow(clippy::expect_used)]
+    use super::{Convert, DataUri, Style};
+    use acorn::schema::research_activity::ResearchActivity;
+
     #[test]
-    fn required_embedded_assets_exist() {
+    fn test_required_embedded_assets_exist() {
         let assets = [
             "aptos.ttf",
             "aptos_bold.ttf",
@@ -326,8 +330,22 @@ mod tests {
         assert!(Style::to_string("project.css".to_string()).is_ok());
     }
     #[test]
-    fn missing_embedded_assets_return_errors() {
+    fn test_missing_embedded_assets_return_errors() {
         assert!(DataUri::from_asset("missing.png").is_err());
         assert!(Style::to_string("missing.css".to_string()).is_err());
+    }
+    #[test]
+    fn test_aspect_chart_precedes_qr_code_in_shared_container() {
+        let activity: ResearchActivity = serde_json::from_str(include_str!("../../../tests/fixtures/data/highlight/hecate/index.json"))
+            .expect("HECATE fixture should deserialize");
+        let html = activity
+            .to_html(Some(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"))
+            .expect("fixture should render")
+            .to_string();
+        let codes = html.find("class=\"codes\"").expect("code container should render");
+        let aspect = html.find("class=\"aspect-chart\"").expect("ASPECT chart should render");
+        let qr = html.find("class=\"qrcode\"").expect("QR code should render");
+        assert!(codes < aspect);
+        assert!(aspect < qr);
     }
 }

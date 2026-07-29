@@ -65,21 +65,23 @@ aside>.graphic {
     position: relative;
     text-align: center;
 }
-aside>.qrcode {
-    text-align: center;
-}
 aside>.graphic>img {
     height: 200px;
 }
-aside>.graphic>img.aspect-chart {
-    background-color: #FFFFFF;
-    border: 2px solid #FFFFFF;
-    bottom: 0;
-    box-shadow: 0 0 3px #555555;
-    height: 145px;
-    position: absolute;
-    right: 0;
-    width: 145px;
+aside>.codes {
+    align-items: center;
+    display: flex;
+    gap: 36px;
+    justify-content: center;
+    text-align: center;
+}
+aside>.codes>img {
+    height: 125px;
+    width: 125px;
+}
+aside>.codes>img.aspect-chart {
+    height: 131.25px;
+    width: 131.25px;
 }
 aside>.caption {
     font-family: "aptos";
