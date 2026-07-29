@@ -22,4 +22,4 @@
 
 ## Completed
 
-- [ASPECT rose chart export](aspect-rose-chart-export.md) - Render the four scalar ASPECT attributes once for PDF and PowerPoint.
+No retained core refactor plans are currently complete.

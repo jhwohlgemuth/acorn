@@ -88,6 +88,34 @@ make bench-compare BENCH_BASELINE=release-0.1.56
 
 Criterion stores benchmark history and comparisons under `target/criterion/`, including HTML reports and baseline deltas.
 
+### PDF Visual Regression Tests
+
+PDF export has visual regression tests for output with and without ASPECT data. These tests are ignored by default because they require a Chromium-based browser and Poppler's `pdftoppm` executable.
+
+Install Poppler for your platform:
+
+- macOS: `brew install poppler`
+- Ubuntu or Debian: `sudo apt install poppler-utils`
+- Windows: install the [MSYS2 UCRT64 Poppler package](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-poppler) with `pacman -S mingw-w64-ucrt-x86_64-poppler`, then add `C:\msys64\ucrt64\bin` to `PATH`
+
+Ensure `pdftoppm -v` succeeds and Chrome or Chromium is available on `PATH`. If the browser is installed elsewhere, set `CHROME_PATH` to its executable. For example, in PowerShell:
+
+```powershell
+$env:CHROME_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+Run both PDF visual regression tests:
+
+```shell
+cargo test -p acorn-cli --all-features visual_snapshot -- --ignored --nocapture
+```
+
+The snapshots are stored in `acorn-cli/src/commands/export/tests/snapshots/`. When an intentional PDF layout change produces new snapshots, install the review tool with `cargo install cargo-insta`, inspect the differences, and accept or reject them with:
+
+```shell
+cargo insta review
+```
+
 ### Visual Studio Code Configuration
 **General Development**
 - Install [VSCode](https://code.visualstudio.com/)
