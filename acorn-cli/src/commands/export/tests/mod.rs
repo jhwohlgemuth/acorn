@@ -6,13 +6,13 @@
 //! - JSON export (from YAML source)
 //! - YAML export (from JSON source)
 //! - Markdown export (from JSON source)
-//! - PDF export (ignored by default - requires cached or installed Chromium)
+//! - PDF export visual snapshots (ignored by default - requires Chromium and Poppler)
 //! - Combine flag for multiple files
 //!
 //! Test artifacts are created in `target/test_artifacts/` and cleaned up
 //! automatically via the `TestCleanup` Drop implementation.
 //!
-//! Tests run in offline mode; the PDF test remains ignored because it launches an external browser.
+//! Tests run in offline mode; PDF visual snapshots remain ignored because they launch an external browser and renderer.
 use crate::cli::arguments::FileFormat;
 #[cfg(feature = "pdf")]
 use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
@@ -20,12 +20,20 @@ use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
-use acorn::prelude::canonicalize;
+use acorn::prelude::{canonicalize, read, var_os, Command, Path};
 use acorn::prelude::{copy, create_dir_all, read_dir, read_to_string, write, PathBuf};
 use acorn::schema::standard::datacite;
 use acorn::schema::standard::invenio;
+#[cfg(feature = "pdf")]
+use acorn::util::constants::env::CHROME_PATH;
 use clap_verbosity_flag::Verbosity;
+#[cfg(feature = "pdf")]
+use color_eyre::eyre::eyre;
 use color_eyre::eyre::Result;
+#[cfg(feature = "pdf")]
+use futures::lock::Mutex;
+#[cfg(feature = "pdf")]
+use which::which;
 
 fn silent() -> Verbosity {
     Verbosity::new(0, 1)
@@ -33,7 +41,121 @@ fn silent() -> Verbosity {
 
 const OFFLINE: bool = true;
 const TEST_THREADS: usize = 4;
+#[cfg(feature = "pdf")]
+static PDF_VISUAL_TEST_LOCK: Mutex<()> = Mutex::new(());
 
+#[cfg(feature = "pdf")]
+fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
+    create_dir_all(destination)
+        .map_err(|why| eyre!("Create PDF snapshot fixture directory — {why}"))
+        .and_then(|_| read_dir(source).map_err(|why| eyre!("Read PDF snapshot fixture directory — {why}")))
+        .and_then(|entries| {
+            entries
+                .map(|entry| entry.map_err(|why| eyre!("Read PDF snapshot fixture entry — {why}")))
+                .try_for_each(|entry| {
+                    entry.and_then(|entry| match entry.path().is_file() {
+                        | true => copy(entry.path(), destination.join(entry.file_name()))
+                            .map(|_| ())
+                            .map_err(|why| eyre!("Copy PDF snapshot fixture entry — {why}")),
+                        | false => Ok(()),
+                    })
+                })
+        })
+}
+#[cfg(feature = "pdf")]
+fn remove_aspect(path: &Path) -> Result<()> {
+    read_to_string(path)
+        .map_err(|why| eyre!("Read PDF snapshot research activity — {why}"))
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).map_err(|why| eyre!("Parse PDF snapshot research activity — {why}")))
+        .map(|mut value| {
+            let _removed = value.as_object_mut().and_then(|object| object.remove("aspect"));
+            value
+        })
+        .and_then(|value| serde_json::to_string_pretty(&value).map_err(|why| eyre!("Serialize PDF snapshot research activity — {why}")))
+        .and_then(|content| write(path, content).map_err(|why| eyre!("Write PDF snapshot research activity — {why}")))
+}
+#[cfg(feature = "pdf")]
+fn render_first_pdf_page(pdf: &Path, output_prefix: &Path) -> Result<Vec<u8>> {
+    which("pdftoppm")
+        .map_err(|why| eyre!("Find pdftoppm for PDF visual snapshot — {why}"))
+        .and_then(|renderer| {
+            Command::new(renderer)
+                .args(["-f", "1", "-l", "1", "-singlefile", "-png", "-r", "96"])
+                .arg(pdf)
+                .arg(output_prefix)
+                .status()
+                .map_err(|why| eyre!("Render PDF visual snapshot — {why}"))
+        })
+        .and_then(|status| match status.success() {
+            | true => read(output_prefix.with_extension("png")).map_err(|why| eyre!("Read rendered PDF visual snapshot — {why}")),
+            | false => Err(eyre!("pdftoppm failed to render PDF visual snapshot with status {status}")),
+        })
+}
+#[cfg(feature = "pdf")]
+fn pdf_test_browser() -> Result<PathBuf> {
+    let configured = var_os(CHROME_PATH).map(PathBuf::from).filter(|path| path.is_file());
+    let executable = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+        .iter()
+        .find_map(|name| which(name).ok());
+    #[cfg(target_os = "macos")]
+    let installed = Some(PathBuf::from("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")).filter(|path| path.is_file());
+    #[cfg(not(target_os = "macos"))]
+    let installed = None;
+    configured
+        .or(executable)
+        .or(installed)
+        .ok_or_else(|| eyre!("PDF visual snapshots require CHROME_PATH or an installed Chromium browser"))
+}
+#[cfg(feature = "pdf")]
+async fn assert_pdf_visual_snapshot(test_name: &str, include_aspect: bool, snapshot: &str) -> Result<()> {
+    let _guard = PDF_VISUAL_TEST_LOCK.lock().await;
+    let temp_dir = temp_test_dir(test_name);
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source_dir = fixture_path("data/highlight/hecate");
+    let test_data_dir = temp_dir.join("data");
+    let output_dir = temp_dir.join("output");
+    let data_path = test_data_dir.join("index.json");
+    let prepared = copy_pdf_fixture(&source_dir, &test_data_dir)
+        .and_then(|_| match include_aspect {
+            | true => Ok(()),
+            | false => remove_aspect(&data_path),
+        })
+        .and_then(|_| create_dir_all(&output_dir).map_err(|why| eyre!("Create PDF snapshot output directory — {why}")))
+        .and_then(|_| pdf_test_browser());
+    match prepared {
+        | Ok(browser) => run(
+            &Some(output_dir.clone()),
+            &Some(data_path),
+            &None,
+            &Some(browser),
+            &None,
+            &[],
+            &[],
+            false,
+            false,
+            &FileFormat::Pdf,
+            &None,
+            &None,
+            &None,
+            &false,
+            &false,
+            &false,
+            &[],
+            false,
+            false,
+            TEST_THREADS,
+            &silent(),
+            OFFLINE,
+        )
+        .await
+        .and_then(|_| render_first_pdf_page(&output_dir.join("hecate.pdf"), &temp_dir.join(snapshot)))
+        .map(|image| {
+            let snapshot_name = format!("{snapshot}.png");
+            insta::assert_binary_snapshot!(&snapshot_name, image);
+        }),
+        | Err(why) => Err(why),
+    }
+}
 #[cfg(feature = "pdf")]
 #[tokio::test]
 async fn test_browser_executable_prefers_configured_path_offline() -> Result<()> {
@@ -79,6 +201,8 @@ async fn test_export_bag_format() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Bag,
         &None,
         &None,
@@ -124,6 +248,8 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Powerpoint,
         &Some(PathBuf::from("reference.pptx")),
         &None,
@@ -149,44 +275,15 @@ async fn test_export_powerpoint_format() -> Result<()> {
 }
 #[cfg(feature = "pdf")]
 #[tokio::test]
-#[ignore = "Requires cached or installed Chromium for offline PDF generation"]
-async fn test_export_pdf_format() -> Result<()> {
-    let temp_dir = temp_test_dir("export_pdf");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let source_dir = fixture_path("data/valid_project");
-    let test_data_dir = temp_dir.join("data");
-    create_dir_all(&test_data_dir)?;
-    let source = source_dir.join("index.json");
-    let dest = test_data_dir.join("index.json");
-    copy(&source, &dest)?;
-    let output_dir = temp_dir.join("output");
-    create_dir_all(&output_dir)?;
-    let result = run(
-        &Some(output_dir.clone()),
-        &Some(test_data_dir),
-        &None,
-        &None,
-        &None,
-        &[],
-        &[],
-        &FileFormat::Pdf,
-        &None,
-        &None,
-        &None,
-        &false,
-        &false,
-        &false,
-        &[],
-        false,
-        false,
-        TEST_THREADS,
-        &silent(),
-        OFFLINE,
-    )
-    .await;
-    assert!(result.is_ok(), "Export to PDF format should succeed");
-    assert!(output_dir.join("valid-project.pdf").is_file(), "PDF file should be created");
-    Ok(())
+#[ignore = "Requires Chromium and pdftoppm for PDF visual snapshots"]
+async fn test_export_pdf_with_aspect_visual_snapshot() -> Result<()> {
+    assert_pdf_visual_snapshot("export-pdf-with-aspect", true, "pdf-export-with-aspect").await
+}
+#[cfg(feature = "pdf")]
+#[tokio::test]
+#[ignore = "Requires Chromium and pdftoppm for PDF visual snapshots"]
+async fn test_export_pdf_without_aspect_visual_snapshot() -> Result<()> {
+    assert_pdf_visual_snapshot("export-pdf-without-aspect", false, "pdf-export-without-aspect").await
 }
 #[tokio::test]
 async fn test_export_json_format() -> Result<()> {
@@ -208,6 +305,8 @@ async fn test_export_json_format() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Json,
         &None,
         &None,
@@ -238,6 +337,8 @@ async fn test_export_offline_rejects_remote_merge_request() {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Json,
         &None,
         &None,
@@ -272,6 +373,8 @@ async fn test_export_yaml_format() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Yaml,
         &None,
         &None,
@@ -310,6 +413,8 @@ async fn test_export_markdown_format() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Markdown,
         &None,
         &None,
@@ -364,6 +469,8 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Json,
         &None,
         &None,
@@ -402,6 +509,8 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Json,
         &None,
         &Some(Standard::Datacite),
@@ -452,6 +561,8 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
         &None,
         &[],
         &[],
+        false,
+        false,
         &FileFormat::Json,
         &None,
         &None,

@@ -65,6 +65,8 @@ use zip::{ZipArchive, ZipWriter};
 
 pub mod api;
 pub mod bagit;
+#[cfg(feature = "chart")]
+pub mod chart;
 pub mod config;
 pub mod database;
 pub mod docx;

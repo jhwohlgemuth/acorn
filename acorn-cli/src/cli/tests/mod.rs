@@ -112,6 +112,25 @@ fn test_export_chrome_path_argument_and_environment() {
     });
 }
 #[test]
+fn test_export_aspect_chart_visibility_arguments() {
+    let parsed = Arguments::try_parse_from([
+        "acorn",
+        "export",
+        "--show-aspect-labels",
+        "--show-aspect-scores",
+        "--format",
+        "powerpoint",
+    ])
+    .expect("parse ASPECT chart visibility flags");
+    match parsed.command {
+        | Some(Commands::Export(arguments)) => {
+            assert!(arguments.show_aspect_labels);
+            assert!(arguments.show_aspect_scores);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "download", "model", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "--what-if"]).is_ok());

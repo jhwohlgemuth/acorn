@@ -4,11 +4,12 @@
 //! OOXML relationships, and interpolating Research Activity data.
 use crate::cli::CommandOptions;
 use acorn::io::powerpoint::ooxml::{
-    add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationship, Relationships,
+    add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
+    validate_xml_well_formed, Relationship, Relationships,
 };
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
-use acorn::prelude::{copy, create_dir_all, Arc, Path, PathBuf};
+use acorn::prelude::{copy, create_dir_all, write, Arc, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{Label, StringConversion};
 use color_eyre::eyre::eyre;
@@ -16,6 +17,8 @@ use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use tracing::error;
+
+const IMAGE_RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 
 fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()> {
     fn slide_paths(slide_number: usize, root: &Path) -> Vec<PathBuf> {
@@ -163,6 +166,76 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                 .and_then(|_| copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}")))
         })
 }
+fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destination: &Path) -> ApiResult<()> {
+    let slide_path = destination.join(format!("ppt/slides/slide{index}.xml"));
+    let relationships_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
+    let content_types_path = destination.join("[Content_Types].xml");
+    let media_name = format!("{}-aspect.png", data.meta.identifier);
+    let media_path = destination.join("ppt/media").join(&media_name);
+    read_file(&slide_path)
+        .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_string()))
+        .and_then(|slide_xml| {
+            read_xml_rel(relationships_path.clone())
+                .ok_or_else(|| {
+                    eyre!(
+                        "Failed to read PowerPoint slide relationships at {}",
+                        relationships_path.to_absolute_string()
+                    )
+                })
+                .map(|relationships| (slide_xml, relationships))
+        })
+        .and_then(|(slide_xml, relationships)| {
+            let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
+            let relationship_id = format!("rId{revision}");
+            replace_aspect_placeholders_with_picture(&slide_xml, &relationship_id).and_then(|updated| match updated {
+                | Some(updated_slide) => {
+                    let relationship = Relationship::init()
+                        .id(relationship_id)
+                        .relationship_type(IMAGE_RELATIONSHIP.to_string())
+                        .target(format!("../media/{media_name}"))
+                        .build();
+                    relationships
+                        .add_relationship(relationship)
+                        .to_string()
+                        .map_err(|why| eyre!("Failed to serialize ASPECT chart relationship — {why}"))
+                        .and_then(|xml| {
+                            write_file(&relationships_path, xml).map_err(|why| {
+                                eyre!(
+                                    "Failed to write ASPECT chart relationship at {} — {why}",
+                                    relationships_path.to_absolute_string()
+                                )
+                            })
+                        })
+                        .and_then(|_| {
+                            write_file(&slide_path, updated_slide)
+                                .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_string()))
+                        })
+                        .and_then(|_| {
+                            read_file(&content_types_path).map_err(|why| {
+                                eyre!(
+                                    "Failed to read PowerPoint content types at {} — {why}",
+                                    content_types_path.to_absolute_string()
+                                )
+                            })
+                        })
+                        .and_then(|xml| ensure_png_content_type(&xml))
+                        .and_then(|xml| {
+                            write_file(&content_types_path, xml).map_err(|why| {
+                                eyre!(
+                                    "Failed to write PowerPoint content types at {} — {why}",
+                                    content_types_path.to_absolute_string()
+                                )
+                            })
+                        })
+                        .and_then(|_| {
+                            write(&media_path, chart)
+                                .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_string()))
+                        })
+                }
+                | None => Ok(()),
+            })
+        })
+}
 fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
     let presentation_targets = ["ppt/presentation.xml", "ppt/_rels/presentation.xml.rels"]
         .iter()
@@ -189,11 +262,15 @@ fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResul
     }
 }
 /// Create PowerPoint presentation from Research Activity data
-pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<CommandOptions>>) -> ApiResult<PathBuf> {
+pub fn create(
+    paths: impl IntoIterator<Item = PathBuf>,
+    options: Option<Arc<CommandOptions>>,
+    aspect_charts: Arc<Vec<Option<Vec<u8>>>>,
+) -> ApiResult<PathBuf> {
     let options = options.unwrap_or_default();
     let CommandOptions { output, path, reference, .. } = options.as_ref();
-    let _paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
-    let research_activity_data: Vec<ResearchActivity> = _paths
+    let paths: Arc<Vec<PathBuf>> = Arc::new(paths.into_iter().collect());
+    let research_activity_data: Vec<ResearchActivity> = paths
         .iter()
         .filter_map(|path| match ResearchActivity::read(path.clone()) {
             | Ok(value) => Some(value.format_with(Some(path.clone()))),
@@ -243,11 +320,11 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<Comm
                 .collect::<ApiResult<Vec<_>>>()
                 .and_then(|_| {
                     let reference_extract_path_for_workers = Arc::clone(&reference_extract_path);
-                    izip!(research_activity_data, _paths.iter().cloned())
+                    izip!(research_activity_data, paths.iter().cloned())
                         .collect::<Vec<_>>()
                         .into_par_iter()
                         .enumerate()
-                        .for_each(move |(index, (data, index_path))| {
+                        .map(move |(index, (data, index_path))| {
                             let reference_extract_path = Arc::clone(&reference_extract_path_for_workers);
                             let slide_number = index.saturating_add(1);
                             let fragments = [
@@ -266,23 +343,36 @@ pub fn create(paths: impl IntoIterator<Item = PathBuf>, options: Option<Arc<Comm
                                     Label::fail()
                                 );
                             }
-                        });
-                    let count = _paths.len();
-                    let folder = if count == 1 {
-                        match _paths.first() {
-                            | Some(p) => match p.parent() {
-                                | Some(parent_dir) => parent_dir.canonicalize().unwrap_or_else(|_| PathBuf::from(".")),
-                                | None => PathBuf::from("."),
-                            },
-                            | None => PathBuf::from("."),
-                        }
-                    } else {
-                        path.clone().unwrap_or_else(|| PathBuf::from("."))
-                    };
-                    let folder_name = folder.file_name_with_parent();
-                    validate_ooxml_files(&reference_extract_path, count)
-                        .and_then(|_| prepare_destination(output, &folder_name))
-                        .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+                            match aspect_charts.get(index) {
+                                | Some(Some(chart)) => add_aspect_chart(slide_number, &data, chart, &reference_extract_path).inspect_err(|why| {
+                                    error!(
+                                        path = index_path.to_absolute_string(),
+                                        "=> {} Add ASPECT chart to slide {slide_number} — {why}",
+                                        Label::fail()
+                                    );
+                                }),
+                                | _ => Ok(()),
+                            }
+                        })
+                        .collect::<ApiResult<Vec<_>>>()
+                        .and_then(|_| {
+                            let count = paths.len();
+                            let folder = if count == 1 {
+                                match paths.first() {
+                                    | Some(p) => match p.parent() {
+                                        | Some(parent_dir) => parent_dir.canonicalize().unwrap_or_else(|_| PathBuf::from(".")),
+                                        | None => PathBuf::from("."),
+                                    },
+                                    | None => PathBuf::from("."),
+                                }
+                            } else {
+                                path.clone().unwrap_or_else(|| PathBuf::from("."))
+                            };
+                            let folder_name = folder.file_name_with_parent();
+                            validate_ooxml_files(&reference_extract_path, count)
+                                .and_then(|_| prepare_destination(output, &folder_name))
+                                .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+                        })
                 })
         })
 }
@@ -306,10 +396,11 @@ mod tests {
         clippy::indexing_slicing,
         clippy::arithmetic_side_effects
     )]
-    use super::{add_slide, prepare_destination};
+    use super::{add_aspect_chart, add_slide, prepare_destination};
     use crate::test::util::{temp_test_dir, TestCleanup};
     use acorn::io::{read_file, write_file};
     use acorn::prelude::{create_dir_all, Path};
+    use acorn::schema::research_activity::ResearchActivity;
     use std::env::temp_dir;
 
     fn write_slide_fixture(root: &Path, fragment: &str, content: &str) {
@@ -319,7 +410,11 @@ mod tests {
     }
     fn setup_slide_fixture(root: &Path) {
         let relationships = "http://schemas.openxmlformats.org/package/2006/relationships";
-        write_slide_fixture(root, "ppt/slides/slide1.xml", r#"<p:sld xmlns:p="presentation"/>"#);
+        write_slide_fixture(
+            root,
+            "ppt/slides/slide1.xml",
+            r#"<p:sld xmlns:p="presentation" xmlns:a="drawing" xmlns:r="relationships"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="42" name="ASPECT placeholder"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="10" y="20"/><a:ext cx="30" cy="40"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>{{ aspect }}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>"#,
+        );
         write_slide_fixture(
             root,
             "ppt/slides/_rels/slide1.xml.rels",
@@ -345,7 +440,13 @@ mod tests {
             "ppt/presentation.xml",
             r#"<p:presentation xmlns:p="presentation" xmlns:r="relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>"#,
         );
+        write_slide_fixture(
+            root,
+            "[Content_Types].xml",
+            r#"<Types xmlns="content-types"><Default Extension="xml" ContentType="application/xml"/></Types>"#,
+        );
     }
+
     #[test]
     fn test_prepare_destination() {
         let base = temp_dir();
@@ -355,7 +456,7 @@ mod tests {
         assert_eq!(path, expected);
     }
     #[test]
-    fn add_slide_copies_parts_and_updates_relationships() {
+    fn test_add_slide_copies_parts_and_updates_relationships() {
         let root = temp_test_dir("powerpoint-add-slide");
         let _cleanup = TestCleanup::new(root.clone());
         setup_slide_fixture(&root);
@@ -370,10 +471,28 @@ mod tests {
         assert!(presentation.contains("rId2"));
     }
     #[test]
-    fn add_slide_rejects_missing_source_part() {
+    fn test_add_slide_rejects_missing_source_part() {
         let root = temp_test_dir("powerpoint-add-slide-missing-source");
         let _cleanup = TestCleanup::new(root.clone());
         let result = add_slide(2, &root);
         assert!(result.is_err());
+    }
+    #[test]
+    fn test_add_aspect_chart_packages_image_and_picture() {
+        let root = temp_test_dir("powerpoint-aspect-chart");
+        let _cleanup = TestCleanup::new(root.clone());
+        setup_slide_fixture(&root);
+        create_dir_all(root.join("ppt/media")).unwrap();
+        let data = ResearchActivity::default();
+        add_aspect_chart(1, &data, b"chart-png", &root).unwrap();
+        let relationships = read_file(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
+        let slide = read_file(root.join("ppt/slides/slide1.xml")).unwrap();
+        let content_types = read_file(root.join("[Content_Types].xml")).unwrap();
+        let media = acorn::prelude::read(root.join(format!("ppt/media/{}-aspect.png", data.meta.identifier))).unwrap();
+        assert!(relationships.contains("relationships/image"));
+        assert!(relationships.contains("-aspect.png"));
+        assert!(slide.contains("ASPECT rose chart"));
+        assert!(content_types.contains(r#"<Default Extension="png" ContentType="image/png"/>"#));
+        assert_eq!(media, b"chart-png");
     }
 }

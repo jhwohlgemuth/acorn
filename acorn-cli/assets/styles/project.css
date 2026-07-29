@@ -65,11 +65,23 @@ aside>.graphic {
     position: relative;
     text-align: center;
 }
-aside>.qrcode {
-    text-align: center;
-}
 aside>.graphic>img {
     height: 200px;
+}
+aside>.codes {
+    align-items: center;
+    display: flex;
+    gap: 36px;
+    justify-content: center;
+    text-align: center;
+}
+aside>.codes>img {
+    height: 125px;
+    width: 125px;
+}
+aside>.codes>img.aspect-chart {
+    height: 131.25px;
+    width: 131.25px;
 }
 aside>.caption {
     font-family: "aptos";

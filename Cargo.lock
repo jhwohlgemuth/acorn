@@ -117,6 +117,7 @@ dependencies = [
  "rand 0.8.6",
  "rayon",
  "reqwest 0.13.4",
+ "resvg",
  "ring",
  "rmcp",
  "rsa",

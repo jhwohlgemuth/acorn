@@ -72,8 +72,9 @@ which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
 [features]
 default = ["pdf", "tui"]
+chart = ["acorn-lib/chart"]
 duckdb = ["acorn-lib/duckdb"]
-pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr"]
+pdf = ["dep:chromiumoxide", "dep:percy-dom", "dep:fast_qr", "chart"]
 tui = ["dep:acorn-tui"]
 
 [dev-dependencies]

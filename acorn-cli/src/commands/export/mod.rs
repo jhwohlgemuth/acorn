@@ -4,9 +4,13 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::analyzer::{summary, Check, CheckCategory, IntoChecks, Standard};
 use acorn::io::bagit::{Bag, BagInfo, Save};
+#[cfg(feature = "chart")]
+use acorn::io::chart::ChartOptions;
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
+#[cfg(not(feature = "chart"))]
+use acorn::prelude::HashMap;
 use acorn::prelude::{remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{format_bytes, print_values_as_table, regex_join, suffix, Label, MimeType, StringConversion};
@@ -42,6 +46,12 @@ struct ExportRequest {
     chrome_path: Option<PathBuf>,
     #[builder(default)]
     format: FileFormat,
+    #[builder(default)]
+    #[cfg_attr(not(feature = "chart"), allow(dead_code))]
+    show_aspect_labels: bool,
+    #[builder(default)]
+    #[cfg_attr(not(feature = "chart"), allow(dead_code))]
+    show_aspect_scores: bool,
     reference: Option<PathBuf>,
     combine: bool,
     #[builder(default)]
@@ -142,6 +152,11 @@ impl ExportHandler for PdfExportHandler {
                         | Ok(session) => {
                             let page = session.page();
                             let output = request.output.clone();
+                            let chart_options = ChartOptions::init()
+                                .file_type("svg")
+                                .show_labels(request.show_aspect_labels)
+                                .show_scores(request.show_aspect_scores)
+                                .build();
                             let progress = with_progress(
                                 paths,
                                 |path| format!("Generating PDF for {}", path.file_name_with_parent()),
@@ -149,7 +164,7 @@ impl ExportHandler for PdfExportHandler {
                                     let output = output.clone();
                                     async move {
                                         let pdf_options = CommandOptions::init().path(path.clone()).maybe_output(output).build();
-                                        pdf::create(page, pdf_options).await
+                                        pdf::create(page, pdf_options, chart_options).await
                                     }
                                 },
                                 |count| format!("{}Done! Exported {} PDF{}", Label::CHECKMARK, count.green(), suffix(count)),
@@ -183,50 +198,74 @@ impl ExportHandler for PowerPointExportHandler {
         Box::pin(async move {
             match resolve_paths(&request.path, &request.options).await {
                 | Ok(paths) => {
-                    let _options = CommandOptions::init()
+                    let options = CommandOptions::init()
                         .maybe_path(request.path.clone())
                         .maybe_output(request.output.clone())
                         .maybe_reference(request.reference.clone())
                         .build();
-                    let create_options = Arc::new(_options);
-                    if request.combine {
-                        let progress = create_progress_bar(
-                            1,
-                            match request.progress_type {
-                                | ProgressType::Silent => ProgressType::Silent,
-                                | _ => ProgressType::Spinner,
-                            },
-                        );
-                        progress.set_message("Generating combined PowerPoint artifact");
-                        match powerpoint::create(paths, Some(Arc::clone(&create_options))) {
-                            | Ok(_) => {
-                                progress.inc(1);
-                                finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
-                                Ok(())
-                            }
-                            | Err(why) => {
-                                fail!("Generate combined PowerPoint — {}", why);
-                                Err(eyre!("Generate combined PowerPoint — {why}"))
+                    let create_options = Arc::new(options);
+                    #[cfg(feature = "chart")]
+                    let chart_options = ChartOptions::init()
+                        .file_type("png")
+                        .show_labels(request.show_aspect_labels)
+                        .show_scores(request.show_aspect_scores)
+                        .build();
+                    #[cfg(feature = "chart")]
+                    let aspect_charts = chart_options.render_aspect_charts(&paths).map(Arc::new);
+                    #[cfg(not(feature = "chart"))]
+                    let aspect_charts: ApiResult<Arc<HashMap<PathBuf, Option<Vec<u8>>>>> = Ok(Arc::new(HashMap::new()));
+                    match aspect_charts {
+                        | Ok(aspect_charts) if request.combine => {
+                            let progress = create_progress_bar(
+                                1,
+                                match request.progress_type {
+                                    | ProgressType::Silent => ProgressType::Silent,
+                                    | _ => ProgressType::Spinner,
+                                },
+                            );
+                            progress.set_message("Generating combined PowerPoint artifact");
+                            let charts = Arc::new(
+                                paths
+                                    .iter()
+                                    .map(|path| aspect_charts.get(path).cloned().unwrap_or_default())
+                                    .collect::<Vec<_>>(),
+                            );
+                            match powerpoint::create(paths, Some(Arc::clone(&create_options)), charts) {
+                                | Ok(_) => {
+                                    progress.inc(1);
+                                    finish_progress_bar(&progress, format!("{}Done! Exported combined PowerPoint file", Label::CHECKMARK));
+                                    Ok(())
+                                }
+                                | Err(why) => {
+                                    fail!("Generate combined PowerPoint — {}", why);
+                                    Err(eyre!("Generate combined PowerPoint — {why}"))
+                                }
                             }
                         }
-                    } else {
-                        let progress = with_progress(
-                            paths,
-                            |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
-                            |path| {
-                                let options = Arc::clone(&create_options);
-                                async move { powerpoint::create(once(path), Some(options)).map(|_| ()) }
-                            },
-                            |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
-                            Some(1),
-                            request.progress_type,
-                        );
-                        match progress.await {
-                            | Ok(_) => Ok(()),
-                            | Err(why) => {
-                                fail!("Generate PowerPoint — {}", why);
-                                Err(eyre!("Generate PowerPoint — {why}"))
+                        | Ok(aspect_charts) => {
+                            let progress = with_progress(
+                                paths,
+                                |path| format!("Generating PowerPoint for {}", path.file_name_with_parent()),
+                                |path| {
+                                    let options = Arc::clone(&create_options);
+                                    let chart = aspect_charts.get(&path).cloned().unwrap_or_default();
+                                    async move { powerpoint::create(once(path), Some(options), Arc::new(vec![chart])).map(|_| ()) }
+                                },
+                                |count| format!("{}Done! Exported {} PowerPoint file{}", Label::CHECKMARK, count.green(), suffix(count)),
+                                Some(1),
+                                request.progress_type,
+                            );
+                            match progress.await {
+                                | Ok(_) => Ok(()),
+                                | Err(why) => {
+                                    fail!("Generate PowerPoint — {}", why);
+                                    Err(eyre!("Generate PowerPoint — {why}"))
+                                }
                             }
+                        }
+                        | Err(why) => {
+                            fail!("Render ASPECT charts — {}", why);
+                            Err(why)
                         }
                     }
                 }
@@ -244,6 +283,8 @@ pub async fn run(
     commit: &Option<String>,
     filter: &[String],
     ignore: &[String],
+    show_aspect_labels: bool,
+    show_aspect_scores: bool,
     format: &FileFormat,
     reference: &Option<PathBuf>,
     from: &Option<Standard>,
@@ -283,6 +324,8 @@ pub async fn run(
             .maybe_path(path.clone())
             .maybe_chrome_path(chrome_path.clone())
             .format(format.clone())
+            .show_aspect_labels(show_aspect_labels)
+            .show_aspect_scores(show_aspect_scores)
             .maybe_reference(reference.clone())
             .combine(*combine)
             .dry_run(dry_run)

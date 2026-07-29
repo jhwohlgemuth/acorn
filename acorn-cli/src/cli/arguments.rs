@@ -488,6 +488,12 @@ pub(crate) struct Export {
         conflicts_with = "schema"
     )]
     pub(crate) ignore: Vec<String>,
+    /// Show ASPECT attribute labels in exported charts
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
+    pub(crate) show_aspect_labels: bool,
+    /// Show ASPECT numeric scores in exported charts
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
+    pub(crate) show_aspect_scores: bool,
     /// Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
     #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) merge_request: bool,

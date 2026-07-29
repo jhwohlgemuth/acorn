@@ -1,0 +1,6 @@
+---
+source: acorn-cli/src/commands/export/tests/mod.rs
+expression: image
+extension: png
+snapshot_kind: binary
+---

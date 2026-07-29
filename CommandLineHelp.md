@@ -468,6 +468,8 @@ Export research activity data to a specific target
    Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
 
    Example: --ignore "[/]valid.json$,[/]draft.json$"
+* `--show-aspect-labels` — Show ASPECT attribute labels in exported charts
+* `--show-aspect-scores` — Show ASPECT numeric scores in exported charts
 * `-m`, `--merge-request` — Export files that were changed in a given merge request (Gitlab) or pull request (GitHub)
 * `-o`, `--output <DIRECTORY>` — Path to output directory where the export artifacts should be saved
 

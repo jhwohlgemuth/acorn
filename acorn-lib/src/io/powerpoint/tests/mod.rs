@@ -6,7 +6,10 @@
     clippy::unwrap_used
 )]
 use super::escape_xml_text;
-use super::ooxml::{add_slide_to_presentation_xml, update_relationship_target, validate_xml_well_formed, Relationships};
+use super::ooxml::{
+    add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
+    validate_xml_well_formed, Relationships,
+};
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use crate::prelude::PathBuf;
@@ -177,7 +180,7 @@ fn test_escape_xml_text() {
     assert_eq!(result, "AT&amp;T &lt;alpha&gt; &quot;quoted&quot;");
 }
 #[test]
-fn add_slide_to_presentation_xml_appends_slide_id() {
+fn test_add_slide_to_presentation_xml_appends_slide_id() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"#;
     let result = add_slide_to_presentation_xml(xml, 257, 2).unwrap();
     assert!(result.contains(r#"<p:sldId id="256" r:id="rId1"/>"#));
@@ -186,12 +189,50 @@ fn add_slide_to_presentation_xml_appends_slide_id() {
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
-fn add_slide_to_presentation_xml_rejects_malformed_xml() {
+fn test_add_slide_to_presentation_xml_rejects_malformed_xml() {
     let result = add_slide_to_presentation_xml("<p:presentation><p:sldIdLst>", 257, 2);
     assert!(result.is_err());
 }
 #[test]
-fn update_relationship_target_matches_previous_replacement_intent() {
+fn test_replace_aspect_placeholders_with_picture_uses_shape_bounds() {
+    let xml = r#"<p:sld xmlns:p="presentation" xmlns:a="drawing" xmlns:r="relationships"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="42" name="ASPECT placeholder"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="10" y="20"/><a:ext cx="30" cy="40"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>{{ aspect }}</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="43" name="Second ASPECT placeholder"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="50" y="60"/><a:ext cx="70" cy="80"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>{{</a:t></a:r><a:r><a:t> aspect }}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>"#;
+    let result = replace_aspect_placeholders_with_picture(xml, "rId4").unwrap().unwrap();
+    assert_eq!(result.matches(r#"name="ASPECT rose chart""#).count(), 2);
+    assert!(result.contains(r#"id="42""#));
+    assert!(result.contains(r#"id="43""#));
+    assert!(result.contains(r#"r:embed="rId4""#));
+    assert!(result.contains(r#"<a:off x="10" y="20"/>"#));
+    assert!(result.contains(r#"<a:ext cx="30" cy="40"/>"#));
+    assert!(result.contains(r#"<a:off x="50" y="60"/>"#));
+    assert!(result.contains(r#"<a:ext cx="70" cy="80"/>"#));
+    assert!(!result.contains("{{ aspect }}"));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn test_replace_aspect_placeholders_with_picture_skips_slides_without_placeholder() {
+    let result = replace_aspect_placeholders_with_picture("<p:sld><p:cSld/></p:sld>", "rId4").unwrap();
+    assert!(result.is_none());
+}
+#[test]
+fn test_ensure_png_content_type_adds_missing_default() {
+    let xml = r#"<Types xmlns="content-types"><Default Extension="xml" ContentType="application/xml"/></Types>"#;
+    let result = ensure_png_content_type(xml).unwrap();
+    assert!(result.contains(r#"<Default Extension="png" ContentType="image/png"/>"#));
+    assert!(validate_xml_well_formed(&result));
+}
+#[test]
+fn test_ensure_png_content_type_preserves_existing_default() {
+    let xml = r#"<Types xmlns="content-types"><Default Extension="png" ContentType="image/png"></Default></Types>"#;
+    let result = ensure_png_content_type(xml).unwrap();
+    assert_eq!(result.matches(r#"Extension="png""#).count(), 1);
+}
+#[test]
+fn test_ensure_png_content_type_rejects_missing_types_root() {
+    let xml = r#"<Other><Default Extension="png" ContentType="image/png"/></Other>"#;
+    assert!(ensure_png_content_type(xml).is_err());
+}
+#[test]
+fn test_update_relationship_target_matches_previous_replacement_intent() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/other.png"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/></Relationships>"#;
     let result = update_relationship_target(xml, "../media/image1.png", "../media/acorn.jpg").unwrap();
     let relationships = quick_xml::de::from_str::<Relationships>(&result).unwrap();
@@ -201,12 +242,12 @@ fn update_relationship_target_matches_previous_replacement_intent() {
     assert!(validate_xml_well_formed(&result));
 }
 #[test]
-fn update_relationship_target_rejects_missing_target() {
+fn test_update_relationship_target_rejects_missing_target() {
     let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>"#;
     let result = update_relationship_target(xml, "../notesSlides/notesSlide1.xml", "../notesSlides/notesSlide2.xml");
     assert!(result.is_err());
 }
 #[test]
-fn validate_xml_well_formed_rejects_unclosed_content() {
+fn test_validate_xml_well_formed_rejects_unclosed_content() {
     assert!(!validate_xml_well_formed("<Relationships><Relationship></Relationship>"));
 }
