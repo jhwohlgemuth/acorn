@@ -6,9 +6,37 @@
 # Check a specific research activity index
 acorn check path/to/project/index.json
 
+# Check a Citation File Format file
+acorn check path/to/project/CITATION.cff
+
 # Check all research activity data in a directory
 acorn check path/to/project/
 ```
+
+## Checking `CITATION.cff`
+
+ACORN recognizes a directly supplied `.cff` file as [Citation File Format (CFF)](https://citation-file-format.github.io/) data. You do not need to select the standard explicitly:
+
+```sh
+acorn check ./CITATION.cff
+```
+
+Use `--standard cff` when CFF data is stored with a `.yaml` or `.json` extension:
+
+```sh
+acorn check ./citation.yaml --standard cff
+```
+
+For CFF input, ACORN checks:
+
+- **Schema**: Parses the YAML or JSON, rejects unknown fields, and validates modeled values such as dates, DOIs, URLs, identifiers, licenses, and nested author or reference data.
+- **Prose and readability**: Analyzes the `title`, `abstract`, and `message` text.
+- **Links**: Checks repository, license, landing-page, DOI, URL identifier, and reference links.
+
+Link checks require network access. Use `acorn --offline check ./CITATION.cff` or `--disable-website-checks` to skip them.
+
+> [!NOTE]
+> Directory and Git-change discovery currently select `.json`, `.jsonc`, and `.yaml` files, but not `.cff` files. Pass each `CITATION.cff` path directly.
 
 ## Check Categories
 - 🏛️ **Schema Validation**: Ensure that all data files conform to the expected schema
