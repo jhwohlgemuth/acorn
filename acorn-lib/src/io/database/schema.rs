@@ -717,6 +717,19 @@ impl fmt::Display for ModelRow {
         )
     }
 }
+impl ModelRow {
+    /// Update the serialized weight metadata for this model.
+    pub fn update_weights(&self, path: Option<PathBuf>) -> ApiResult<usize> {
+        match (self.model_id.as_deref(), self.weights.as_deref()) {
+            | (Some(model_id), Some(weights)) => Database::<Table>::from_path(path).with_connection(|conn| {
+                conn.execute("UPDATE models SET weights = ? WHERE model_id = ?", backend::params![weights, model_id])
+                    .map_err(|why| eyre!("=> {} Failed to update model weights: {why}", Label::fail()))
+            }),
+            | (None, _) => Err(eyre!("Model identifier is required to update model weights")),
+            | (_, None) => Err(eyre!("Model weights are required to update model weights")),
+        }
+    }
+}
 impl fmt::Display for ProviderRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

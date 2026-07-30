@@ -85,9 +85,8 @@ impl From<ModelDetails> for ModelRow {
             .map(|v| v.iter().map(ToString::to_string).collect::<Vec<_>>())
             .map(|v| v.join(","));
         let benchmarks_json = benchmarks.as_ref().and_then(|b| serde_json::to_string(b).ok());
-        let weights_json = weights.as_ref().and_then(|w| serde_json::to_string(w).ok());
-        ModelRow::init()
-            .maybe_model_id(model_id)
+        let mut row = ModelRow::init()
+            .maybe_model_id(model_id.clone())
             .maybe_name(name)
             .maybe_family(family)
             .maybe_variant(variant)
@@ -117,8 +116,13 @@ impl From<ModelDetails> for ModelRow {
             .maybe_cost_over_200k(cost_over_200k)
             .maybe_cost_tiers(cost_tiers)
             .maybe_benchmarks(benchmarks_json)
-            .maybe_weights(weights_json)
-            .build()
+            .build();
+        row.weights = weights
+            .unwrap_or_default()
+            .infer_quantization(model_id.as_deref().unwrap_or_default())
+            .as_ref()
+            .and_then(|w| serde_json::to_string(w).ok());
+        row
     }
 }
 impl From<ProviderDetails> for ProviderRow {

@@ -12,16 +12,18 @@ extern crate alloc;
 use super::run;
 use crate::cli::arguments::OutputFormat;
 use crate::test::server::{
-    spawn_huggingface_model_info_server, spawn_huggingface_model_search_server, spawn_ignored_range_server, spawn_no_range_server,
-    spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server,
+    spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
+    spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
+    spawn_sidecar_server,
 };
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
-use acorn::io::api::huggingface::{FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
+use acorn::io::api::huggingface::{Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
 use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet, PathBuf};
+use acorn::schema::agent::{Quantization, Weight, Weights};
 use acorn::schema::OneOrMany;
 use acorn::util::merge;
 use alloc::sync::Arc;
@@ -35,11 +37,53 @@ use tracing_subscriber::fmt::MakeWriter;
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
 
+#[derive(Clone)]
+struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+impl<'a> MakeWriter<'a> for SharedWriter {
+    type Writer = SharedWriterGuard;
+    fn make_writer(&'a self) -> Self::Writer {
+        SharedWriterGuard(self.0.clone())
+    }
+}
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+impl Write for SharedWriterGuard {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().expect("lock log buffer").extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
     HuggingFaceRepositoryFile {
         path: path.to_string(),
         size: None,
     }
+}
+#[test]
+fn test_downloaded_gguf_quantization_is_merged_into_weights() {
+    let existing = Weights(vec![Weight {
+        label: "Hugging Face".to_string(),
+        url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
+        is_open: Some(true),
+        quantization: None,
+    }]);
+    let repository = Downloaded {
+        identifier: "unsloth/gpt-oss-20b-GGUF".to_string(),
+        revision: "main".to_string(),
+        files: vec!["gpt-oss-20b-Q4_K_M.gguf".to_string(), "README.md".to_string()],
+    };
+    let weights = repository.merge_weights(existing);
+    assert_eq!(weights.0.len(), 2);
+    assert_eq!(
+        weights.0.last().and_then(|weight| weight.quantization.as_ref()),
+        Some(&Quantization::Q4kM)
+    );
+    assert_eq!(
+        weights.0.last().map(|weight| weight.url.as_str()),
+        Some("https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf")
+    );
 }
 fn model_plan_matches_base(base_model: &str) -> bool {
     let identifier = "unsloth/gpt-oss-2b-gguf";
@@ -62,6 +106,90 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     });
     handle.join().expect("join metadata server");
     result
+}
+#[test]
+fn test_model_plan_logs_whitelist_rejection() {
+    let identifier = "mozilla/test-llama";
+    let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, "meta-llama/other");
+    let whitelist = HashSet::from(["openai/gpt-oss-20b".to_string()]);
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let matches = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tracing::subscriber::with_default(subscriber, || {
+            tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+                let entries = vec![ModelEntry::Selector(identifier.to_string())];
+                let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+                    .await
+                    .expect("resolve model plan");
+                plans
+                    .into_iter()
+                    .next()
+                    .expect("model plan")
+                    .matches(&whitelist, false)
+                    .await
+                    .expect("match model whitelist")
+            })
+        })
+    });
+    handle.join().expect("join metadata server");
+    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
+    assert!(!matches);
+    assert!(text.contains("REJECTED"));
+    assert!(text.contains(identifier));
+    assert!(text.contains("did not match model whitelist"));
+}
+#[test]
+fn test_download_model_basic_config_dry_run_output_snapshot() {
+    let temp_dir = temp_test_dir("download_model_basic_config_snapshot");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join("basic.jsonc");
+    let config = read_to_string(fixture_path("config/basic.jsonc"))
+        .expect("read basic model config")
+        .replace(
+            r#""https://research.ornl.gov/api/models.json""#,
+            r#"["openai/gpt-oss-20b", "openai/gpt-oss-120b"]"#,
+        );
+    write(&config_path, config).expect("write deterministic basic model config");
+    let (endpoint, handle) = spawn_basic_model_config_server();
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .without_time()
+        .with_target(false)
+        .with_ansi(false)
+        .with_max_level(tracing::Level::INFO)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tracing::subscriber::with_default(subscriber, || {
+            tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+                &[],
+                &[],
+                &[],
+                &Some(config_path),
+                &None,
+                &None,
+                &Verbosity::new(2, 0),
+                false,
+                false,
+                false,
+                false,
+                &[],
+                false,
+                200,
+                false,
+                true,
+                false,
+                &OutputFormat::default(),
+            ))
+        })
+    });
+    handle.join().expect("join basic model config server");
+    result.expect("dry-run basic model config");
+    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).expect("UTF-8 logs");
+    insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
 }
 
 #[tokio::test]
@@ -846,7 +974,7 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
         &Some(output_dir),
         &None,
         &verbose,
-        false,
+        true,
         false,
         false,
         false,
@@ -861,6 +989,119 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
     .await;
     assert!(result.is_err(), "non-matching whitelist should fail");
     Ok(())
+}
+#[test]
+fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() {
+    let temp_dir = temp_test_dir("download_model_whitelist_skips_unavailable");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let keep_file = temp_dir.join("keep.gguf");
+    let identifier = "acme/missing";
+    write(&keep_file, b"fake keep model data").expect("write local model");
+    write(
+        &config_path,
+        format!(
+            r#"{{"models": [
+            {{"name": "keep", "source": {{"provider": "git", "location": "file:{}"}}}},
+            "{identifier}"
+        ]}}"#,
+            keep_file.display().to_string().replace('\\', "/")
+        ),
+    )
+    .expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(temp_dir.join("models")),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &["keep".to_string()],
+            false,
+            20,
+            false,
+            true,
+            false,
+            &OutputFormat::default(),
+        ))
+    });
+    handle.join().expect("join unavailable model server");
+    assert!(result.is_ok(), "an unavailable model should not fail a batch containing a matching model");
+}
+#[test]
+fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
+    let temp_dir = temp_test_dir("download_model_whitelist_only_unavailable");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let identifier = "acme/missing";
+    write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(temp_dir.join("models")),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &["keep".to_string()],
+            false,
+            20,
+            false,
+            true,
+            false,
+            &OutputFormat::default(),
+        ))
+    });
+    handle.join().expect("join unavailable model server");
+    let message = result.expect_err("an unavailable-only batch should fail").to_string();
+    assert!(message.contains("No models were found"), "unexpected error: {message}");
+}
+#[test]
+fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
+    let temp_dir = temp_test_dir("download_model_only_unavailable");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let identifier = "acme/missing";
+    write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
+    let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
+    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+            &[],
+            &[],
+            &[],
+            &Some(config_path),
+            &Some(temp_dir.join("models")),
+            &None,
+            &Verbosity::new(0, 1),
+            false,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            20,
+            false,
+            true,
+            false,
+            &OutputFormat::default(),
+        ))
+    });
+    handle.join().expect("join unavailable model server");
+    let message = result.expect_err("an unavailable-only dry run should fail").to_string();
+    assert_eq!(message, "No models found");
 }
 #[tokio::test]
 async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> {
@@ -1208,24 +1449,6 @@ fn test_hf_token_not_exposed_in_model_download_error_display() {
 }
 #[test]
 fn test_hf_token_not_exposed_in_model_resolution_logs() {
-    #[derive(Clone)]
-    struct SharedWriter(Arc<Mutex<Vec<u8>>>);
-    impl<'a> MakeWriter<'a> for SharedWriter {
-        type Writer = SharedWriterGuard;
-        fn make_writer(&'a self) -> Self::Writer {
-            SharedWriterGuard(self.0.clone())
-        }
-    }
-    struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
-    impl Write for SharedWriterGuard {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().expect("lock log buffer").extend_from_slice(buf);
-            Ok(buf.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
     let token = "test-secret-token-12345";
     let logs = Arc::new(Mutex::new(Vec::new()));
     let writer = SharedWriter(logs.clone());
@@ -1359,14 +1582,14 @@ fn test_model_select_preferred_file_prefers_marker() {
 }
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
-    let names = super::model::Whitelist::parse(r#"[{"name":"keep"},{"id":"drop"}]"#.to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string(), "drop".to_string()]);
+    let names = super::model::Whitelist::parse(r#"[{"name":"Keep","id":"acme/keep"},{"id":"drop"}]"#.to_string())?;
+    assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string(), "drop".to_string()]);
     Ok(())
 }
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_detail() -> Result<()> {
-    let names = super::model::Whitelist::parse(r#"{"name":"keep"}"#.to_string())?;
-    assert_eq!(names.0, vec!["keep".to_string()]);
+    let names = super::model::Whitelist::parse(r#"{"name":"Keep","id":"acme/keep"}"#.to_string())?;
+    assert_eq!(names.0, vec!["Keep".to_string(), "acme/keep".to_string()]);
     Ok(())
 }
 #[tokio::test]
@@ -1463,7 +1686,7 @@ async fn test_resolve_model_whitelist_txt_fixture() -> Result<()> {
 async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
     let source = Some(fixture_path("whitelist.yaml").display().to_string());
     let whitelist = super::model::Whitelist::from(Vec::new()).resolve(&source, false).await?;
-    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/drop".to_string()]);
+    assert_eq!(whitelist.0, vec!["keep".to_string(), "acme/keep".to_string(), "acme/drop".to_string()]);
     Ok(())
 }
 #[test]

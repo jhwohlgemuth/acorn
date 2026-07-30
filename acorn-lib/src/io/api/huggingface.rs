@@ -17,10 +17,10 @@ use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use axum::http::HeaderMap;
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt};
 use futures::{future::join_all, TryStreamExt};
-use hf_hub::{repository::ModelInfo, HFClient};
+use hf_hub::{repository::ModelInfo, HFClient, HFError};
 use serde::Serialize;
 use serde_json::Value;
 use tracing::{info, warn};
@@ -45,8 +45,8 @@ pub trait CandidateSelection {
 pub trait HuggingFaceRepository {
     /// Resolve SHA-256 checksums for repository files from `.sha256` sidecar files
     async fn checksums(&self, identifier: &str, revision: &str) -> ApiResult<HashMap<String, String>>;
-    /// Download files from a Hugging Face repository, returning the identifier of the downloaded resource
-    async fn download(&self, options: &Options) -> ApiResult<String>;
+    /// Download files and return the selected repository metadata
+    async fn download(&self, options: &Options) -> ApiResult<Downloaded>;
     /// Filter repository files using glob patterns for include/exclude.
     fn filter(&self, filter: Option<&str>, ignore: Option<&str>) -> ApiResult<Self>
     where
@@ -111,6 +111,17 @@ pub struct Candidate {
     pub likes: Option<u64>,
     /// Quantization formats detected in repository filenames
     pub quantizations: Vec<String>,
+}
+/// Hugging Face repository files selected and downloaded for a model
+#[derive(Builder, Clone, Debug, Eq, PartialEq)]
+#[builder(start_fn = init, on(String, into))]
+pub struct Downloaded {
+    /// Hugging Face repository identifier
+    pub identifier: String,
+    /// Repository revision used for the download
+    pub revision: String,
+    /// Repository-relative paths downloaded from the repository
+    pub files: Vec<String>,
 }
 /// Policy for selecting a preferred file when multiple candidates exist.
 #[derive(Clone, Debug)]
@@ -237,6 +248,33 @@ impl CandidateSelection for Candidates {
         Ok(candidate.to_string())
     }
 }
+impl Downloaded {
+    /// Merge downloaded GGUF quantizations into existing model weights.
+    pub fn merge_weights(&self, existing: Weights) -> Weights {
+        let downloaded = self
+            .files
+            .iter()
+            .filter_map(|path| {
+                Quantization::from_gguf_filename(path).map(|quantization| Weight {
+                    label: quantization.to_string(),
+                    url: format!(
+                        "https://{DEFAULT_HUGGINGFACE_DOMAIN}/{}/resolve/{}/{}",
+                        self.identifier, self.revision, path
+                    ),
+                    is_open: None,
+                    quantization: Some(quantization),
+                })
+            })
+            .filter(|candidate| {
+                !existing
+                    .0
+                    .iter()
+                    .any(|weight| weight.url == candidate.url && weight.quantization == candidate.quantization)
+            })
+            .collect::<Vec<_>>();
+        Weights(existing.0.into_iter().chain(downloaded).collect())
+    }
+}
 impl fmt::Display for HuggingFaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -292,7 +330,7 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         .await;
         Ok(digests.into_iter().filter_map(|(target, digest)| digest.map(|d| (target, d))).collect())
     }
-    async fn download(&self, options: &Options) -> ApiResult<String> {
+    async fn download(&self, options: &Options) -> ApiResult<Downloaded> {
         let Options {
             identifier,
             revision,
@@ -307,6 +345,7 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
             | (Some(identifier), Some(output)) => match self.checksums(identifier, revision).await {
                 | Ok(lookup) => match self.filter(filter.as_deref(), ignore.as_deref()) {
                     | Ok(files) => {
+                        let selected_files = files.iter().map(|file| file.path.clone()).collect();
                         let items = files
                             .into_iter()
                             .map(|HuggingFaceRepositoryFile { path, size, .. }| {
@@ -318,7 +357,13 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
                         DownloadItems::new(Path::new(output), items, *quiet, *skip_verify_checksum)
                             .download()
                             .await
-                            .map(|()| identifier.to_string())
+                            .map(|()| {
+                                Downloaded::init()
+                                    .identifier(identifier)
+                                    .revision(revision.as_str())
+                                    .files(selected_files)
+                                    .build()
+                            })
                     }
                     | Err(why) => Err(why),
                 },
@@ -522,13 +567,21 @@ pub async fn fetch_model_info(provider: &str, name: &str) -> ApiResult<ModelInfo
             ])
             .send()
             .await
-            .map_err(|why| eyre!("Failed to read Hugging Face metadata for '{provider}/{name}' — {why}")),
+            .map_err(|why| eyre!(why).wrap_err(format!("Failed to read Hugging Face metadata for '{provider}/{name}'"))),
         | Err(e) => Err(e),
     }
 }
 /// Return whether a non-empty Hugging Face token is configured
 pub fn has_auth_token() -> bool {
     first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
+}
+/// Return whether a Hugging Face error means a model is unavailable to the caller
+pub fn model_is_unavailable(error: &Report) -> bool {
+    error.downcast_ref::<HFError>().is_some_and(|source| match source {
+        | HFError::RepoNotFound { .. } | HFError::AuthRequired { .. } | HFError::Forbidden { .. } => true,
+        | HFError::Http { context } => matches!(context.status.as_u16(), 401 | 403 | 404),
+        | _ => false,
+    })
 }
 /// Validate and parse a Hugging Face model identifier into (owner, name)
 pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {

@@ -7,7 +7,9 @@
 )]
 use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
-use crate::io::database::schema::{ActivityRow, CatalogRow, LinkCacheRow, ProgrammingLanguageRow, ResearchActivityCacheRow, Table, ValidationRow};
+use crate::io::database::schema::{
+    ActivityRow, CatalogRow, LinkCacheRow, ModelRow, ProgrammingLanguageRow, ResearchActivityCacheRow, Table, ValidationRow,
+};
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::prelude::PathBuf;
 use crate::util::constants::env::DATABASE_PATH;
@@ -42,6 +44,33 @@ fn test_activity_insert_round_trip_with_database_handle() {
     let rows = rows.unwrap();
     assert!(!rows.is_empty());
     assert_eq!(rows[0].command.as_deref(), Some("download"));
+}
+#[test]
+fn test_model_weights_update_round_trip() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let path = PathBuf::from(format!("target/test_artifacts/model-weights-{unique}.duckdb"));
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database.migrate().unwrap();
+    let model_id = format!("acme/model-{unique}");
+    let row = ModelRow::init().model_id(model_id.clone()).weights("[]").build();
+    assert!(database.insert(row).is_ok());
+    let weights = r#"[{"label":"Q4_K_M","url":"https://example.com/model-Q4_K_M.gguf","quantization":"Q4_K_M"}]"#;
+    let updated = ModelRow::init()
+        .model_id(model_id.clone())
+        .weights(weights)
+        .build()
+        .update_weights(Some(path.clone()));
+    assert_eq!(updated.unwrap_or_default(), 1);
+    let selected = ModelRow::init()
+        .model_id(model_id.clone())
+        .build()
+        .select(Some(path), |candidate| candidate.model_id.as_deref() == Some(model_id.as_str()))
+        .unwrap()
+        .expect("updated model row");
+    assert_eq!(selected.weights.as_deref(), Some(weights));
 }
 #[test]
 fn test_activity_row_default() {

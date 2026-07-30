@@ -7,7 +7,7 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
-use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization};
+use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weights};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -19,7 +19,7 @@ fn all_known_assets() -> [PromptFileAsset; 6] {
         PromptFileAsset::Translate,
     ]
 }
-fn all_known_quantizations() -> [Quantization; 11] {
+fn all_known_quantizations() -> [Quantization; 12] {
     [
         Quantization::Q2k,
         Quantization::Q3kS,
@@ -32,6 +32,7 @@ fn all_known_quantizations() -> [Quantization; 11] {
         Quantization::F16,
         Quantization::BF16,
         Quantization::F8,
+        Quantization::IQ4_XS,
     ]
 }
 
@@ -68,6 +69,36 @@ fn test_quantization_lowercase_from_str_round_trips() {
     let value = "q2_k";
     let mapped = Quantization::from(value);
     assert_eq!(mapped.to_string(), "Q2_K");
+}
+#[test]
+fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {
+    [
+        ("Q2K", Quantization::Q2k),
+        ("Q3KS", Quantization::Q3kS),
+        ("Q3KM", Quantization::Q3kM),
+        ("Q3KL", Quantization::Q3kL),
+        ("Q4KM", Quantization::Q4kM),
+        ("Q5KM", Quantization::Q5kM),
+        ("Q6K", Quantization::Q6k),
+        ("Q80", Quantization::Q8_0),
+        ("IQ4XS", Quantization::IQ4_XS),
+    ]
+    .iter()
+    .for_each(|(alias, expected)| assert_eq!(&Quantization::from(*alias), expected));
+}
+#[test]
+fn test_weights_infer_quantization_from_enum_variants() {
+    [
+        ("model-q4km", Quantization::Q4kM),
+        ("model-bf16", Quantization::BF16),
+        ("model-fp8", Quantization::F8),
+        ("model-iq4_xs", Quantization::IQ4_XS),
+    ]
+    .into_iter()
+    .for_each(|(model_id, expected)| {
+        let weights = Weights::default().infer_quantization(model_id).expect("expected inferred quantization");
+        assert_eq!(weights.0.first().and_then(|weight| weight.quantization.as_ref()), Some(&expected));
+    });
 }
 #[test]
 fn test_quantization_f8_aliases_deserialize_canonically() {

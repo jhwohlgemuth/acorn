@@ -59,6 +59,16 @@ fn response_206_with_body(offset: usize, total_len: usize, body: &[u8]) -> Vec<u
 fn response_404() -> Vec<u8> {
     b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
 }
+fn response_401() -> Vec<u8> {
+    let body = br#"{"error":"Invalid username or password."}"#;
+    let mut response = format!(
+        "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .into_bytes();
+    response.extend_from_slice(body);
+    response
+}
 fn response_500() -> Vec<u8> {
     b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
 }
@@ -78,6 +88,23 @@ pub(crate) fn spawn_huggingface_model_info_server(identifier: &str, base_model: 
             body.len()
         );
         stream.write_all(response.as_bytes()).expect("write metadata response");
+    });
+    (endpoint, handle)
+}
+/// Spawn a local Hugging Face API server that reports an unavailable model.
+pub(crate) fn spawn_huggingface_model_unavailable_server(identifier: &str) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind unavailable model server");
+    let endpoint = format!("http://{}", listener.local_addr().expect("unavailable model server address"));
+    let identifier = identifier.to_string();
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept unavailable model request");
+        let parsed = parse_request(&mut stream);
+        assert!(
+            parsed.path.starts_with(format!("/api/models/{identifier}").as_str()),
+            "unexpected unavailable model request: {}",
+            parsed.path
+        );
+        stream.write_all(&response_401()).expect("write unavailable model response");
     });
     (endpoint, handle)
 }
@@ -117,6 +144,35 @@ pub(crate) fn spawn_huggingface_model_search_server(
                 body.len()
             );
             stream.write_all(response.as_bytes()).expect("write model search response");
+        }
+    });
+    (endpoint, handle)
+}
+/// Spawn a local Hugging Face API server for the basic model download configuration snapshot.
+pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind basic model config server");
+    let endpoint = format!("http://{}", listener.local_addr().expect("basic model config server address"));
+    let handle = thread::spawn(move || {
+        for stream in listener.incoming().take(7) {
+            let mut stream = stream.expect("accept basic model config request");
+            let parsed = parse_request(&mut stream);
+            let response =
+                if parsed.path.contains("/api/models/openai/gpt-oss-2b") || parsed.path.contains("/api/models/nvidia/nemotron-3-super-120b-a12b") {
+                    response_401()
+                } else {
+                    let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
+                        r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
+                    } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
+                        r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-20b"]}]"#.to_string()
+                    } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
+                        r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-120b"]}]"#.to_string()
+                    } else {
+                        let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
+                        format!(r#"{{"id":"{model}","siblings":[]}}"#)
+                    };
+                    response_200_with_body(body.as_bytes())
+                };
+            stream.write_all(&response).expect("write basic model config response");
         }
     });
     (endpoint, handle)

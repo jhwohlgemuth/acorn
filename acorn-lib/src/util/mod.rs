@@ -654,7 +654,7 @@ impl Label {
     /// "Skip" label formatting
     pub fn fmt_skip(value: &str) -> String {
         let style = Style::new().yellow().on_default_color();
-        format!("{}{} ", Label::CAUTION, value).style(style).to_string()
+        format!("{}{}", Label::CAUTION, value).style(style).to_string()
     }
     /// "Using" label
     pub fn using() -> String {

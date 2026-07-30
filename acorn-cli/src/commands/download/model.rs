@@ -1,6 +1,6 @@
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
-use acorn::io::api::huggingface::{self, CandidateSelection, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension};
+use acorn::io::api::huggingface::{self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension};
 use acorn::io::api::models_dev;
 use acorn::io::config::{ApplicationConfiguration, AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
@@ -25,9 +25,7 @@ use is_terminal::IsTerminal;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use serde::Deserialize;
-#[cfg(feature = "tui")]
-use tracing::warn;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Download model weights for use with acorn research harnesses and local inference
 #[allow(clippy::too_many_arguments)]
@@ -102,7 +100,7 @@ pub async fn run(
                             let msg = if model.is_empty() && entries.is_empty() {
                                 "No models specified — provide model IDs or --config"
                             } else if !whitelist.is_empty() {
-                                "No models matched --whitelist"
+                                "No models were found or matched the whitelist"
                             } else {
                                 "No models matched --filter/--ignore"
                             };
@@ -110,7 +108,11 @@ pub async fn run(
                             Err(eyre!(msg))
                         } else {
                             let models = resolve_models(&selectors, offline, gguf_search_limit).await;
-                            if dry_run {
+                            if models.is_empty() {
+                                let why = ModelDownloadError::NoModelsFound;
+                                error!("=> {} {why}", Label::fail());
+                                Err(eyre!(why))
+                            } else if dry_run {
                                 if raw {
                                     output_raw(&models, format)
                                 } else {
@@ -247,6 +249,7 @@ pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
     MissingAuth(String),
+    NoModelsFound,
 }
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -277,6 +280,7 @@ impl fmt::Display for ModelDownloadError {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
+            | Self::NoModelsFound => write!(formatter, "No models found"),
         }
     }
 }
@@ -325,16 +329,34 @@ impl ModelDownloadPlan {
     }
     pub(crate) async fn matches(&self, whitelist: &HashSet<String>, offline: bool) -> ApiResult<bool> {
         let name = self.name();
+        let rejected = || {
+            warn!(
+                "=> {} {} — did not match model whitelist",
+                Label::rejected(),
+                self.selector.identifier().yellow()
+            );
+            false
+        };
         if whitelist.is_empty() || whitelist.contains(&name) {
             Ok(true)
         } else if offline || !self.is_remote() || is_http_or_https(&self.selector.identifier()) {
-            Ok(false)
+            Ok(rejected())
         } else {
             let identifier = self.selector.identifier();
             match huggingface::parse_identifier(&identifier) {
                 | Ok((owner, name)) => {
                     let info = huggingface::fetch_model_info(owner, name).await;
-                    info.map(|model| whitelist.iter().any(|base| model.is_declared_derivative_of(base)))
+                    match info {
+                        | Ok(model) => match whitelist.iter().any(|base| model.is_declared_derivative_of(base)) {
+                            | true => Ok(true),
+                            | false => Ok(rejected()),
+                        },
+                        | Err(why) if huggingface::model_is_unavailable(&why) => {
+                            warn!("=> {} {} on HuggingFace", Label::not_found(), identifier.yellow());
+                            Ok(false)
+                        }
+                        | Err(why) => Err(why),
+                    }
                 }
                 | Err(e) => Err(e),
             }
@@ -370,7 +392,11 @@ impl ModelDownloadPlan {
                     self.name()
                 }),
                 | Some(Source::Remote { identifier, .. }) if is_http_or_https(identifier) => download_remote_model(options).await,
-                | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|identifier| {
+                | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|repository| {
+                    let identifier = repository.identifier.clone();
+                    if let Err(why) = self.persist_downloaded_weights(&repository, options.database_path.clone()) {
+                        warn!("=> {} Model '{identifier}' weight metadata was not persisted — {why}", Label::CAUTION);
+                    }
                     if !options.quiet {
                         let name = self.name();
                         let destination = options
@@ -400,7 +426,7 @@ impl ModelDownloadPlan {
             }
         }
     }
-    async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<String> {
+    async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<Downloaded> {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
@@ -438,7 +464,7 @@ impl ModelDownloadPlan {
                             let is_gguf_error = |e: &eyre::Report| e.downcast_ref::<HuggingFaceError>() == Some(&HuggingFaceError::NoGgufModelFiles);
                             match files.download(&options).await {
                                 | Err(why) if files.should_use_fallback(&options) && is_gguf_error(&why) => {
-                                    download_gguf_fallback(&root, options).await
+                                    Self::download_gguf_fallback(&root, options).await
                                 }
                                 | result => result,
                             }
@@ -454,6 +480,98 @@ impl ModelDownloadPlan {
             | (_, None) => Err(eyre!("Model output directory is not configured")),
             | (None, _) => Err(eyre!("Model selector is not configured")),
             | _ => Err(eyre!("Model selector is not remote")),
+        }
+    }
+    async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<Downloaded> {
+        let huggingface::Options {
+            identifier,
+            filter,
+            ignore,
+            quiet,
+            offline,
+            search_limit: gguf_search_limit,
+            interactive,
+            skip_verify_checksum,
+            ..
+        } = &options;
+        match identifier.as_deref() {
+            | Some(identifier) => {
+                if !quiet {
+                    info!(
+                        "=> {} GGUF fallback: searching for quantization repositories derived from '{}'",
+                        Label::run(),
+                        identifier
+                    );
+                }
+                match huggingface::search(identifier, None, Some(*gguf_search_limit)).await {
+                    | Ok(candidates) => match candidates.select(&options) {
+                        | Ok(fallback_identifier) => {
+                            let destination = root.join(&fallback_identifier);
+                            match create_dir_all(&destination) {
+                                | Ok(()) => match huggingface::repository_tree(&fallback_identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
+                                    | Ok(files) => {
+                                        let fallback_options = huggingface::Options::init()
+                                            .identifier(&fallback_identifier)
+                                            .maybe_filter(filter.clone())
+                                            .maybe_ignore(ignore.clone())
+                                            .output(destination.to_absolute_string())
+                                            .quiet(*quiet)
+                                            .offline(*offline)
+                                            .no_fallback(true)
+                                            .search_limit(*gguf_search_limit)
+                                            .interactive(*interactive)
+                                            .skip_verify_checksum(*skip_verify_checksum)
+                                            .build();
+                                        files.download(&fallback_options).await
+                                    }
+                                    | Err(why) => Err(why),
+                                },
+                                | Err(why) => Err(eyre!(why)),
+                            }
+                        }
+                        | Err(why) => Err(why),
+                    },
+                    | Err(why) => Err(why),
+                }
+            }
+            | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
+        }
+    }
+    fn persist_downloaded_weights(&self, repository: &Downloaded, database_path: Option<PathBuf>) -> ApiResult<()> {
+        let selector_id = self.selector.identifier();
+        let lookup = |model_id: &str| {
+            ModelRow::init()
+                .maybe_model_id(Some(model_id.to_string()))
+                .build()
+                .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id))
+        };
+        let row = lookup(&selector_id).and_then(|row| match row {
+            | Some(row) => Ok(Some(row)),
+            | None => lookup(&repository.identifier),
+        });
+        match row {
+            | Err(why) => Err(why),
+            | Ok(Some(row)) => {
+                let existing = row
+                    .weights
+                    .as_deref()
+                    .and_then(|weights| serde_json::from_str::<Weights>(weights).ok())
+                    .unwrap_or_default();
+                let existing_count = existing.0.len();
+                let weights = repository.merge_weights(existing);
+                if weights.0.len() == existing_count {
+                    Ok(())
+                } else {
+                    serde_json::to_string(&weights)
+                        .map_err(|why| eyre!("Failed to serialize downloaded model weights — {why}"))
+                        .map(|weights| ModelRow {
+                            weights: Some(weights),
+                            ..row
+                        })
+                        .and_then(|row| row.update_weights(database_path).map(|_| ()))
+                }
+            }
+            | Ok(None) => Ok(()),
         }
     }
     fn from_details(details: ModelDetails) -> Option<Self> {
@@ -481,6 +599,11 @@ impl From<Vec<String>> for Whitelist {
         Self(values)
     }
 }
+impl From<ModelDetails> for Whitelist {
+    fn from(details: ModelDetails) -> Self {
+        Self(details.name.into_iter().chain(details.id).collect())
+    }
+}
 impl TryFrom<String> for Whitelist {
     type Error = eyre::Report;
     fn try_from(content: String) -> Result<Self, Self::Error> {
@@ -501,6 +624,12 @@ impl TryFrom<String> for Whitelist {
     }
 }
 impl Whitelist {
+    fn require_names(self) -> ApiResult<Vec<String>> {
+        match self.0.is_empty() {
+            | true => Err(eyre!("Model details in whitelist file must define 'name' or 'id'")),
+            | false => Ok(self.0),
+        }
+    }
     pub(crate) fn parse(content: String) -> ApiResult<Self> {
         Self::try_from(content)
     }
@@ -530,18 +659,11 @@ impl WhitelistFile {
             | Self::Names(names) => Ok(names),
             | Self::Models(models) => models
                 .into_iter()
-                .map(|details| {
-                    details
-                        .name
-                        .or(details.id)
-                        .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'"))
-                })
-                .collect(),
-            | Self::Model(details) => details
-                .name
-                .or(details.id)
-                .map(|name| vec![name])
-                .ok_or_else(|| eyre!("Model details in whitelist file must define 'name' or 'id'")),
+                .map(Whitelist::from)
+                .map(Whitelist::require_names)
+                .collect::<ApiResult<Vec<_>>>()
+                .map(|names| names.into_iter().flatten().collect()),
+            | Self::Model(details) => Whitelist::from(*details).require_names(),
         }
     }
 }
@@ -549,61 +671,6 @@ pub(crate) fn configured_models(configuration: Option<ApplicationConfiguration>)
     match configuration {
         | Some(ApplicationConfiguration { models, whitelist, .. }) => (models.unwrap_or_default(), whitelist.and_then(|lookup| lookup.models)),
         | None => (Vec::new(), None),
-    }
-}
-async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<String> {
-    let huggingface::Options {
-        identifier,
-        filter,
-        ignore,
-        quiet,
-        offline,
-        search_limit: gguf_search_limit,
-        interactive,
-        skip_verify_checksum,
-        ..
-    } = &options;
-    match identifier.as_deref() {
-        | Some(identifier) => {
-            if !quiet {
-                info!(
-                    "=> {} GGUF fallback: searching for quantization repositories derived from '{}'",
-                    Label::run(),
-                    identifier
-                );
-            }
-            match huggingface::search(identifier, None, Some(*gguf_search_limit)).await {
-                | Ok(candidates) => match candidates.select(&options) {
-                    | Ok(fallback_identifier) => {
-                        let destination = root.join(&fallback_identifier);
-                        match create_dir_all(&destination) {
-                            | Ok(()) => match huggingface::repository_tree(&fallback_identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
-                                | Ok(files) => {
-                                    let fallback_options = huggingface::Options::init()
-                                        .identifier(&fallback_identifier)
-                                        .maybe_filter(filter.clone())
-                                        .maybe_ignore(ignore.clone())
-                                        .output(destination.to_absolute_string())
-                                        .quiet(*quiet)
-                                        .offline(*offline)
-                                        .no_fallback(true)
-                                        .search_limit(*gguf_search_limit)
-                                        .interactive(*interactive)
-                                        .skip_verify_checksum(*skip_verify_checksum)
-                                        .build();
-                                    files.download(&fallback_options).await
-                                }
-                                | Err(why) => Err(why),
-                            },
-                            | Err(why) => Err(eyre!(why)),
-                        }
-                    }
-                    | Err(why) => Err(why),
-                },
-                | Err(why) => Err(why),
-            }
-        }
-        | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
     }
 }
 async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {
@@ -758,6 +825,10 @@ pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, l
                                     None
                                 }
                             },
+                            | Err(why) if huggingface::model_is_unavailable(&why) => {
+                                warn!("=> {} {} on HuggingFace", Label::not_found(), identifier.yellow());
+                                None
+                            }
                             | Err(why) => {
                                 error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
                                 None

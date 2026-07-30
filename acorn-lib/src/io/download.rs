@@ -2,6 +2,7 @@
 use crate::io::api::huggingface;
 use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, ApiResult, ProgressType};
 use crate::prelude::{create_dir_all, remove_file, Path, PathBuf, Vec};
+use crate::util::constants::{app::DEFAULT_HUGGINGFACE_DOMAIN, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES};
 use crate::util::Label;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
@@ -49,6 +50,13 @@ pub struct DownloadTask {
     pub skip_verify_checksum: bool,
 }
 impl DownloadItem {
+    const PART_EXTENSION: &'static str = "part";
+    const MODEL_ERROR_MESSAGE: &'static str = "Failed to download model file";
+    const HUGGINGFACE_HOST: &'static str = DEFAULT_HUGGINGFACE_DOMAIN;
+    const HUGGINGFACE_ERROR_MESSAGE: &'static str = "Failed to download HuggingFace file";
+    const HUGGINGFACE_AUTH_ERROR_MESSAGE: &'static str =
+        "HuggingFace denied access to this file; verify your token has access to the repository and gated/Xet files";
+
     /// Returns the relative local path as a [`PathBuf`].
     pub fn local_path(&self) -> PathBuf {
         PathBuf::from(&self.path)
@@ -67,12 +75,13 @@ impl DownloadItem {
     pub fn partial_path(&self, destination: &Path) -> PathBuf {
         let target = self.target(destination);
         target.with_extension(format!(
-            "{}part",
+            "{}{}",
             target
                 .extension()
                 .and_then(|value| value.to_str())
                 .map(|value| format!("{value}."))
-                .unwrap_or_default()
+                .unwrap_or_default(),
+            Self::PART_EXTENSION
         ))
     }
     /// Returns `true` if the URL points to huggingface.co or a subdomain.
@@ -80,22 +89,23 @@ impl DownloadItem {
         Uri::parse(self.url.as_str())
             .ok()
             .and_then(|uri| uri.authority().map(|authority| authority.host().to_string()))
-            .is_some_and(|host| host == "huggingface.co" || host.ends_with(".huggingface.co"))
+            .is_some_and(|host| host == Self::HUGGINGFACE_HOST || host.ends_with(&format!(".{}", Self::HUGGINGFACE_HOST)))
     }
     /// Returns a human-readable error message for download failures.
     pub fn error_message(&self) -> &'static str {
         match self.is_huggingface() {
-            | true => "Failed to download Hugging Face file",
-            | false => "Failed to download model file",
+            | true => Self::HUGGINGFACE_ERROR_MESSAGE,
+            | false => Self::MODEL_ERROR_MESSAGE,
         }
     }
     /// Returns an auth-related error message, if applicable.
     pub fn auth_error_message(&self) -> Option<String> {
         match (self.is_huggingface(), huggingface::has_auth_token()) {
-            | (true, true) => {
-                Some("Hugging Face denied access to this model file; verify your token has access to the repository and gated/Xet files".to_string())
-            }
-            | _ => Some("Model download requires authentication; set HF_TOKEN, HF_API_TOKEN, or HUGGINGFACE_HUB_TOKEN".to_string()),
+            | (true, true) => Some(Self::HUGGINGFACE_AUTH_ERROR_MESSAGE.into()),
+            | _ => Some(format!(
+                "Model download requires authentication; set {}",
+                HUGGINGFACE_TOKEN_VARIABLE_NAMES.join(", ")
+            )),
         }
     }
     /// Returns `true` if the file at `target` exists and matches the expected size.

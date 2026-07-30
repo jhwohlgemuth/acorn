@@ -22,6 +22,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::collections::HashMap;
+use strum::{EnumIter, IntoEnumIterator};
 use tera::{Context, Tera};
 use validator::{Validate, ValidationError};
 
@@ -248,7 +249,7 @@ pub enum Provider {
 ///
 /// IQ is a separate I-quant family that uses an importance matrix for reconstruction.
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default, Display, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, EnumIter, PartialEq, Serialize, JsonSchema)]
 pub enum Quantization {
     /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
     #[default]
@@ -295,6 +296,10 @@ pub enum Quantization {
     #[display("BF16")]
     #[serde(rename = "BF16")]
     BF16,
+    /// Importance-aware 4-bit quantization with extra-small size (`IQ4_XS`)
+    #[display("IQ4_XS")]
+    #[serde(rename = "IQ4_XS")]
+    IQ4_XS,
     /// Catch-all for quantization tags added by upstream catalogs
     #[display("{}", _0)]
     #[serde(untagged)]
@@ -611,6 +616,43 @@ pub struct Weight {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Weights(pub Vec<Weight>);
+impl From<&str> for Weight {
+    fn from(value: &str) -> Self {
+        Self {
+            label: "inferred".to_string(),
+            url: value.to_string(),
+            is_open: None,
+            quantization: None,
+        }
+    }
+}
+impl Weights {
+    /// Add an inferred weight source when the model identifier declares a quantization.
+    pub fn infer_quantization(self, model_id: &str) -> Option<Self> {
+        let inferred = model_id
+            .split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+            .map(Quantization::from)
+            .find(|candidate| {
+                Quantization::iter()
+                    .filter(|variant| !matches!(variant, Quantization::Other(_)))
+                    .any(|variant| &variant == candidate)
+            })
+            .or_else(|| self.0.iter().find_map(|weight| weight.quantization.clone()));
+        match (self.0.is_empty(), inferred) {
+            | (true, None) => None,
+            | (_, Some(quantization)) if self.0.iter().all(|weight| weight.quantization.is_none()) => Some(Self(
+                [Weight {
+                    quantization: Some(quantization),
+                    ..Weight::from(model_id)
+                }]
+                .into_iter()
+                .chain(self.0)
+                .collect(),
+            )),
+            | _ => Some(self),
+        }
+    }
+}
 impl Default for FrontMatter {
     fn default() -> Self {
         FrontMatter::init().build()
@@ -844,17 +886,18 @@ impl From<&str> for Quantization {
     fn from(value: &str) -> Self {
         let normalized = value.to_ascii_uppercase();
         match normalized.as_str() {
-            | "Q2_K" => Self::Q2k,
-            | "Q3_K_S" => Self::Q3kS,
-            | "Q3_K_M" => Self::Q3kM,
-            | "Q3_K_L" => Self::Q3kL,
-            | "Q4_K_M" => Self::Q4kM,
-            | "Q5_K_M" => Self::Q5kM,
-            | "Q6_K" => Self::Q6k,
-            | "Q8_0" => Self::Q8_0,
+            | "Q2_K" | "Q2K" => Self::Q2k,
+            | "Q3_K_S" | "Q3KS" => Self::Q3kS,
+            | "Q3_K_M" | "Q3KM" => Self::Q3kM,
+            | "Q3_K_L" | "Q3KL" => Self::Q3kL,
+            | "Q4_K_M" | "Q4KM" => Self::Q4kM,
+            | "Q5_K_M" | "Q5KM" => Self::Q5kM,
+            | "Q6_K" | "Q6K" => Self::Q6k,
+            | "Q8_0" | "Q80" => Self::Q8_0,
             | "F16" => Self::F16,
             | "BF16" => Self::BF16,
             | "F8" | "FP8" => Self::F8,
+            | "IQ4_XS" | "IQ4XS" => Self::IQ4_XS,
             | _ => Self::Other(value.to_string()),
         }
     }

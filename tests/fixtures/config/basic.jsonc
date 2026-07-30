@@ -1,8 +1,10 @@
 {
     "models": [
         "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-2b",
         "mozilla/test-llama",
-        "openai/gpt-oss-2b"
+        "nvidia/nemotron-3-super-120b-a12b"
     ],
     "whitelist": {
         "models": "https://research.ornl.gov/api/models.json"

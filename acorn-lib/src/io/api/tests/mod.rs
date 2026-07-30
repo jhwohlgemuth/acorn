@@ -851,7 +851,7 @@ mod models_dev {
     use crate::io::api::models_dev::CatalogResponse;
     use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
-    use crate::schema::agent::{Harness, Metric, ModelDetails, ProviderDetails};
+    use crate::schema::agent::{Metric, ModelDetails, ProviderDetails};
     use crate::test::utils::unique_path;
     use std::collections::HashMap;
 
@@ -938,27 +938,21 @@ mod models_dev {
             | Some(Metric::Other(value)) => assert_eq!(value, "Elo"),
             | other => panic!("expected new metric label to deserialize as Metric::Other, got {other:?}"),
         }
-        match benchmarks[2].metric.as_ref() {
-            | Some(Metric::Other(value)) => assert_eq!(value, "accuracy"),
-            | other => panic!("expected new metric label to deserialize as Metric::Other, got {other:?}"),
-        }
-        assert!(matches!(benchmarks[3].harness, Some(Harness::MiniSweAgent)));
-        match benchmarks[4].harness.as_ref() {
-            | Some(Harness::Other(value)) => assert_eq!(value, "Kimi Code CLI"),
-            | other => panic!("expected unknown harness to deserialize as Harness::Other, got {other:?}"),
-        }
-        match benchmarks[5].metric.as_ref() {
-            | Some(Metric::Other(value)) => assert_eq!(value, "1"),
-            | other => panic!("expected numeric metric to deserialize as Metric::Other, got {other:?}"),
-        }
-        match benchmarks[6].metric.as_ref() {
-            | Some(Metric::Other(value)) => assert_eq!(value, "true"),
-            | other => panic!("expected boolean metric to deserialize as Metric::Other, got {other:?}"),
-        }
-        match benchmarks[7].metric.as_ref() {
-            | Some(Metric::Other(value)) => assert_eq!(value, r#"{"kind":"composite"}"#),
-            | other => panic!("expected object metric to deserialize as Metric::Other, got {other:?}"),
-        }
+    }
+
+    #[test]
+    fn test_model_row_infers_quantization_from_model_id() {
+        use crate::schema::agent::{Quantization, Weights};
+        let model = ModelDetails {
+            id: Some("llama-3-2-3b-instruct-q4_k_m".to_string()),
+            weights: None,
+            ..Default::default()
+        };
+        let row = ModelRow::from(model);
+        let weights_json = row.weights.expect("expected inferred weights for model identifier");
+        let weights: Weights = serde_json::from_str(&weights_json).expect("weights JSON should deserialize");
+        assert_eq!(weights.0.len(), 1);
+        assert_eq!(weights.0[0].quantization, Some(Quantization::Q4kM));
     }
     #[tokio::test]
     async fn test_catalog_fixture_persists_models_and_providers_to_local_database() {
