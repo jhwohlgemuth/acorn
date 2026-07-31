@@ -902,7 +902,7 @@ impl TableSchemaProvider for Table {
             | Table::Providers => "providers",
         }
     }
-    async fn populate(&self) -> ApiResult<usize> {
+    async fn populate(&self, path: Option<PathBuf>) -> ApiResult<usize> {
         match &self {
             | Table::Licenses => {
                 let progress = create_progress_bar(0, ProgressType::Spinner);
@@ -911,7 +911,7 @@ impl TableSchemaProvider for Table {
                 let message = format!("{}SPDX metadata download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);
                 match response {
-                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Ok(data) => data.persist(Database::<Self>::from_path(path.clone())).await,
                     | Err(why) => Err(eyre!("Failed to download SPDX license data — {why}")),
                 }
             }
@@ -922,7 +922,7 @@ impl TableSchemaProvider for Table {
                 let message = format!("{}GitLab programming language metadata download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);
                 match response {
-                    | Ok(data) => data.persist(Database::<Self>::from_path(None)).await,
+                    | Ok(data) => data.persist(Database::<Self>::from_path(path.clone())).await,
                     | Err(why) => Err(eyre!("Failed to download GitLab programming language data — {why}")),
                 }
             }
@@ -933,7 +933,7 @@ impl TableSchemaProvider for Table {
                 let message = format!("{}Models.dev catalog download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);
                 match response {
-                    | Ok(catalog) => catalog.models().persist(Database::<Self>::from_path(None)).await,
+                    | Ok(catalog) => catalog.models().persist(Database::<Self>::from_path(path.clone())).await,
                     | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
                 }
             }
@@ -944,7 +944,7 @@ impl TableSchemaProvider for Table {
                 let message = format!("{}Models.dev catalog download complete", Label::CHECKMARK);
                 finish_progress_bar(&progress, message);
                 match response {
-                    | Ok(catalog) => catalog.providers().persist(Database::<Self>::from_path(None)).await,
+                    | Ok(catalog) => catalog.providers().persist(Database::<Self>::from_path(path.clone())).await,
                     | Err(why) => Err(eyre!("Failed to download models.dev catalog — {why}")),
                 }
             }

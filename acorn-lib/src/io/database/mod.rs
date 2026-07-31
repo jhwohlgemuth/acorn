@@ -1,7 +1,8 @@
 //! Database utilities for ACORN.
 //!
-//! This module provides a lazily initialized, process-global database connection
-//! guarded by a mutex and a helper to execute callbacks against that connection.
+//! This module provides database connection helpers guarded by a process-global
+//! mutex so concurrent operations do not race while still respecting per-handle
+//! database paths.
 use crate::io::api::DatabasePersistence;
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
@@ -22,7 +23,7 @@ pub mod schema;
 
 use schema::Table;
 
-static CONNECTION: OnceLock<Mutex<Connection>> = OnceLock::new();
+static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 /// SQL parameters produced for dynamic queries.
 pub type QueryParams = backend::ParamsFromIter<Vec<Box<dyn backend::ToSql>>>;
@@ -123,7 +124,7 @@ pub trait TableSchemaProvider: Copy + Into<Table> + 'static {
     /// Returns the table name as a string
     fn name(&self) -> &'static str;
     /// Populate the table with data (typically downloaded use API module)
-    async fn populate(&self) -> ApiResult<usize>;
+    async fn populate(&self, path: Option<PathBuf>) -> ApiResult<usize>;
     /// Print all table rows
     fn print(self, path: Option<PathBuf>);
     /// Get table rows
@@ -177,7 +178,7 @@ where
     async fn populate(&self, table: impl TableSchemaProvider + Send) -> ApiResult<PersistStatus> {
         match self.row_count(table) {
             | Ok(count) if count > 0 => Ok(PersistStatus::AlreadyExists),
-            | Ok(_) => table.into().populate().await.map(PersistStatus::Downloaded),
+            | Ok(_) => table.into().populate(self.path.clone()).await.map(PersistStatus::Downloaded),
             | Err(why) => Err(why),
         }
     }
@@ -199,30 +200,17 @@ where
     }
     /// Executes a callback using the database path configured on this handle.
     pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> ApiResult<U>) -> ApiResult<U> {
-        Self::db_connection(self.path.as_ref())
-            .and_then(|connection| {
-                connection
-                    .lock()
-                    .map_err(|why| eyre!("Failed to acquire database connection lock — {why}"))
+        CONNECTION_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .map_err(|why| eyre!("Failed to acquire database connection lock — {why}"))
+            .and_then(|guard| {
+                let result = resolve_database_path(self.path.as_ref())
+                    .and_then(|db_path| Connection::open(db_path).map_err(|why| eyre!("Failed to open database connection — {why}")))
+                    .and_then(|connection| callback(&connection));
+                drop(guard);
+                result
             })
-            .and_then(|guard| callback(&guard))
-    }
-    fn db_connection(path: Option<&PathBuf>) -> ApiResult<&'static Mutex<Connection>> {
-        match CONNECTION.get() {
-            | Some(connection) => Ok(connection),
-            | None => resolve_database_path(path)
-                .and_then(|db_path| {
-                    Connection::open(db_path)
-                        .map(Mutex::new)
-                        .map_err(|why| eyre!("Failed to initialize database connection — {why}"))
-                })
-                .and_then(|connection| {
-                    CONNECTION.set(connection).ok();
-                    CONNECTION
-                        .get()
-                        .ok_or_else(|| eyre!("Failed to access database connection after initialization"))
-                }),
-        }
     }
     /// Get the cache TTL value from environment or use default.
     pub fn cache_ttl(&self) -> Duration {

@@ -73,6 +73,22 @@ fn test_model_weights_update_round_trip() {
     assert_eq!(selected.weights.as_deref(), Some(weights));
 }
 #[test]
+fn test_database_handles_use_their_own_paths() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let first_path = PathBuf::from(format!("target/test_artifacts/isolated-first-{unique}.duckdb"));
+    let second_path = PathBuf::from(format!("target/test_artifacts/isolated-second-{unique}.duckdb"));
+    let first = Database::<Table>::from_path(Some(first_path));
+    let second = Database::<Table>::from_path(Some(second_path));
+    first.migrate().unwrap();
+    second.migrate().unwrap();
+    first.insert(ModelRow::init().model_id(format!("acme/first-{unique}")).build()).unwrap();
+    assert_eq!(first.row_count(Table::Models).unwrap(), 1);
+    assert_eq!(second.row_count(Table::Models).unwrap(), 0);
+}
+#[test]
 fn test_activity_row_default() {
     let row = ActivityRow::default();
     assert!(row.id.is_none());
