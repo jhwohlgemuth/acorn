@@ -18,7 +18,7 @@ use acorn::util::{merge, Label, StringConversion};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
-use futures::future::join_all;
+use futures::{future::join_all, stream, StreamExt};
 #[cfg(feature = "tui")]
 use is_terminal::IsTerminal;
 use itertools::Itertools;
@@ -533,9 +533,8 @@ pub(crate) async fn resolve_plans(
     Ok(plans)
 }
 pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, limit: usize) -> Vec<ModelDetails> {
-    let results = join_all(plans.iter().map(|plan| {
-        let plan = plan.clone();
-        async move {
+    let results = stream::iter(plans.iter().cloned())
+        .then(|plan| async move {
             match &plan.selector {
                 | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
                     let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
@@ -581,9 +580,9 @@ pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, l
                 }
                 | _ => Some(ModelDetails::from(&plan)),
             }
-        }
-    }))
-    .await;
+        })
+        .collect::<Vec<_>>()
+        .await;
     results.into_iter().flatten().collect()
 }
 async fn resolve_positional_plan(

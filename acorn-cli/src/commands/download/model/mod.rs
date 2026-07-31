@@ -16,7 +16,8 @@ use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{self, eyre};
 use fluent_uri::Uri;
-use futures::future::join_all;
+use futures::{stream, StreamExt, TryStreamExt};
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use serde::Deserialize;
 use tracing::{error, info};
@@ -72,10 +73,10 @@ pub async fn run(
     match resolve_plans(model, &entries, action, database_path, no_local_database, offline).await {
         | Ok(planned) => match FilterSet::filter(planned, filter, ignore, |plan| plan.selector.identifier(), |_| true) {
             | Ok(plans) => {
-                let futures = plans
-                    .into_iter()
-                    .map(|plan| async { plan.matches(&whitelist, offline).await.map(|matches| matches.then_some(plan)) });
-                match join_all(futures).await.into_iter().collect::<ApiResult<Vec<_>>>().map_err(|why| {
+                let plans = plans.into_iter().sorted_by_key(|plan| plan.selector.identifier());
+                let futures =
+                    stream::iter(plans).then(|plan| async { plan.matches(&whitelist, offline).await.map(|matches| matches.then_some(plan)) });
+                match futures.try_collect::<Vec<_>>().await.map_err(|why| {
                     error!("=> {} Validate model whitelist — {why}", Label::fail());
                     why
                 }) {
