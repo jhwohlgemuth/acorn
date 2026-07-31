@@ -24,11 +24,12 @@ use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
-use acorn::prelude::{create_dir_all, env, read_to_string, write, HashSet, PathBuf};
+use acorn::prelude::{create_dir_all, read_to_string, write, HashSet, PathBuf};
 use acorn::schema::agent::{Quantization, Weight, Weights};
 use acorn::schema::OneOrMany;
 use acorn::util::merge;
 use alloc::sync::Arc;
+use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::io::Write;
@@ -215,41 +216,25 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         );
     write(&config_path, config).expect("write deterministic basic model config");
     let (endpoint, handle) = spawn_basic_model_config_server();
-    let logs = Arc::new(Mutex::new(Vec::new()));
-    let subscriber = tracing_subscriber::fmt()
-        .without_time()
-        .with_target(false)
-        .with_ansi(false)
-        .with_max_level(tracing::Level::INFO)
-        .with_writer(SharedWriter(logs.clone()))
-        .finish();
-    let result = with_hf_endpoint(endpoint, || {
-        tracing::subscriber::with_default(subscriber, || {
-            tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
-                &[],
-                &[],
-                &[],
-                &Some(config_path),
-                &None,
-                &None,
-                &Verbosity::new(2, 0),
-                false,
-                false,
-                false,
-                false,
-                &[],
-                false,
-                200,
-                false,
-                true,
-                false,
-                &OutputFormat::default(),
-            ))
-        })
-    });
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .env("HF_ENDPOINT", endpoint)
+        .args(["-vv", "download", "model", "--config"])
+        .arg(config_path)
+        .arg("--dry-run")
+        .output()
+        .expect("run model download dry run");
     handle.join().expect("join basic model config server");
-    result.expect("dry-run basic model config");
-    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).expect("UTF-8 logs");
+    assert!(
+        output.status.success(),
+        "dry-run basic model config failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = String::from_utf8(output.stderr)
+        .expect("UTF-8 logs")
+        .replace("\u{1b}[33m WARN\u{1b}[0m", " WARN")
+        .replace("\u{1b}[32m INFO\u{1b}[0m", " INFO")
+        .replace('\u{1b}', r"\x1b");
     insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
 }
 
@@ -1724,22 +1709,16 @@ fn test_resolve_cli_action() {
 fn test_resolve_default_config_path_none_when_missing() -> Result<()> {
     let temp_dir = temp_test_dir("download_default_config_missing");
     let _cleanup = TestCleanup::new(temp_dir.clone());
-    let previous_dir = env::current_dir()?;
-    env::set_current_dir(&temp_dir)?;
-    let resolved = ApplicationConfiguration::resolve(&None);
-    env::set_current_dir(previous_dir)?;
+    let resolved = ApplicationConfiguration::resolve_in(&None, &temp_dir);
     assert!(resolved.is_none(), "resolver should return none when no default config files exist");
     Ok(())
 }
 #[test]
 fn test_resolve_default_config_path_prefers_standard_names() -> Result<()> {
     let temp_dir = temp_test_dir("download_default_config_resolution");
-    let previous_dir = env::current_dir()?;
     let expected = temp_dir.join(".acorn.json");
     write(&expected, "{}")?;
-    env::set_current_dir(&temp_dir)?;
-    let resolved = ApplicationConfiguration::resolve(&None);
-    env::set_current_dir(previous_dir)?;
+    let resolved = ApplicationConfiguration::resolve_in(&None, &temp_dir);
     assert_eq!(resolved, Some(expected));
     let _cleanup = TestCleanup::new(temp_dir.clone());
     Ok(())

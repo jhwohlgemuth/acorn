@@ -9,7 +9,7 @@ use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
-use crate::prelude::{self, env, exit, Arc, HashSet, PathBuf};
+use crate::prelude::{self, env, exit, Arc, HashSet, Path, PathBuf};
 use crate::schema::OneOrMany;
 use crate::schema::{agent::Quantization, hardware::memory::Memory};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
@@ -415,8 +415,12 @@ impl ApplicationConfiguration {
     }
     /// Resolve application configuration path
     pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
+        let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::resolve_in(path, &directory)
+    }
+    /// Resolve an application configuration path relative to an explicit directory.
+    pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
         path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
-            let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             DEFAULT_CONFIG_FILENAMES
                 .iter()
                 .map(|name| directory.join(name))
@@ -1014,10 +1018,7 @@ mod tests {
         let directory = directory.canonicalize().unwrap();
         let default = directory.join(".acorn.yml");
         write(&default, "{}\n").unwrap();
-        let previous = env::current_dir().unwrap();
-        env::set_current_dir(&directory).unwrap();
-        let resolved = ApplicationConfiguration::resolve(&Some(directory.join("missing.json")));
-        env::set_current_dir(previous).unwrap();
+        let resolved = ApplicationConfiguration::resolve_in(&Some(directory.join("missing.json")), &directory);
         assert_eq!(resolved, Some(default));
         let _ = remove_dir_all(directory);
     }
