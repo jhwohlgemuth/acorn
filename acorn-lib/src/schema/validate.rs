@@ -178,11 +178,11 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
 ///
 /// // Valid RFC3339 timestamp with nanoseconds gets normalized to microseconds
 /// let input = "2023-01-01T12:00:00.123456789Z";
-/// let expected = "2023-01-01T12:00:00.123456Z";
+/// let expected = "2023-01-01T12:00:00.123456+00:00";
 /// assert_eq!(format_timestamp(input), expected);
 ///
 /// // Already in microsecond precision stays the same
-/// let input = "2023-01-01T12:00:00.123456Z";
+/// let input = "2023-01-01T12:00:00.123456+00:00";
 /// assert_eq!(format_timestamp(input), input);
 ///
 /// // Invalid timestamp returns original string

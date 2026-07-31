@@ -1082,7 +1082,7 @@ pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -
 /// use std::path::PathBuf;
 ///
 /// let paths = vec![PathBuf::from("/path/to/foo.txt"), PathBuf::from("/path/to/bar.txt")];
-/// let ignore = Some("*.txt".to_string());
+/// let ignore = Some(r"\.txt$".to_string());
 /// let result = filter_ignored(paths, ignore);
 /// assert!(result.unwrap().is_empty());
 /// ```
@@ -1143,13 +1143,13 @@ pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, roo
 ///
 /// ### Example
 /// ```rust
-/// use acorn::io::first_env_var_value;
+/// use acorn::io::first_env_var;
 /// use std::env;
 ///
-/// env::set_var("MY_APP_CONFIG", "config_value");
-/// let result = first_env_var_value(&["NON_EXISTENT_VAR", "MY_APP_CONFIG", "ANOTHER_VAR"]);
+/// env::set_var("ACORN_DOCTEST_FIRST_ENV_VAR", "config_value");
+/// let result = first_env_var(&["ACORN_DOCTEST_MISSING_ENV_VAR", "ACORN_DOCTEST_FIRST_ENV_VAR"]);
 /// assert_eq!(result, Some("config_value".to_string()));
-/// env::remove_var("MY_APP_CONFIG");
+/// env::remove_var("ACORN_DOCTEST_FIRST_ENV_VAR");
 /// ```
 pub fn first_env_var(names: &[&str]) -> Option<String> {
     names
