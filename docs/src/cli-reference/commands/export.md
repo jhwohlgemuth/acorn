@@ -36,6 +36,41 @@ acorn export /path/to/project/index.json --format cff
 > [!NOTE]
 > Most export formats use the `--output` option to specify the output file or directory path. If not provided, ACORN will generate a default output path based on the input path and selected format. For example, `--format pdf` and `--format powerpoint` will generate files in the default export location (`./export/`) with names based on the project parent folder(s), `--format bag` will add `.zip` to the output path (i.e., `--output ./export` will create `./export.zip` and `--output /path/to/bag` will create `/path/to/bag.zip`). CFF output is the exception described below.
 
+## Standard crosswalks
+
+Use `--to` with JSON or YAML export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
+
+```sh
+# Convert one DataCite JSON record to DCAT JSON
+acorn export datacite.json --format json --from datacite --to dcat --output ./export
+
+# Convert DCAT JSON to DataCite YAML
+acorn export dataset.json --format yaml --from dcat --to datacite --output ./export
+
+# Preview a directory conversion without writing files
+acorn export ./metadata --format json --from invenio --to dcat --dry-run
+```
+
+The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. Every pairing among those four standards is accepted. Some conversions use DataCite as an intermediate representation:
+
+| Source | Direct targets | Targets routed through DataCite |
+|---|---|---|
+| DataCite | DCAT, InvenioRDM, HuWise | — |
+| DCAT | DataCite | InvenioRDM, HuWise |
+| InvenioRDM | DataCite | DCAT, HuWise |
+| HuWise | DataCite | DCAT, InvenioRDM |
+
+Crosswalk export has these constraints:
+
+- The input and output must be JSON or YAML. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
+- A single object or an array of objects is accepted. Directory export writes one target file for each resolved source file.
+- Conversion can be lossy because the standards have different fields and cardinalities. Normal direct conversions report field-level crosswalk warnings when ACORN has a mapping for that pair.
+- Warning collection is currently limited to direct DataCite mappings and DCAT → DataCite. Routed conversions can lose metadata without a complete end-to-end warning report.
+- `--strict` is intended to fail when conversion loses data, but the current export path does not retain warnings in strict mode. Do not use it as a lossless-conversion guarantee until that behavior is corrected.
+- CKAN package records are not currently a supported source or target standard. A CKAN API response is not DCAT merely because CKAN can expose DCAT through an extension; convert or export it to a supported DCAT representation before using `--from dcat`.
+
+Run `acorn check --standard <target> <output>` after conversion when the target artifact must pass ACORN's schema and validation checks.
+
 ## Citation File Format (`CITATION.cff`)
 
 Use `--format cff` to convert ACORN research activity data (RAD) into a CFF 1.2.0 citation file:
