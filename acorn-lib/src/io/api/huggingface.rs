@@ -21,7 +21,7 @@ use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt, ops::Deref};
 use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient, HFError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
 
@@ -209,6 +209,31 @@ impl HuggingFaceRepositoryFiles {
             files,
             identifier: identifier.into(),
             revision: revision.into(),
+        }
+    }
+    fn parse(content: &str, options: &Options) -> ApiResult<Self> {
+        #[derive(Deserialize)]
+        struct ApiError {
+            #[serde(alias = "message")]
+            error: String,
+        }
+        match options.identifier.as_deref() {
+            | Some(identifier) => serde_json::from_str::<Vec<TreeEntry>>(content)
+                .map(|entries| {
+                    let files = entries
+                        .into_iter()
+                        .filter(TreeEntry::is_file)
+                        .map(HuggingFaceRepositoryFile::from)
+                        .collect();
+                    Self::new(identifier, &options.revision, files)
+                })
+                .map_err(|why| {
+                    serde_json::from_str::<ApiError>(content).map_or_else(
+                        |_| eyre!("Failed to parse Hugging Face repository file list for '{identifier}' — {why}"),
+                        |response| eyre!("Hugging Face API rejected repository '{identifier}' — {}", response.error),
+                    )
+                }),
+            | None => Err(eyre!("Missing Hugging Face repository identifier")),
         }
     }
     /// Resolve this repository or a selected GGUF fallback repository.
@@ -667,24 +692,16 @@ pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {
 pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
     let template = "huggingface::api";
     let action = "tree";
+    let options = Options::init().identifier(identifier).revision(revision).build();
     let params = Params::new()
         .with_auth(first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).unwrap_or_default().as_str(), None)
-        .with_template("identifier", Some(identifier))
-        .with_template("revision", Some(revision))
+        .with_template("identifier", options.identifier.as_deref())
+        .with_template("revision", Some(&options.revision))
         .with_keyvalue("recursive", Some("1"))
         .build();
     match Endpoint::from_template(template) {
         | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
-            | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
-                .map(|entries| {
-                    let files = entries
-                        .into_iter()
-                        .filter(TreeEntry::is_file)
-                        .map(HuggingFaceRepositoryFile::from)
-                        .collect();
-                    HuggingFaceRepositoryFiles::new(identifier, revision, files)
-                })
-                .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
+            | Ok(ResponseContent::Json(content)) => HuggingFaceRepositoryFiles::parse(&content, &options),
             | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
             | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
         },
@@ -771,7 +788,7 @@ fn target_path_from_sidecar(path: &str) -> Option<String> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use super::{extract_sha256, target_path_from_sidecar, Candidate, ModelInfo, ModelInfoExtension, Value};
+    use super::{extract_sha256, target_path_from_sidecar, Candidate, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension, Value};
     use crate::schema::agent::{Weight, Weights};
     use serde_json::json;
 
@@ -844,6 +861,23 @@ mod tests {
         .unwrap();
         assert_eq!(source.identifier(), url);
         assert_eq!(source.name(), "GGUF");
+    }
+    #[test]
+    fn test_repository_tree_reports_api_error_message() {
+        let options = super::Options::init().identifier("missing/model").revision("main").build();
+        let error = HuggingFaceRepositoryFiles::parse(r#"{"error":"Repository not found"}"#, &options).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Hugging Face API rejected repository 'missing/model' — Repository not found"
+        );
+    }
+    #[test]
+    fn test_repository_tree_parse_error_identifies_repository() {
+        let options = super::Options::init().identifier("broken/model").revision("main").build();
+        let error = HuggingFaceRepositoryFiles::parse(r#"{"unexpected":true}"#, &options).unwrap_err();
+        assert!(error
+            .to_string()
+            .starts_with("Failed to parse Hugging Face repository file list for 'broken/model'"));
     }
     #[test]
     fn test_target_path_from_sidecar() {

@@ -10,7 +10,7 @@ use acorn::io::{ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, Quantization, WeightGroups, Weights};
+use acorn::schema::agent::{ModelDetails, ModelResolutionReason, Quantization, WeightGroups, Weights};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
@@ -30,6 +30,7 @@ pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
     MissingAuth(String),
+    UnresolvedModel { model: String, reason: ModelResolutionReason },
     NoModelsFound,
 }
 #[derive(Builder, Clone, Debug)]
@@ -59,6 +60,9 @@ impl fmt::Display for ModelDownloadError {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
+            | Self::UnresolvedModel { model, reason } => {
+                write!(formatter, "'{model}' was not resolved to a Hugging Face repository — {reason}")
+            }
             | Self::NoModelsFound => write!(formatter, "No models found"),
         }
     }

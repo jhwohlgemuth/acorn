@@ -7,7 +7,9 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
-use crate::schema::agent::{opencode, ModelDetails, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weights};
+use crate::schema::agent::{
+    opencode, ModelDetails, ModelResolutionReason, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weight, Weights,
+};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -86,9 +88,31 @@ fn test_model_details_selector_prefers_id_and_falls_back_to_name() {
         name: Some("ignored".to_string()),
         ..Default::default()
     };
-    assert_eq!(with_id.selector().as_deref(), Some("acme/model"));
-    assert_eq!(with_name.selector().as_deref(), Some("acme/fallback"));
-    assert!(empty.selector().is_none());
+    assert_eq!(with_id.selector().as_deref(), Ok("acme/model"));
+    assert_eq!(with_name.selector().as_deref(), Ok("acme/fallback"));
+    assert_eq!(empty.selector(), Err(ModelResolutionReason::MissingIdentifier));
+}
+#[test]
+fn test_model_details_selector_explains_unresolved_models() {
+    let not_open = ModelDetails {
+        id: Some("acme/closed".to_string()),
+        open_weights: Some(false),
+        ..Default::default()
+    };
+    let no_open_weights = ModelDetails {
+        id: Some("acme/open".to_string()),
+        open_weights: Some(true),
+        ..Default::default()
+    };
+    let no_hugging_face_repository = ModelDetails {
+        id: Some("acme/external".to_string()),
+        weights: Some(Weights(vec![Weight::from("https://example.com/model")])),
+        ..Default::default()
+    };
+    assert_eq!(not_open.selector(), Err(ModelResolutionReason::NotOpen));
+    assert_eq!(no_open_weights.selector(), Err(ModelResolutionReason::NoOpenWeights));
+    assert_eq!(no_hugging_face_repository.selector(), Err(ModelResolutionReason::NoHuggingFaceRepository));
+    assert_eq!(ModelDetails::default().selector(), Err(ModelResolutionReason::MissingIdentifier));
 }
 #[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {

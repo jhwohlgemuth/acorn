@@ -4,6 +4,7 @@ use self::plan::{resolve_models, resolve_plans, ModelDownloadError, ModelDownloa
 use super::log_activity;
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
+use crate::commands::import::model::ModelSelectors;
 use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::{home_directory, ApiResult, Source, SourceAction};
@@ -20,7 +21,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use serde::Deserialize;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Download model weights with optional persisted-metadata constraints.
 #[allow(clippy::too_many_arguments)]
@@ -340,18 +341,40 @@ impl ModelListFile {
             | Self::Model(details) => Whitelist::from(*details).require_names(),
         }
     }
-    pub(crate) fn selectors(self) -> ApiResult<Vec<String>> {
+    pub(crate) fn selectors(self) -> ModelSelectors {
         match self {
-            | Self::Names(names) => Ok(names),
-            | Self::Models(models) => models
-                .into_iter()
-                .map(ModelDetails::selector)
-                .map(|selector| selector.ok_or_else(|| eyre!("Model details must define 'id' or 'name'")))
-                .collect(),
-            | Self::Model(details) => details
-                .selector()
-                .map(|selector| vec![selector])
-                .ok_or_else(|| eyre!("Model details must define 'id' or 'name'")),
+            | Self::Names(names) => ModelSelectors::from(names),
+            | Self::Models(models) => ModelSelectors::from(
+                models
+                    .into_iter()
+                    .filter_map(|details| {
+                        let name = details
+                            .id
+                            .clone()
+                            .or_else(|| details.name.clone())
+                            .unwrap_or_else(|| "unknown".to_string());
+                        match details
+                            .selector()
+                            .map_err(|reason| ModelDownloadError::UnresolvedModel { model: name.clone(), reason })
+                        {
+                            | Ok(selector) => Some(selector),
+                            | Err(ModelDownloadError::UnresolvedModel { reason, .. }) => {
+                                warn!(
+                                    "=> {} {} was not resolved to a Hugging Face repository — {reason}",
+                                    Label::skip(),
+                                    name.yellow()
+                                );
+                                None
+                            }
+                            | Err(why) => {
+                                warn!("=> {} {why}", Label::skip());
+                                None
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            | Self::Model(details) => Self::Models(vec![*details]).selectors(),
         }
     }
 }

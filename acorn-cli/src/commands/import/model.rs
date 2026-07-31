@@ -12,6 +12,7 @@ use acorn::util::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{self, eyre};
 use futures::future::join_all;
+use owo_colors::OwoColorize;
 use tracing::{error, info};
 
 /// Import model metadata into the local database.
@@ -34,8 +35,9 @@ pub async fn run(
             | (true, true) => {
                 if !quiet {
                     println!(
-                        "=> {} Model catalog persistence skipped because the local database is disabled",
-                        Label::CAUTION
+                        "=> {} Model catalog persistence {}",
+                        Label::skip(),
+                        "(local database is disabled)".dimmed()
                     );
                 }
                 Ok(())
@@ -108,10 +110,15 @@ struct ModelImportOptions {
     database_path: Option<PathBuf>,
 }
 #[derive(Debug)]
-pub(super) struct ModelSelectors(pub(super) Vec<String>);
+pub(crate) struct ModelSelectors(pub(super) Vec<String>);
 impl From<&[String]> for ModelSelectors {
     fn from(values: &[String]) -> Self {
         Self(values.to_vec())
+    }
+}
+impl From<Vec<String>> for ModelSelectors {
+    fn from(values: Vec<String>) -> Self {
+        Self(values)
     }
 }
 impl TryFrom<String> for ModelSelectors {
@@ -122,7 +129,7 @@ impl TryFrom<String> for ModelSelectors {
             Err(eyre!("Model list file cannot be empty"))
         } else {
             match serde_norway::from_str::<ModelListFile>(trimmed) {
-                | Ok(file) => file.selectors().and_then(normalize_selectors).map(Self),
+                | Ok(file) => file.selectors().normalize(),
                 | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
                     Err(eyre!("Failed to parse model list file as JSON or YAML — {why}"))
                 }
@@ -134,6 +141,18 @@ impl TryFrom<String> for ModelSelectors {
     }
 }
 impl ModelSelectors {
+    fn normalize(self) -> ApiResult<Self> {
+        let selectors = self
+            .0
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>();
+        match selectors.is_empty() {
+            | true => Err(eyre!("Model list file cannot be empty")),
+            | false => Ok(Self(selectors)),
+        }
+    }
     pub(super) fn parse(content: String) -> ApiResult<Self> {
         Self::try_from(content)
     }
@@ -198,16 +217,5 @@ impl ModelDownloadPlan {
             | Source::Remote { identifier, .. } if options.offline => Err(eyre!("Offline mode cannot import remote model metadata: {identifier}")),
             | _ => Err(eyre!("Model metadata import supports only Hugging Face repository identifiers")),
         }
-    }
-}
-fn normalize_selectors(values: Vec<String>) -> ApiResult<Vec<String>> {
-    let selectors = values
-        .into_iter()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    match selectors.is_empty() {
-        | true => Err(eyre!("Model list file cannot be empty")),
-        | false => Ok(selectors),
     }
 }

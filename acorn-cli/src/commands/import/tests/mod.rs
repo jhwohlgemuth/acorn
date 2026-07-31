@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+extern crate alloc;
 use super::model::ModelSelectors;
 use super::spec::endpoint_from_import;
 use crate::test::server::spawn_source_server;
@@ -8,6 +9,33 @@ use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::prelude::write;
 use acorn::schema::agent::Weights;
+use alloc::sync::Arc;
+use std::io::Write;
+use std::sync::Mutex;
+use tracing_subscriber::fmt::MakeWriter;
+
+struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+impl<'a> MakeWriter<'a> for SharedWriter {
+    type Writer = SharedWriterGuard;
+    fn make_writer(&'a self) -> Self::Writer {
+        SharedWriterGuard(self.0.clone())
+    }
+}
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+impl Write for SharedWriterGuard {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        match self.0.lock() {
+            | Ok(mut logs) => {
+                logs.extend_from_slice(buffer);
+                Ok(buffer.len())
+            }
+            | Err(why) => Err(std::io::Error::other(why.to_string())),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
 const SPEC: &str = r#"
 openapi: 3.1.0
@@ -122,6 +150,45 @@ async fn test_model_catalog_import_skips_database_when_disabled() {
 fn test_model_selectors_parse_json_model_details_preferring_id() {
     let selectors = ModelSelectors::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#.to_string()).unwrap();
     assert_eq!(selectors.0, vec!["acme/model", "acme/other"]);
+}
+#[test]
+fn test_model_selectors_parse_catalog_weight_repositories() {
+    let selectors = ModelSelectors::parse(
+        r#"[
+            {
+                "id":"google/gemma-4-26b-a4b-it",
+                "open_weights":true,
+                "weights":[{"label":"Hugging Face","url":"https://huggingface.co/google/gemma-4-26B-A4B-it"}]
+            },
+            {"id":"openai/gpt-4.1","open_weights":false}
+        ]"#
+        .to_string(),
+    )
+    .unwrap();
+    assert_eq!(selectors.0, vec!["google/gemma-4-26B-A4B-it"]);
+}
+#[test]
+fn test_model_selectors_warn_for_unresolved_catalog_models() {
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let selectors = tracing::subscriber::with_default(subscriber, || {
+        ModelSelectors::parse(
+            r#"[
+                {"id":"acme/model"},
+                {"id":"openai/gpt-4.1","open_weights":false}
+            ]"#
+            .to_string(),
+        )
+        .unwrap()
+    });
+    let text = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
+    assert_eq!(selectors.0, vec!["acme/model"]);
+    assert!(text.contains("WARN"));
+    assert!(text.contains("openai/gpt-4.1"));
+    assert!(text.contains("was not resolved to a Hugging Face repository — model is not open"));
 }
 #[test]
 fn test_model_selectors_parse_plain_text_and_yaml() {

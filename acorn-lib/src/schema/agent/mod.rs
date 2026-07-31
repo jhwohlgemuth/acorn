@@ -4,11 +4,11 @@
 use crate::io::api::AuthenticationScheme;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{Database, Operations, Row};
-use crate::io::ApiResult;
 #[cfg(not(feature = "std"))]
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::License;
+use crate::io::{ApiResult, Source};
 use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::hardware::memory::Memory;
@@ -21,6 +21,8 @@ use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
 use derive_more::Display;
+use fancy_regex::Regex;
+use lazy_static::lazy_static;
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -32,6 +34,10 @@ use tracing::warn;
 use validator::{Validate, ValidationError};
 
 pub mod opencode;
+
+lazy_static! {
+    static ref HTTP_URL: Result<Regex, fancy_regex::Error> = Regex::new(r"^https?://");
+}
 
 /// Benchmark evaluation harness or framework
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
@@ -516,6 +522,22 @@ pub struct ModelDetails {
     /// Download sources for model weights
     pub weights: Option<Weights>,
 }
+/// Reason model metadata cannot resolve to a Hugging Face repository.
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
+pub enum ModelResolutionReason {
+    /// The model explicitly declares that its weights are not open.
+    #[display("model is not open")]
+    NotOpen,
+    /// The model declares open weights but provides no weight sources.
+    #[display("no open weight sources are declared")]
+    NoOpenWeights,
+    /// The declared weight sources do not identify a Hugging Face repository.
+    #[display("declared weights do not identify a Hugging Face repository")]
+    NoHuggingFaceRepository,
+    /// The model has no usable identifier or name.
+    #[display("model has no identifier or name")]
+    MissingIdentifier,
+}
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -937,12 +959,25 @@ impl ToMarkdown for ModelDetails {
     }
 }
 impl ModelDetails {
-    /// Return the preferred non-empty model selector, using the identifier before the name.
-    pub fn selector(self) -> Option<String> {
-        self.id
+    /// Return a Hugging Face repository selector or explain why one cannot be resolved.
+    pub fn selector(self) -> Result<String, ModelResolutionReason> {
+        let repository = Option::<Source>::from(self.clone())
+            .map(|source| source.identifier())
+            .filter(|identifier| HTTP_URL.as_ref().is_ok_and(|regex| !regex.is_match(identifier).unwrap_or(false)));
+        let identifier = self
+            .id
             .or(self.name)
             .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
+            .filter(|value| !value.is_empty());
+        match (repository, self.open_weights, self.weights, identifier) {
+            | (Some(repository), _, _, _) => Ok(repository),
+            | (None, None, None, Some(identifier)) => Ok(identifier),
+            | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
+            | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
+            | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
+        }
     }
     /// Set the fallback model identifier
     pub fn with_fallback(self, value: &str) -> Self {

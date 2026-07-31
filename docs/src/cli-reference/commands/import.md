@@ -35,7 +35,7 @@ acorn import model --model-file file:///path/to/models.yaml
 acorn import model --model-file https://example.org/models.json
 ```
 
-The document may be a newline-separated plain-text list, a JSON or YAML list of repository IDs, one model-details object, or a list of model-details objects. For model details, `id` is preferred and `name` is used when `id` is absent:
+The document may be a newline-separated plain-text list, a JSON or YAML list of repository IDs, one model-details object, or a list of model-details objects. For minimal model details, `id` is preferred and `name` is used when `id` is absent:
 
 ```json
 [
@@ -47,6 +47,12 @@ The document may be a newline-separated plain-text list, a JSON or YAML list of 
         "id": "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
     }
 ]
+```
+
+For catalog records that declare `open_weights` or `weights`, ACORN uses explicit Hugging Face repository URLs from `weights` and skips records without one. This allows catalogs containing both hosted and open-weight models to be used directly:
+
+```sh
+acorn import model --model-file https://research.ornl.gov/api/models.json
 ```
 
 Positional repository IDs, entries from `--model-file`, and supported `--config` entries are combined and deduplicated before import.
