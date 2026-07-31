@@ -38,6 +38,14 @@ use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
+static HF_ENDPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
+    let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
+    let result = with_var("HF_ENDPOINT", Some(endpoint), test);
+    drop(guard);
+    result
+}
 
 #[allow(clippy::too_many_arguments)]
 async fn run_model(
@@ -142,7 +150,7 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     let identifier = "unsloth/gpt-oss-2b-gguf";
     let (endpoint, handle) = spawn_huggingface_model_info_server(identifier, base_model);
     let whitelist = HashSet::from(["openai/gpt-oss-2b".to_string()]);
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(identifier.to_string())];
             let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
@@ -170,7 +178,7 @@ fn test_model_plan_logs_whitelist_rejection() {
         .with_ansi(false)
         .with_writer(SharedWriter(logs.clone()))
         .finish();
-    let matches = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let matches = with_hf_endpoint(endpoint, || {
         tracing::subscriber::with_default(subscriber, || {
             tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
                 let entries = vec![ModelEntry::Selector(identifier.to_string())];
@@ -215,7 +223,7 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         .with_max_level(tracing::Level::INFO)
         .with_writer(SharedWriter(logs.clone()))
         .finish();
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tracing::subscriber::with_default(subscriber, || {
             tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
                 &[],
@@ -539,7 +547,7 @@ fn test_download_model_config_skips_unresolved_models() {
     )
     .expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", None, 2);
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
@@ -1090,7 +1098,7 @@ fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() 
     )
     .expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
@@ -1123,7 +1131,7 @@ fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     let identifier = "acme/missing";
     write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
@@ -1157,7 +1165,7 @@ fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
     let identifier = "acme/missing";
     write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
-    let result = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
@@ -1776,7 +1784,7 @@ fn test_resolve_models_excludes_failed_fallbacks() {
     let base_model = "openai/gpt-oss-20b";
     let fallback = "unsloth/gpt-oss-20b-GGUF";
     let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 4);
-    let (_plans, resolved) = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let (_plans, resolved) = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![
                 ModelEntry::Selector(base_model.to_string()),
@@ -1798,7 +1806,7 @@ fn test_resolve_models_excludes_failed_fallbacks() {
 fn test_resolve_models_keeps_direct_gguf_repository() {
     let identifier = "mozilla/test-llama";
     let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", Some(identifier), 1);
-    let resolved = with_var("HF_ENDPOINT", Some(endpoint), || {
+    let resolved = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(identifier.to_string())];
             let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
