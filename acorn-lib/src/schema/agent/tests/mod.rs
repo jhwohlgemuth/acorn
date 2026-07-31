@@ -118,6 +118,10 @@ fn test_quantization_from_gguf_filename_detects_known_and_custom_values() {
         Quantization::from_gguf_filename("model-IQ4_XS-00001-of-00002.gguf").map(|value| value.to_string()),
         Some("IQ4_XS".to_string())
     );
+    assert_eq!(
+        Quantization::from_gguf_filename("model-MXFP4-00001-of-00002.gguf").map(|value| value.to_string()),
+        Some("MXFP4".to_string())
+    );
     assert!(Quantization::from_gguf_filename("model-Q4_K_M.safetensors").is_none());
 }
 #[test]
@@ -127,6 +131,7 @@ fn test_weight_quantization_round_trips_in_json() {
         url: "https://example.com/model.gguf".to_string(),
         is_open: Some(true),
         quantization: Some(Quantization::Q4kM),
+        size: Some(42),
     };
     let json = serde_json::to_string(&weight).unwrap();
     assert!(json.contains(r#""quantization":"Q4_K_M""#));

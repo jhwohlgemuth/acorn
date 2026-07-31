@@ -17,7 +17,9 @@ use crate::test::server::{
     spawn_sidecar_server,
 };
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
-use acorn::io::api::huggingface::{Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile};
+use acorn::io::api::huggingface::{
+    Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles,
+};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::download::{DownloadItem, DownloadTask};
@@ -36,6 +38,53 @@ use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
+
+#[allow(clippy::too_many_arguments)]
+async fn run_model(
+    model: &[String],
+    filter: &[String],
+    ignore: &[String],
+    config: &Option<PathBuf>,
+    output: &Option<PathBuf>,
+    database_path: &Option<PathBuf>,
+    verbose: &Verbosity,
+    offline: bool,
+    copy: bool,
+    symlink: bool,
+    skip_verify_checksum: bool,
+    whitelist: &[String],
+    no_fallback: bool,
+    search_limit: usize,
+    interactive: bool,
+    dry_run: bool,
+    raw: bool,
+    format: &OutputFormat,
+) -> crate::cli::Void {
+    super::model::run(
+        model,
+        filter,
+        ignore,
+        config,
+        output,
+        database_path,
+        verbose,
+        offline,
+        copy,
+        symlink,
+        skip_verify_checksum,
+        whitelist,
+        no_fallback,
+        false,
+        &[],
+        &None,
+        search_limit,
+        interactive,
+        dry_run,
+        raw,
+        format,
+    )
+    .await
+}
 
 #[derive(Clone)]
 struct SharedWriter(Arc<Mutex<Vec<u8>>>);
@@ -61,6 +110,9 @@ fn candidate_file(path: &str) -> HuggingFaceRepositoryFile {
         size: None,
     }
 }
+fn repository_files(files: Vec<HuggingFaceRepositoryFile>) -> HuggingFaceRepositoryFiles {
+    HuggingFaceRepositoryFiles::new("acme/model", "main", files)
+}
 #[test]
 fn test_downloaded_gguf_quantization_is_merged_into_weights() {
     let existing = Weights(vec![Weight {
@@ -68,6 +120,7 @@ fn test_downloaded_gguf_quantization_is_merged_into_weights() {
         url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
         is_open: Some(true),
         quantization: None,
+        size: None,
     }]);
     let repository = Downloaded {
         identifier: "unsloth/gpt-oss-20b-GGUF".to_string(),
@@ -92,7 +145,7 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(identifier.to_string())];
-            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+            let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plan");
             plans
@@ -121,7 +174,7 @@ fn test_model_plan_logs_whitelist_rejection() {
         tracing::subscriber::with_default(subscriber, || {
             tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
                 let entries = vec![ModelEntry::Selector(identifier.to_string())];
-                let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+                let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
                     .await
                     .expect("resolve model plan");
                 plans
@@ -164,7 +217,7 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         .finish();
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
         tracing::subscriber::with_default(subscriber, || {
-            tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+            tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
                 &[],
                 &[],
                 &[],
@@ -195,10 +248,10 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
 #[tokio::test]
 async fn test_config_fixture_resolves_model_fallbacks() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
-    let plans = super::model::resolve_plans(&[], &config.models.unwrap(), None, &None, true)
+    let plans = super::model::plan::resolve_plans(&[], &config.models.unwrap(), None, &None, false, true)
         .await
         .unwrap();
-    let fallbacks = super::model::resolve_models(&plans, true, 200)
+    let fallbacks = super::model::plan::resolve_models(&plans, true, 200)
         .await
         .into_iter()
         .map(|model| (model.id, model.fallback))
@@ -217,7 +270,7 @@ async fn test_config_fixture_resolves_model_fallbacks() {
 #[tokio::test]
 async fn test_config_fixture_resolves_models() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
-    let plans = super::model::resolve_plans(&[], &config.models.unwrap(), None, &None, true)
+    let plans = super::model::plan::resolve_plans(&[], &config.models.unwrap(), None, &None, false, true)
         .await
         .unwrap();
     let resolved = plans.iter().map(|plan| (plan.name(), plan.selector.identifier())).collect::<Vec<_>>();
@@ -242,7 +295,7 @@ async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     let whitelist = whitelist.map(OneOrMany::into_vec).unwrap_or_default();
     assert_eq!(whitelist, vec!["meta-llama/Llama-2-7b-hf".to_string(), "openai/gpt-oss-2b".to_string()]);
     let whitelist = whitelist.into_iter().collect::<HashSet<_>>();
-    let plans = super::model::resolve_plans(&[], &entries, None, &None, true).await?;
+    let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, true).await?;
     let resolved = futures::future::join_all(plans.into_iter().map(|plan| {
         let whitelist = &whitelist;
         async move { plan.matches(whitelist, true).await.map(|matches| matches.then(|| plan.name())) }
@@ -307,6 +360,33 @@ fn test_config_parses_model_download_options() {
         }
         | ModelEntry::Selector(_) => panic!("expected detailed model entry"),
     }
+}
+#[test]
+fn test_config_parses_model_metadata_constraints() {
+    let config = ApplicationConfiguration::parse(
+        r#"{"models":[{"name":"tiny","source":{"provider":"huggingface","location":"https://huggingface.co/acme/tiny"},"quantization":["Q5_K_M","Q4_K_M"],"gpuMemory":"1.5GB"}]}"#,
+    )
+    .unwrap();
+    let options = config
+        .models
+        .and_then(|models| {
+            models.into_iter().find_map(|entry| match entry {
+                | ModelEntry::Entry(options) => Some(options),
+                | ModelEntry::Selector(_) => None,
+            })
+        })
+        .unwrap();
+    assert_eq!(
+        options
+            .quantization
+            .map(OneOrMany::into_vec)
+            .unwrap_or_default()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        vec!["Q5_K_M", "Q4_K_M"]
+    );
+    assert_eq!(options.gpu_memory.and_then(|memory| memory.checked_bytes()), Some(1_610_612_736));
 }
 #[test]
 fn test_config_parses_models_field_empty() {
@@ -418,7 +498,7 @@ async fn test_download_model_config_resolves_models() -> Result<()> {
     )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -460,7 +540,7 @@ fn test_download_model_config_skips_unresolved_models() {
     .expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", None, 2);
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
             &[],
@@ -507,7 +587,7 @@ async fn test_download_model_config_whitelist_keeps_matching_name() -> Result<()
     )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -541,7 +621,7 @@ async fn test_download_model_filter_keeps_matching_local_file() -> Result<()> {
     let model_file = temp_dir.join("tiny.gguf");
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string()],
         &["tiny\\.gguf$".to_string()],
         &[],
@@ -574,7 +654,7 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
     let model_file = temp_dir.join("tiny.gguf");
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string()],
         &[],
         &["tiny\\.gguf$".to_string()],
@@ -601,7 +681,7 @@ async fn test_download_model_ignore_removes_matching_local_file() -> Result<()> 
 #[tokio::test]
 async fn test_download_model_invalid_filter_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &["model.gguf".to_string()],
         &["[".to_string()],
         &[],
@@ -641,7 +721,7 @@ async fn test_download_model_local_config_copy() -> Result<()> {
         ),
     )?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -677,7 +757,7 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     let model_file = temp_dir.join("tiny.gguf");
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string()],
         &[],
         &[],
@@ -711,7 +791,7 @@ async fn test_download_model_local_file_reference() -> Result<()> {
     let model_file = temp_dir.join("tiny.gguf");
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string()],
         &[],
         &[],
@@ -744,7 +824,7 @@ async fn test_download_model_local_missing_path_errors() -> Result<()> {
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("models");
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &["./nonexistent/model.gguf".to_string()],
         &[],
         &[],
@@ -777,7 +857,7 @@ async fn test_download_model_local_mixed_offline_errors() -> Result<()> {
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
     // Local + remote in offline mode: should fail because remote is present
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string(), "some-remote-model".to_string()],
         &[],
         &[],
@@ -809,7 +889,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
     let model_file = temp_dir.join("tiny.gguf");
     write(&model_file, b"fake model data")?;
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[model_file.display().to_string()],
         &[],
         &[],
@@ -836,7 +916,7 @@ async fn test_download_model_local_offline_succeeds() -> Result<()> {
 #[tokio::test]
 async fn test_download_model_no_models_errors() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -866,7 +946,7 @@ async fn test_download_model_missing_config_reports_missing_file() -> Result<()>
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let missing = temp_dir.join("missing.json");
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -896,7 +976,7 @@ async fn test_download_model_missing_config_reports_missing_file() -> Result<()>
 #[tokio::test]
 async fn test_download_model_offline_rejects() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
-    let result = super::model::run(
+    let result = run_model(
         &["some-model".to_string()],
         &[],
         &[],
@@ -931,7 +1011,7 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
     write(&config_path, format!(r#"{{"models": ["{}"]}}"#, model_path.replace('\\', "/")))?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
-    let result = super::model::run(
+    let result = run_model(
         &[model_path],
         &[],
         &[],
@@ -966,7 +1046,7 @@ async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<(
     )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -1011,7 +1091,7 @@ fn test_download_model_whitelist_skips_unavailable_model_when_another_matches() 
     .expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
             &[],
@@ -1044,7 +1124,7 @@ fn test_download_model_whitelist_fails_when_only_model_is_unavailable() {
     write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
             &[],
@@ -1078,7 +1158,7 @@ fn test_download_model_dry_run_fails_when_only_model_is_unavailable() {
     write(&config_path, format!(r#"{{"models": ["{identifier}"]}}"#)).expect("write model config");
     let (endpoint, handle) = spawn_huggingface_model_unavailable_server(identifier);
     let result = with_var("HF_ENDPOINT", Some(endpoint), || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(super::model::run(
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(run_model(
             &[],
             &[],
             &[],
@@ -1130,7 +1210,7 @@ async fn test_download_model_whitelist_file_keeps_matching_name() -> Result<()> 
     let whitelist = super::model::Whitelist::from(Vec::new())
         .resolve(&Some(whitelist_path.display().to_string()), false)
         .await?;
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -1178,7 +1258,7 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
-    let result = super::model::run(
+    let result = run_model(
         &[],
         &[],
         &[],
@@ -1396,7 +1476,7 @@ async fn test_download_task_truncates_when_range_request_returns_200() {
 #[test]
 fn test_gguf_fallback_trigger_conditions() {
     let _error = color_eyre::eyre::eyre!(HuggingFaceError::NoGgufModelFiles);
-    let files = vec![candidate_file("config.json")];
+    let files = repository_files(vec![candidate_file("config.json")]);
     let options = acorn::io::api::huggingface::Options::init().identifier("openai/gpt-oss-2b").build();
     assert!(files.should_use_fallback(&options));
     let offline = acorn::io::api::huggingface::Options::init()
@@ -1416,7 +1496,7 @@ fn test_gguf_fallback_trigger_conditions() {
     assert!(!files.should_use_fallback(&disabled));
     let invalid_identifier = acorn::io::api::huggingface::Options::init().identifier("gpt-oss-2b").build();
     assert!(!files.should_use_fallback(&invalid_identifier));
-    assert!(!vec![candidate_file("model.gguf")].should_use_fallback(&options));
+    assert!(!repository_files(vec![candidate_file("model.gguf")]).should_use_fallback(&options));
 }
 #[test]
 fn test_hf_token_not_exposed_in_model_download_error_display() {
@@ -1426,18 +1506,19 @@ fn test_hf_token_not_exposed_in_model_download_error_display() {
             r#"{"models":[{"name":"tiny","source":{"provider":"huggingface","location":"https://huggingface.co/hf-internal-testing/tiny-random-bert"}}]}"#,
         )
         .expect("parse config");
-        let plans = futures::executor::block_on(super::model::resolve_plans(
+        let plans = futures::executor::block_on(super::model::plan::resolve_plans(
             &["tiny".to_string()],
             &config.models.unwrap_or_default(),
             None,
             &None,
+            false,
             true,
         ))
         .expect("resolve plans");
         assert!(!plans.is_empty());
         let displays = plans
             .iter()
-            .map(|plan| format!("{}", super::model::ModelDownloadError::MissingAuth(plan.name())))
+            .map(|plan| format!("{}", super::model::plan::ModelDownloadError::MissingAuth(plan.name())))
             .collect::<Vec<_>>();
         assert!(displays.iter().all(|line| !line.contains(token)));
         let urls = plans
@@ -1455,11 +1536,12 @@ fn test_hf_token_not_exposed_in_model_resolution_logs() {
     let subscriber = tracing_subscriber::fmt().with_ansi(false).with_writer(writer).finish();
     with_var("HF_TOKEN", Some(token), || {
         tracing::subscriber::with_default(subscriber, || {
-            let _ = futures::executor::block_on(super::model::resolve_plans(
+            let _ = futures::executor::block_on(super::model::plan::resolve_plans(
                 &["hf-internal-testing/tiny-random-bert".to_string()],
                 &[],
                 None,
                 &None,
+                false,
                 true,
             ));
         });
@@ -1497,35 +1579,35 @@ fn test_hf_token_not_persisted_in_activity_rows() {
 }
 #[test]
 fn test_huggingface_filter_combined() {
-    let files = vec![
+    let files = repository_files(vec![
         candidate_file("model.Q4_K_M.gguf"),
         candidate_file("model.Q4_K_S.gguf"),
         candidate_file("model.Q2_K.gguf"),
         candidate_file("config.json"),
-    ];
+    ]);
     let result = files.filter(Some("\\.gguf$"), Some("Q2_")).unwrap();
     assert_eq!(result.len(), 2);
     assert!(result.iter().all(|f| f.path.ends_with(".gguf") && !f.path.contains("Q2_")));
 }
 #[test]
 fn test_huggingface_filter_extension() {
-    let files = vec![
+    let files = repository_files(vec![
         candidate_file("model.Q4_K_M.gguf"),
         candidate_file("model.Q4_K_S.gguf"),
         candidate_file("config.json"),
         candidate_file("tokenizer.model"),
-    ];
+    ]);
     let result = files.filter(Some("\\.gguf$"), None).unwrap();
     assert_eq!(result.len(), 2);
     assert!(result.iter().all(|f| f.path.ends_with(".gguf")));
 }
 #[test]
 fn test_huggingface_filter_ignore() {
-    let files = vec![
+    let files = repository_files(vec![
         candidate_file("model.Q4_K_M.gguf"),
         candidate_file("model.Q2_K.gguf"),
         candidate_file("model.Q3_K.gguf"),
-    ];
+    ]);
     let result = files.filter(None, Some("Q2_")).unwrap();
     assert_eq!(result.len(), 1);
     assert!(result.iter().all(|f| f.path != "model.Q2_K.gguf"));
@@ -1533,7 +1615,7 @@ fn test_huggingface_filter_ignore() {
 }
 #[test]
 fn test_huggingface_filter_works_with_complex_patterns() {
-    let files = vec![candidate_file("model.gguf")];
+    let files = repository_files(vec![candidate_file("model.gguf")]);
     let result = files.filter(Some("[a-z]+"), None);
     assert!(result.is_ok());
 }
@@ -1551,7 +1633,7 @@ fn test_model_merge_patterns_keeps_config_and_cli_patterns() {
 async fn test_model_resolve_plan_matches_config_name() {
     let content = r#"{"models": [{"name": "tiny", "revision": "dev", "filter": ["\\.gguf$"], "source": {"provider": "huggingface", "location": "https://huggingface.co/acme/tiny"}}]}"#;
     let config = ApplicationConfiguration::parse(content).unwrap();
-    let plans = super::model::resolve_plans(&["tiny".to_string()], &config.models.unwrap(), None, &None, false)
+    let plans = super::model::plan::resolve_plans(&["tiny".to_string()], &config.models.unwrap(), None, &None, false, false)
         .await
         .unwrap();
     assert_eq!(plans.len(), 1);
@@ -1565,7 +1647,7 @@ fn test_model_select_preferred_file_errors_when_ambiguous() {
         preferred_marker: "Q4_K_M",
         no_match_message: "No GGUF model files found",
     };
-    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")];
+    let files = repository_files(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q6_K.gguf")]);
     let selected = files.select(&policy);
     assert!(selected.is_err());
 }
@@ -1575,7 +1657,7 @@ fn test_model_select_preferred_file_prefers_marker() {
         preferred_marker: "Q4_K_M",
         no_match_message: "No GGUF model files found",
     };
-    let files = vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")];
+    let files = repository_files(vec![candidate_file("model.Q5_K_M.gguf"), candidate_file("model.Q4_K_M.gguf")]);
     let selected = files.select(&policy).unwrap();
     assert_eq!(selected.len(), 1);
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
@@ -1700,10 +1782,10 @@ fn test_resolve_models_excludes_failed_fallbacks() {
                 ModelEntry::Selector(base_model.to_string()),
                 ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
             ];
-            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+            let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plans");
-            let resolved = super::model::resolve_models(&plans, false, 20).await;
+            let resolved = super::model::plan::resolve_models(&plans, false, 20).await;
             (plans, resolved)
         })
     });
@@ -1719,10 +1801,10 @@ fn test_resolve_models_keeps_direct_gguf_repository() {
     let resolved = with_var("HF_ENDPOINT", Some(endpoint), || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(identifier.to_string())];
-            let plans = super::model::resolve_plans(&[], &entries, None, &None, false)
+            let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plan");
-            super::model::resolve_models(&plans, false, 20).await
+            super::model::plan::resolve_models(&plans, false, 20).await
         })
     });
     handle.join().expect("join model metadata server");

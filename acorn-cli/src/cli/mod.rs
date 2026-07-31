@@ -58,12 +58,15 @@ pub struct CommandOptions {
     /// Flag used to indicate if ACORN is running in offline mode
     #[builder(default)]
     pub offline: bool,
+    /// Flag used to disable local database access
+    #[builder(default)]
+    pub no_local_database: bool,
     /// Flag used to disable automatic GGUF quantization repository discovery
     #[builder(default)]
     pub no_fallback: bool,
     /// Maximum number of repositories considered during GGUF fallback discovery
     #[builder(default = 200)]
-    pub gguf_search_limit: usize,
+    pub search_limit: usize,
     /// Flag used to select a GGUF fallback repository interactively
     #[builder(default)]
     pub interactive: bool,
@@ -380,8 +383,8 @@ pub enum DownloadCommands {
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum ImportCommands {
-    /// Import model metadata from models.dev into the local database
-    Model,
+    /// Import model metadata into the local database
+    Model(Box<arguments::ImportModel>),
     /// Import endpoint resources from an API specification
     #[command(name = "spec", visible_alias = "openapi")]
     Spec(Box<arguments::Spec>),

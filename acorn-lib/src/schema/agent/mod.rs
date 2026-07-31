@@ -2,6 +2,8 @@
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
 use crate::io::api::AuthenticationScheme;
+use crate::io::database::schema::{ModelRow, Table};
+use crate::io::database::{Database, Operations, Row};
 use crate::io::ApiResult;
 #[cfg(not(feature = "std"))]
 use crate::io::License;
@@ -9,13 +11,15 @@ use crate::io::License;
 use crate::io::License;
 use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
+use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::is_partial_date;
 use crate::schema::OneOrMany;
-use crate::util::{SemanticVersion, ToMarkdown};
+use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
+use crate::util::{Label, SemanticVersion, ToMarkdown};
 use bon::Builder;
-use color_eyre::eyre::Report;
-use core::{fmt, str::from_utf8};
+use color_eyre::eyre::{eyre, Report};
+use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
 use derive_more::Display;
 use rust_embed::Embed;
 use schemars::JsonSchema;
@@ -24,6 +28,7 @@ use serde_with::skip_serializing_none;
 use std::collections::HashMap;
 use strum::{EnumIter, IntoEnumIterator};
 use tera::{Context, Tera};
+use tracing::warn;
 use validator::{Validate, ValidationError};
 
 pub mod opencode;
@@ -328,6 +333,11 @@ impl Quantization {
                             .strip_prefix("IQ")
                             .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
                 })
+                .or_else(|| {
+                    stem.split(['-', '.'])
+                        .rev()
+                        .find(|part| part.contains("FP") && part.chars().any(|character| character.is_ascii_digit()))
+                })
                 .map(Self::from)
         })
     }
@@ -611,7 +621,26 @@ pub struct Weight {
     pub is_open: Option<bool>,
     /// Quantization format used for the weights
     pub quantization: Option<Quantization>,
+    /// Weight file size in bytes
+    pub size: Option<u64>,
 }
+/// A complete GGUF variant, including all split weight shards.
+#[derive(Clone, Debug)]
+pub struct WeightGroup {
+    /// Exact GGUF quantization.
+    pub quantization: Quantization,
+    /// Hugging Face repository containing the files.
+    pub repository: String,
+    /// Repository revision containing the files.
+    pub revision: String,
+    /// Required GGUF file paths.
+    pub paths: Vec<String>,
+    /// Aggregate byte size, or `None` when any shard size is unknown.
+    pub size: Option<u64>,
+}
+/// Grouped GGUF variants parsed from persisted weight metadata.
+#[derive(Clone, Debug, Default)]
+pub struct WeightGroups(pub Vec<WeightGroup>);
 /// Collection of model weight sources
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
@@ -623,10 +652,118 @@ impl From<&str> for Weight {
             url: value.to_string(),
             is_open: None,
             quantization: None,
+            size: None,
+        }
+    }
+}
+impl Weight {
+    /// Parse persisted Hugging Face file metadata into grouping fields.
+    pub fn parse(self) -> Option<(String, String, String, Quantization, Option<u64>)> {
+        let prefix = format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/");
+        self.quantization.and_then(|quantization| {
+            self.url.strip_prefix(&prefix).and_then(|relative| {
+                relative.split_once("/resolve/").and_then(|(repository, remainder)| {
+                    remainder
+                        .split_once('/')
+                        .map(|(revision, path)| (repository.to_string(), revision.to_string(), path.to_string(), quantization, self.size))
+                })
+            })
+        })
+    }
+}
+impl WeightGroups {
+    /// Select the first allowed GGUF variant that satisfies the memory constraint.
+    pub fn select(&self, quantization: &[Quantization], gpu_memory: Option<&Memory>) -> Option<&WeightGroup> {
+        let allowed = match quantization.is_empty() {
+            | true => vec![Quantization::Q4kM],
+            | false => quantization.to_vec(),
+        };
+        let selected = allowed.iter().find_map(|allowed| {
+            self.0
+                .iter()
+                .filter(|group| &group.quantization == allowed)
+                .find(|group| match (gpu_memory, group.size) {
+                    | (Some(memory), Some(size)) => memory.can_contain(size).unwrap_or(false),
+                    | _ => true,
+                })
+        });
+        match selected {
+            | Some(group) => {
+                if gpu_memory.is_some() && group.size.is_none() {
+                    warn!(
+                        "=> {} GGUF size metadata is incomplete for '{}'; memory eligibility is unknown and the download will proceed",
+                        Label::CAUTION,
+                        group.repository
+                    );
+                }
+                Some(group)
+            }
+            | None => {
+                let requested = allowed.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ");
+                if gpu_memory.is_some() && self.0.iter().any(|group| allowed.contains(&group.quantization)) {
+                    warn!(
+                        "=> {} Persisted GGUF variant [{}] exceeds the configured GPU memory",
+                        Label::rejected(),
+                        requested
+                    );
+                } else {
+                    warn!(
+                        "=> {} No persisted GGUF variant matched the exact quantization allowlist [{}]",
+                        Label::rejected(),
+                        requested
+                    );
+                }
+                None
+            }
         }
     }
 }
 impl Weights {
+    /// Group Hugging Face GGUF files by repository, revision, and quantization.
+    pub fn groups(self) -> WeightGroups {
+        WeightGroups(self.0.into_iter().filter_map(Weight::parse).fold(Vec::new(), |groups, parsed| {
+            let (repository, revision, path, quantization, size) = parsed;
+            match groups
+                .iter()
+                .position(|group: &WeightGroup| group.repository == repository && group.revision == revision && group.quantization == quantization)
+            {
+                | Some(index) => groups
+                    .into_iter()
+                    .enumerate()
+                    .map(|(position, group)| {
+                        if position == index {
+                            WeightGroup {
+                                paths: group.paths.into_iter().chain([path.clone()]).collect(),
+                                size: match (group.size, size) {
+                                    | (Some(total), Some(value)) => total.checked_add(value).or(Some(u64::MAX)),
+                                    | _ => None,
+                                },
+                                ..group
+                            }
+                        } else {
+                            group
+                        }
+                    })
+                    .collect(),
+                | None => groups
+                    .into_iter()
+                    .chain([WeightGroup {
+                        quantization,
+                        repository,
+                        revision,
+                        paths: vec![path],
+                        size,
+                    }])
+                    .collect(),
+            }
+        }))
+    }
+    /// Determine whether the collection contains persisted GGUF file metadata.
+    pub fn has_file_metadata(&self) -> bool {
+        self.0
+            .iter()
+            .any(|weight| weight.quantization.is_some() && weight.url.contains("/resolve/"))
+    }
     /// Add an inferred weight source when the model identifier declares a quantization.
     pub fn infer_quantization(self, model_id: &str) -> Option<Self> {
         let inferred = model_id
@@ -651,6 +788,48 @@ impl Weights {
             )),
             | _ => Some(self),
         }
+    }
+    /// Refresh file-level weights for a model while preserving repository-level sources.
+    pub fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
+        let lookup = ModelRow::init()
+            .model_id(model_id.to_string())
+            .build()
+            .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id));
+        match lookup {
+            | Ok(Some(row)) => {
+                let existing = row
+                    .weights
+                    .as_deref()
+                    .and_then(|value| serde_json::from_str::<Weights>(value).ok())
+                    .unwrap_or_default();
+                let refreshed = Weights(
+                    existing
+                        .0
+                        .into_iter()
+                        .filter(|weight| !(weight.quantization.is_some() && weight.url.contains("/resolve/")))
+                        .chain(self.0)
+                        .collect(),
+                );
+                refreshed.serialize().and_then(|weights| {
+                    ModelRow {
+                        weights: Some(weights),
+                        ..row
+                    }
+                    .update_weights(database_path)
+                    .map(|_| ())
+                })
+            }
+            | Ok(None) => self.serialize().and_then(|weights| {
+                Database::<Table>::from_path(database_path)
+                    .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
+                    .map(|_| ())
+            }),
+            | Err(why) => Err(why),
+        }
+    }
+    /// Serialize model weight metadata for database persistence.
+    pub fn serialize(self) -> ApiResult<String> {
+        serde_json::to_string(&self).map_err(|why| eyre!("Failed to serialize model weights — {why}"))
     }
 }
 impl Default for FrontMatter {
@@ -905,6 +1084,12 @@ impl From<&str> for Quantization {
 impl From<String> for Quantization {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
+    }
+}
+impl FromStr for Quantization {
+    type Err = Infallible;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(value))
     }
 }
 impl ToMarkdown for ProviderDetails {

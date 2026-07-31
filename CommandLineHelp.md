@@ -384,6 +384,8 @@ Download model weights for use with ACORN research harnesses and local inference
 * `-i`, `--ignore <LIST>` — Regular expression pattern(s) to ignore model weight sources while downloading
 
    Sources matching any ignore pattern are excluded even if they match a filter pattern
+* `--quantization <LIST>` — Ordered, exact GGUF quantizations to consider
+* `--gpu-memory <MEMORY>` — Maximum GPU memory available for model weights
 * `-o`, `--output <PATH>` — Path to output directory where downloaded model weights should be saved
 
    Defaults to $HOME/.models when omitted
@@ -394,7 +396,7 @@ Download model weights for use with ACORN research harnesses and local inference
 
    Accepts a plain-text list of names or a JSON/YAML list of names or model details
 * `--skip-verify-checksum` — Skip SHA-256 checksum verification when checksum sidecar metadata is available
-* `--gguf-search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
+* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
 
    Applies when the requested repository contains no GGUF files and automatic fallback is enabled
 
@@ -597,16 +599,31 @@ Import external metadata into ACORN
 
 ###### **Subcommands:**
 
-* `model` — Import model metadata from models.dev into the local database
+* `model` — Import model metadata into the local database
 * `spec` — Import endpoint resources from an API specification
 
 
 
 ## `acorn-cli import model`
 
-Import model metadata from models.dev into the local database
+Import model metadata into the local database
 
-**Usage:** `acorn-cli import model`
+**Usage:** `acorn-cli import model [OPTIONS] [MODEL]...`
+
+###### **Arguments:**
+
+* `<MODEL>` — Hugging Face model repository ID(s) to inspect
+
+###### **Options:**
+
+* `-c`, `--config <PATH>` — Path to configuration file listing models to inspect
+* `--no-fallback` — Disable automatic GGUF quantization repository discovery
+* `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
+* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search during GGUF fallback discovery
+
+  Default value: `20`
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
 
 
 

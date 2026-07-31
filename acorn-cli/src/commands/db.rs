@@ -1,16 +1,15 @@
 #![allow(clippy::std_instead_of_alloc)]
 use crate::io::chromium_cache_dir;
 use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
-use acorn::prelude::{env, remove_dir_all, Path};
+use acorn::prelude::{env, remove_dir_all, Arc, Path, PathBuf};
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH};
 use acorn::util::Label;
 use color_eyre::eyre::Report;
 use futures::future::ready;
 use futures::TryFutureExt;
-use std::path::PathBuf;
-use std::sync::Arc;
 use tracing::{debug, info};
 
+#[derive(Clone)]
 pub struct DatabaseConfig {
     pub offline: bool,
     pub no_local_database: bool,
@@ -20,6 +19,7 @@ pub struct DatabaseConfig {
     pub reset_database: bool,
     pub no_clear_cache: bool,
     pub cache_ttl: Option<u64>,
+    pub initial_download: bool,
 }
 pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> {
     if config.no_local_database {
@@ -102,7 +102,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                 .and_then({
                     let db = db.clone();
                     move |_| async move {
-                        match config.offline {
+                        match config.offline || !config.initial_download {
                             | true => Ok(()),
                             | false => db.populate(Table::Licenses).await.map(|_| ()),
                         }
@@ -111,7 +111,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                 .and_then({
                     let db = db.clone();
                     move |_| async move {
-                        match config.offline {
+                        match config.offline || !config.initial_download {
                             | true => Ok(()),
                             | false => db.populate(Table::ProgrammingLanguages).await.map(|_| ()),
                         }
@@ -120,7 +120,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                 .and_then({
                     let db = db.clone();
                     move |_| async move {
-                        match config.offline {
+                        match config.offline || !config.initial_download {
                             | true => Ok(()),
                             | false => db.populate(Table::Models).await.map(|_| ()),
                         }
@@ -129,7 +129,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                 .and_then({
                     let db = db.clone();
                     move |_| async move {
-                        match config.offline {
+                        match config.offline || !config.initial_download {
                             | true => Ok(()),
                             | false => db.populate(Table::Providers).await.map(|_| ()),
                         }

@@ -77,6 +77,7 @@ fn main() -> Void {
         reset_database,
         no_clear_cache,
         cache_ttl,
+        initial_download: true,
     };
     let pre_check = if no_local_database && (reset_database || clear_cache) {
         Err(eyre!("Cannot use --reset-database or --clear-cache with --no-local-database"))

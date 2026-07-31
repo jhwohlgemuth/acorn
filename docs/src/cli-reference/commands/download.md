@@ -73,11 +73,17 @@ The `download` command supports both GitLab and GitHub remote repositories for A
 Download model weights for use with ACORN research harnesses and local inference. By default, ACORN selects GGUF model files from Hugging Face repositories and prefers the Q4_K_M quantization. Python, pip, or the `hf` tool are not required.
 
 ```sh
+# Import GGUF file metadata without downloading weights
+acorn import model openai/gpt-oss-20b --search-limit 20
+
+# Select an exact quantization that fits in available GPU memory
+acorn download model openai/gpt-oss-20b --quantization Q4_K_M --gpu-memory 24GB
+
 # Download default GGUF (Q4_K_M) from a Hugging Face repo
 acorn download model meta-llama/Llama-3.1-8B
 
 # Download a specific quantization
-acorn download model meta-llama/Llama-3.1-8B --filter "Q8_0.*\\.gguf$"
+acorn download model meta-llama/Llama-3.1-8B --quantization Q8_0
 
 # Exclude low-quality quantizations
 acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
@@ -85,6 +91,26 @@ acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
 # Download models from a config file
 acorn download model --config .acorn.json
 ```
+
+Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
+
+Detailed configuration entries can set the same constraints:
+
+```json
+{
+    "models": [{
+        "name": "gpt-oss",
+        "source": {
+            "provider": "huggingface",
+            "location": "https://huggingface.co/openai/gpt-oss-20b"
+        },
+        "quantization": ["Q5_K_M", "Q4_K_M"],
+        "gpuMemory": "24GB"
+    }]
+}
+```
+
+Command-line constraints override configuration. If neither constraint is present, download selection remains unchanged. With global `--no-local-database`, import reports metadata without persisting it and constrained downloads proceed with an eligibility-unknown warning.
 
 ### Filter and Ignore Semantics
 

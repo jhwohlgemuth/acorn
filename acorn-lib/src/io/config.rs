@@ -11,6 +11,7 @@ use crate::io::{
 };
 use crate::prelude::{self, env, exit, Arc, HashSet, PathBuf};
 use crate::schema::OneOrMany;
+use crate::schema::{agent::Quantization, hardware::memory::Memory};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
 use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
@@ -280,6 +281,12 @@ pub struct ModelEntryOptions {
     /// Regex pattern(s) used to exclude model files for this entry
     #[serde(default)]
     pub ignore: Option<Vec<String>>,
+    /// Ordered exact GGUF quantization allowlist
+    #[serde(default)]
+    pub quantization: Option<OneOrMany<Quantization>>,
+    /// Maximum GPU memory available for model weights
+    #[serde(default)]
+    pub gpu_memory: Option<Memory>,
     /// Copy local model files into the model directory instead of referencing in place
     #[serde(default)]
     pub copy: Option<bool>,

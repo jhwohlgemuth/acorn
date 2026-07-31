@@ -1,7 +1,9 @@
 //! Data model for harware memory resources, including memory units and (de)serialization logic
+use crate::io::ApiResult;
 use crate::prelude::*;
 use alloc::borrow::Cow;
-use core::convert::TryInto;
+use color_eyre::eyre::{eyre, Report};
+use core::{convert::TryInto, str::FromStr};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,16 +44,16 @@ impl<'de> Deserialize<'de> for Memory {
                 f.write_str(r#"a memory string (e.g. "80GB", "2.5GB", "512MB") or a number (treated as GB)"#)
             }
             fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Memory, E> {
-                memory_from_number(value as f64)
+                memory_from_number(value as f64).map_err(E::custom)
             }
             fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Memory, E> {
-                memory_from_number(value as f64)
+                memory_from_number(value as f64).map_err(E::custom)
             }
             fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Memory, E> {
-                memory_from_number(value)
+                memory_from_number(value).map_err(E::custom)
             }
             fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Memory, E> {
-                parse_memory_string(value)
+                value.parse().map_err(E::custom)
             }
         }
         deserializer.deserialize_any(MemoryVisitor)
@@ -78,6 +80,25 @@ impl Serialize for Memory {
     }
 }
 impl Memory {
+    /// Convert the memory amount to bytes using binary unit multipliers
+    ///
+    /// Returns `None` when the amount is not finite, is negative, or exceeds `u64`
+    pub fn checked_bytes(&self) -> Option<u64> {
+        let multiplier = match self.unit {
+            | MemoryUnit::KB => 1024_f64,
+            | MemoryUnit::MB => 1024_f64.powi(2),
+            | MemoryUnit::GB => 1024_f64.powi(3),
+            | MemoryUnit::TB => 1024_f64.powi(4),
+        };
+        let bytes = self.amount * multiplier;
+        (bytes.is_finite() && bytes >= 0.0 && bytes < u64::MAX as f64)
+            .then(|| format!("{bytes:.0}").parse::<u64>().ok())
+            .flatten()
+    }
+    /// Determine whether a byte count fits in this memory amount
+    pub fn can_contain(&self, bytes: u64) -> Option<bool> {
+        self.checked_bytes().map(|available| bytes <= available)
+    }
     /// Create a Memory value in GB
     pub fn gb(amount: impl Into<f64>) -> Self {
         Memory {
@@ -105,6 +126,12 @@ impl Memory {
             amount: amount.into(),
             unit: MemoryUnit::TB,
         }
+    }
+}
+impl FromStr for Memory {
+    type Err = Report;
+    fn from_str(value: &str) -> ApiResult<Self> {
+        parse_memory_string(value)
     }
 }
 impl<'de> Deserialize<'de> for MemoryUnit {
@@ -146,9 +173,11 @@ impl JsonSchema for MemoryUnit {
         true
     }
 }
-fn memory_from_number<E: serde::de::Error>(amount: f64) -> Result<Memory, E> {
-    if amount < 0.0 {
-        Err(serde::de::Error::custom("Memory amount cannot be negative"))
+fn memory_from_number(amount: f64) -> ApiResult<Memory> {
+    if !amount.is_finite() {
+        Err(eyre!("Memory amount must be finite"))
+    } else if amount < 0.0 {
+        Err(eyre!("Memory amount cannot be negative"))
     } else {
         Ok(Memory {
             amount,
@@ -156,25 +185,47 @@ fn memory_from_number<E: serde::de::Error>(amount: f64) -> Result<Memory, E> {
         })
     }
 }
-fn parse_memory_string<E: serde::de::Error>(value: &str) -> Result<Memory, E> {
+fn parse_memory_string(value: &str) -> ApiResult<Memory> {
     let s = value.trim();
     match s.find(|c: char| !c.is_ascii_digit() && c != '.') {
         | Some(split) => match (s.get(..split), s.get(split..)) {
             | (Some(value), Some(unit)) => match value.trim().parse::<f64>() {
-                | Ok(amount) => {
-                    if amount < 0.0 {
-                        Err(serde::de::Error::custom("Memory amount cannot be negative"))
-                    } else {
-                        match MemoryUnit::deserialize(serde::de::value::StrDeserializer::new(unit.trim())) {
-                            | Ok(unit) => Ok(Memory { amount, unit }),
-                            | Err(why) => Err(why),
-                        }
-                    }
-                }
-                | Err(_) => Err(serde::de::Error::custom(format!("Invalid memory amount — '{value}'"))),
+                | Ok(amount) => memory_from_number(amount).and_then(|_| {
+                    MemoryUnit::deserialize(serde::de::value::StrDeserializer::<serde::de::value::Error>::new(unit.trim()))
+                        .map(|unit| Memory { amount, unit })
+                        .map_err(|why| eyre!(why.to_string()))
+                }),
+                | Err(_) => Err(eyre!("Invalid memory amount — '{value}'")),
             },
-            | _ => Err(serde::de::Error::custom(format!("Invalid memory value — '{s}'"))),
+            | _ => Err(eyre!("Invalid memory value — '{s}'")),
         },
-        | None => Err(serde::de::Error::custom(format!("Missing unit in memory value — '{s}'"))),
+        | None => Err(eyre!("Missing unit in memory value — '{s}'")),
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memory_from_str_and_serde_share_parsing() {
+        let parsed = "1.5GB".parse::<Memory>().unwrap();
+        let deserialized = serde_json::from_str::<Memory>(r#""1.5GiB""#).unwrap();
+        assert_eq!(parsed, deserialized);
+        assert_eq!(parsed.checked_bytes(), Some(1_610_612_736));
+    }
+    #[test]
+    fn test_memory_binary_aliases_are_equivalent() {
+        let gb = "24GB".parse::<Memory>().unwrap();
+        let gib = "24GiB".parse::<Memory>().unwrap();
+        assert_eq!(gb.checked_bytes(), gib.checked_bytes());
+        assert_eq!(gb.can_contain(24 * 1024 * 1024 * 1024), Some(true));
+    }
+    #[test]
+    fn test_memory_rejects_invalid_values_and_checked_overflow() {
+        assert!("24XB".parse::<Memory>().is_err());
+        assert!("-1GB".parse::<Memory>().is_err());
+        assert_eq!(Memory::tb(f64::MAX).checked_bytes(), None);
     }
 }

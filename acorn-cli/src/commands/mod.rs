@@ -176,50 +176,55 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             doctor::run(fix, interactive, report, check, offline)
         }
         | Some(Commands::Download(arguments)) => with_runtime(async {
-            initialize_database(config).await?;
-            match &arguments.command {
-                | Some(DownloadCommands::Model(args)) => {
-                    match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
-                        | Ok(whitelist) => {
-                            download::model::run(
-                                &args.model,
-                                &args.filter,
-                                &args.ignore,
-                                &args.config,
-                                &args.output,
-                                &config.database_path,
-                                &args.verbose,
-                                offline,
-                                args.copy,
-                                args.symlink,
-                                args.skip_verify_checksum,
-                                &whitelist.0,
-                                args.no_fallback,
-                                args.gguf_search_limit,
-                                args.interactive,
-                                args.dry_run,
-                                args.raw,
-                                &args.format,
-                            )
-                            .await
+            match initialize_database(config).await {
+                | Ok(()) => match &arguments.command {
+                    | Some(DownloadCommands::Model(args)) => {
+                        match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
+                            | Ok(whitelist) => {
+                                download::model::run(
+                                    &args.model,
+                                    &args.filter,
+                                    &args.ignore,
+                                    &args.config,
+                                    &args.output,
+                                    &config.database_path,
+                                    &args.verbose,
+                                    offline,
+                                    args.copy,
+                                    args.symlink,
+                                    args.skip_verify_checksum,
+                                    &whitelist.0,
+                                    args.no_fallback,
+                                    config.no_local_database,
+                                    &args.quantization,
+                                    &args.gpu_memory,
+                                    args.search_limit,
+                                    args.interactive,
+                                    args.dry_run,
+                                    args.raw,
+                                    &args.format,
+                                )
+                                .await
+                            }
+                            | Err(why) => Err(why),
                         }
-                        | Err(why) => Err(why),
                     }
-                }
-                | None => {
-                    download::run(
-                        &arguments.config,
-                        &arguments.url,
-                        &arguments.filter,
-                        &arguments.ignore,
-                        &arguments.output,
-                        &config.database_path,
-                        threads,
-                        &arguments.verbose,
-                        offline,
-                    )
-                    .await
-                }
+                    | None => {
+                        download::run(
+                            &arguments.config,
+                            &arguments.url,
+                            &arguments.filter,
+                            &arguments.ignore,
+                            &arguments.output,
+                            &config.database_path,
+                            threads,
+                            &arguments.verbose,
+                            offline,
+                        )
+                        .await
+                    }
+                },
+                | Err(why) => Err(why),
             }
         }),
         | Some(Commands::Export(arguments)) => {
@@ -326,9 +331,28 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         | Some(Commands::Skill) => skill::run(),
         | Some(Commands::Sync(arguments)) => with_runtime(async { sync::run(arguments).await }),
         | Some(Commands::Import { command, .. }) => match command {
-            | Some(ImportCommands::Model) => with_runtime(async {
-                initialize_database(config).await?;
-                import::model::run(&config.database_path).await
+            | Some(ImportCommands::Model(arguments)) => with_runtime(async {
+                let config = DatabaseConfig {
+                    initial_download: false,
+                    ..config.clone()
+                };
+                match initialize_database(&config).await {
+                    | Ok(()) => {
+                        import::model::run(
+                            &arguments.model,
+                            &arguments.config,
+                            &config.database_path,
+                            config.no_local_database,
+                            offline,
+                            arguments.no_fallback,
+                            arguments.search_limit,
+                            arguments.interactive,
+                            &arguments.verbose,
+                        )
+                        .await
+                    }
+                    | Err(why) => Err(why),
+                }
             }),
             | Some(ImportCommands::Spec(arguments)) => with_runtime(async {
                 let arguments::Spec {

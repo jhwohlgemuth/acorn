@@ -3,6 +3,8 @@ use super::DownloadCommands;
 use acorn::analyzer::{self, Standard};
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
+use acorn::schema::agent::Quantization;
+use acorn::schema::hardware::memory::Memory;
 use acorn::util::constants::env::CHROME_PATH;
 use acorn::util::MimeType;
 use clap::ValueEnum;
@@ -384,6 +386,12 @@ pub(crate) struct DownloadModel {
     /// Sources matching any ignore pattern are excluded even if they match a filter pattern
     #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) ignore: Vec<String>,
+    /// Ordered, exact GGUF quantizations to consider
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) quantization: Vec<Quantization>,
+    /// Maximum GPU memory available for model weights
+    #[arg(long, value_name = "MEMORY", help_heading = "OPTIONS")]
+    pub(crate) gpu_memory: Option<Memory>,
     /// Path to output directory where downloaded model weights should be saved
     ///
     /// Defaults to $HOME/.models when omitted
@@ -409,14 +417,8 @@ pub(crate) struct DownloadModel {
     /// Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
     ///
     /// Applies when the requested repository contains no GGUF files and automatic fallback is enabled
-    #[arg(
-        long,
-        value_name = "LIMIT",
-        env = "ACORN_GGUF_SEARCH_LIMIT",
-        default_value_t = 20,
-        help_heading = "OPTIONS"
-    )]
-    pub(crate) gguf_search_limit: usize,
+    #[arg(long, value_name = "LIMIT", env = "ACORN_SEARCH_LIMIT", default_value_t = 20, help_heading = "OPTIONS")]
+    pub(crate) search_limit: usize,
     /// Disable automatic GGUF quantization repository discovery when the target has no GGUF files
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) no_fallback: bool,
@@ -432,6 +434,27 @@ pub(crate) struct DownloadModel {
     /// Output format for --raw results
     #[arg(long, value_name = "FORMAT", default_value = "json", requires = "raw", help_heading = "OPTIONS")]
     pub(crate) format: OutputFormat,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ImportModel {
+    /// Hugging Face model repository ID(s) to inspect
+    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
+    pub(crate) model: Vec<String>,
+    /// Path to configuration file listing models to inspect
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Disable automatic GGUF quantization repository discovery
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) no_fallback: bool,
+    /// Open an interactive picker when GGUF fallback finds multiple repositories
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
+    /// Maximum number of Hugging Face repositories to search during GGUF fallback discovery
+    #[arg(long, value_name = "LIMIT", env = "ACORN_SEARCH_LIMIT", default_value_t = 20, help_heading = "OPTIONS")]
+    pub(crate) search_limit: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

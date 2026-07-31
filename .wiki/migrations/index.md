@@ -6,4 +6,4 @@
 
 ## Completed
 
-No retained migration plans are currently complete.
+- [Model metadata import and filtering](model-metadata-import-filtering.md) - Separate GGUF metadata enrichment from constrained weight transfer.

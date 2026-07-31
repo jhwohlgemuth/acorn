@@ -8,7 +8,7 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
-use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ServeCommands};
+use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
 use acorn::util::constants::env::CHROME_PATH;
@@ -160,21 +160,12 @@ fn test_no_color_flags_for_dry_run_diffs() {
 }
 #[test]
 fn test_download_model_gguf_fallback_arguments() {
-    let arguments = Arguments::try_parse_from([
-        "acorn",
-        "download",
-        "model",
-        "openai/gpt-oss-2b",
-        "--no-fallback",
-        "--gguf-search-limit",
-        "42",
-    ])
-    .unwrap();
+    let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b", "--no-fallback", "--search-limit", "42"]).unwrap();
     match arguments.command {
         | Some(Commands::Download(arguments)) => match arguments.command {
             | Some(DownloadCommands::Model(arguments)) => {
                 assert!(arguments.no_fallback);
-                assert_eq!(arguments.gguf_search_limit, 42);
+                assert_eq!(arguments.search_limit, 42);
             }
             | other => panic!("unexpected download command: {other:?}"),
         },
@@ -195,12 +186,12 @@ fn test_download_model_whitelist_file_argument() {
     }
 }
 #[test]
-fn test_download_model_gguf_search_limit_from_env() {
-    temp_env::with_var("ACORN_GGUF_SEARCH_LIMIT", Some("73"), || {
+fn test_download_model_search_limit_from_env() {
+    temp_env::with_var("ACORN_SEARCH_LIMIT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
             | Some(Commands::Download(arguments)) => match arguments.command {
-                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.gguf_search_limit, 73),
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.search_limit, 73),
                 | other => panic!("unexpected download command: {other:?}"),
             },
             | other => panic!("unexpected command: {other:?}"),
@@ -215,6 +206,73 @@ fn test_download_model_interactive_flag() {
             | Some(DownloadCommands::Model(arguments)) => assert!(arguments.interactive),
             | other => panic!("unexpected download command: {other:?}"),
         },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_download_model_metadata_constraints() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "download",
+        "model",
+        "openai/gpt-oss-20b",
+        "--quantization",
+        "Q5_K_M,Q4_K_M",
+        "--gpu-memory",
+        "24GB",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => {
+                assert_eq!(
+                    arguments.quantization.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                    vec!["Q5_K_M", "Q4_K_M"]
+                );
+                assert_eq!(arguments.gpu_memory.and_then(|memory| memory.checked_bytes()), Some(25_769_803_776));
+            }
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_import_model_metadata_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "import",
+        "model",
+        "openai/gpt-oss-20b",
+        "--config",
+        "models.yaml",
+        "--search-limit",
+        "42",
+        "--no-fallback",
+        "--interactive",
+        "-vv",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Import { command, .. }) => match command {
+            | Some(ImportCommands::Model(arguments)) => {
+                assert_eq!(arguments.model, vec!["openai/gpt-oss-20b"]);
+                assert_eq!(arguments.search_limit, 42);
+                assert!(arguments.no_fallback);
+                assert!(arguments.interactive);
+                assert!(arguments.verbose.is_present());
+            }
+            | other => panic!("unexpected import command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_import_model_quiet_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-20b", "--quiet"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Import {
+            command: Some(ImportCommands::Model(arguments)),
+        }) => assert!(arguments.verbose.is_silent()),
         | other => panic!("unexpected command: {other:?}"),
     }
 }

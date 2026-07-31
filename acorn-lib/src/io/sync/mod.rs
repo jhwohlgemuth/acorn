@@ -703,6 +703,8 @@ mod tests {
             auth: None,
             filter,
             ignore: None,
+            quantization: None,
+            gpu_memory: None,
             copy: None,
             symlink: None,
         })

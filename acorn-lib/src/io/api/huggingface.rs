@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
-use core::{cmp::Reverse, fmt};
+use core::{cmp::Reverse, fmt, ops::Deref};
 use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient, HFError};
 use serde::Serialize;
@@ -29,8 +29,6 @@ use tracing::{info, warn};
 pub type Candidates = Vec<Candidate>;
 /// Function used to select from multiple interactive candidates.
 pub type CandidateSelector = fn(Candidates, &Options) -> ApiResult<String>;
-/// Repository files returned by the Hugging Face repository tree API
-pub type HuggingFaceRepositoryFiles = Vec<HuggingFaceRepositoryFile>;
 /// Select a repository from model search candidates.
 pub trait CandidateSelection {
     /// Select a candidate using the selector configured in `options` when interaction is required.
@@ -186,12 +184,83 @@ pub struct HuggingFaceRepositoryFile {
     /// File size in bytes, when provided by Hugging Face
     pub size: Option<u64>,
 }
+/// Repository identity and files returned by the Hugging Face tree API.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HuggingFaceRepositoryFiles {
+    /// Repository-relative file metadata.
+    pub files: Vec<HuggingFaceRepositoryFile>,
+    /// Hugging Face repository identifier.
+    pub identifier: String,
+    /// Repository revision used for the tree request.
+    pub revision: String,
+}
 impl RepositoryFileMetadata for HuggingFaceRepositoryFile {
     fn path(&self) -> &str {
         &self.path
     }
     fn size(&self) -> Option<u64> {
         self.size
+    }
+}
+impl HuggingFaceRepositoryFiles {
+    /// Create repository file metadata with its repository identity.
+    pub fn new(identifier: impl Into<String>, revision: impl Into<String>, files: Vec<HuggingFaceRepositoryFile>) -> Self {
+        Self {
+            files,
+            identifier: identifier.into(),
+            revision: revision.into(),
+        }
+    }
+    /// Resolve this repository or a selected GGUF fallback repository.
+    pub async fn resolve(self, options: &Options) -> ApiResult<Self> {
+        if self.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) {
+            Ok(self)
+        } else if options.no_fallback {
+            Err(eyre!("No GGUF model files found for '{}'", self.identifier))
+        } else {
+            match search(&self.identifier, None, Some(options.search_limit)).await {
+                | Ok(candidates) => match candidates.select(options) {
+                    | Ok(identifier) => repository_tree(&identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await,
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why),
+            }
+        }
+    }
+}
+impl Deref for HuggingFaceRepositoryFiles {
+    type Target = [HuggingFaceRepositoryFile];
+    fn deref(&self) -> &Self::Target {
+        &self.files
+    }
+}
+impl IntoIterator for HuggingFaceRepositoryFiles {
+    type Item = HuggingFaceRepositoryFile;
+    type IntoIter = alloc::vec::IntoIter<HuggingFaceRepositoryFile>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.files.into_iter()
+    }
+}
+impl From<HuggingFaceRepositoryFiles> for Weights {
+    fn from(repository: HuggingFaceRepositoryFiles) -> Self {
+        Weights(
+            repository
+                .files
+                .into_iter()
+                .filter_map(|file| {
+                    Quantization::from_gguf_filename(&file.path).map(|quantization| Weight {
+                        label: file.path.clone(),
+                        url: format!(
+                            "https://{DEFAULT_HUGGINGFACE_DOMAIN}/{}/resolve/{}/{}",
+                            repository.identifier, repository.revision, file.path
+                        ),
+                        is_open: None,
+                        quantization: Some(quantization),
+                        size: file.size,
+                    })
+                })
+                .collect(),
+        )
     }
 }
 impl fmt::Display for Candidate {
@@ -263,6 +332,7 @@ impl Downloaded {
                     ),
                     is_open: None,
                     quantization: Some(quantization),
+                    size: None,
                 })
             })
             .filter(|candidate| {
@@ -379,12 +449,13 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         let filtered = match self.try_glob(filter, ignore) {
             | Some(result) => Ok(result),
             | None => FilterSet::filter(
-                self.clone(),
+                self.files.clone(),
                 &filter_vec,
                 &ignore_vec,
                 |file: &HuggingFaceRepositoryFile| file.path.clone(),
                 |_| true,
-            ),
+            )
+            .map(|files| Self::new(&self.identifier, &self.revision, files)),
         };
         filtered.and_then(|files| {
             if filter.is_some() {
@@ -401,18 +472,18 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
             }
         })
     }
-    fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Vec<HuggingFaceRepositoryFile>> {
+    fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Self> {
         let gguf_files: Vec<&HuggingFaceRepositoryFile> = self.iter().filter(|file| file.path.to_ascii_lowercase().ends_with(".gguf")).collect();
         match gguf_files.len() {
             | 0 => Err(eyre!(HuggingFaceError::NoGgufModelFiles)),
-            | 1 => Ok(gguf_files.into_iter().cloned().collect()),
+            | 1 => Ok(Self::new(&self.identifier, &self.revision, gguf_files.into_iter().cloned().collect())),
             | _ => {
                 let preferred: Vec<&HuggingFaceRepositoryFile> = gguf_files
                     .into_iter()
                     .filter(|file| file.path.to_ascii_uppercase().contains(policy.preferred_marker))
                     .collect();
                 match preferred.len() {
-                    | 1 => Ok(preferred.into_iter().cloned().collect()),
+                    | 1 => Ok(Self::new(&self.identifier, &self.revision, preferred.into_iter().cloned().collect())),
                     | _ => Err(eyre!(
                         "Multiple model file candidates found; use --filter to choose one: {}",
                         self.iter().map(|file| file.path.clone()).collect::<Vec<_>>().join(", ")
@@ -451,7 +522,7 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
                     })
                     .cloned()
                     .collect();
-                Some(filtered)
+                Some(Self::new(&self.identifier, &self.revision, filtered))
             }
         }
     }
@@ -494,12 +565,14 @@ impl From<&Source> for Weights {
                 url: format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/{identifier}"),
                 is_open: None,
                 quantization: None,
+                size: None,
             }]),
             | Source::Local { path, .. } => Self(vec![Weight {
                 label: "Local".to_string(),
                 url: path.display().to_string(),
                 is_open: Some(true),
                 quantization: None,
+                size: None,
             }]),
             | Source::Unsupported(_) => Self::default(),
         }
@@ -604,11 +677,12 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Hugg
         | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
             | Ok(ResponseContent::Json(content)) => serde_json::from_str::<Vec<TreeEntry>>(&content)
                 .map(|entries| {
-                    entries
+                    let files = entries
                         .into_iter()
                         .filter(TreeEntry::is_file)
                         .map(HuggingFaceRepositoryFile::from)
-                        .collect()
+                        .collect();
+                    HuggingFaceRepositoryFiles::new(identifier, revision, files)
                 })
                 .map_err(|why| eyre!("Failed to parse Hugging Face repository file list — {why}")),
             | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
@@ -749,6 +823,7 @@ mod tests {
             url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
             is_open: Some(true),
             quantization: None,
+            size: None,
         }])
         .to_source(Some("GPT OSS 20B".to_string()))
         .unwrap();
@@ -763,6 +838,7 @@ mod tests {
             url: url.to_string(),
             is_open: Some(true),
             quantization: None,
+            size: None,
         }])
         .to_source(None)
         .unwrap();
