@@ -21,6 +21,7 @@
     - [download](./cli-reference/commands/download.md)
     - [export](./cli-reference/commands/export.md)
     - [format](./cli-reference/commands/format.md)
+    - [import](./cli-reference/commands/import.md)
     - [link](./cli-reference/commands/link.md)
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)

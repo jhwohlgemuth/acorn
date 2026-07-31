@@ -5,6 +5,7 @@
 - [📥 Download](./download.md)
 - [📤 Export](./export.md)
 - [🤖 Format](./format.md)
+- [📥 Import](./import.md)
 - [🕸️ Link](./link.md)
 
 ## Command Workflow

@@ -1,0 +1,97 @@
+# 📥 Import
+
+> Import external metadata into ACORN
+
+## Model metadata
+
+`acorn import model` can populate the general model catalog or inspect selected Hugging Face repositories for GGUF metadata. Repository inspection records GGUF file URLs, exact quantizations, revisions, and byte sizes without downloading model weights or checksum sidecars.
+
+### Import the model catalog
+
+Run the command without model selectors or a configuration file to populate the local database from the models.dev catalog:
+
+```sh
+acorn import model
+```
+
+If the model table is already populated, ACORN leaves the existing records in place.
+
+### Import selected Hugging Face models
+
+Supply one or more Hugging Face repository IDs to inspect only those repositories:
+
+```sh
+acorn import model openai/gpt-oss-20b
+
+# Comma-separated and space-separated repository IDs are accepted
+acorn import model openai/gpt-oss-20b,Qwen/Qwen2.5-0.5B-Instruct-GGUF
+```
+
+When a repository has no GGUF files, ACORN searches for a GGUF repository derived from that model. Control fallback discovery with:
+
+```sh
+# Search at most 50 candidate repositories
+acorn import model openai/gpt-oss-20b --search-limit 50
+
+# Require GGUF files in the selected repository
+acorn import model Qwen/Qwen2.5-0.5B-Instruct-GGUF --no-fallback
+
+# Choose interactively when fallback discovery finds multiple candidates
+acorn import model openai/gpt-oss-20b --interactive
+```
+
+The default search limit is 20 and can also be set with `ACORN_SEARCH_LIMIT`.
+
+### Import models from configuration
+
+Use `--config` to inspect Hugging Face models listed in an ACORN configuration file:
+
+```sh
+acorn import model --config .acorn.json
+```
+
+A detailed entry can select a repository revision:
+
+```json
+{
+    "models": [{
+        "name": "qwen-gguf",
+        "source": {
+            "provider": "huggingface",
+            "location": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+        },
+        "revision": "main"
+    }]
+}
+```
+
+Model selectors supplied on the command line are combined with supported entries from the configuration file. Metadata import supports Hugging Face repository identifiers; direct model-file URLs and local files are not supported.
+
+### Database, authentication, and offline behavior
+
+Use the global `--database-path` option to select the local database:
+
+```sh
+acorn --database-path ./acorn.db import model openai/gpt-oss-20b
+```
+
+With `--no-local-database`, selected repositories are still resolved and reported, but their metadata is not persisted. A catalog import without selectors is skipped:
+
+```sh
+acorn --no-local-database import model openai/gpt-oss-20b
+```
+
+For private or gated Hugging Face repositories, set `HF_TOKEN`, `HF_API_TOKEN`, or `HUGGINGFACE_HUB_TOKEN`. Remote metadata import is unavailable in global `--offline` mode.
+
+### Use imported metadata during download
+
+After importing metadata, constrain the download by exact quantization and available GPU memory:
+
+```sh
+acorn import model openai/gpt-oss-20b --search-limit 20
+acorn download model openai/gpt-oss-20b \
+  --quantization Q4_K_M \
+  --gpu-memory 24GB
+```
+
+See [Download](download.md#models) for download selection, filtering, split-shard sizing, and configuration details.

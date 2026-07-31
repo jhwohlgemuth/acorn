@@ -72,6 +72,8 @@ The `download` command supports both GitLab and GitHub remote repositories for A
 
 Download model weights for use with ACORN research harnesses and local inference. By default, ACORN selects GGUF model files from Hugging Face repositories and prefers the Q4_K_M quantization. Python, pip, or the `hf` tool are not required.
 
+For complete metadata-import options, configuration examples, authentication, and database behavior, see [Import model](import.md#model-metadata).
+
 ```sh
 # Import GGUF file metadata without downloading weights
 acorn import model openai/gpt-oss-20b --search-limit 20
