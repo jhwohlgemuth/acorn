@@ -443,6 +443,11 @@ pub(crate) struct ImportModel {
     /// Hugging Face model repository ID(s) to inspect
     #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
     pub(crate) model: Vec<String>,
+    /// URI or local path to a model list file
+    ///
+    /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
+    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
+    pub(crate) model_file: Option<String>,
     /// Path to configuration file listing models to inspect
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,

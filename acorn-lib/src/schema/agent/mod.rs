@@ -937,6 +937,13 @@ impl ToMarkdown for ModelDetails {
     }
 }
 impl ModelDetails {
+    /// Return the preferred non-empty model selector, using the identifier before the name.
+    pub fn selector(self) -> Option<String> {
+        self.id
+            .or(self.name)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }
     /// Set the fallback model identifier
     pub fn with_fallback(self, value: &str) -> Self {
         Self {

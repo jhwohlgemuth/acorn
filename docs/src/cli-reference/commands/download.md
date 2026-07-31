@@ -78,6 +78,9 @@ For complete metadata-import options, configuration examples, authentication, an
 # Import GGUF file metadata without downloading weights
 acorn import model openai/gpt-oss-20b --search-limit 20
 
+# Import metadata for repositories listed in a local or remote document
+acorn import model --model-file https://example.org/models.json
+
 # Select an exact quantization that fits in available GPU memory
 acorn download model openai/gpt-oss-20b --quantization Q4_K_M --gpu-memory 24GB
 

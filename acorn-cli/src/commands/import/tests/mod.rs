@@ -1,9 +1,12 @@
 #![allow(clippy::unwrap_used)]
+use super::model::ModelSelectors;
 use super::spec::endpoint_from_import;
+use crate::test::server::spawn_source_server;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles};
 use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
+use acorn::prelude::write;
 use acorn::schema::agent::Weights;
 
 const SPEC: &str = r#"
@@ -112,6 +115,53 @@ fn test_model_metadata_inserts_minimal_row_and_refreshes_weights() {
 }
 #[tokio::test]
 async fn test_model_catalog_import_skips_database_when_disabled() {
-    let result = super::model::run(&[], &None, &Some(".".into()), true, false, false, 20, false, &Default::default()).await;
+    let result = super::model::run(&[], &None, &None, &Some(".".into()), true, false, false, 20, false, &Default::default()).await;
     assert!(result.is_ok());
+}
+#[test]
+fn test_model_selectors_parse_json_model_details_preferring_id() {
+    let selectors = ModelSelectors::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#.to_string()).unwrap();
+    assert_eq!(selectors.0, vec!["acme/model", "acme/other"]);
+}
+#[test]
+fn test_model_selectors_parse_plain_text_and_yaml() {
+    let plain = ModelSelectors::parse(" acme/one \n\nacme/two\n".to_string()).unwrap();
+    let yaml = ModelSelectors::parse("- acme/one\n- acme/two\n".to_string()).unwrap();
+    assert_eq!(plain.0, vec!["acme/one", "acme/two"]);
+    assert_eq!(yaml.0, plain.0);
+}
+#[tokio::test]
+async fn test_model_selectors_resolve_file_uri() {
+    let directory = temp_test_dir("import-model-file-uri");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let path = directory.join("models.yaml");
+    write(&path, "- acme/one\n- acme/two\n").unwrap();
+    let source = if cfg!(windows) {
+        format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+    } else {
+        format!("file://{}", path.to_string_lossy())
+    };
+    let selectors = ModelSelectors::from(["inline/model".to_string()].as_slice())
+        .resolve(&Some(source), false)
+        .await
+        .unwrap();
+    assert_eq!(selectors.0, vec!["inline/model", "acme/one", "acme/two"]);
+}
+#[tokio::test]
+async fn test_model_selectors_reject_remote_uri_offline() {
+    let result = ModelSelectors::from(Vec::<String>::new().as_slice())
+        .resolve(&Some("https://example.com/models.yaml".to_string()), true)
+        .await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("offline"));
+}
+#[tokio::test]
+async fn test_model_selectors_resolve_http_uri() {
+    let (source, handle) = spawn_source_server(b"[\"acme/one\",\"acme/two\"]".to_vec());
+    let selectors = ModelSelectors::from(Vec::<String>::new().as_slice())
+        .resolve(&Some(source), false)
+        .await
+        .unwrap();
+    handle.join().unwrap();
+    assert_eq!(selectors.0, vec!["acme/one", "acme/two"]);
 }

@@ -27,6 +27,30 @@ acorn import model openai/gpt-oss-20b
 acorn import model openai/gpt-oss-20b,Qwen/Qwen2.5-0.5B-Instruct-GGUF
 ```
 
+Use `--model-file` to load repository IDs from a local path, `file://` URI, or HTTP(S) URL:
+
+```sh
+acorn import model --model-file ./models.txt
+acorn import model --model-file file:///path/to/models.yaml
+acorn import model --model-file https://example.org/models.json
+```
+
+The document may be a newline-separated plain-text list, a JSON or YAML list of repository IDs, one model-details object, or a list of model-details objects. For model details, `id` is preferred and `name` is used when `id` is absent:
+
+```json
+[
+    {
+        "name": "gpt-oss",
+        "id": "openai/gpt-oss-20b"
+    },
+    {
+        "id": "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+    }
+]
+```
+
+Positional repository IDs, entries from `--model-file`, and supported `--config` entries are combined and deduplicated before import.
+
 When a repository has no GGUF files, ACORN searches for a GGUF repository derived from that model. Control fallback discovery with:
 
 ```sh
@@ -65,7 +89,7 @@ A detailed entry can select a repository revision:
 }
 ```
 
-Model selectors supplied on the command line are combined with supported entries from the configuration file. Metadata import supports Hugging Face repository identifiers; direct model-file URLs and local files are not supported.
+Individual model selectors must be Hugging Face repository identifiers. `--model-file` identifies a document containing selectors; it does not import a local weight file or a direct model-weight URL.
 
 ### Database, authentication, and offline behavior
 
@@ -81,7 +105,7 @@ With `--no-local-database`, selected repositories are still resolved and reporte
 acorn --no-local-database import model openai/gpt-oss-20b
 ```
 
-For private or gated Hugging Face repositories, set `HF_TOKEN`, `HF_API_TOKEN`, or `HUGGINGFACE_HUB_TOKEN`. Remote metadata import is unavailable in global `--offline` mode.
+For private or gated Hugging Face repositories, set `HF_TOKEN`, `HF_API_TOKEN`, or `HUGGINGFACE_HUB_TOKEN`. Global `--offline` mode rejects HTTP(S) model-list URLs and remote Hugging Face metadata import; local paths and `file://` model lists can still be read.
 
 ### Use imported metadata during download
 

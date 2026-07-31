@@ -243,6 +243,8 @@ fn test_import_model_metadata_arguments() {
         "import",
         "model",
         "openai/gpt-oss-20b",
+        "--model-file",
+        "https://example.com/models.yaml",
         "--config",
         "models.yaml",
         "--search-limit",
@@ -256,6 +258,7 @@ fn test_import_model_metadata_arguments() {
         | Some(Commands::Import { command, .. }) => match command {
             | Some(ImportCommands::Model(arguments)) => {
                 assert_eq!(arguments.model, vec!["openai/gpt-oss-20b"]);
+                assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
                 assert_eq!(arguments.search_limit, 42);
                 assert!(arguments.no_fallback);
                 assert!(arguments.interactive);

@@ -72,6 +72,17 @@ fn response_401() -> Vec<u8> {
 fn response_500() -> Vec<u8> {
     b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
 }
+/// Spawn a local HTTP server that returns source document content.
+pub(crate) fn spawn_source_server(content: Vec<u8>) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind source test server");
+    let address = format!("http://{}/models.yaml", listener.local_addr().expect("local addr"));
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept source request");
+        let _ = parse_request(&mut stream);
+        stream.write_all(&response_200_with_body(&content)).expect("write source response");
+    });
+    (address, handle)
+}
 /// Spawn a local Hugging Face API server that returns model metadata with a declared base model.
 pub(crate) fn spawn_huggingface_model_info_server(identifier: &str, base_model: &str) -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind metadata server");

@@ -340,6 +340,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     | Ok(()) => {
                         import::model::run(
                             &arguments.model,
+                            &arguments.model_file,
                             &arguments.config,
                             &config.database_path,
                             config.no_local_database,

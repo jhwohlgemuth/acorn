@@ -7,7 +7,7 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
-use crate::schema::agent::{opencode, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weights};
+use crate::schema::agent::{opencode, ModelDetails, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weights};
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -69,6 +69,26 @@ fn test_quantization_lowercase_from_str_round_trips() {
     let value = "q2_k";
     let mapped = Quantization::from(value);
     assert_eq!(mapped.to_string(), "Q2_K");
+}
+#[test]
+fn test_model_details_selector_prefers_id_and_falls_back_to_name() {
+    let with_id = ModelDetails {
+        id: Some(" acme/model ".to_string()),
+        name: Some("display name".to_string()),
+        ..Default::default()
+    };
+    let with_name = ModelDetails {
+        name: Some(" acme/fallback ".to_string()),
+        ..Default::default()
+    };
+    let empty = ModelDetails {
+        id: Some(" ".to_string()),
+        name: Some("ignored".to_string()),
+        ..Default::default()
+    };
+    assert_eq!(with_id.selector().as_deref(), Some("acme/model"));
+    assert_eq!(with_name.selector().as_deref(), Some("acme/fallback"));
+    assert!(empty.selector().is_none());
 }
 #[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {

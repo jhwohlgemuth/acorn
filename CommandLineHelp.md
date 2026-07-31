@@ -616,6 +616,9 @@ Import model metadata into the local database
 
 ###### **Options:**
 
+* `--model-file <URI_OR_PATH>` — URI or local path to a model list file
+
+   Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
 * `-c`, `--config <PATH>` — Path to configuration file listing models to inspect
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery
 * `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories

@@ -256,7 +256,7 @@ pub async fn run(
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-enum WhitelistFile {
+pub(crate) enum ModelListFile {
     Names(Vec<String>),
     Models(Vec<ModelDetails>),
     Model(Box<ModelDetails>),
@@ -284,7 +284,7 @@ impl TryFrom<String> for Whitelist {
         if trimmed.is_empty() {
             Err(eyre!("Whitelist file cannot be empty"))
         } else {
-            match serde_norway::from_str::<WhitelistFile>(trimmed) {
+            match serde_norway::from_str::<ModelListFile>(trimmed) {
                 | Ok(file) => file.names().map(Self),
                 | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
                     Err(eyre!("Failed to parse whitelist file as JSON or YAML — {why}"))
@@ -326,7 +326,7 @@ impl Whitelist {
         }
     }
 }
-impl WhitelistFile {
+impl ModelListFile {
     fn names(self) -> ApiResult<Vec<String>> {
         match self {
             | Self::Names(names) => Ok(names),
@@ -337,6 +337,20 @@ impl WhitelistFile {
                 .collect::<ApiResult<Vec<_>>>()
                 .map(|names| names.into_iter().flatten().collect()),
             | Self::Model(details) => Whitelist::from(*details).require_names(),
+        }
+    }
+    pub(crate) fn selectors(self) -> ApiResult<Vec<String>> {
+        match self {
+            | Self::Names(names) => Ok(names),
+            | Self::Models(models) => models
+                .into_iter()
+                .map(ModelDetails::selector)
+                .map(|selector| selector.ok_or_else(|| eyre!("Model details must define 'id' or 'name'")))
+                .collect(),
+            | Self::Model(details) => details
+                .selector()
+                .map(|selector| vec![selector])
+                .ok_or_else(|| eyre!("Model details must define 'id' or 'name'")),
         }
     }
 }
