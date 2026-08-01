@@ -74,12 +74,14 @@ pub mod download;
 pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
+pub mod model;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod source;
 pub mod sync;
 
 pub use jsonc_parser::cst::CstRootNode;
+pub use model::ModelListFile;
 pub use source::{Source, SourceAction};
 
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)

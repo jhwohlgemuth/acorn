@@ -1,18 +1,18 @@
 use crate::cli::Void;
+use crate::commands::download::model::configured_models;
 #[cfg(feature = "tui")]
 use crate::commands::download::model::plan::run_gguf_picker;
 use crate::commands::download::model::plan::{resolve_plans, ModelDownloadPlan};
-use crate::commands::download::model::{configured_models, ModelListFile};
 use acorn::io::api::huggingface;
 use acorn::io::config::ApplicationConfiguration;
 use acorn::io::database::schema::Table;
 use acorn::io::database::{Database, Operations, PersistStatus};
 use acorn::io::{ApiResult, Source};
 use acorn::prelude::{PathBuf, String, Vec};
-use acorn::schema::agent::Weights;
+use acorn::schema::agent::{ModelSelectors, Weights};
 use acorn::util::{suffix, Label};
 use clap_verbosity_flag::Verbosity;
-use color_eyre::eyre::{self, eyre};
+use color_eyre::eyre::eyre;
 use futures::future::join_all;
 use owo_colors::OwoColorize;
 use tracing::{error, info, warn};
@@ -33,7 +33,7 @@ pub async fn run(
 ) -> Void {
     let quiet = verbose.is_silent();
     match ModelSelectors::from(model).resolve(model_file, offline).await {
-        | Ok(model) => match (model.0.is_empty() && config.is_none(), no_local_database) {
+        | Ok(model) => match (model.is_empty() && config.is_none(), no_local_database) {
             | (true, true) => {
                 if !quiet {
                     println!(
@@ -67,7 +67,7 @@ pub async fn run(
                         | true => configured_entries,
                         | false => Vec::new(),
                     };
-                    match resolve_plans(&model.0, &entries, None, database_path, true, offline).await {
+                    match resolve_plans(&model, &entries, None, database_path, true, offline).await {
                         | Ok(plans) => {
                             let options = ModelImportOptions {
                                 no_local_database,
@@ -111,63 +111,6 @@ struct ModelImportOptions {
     quiet: bool,
     database_path: Option<PathBuf>,
 }
-#[derive(Debug)]
-pub(crate) struct ModelSelectors(pub(super) Vec<String>);
-impl From<&[String]> for ModelSelectors {
-    fn from(values: &[String]) -> Self {
-        Self(values.to_vec())
-    }
-}
-impl From<Vec<String>> for ModelSelectors {
-    fn from(values: Vec<String>) -> Self {
-        Self(values)
-    }
-}
-impl TryFrom<String> for ModelSelectors {
-    type Error = eyre::Report;
-    fn try_from(content: String) -> Result<Self, Self::Error> {
-        let trimmed = content.trim();
-        if trimmed.is_empty() {
-            Err(eyre!("Model list file cannot be empty"))
-        } else {
-            match serde_norway::from_str::<ModelListFile>(trimmed) {
-                | Ok(file) => file.selectors().normalize(),
-                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
-                    Err(eyre!("Failed to parse model list file as JSON or YAML — {why}"))
-                }
-                | Err(_) => Ok(Self(
-                    trimmed.lines().map(str::trim).filter(|line| !line.is_empty()).map(String::from).collect(),
-                )),
-            }
-        }
-    }
-}
-impl ModelSelectors {
-    fn normalize(self) -> ApiResult<Self> {
-        let selectors = self
-            .0
-            .into_iter()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .collect::<Vec<_>>();
-        match selectors.is_empty() {
-            | true => Err(eyre!("Model list file cannot be empty")),
-            | false => Ok(Self(selectors)),
-        }
-    }
-    pub(super) fn parse(content: String) -> ApiResult<Self> {
-        Self::try_from(content)
-    }
-    pub(super) async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
-        match source {
-            | Some(source) => Source::read(source, offline)
-                .await
-                .and_then(Self::parse)
-                .map(|file| Self(self.0.into_iter().chain(file.0).collect())),
-            | None => Ok(self),
-        }
-    }
-}
 impl ModelDownloadPlan {
     async fn import(self, options: &ModelImportOptions) -> ApiResult<String> {
         let is_huggingface_repository = match &self.selector {
@@ -190,22 +133,22 @@ impl ModelDownloadPlan {
                     ..huggingface_options
                 };
                 match huggingface::HuggingFaceRepositoryFiles::resolve(&huggingface_options).await {
-                    | Ok(repository) => {
-                        let weights = Weights::from(repository);
+                    | Ok(resolution) => {
+                        let (requested, _, weights) = resolution.map(Weights::from).into_parts();
                         if weights.0.is_empty() {
-                            Err(eyre!("No GGUF model files found for '{identifier}'"))
+                            Err(eyre!("No GGUF model files found for '{requested}'"))
                         } else if options.no_local_database {
                             if !options.quiet {
                                 let count = weights.0.len();
                                 info!(
-                                    "=> {} Resolved {count} GGUF file{} for '{identifier}' without database persistence",
+                                    "=> {} Resolved {count} GGUF file{} for '{requested}' without database persistence",
                                     Label::run(),
                                     suffix(count),
                                 );
                             }
-                            Ok(identifier.to_string())
+                            Ok(requested)
                         } else {
-                            weights.persist(identifier, options.database_path.clone()).map(|_| identifier.to_string())
+                            weights.persist(&requested, options.database_path.clone()).map(|_| requested)
                         }
                     }
                     | Err(why) => Err(why),

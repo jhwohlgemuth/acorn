@@ -8,7 +8,8 @@
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
 use crate::schema::agent::{
-    opencode, ModelDetails, ModelResolutionReason, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weight, Weights,
+    opencode, ModelDetails, ModelResolutionReason, ModelSelector, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weight,
+    Weights,
 };
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
@@ -88,8 +89,8 @@ fn test_model_details_selector_prefers_id_and_falls_back_to_name() {
         name: Some("ignored".to_string()),
         ..Default::default()
     };
-    assert_eq!(with_id.selector().as_deref(), Ok("acme/model"));
-    assert_eq!(with_name.selector().as_deref(), Ok("acme/fallback"));
+    assert_eq!(with_id.selector().map(|selector| selector.to_string()), Ok("acme/model".to_string()));
+    assert_eq!(with_name.selector().map(|selector| selector.to_string()), Ok("acme/fallback".to_string()));
     assert_eq!(empty.selector(), Err(ModelResolutionReason::MissingIdentifier));
 }
 #[test]
@@ -120,7 +121,19 @@ fn test_model_details_selector_uses_identifier_for_open_model_without_weight_sou
         open_weights: Some(true),
         ..Default::default()
     };
-    assert_eq!(details.selector().as_deref(), Ok("openai/gpt-oss-20b"));
+    assert_eq!(
+        details.selector().map(|selector| selector.to_string()),
+        Ok("openai/gpt-oss-20b".to_string())
+    );
+}
+#[test]
+fn test_model_selector_normalizes_values_and_fallback_search_names() {
+    let selector = ModelSelector::new(" nvidia/llama-3.1-nemotron-ultra-253b ").unwrap();
+    assert_eq!(selector.as_str(), "nvidia/llama-3.1-nemotron-ultra-253b");
+    assert_eq!(selector.fallback_search_name(), "llama-3_1-nemotron-ultra-253b-v1");
+    let selector = ModelSelector::new("nvidia/llama-3.3-nemotron-super-49b-v1.5").unwrap();
+    assert_eq!(selector.fallback_search_name(), "llama-3_3-nemotron-super-49b-v1_5");
+    assert_eq!(ModelSelector::new(" "), None);
 }
 #[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {

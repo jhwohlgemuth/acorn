@@ -1,7 +1,9 @@
 //! Model download planning, resolution, and metadata filtering.
 use super::{download_remote_model, is_http_or_https, materialize_local_model};
 use crate::cli::CommandOptions;
-use acorn::io::api::huggingface::{self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension};
+use acorn::io::api::huggingface::{
+    self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension, RepositoryResolution,
+};
 use acorn::io::api::models_dev;
 use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
 use acorn::io::database::schema::ModelRow;
@@ -10,7 +12,7 @@ use acorn::io::{ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, ModelResolutionReason, Quantization, WeightGroups, Weights};
+use acorn::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, WeightGroups, Weights};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
@@ -30,7 +32,6 @@ pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
     MissingAuth(String),
-    UnresolvedModel { model: String, reason: ModelResolutionReason },
     NoModelsFound,
 }
 #[derive(Builder, Clone, Debug)]
@@ -60,9 +61,6 @@ impl fmt::Display for ModelDownloadError {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
-            | Self::UnresolvedModel { model, reason } => {
-                write!(formatter, "'{model}' was not resolved to a Hugging Face repository — {reason}")
-            }
             | Self::NoModelsFound => write!(formatter, "No models found"),
         }
     }
@@ -177,10 +175,10 @@ impl ModelDownloadPlan {
                     self.name()
                 }),
                 | Some(Source::Remote { identifier, .. }) if is_http_or_https(identifier) => download_remote_model(options).await,
-                | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|repository| {
-                    let identifier = repository.identifier.clone();
+                | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|resolution| {
+                    let identifier = resolution.resolved().to_string();
                     if !options.no_local_database {
-                        if let Err(why) = self.persist_downloaded_weights(&repository, options.database_path.clone()) {
+                        if let Err(why) = self.persist_downloaded_weights(&resolution, options.database_path.clone()) {
                             warn!("=> {} Model '{identifier}' weight metadata was not persisted — {why}", Label::CAUTION);
                         }
                     }
@@ -215,7 +213,7 @@ impl ModelDownloadPlan {
             }
         }
     }
-    async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<Downloaded> {
+    async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<RepositoryResolution<Downloaded>> {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
@@ -264,7 +262,7 @@ impl ModelDownloadPlan {
                                 | Err(why) if files.should_use_fallback(&options) && is_gguf_error(&why) => {
                                     Self::download_gguf_fallback(&root, options).await
                                 }
-                                | result => result,
+                                | result => result.map(|downloaded| downloaded.into_resolution(&identifier)),
                             }
                         }
                         | Err(why) => Err(why),
@@ -280,7 +278,7 @@ impl ModelDownloadPlan {
             | _ => Err(eyre!("Model selector is not remote")),
         }
     }
-    async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<Downloaded> {
+    async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<RepositoryResolution<Downloaded>> {
         let huggingface::Options {
             identifier,
             filter,
@@ -320,7 +318,10 @@ impl ModelDownloadPlan {
                                             .interactive(*interactive)
                                             .skip_verify_checksum(*skip_verify_checksum)
                                             .build();
-                                        files.download(&fallback_options).await
+                                        files
+                                            .download(&fallback_options)
+                                            .await
+                                            .map(|downloaded| RepositoryResolution::new(identifier, fallback_identifier, downloaded))
                                     }
                                     | Err(why) => Err(why),
                                 },
@@ -335,17 +336,17 @@ impl ModelDownloadPlan {
             | None => Err(eyre!("Model identifier is not configured for GGUF fallback")),
         }
     }
-    fn persist_downloaded_weights(&self, repository: &Downloaded, database_path: Option<PathBuf>) -> ApiResult<()> {
-        let selector_id = self.selector.identifier();
+    fn persist_downloaded_weights(&self, resolution: &RepositoryResolution<Downloaded>, database_path: Option<PathBuf>) -> ApiResult<()> {
+        let repository = resolution.value();
         let lookup = |model_id: &str| {
             ModelRow::init()
                 .maybe_model_id(Some(model_id.to_string()))
                 .build()
                 .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id))
         };
-        let row = lookup(&selector_id).and_then(|row| match row {
+        let row = lookup(resolution.requested()).and_then(|row| match row {
             | Some(row) => Ok(Some(row)),
-            | None => lookup(&repository.identifier),
+            | None => lookup(resolution.resolved()),
         });
         match row {
             | Err(why) => Err(why),
@@ -504,10 +505,48 @@ impl ModelDownloadPlans {
                 .collect(),
         )
     }
+    pub(crate) async fn resolve_models(&self, offline: bool, limit: usize) -> Vec<RepositoryResolution<ModelDetails>> {
+        let results = stream::iter(self.0.iter().cloned())
+            .then(|plan| async move {
+                match &plan.selector {
+                    | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
+                        let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
+                        match huggingface::parse_identifier(identifier) {
+                            | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
+                                | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
+                                | Ok(_) => match base.resolve_fallback(identifier, offline, limit).await {
+                                    | Ok(resolved) => Some(resolved),
+                                    | Err(why) => {
+                                        error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
+                                        None
+                                    }
+                                },
+                                | Err(why) if huggingface::model_is_unavailable(&why) => {
+                                    warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
+                                    base.resolve_fallback(identifier, offline, limit).await.ok()
+                                }
+                                | Err(why) => {
+                                    error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                                    None
+                                }
+                            },
+                            | Err(why) => {
+                                error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                                None
+                            }
+                        }
+                    }
+                    | _ => Some(RepositoryResolution::direct(plan.selector.identifier(), ModelDetails::from(&plan))),
+                }
+            })
+            .collect::<Vec<_>>()
+            .await;
+        results.into_iter().flatten().collect()
+    }
 }
 /// Resolve positional selectors against config entries, merge with entry-based plans, and deduplicate by identifier.
 pub(crate) async fn resolve_plans(
-    positional: &[String],
+    positional: &ModelSelectors,
     entries: &[ModelEntry],
     action: Option<SourceAction>,
     database_path: &Option<PathBuf>,
@@ -529,73 +568,37 @@ pub(crate) async fn resolve_plans(
         .into_iter()
         .filter_map(Result::ok)
         .chain(entries.iter().filter_map(|entry| match entry {
-            | ModelEntry::Selector(s) => (!s.trim().is_empty()).then(|| ModelDownloadPlan::new(Source::from(s.trim())).with_action(action)),
+            | ModelEntry::Selector(value) => {
+                ModelSelector::new(value).map(|selector| ModelDownloadPlan::new(Source::from(selector.as_str())).with_action(action))
+            }
             | ModelEntry::Entry(options) => Some(ModelDownloadPlan::from_entry(options).with_action(action)),
         }))
         .unique_by(|plan| plan.selector.identifier())
         .collect();
     Ok(plans)
 }
-pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, limit: usize) -> Vec<ModelDetails> {
-    let results = stream::iter(plans.iter().cloned())
-        .then(|plan| async move {
-            match &plan.selector {
-                | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
-                    let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
-                    match huggingface::parse_identifier(identifier) {
-                        | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
-                            | Ok(info) if info.has_gguf_files() => Some(base),
-                            | Ok(_) => match base.resolve_fallback(identifier, offline, limit).await {
-                                | Ok(resolved) => Some(resolved),
-                                | Err(why) => {
-                                    error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
-                                    None
-                                }
-                            },
-                            | Err(why) if huggingface::model_is_unavailable(&why) => {
-                                warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
-                                base.resolve_fallback(identifier, offline, limit).await.ok()
-                            }
-                            | Err(why) => {
-                                error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
-                                None
-                            }
-                        },
-                        | Err(why) => {
-                            error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
-                            None
-                        }
-                    }
-                }
-                | _ => Some(ModelDetails::from(&plan)),
-            }
-        })
-        .collect::<Vec<_>>()
-        .await;
-    results.into_iter().flatten().collect()
-}
 async fn resolve_positional_plan(
-    selector: &str,
+    selector: &ModelSelector,
     entry_options: &[&ModelEntryOptions],
     action: Option<SourceAction>,
     database_path: &Option<PathBuf>,
     no_local_database: bool,
     offline: bool,
 ) -> ApiResult<ModelDownloadPlan> {
-    let trimmed = selector.trim();
-    let fallback = || ModelDownloadPlan::new(Source::from(trimmed));
+    let selector = selector.as_str();
+    let fallback = || ModelDownloadPlan::new(Source::from(selector));
     let aliases = entry_options
         .iter()
-        .filter(|entry| entry.name.eq_ignore_ascii_case(trimmed))
+        .filter(|entry| entry.name.eq_ignore_ascii_case(selector))
         .collect::<Vec<_>>();
     match (
-        entry_options.iter().find(|entry| entry.name == trimmed),
+        entry_options.iter().find(|entry| entry.name == selector),
         aliases.as_slice(),
-        is_http_or_https(trimmed),
+        is_http_or_https(selector),
     ) {
         | (Some(entry), _, _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
         | (_, [entry], _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
-        | (_, [_, ..], _) => Err(eyre!("{}", ModelDownloadError::MultipleMatches(trimmed.to_string()))),
+        | (_, [_, ..], _) => Err(eyre!("{}", ModelDownloadError::MultipleMatches(selector.to_string()))),
         | (_, _, true) => Ok(fallback()),
         | _ if no_local_database => Ok(fallback().with_action(action)),
         | _ => {
@@ -630,7 +633,7 @@ async fn resolve_positional_plan(
                     let resolved = models_dev::download_cached().await.map(|catalog| {
                         catalog
                             .models
-                            .get(trimmed)
+                            .get(selector)
                             .cloned()
                             .or_else(|| catalog.models.values().find(|details| details.id.as_deref() == Some(selector)).cloned())
                             .and_then(ModelDownloadPlan::from_details)
@@ -748,9 +751,16 @@ mod metadata_filter_tests {
     #[tokio::test]
     async fn test_no_local_database_skips_plan_lookup_and_constraint_lookup() {
         let invalid_database_path = PathBuf::from(".");
-        let plans = resolve_plans(&["acme/base".to_string()], &[], None, &Some(invalid_database_path.clone()), true, true)
-            .await
-            .unwrap();
+        let plans = resolve_plans(
+            &ModelSelectors::from(vec!["acme/base".to_string()]),
+            &[],
+            None,
+            &Some(invalid_database_path.clone()),
+            true,
+            true,
+        )
+        .await
+        .unwrap();
         let selected = ModelDownloadPlans(plans).constrain(
             &[Quantization::Q4kM],
             &[],

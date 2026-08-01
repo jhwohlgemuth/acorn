@@ -1,15 +1,14 @@
 //! Model download command orchestration and execution.
 pub mod plan;
-use self::plan::{resolve_models, resolve_plans, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
+use self::plan::{resolve_plans, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
-use crate::commands::import::model::ModelSelectors;
 use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{home_directory, ApiResult, Source, SourceAction};
+use acorn::io::{home_directory, ApiResult, ModelListFile, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, Quantization};
+use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
@@ -20,8 +19,7 @@ use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use serde::Deserialize;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 /// Download model weights with optional persisted-metadata constraints.
 #[allow(clippy::too_many_arguments)]
@@ -49,6 +47,7 @@ pub async fn run(
     format: &OutputFormat,
 ) -> Void {
     let quiet = verbose.is_silent();
+    let model = ModelSelectors::from(model);
     let action = SourceAction::from_options(copy, symlink);
     let configuration = match ApplicationConfiguration::load(config) {
         | Ok(configuration) => Some(configuration),
@@ -71,7 +70,7 @@ pub async fn run(
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<HashSet<_>>();
-    match resolve_plans(model, &entries, action, database_path, no_local_database, offline).await {
+    match resolve_plans(&model, &entries, action, database_path, no_local_database, offline).await {
         | Ok(planned) => match FilterSet::filter(planned, filter, ignore, |plan| plan.selector.identifier(), |_| true) {
             | Ok(plans) => {
                 let plans = plans.into_iter().sorted_by_key(|plan| plan.selector.identifier());
@@ -86,15 +85,15 @@ pub async fn run(
                         let cli_constrained = !quantization.is_empty() || gpu_memory.is_some();
                         let config_constrained = selectors.iter().any(|plan| !plan.quantization.is_empty() || plan.gpu_memory.is_some());
                         let constrained = cli_constrained || config_constrained;
-                        let selectors = ModelDownloadPlans(selectors)
-                            .constrain(quantization, filter, ignore, no_local_database, gpu_memory, database_path)
-                            .0;
-                        if constrained && selectors.is_empty() {
+                        let selectors =
+                            ModelDownloadPlans(selectors).constrain(quantization, filter, ignore, no_local_database, gpu_memory, database_path);
+                        if constrained && selectors.0.is_empty() {
                             let why = ModelDownloadError::NoModelsFound;
                             error!("=> {} {why}", Label::fail());
                             Err(eyre!(why))
-                        } else if offline && selectors.iter().any(ModelDownloadPlan::is_remote) {
+                        } else if offline && selectors.0.iter().any(ModelDownloadPlan::is_remote) {
                             let remote_names: Vec<String> = selectors
+                                .0
                                 .iter()
                                 .filter(|plan| plan.is_remote())
                                 .map(|plan| plan.selector.identifier())
@@ -105,7 +104,7 @@ pub async fn run(
                                 remote_names.join(", ")
                             );
                             Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
-                        } else if selectors.is_empty() {
+                        } else if selectors.0.is_empty() {
                             let msg = if model.is_empty() && entries.is_empty() {
                                 "No models specified — provide model IDs or --config"
                             } else if !whitelist.is_empty() {
@@ -116,12 +115,13 @@ pub async fn run(
                             error!("=> {} {msg}", Label::fail());
                             Err(eyre!(msg))
                         } else {
-                            let models = resolve_models(&selectors, offline, search_limit).await;
+                            let models = selectors.resolve_models(offline, search_limit).await;
                             if models.is_empty() {
                                 let why = ModelDownloadError::NoModelsFound;
                                 error!("=> {} {why}", Label::fail());
                                 Err(eyre!(why))
                             } else if dry_run {
+                                let models = models.into_iter().map(ModelDetails::from).collect::<Vec<_>>();
                                 if raw {
                                     output_raw(&models, format)
                                 } else {
@@ -141,12 +141,9 @@ pub async fn run(
                                     Ok(())
                                 }
                             } else {
-                                let resolved = models
-                                    .iter()
-                                    .filter_map(|details| details.fallback.as_ref().or(details.id.as_ref()))
-                                    .map(String::as_str)
-                                    .collect::<HashSet<_>>();
+                                let resolved = models.iter().map(|resolution| resolution.requested()).collect::<HashSet<_>>();
                                 let plans = selectors
+                                    .0
                                     .into_iter()
                                     .filter(|plan| resolved.contains(plan.selector.identifier().as_str()))
                                     .collect::<Vec<_>>();
@@ -256,13 +253,6 @@ pub async fn run(
     }
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub(crate) enum ModelListFile {
-    Names(Vec<String>),
-    Models(Vec<ModelDetails>),
-    Model(Box<ModelDetails>),
-}
 pub(crate) struct Whitelist(pub(crate) Vec<String>);
 impl From<&[String]> for Whitelist {
     fn from(values: &[String]) -> Self {
@@ -272,11 +262,6 @@ impl From<&[String]> for Whitelist {
 impl From<Vec<String>> for Whitelist {
     fn from(values: Vec<String>) -> Self {
         Self(values)
-    }
-}
-impl From<ModelDetails> for Whitelist {
-    fn from(details: ModelDetails) -> Self {
-        Self(details.name.into_iter().chain(details.id).collect())
     }
 }
 impl TryFrom<String> for Whitelist {
@@ -299,12 +284,6 @@ impl TryFrom<String> for Whitelist {
     }
 }
 impl Whitelist {
-    fn require_names(self) -> ApiResult<Vec<String>> {
-        match self.0.is_empty() {
-            | true => Err(eyre!("Model details in whitelist file must define 'name' or 'id'")),
-            | false => Ok(self.0),
-        }
-    }
     pub(crate) fn parse(content: String) -> ApiResult<Self> {
         Self::try_from(content)
     }
@@ -325,57 +304,6 @@ impl Whitelist {
             | Some(OneOrMany::One(value)) if is_http_or_https(&value) => Self(Vec::new()).resolve(&Some(value), offline).await,
             | Some(values) => Ok(Self(values.into_vec())),
             | None => Ok(Self(Vec::new())),
-        }
-    }
-}
-impl ModelListFile {
-    fn names(self) -> ApiResult<Vec<String>> {
-        match self {
-            | Self::Names(names) => Ok(names),
-            | Self::Models(models) => models
-                .into_iter()
-                .map(Whitelist::from)
-                .map(Whitelist::require_names)
-                .collect::<ApiResult<Vec<_>>>()
-                .map(|names| names.into_iter().flatten().collect()),
-            | Self::Model(details) => Whitelist::from(*details).require_names(),
-        }
-    }
-    pub(crate) fn selectors(self) -> ModelSelectors {
-        match self {
-            | Self::Names(names) => ModelSelectors::from(names),
-            | Self::Models(models) => ModelSelectors::from(
-                models
-                    .into_iter()
-                    .filter_map(|details| {
-                        let name = details
-                            .id
-                            .clone()
-                            .or_else(|| details.name.clone())
-                            .unwrap_or_else(|| "unknown".to_string());
-                        match details
-                            .selector()
-                            .map_err(|reason| ModelDownloadError::UnresolvedModel { model: name.clone(), reason })
-                        {
-                            | Ok(selector) => Some(selector),
-                            | Err(ModelDownloadError::UnresolvedModel { reason, .. }) => {
-                                warn!(
-                                    "=> {} Could not resolve {} {}",
-                                    Label::skip(),
-                                    name.yellow(),
-                                    format!("({reason})").dimmed()
-                                );
-                                None
-                            }
-                            | Err(why) => {
-                                warn!("=> {} {why}", Label::skip());
-                                None
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            ),
-            | Self::Model(details) => Self::Models(vec![*details]).selectors(),
         }
     }
 }

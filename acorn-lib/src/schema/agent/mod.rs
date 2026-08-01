@@ -8,7 +8,7 @@ use crate::io::database::{Database, Operations, Row};
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::License;
-use crate::io::{ApiResult, Source};
+use crate::io::{ApiResult, ModelListFile, Source};
 use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::hardware::memory::Memory;
@@ -16,7 +16,7 @@ use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::is_partial_date;
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
-use crate::util::{Label, SemanticVersion, ToMarkdown};
+use crate::util::{strip_suffixes, Label, SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
@@ -38,6 +38,7 @@ pub mod opencode;
 lazy_static! {
     static ref HTTP_URL: Result<Regex, fancy_regex::Error> = Regex::new(r"^https?://");
 }
+pub(crate) const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
 
 /// Benchmark evaluation harness or framework
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
@@ -513,7 +514,7 @@ pub struct ModelDetails {
     pub temperature: Option<bool>,
     /// Whether the model supports tool calling
     pub tool_call: Option<bool>,
-    /// Selected GGUF fallback repository identifier when the base model has no GGUF files
+    /// Original requested repository identifier when `id` was resolved through GGUF fallback
     pub fallback: Option<String>,
     /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
     pub variant: Option<String>,
@@ -538,6 +539,12 @@ pub enum ModelResolutionReason {
     #[display("model has no identifier or name")]
     MissingIdentifier,
 }
+/// A normalized model lookup value supplied by a user or model catalog.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ModelSelector(String);
+/// A normalized collection of model lookup values.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ModelSelectors(Vec<ModelSelector>);
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -960,7 +967,7 @@ impl ToMarkdown for ModelDetails {
 }
 impl ModelDetails {
     /// Return a Hugging Face repository selector or explain why one cannot be resolved.
-    pub fn selector(self) -> Result<String, ModelResolutionReason> {
+    pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
         let repository = Option::<Source>::from(self.clone())
             .map(|source| source.identifier())
             .filter(|identifier| HTTP_URL.as_ref().is_ok_and(|regex| !regex.is_match(identifier).unwrap_or(false)));
@@ -969,7 +976,7 @@ impl ModelDetails {
             .or(self.name)
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty());
-        match (repository, self.open_weights, self.weights, identifier) {
+        let selector = match (repository, self.open_weights, self.weights, identifier) {
             | (Some(repository), _, _, _) => Ok(repository),
             | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
             | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
@@ -977,9 +984,10 @@ impl ModelDetails {
             | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
             | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
             | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
-        }
+        };
+        selector.and_then(|value| ModelSelector::new(value).ok_or(ModelResolutionReason::MissingIdentifier))
     }
-    /// Set the fallback model identifier
+    /// Set the original model identifier for a resolved fallback
     pub fn with_fallback(self, value: &str) -> Self {
         Self {
             fallback: Some(value.to_string()),
@@ -991,6 +999,107 @@ impl ModelDetails {
         Self {
             id: Some(value.to_string()),
             ..self
+        }
+    }
+}
+impl ModelSelector {
+    /// Create a selector from a non-empty string after trimming whitespace.
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| Self(trimmed.to_string()))
+    }
+    /// Return the normalized selector value.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+    /// Return the model name used for GGUF fallback repository discovery.
+    pub fn fallback_search_name(&self) -> String {
+        let name = self.0.rsplit('/').next().unwrap_or_default();
+        let canonical = strip_suffixes(FALLBACK_MODEL_SUFFIXES, name)
+            .replace("llama-3.1-", "llama-3_1-")
+            .replace("llama-3.3-", "llama-3_3-")
+            .replace("v1.5", "v1_5");
+        match canonical.as_str() {
+            | "llama-3_1-nemotron-ultra-253b" => format!("{canonical}-v1"),
+            | _ => canonical,
+        }
+    }
+}
+impl AsRef<str> for ModelSelector {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+impl fmt::Display for ModelSelector {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl From<ModelSelector> for String {
+    fn from(selector: ModelSelector) -> Self {
+        selector.0
+    }
+}
+impl From<&[String]> for ModelSelectors {
+    fn from(values: &[String]) -> Self {
+        Self(values.iter().filter_map(|value| ModelSelector::new(value.clone())).collect())
+    }
+}
+impl From<Vec<ModelSelector>> for ModelSelectors {
+    fn from(values: Vec<ModelSelector>) -> Self {
+        Self(values)
+    }
+}
+impl From<Vec<String>> for ModelSelectors {
+    fn from(values: Vec<String>) -> Self {
+        Self(values.into_iter().filter_map(ModelSelector::new).collect())
+    }
+}
+impl TryFrom<String> for ModelSelectors {
+    type Error = Report;
+    fn try_from(content: String) -> Result<Self, Self::Error> {
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            Err(eyre!("Model list file cannot be empty"))
+        } else {
+            match serde_norway::from_str::<ModelListFile>(trimmed) {
+                | Ok(file) => file.selectors().require_non_empty(),
+                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
+                    Err(eyre!("Failed to parse model list file as JSON or YAML — {why}"))
+                }
+                | Err(_) => Self::from(trimmed.lines().map(str::to_string).collect::<Vec<_>>()).require_non_empty(),
+            }
+        }
+    }
+}
+impl ModelSelectors {
+    /// Return whether the collection contains no selectors.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Iterate over normalized selectors.
+    pub fn iter(&self) -> impl Iterator<Item = &ModelSelector> {
+        self.0.iter()
+    }
+    /// Parse selectors from plain text, JSON, or YAML model-list content.
+    pub fn parse(content: String) -> ApiResult<Self> {
+        Self::try_from(content)
+    }
+    fn require_non_empty(self) -> ApiResult<Self> {
+        match self.is_empty() {
+            | true => Err(eyre!("Model list file cannot be empty")),
+            | false => Ok(self),
+        }
+    }
+    /// Merge selectors read from an optional local or remote model-list source.
+    pub async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
+        match source {
+            | Some(source) => Source::read(source, offline)
+                .await
+                .and_then(Self::parse)
+                .map(|file| Self(self.0.into_iter().chain(file.0).collect())),
+            | None => Ok(self),
         }
     }
 }

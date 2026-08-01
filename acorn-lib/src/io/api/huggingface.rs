@@ -5,7 +5,7 @@ use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
-use crate::schema::agent::{ModelDetails, Quantization, Weight, Weights};
+use crate::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
 use crate::util::constants::app::{
     DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
 };
@@ -25,8 +25,6 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
-
-const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
 
 /// Candidate repositories returned by model search.
 pub type Candidates = Vec<Candidate>;
@@ -120,6 +118,13 @@ pub struct Candidate {
     pub likes: Option<u64>,
     /// Quantization formats detected in repository filenames
     pub quantizations: Vec<String>,
+}
+/// A repository-backed value together with its requested and resolved identifiers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RepositoryResolution<T> {
+    requested: String,
+    resolved: String,
+    value: T,
 }
 /// Hugging Face repository files selected and downloaded for a model
 #[derive(Builder, Clone, Debug, Eq, PartialEq)]
@@ -248,7 +253,7 @@ impl HuggingFaceRepositoryFiles {
         }
     }
     /// Resolve the configured repository or a selected GGUF fallback repository.
-    pub async fn resolve(options: &Options) -> ApiResult<Self> {
+    pub async fn resolve(options: &Options) -> ApiResult<RepositoryResolution<Self>> {
         let Options {
             identifier,
             no_fallback,
@@ -258,12 +263,17 @@ impl HuggingFaceRepositoryFiles {
         } = options;
         match identifier.as_deref() {
             | Some(identifier) => match repository_tree(identifier, revision).await {
-                | Ok(repository) if repository.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) => Ok(repository),
+                | Ok(repository) if repository.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) => {
+                    Ok(RepositoryResolution::new(identifier, identifier, repository))
+                }
                 | Ok(_) if *no_fallback => Err(eyre!("No GGUF model files found for '{identifier}'")),
                 | Err(why) if *no_fallback => Err(why),
                 | Ok(_) | Err(_) => match search(identifier, None, Some(*search_limit)).await {
                     | Ok(candidates) => match candidates.select(options) {
-                        | Ok(identifier) => repository_tree(&identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await,
+                        | Ok(resolved) => match repository_tree(&resolved, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
+                            | Ok(repository) => Ok(RepositoryResolution::new(identifier, resolved, repository)),
+                            | Err(why) => Err(why),
+                        },
                         | Err(why) => Err(why),
                     },
                     | Err(why) => Err(why),
@@ -367,6 +377,10 @@ impl CandidateSelection for Candidates {
     }
 }
 impl Downloaded {
+    /// Wrap this download as a direct repository resolution.
+    pub fn into_resolution(self, identifier: impl Into<String>) -> RepositoryResolution<Self> {
+        RepositoryResolution::direct(identifier, self)
+    }
     /// Merge downloaded GGUF quantizations into existing model weights.
     pub fn merge_weights(&self, existing: Weights) -> Weights {
         let downloaded = self
@@ -631,7 +645,7 @@ impl ModelInfoExtension for ModelInfo {
 }
 impl ModelDetails {
     /// Resolve this model to a GGUF fallback repository.
-    pub async fn resolve_fallback(self, identifier: &str, offline: bool, limit: usize) -> ApiResult<Self> {
+    pub async fn resolve_fallback(self, identifier: &str, offline: bool, limit: usize) -> ApiResult<RepositoryResolution<Self>> {
         match search(identifier, None, Some(limit)).await {
             | Ok(candidates) => {
                 let options = Options::init()
@@ -640,13 +654,68 @@ impl ModelDetails {
                     .search_limit(limit)
                     .quiet(true)
                     .build();
-                candidates.select(&options).map(|resolved| match resolved == identifier {
-                    | true => self,
-                    | false => self.with_id(&resolved).with_fallback(identifier),
-                })
+                candidates
+                    .select(&options)
+                    .map(|resolved| RepositoryResolution::new(identifier, resolved, self))
             }
             | Err(why) => Err(why),
         }
+    }
+}
+impl From<RepositoryResolution<ModelDetails>> for ModelDetails {
+    fn from(resolution: RepositoryResolution<ModelDetails>) -> Self {
+        let (requested, resolved, details) = resolution.into_parts();
+        let details = details.with_id(&resolved);
+        match requested == resolved {
+            | true => details,
+            | false => details.with_fallback(&requested),
+        }
+    }
+}
+impl<T> RepositoryResolution<T> {
+    /// Create a repository resolution from requested and resolved identifiers.
+    pub fn new(requested: impl Into<String>, resolved: impl Into<String>, value: T) -> Self {
+        Self {
+            requested: requested.into(),
+            resolved: resolved.into(),
+            value,
+        }
+    }
+    /// Create a direct repository resolution from one identifier.
+    pub fn direct(identifier: impl Into<String>, value: T) -> Self {
+        let requested = identifier.into();
+        let resolved = requested.clone();
+        Self::new(requested, resolved, value)
+    }
+    /// Return whether fallback discovery selected a different repository.
+    pub fn is_fallback(&self) -> bool {
+        self.requested != self.resolved
+    }
+    /// Return the originally requested repository identifier.
+    pub fn requested(&self) -> &str {
+        &self.requested
+    }
+    /// Return the repository identifier that supplied the resolved value.
+    pub fn resolved(&self) -> &str {
+        &self.resolved
+    }
+    /// Return the resolved value.
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+    /// Transform the resolved value while preserving repository identity.
+    pub fn map<U>(self, transform: impl FnOnce(T) -> U) -> RepositoryResolution<U> {
+        let (requested, resolved, value) = self.into_parts();
+        RepositoryResolution::new(requested, resolved, transform(value))
+    }
+    /// Try to transform the resolved value while preserving repository identity.
+    pub fn try_map<U, E>(self, transform: impl FnOnce(T) -> Result<U, E>) -> Result<RepositoryResolution<U>, E> {
+        let (requested, resolved, value) = self.into_parts();
+        transform(value).map(|value| RepositoryResolution::new(requested, resolved, value))
+    }
+    /// Consume the resolution into its identifiers and value.
+    pub fn into_parts(self) -> (String, String, T) {
+        (self.requested, self.resolved, self.value)
     }
 }
 impl From<&Source> for Weights {
@@ -779,7 +848,9 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Hugg
 pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) -> ApiResult<Candidates> {
     let term = term.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_TERM);
     let limit = limit.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_LIMIT);
-    let basename = identifier.rsplit('/').next().map(fallback_search_name).filter(|value| !value.is_empty());
+    let basename = ModelSelector::new(identifier)
+        .map(|selector| selector.fallback_search_name())
+        .filter(|value| !value.is_empty());
     match (basename, HFClient::new()) {
         | (Some(basename), Ok(client)) => {
             let response = client
@@ -788,7 +859,7 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
                 .filter(term)
                 .sort("downloads")
                 .full(true)
-                .card_data(true)q
+                .card_data(true)
                 .limit(limit)
                 .send();
             match response {
@@ -845,16 +916,6 @@ fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
         | _ => false,
     }
 }
-fn fallback_search_name(name: &str) -> String {
-    let canonical = strip_suffixes(FALLBACK_MODEL_SUFFIXES, name)
-        .replace("llama-3.1-", "llama-3_1-")
-        .replace("llama-3.3-", "llama-3_3-")
-        .replace("v1.5", "v1_5");
-    match canonical.as_str() {
-        | "llama-3_1-nemotron-ultra-253b" => format!("{canonical}-v1"),
-        | _ => canonical,
-    }
-}
 fn select_first(candidates: Candidates, _options: &Options) -> ApiResult<String> {
     candidates
         .into_iter()
@@ -884,9 +945,10 @@ fn variant_matches(declared: &str, requested: &str) -> bool {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::{
-        extract_sha256, fallback_search_name, target_path_from_sidecar, Candidate, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension, Value,
+        extract_sha256, target_path_from_sidecar, Candidate, Downloaded, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension,
+        RepositoryResolution, Value,
     };
-    use crate::schema::agent::{Weight, Weights};
+    use crate::schema::agent::{ModelDetails, Weight, Weights};
     use serde_json::json;
 
     fn model(value: Value) -> ModelInfo {
@@ -948,14 +1010,6 @@ mod tests {
         assert!(ultra.is_declared_variant_of("nvidia/llama-3.1-nemotron-ultra-253b"));
         assert!(super_model.is_declared_variant_of("nvidia/llama-3.3-nemotron-super-49b-v1.5"));
         assert!(!super_model.is_declared_variant_of("nvidia/llama-nemotron-rerank-vl-1b-v2"));
-    }
-    #[test]
-    fn test_fallback_search_name_uses_nvidia_canonical_versions() {
-        assert_eq!(fallback_search_name("llama-3.1-nemotron-ultra-253b"), "llama-3_1-nemotron-ultra-253b-v1");
-        assert_eq!(
-            fallback_search_name("llama-3.3-nemotron-super-49b-v1.5"),
-            "llama-3_3-nemotron-super-49b-v1_5"
-        );
     }
     #[test]
     fn test_gguf_candidate_includes_sorted_unique_quantizations() {
@@ -1027,6 +1081,46 @@ mod tests {
         assert!(error
             .to_string()
             .starts_with("Failed to parse Hugging Face repository file list for 'broken/model'"));
+    }
+    #[test]
+    fn test_repository_resolution_identifies_direct_and_fallback_values() {
+        let direct = RepositoryResolution::direct("acme/model", 1);
+        assert!(!direct.is_fallback());
+        assert_eq!(direct.requested(), "acme/model");
+        assert_eq!(direct.resolved(), "acme/model");
+        assert_eq!(*direct.value(), 1);
+        let fallback = RepositoryResolution::new("acme/model", "community/model-GGUF", 2);
+        assert!(fallback.is_fallback());
+        assert_eq!(fallback.requested(), "acme/model");
+        assert_eq!(fallback.resolved(), "community/model-GGUF");
+        assert_eq!(fallback.into_parts(), ("acme/model".to_string(), "community/model-GGUF".to_string(), 2));
+    }
+    #[test]
+    fn test_repository_resolution_transforms_values_without_losing_identity() {
+        let mapped = RepositoryResolution::new("acme/model", "community/model-GGUF", 2).map(|value| value.to_string());
+        assert_eq!(mapped.requested(), "acme/model");
+        assert_eq!(mapped.resolved(), "community/model-GGUF");
+        assert_eq!(mapped.value(), "2");
+        let mapped = RepositoryResolution::direct("acme/model", 2).try_map(|value| if value > 0 { Ok(value * 2) } else { Err("invalid") });
+        assert_eq!(
+            mapped.map(RepositoryResolution::into_parts),
+            Ok(("acme/model".to_string(), "acme/model".to_string(), 4))
+        );
+    }
+    #[test]
+    fn test_downloaded_into_resolution_uses_one_identifier() {
+        let downloaded = Downloaded::init().identifier("acme/model").revision("main").files(Vec::new()).build();
+        let resolution = downloaded.into_resolution("acme/model");
+        assert!(!resolution.is_fallback());
+        assert_eq!(resolution.requested(), "acme/model");
+        assert_eq!(resolution.resolved(), "acme/model");
+    }
+    #[test]
+    fn test_model_details_from_repository_resolution_preserves_fallback() {
+        let resolution = RepositoryResolution::new("acme/model", "community/model-GGUF", ModelDetails::default());
+        let details = ModelDetails::from(resolution);
+        assert_eq!(details.id.as_deref(), Some("community/model-GGUF"));
+        assert_eq!(details.fallback.as_deref(), Some("acme/model"));
     }
     #[test]
     fn test_target_path_from_sidecar() {

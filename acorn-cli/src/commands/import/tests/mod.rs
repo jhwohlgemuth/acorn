@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 extern crate alloc;
-use super::model::{collect_imported, ModelSelectors};
+use super::model::collect_imported;
 use super::spec::endpoint_from_import;
 use crate::test::server::spawn_source_server;
 use crate::test::util::{temp_test_dir, TestCleanup};
@@ -8,7 +8,7 @@ use acorn::io::api::huggingface::{HuggingFaceRepositoryFile, HuggingFaceReposito
 use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::prelude::write;
-use acorn::schema::agent::Weights;
+use acorn::schema::agent::{ModelSelector, ModelSelectors, Weights};
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;
 use std::io::Write;
@@ -156,7 +156,10 @@ fn test_model_file_import_results_skip_unresolved_models() {
 #[test]
 fn test_model_selectors_parse_json_model_details_preferring_id() {
     let selectors = ModelSelectors::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#.to_string()).unwrap();
-    assert_eq!(selectors.0, vec!["acme/model", "acme/other"]);
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["acme/model", "acme/other"]
+    );
 }
 #[test]
 fn test_model_selectors_parse_catalog_weight_repositories() {
@@ -172,7 +175,10 @@ fn test_model_selectors_parse_catalog_weight_repositories() {
         .to_string(),
     )
     .unwrap();
-    assert_eq!(selectors.0, vec!["google/gemma-4-26B-A4B-it"]);
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["google/gemma-4-26B-A4B-it"]
+    );
 }
 #[test]
 fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sources() {
@@ -184,7 +190,10 @@ fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sourc
         .to_string(),
     )
     .unwrap();
-    assert_eq!(selectors.0, vec!["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+    );
 }
 #[test]
 fn test_model_selectors_warn_for_unresolved_catalog_models() {
@@ -204,7 +213,7 @@ fn test_model_selectors_warn_for_unresolved_catalog_models() {
         .unwrap()
     });
     let text = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
-    assert_eq!(selectors.0, vec!["acme/model"]);
+    assert_eq!(selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/model"]);
     assert!(text.contains("WARN"));
     assert!(text.contains("openai/gpt-4.1"));
     assert!(text.contains("Could not resolve"));
@@ -214,8 +223,8 @@ fn test_model_selectors_warn_for_unresolved_catalog_models() {
 fn test_model_selectors_parse_plain_text_and_yaml() {
     let plain = ModelSelectors::parse(" acme/one \n\nacme/two\n".to_string()).unwrap();
     let yaml = ModelSelectors::parse("- acme/one\n- acme/two\n".to_string()).unwrap();
-    assert_eq!(plain.0, vec!["acme/one", "acme/two"]);
-    assert_eq!(yaml.0, plain.0);
+    assert_eq!(plain.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/one", "acme/two"]);
+    assert_eq!(yaml, plain);
 }
 #[tokio::test]
 async fn test_model_selectors_resolve_file_uri() {
@@ -232,7 +241,10 @@ async fn test_model_selectors_resolve_file_uri() {
         .resolve(&Some(source), false)
         .await
         .unwrap();
-    assert_eq!(selectors.0, vec!["inline/model", "acme/one", "acme/two"]);
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["inline/model", "acme/one", "acme/two"]
+    );
 }
 #[tokio::test]
 async fn test_model_selectors_reject_remote_uri_offline() {
@@ -250,5 +262,8 @@ async fn test_model_selectors_resolve_http_uri() {
         .await
         .unwrap();
     handle.join().unwrap();
-    assert_eq!(selectors.0, vec!["acme/one", "acme/two"]);
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["acme/one", "acme/two"]
+    );
 }
