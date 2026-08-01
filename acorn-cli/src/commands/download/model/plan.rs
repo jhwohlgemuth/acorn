@@ -137,7 +137,7 @@ impl ModelDownloadPlan {
                             | false => Ok(rejected()),
                         },
                         | Err(why) if huggingface::model_is_unavailable(&why) => {
-                            warn!("=> {} {} on HuggingFace", Label::not_found(), identifier.yellow());
+                            warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
                             Ok(false)
                         }
                         | Err(why) => Err(why),
@@ -545,31 +545,16 @@ pub(crate) async fn resolve_models(plans: &[ModelDownloadPlan], offline: bool, l
                     match huggingface::parse_identifier(identifier) {
                         | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
                             | Ok(info) if info.has_gguf_files() => Some(base),
-                            | Ok(_) => match huggingface::search(identifier, None, Some(limit)).await {
-                                | Ok(candidates) => {
-                                    let options = huggingface::Options::init()
-                                        .identifier(identifier.clone())
-                                        .offline(offline)
-                                        .search_limit(limit)
-                                        .quiet(true)
-                                        .build();
-                                    match candidates.select(&options) {
-                                        | Ok(resolved) if resolved != *identifier => Some(base.with_id(&resolved).with_fallback(identifier)),
-                                        | Ok(_) => Some(base),
-                                        | Err(why) => {
-                                            error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
-                                            None
-                                        }
-                                    }
-                                }
+                            | Ok(_) => match base.resolve_fallback(identifier, offline, limit).await {
+                                | Ok(resolved) => Some(resolved),
                                 | Err(why) => {
-                                    error!("=> {} Search candidates for '{}' — {why}", Label::fail(), plan.name());
+                                    error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
                                     None
                                 }
                             },
                             | Err(why) if huggingface::model_is_unavailable(&why) => {
-                                warn!("=> {} {} on HuggingFace", Label::not_found(), identifier.yellow());
-                                None
+                                warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
+                                base.resolve_fallback(identifier, offline, limit).await.ok()
                             }
                             | Err(why) => {
                                 error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());

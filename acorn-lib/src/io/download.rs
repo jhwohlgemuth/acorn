@@ -53,9 +53,9 @@ impl DownloadItem {
     const PART_EXTENSION: &'static str = "part";
     const MODEL_ERROR_MESSAGE: &'static str = "Failed to download model file";
     const HUGGINGFACE_HOST: &'static str = DEFAULT_HUGGINGFACE_DOMAIN;
-    const HUGGINGFACE_ERROR_MESSAGE: &'static str = "Failed to download HuggingFace file";
+    const HUGGINGFACE_ERROR_MESSAGE: &'static str = "Failed to download Hugging Face file";
     const HUGGINGFACE_AUTH_ERROR_MESSAGE: &'static str =
-        "HuggingFace denied access to this file; verify your token has access to the repository and gated/Xet files";
+        "Hugging Face denied access to this file; verify your token has access to the repository and gated/Xet files";
 
     /// Returns the relative local path as a [`PathBuf`].
     pub fn local_path(&self) -> PathBuf {

@@ -360,9 +360,10 @@ impl ModelListFile {
                             | Ok(selector) => Some(selector),
                             | Err(ModelDownloadError::UnresolvedModel { reason, .. }) => {
                                 warn!(
-                                    "=> {} {} was not resolved to a Hugging Face repository — {reason}",
+                                    "=> {} Could not resolve {} {}",
                                     Label::skip(),
-                                    name.yellow()
+                                    name.yellow(),
+                                    format!("({reason})").dimmed()
                                 );
                                 None
                             }

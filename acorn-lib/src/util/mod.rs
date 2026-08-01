@@ -1393,6 +1393,10 @@ where
 {
     value.into().to_case(Case::Snake)
 }
+/// Remove the first matching suffix from a string slice.
+pub fn strip_suffixes<'a>(values: &[&str], name: &'a str) -> &'a str {
+    values.iter().find_map(|value| name.strip_suffix(value)).unwrap_or(name)
+}
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example
 /// ```rust
@@ -1445,6 +1449,14 @@ pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(C
             (tag, text)
         })
         .collect::<Vec<_>>()
+}
+/// Normalize a string to lowercase ASCII alphanumeric characters.
+pub fn to_ascii_alphanumeric(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 /// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {

@@ -42,7 +42,7 @@ pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.
 pub const QUALIFIER: &str = "org";
-/// Default HuggingFace domain
+/// Default Hugging Face domain
 pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 /// Default Hugging Face repository revision used when none is specified.
 pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";

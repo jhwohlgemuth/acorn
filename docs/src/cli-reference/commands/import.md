@@ -49,7 +49,7 @@ The document may be a newline-separated plain-text list, a JSON or YAML list of 
 ]
 ```
 
-For catalog records that declare `open_weights` or `weights`, ACORN uses explicit Hugging Face repository URLs from `weights` and skips records without one. This allows catalogs containing both hosted and open-weight models to be used directly:
+For catalog records that declare `open_weights` or `weights`, ACORN uses explicit Hugging Face repository URLs from `weights`. When an open-weight record has no declared weight source, ACORN uses its `id` to search for a GGUF fallback, including when that ID is not itself a Hugging Face repository. Closed models and records with non-Hugging Face weight sources are skipped. Entries that still cannot resolve produce warnings without aborting the remaining catalog import. This allows catalogs containing both hosted and open-weight models to be used directly:
 
 ```sh
 acorn import model --model-file https://research.ornl.gov/api/models.json

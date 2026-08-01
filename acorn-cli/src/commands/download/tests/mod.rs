@@ -12,9 +12,9 @@ extern crate alloc;
 use super::run;
 use crate::cli::arguments::OutputFormat;
 use crate::test::server::{
-    spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
-    spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
-    spawn_sidecar_server,
+    spawn_basic_model_config_server, spawn_huggingface_missing_model_search_server, spawn_huggingface_model_info_server,
+    spawn_huggingface_model_search_server, spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server,
+    spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server,
 };
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{
@@ -1777,6 +1777,26 @@ fn test_resolve_models_excludes_failed_fallbacks() {
         })
     });
     handle.join().expect("join model search server");
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].id.as_deref(), Some(fallback));
+    assert_eq!(resolved[0].fallback.as_deref(), Some(base_model));
+}
+#[test]
+fn test_resolve_models_falls_back_when_base_repository_is_unavailable() {
+    let base_model = "nvidia/nemotron-3-super-120b-a12b";
+    let declared_base_model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16";
+    let fallback = "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF";
+    let (endpoint, handle) = spawn_huggingface_missing_model_search_server(fallback, base_model, declared_base_model);
+    let resolved = with_hf_endpoint(endpoint, || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+            let entries = vec![ModelEntry::Selector(base_model.to_string())];
+            let plans = super::model::plan::resolve_plans(&[], &entries, None, &None, false, false)
+                .await
+                .expect("resolve model plan");
+            super::model::plan::resolve_models(&plans, false, 20).await
+        })
+    });
+    handle.join().expect("join missing model search server");
     assert_eq!(resolved.len(), 1);
     assert_eq!(resolved[0].id.as_deref(), Some(fallback));
     assert_eq!(resolved[0].fallback.as_deref(), Some(base_model));

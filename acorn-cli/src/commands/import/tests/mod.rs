@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 extern crate alloc;
-use super::model::ModelSelectors;
+use super::model::{collect_imported, ModelSelectors};
 use super::spec::endpoint_from_import;
 use crate::test::server::spawn_source_server;
 use crate::test::util::{temp_test_dir, TestCleanup};
@@ -10,6 +10,7 @@ use acorn::io::database::{Database, Row};
 use acorn::prelude::write;
 use acorn::schema::agent::Weights;
 use alloc::sync::Arc;
+use color_eyre::eyre::eyre;
 use std::io::Write;
 use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
@@ -147,6 +148,12 @@ async fn test_model_catalog_import_skips_database_when_disabled() {
     assert!(result.is_ok());
 }
 #[test]
+fn test_model_file_import_results_skip_unresolved_models() {
+    let imported = collect_imported(vec![Ok("acme/model".to_string()), Err(eyre!("missing model"))], true).unwrap();
+    assert_eq!(imported, vec!["acme/model"]);
+    assert!(collect_imported(vec![Err(eyre!("missing model"))], false).is_err());
+}
+#[test]
 fn test_model_selectors_parse_json_model_details_preferring_id() {
     let selectors = ModelSelectors::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#.to_string()).unwrap();
     assert_eq!(selectors.0, vec!["acme/model", "acme/other"]);
@@ -166,6 +173,18 @@ fn test_model_selectors_parse_catalog_weight_repositories() {
     )
     .unwrap();
     assert_eq!(selectors.0, vec!["google/gemma-4-26B-A4B-it"]);
+}
+#[test]
+fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sources() {
+    let selectors = ModelSelectors::parse(
+        r#"[
+            {"id":"openai/gpt-oss-120b","open_weights":true},
+            {"id":"openai/gpt-oss-20b","open_weights":true}
+        ]"#
+        .to_string(),
+    )
+    .unwrap();
+    assert_eq!(selectors.0, vec!["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
 }
 #[test]
 fn test_model_selectors_warn_for_unresolved_catalog_models() {
@@ -188,7 +207,8 @@ fn test_model_selectors_warn_for_unresolved_catalog_models() {
     assert_eq!(selectors.0, vec!["acme/model"]);
     assert!(text.contains("WARN"));
     assert!(text.contains("openai/gpt-4.1"));
-    assert!(text.contains("was not resolved to a Hugging Face repository — model is not open"));
+    assert!(text.contains("Could not resolve"));
+    assert!(text.contains("model is not open"));
 }
 #[test]
 fn test_model_selectors_parse_plain_text_and_yaml() {

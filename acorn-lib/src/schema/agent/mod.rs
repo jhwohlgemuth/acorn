@@ -971,7 +971,7 @@ impl ModelDetails {
             .filter(|value| !value.is_empty());
         match (repository, self.open_weights, self.weights, identifier) {
             | (Some(repository), _, _, _) => Ok(repository),
-            | (None, None, None, Some(identifier)) => Ok(identifier),
+            | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
             | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
             | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
             | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),

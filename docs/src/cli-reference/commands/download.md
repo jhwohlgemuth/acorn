@@ -97,7 +97,7 @@ acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
 acorn download model --config .acorn.json
 ```
 
-Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
+Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository is unavailable or has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
 
 Detailed configuration entries can set the same constraints:
 

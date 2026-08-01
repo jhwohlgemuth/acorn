@@ -137,7 +137,9 @@ pub(crate) fn spawn_huggingface_model_search_server(
             let mut stream = stream.expect("accept model search request");
             let parsed = parse_request(&mut stream);
             let body = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
-                format!(r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{base_model}"]}}]"#)
+                format!(
+                    r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
+                )
             } else if parsed.path.starts_with("/api/models?") {
                 "[]".to_string()
             } else if direct_gguf
@@ -159,6 +161,40 @@ pub(crate) fn spawn_huggingface_model_search_server(
     });
     (endpoint, handle)
 }
+/// Spawn a local Hugging Face server where the requested base model is missing but a GGUF fallback exists.
+pub(crate) fn spawn_huggingface_missing_model_search_server(
+    identifier: &str,
+    base_model: &str,
+    declared_base_model: &str,
+) -> (String, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind missing model search server");
+    let endpoint = format!("http://{}", listener.local_addr().expect("missing model search server address"));
+    let identifier = identifier.to_string();
+    let base_model = base_model.to_string();
+    let declared_base_model = declared_base_model.to_string();
+    let search_term = base_model.rsplit('/').next().unwrap_or_default().to_string();
+    let handle = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("accept missing model search request");
+            let parsed = parse_request(&mut stream);
+            let response = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
+                let body = format!(
+                    r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{declared_base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
+                );
+                response_200_with_body(body.as_bytes())
+            } else {
+                assert!(
+                    parsed.path.starts_with(format!("/api/models/{base_model}").as_str()),
+                    "unexpected missing model request: {}",
+                    parsed.path
+                );
+                response_401()
+            };
+            stream.write_all(&response).expect("write missing model search response");
+        }
+    });
+    (endpoint, handle)
+}
 /// Spawn a local Hugging Face API server for the basic model download configuration snapshot.
 pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind basic model config server");
@@ -167,22 +203,25 @@ pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
         for stream in listener.incoming().take(7) {
             let mut stream = stream.expect("accept basic model config request");
             let parsed = parse_request(&mut stream);
-            let response =
-                if parsed.path.contains("/api/models/openai/gpt-oss-2b") || parsed.path.contains("/api/models/nvidia/nemotron-3-super-120b-a12b") {
-                    response_401()
+            let response = if parsed.path.contains("/api/models/openai/gpt-oss-2b")
+                || parsed.path.contains("/api/models/nvidia/nemotron-3-super-120b-a12b")
+            {
+                response_401()
+            } else {
+                let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
+                    r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
+                } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
+                    r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-20b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
+                    r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-120b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                } else if parsed.path.starts_with("/api/models?") {
+                    "[]".to_string()
                 } else {
-                    let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
-                        r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
-                    } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
-                        r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-20b"]}]"#.to_string()
-                    } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
-                        r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-120b"]}]"#.to_string()
-                    } else {
-                        let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
-                        format!(r#"{{"id":"{model}","siblings":[]}}"#)
-                    };
-                    response_200_with_body(body.as_bytes())
+                    let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
+                    format!(r#"{{"id":"{model}","siblings":[]}}"#)
                 };
+                response_200_with_body(body.as_bytes())
+            };
             stream.write_all(&response).expect("write basic model config response");
         }
     });

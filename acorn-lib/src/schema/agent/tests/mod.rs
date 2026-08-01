@@ -100,7 +100,6 @@ fn test_model_details_selector_explains_unresolved_models() {
         ..Default::default()
     };
     let no_open_weights = ModelDetails {
-        id: Some("acme/open".to_string()),
         open_weights: Some(true),
         ..Default::default()
     };
@@ -113,6 +112,15 @@ fn test_model_details_selector_explains_unresolved_models() {
     assert_eq!(no_open_weights.selector(), Err(ModelResolutionReason::NoOpenWeights));
     assert_eq!(no_hugging_face_repository.selector(), Err(ModelResolutionReason::NoHuggingFaceRepository));
     assert_eq!(ModelDetails::default().selector(), Err(ModelResolutionReason::MissingIdentifier));
+}
+#[test]
+fn test_model_details_selector_uses_identifier_for_open_model_without_weight_sources() {
+    let details = ModelDetails {
+        id: Some("openai/gpt-oss-20b".to_string()),
+        open_weights: Some(true),
+        ..Default::default()
+    };
+    assert_eq!(details.selector().as_deref(), Ok("openai/gpt-oss-20b"));
 }
 #[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {

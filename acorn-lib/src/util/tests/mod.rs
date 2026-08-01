@@ -510,6 +510,17 @@ fn test_snake_case() {
     assert_eq!(snake_case("A1B2"), "a_1_b_2");
 }
 #[test]
+fn test_strip_suffixes() {
+    let suffixes = &["-fp8", "-maas"];
+    assert_eq!(strip_suffixes(suffixes, "model-fp8"), "model");
+    assert_eq!(strip_suffixes(suffixes, "model-maas"), "model");
+    assert_eq!(strip_suffixes(suffixes, "model"), "model");
+}
+#[test]
+fn test_to_ascii_alphanumeric() {
+    assert_eq!(to_ascii_alphanumeric("NVIDIA-Nemotron_3 Super"), "nvidianemotron3super");
+}
+#[test]
 fn test_to_strings() {
     let list: Vec<PathBuf> = vec![];
     assert!(list.to_strings().is_empty());

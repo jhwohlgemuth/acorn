@@ -5,12 +5,12 @@ use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
-use crate::schema::agent::{Quantization, Weight, Weights};
+use crate::schema::agent::{ModelDetails, Quantization, Weight, Weights};
 use crate::util::constants::app::{
     DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
 };
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
-use crate::util::{glob_matches, regex_to_glob, Label};
+use crate::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric, Label};
 use crate::{Location, Repository};
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
@@ -21,9 +21,12 @@ use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt, ops::Deref};
 use futures::{future::join_all, TryStreamExt};
 use hf_hub::{repository::ModelInfo, HFClient, HFError};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
+
+const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
 
 /// Candidate repositories returned by model search.
 pub type Candidates = Vec<Candidate>;
@@ -64,8 +67,16 @@ pub trait HuggingFaceRepository {
 pub trait ModelInfoExtension {
     /// Determine whether a Hugging Face model repository contains GGUF files
     fn has_gguf_files(&self) -> bool;
-    /// Determine whether a Hugging Face model declares a given model as its base model
+    /// Determine whether a Hugging Face model declares a given model as its exact base model.
+    ///
+    /// For example, a GGUF repository declaring `openai/gpt-oss-20b` is a derivative of
+    /// `openai/gpt-oss-20b`.
     fn is_declared_derivative_of(&self, identifier: &str) -> bool;
+    /// Determine whether a Hugging Face model declares a decorated variant of a given base model.
+    ///
+    /// For example, a GGUF repository declaring `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`
+    /// is a variant of `nvidia/nemotron-3-super-120b-a12b`.
+    fn is_declared_variant_of(&self, identifier: &str) -> bool;
 }
 /// Errors produced by Hugging Face repository selection and download helpers
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -236,20 +247,29 @@ impl HuggingFaceRepositoryFiles {
             | None => Err(eyre!("Missing Hugging Face repository identifier")),
         }
     }
-    /// Resolve this repository or a selected GGUF fallback repository.
-    pub async fn resolve(self, options: &Options) -> ApiResult<Self> {
-        if self.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) {
-            Ok(self)
-        } else if options.no_fallback {
-            Err(eyre!("No GGUF model files found for '{}'", self.identifier))
-        } else {
-            match search(&self.identifier, None, Some(options.search_limit)).await {
-                | Ok(candidates) => match candidates.select(options) {
-                    | Ok(identifier) => repository_tree(&identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await,
+    /// Resolve the configured repository or a selected GGUF fallback repository.
+    pub async fn resolve(options: &Options) -> ApiResult<Self> {
+        let Options {
+            identifier,
+            no_fallback,
+            revision,
+            search_limit,
+            ..
+        } = options;
+        match identifier.as_deref() {
+            | Some(identifier) => match repository_tree(identifier, revision).await {
+                | Ok(repository) if repository.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) => Ok(repository),
+                | Ok(_) if *no_fallback => Err(eyre!("No GGUF model files found for '{identifier}'")),
+                | Err(why) if *no_fallback => Err(why),
+                | Ok(_) | Err(_) => match search(identifier, None, Some(*search_limit)).await {
+                    | Ok(candidates) => match candidates.select(options) {
+                        | Ok(identifier) => repository_tree(&identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await,
+                        | Err(why) => Err(why),
+                    },
                     | Err(why) => Err(why),
                 },
-                | Err(why) => Err(why),
-            }
+            },
+            | None => Err(eyre!("Missing Hugging Face repository identifier")),
         }
     }
 }
@@ -322,8 +342,10 @@ impl CandidateSelection for Candidates {
             | [candidate, ..] if !options.interactive => {
                 if !options.quiet {
                     info!(
-                        "=> {} Multiple GGUF repositories found; using most downloaded: '{candidate}' (non-interactive mode)",
-                        Label::CAUTION
+                        "=> {} {} {}",
+                        Label::using(),
+                        candidate.green(),
+                        "(Multiple GGUF repositories found — using most downloaded)".dimmed(),
                     );
                 }
                 Ok(candidate.to_string())
@@ -335,8 +357,10 @@ impl CandidateSelection for Candidates {
         let candidate = self.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
         if !options.quiet {
             warn!(
-                "=> {} Interactive GGUF picker is unavailable; using most downloaded: '{candidate}'",
-                Label::CAUTION
+                "=> {} {} {}",
+                Label::using(),
+                candidate.green(),
+                "(Interactive GGUF picker is unavailable — using most downloaded)".dimmed(),
             );
         }
         Ok(candidate.to_string())
@@ -349,12 +373,10 @@ impl Downloaded {
             .files
             .iter()
             .filter_map(|path| {
+                let Self { identifier, revision, .. } = self;
                 Quantization::from_gguf_filename(path).map(|quantization| Weight {
                     label: quantization.to_string(),
-                    url: format!(
-                        "https://{DEFAULT_HUGGINGFACE_DOMAIN}/{}/resolve/{}/{}",
-                        self.identifier, self.revision, path
-                    ),
+                    url: format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/{identifier}/resolve/{revision}/{path}"),
                     is_open: None,
                     quantization: Some(quantization),
                     size: None,
@@ -581,6 +603,51 @@ impl ModelInfoExtension for ModelInfo {
             .is_some_and(|tags| tags.iter().any(|tag| is_quantized_base_model_tag(tag, identifier)));
         declares_base_model || declares_card_base_model || has_quantized_base_model_tag
     }
+    fn is_declared_variant_of(&self, identifier: &str) -> bool {
+        let matches = |value: &str| variant_matches(value, identifier);
+        let declares_base_model = self.base_models.as_ref().is_some_and(|models| models.iter().any(|value| matches(value)));
+        let declares_card_base_model = self
+            .card_data
+            .as_ref()
+            .and_then(|value| value.get("base_model"))
+            .is_some_and(|value| match value {
+                | Value::String(value) => matches(value),
+                | Value::Array(values) => values.iter().filter_map(Value::as_str).any(matches),
+                | _ => false,
+            });
+        let has_quantized_base_model_tag = self.tags.as_ref().is_some_and(|tags| {
+            tags.iter().any(|tag| {
+                let mut parts = tag.splitn(3, ':');
+                match (parts.next(), parts.next(), parts.next()) {
+                    | (Some(kind), Some(relation), Some(value)) => {
+                        kind.eq_ignore_ascii_case("base_model") && relation.eq_ignore_ascii_case("quantized") && matches(value)
+                    }
+                    | _ => false,
+                }
+            })
+        });
+        declares_base_model || declares_card_base_model || has_quantized_base_model_tag
+    }
+}
+impl ModelDetails {
+    /// Resolve this model to a GGUF fallback repository.
+    pub async fn resolve_fallback(self, identifier: &str, offline: bool, limit: usize) -> ApiResult<Self> {
+        match search(identifier, None, Some(limit)).await {
+            | Ok(candidates) => {
+                let options = Options::init()
+                    .identifier(identifier)
+                    .offline(offline)
+                    .search_limit(limit)
+                    .quiet(true)
+                    .build();
+                candidates.select(&options).map(|resolved| match resolved == identifier {
+                    | true => self,
+                    | false => self.with_id(&resolved).with_fallback(identifier),
+                })
+            }
+            | Err(why) => Err(why),
+        }
+    }
 }
 impl From<&Source> for Weights {
     fn from(source: &Source) -> Self {
@@ -708,20 +775,20 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Hugg
         | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
     }
 }
-/// Find repositories matching `term` that declare `identifier` as their source, sorted by downloads.
+/// Find repositories matching `term` that declare `identifier` as their source, sorted by downloads
 pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) -> ApiResult<Candidates> {
     let term = term.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_TERM);
     let limit = limit.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_LIMIT);
-    let basename = identifier.rsplit('/').next().filter(|value| !value.is_empty());
+    let basename = identifier.rsplit('/').next().map(fallback_search_name).filter(|value| !value.is_empty());
     match (basename, HFClient::new()) {
         | (Some(basename), Ok(client)) => {
             let response = client
                 .list_models()
-                .search(basename)
+                .search(&basename)
                 .filter(term)
                 .sort("downloads")
                 .full(true)
-                .card_data(true)
+                .card_data(true)q
                 .limit(limit)
                 .send();
             match response {
@@ -729,8 +796,14 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
                     | Ok(models) => {
                         let mut candidates = models
                             .into_iter()
-                            .filter(|model| model.id.eq_ignore_ascii_case(identifier) || model.is_declared_derivative_of(identifier))
+                            .filter(|model| {
+                                let matches_identifier = model.id.eq_ignore_ascii_case(identifier);
+                                let is_derivative = model.is_declared_derivative_of(identifier);
+                                let is_variant = model.is_declared_variant_of(identifier);
+                                matches_identifier || is_derivative || is_variant
+                            })
                             .map(Candidate::from)
+                            .filter(|candidate| !candidate.quantizations.is_empty())
                             .collect::<Vec<_>>();
                         candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
                         match candidates.is_empty() {
@@ -772,6 +845,16 @@ fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
         | _ => false,
     }
 }
+fn fallback_search_name(name: &str) -> String {
+    let canonical = strip_suffixes(FALLBACK_MODEL_SUFFIXES, name)
+        .replace("llama-3.1-", "llama-3_1-")
+        .replace("llama-3.3-", "llama-3_3-")
+        .replace("v1.5", "v1_5");
+    match canonical.as_str() {
+        | "llama-3_1-nemotron-ultra-253b" => format!("{canonical}-v1"),
+        | _ => canonical,
+    }
+}
 fn select_first(candidates: Candidates, _options: &Options) -> ApiResult<String> {
     candidates
         .into_iter()
@@ -784,11 +867,25 @@ fn target_path_from_sidecar(path: &str) -> Option<String> {
         .or_else(|| path.strip_suffix(".sha256sum"))
         .map(ToString::to_string)
 }
+fn variant_matches(declared: &str, requested: &str) -> bool {
+    match (declared.split_once('/'), requested.split_once('/')) {
+        | (Some((declared_owner, declared_name)), Some((requested_owner, requested_name))) => {
+            let same_owner = declared_owner.eq_ignore_ascii_case(requested_owner);
+            let owner_is_meta = requested_owner.eq_ignore_ascii_case("meta") && declared_owner.eq_ignore_ascii_case("meta-llama");
+            let requested_name = to_ascii_alphanumeric(strip_suffixes(FALLBACK_MODEL_SUFFIXES, requested_name));
+            let name_matches = to_ascii_alphanumeric(declared_name).contains(&requested_name);
+            (same_owner || owner_is_meta) && !requested_name.is_empty() && name_matches
+        }
+        | _ => false,
+    }
+}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use super::{extract_sha256, target_path_from_sidecar, Candidate, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension, Value};
+    use super::{
+        extract_sha256, fallback_search_name, target_path_from_sidecar, Candidate, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension, Value,
+    };
     use crate::schema::agent::{Weight, Weights};
     use serde_json::json;
 
@@ -817,6 +914,50 @@ mod tests {
         assert!(!candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
     }
     #[test]
+    fn test_is_declared_variant_accepts_decorated_base_model_names() {
+        let candidate = model(json!({
+            "id": "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF",
+            "cardData": {"base_model": ["nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"]},
+            "tags": ["base_model:quantized:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"]
+        }));
+        assert!(candidate.is_declared_variant_of("nvidia/nemotron-3-super-120b-a12b"));
+        assert!(!candidate.is_declared_variant_of("other/nemotron-3-super-120b-a12b"));
+        assert!(!candidate.is_declared_variant_of("nvidia/different-model"));
+    }
+    #[test]
+    fn test_is_declared_variant_accepts_meta_publisher_alias_and_catalog_suffixes() {
+        let candidate = model(json!({
+            "id": "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF",
+            "tags": ["base_model:quantized:meta-llama/Llama-4-Maverick-17B-128E-Instruct"]
+        }));
+        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct"));
+        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct-fp8"));
+        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct-maas"));
+        assert!(!candidate.is_declared_variant_of("other/llama-4-maverick-17b-128e-instruct"));
+    }
+    #[test]
+    fn test_is_declared_variant_accepts_nvidia_version_separator_aliases() {
+        let ultra = model(json!({
+            "id": "bartowski/nvidia_Llama-3_1-Nemotron-Ultra-253B-v1-GGUF",
+            "tags": ["base_model:quantized:nvidia/Llama-3_1-Nemotron-Ultra-253B-v1"]
+        }));
+        let super_model = model(json!({
+            "id": "bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1_5-GGUF",
+            "tags": ["base_model:quantized:nvidia/Llama-3_3-Nemotron-Super-49B-v1_5"]
+        }));
+        assert!(ultra.is_declared_variant_of("nvidia/llama-3.1-nemotron-ultra-253b"));
+        assert!(super_model.is_declared_variant_of("nvidia/llama-3.3-nemotron-super-49b-v1.5"));
+        assert!(!super_model.is_declared_variant_of("nvidia/llama-nemotron-rerank-vl-1b-v2"));
+    }
+    #[test]
+    fn test_fallback_search_name_uses_nvidia_canonical_versions() {
+        assert_eq!(fallback_search_name("llama-3.1-nemotron-ultra-253b"), "llama-3_1-nemotron-ultra-253b-v1");
+        assert_eq!(
+            fallback_search_name("llama-3.3-nemotron-super-49b-v1.5"),
+            "llama-3_3-nemotron-super-49b-v1_5"
+        );
+    }
+    #[test]
     fn test_gguf_candidate_includes_sorted_unique_quantizations() {
         let candidate = Candidate::from(model(json!({
             "id": "community/quantized",
@@ -832,6 +973,14 @@ mod tests {
         assert_eq!(candidate.likes, Some(7));
         assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
         assert_eq!(candidate.to_string(), "community/quantized");
+    }
+    #[test]
+    fn test_gguf_candidate_excludes_unrecognized_quantizations() {
+        let candidate = Candidate::from(model(json!({
+            "id": "community/unsupported",
+            "siblings": [{"rfilename": "model-tq1_0.gguf"}]
+        })));
+        assert!(candidate.quantizations.is_empty());
     }
     #[test]
     fn test_weights_to_source_uses_hugging_face_repository_identifier() {

@@ -1,4 +1,6 @@
 use crate::cli::Void;
+#[cfg(feature = "tui")]
+use crate::commands::download::model::plan::run_gguf_picker;
 use crate::commands::download::model::plan::{resolve_plans, ModelDownloadPlan};
 use crate::commands::download::model::{configured_models, ModelListFile};
 use acorn::io::api::huggingface;
@@ -8,14 +10,14 @@ use acorn::io::database::{Database, Operations, PersistStatus};
 use acorn::io::{ApiResult, Source};
 use acorn::prelude::{PathBuf, String, Vec};
 use acorn::schema::agent::Weights;
-use acorn::util::Label;
+use acorn::util::{suffix, Label};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{self, eyre};
 use futures::future::join_all;
 use owo_colors::OwoColorize;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-/// Import model metadata into the local database.
+/// Import model metadata into the local database
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     model: &[String],
@@ -77,7 +79,7 @@ pub async fn run(
                                 database_path: database_path.clone(),
                             };
                             let results = join_all(plans.into_iter().map(|plan| plan.import(&options))).await;
-                            results.into_iter().collect::<ApiResult<Vec<_>>>().map(|imported| {
+                            collect_imported(results, model_file.is_some()).map(|imported| {
                                 if !quiet {
                                     println!(
                                         "=> {} Resolved metadata for {} model{}{}",
@@ -174,41 +176,36 @@ impl ModelDownloadPlan {
         };
         match &self.selector {
             | Source::Remote { identifier, .. } if is_huggingface_repository && !options.offline => {
-                match huggingface::repository_tree(identifier, &self.revision).await {
-                    | Ok(files) => {
-                        let huggingface_options = huggingface::Options::init()
-                            .identifier(identifier)
-                            .interactive(options.interactive)
-                            .no_fallback(options.no_fallback)
-                            .quiet(options.quiet)
-                            .search_limit(options.search_limit)
-                            .build();
-                        #[cfg(feature = "tui")]
-                        let huggingface_options = huggingface::Options {
-                            selector: crate::commands::download::model::plan::run_gguf_picker,
-                            ..huggingface_options
-                        };
-                        match files.resolve(&huggingface_options).await {
-                            | Ok(repository) => {
-                                let weights = Weights::from(repository);
-                                if weights.0.is_empty() {
-                                    Err(eyre!("No GGUF model files found for '{identifier}'"))
-                                } else if options.no_local_database {
-                                    if !options.quiet {
-                                        info!(
-                                            "=> {} Resolved {} GGUF file{} for '{}' without database persistence",
-                                            Label::run(),
-                                            weights.0.len(),
-                                            if weights.0.len() == 1 { "" } else { "s" },
-                                            identifier
-                                        );
-                                    }
-                                    Ok(identifier.to_string())
-                                } else {
-                                    weights.persist(identifier, options.database_path.clone()).map(|_| identifier.to_string())
-                                }
+                let huggingface_options = huggingface::Options::init()
+                    .identifier(identifier)
+                    .revision(self.revision.clone())
+                    .interactive(options.interactive)
+                    .no_fallback(options.no_fallback)
+                    .quiet(options.quiet)
+                    .search_limit(options.search_limit)
+                    .build();
+                #[cfg(feature = "tui")]
+                let huggingface_options = huggingface::Options {
+                    selector: run_gguf_picker,
+                    ..huggingface_options
+                };
+                match huggingface::HuggingFaceRepositoryFiles::resolve(&huggingface_options).await {
+                    | Ok(repository) => {
+                        let weights = Weights::from(repository);
+                        if weights.0.is_empty() {
+                            Err(eyre!("No GGUF model files found for '{identifier}'"))
+                        } else if options.no_local_database {
+                            if !options.quiet {
+                                let count = weights.0.len();
+                                info!(
+                                    "=> {} Resolved {count} GGUF file{} for '{identifier}' without database persistence",
+                                    Label::run(),
+                                    suffix(count),
+                                );
                             }
-                            | Err(why) => Err(why),
+                            Ok(identifier.to_string())
+                        } else {
+                            weights.persist(identifier, options.database_path.clone()).map(|_| identifier.to_string())
                         }
                     }
                     | Err(why) => Err(why),
@@ -217,5 +214,20 @@ impl ModelDownloadPlan {
             | Source::Remote { identifier, .. } if options.offline => Err(eyre!("Offline mode cannot import remote model metadata: {identifier}")),
             | _ => Err(eyre!("Model metadata import supports only Hugging Face repository identifiers")),
         }
+    }
+}
+pub(super) fn collect_imported(results: Vec<ApiResult<String>>, best_effort: bool) -> ApiResult<Vec<String>> {
+    match best_effort {
+        | true => Ok(results
+            .into_iter()
+            .filter_map(|result| match result {
+                | Ok(identifier) => Some(identifier),
+                | Err(why) => {
+                    warn!("=> {} Could not import model metadata ({why})", Label::skip());
+                    None
+                }
+            })
+            .collect()),
+        | false => results.into_iter().collect(),
     }
 }
