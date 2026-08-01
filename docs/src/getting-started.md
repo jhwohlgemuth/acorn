@@ -50,7 +50,7 @@
 - Ensure you have Rust and Cargo installed. If not, you can install them using [rustup.rs](https://rustup.rs/).
 - Open your terminal and run the following command to install ACORN
     ```sh
-    cargo install acorn-cli
+    cargo install --locked acorn-cli
     ```
 - After installation, you can verify the installation by running:
     ```sh
@@ -109,7 +109,7 @@
     ```
 - Install `acorn` command
     ```sh
-    cargo install --path ./acorn-cli
+    cargo install --locked --path ./acorn-cli
     ```
 - After installation, you can verify the installation by running:
     ```sh
