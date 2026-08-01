@@ -116,6 +116,10 @@ fn test_extract_generated_docx_paragraph_children() {
             <w:hyperlink r:id="rIdHyper"><w:r><w:t>Link</w:t></w:r></w:hyperlink>
             <w:ins w:id="1"><w:r><w:t>InsertText</w:t></w:r></w:ins>
             <w:del w:id="2"><w:r><w:t>DeleteText</w:t></w:r></w:del>
+            <w:moveFrom w:id="3" w:author="Author" w:date="2026-08-01T00:00:00Z"><w:r><w:t>GhostText</w:t></w:r></w:moveFrom>
+            <w:moveTo w:id="3" w:author="Author" w:date="2026-08-01T00:00:00Z"><w:r><w:t>MovedText</w:t></w:r></w:moveTo>
+            <w:r><w:cr/></w:r>
+            <w:r><w:t>AfterCarriageReturn</w:t></w:r>
         </w:p>
         <w:p>
             <w:r><w:t>Tail</w:t></w:r>
@@ -126,7 +130,8 @@ fn test_extract_generated_docx_paragraph_children() {
     let result = extract_text_from_path(&path);
     assert!(result.is_ok(), "Generated DOCX should parse");
     let text = result.unwrap();
-    assert!(text.contains("Alpha\tBeta\nInstrLinkInsertTextDeleteText"));
+    assert!(text.contains("Alpha\tBeta\nInstrLinkInsertTextDeleteTextMovedText\nAfterCarriageReturn"));
+    assert!(!text.contains("GhostText"));
     assert!(text.contains("Tail"));
     cleanup(&path);
 }

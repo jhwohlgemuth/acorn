@@ -224,14 +224,14 @@ add global --offline -> disable or skip only network-dependent checks -> run loc
 Use a release channel appropriate to the user's platform and verify it immediately:
 
 ```shell
-cargo install acorn-cli
+cargo install --locked acorn-cli
 acorn --version
 ```
 
 For repository development:
 
 ```shell
-cargo install --path ./acorn-cli
+cargo install --locked --path ./acorn-cli
 acorn --version
 ```
 

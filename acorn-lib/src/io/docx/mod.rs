@@ -3,8 +3,8 @@ use crate::io::ApiResult;
 use crate::prelude::{read, PathBuf};
 use color_eyre::eyre::eyre;
 use docx_rs::{
-    read_docx, Delete, DeleteChild, DocumentChild, Hyperlink, Insert, InsertChild, Paragraph, ParagraphChild, Run, RunChild, Table, TableCell,
-    TableCellContent, TableChild, TableRow, TableRowChild,
+    read_docx, Delete, DeleteChild, DocumentChild, Hyperlink, Insert, InsertChild, MoveTo, MoveToChild, Paragraph, ParagraphChild, Run, RunChild,
+    Table, TableCell, TableCellContent, TableChild, TableRow, TableRowChild,
 };
 
 fn extract_from_table(table: &Table) -> String {
@@ -46,6 +46,8 @@ fn extract_from_paragraph(paragraph: &Paragraph) -> String {
             | ParagraphChild::Hyperlink(hyperlink) => extract_from_hyperlink(hyperlink),
             | ParagraphChild::Insert(insert) => extract_from_insert(insert),
             | ParagraphChild::Delete(delete) => extract_from_delete(delete),
+            | ParagraphChild::MoveFrom(_) => "".to_string(),
+            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
             | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
             | ParagraphChild::BookmarkStart(_)
             | ParagraphChild::BookmarkEnd(_)
@@ -63,6 +65,8 @@ fn extract_from_hyperlink(hyperlink: &Hyperlink) -> String {
             | ParagraphChild::Run(run) => extract_from_run(run),
             | ParagraphChild::Insert(insert) => extract_from_insert(insert),
             | ParagraphChild::Delete(delete) => extract_from_delete(delete),
+            | ParagraphChild::MoveFrom(_) => "".to_string(),
+            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
             | ParagraphChild::Hyperlink(_)
             | ParagraphChild::BookmarkStart(_)
             | ParagraphChild::BookmarkEnd(_)
@@ -70,6 +74,17 @@ fn extract_from_hyperlink(hyperlink: &Hyperlink) -> String {
             | ParagraphChild::CommentEnd(_)
             | ParagraphChild::StructuredDataTag(_) => "".to_string(),
             | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
+        })
+        .collect::<String>()
+}
+fn extract_from_move_to(move_to: &MoveTo) -> String {
+    move_to
+        .children
+        .iter()
+        .map(|child| match child {
+            | MoveToChild::Run(run) => extract_from_run(run),
+            | MoveToChild::Delete(delete) => extract_from_delete(delete),
+            | MoveToChild::CommentStart(_) | MoveToChild::CommentEnd(_) => "".to_string(),
         })
         .collect::<String>()
 }
@@ -102,6 +117,7 @@ fn extract_from_run(run: &Run) -> String {
             | RunChild::InstrTextString(text) => text.clone(),
             | RunChild::Tab(_) => "\t".to_string(),
             | RunChild::Break(_) => "\n".to_string(),
+            | RunChild::CarriageReturn(_) => "\n".to_string(),
             | RunChild::Sym(_)
             | RunChild::DeleteText(_)
             | RunChild::PTab(_)
