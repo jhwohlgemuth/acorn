@@ -2,6 +2,7 @@
 
 ## Next
 
+- [Hugging Face request readiness](api/huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
 - [OOXML interpolation and slide-copy hardening](core/ooxml-interpolation-and-slide-copy.md) - Finish parser-backed and structured OOXML mutations.
 - [OOXML slide-list fuzzing](core/ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
 - [Shared export context](core/export-context.md) - Extract export fields once for every renderer.
@@ -13,6 +14,7 @@
 
 ## Planned
 
+- [GitLab claimed-operation capabilities](api/gitlab-claimed-operation-capabilities.md) - Consume queue claims through guarded single-settlement transitions.
 - [Core refactors](core/) - Export, CLI, schema, path, interpolation, and binding boundaries.
 - [Portability](portability/) - no-std and WASM capability work.
 - [Analyzer](analyzer/) - Composable analysis and validation abstractions.
