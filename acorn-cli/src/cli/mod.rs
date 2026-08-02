@@ -3,6 +3,7 @@ use acorn::io::{
     Source, SourceAction,
 };
 use acorn::prelude::PathBuf;
+use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn::util::{regex_inverse, regex_join};
 use bon::Builder;
@@ -67,6 +68,9 @@ pub struct CommandOptions {
     /// Maximum number of repositories considered during GGUF fallback discovery
     #[builder(default = 200)]
     pub search_limit: usize,
+    /// Minimum number of downloads required for a GGUF fallback repository
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
+    pub minimum_download_count: u64,
     /// Flag used to select a GGUF fallback repository interactively
     #[builder(default)]
     pub interactive: bool,

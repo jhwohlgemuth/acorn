@@ -34,6 +34,13 @@ pub(crate) enum ModelDownloadError {
     MissingAuth(String),
     NoModelsFound,
 }
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct DownloadOptions {
+    pub(crate) offline: bool,
+    pub(crate) limit: usize,
+    pub(crate) minimum_download_count: u64,
+    pub(crate) interactive: bool,
+}
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
 pub(crate) struct ModelDownloadPlan {
@@ -235,6 +242,7 @@ impl ModelDownloadPlan {
                                 offline,
                                 no_fallback,
                                 search_limit,
+                                minimum_download_count,
                                 interactive,
                                 quiet,
                                 skip_verify_checksum,
@@ -249,6 +257,7 @@ impl ModelDownloadPlan {
                                 .offline(offline)
                                 .no_fallback(no_fallback)
                                 .search_limit(search_limit)
+                                .minimum_download_count(minimum_download_count)
                                 .interactive(interactive)
                                 .skip_verify_checksum(skip_verify_checksum)
                                 .build();
@@ -286,6 +295,7 @@ impl ModelDownloadPlan {
             quiet,
             offline,
             search_limit,
+            minimum_download_count,
             interactive,
             skip_verify_checksum,
             ..
@@ -299,7 +309,13 @@ impl ModelDownloadPlan {
                         identifier
                     );
                 }
-                match huggingface::search(identifier, None, Some(*search_limit)).await {
+                let search_options = huggingface::SearchOptions::init()
+                    .identifier(identifier)
+                    .limit(*search_limit)
+                    .minimum_download_count(*minimum_download_count)
+                    .interactive(*interactive)
+                    .build();
+                match huggingface::search(&search_options).await {
                     | Ok(candidates) => match candidates.select(&options) {
                         | Ok(fallback_identifier) => {
                             let destination = root.join(&fallback_identifier);
@@ -315,6 +331,7 @@ impl ModelDownloadPlan {
                                             .offline(*offline)
                                             .no_fallback(true)
                                             .search_limit(*search_limit)
+                                            .minimum_download_count(*minimum_download_count)
                                             .interactive(*interactive)
                                             .skip_verify_checksum(*skip_verify_checksum)
                                             .build();
@@ -505,16 +522,28 @@ impl ModelDownloadPlans {
                 .collect(),
         )
     }
-    pub(crate) async fn resolve_models(&self, offline: bool, limit: usize) -> Vec<RepositoryResolution<ModelDetails>> {
+    pub(crate) async fn resolve(&self, options: DownloadOptions) -> Vec<RepositoryResolution<ModelDetails>> {
+        let DownloadOptions {
+            offline,
+            limit,
+            minimum_download_count,
+            interactive,
+        } = options;
         let results = stream::iter(self.0.iter().cloned())
             .then(|plan| async move {
                 match &plan.selector {
                     | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
                         let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
+                        let search_options = huggingface::SearchOptions::init()
+                            .identifier(identifier)
+                            .limit(limit)
+                            .minimum_download_count(minimum_download_count)
+                            .interactive(interactive)
+                            .build();
                         match huggingface::parse_identifier(identifier) {
                             | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
                                 | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
-                                | Ok(_) => match base.resolve_fallback(identifier, offline, limit).await {
+                                | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
                                     | Ok(resolved) => Some(resolved),
                                     | Err(why) => {
                                         error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
@@ -523,7 +552,7 @@ impl ModelDownloadPlans {
                                 },
                                 | Err(why) if huggingface::model_is_unavailable(&why) => {
                                     warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
-                                    base.resolve_fallback(identifier, offline, limit).await.ok()
+                                    base.resolve_fallback(&search_options, offline).await.ok()
                                 }
                                 | Err(why) => {
                                     error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());

@@ -52,6 +52,8 @@ pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml
 pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
 /// Default model search result limit.
 pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
+/// Default minimum download count for Hugging Face fallback models.
+pub const DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT: u64 = 100;
 /// Default Hugging Face model search term.
 pub const DEFAULT_HUGGINGFACE_SEARCH_TERM: &str = "gguf";
 /// Default cache TTL in seconds (1 month = 30 days)

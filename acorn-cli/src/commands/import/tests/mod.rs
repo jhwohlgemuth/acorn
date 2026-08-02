@@ -144,7 +144,20 @@ fn test_model_metadata_inserts_minimal_row_and_refreshes_weights() {
 }
 #[tokio::test]
 async fn test_model_catalog_import_skips_database_when_disabled() {
-    let result = super::model::run(&[], &None, &None, &Some(".".into()), true, false, false, 20, false, &Default::default()).await;
+    let result = super::model::run(
+        &[],
+        &None,
+        &None,
+        &Some(".".into()),
+        true,
+        false,
+        false,
+        20,
+        100,
+        false,
+        &Default::default(),
+    )
+    .await;
     assert!(result.is_ok());
 }
 #[test]

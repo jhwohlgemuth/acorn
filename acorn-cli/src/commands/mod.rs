@@ -199,6 +199,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                                     &args.quantization,
                                     &args.gpu_memory,
                                     args.search_limit,
+                                    args.minimum_download_count,
                                     args.interactive,
                                     args.dry_run,
                                     args.raw,
@@ -347,6 +348,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                             offline,
                             arguments.no_fallback,
                             arguments.search_limit,
+                            arguments.minimum_download_count,
                             arguments.interactive,
                             &arguments.verbose,
                         )

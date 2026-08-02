@@ -87,6 +87,7 @@ async fn run_model(
         &[],
         &None,
         search_limit,
+        100,
         interactive,
         dry_run,
         raw,
@@ -245,7 +246,12 @@ async fn test_config_fixture_resolves_model_fallbacks() {
         .await
         .unwrap();
     let fallbacks = super::model::plan::ModelDownloadPlans(plans)
-        .resolve_models(true, 200)
+        .resolve(super::model::plan::DownloadOptions {
+            offline: true,
+            limit: 200,
+            minimum_download_count: 100,
+            interactive: false,
+        })
         .await
         .into_iter()
         .map(ModelDetails::from)
@@ -1781,7 +1787,14 @@ fn test_resolve_models_excludes_failed_fallbacks() {
             let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plans");
-            super::model::plan::ModelDownloadPlans(plans).resolve_models(false, 20).await
+            super::model::plan::ModelDownloadPlans(plans)
+                .resolve(super::model::plan::DownloadOptions {
+                    offline: false,
+                    limit: 20,
+                    minimum_download_count: 100,
+                    interactive: false,
+                })
+                .await
         })
     });
     handle.join().expect("join model search server");
@@ -1789,6 +1802,43 @@ fn test_resolve_models_excludes_failed_fallbacks() {
     assert!(resolved[0].is_fallback());
     assert_eq!(resolved[0].requested(), base_model);
     assert_eq!(resolved[0].resolved(), fallback);
+}
+#[test]
+fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
+    let base_model = "openai/gpt-oss-20b";
+    let fallback = "unsloth/gpt-oss-20b-GGUF";
+    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 2);
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let resolved = with_hf_endpoint(endpoint, || {
+        tracing::subscriber::with_default(subscriber, || {
+            tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+                let entries = vec![ModelEntry::Selector(base_model.to_string())];
+                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
+                    .await
+                    .expect("resolve model plan");
+                super::model::plan::ModelDownloadPlans(plans)
+                    .resolve(super::model::plan::DownloadOptions {
+                        offline: false,
+                        limit: 20,
+                        minimum_download_count: 143,
+                        interactive: false,
+                    })
+                    .await
+            })
+        })
+    });
+    handle.join().expect("join model search server");
+    let text = String::from_utf8(logs.lock().expect("lock logs").clone()).unwrap_or_default();
+    assert!(resolved.is_empty());
+    assert!(text.contains("REJECTED"));
+    assert!(text.contains(fallback));
+    assert!(text.contains(base_model));
+    assert!(text.contains("142 downloads, below minimum 143"));
+    assert!(!text.contains(format!("{fallback}-secondary").as_str()));
 }
 #[test]
 fn test_resolve_models_falls_back_when_base_repository_is_unavailable() {
@@ -1802,7 +1852,14 @@ fn test_resolve_models_falls_back_when_base_repository_is_unavailable() {
             let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plan");
-            super::model::plan::ModelDownloadPlans(plans).resolve_models(false, 20).await
+            super::model::plan::ModelDownloadPlans(plans)
+                .resolve(super::model::plan::DownloadOptions {
+                    offline: false,
+                    limit: 20,
+                    minimum_download_count: 100,
+                    interactive: false,
+                })
+                .await
         })
     });
     handle.join().expect("join missing model search server");
@@ -1821,7 +1878,14 @@ fn test_resolve_models_keeps_direct_gguf_repository() {
             let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
                 .await
                 .expect("resolve model plan");
-            super::model::plan::ModelDownloadPlans(plans).resolve_models(false, 20).await
+            super::model::plan::ModelDownloadPlans(plans)
+                .resolve(super::model::plan::DownloadOptions {
+                    offline: false,
+                    limit: 20,
+                    minimum_download_count: 100,
+                    interactive: false,
+                })
+                .await
         })
     });
     handle.join().expect("join model metadata server");

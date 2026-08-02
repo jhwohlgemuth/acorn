@@ -401,6 +401,9 @@ Download model weights for use with ACORN research harnesses and local inference
    Applies when the requested repository contains no GGUF files and automatic fallback is enabled
 
   Default value: `20`
+* `--minimum-popularity <COUNT>` — Minimum number of downloads required for a GGUF fallback repository
+
+  Default value: `100`
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
 * `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
 * `--dry-run` [alias: `what-if`] — Preview resolved models and fallbacks without downloading
@@ -625,6 +628,9 @@ Import model metadata into the local database
 * `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search during GGUF fallback discovery
 
   Default value: `20`
+* `--minimum-popularity <COUNT>` — Minimum number of downloads required for a GGUF fallback repository
+
+  Default value: `100`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

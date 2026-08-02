@@ -7,7 +7,8 @@ use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
 use crate::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
 use crate::util::constants::app::{
-    DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
+    DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT,
+    DEFAULT_HUGGINGFACE_SEARCH_TERM,
 };
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric, Label};
@@ -32,6 +33,8 @@ pub type Candidates = Vec<Candidate>;
 pub type CandidateSelector = fn(Candidates, &Options) -> ApiResult<String>;
 /// Select a repository from model search candidates.
 pub trait CandidateSelection {
+    /// Build eligible fallback candidates from Hugging Face model metadata.
+    fn fallback(models: Vec<ModelInfo>, options: &SearchOptions) -> Self;
     /// Select a candidate using the selector configured in `options` when interaction is required.
     fn select(self, options: &Options) -> ApiResult<String>;
     /// Fallback selector used when the interactive picker is unavailable.
@@ -65,6 +68,8 @@ pub trait HuggingFaceRepository {
 pub trait ModelInfoExtension {
     /// Determine whether a Hugging Face model repository contains GGUF files
     fn has_gguf_files(&self) -> bool;
+    /// Determine whether a Hugging Face model is an eligible fallback for an identifier.
+    fn is_fallback_for(&self, identifier: &str) -> bool;
     /// Determine whether a Hugging Face model declares a given model as its exact base model.
     ///
     /// For example, a GGUF repository declaring `openai/gpt-oss-20b` is a derivative of
@@ -145,6 +150,25 @@ pub struct FileSelectionPolicy<'a> {
     /// Error message to display when no files match.
     pub no_match_message: &'a str,
 }
+/// Options for Hugging Face model fallback searches.
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct SearchOptions {
+    /// Base model identifier used to find related GGUF repositories.
+    pub identifier: String,
+    /// Hugging Face search filter.
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_TERM.to_string())]
+    pub term: String,
+    /// Maximum number of repositories considered during fallback discovery.
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
+    pub limit: usize,
+    /// Minimum number of downloads required for a fallback repository.
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
+    pub minimum_download_count: u64,
+    /// Whether fallback candidates should be selected interactively.
+    #[builder(default)]
+    pub interactive: bool,
+}
 /// Options for HuggingFace API requests
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
@@ -177,6 +201,9 @@ pub struct Options {
     /// Maximum number of repositories considered during GGUF fallback discovery
     #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
     pub search_limit: usize,
+    /// Minimum number of downloads required for a GGUF fallback repository
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
+    pub minimum_download_count: u64,
     /// Whether multiple GGUF fallback repositories should be selected interactively
     #[builder(default)]
     pub interactive: bool,
@@ -259,6 +286,8 @@ impl HuggingFaceRepositoryFiles {
             no_fallback,
             revision,
             search_limit,
+            minimum_download_count,
+            interactive,
             ..
         } = options;
         match identifier.as_deref() {
@@ -268,16 +297,24 @@ impl HuggingFaceRepositoryFiles {
                 }
                 | Ok(_) if *no_fallback => Err(eyre!("No GGUF model files found for '{identifier}'")),
                 | Err(why) if *no_fallback => Err(why),
-                | Ok(_) | Err(_) => match search(identifier, None, Some(*search_limit)).await {
-                    | Ok(candidates) => match candidates.select(options) {
-                        | Ok(resolved) => match repository_tree(&resolved, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
-                            | Ok(repository) => Ok(RepositoryResolution::new(identifier, resolved, repository)),
+                | Ok(_) | Err(_) => {
+                    let search_options = SearchOptions::init()
+                        .identifier(identifier)
+                        .limit(*search_limit)
+                        .minimum_download_count(*minimum_download_count)
+                        .interactive(*interactive)
+                        .build();
+                    match search(&search_options).await {
+                        | Ok(candidates) => match candidates.select(options) {
+                            | Ok(resolved) => match repository_tree(&resolved, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
+                                | Ok(repository) => Ok(RepositoryResolution::new(identifier, resolved, repository)),
+                                | Err(why) => Err(why),
+                            },
                             | Err(why) => Err(why),
                         },
                         | Err(why) => Err(why),
-                    },
-                    | Err(why) => Err(why),
-                },
+                    }
+                }
             },
             | None => Err(eyre!("Missing Hugging Face repository identifier")),
         }
@@ -342,6 +379,40 @@ impl From<ModelInfo> for Candidate {
     }
 }
 impl CandidateSelection for Candidates {
+    fn fallback(models: Vec<ModelInfo>, options: &SearchOptions) -> Self {
+        let SearchOptions {
+            identifier,
+            minimum_download_count,
+            interactive,
+            ..
+        } = options;
+        let mut candidates = models
+            .into_iter()
+            .filter(|model| model.is_fallback_for(identifier))
+            .map(Candidate::from)
+            .filter(|candidate| !candidate.quantizations.is_empty())
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
+        let rejected = |candidate: &&Candidate| candidate.downloads < *minimum_download_count;
+        let report = |candidate: &Candidate| {
+            warn!(
+                "=> {} {} — fallback from {} has {} downloads, below minimum {}",
+                Label::rejected(),
+                candidate.id.yellow(),
+                identifier.yellow(),
+                candidate.downloads,
+                minimum_download_count
+            );
+        };
+        match interactive {
+            | true => candidates.iter().filter(rejected).for_each(report),
+            | false => candidates.first().filter(rejected).into_iter().for_each(report),
+        }
+        candidates
+            .into_iter()
+            .filter(|candidate| candidate.downloads >= *minimum_download_count)
+            .collect()
+    }
     fn select(self, options: &Options) -> ApiResult<String> {
         let base_model = options.identifier.as_deref().unwrap_or_default();
         match self.as_slice() {
@@ -594,6 +665,9 @@ impl ModelInfoExtension for ModelInfo {
             .as_ref()
             .is_some_and(|siblings| siblings.iter().any(|file| file.rfilename.to_ascii_lowercase().ends_with(".gguf")))
     }
+    fn is_fallback_for(&self, identifier: &str) -> bool {
+        self.id.eq_ignore_ascii_case(identifier) || self.is_declared_derivative_of(identifier) || self.is_declared_variant_of(identifier)
+    }
     fn is_declared_derivative_of(&self, identifier: &str) -> bool {
         let declares_base_model = self
             .base_models
@@ -645,18 +719,20 @@ impl ModelInfoExtension for ModelInfo {
 }
 impl ModelDetails {
     /// Resolve this model to a GGUF fallback repository.
-    pub async fn resolve_fallback(self, identifier: &str, offline: bool, limit: usize) -> ApiResult<RepositoryResolution<Self>> {
-        match search(identifier, None, Some(limit)).await {
+    pub async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
+        match search(search_options).await {
             | Ok(candidates) => {
                 let options = Options::init()
-                    .identifier(identifier)
+                    .identifier(&search_options.identifier)
                     .offline(offline)
-                    .search_limit(limit)
+                    .search_limit(search_options.limit)
+                    .minimum_download_count(search_options.minimum_download_count)
+                    .interactive(search_options.interactive)
                     .quiet(true)
                     .build();
                 candidates
                     .select(&options)
-                    .map(|resolved| RepositoryResolution::new(identifier, resolved, self))
+                    .map(|resolved| RepositoryResolution::new(&search_options.identifier, resolved, self))
             }
             | Err(why) => Err(why),
         }
@@ -844,11 +920,9 @@ pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<Hugg
         | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
     }
 }
-/// Find repositories matching `term` that declare `identifier` as their source, sorted by downloads
-pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) -> ApiResult<Candidates> {
-    let term = term.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_TERM);
-    let limit = limit.unwrap_or(DEFAULT_HUGGINGFACE_SEARCH_LIMIT);
-    let basename = ModelSelector::new(identifier)
+/// Find repositories matching the search options, sorted by downloads.
+pub async fn search(options: &SearchOptions) -> ApiResult<Candidates> {
+    let basename = ModelSelector::new(&options.identifier)
         .map(|selector| selector.fallback_search_name())
         .filter(|value| !value.is_empty());
     match (basename, HFClient::new()) {
@@ -856,30 +930,19 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
             let response = client
                 .list_models()
                 .search(&basename)
-                .filter(term)
+                .filter(&options.term)
                 .sort("downloads")
                 .full(true)
                 .card_data(true)
-                .limit(limit)
+                .limit(options.limit)
                 .send();
             match response {
                 | Ok(stream) => match stream.try_collect::<Vec<ModelInfo>>().await {
                     | Ok(models) => {
-                        let mut candidates = models
-                            .into_iter()
-                            .filter(|model| {
-                                let matches_identifier = model.id.eq_ignore_ascii_case(identifier);
-                                let is_derivative = model.is_declared_derivative_of(identifier);
-                                let is_variant = model.is_declared_variant_of(identifier);
-                                matches_identifier || is_derivative || is_variant
-                            })
-                            .map(Candidate::from)
-                            .filter(|candidate| !candidate.quantizations.is_empty())
-                            .collect::<Vec<_>>();
-                        candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
+                        let candidates = Candidates::fallback(models, options);
                         match candidates.is_empty() {
                             | true => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
-                                identifier: identifier.into()
+                                identifier: options.identifier.clone().into()
                             })),
                             | false => Ok(candidates),
                         }
@@ -894,7 +957,7 @@ pub async fn search(identifier: &str, term: Option<&str>, limit: Option<usize>) 
             }
         }
         | (None, _) => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier {
-            identifier: identifier.into()
+            identifier: options.identifier.clone().into()
         })),
         | (_, Err(why)) => Err(eyre!(HuggingFaceError::ClientInitializationFailed {
             reason: why.to_string().into()
@@ -945,8 +1008,8 @@ fn variant_matches(declared: &str, requested: &str) -> bool {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::{
-        extract_sha256, target_path_from_sidecar, Candidate, Downloaded, HuggingFaceRepositoryFiles, ModelInfo, ModelInfoExtension,
-        RepositoryResolution, Value,
+        extract_sha256, target_path_from_sidecar, Candidate, CandidateSelection, Candidates, Downloaded, HuggingFaceRepositoryFiles, ModelInfo,
+        ModelInfoExtension, RepositoryResolution, SearchOptions, Value,
     };
     use crate::schema::agent::{ModelDetails, Weight, Weights};
     use serde_json::json;
@@ -1035,6 +1098,31 @@ mod tests {
             "siblings": [{"rfilename": "model-tq1_0.gguf"}]
         })));
         assert!(candidate.quantizations.is_empty());
+    }
+    #[test]
+    fn test_fallback_candidates_apply_inclusive_minimum_download_count() {
+        let candidate = |id: &str, downloads: Option<u64>| {
+            model(json!({
+                "id": id,
+                "downloads": downloads,
+                "tags": ["base_model:quantized:acme/base"],
+                "siblings": [{"rfilename": "model-Q4_K_M.gguf"}]
+            }))
+        };
+        let options = SearchOptions::init().identifier("acme/base").minimum_download_count(100).build();
+        let candidates = Candidates::fallback(
+            vec![
+                candidate("acme/above-GGUF", Some(101)),
+                candidate("acme/boundary-GGUF", Some(100)),
+                candidate("acme/below-GGUF", Some(99)),
+                candidate("acme/missing-GGUF", None),
+            ],
+            &options,
+        );
+        assert_eq!(
+            candidates.iter().map(|candidate| candidate.id.as_str()).collect::<Vec<_>>(),
+            vec!["acme/above-GGUF", "acme/boundary-GGUF"]
+        );
     }
     #[test]
     fn test_weights_to_source_uses_hugging_face_repository_identifier() {

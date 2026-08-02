@@ -138,7 +138,7 @@ pub(crate) fn spawn_huggingface_model_search_server(
             let parsed = parse_request(&mut stream);
             let body = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
                 format!(
-                    r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
+                    r#"[{{"id":"{identifier}","downloads":142,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}},{{"id":"{identifier}-secondary","downloads":141,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
                 )
             } else if parsed.path.starts_with("/api/models?") {
                 "[]".to_string()
@@ -179,7 +179,7 @@ pub(crate) fn spawn_huggingface_missing_model_search_server(
             let parsed = parse_request(&mut stream);
             let response = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
                 let body = format!(
-                    r#"[{{"id":"{identifier}","downloads":42,"tags":["base_model:quantized:{declared_base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
+                    r#"[{{"id":"{identifier}","downloads":142,"tags":["base_model:quantized:{declared_base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
                 );
                 response_200_with_body(body.as_bytes())
             } else {
@@ -211,9 +211,9 @@ pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
                 let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
                     r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
                 } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
-                    r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-20b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                    r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-20b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
                 } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
-                    r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":42,"tags":["base_model:quantized:openai/gpt-oss-120b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                    r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-120b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
                 } else if parsed.path.starts_with("/api/models?") {
                     "[]".to_string()
                 } else {

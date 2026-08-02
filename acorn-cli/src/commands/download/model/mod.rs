@@ -1,6 +1,6 @@
 //! Model download command orchestration and execution.
 pub mod plan;
-use self::plan::{resolve_plans, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
+use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{CommandOptions, Void};
@@ -41,6 +41,7 @@ pub async fn run(
     quantization: &[Quantization],
     gpu_memory: &Option<Memory>,
     search_limit: usize,
+    minimum_download_count: u64,
     interactive: bool,
     dry_run: bool,
     raw: bool,
@@ -115,7 +116,13 @@ pub async fn run(
                             error!("=> {} {msg}", Label::fail());
                             Err(eyre!(msg))
                         } else {
-                            let models = selectors.resolve_models(offline, search_limit).await;
+                            let options = DownloadOptions {
+                                offline,
+                                limit: search_limit,
+                                minimum_download_count,
+                                interactive,
+                            };
+                            let models = selectors.resolve(options).await;
                             if models.is_empty() {
                                 let why = ModelDownloadError::NoModelsFound;
                                 error!("=> {} {why}", Label::fail());
@@ -170,6 +177,7 @@ pub async fn run(
                                                     .no_local_database(no_local_database)
                                                     .no_fallback(no_fallback)
                                                     .search_limit(search_limit)
+                                                    .minimum_download_count(minimum_download_count)
                                                     .interactive(interactive)
                                                     .quiet(quiet || raw)
                                                     .skip_verify_checksum(skip_verify_checksum)

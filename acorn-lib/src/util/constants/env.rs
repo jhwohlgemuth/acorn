@@ -6,6 +6,8 @@ pub const CHROME_PATH: &str = "CHROME_PATH";
 pub const DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
 /// Environment variable used to override database path at runtime.
 pub const DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
+/// Environment variable used to set the minimum download count for model fallbacks.
+pub const MINIMUM_DOWNLOAD_COUNT: &str = "ACORN_MINIMUM_DOWNLOAD_COUNT";
 /// GitLab CI server hostname environment variable
 pub const CI_SERVER_HOST: &str = "CI_SERVER_HOST";
 /// Environment variables forwarded to detached GitLab bot containers
@@ -14,6 +16,8 @@ pub const GITLAB_CONTAINER_ENV: [&str; 3] = ["GITLAB_TOKEN", "GITLAB_WEBHOOK_TOK
 pub const NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
 /// Environment variable used to select readability metric for readability checks at runtime.
 pub const READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
+/// Environment variable used to set the Hugging Face fallback search limit.
+pub const SEARCH_LIMIT: &str = "ACORN_SEARCH_LIMIT";
 /// Environment variable used to set minimum shell-lint severity.
 pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
 /// Environment variable used to select the terminal user-interface theme.

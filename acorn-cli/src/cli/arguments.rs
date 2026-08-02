@@ -5,7 +5,8 @@ use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
 use acorn::schema::agent::Quantization;
 use acorn::schema::hardware::memory::Memory;
-use acorn::util::constants::env::CHROME_PATH;
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT};
+use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn::util::MimeType;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
@@ -417,8 +418,17 @@ pub(crate) struct DownloadModel {
     /// Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
     ///
     /// Applies when the requested repository contains no GGUF files and automatic fallback is enabled
-    #[arg(long, value_name = "LIMIT", env = "ACORN_SEARCH_LIMIT", default_value_t = 20, help_heading = "OPTIONS")]
+    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
     pub(crate) search_limit: usize,
+    /// Minimum number of downloads required for a GGUF fallback repository
+    #[arg(
+        long = "minimum-popularity",
+        value_name = "COUNT",
+        env = MINIMUM_DOWNLOAD_COUNT,
+        default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT,
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) minimum_download_count: u64,
     /// Disable automatic GGUF quantization repository discovery when the target has no GGUF files
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) no_fallback: bool,
@@ -458,8 +468,17 @@ pub(crate) struct ImportModel {
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) interactive: bool,
     /// Maximum number of Hugging Face repositories to search during GGUF fallback discovery
-    #[arg(long, value_name = "LIMIT", env = "ACORN_SEARCH_LIMIT", default_value_t = 20, help_heading = "OPTIONS")]
+    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
     pub(crate) search_limit: usize,
+    /// Minimum number of downloads required for a GGUF fallback repository
+    #[arg(
+        long = "minimum-popularity",
+        value_name = "COUNT",
+        env = MINIMUM_DOWNLOAD_COUNT,
+        default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT,
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) minimum_download_count: u64,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

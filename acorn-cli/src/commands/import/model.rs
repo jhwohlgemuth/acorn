@@ -28,6 +28,7 @@ pub async fn run(
     offline: bool,
     no_fallback: bool,
     search_limit: usize,
+    minimum_download_count: u64,
     interactive: bool,
     verbose: &Verbosity,
 ) -> Void {
@@ -74,6 +75,7 @@ pub async fn run(
                                 offline,
                                 no_fallback,
                                 search_limit,
+                                minimum_download_count,
                                 interactive,
                                 quiet,
                                 database_path: database_path.clone(),
@@ -107,6 +109,7 @@ struct ModelImportOptions {
     offline: bool,
     no_fallback: bool,
     search_limit: usize,
+    minimum_download_count: u64,
     interactive: bool,
     quiet: bool,
     database_path: Option<PathBuf>,
@@ -126,6 +129,7 @@ impl ModelDownloadPlan {
                     .no_fallback(options.no_fallback)
                     .quiet(options.quiet)
                     .search_limit(options.search_limit)
+                    .minimum_download_count(options.minimum_download_count)
                     .build();
                 #[cfg(feature = "tui")]
                 let huggingface_options = huggingface::Options {
