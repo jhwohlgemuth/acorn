@@ -71,6 +71,7 @@ async fn run_model(
 ) -> crate::cli::Void {
     super::model::run(
         model,
+        &None,
         filter,
         ignore,
         config,
@@ -939,6 +940,43 @@ async fn test_download_model_no_models_errors() -> Result<()> {
     )
     .await;
     assert!(result.is_err(), "empty model list should return an error");
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_model_reads_model_file() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_file");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let model = temp_dir.join("tiny.gguf");
+    let model_file = temp_dir.join("models.txt");
+    write(&model, b"fake model data")?;
+    write(&model_file, model.display().to_string())?;
+    let result = super::model::run(
+        &[],
+        &Some(model_file.display().to_string()),
+        &[],
+        &[],
+        &None,
+        &None,
+        &None,
+        &Verbosity::new(0, 1),
+        true,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        true,
+        &[],
+        &None,
+        20,
+        100,
+        false,
+        true,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "local model from --model-file should resolve in offline mode");
     Ok(())
 }
 #[tokio::test]

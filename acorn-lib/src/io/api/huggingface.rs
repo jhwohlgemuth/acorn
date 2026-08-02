@@ -395,14 +395,10 @@ impl CandidateSelection for Candidates {
         candidates.sort_by_key(|candidate| Reverse(candidate.downloads));
         let rejected = |candidate: &&Candidate| candidate.downloads < *minimum_download_count;
         let report = |candidate: &Candidate| {
-            warn!(
-                "=> {} {} — fallback from {} has {} downloads, below minimum {}",
-                Label::rejected(),
-                candidate.id.yellow(),
-                identifier.yellow(),
-                candidate.downloads,
-                minimum_download_count
-            );
+            let Candidate { id, downloads, .. } = candidate;
+            let context = format!("{} {identifier}", "fallback from".italic());
+            let reason = format!("({downloads} below minimum {minimum_download_count} popularity)");
+            warn!("=> {}{} {} {}", Label::rejected(), id.yellow(), context.dimmed(), reason.dimmed(),);
         };
         match interactive {
             | true => candidates.iter().filter(rejected).for_each(report),
@@ -423,10 +419,11 @@ impl CandidateSelection for Candidates {
             | [candidate, ..] if !options.interactive => {
                 if !options.quiet {
                     info!(
-                        "=> {} {} {}",
+                        "=> {} {} {} {}",
                         Label::using(),
                         candidate.green(),
-                        "(Multiple GGUF repositories found — using most downloaded)".dimmed(),
+                        format!("{} {base_model}", "fallback for".italic().dimmed()),
+                        "(using most popular)".dimmed(),
                     );
                 }
                 Ok(candidate.to_string())
@@ -437,12 +434,8 @@ impl CandidateSelection for Candidates {
     fn select_interactively(self, options: &Options) -> ApiResult<String> {
         let candidate = self.first().ok_or_else(|| eyre!("GGUF search returned no candidates"))?;
         if !options.quiet {
-            warn!(
-                "=> {} {} {}",
-                Label::using(),
-                candidate.green(),
-                "(Interactive GGUF picker is unavailable — using most downloaded)".dimmed(),
-            );
+            let reason = "(using most popular)";
+            warn!("=> {} {} {}", Label::using(), candidate.green(), reason.dimmed());
         }
         Ok(candidate.to_string())
     }

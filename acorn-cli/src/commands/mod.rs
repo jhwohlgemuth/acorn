@@ -183,6 +183,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                             | Ok(whitelist) => {
                                 download::model::run(
                                     &args.model,
+                                    &args.model_file,
                                     &args.filter,
                                     &args.ignore,
                                     &args.config,

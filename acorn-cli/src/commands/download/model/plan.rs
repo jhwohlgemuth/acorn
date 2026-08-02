@@ -121,9 +121,10 @@ impl ModelDownloadPlan {
         let name = self.name();
         let rejected = || {
             warn!(
-                "=> {} {} — did not match model whitelist",
+                "=> {}{} {}",
                 Label::rejected(),
-                self.selector.identifier().yellow()
+                self.selector.identifier().yellow(),
+                "(did not match whitelist)".dimmed()
             );
             false
         };
@@ -142,7 +143,12 @@ impl ModelDownloadPlan {
                             | false => Ok(rejected()),
                         },
                         | Err(why) if huggingface::model_is_unavailable(&why) => {
-                            warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
+                            warn!(
+                                "=> {} {} {}",
+                                Label::not_found(),
+                                identifier.yellow(),
+                                "(unavailable on Hugging Face)".dimmed()
+                            );
                             Ok(false)
                         }
                         | Err(why) => Err(why),
@@ -546,21 +552,25 @@ impl ModelDownloadPlans {
                                 | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
                                     | Ok(resolved) => Some(resolved),
                                     | Err(why) => {
-                                        error!("=> {} Resolve fallback for '{}' — {why}", Label::fail(), plan.name());
+                                        let reason = format!("({why})");
+                                        error!("=> {} Resolve fallback for {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
                                         None
                                     }
                                 },
                                 | Err(why) if huggingface::model_is_unavailable(&why) => {
-                                    warn!("=> {} {} on Hugging Face", Label::not_found(), identifier.yellow());
+                                    let reason = "(unavailable on Hugging Face)";
+                                    warn!("=> {} {} {}", Label::not_found(), identifier.yellow(), reason.dimmed());
                                     base.resolve_fallback(&search_options, offline).await.ok()
                                 }
                                 | Err(why) => {
-                                    error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                                    let reason = format!("({why})");
+                                    error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
                                     None
                                 }
                             },
                             | Err(why) => {
-                                error!("=> {} Resolve model '{}' — {why}", Label::fail(), plan.name());
+                                let reason = format!("({why})");
+                                error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
                                 None
                             }
                         }

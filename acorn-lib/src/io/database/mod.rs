@@ -310,7 +310,7 @@ where
             .and_then(|link_count| {
                 self.trim_to_recent(Table::ValidationHistory, "id", "checked_at", 1000).map(|_| {
                     if link_count > 0 {
-                        info!("{} Cleaned up {link_count} expired cache entries", Label::run());
+                        info!("=> {} Cleaned up {link_count} expired cache entries", Label::run());
                     }
                     link_count
                 })
@@ -322,7 +322,7 @@ where
             self.clear(Table::ValidationHistory).and_then(|validation_count| {
                 self.clear(Table::ResearchActivityCache).map(|cache_count| {
                     let total = link_count.saturating_add(validation_count).saturating_add(cache_count);
-                    info!("{} Cleared {total} entries from cache tables", Label::pass());
+                    info!("=> {} Cleared {total} entries from cache tables", Label::pass());
                     total
                 })
             })
@@ -335,7 +335,7 @@ where
             .copied()
             .try_fold(0usize, |total, table| self.clear(table).map(|count| total.saturating_add(count)))
             .inspect(|&total| {
-                info!("{} Cleared {total} entries from all tables", Label::pass());
+                info!("=> {} Cleared {total} entries from all tables", Label::pass());
             })
     }
 }

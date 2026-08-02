@@ -46,14 +46,14 @@ fn extract_from_paragraph(paragraph: &Paragraph) -> String {
             | ParagraphChild::Hyperlink(hyperlink) => extract_from_hyperlink(hyperlink),
             | ParagraphChild::Insert(insert) => extract_from_insert(insert),
             | ParagraphChild::Delete(delete) => extract_from_delete(delete),
-            | ParagraphChild::MoveFrom(_) => "".to_string(),
-            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
-            | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
+            | ParagraphChild::MoveFrom(_)
             | ParagraphChild::BookmarkStart(_)
             | ParagraphChild::BookmarkEnd(_)
             | ParagraphChild::CommentStart(_)
             | ParagraphChild::CommentEnd(_)
             | ParagraphChild::StructuredDataTag(_) => "".to_string(),
+            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
+            | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
         })
         .collect::<String>()
 }
@@ -65,14 +65,14 @@ fn extract_from_hyperlink(hyperlink: &Hyperlink) -> String {
             | ParagraphChild::Run(run) => extract_from_run(run),
             | ParagraphChild::Insert(insert) => extract_from_insert(insert),
             | ParagraphChild::Delete(delete) => extract_from_delete(delete),
-            | ParagraphChild::MoveFrom(_) => "".to_string(),
-            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
+            | ParagraphChild::MoveFrom(_)
             | ParagraphChild::Hyperlink(_)
             | ParagraphChild::BookmarkStart(_)
             | ParagraphChild::BookmarkEnd(_)
             | ParagraphChild::CommentStart(_)
             | ParagraphChild::CommentEnd(_)
             | ParagraphChild::StructuredDataTag(_) => "".to_string(),
+            | ParagraphChild::MoveTo(move_to) => extract_from_move_to(move_to),
             | ParagraphChild::PageNum(_) | ParagraphChild::NumPages(_) => " ".to_string(),
         })
         .collect::<String>()
@@ -116,8 +116,7 @@ fn extract_from_run(run: &Run) -> String {
             | RunChild::Text(text) => text.text.clone(),
             | RunChild::InstrTextString(text) => text.clone(),
             | RunChild::Tab(_) => "\t".to_string(),
-            | RunChild::Break(_) => "\n".to_string(),
-            | RunChild::CarriageReturn(_) => "\n".to_string(),
+            | RunChild::Break(_) | RunChild::CarriageReturn(_) => "\n".to_string(),
             | RunChild::Sym(_)
             | RunChild::DeleteText(_)
             | RunChild::PTab(_)

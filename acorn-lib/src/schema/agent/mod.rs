@@ -23,6 +23,7 @@ use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
 use derive_more::Display;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
+use owo_colors::OwoColorize;
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -731,15 +732,13 @@ impl WeightGroups {
                 let requested = allowed.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ");
                 if gpu_memory.is_some() && self.0.iter().any(|group| allowed.contains(&group.quantization)) {
                     warn!(
-                        "=> {} Persisted GGUF variant [{}] exceeds the configured GPU memory",
+                        "=> {} Persisted GGUF variant [{requested}] exceeds the configured GPU memory",
                         Label::rejected(),
-                        requested
                     );
                 } else {
                     warn!(
-                        "=> {} No persisted GGUF variant matched the exact quantization allowlist [{}]",
-                        Label::rejected(),
-                        requested
+                        "=> {} No persisted GGUF variant matched the exact quantization allowlist [{requested}]",
+                        Label::rejected()
                     );
                 }
                 None
@@ -1326,13 +1325,13 @@ fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> 
     }
 }
 impl ModelDetails {
-    /// Return display parts for human-readable summary output.
+    /// Return display parts for human-readable summary output
     ///
     /// Returns `(primary, optional_context)` where primary is the model identifier
     /// and context is a fallback annotation when applicable.
     pub fn report(&self) -> (String, Option<String>) {
         let id = self.id.as_deref().unwrap_or("unknown").to_string();
-        let context = self.fallback.as_ref().map(|fb| format!("fallback from {fb}"));
+        let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
         (id, context)
     }
 }

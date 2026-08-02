@@ -81,6 +81,9 @@ acorn import model openai/gpt-oss-20b --search-limit 20
 # Import metadata for repositories listed in a local or remote document
 acorn import model --model-file https://example.org/models.json
 
+# Download models listed in a local or remote document
+acorn download model --model-file https://example.org/models.json
+
 # Select an exact quantization that fits in available GPU memory
 acorn download model openai/gpt-oss-20b --quantization Q4_K_M --gpu-memory 24GB
 
@@ -96,6 +99,8 @@ acorn download model meta-llama/Llama-3.1-8B --ignore "Q2_|Q3_|imatrix"
 # Download models from a config file
 acorn download model --config .acorn.json
 ```
+
+Use `--model-file` to load model IDs from a local path, `file://` URI, or HTTP(S) URL. Plain-text lists and JSON/YAML lists of IDs or model details are accepted. Positional models, entries from `--model-file`, and supported `--config` entries are combined and deduplicated before download. Remote model-list documents cannot be loaded with `--offline`.
 
 Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository is unavailable or has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
 

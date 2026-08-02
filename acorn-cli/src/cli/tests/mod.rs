@@ -198,6 +198,19 @@ fn test_download_model_whitelist_file_argument() {
     }
 }
 #[test]
+fn test_download_model_model_file_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "model", "--model-file", "https://example.com/models.yaml"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => {
+                assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
+            }
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_download_model_search_limit_from_env() {
     temp_env::with_var("ACORN_SEARCH_LIMIT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();

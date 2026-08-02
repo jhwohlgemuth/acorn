@@ -25,6 +25,7 @@ use tracing::{error, info};
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     model: &[String],
+    model_file: &Option<String>,
     filter: &[String],
     ignore: &[String],
     config: &Option<PathBuf>,
@@ -48,7 +49,13 @@ pub async fn run(
     format: &OutputFormat,
 ) -> Void {
     let quiet = verbose.is_silent();
-    let model = ModelSelectors::from(model);
+    let model = match ModelSelectors::from(model).resolve(model_file, offline).await {
+        | Ok(model) => model,
+        | Err(why) => {
+            error!("=> {} Read model list file — {why}", Label::fail());
+            return Err(why);
+        }
+    };
     let action = SourceAction::from_options(copy, symlink);
     let configuration = match ApplicationConfiguration::load(config) {
         | Ok(configuration) => Some(configuration),
@@ -107,7 +114,7 @@ pub async fn run(
                             Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
                         } else if selectors.0.is_empty() {
                             let msg = if model.is_empty() && entries.is_empty() {
-                                "No models specified — provide model IDs or --config"
+                                "No models specified — provide model IDs, --model-file, or --config"
                             } else if !whitelist.is_empty() {
                                 "No models were found or matched the whitelist"
                             } else {
@@ -133,7 +140,7 @@ pub async fn run(
                                     output_raw(&models, format)
                                 } else {
                                     info!(
-                                        "=> {} {} model{} resolved",
+                                        "=> {} Resolved {} model{}",
                                         Label::run(),
                                         models.len().cyan().bold(),
                                         suffix(models.len())
@@ -141,7 +148,7 @@ pub async fn run(
                                     for details in models {
                                         let (id, context) = details.report();
                                         match context {
-                                            | Some(ctx) => info!("=> {} {} ({})", Label::using(), id.yellow(), ctx.dimmed()),
+                                            | Some(ctx) => info!("=> {} {} {}", Label::using(), id.green(), ctx.dimmed()),
                                             | None => info!("  {} {}", "→".cyan(), id.green()),
                                         }
                                     }

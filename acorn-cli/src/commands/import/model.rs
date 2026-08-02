@@ -170,7 +170,8 @@ pub(super) fn collect_imported(results: Vec<ApiResult<String>>, best_effort: boo
             .filter_map(|result| match result {
                 | Ok(identifier) => Some(identifier),
                 | Err(why) => {
-                    warn!("=> {} Could not import model metadata ({why})", Label::skip());
+                    let reason = format!("({why})");
+                    warn!("=> {} Could not import model metadata {}", Label::skip(), reason.dimmed());
                     None
                 }
             })

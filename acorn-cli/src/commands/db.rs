@@ -64,7 +64,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                         Report::msg(format!("Failed to clear all data — {why}"))
                     })
                     .inspect(|count| {
-                        info!("{} Reset database - cleared {count} entries from all tables", Label::pass());
+                        info!("=> {} Reset database - cleared {count} entries from all tables", Label::pass());
                     })
                     .map(|_| ())
             } else {
@@ -79,7 +79,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                             Report::msg(format!("Failed to clear cache — {why}"))
                         })
                         .inspect(|count| {
-                            debug!("{} Cleared {count} entries from cache tables", Label::pass());
+                            debug!("=> {} Cleared {count} entries from cache tables", Label::pass());
                         })
                         .map(|_| ())
                 } else {
@@ -93,7 +93,7 @@ pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> 
                     ready(db.migrate().and_then(|_| {
                         if !config.no_clear_cache {
                             if let Err(why) = db.cleanup_expired_cache() {
-                                debug!("Cache cleanup warning — {why}");
+                                debug!("=> Cache cleanup warning — {why}");
                             }
                         }
                         db.with_connection(|_| Ok(())).map(|_| ())

@@ -377,6 +377,9 @@ Download model weights for use with ACORN research harnesses and local inference
 
 ###### **Options:**
 
+* `--model-file <URI_OR_PATH>` — URI or local path to a model list file
+
+   Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
 * `-c`, `--config <PATH>` — Path to configuration file listing models to download
 * `--filter <LIST>` — Regular expression pattern(s) used to include model weight sources while downloading
 
