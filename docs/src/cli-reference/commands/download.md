@@ -148,7 +148,7 @@ Users of Transformers or PyTorch typically need the full repository or a broader
 
 ## Whitelists
 
-A model whitelist restricts downloads to matching user-facing model names. Whitelist entries from the application configuration are combined with values supplied through `--whitelist` and `--whitelist-file`. An empty whitelist does not restrict downloads.
+A model whitelist restricts downloads to matching user-facing model names. ACORN uses the first non-empty whitelist source in this order: `--whitelist` or `--whitelist-file`, application configuration, then `ACORN_MODEL_WHITELIST`. The environment variable accepts comma-separated inline entries or one remote HTTP or HTTPS whitelist URI. An empty whitelist does not restrict downloads.
 
 Use `--whitelist-file` to load a whitelist from a remote HTTP or HTTPS URI. For example, the following command allows the requested model only when it appears in the ORNL Research model catalog:
 

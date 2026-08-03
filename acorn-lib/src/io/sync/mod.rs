@@ -116,8 +116,9 @@ struct RenderedOutput {
     before: String,
     content: String,
 }
+/// A parsed GGUF file candidate used to validate and order split model shards.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct Shard {
+pub(crate) struct Shard {
     key: String,
     index: Option<u64>,
     count: Option<u64>,
@@ -598,7 +599,7 @@ impl Shard {
                     && count.chars().all(|c| c.is_ascii_digit())
             })
     }
-    fn parts(filename: &str) -> Option<(String, u64, u64)> {
+    pub(crate) fn parts(filename: &str) -> Option<(String, u64, u64)> {
         filename
             .strip_suffix(".gguf")
             .and_then(|stem| stem.rsplit_once("-of-"))

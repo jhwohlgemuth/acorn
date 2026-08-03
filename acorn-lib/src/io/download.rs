@@ -264,15 +264,15 @@ impl DownloadTask {
             | (false, Some(_)) => ProgressType::Bar,
             | (false, None) => ProgressType::Spinner,
         };
+        if !quiet {
+            info!("=> {} Downloading {}", Label::run(), target.display());
+        }
         let progress = create_progress_bar(item.size.and_then(|value| usize::try_from(value).ok()).unwrap_or_default(), progress_type);
         match item.size {
             | Some(_) => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10}/{total_bytes:<10} [{bar:40.green}] {msg}"),
             | None => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10} {msg}"),
         }
         progress.set_message(target.display().to_string());
-        if !quiet {
-            info!("=> {} Downloading {}", Label::run(), target.display());
-        }
         let auth_error_message = item.auth_error_message();
         let result = http::download_with_progress(
             &item.url,

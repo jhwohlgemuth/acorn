@@ -8,6 +8,8 @@ pub const DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
 pub const DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 /// Environment variable used to set the minimum download count for model fallbacks.
 pub const MINIMUM_DOWNLOAD_COUNT: &str = "ACORN_MINIMUM_DOWNLOAD_COUNT";
+/// Environment variable used to set the model download whitelist.
+pub const MODEL_WHITELIST: &str = "ACORN_MODEL_WHITELIST";
 /// GitLab CI server hostname environment variable
 pub const CI_SERVER_HOST: &str = "CI_SERVER_HOST";
 /// Environment variables forwarded to detached GitLab bot containers

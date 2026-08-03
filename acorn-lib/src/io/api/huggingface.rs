@@ -3,6 +3,7 @@ use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, Tree
 use crate::io::api::{Param, RepositoryFileMetadata};
 use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
+use crate::io::sync::Shard;
 use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::prelude::{HashMap, Path};
 use crate::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
@@ -252,6 +253,33 @@ impl HuggingFaceRepositoryFiles {
             files,
             identifier: identifier.into(),
             revision: revision.into(),
+        }
+    }
+    /// Returns a complete split GGUF shard set as one logical candidate.
+    /// Repository listings expose each shard as a separate file, which can otherwise look like multiple candidates.
+    fn complete_shard_set(&self) -> Option<Self> {
+        let shards = self
+            .iter()
+            .filter_map(|file| Shard::parts(&file.path.to_ascii_lowercase()))
+            .collect::<Vec<_>>();
+        shards.first().and_then(|(key, _, count)| {
+            let indexes = shards
+                .iter()
+                .filter(|(candidate_key, _, candidate_count)| candidate_key == key && candidate_count == count)
+                .map(|(_, index, _)| *index)
+                .collect::<BTreeSet<_>>();
+            let expected = (1..=*count).collect::<BTreeSet<_>>();
+            match indexes == expected && usize::try_from(*count).ok() == Some(shards.len()) {
+                | true => Some(self.clone()),
+                | false => None,
+            }
+        })
+    }
+    fn candidate_report(&self) -> String {
+        match self.len() {
+            | 0 => "no GGUF files".to_string(),
+            | 1 | 2 => self.iter().map(|file| file.path.as_str()).collect::<Vec<_>>().join(", "),
+            | count => format!("{count} GGUF files"),
         }
     }
     fn parse(content: &str, options: &Options) -> ApiResult<Self> {
@@ -598,21 +626,31 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         })
     }
     fn select(&self, policy: &FileSelectionPolicy<'_>) -> ApiResult<Self> {
-        let gguf_files: Vec<&HuggingFaceRepositoryFile> = self.iter().filter(|file| file.path.to_ascii_lowercase().ends_with(".gguf")).collect();
-        match gguf_files.len() {
+        let Self { identifier, revision, .. } = self;
+        let gguf_files = self
+            .iter()
+            .filter(|file| file.path.to_ascii_lowercase().ends_with(".gguf"))
+            .cloned()
+            .collect();
+        let files = Self::new(identifier, revision, gguf_files);
+        match files.len() {
             | 0 => Err(eyre!(HuggingFaceError::NoGgufModelFiles)),
-            | 1 => Ok(Self::new(&self.identifier, &self.revision, gguf_files.into_iter().cloned().collect())),
+            | 1 => Ok(files),
             | _ => {
-                let preferred: Vec<&HuggingFaceRepositoryFile> = gguf_files
-                    .into_iter()
+                let preferred_files = files
+                    .iter()
                     .filter(|file| file.path.to_ascii_uppercase().contains(policy.preferred_marker))
+                    .cloned()
                     .collect();
+                let preferred = Self::new(identifier, revision, preferred_files);
                 match preferred.len() {
-                    | 1 => Ok(Self::new(&self.identifier, &self.revision, preferred.into_iter().cloned().collect())),
-                    | _ => Err(eyre!(
-                        "Multiple model file candidates found; use --filter to choose one: {}",
-                        self.iter().map(|file| file.path.clone()).collect::<Vec<_>>().join(", ")
-                    )),
+                    | 1 => Ok(preferred),
+                    | _ => preferred.complete_shard_set().ok_or_else(|| {
+                        eyre!(
+                            "Multiple model file candidates found ({}); use --filter to choose one",
+                            files.candidate_report()
+                        )
+                    }),
                 }
             }
         }

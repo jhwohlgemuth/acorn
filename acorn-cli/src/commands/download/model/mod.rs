@@ -6,12 +6,13 @@ use crate::cli::arguments::{OutputFormat, SyncTarget};
 use crate::cli::{CommandOptions, Void};
 use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
+use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
+use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{self, eyre};
@@ -51,6 +52,7 @@ pub async fn run(
     format: &OutputFormat,
 ) -> Void {
     let quiet = verbose.is_silent();
+    let use_configured_models = model.is_empty() && model_file.is_none();
     let model = match ModelSelectors::from(model).resolve(model_file, offline).await {
         | Ok(model) => model,
         | Err(why) => {
@@ -66,17 +68,20 @@ pub async fn run(
             return Err(why);
         }
     };
-    let (entries, configured_whitelist) = configuration.model_entries_and_whitelist();
-    let configured_whitelist = match Whitelist::from_configuration(configured_whitelist, offline).await {
+    let (configured_entries, configured_whitelist) = configuration.model_entries_and_whitelist();
+    let entries = match use_configured_models {
+        | true => configured_entries,
+        | false => Vec::new(),
+    };
+    let whitelist = match Whitelist::prioritized(whitelist, configured_whitelist, offline).await {
         | Ok(whitelist) => whitelist.0,
         | Err(why) => {
-            error!("=> {} Read configured model whitelist — {why}", Label::fail());
+            error!("=> {} Resolve model whitelist — {why}", Label::fail());
             return Err(why);
         }
     };
     let whitelist = whitelist
         .iter()
-        .chain(&configured_whitelist)
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect::<HashSet<_>>();
@@ -359,6 +364,32 @@ impl Whitelist {
             | Some(OneOrMany::One(value)) if is_http_or_https(&value) => Self(Vec::new()).resolve(&Some(value), offline).await,
             | Some(values) => Ok(Self(values.into_vec())),
             | None => Ok(Self(Vec::new())),
+        }
+    }
+    pub(crate) async fn prioritized(cli: &[String], configured: Option<OneOrMany<String>>, offline: bool) -> ApiResult<Self> {
+        match cli {
+            | [_, ..] => Ok(Self(cli.to_vec())),
+            | [] => match Self::from_configuration(configured, offline).await {
+                | Ok(whitelist) if !whitelist.0.is_empty() => Ok(whitelist),
+                | Ok(_) => match first_env_var(&[MODEL_WHITELIST]) {
+                    | Some(value) => {
+                        let values = value
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(String::from)
+                            .collect::<Vec<_>>();
+                        let values = match values.as_slice() {
+                            | [value] => Some(OneOrMany::One(value.clone())),
+                            | [_, ..] => Some(OneOrMany::Many(values)),
+                            | [] => None,
+                        };
+                        Self::from_configuration(values, offline).await
+                    }
+                    | None => Ok(Self(Vec::new())),
+                },
+                | Err(why) => Err(why),
+            },
         }
     }
 }

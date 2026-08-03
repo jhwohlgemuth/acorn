@@ -27,6 +27,7 @@ use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirem
 use acorn::prelude::{create_dir_all, read_to_string, write, HashSet, PathBuf};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
 use acorn::schema::OneOrMany;
+use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::merge;
 use alloc::sync::Arc;
 use assert_cmd::Command;
@@ -1106,7 +1107,10 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
     let model_file = temp_dir.join("tiny.gguf");
     let model_path = model_file.display().to_string();
     write(&model_file, b"fake model data")?;
-    write(&config_path, format!(r#"{{"models": ["{}"]}}"#, model_path.replace('\\', "/")))?;
+    write(
+        &config_path,
+        r#"{"models":["configured/remote-model"],"whitelist":{"models":"https://invalid.example/models.json"}}"#,
+    )?;
     let verbose = Verbosity::new(0, 1);
     let output_dir = temp_dir.join("models");
     let result = run_model(
@@ -1117,11 +1121,11 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         &Some(output_dir),
         &None,
         &verbose,
-        false,
+        true,
         true,
         false,
         false,
-        &[],
+        &["tiny".to_string()],
         false,
         200,
         false,
@@ -1130,8 +1134,66 @@ async fn test_download_model_positional_overrides_config() -> Result<()> {
         &OutputFormat::default(),
     )
     .await;
-    assert!(result.is_ok(), "positional + config with same model should succeed (deduplicated)");
+    assert!(result.is_ok(), "CLI whitelist and positional model should override configuration inputs");
     Ok(())
+}
+#[tokio::test]
+async fn test_download_model_file_overrides_config() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_file_override");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let config_path = temp_dir.join(".acorn.json");
+    let model = temp_dir.join("tiny.gguf");
+    let model_file = temp_dir.join("models.txt");
+    write(&model, b"fake model data")?;
+    write(&model_file, model.display().to_string())?;
+    write(&config_path, r#"{"models": ["configured/remote-model"]}"#)?;
+    let result = super::model::run(
+        &[],
+        &Some(model_file.display().to_string()),
+        &None,
+        false,
+        &[],
+        &[],
+        &Some(config_path),
+        &None,
+        &None,
+        &Verbosity::new(0, 1),
+        true,
+        false,
+        false,
+        false,
+        &[],
+        false,
+        true,
+        &[],
+        &None,
+        20,
+        100,
+        false,
+        true,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok(), "--model-file should prevent automatic config resolution");
+    Ok(())
+}
+#[test]
+fn test_model_whitelist_precedence_is_cli_config_environment() {
+    with_var(MODEL_WHITELIST, Some("environment-one, environment-two"), || {
+        let configured = Some(OneOrMany::One("configuration".to_string()));
+        let cli = futures::executor::block_on(super::model::Whitelist::prioritized(
+            &["command-line".to_string()],
+            configured.clone(),
+            true,
+        ))
+        .unwrap();
+        let config = futures::executor::block_on(super::model::Whitelist::prioritized(&[], configured, true)).unwrap();
+        let environment = futures::executor::block_on(super::model::Whitelist::prioritized(&[], None, true)).unwrap();
+        assert_eq!(cli.0, vec!["command-line"]);
+        assert_eq!(config.0, vec!["configuration"]);
+        assert_eq!(environment.0, vec!["environment-one", "environment-two"]);
+    });
 }
 #[tokio::test]
 async fn test_download_model_whitelist_errors_when_no_name_matches() -> Result<()> {
@@ -1757,6 +1819,21 @@ fn test_model_select_preferred_file_errors_when_ambiguous() {
     assert!(selected.is_err());
 }
 #[test]
+fn test_model_select_preferred_file_summarizes_large_ambiguity() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("model.Q2_K.gguf"),
+        candidate_file("model.Q3_K_M.gguf"),
+        candidate_file("model.Q5_K_M.gguf"),
+    ]);
+    let error = files.select(&policy).unwrap_err().to_string();
+    assert!(error.contains("3 GGUF files"));
+    assert!(!error.contains("model.Q2_K.gguf"));
+}
+#[test]
 fn test_model_select_preferred_file_prefers_marker() {
     let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
@@ -1766,6 +1843,33 @@ fn test_model_select_preferred_file_prefers_marker() {
     let selected = files.select(&policy).unwrap();
     assert_eq!(selected.len(), 1);
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
+}
+#[test]
+fn test_model_select_preferred_file_keeps_complete_shard_set() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("Q4_K_M/model-Q4_K_M-00001-of-00002.gguf"),
+        candidate_file("Q4_K_M/model-Q4_K_M-00002-of-00002.gguf"),
+        candidate_file("Q5_K_M/model-Q5_K_M.gguf"),
+    ]);
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 2);
+    assert!(selected.iter().all(|file| file.path.contains("Q4_K_M")));
+}
+#[test]
+fn test_model_select_preferred_file_rejects_incomplete_shard_set() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("Q4_K_M/model-Q4_K_M-00001-of-00003.gguf"),
+        candidate_file("Q4_K_M/model-Q4_K_M-00002-of-00003.gguf"),
+    ]);
+    assert!(files.select(&policy).is_err());
 }
 #[test]
 fn test_parse_model_whitelist_file_from_json_model_details() -> Result<()> {
