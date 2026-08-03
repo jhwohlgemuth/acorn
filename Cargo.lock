@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acorn-cli"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "acorn-lib",
  "acorn-tui",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-lib"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "acorn-macros",
  "aho-corasick",
@@ -156,7 +156,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-macros"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -165,7 +165,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-py"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "acorn-lib",
  "pyo3",
@@ -174,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "acorn-tui"
-version = "0.1.62"
+version = "0.1.63"
 dependencies = [
  "acorn-lib",
  "chrono",
