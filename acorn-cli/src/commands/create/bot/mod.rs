@@ -175,6 +175,28 @@ mod tests {
             .take(4)
             .eq(["--host", "ssh://builder", "run", "--detach"]));
     }
+    #[tokio::test]
+    async fn test_remote_container_rejects_non_docker_runtime_before_execution() {
+        let remote = "ssh://builder".parse::<Remote>().unwrap();
+        let result = run(
+            "42",
+            &None,
+            &None,
+            &Some(Executor::Podman),
+            &None,
+            &None,
+            &None,
+            &None,
+            EventSource::Poll,
+            &None,
+            false,
+            &None,
+            &Some(remote),
+        )
+        .await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("requires the docker runtime"));
+    }
     #[test]
     fn test_webhook_container_is_reachable_durable_and_redacts_credentials() {
         temp_env::with_vars(

@@ -531,6 +531,26 @@ mod tests {
         assert!(!values.iter().any(|value| value.contains("C:\\local")));
     }
     #[test]
+    fn test_remote_runner_registration_targets_the_requested_docker_host() {
+        let template = Some("/etc/gitlab-runner/gpu.template.toml".to_string());
+        let values = text(remote().docker_args(build_register_args(
+            "runner-42",
+            "https://gitlab.example.org/",
+            "GitLab Runner [42]",
+            "token",
+            "debug",
+            &template,
+        )));
+        assert!(values
+            .iter()
+            .map(String::as_str)
+            .take(5)
+            .eq(["--host", "ssh://builder", "exec", "runner-42", "gitlab-runner"]));
+        assert!(values
+            .windows(2)
+            .any(|pair| pair == ["--template-config", "/etc/gitlab-runner/gpu.template.toml"]));
+    }
+    #[test]
     fn test_remote_runner_validation_rejects_non_docker_config_before_creation() {
         let runner = RunnerDetails::at(Repository::GitLab {
             id: Some(42),

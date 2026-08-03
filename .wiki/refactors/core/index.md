@@ -8,7 +8,7 @@
 
 ## In Progress
 
-- [Remote create container targets](remote-create-container-targets.md) - Automated implementation is complete; live SSH Docker smoke testing remains.
+- [Remote create container targets](remote-create-container-targets.md) - Core implementation and focused coverage are present; preflight, rollback, cleanup, and live validation remain.
 
 ## Planned
 

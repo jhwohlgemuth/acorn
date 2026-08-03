@@ -644,9 +644,31 @@ fn test_remote_parse_and_docker_executor() {
     assert_eq!(remote.as_str(), "ssh://deploy@example.org:2222/var/run/docker.sock");
     assert!(Executor::Docker.is_docker());
     assert!(!Executor::Podman.is_docker());
-    ["http://builder", "ssh://", "ssh://user:password@builder", "ssh://builder?query=value"]
-        .into_iter()
-        .for_each(|value| assert!(value.parse::<Remote>().is_err()));
+    [
+        "http://builder",
+        "ssh://",
+        "ssh://user:password@builder",
+        "ssh://builder?query=value",
+        "ssh://builder#fragment",
+        "ssh://builder:65536",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(value.parse::<Remote>().is_err()));
+}
+#[test]
+fn test_remote_gpu_template_copy_targets_the_requested_docker_host() {
+    let remote = "ssh://builder".parse::<Remote>().unwrap();
+    let template = PathBuf::from("/tmp/gpu.template.toml");
+    assert_eq!(
+        remote.docker_args(args!["cp", &template, "runner-42:/etc/gitlab-runner/gpu.template.toml"]),
+        args![
+            "--host",
+            "ssh://builder",
+            "cp",
+            template,
+            "runner-42:/etc/gitlab-runner/gpu.template.toml"
+        ]
+    );
 }
 #[test]
 fn test_first_env_var() {
