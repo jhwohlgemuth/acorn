@@ -41,12 +41,6 @@ test:
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
-  cache:
-    key: rust-cache-${CI_COMMIT_REF_SLUG}
-    paths:
-      - .cargo/registry/
-      - .cargo/git/
-      - target/
   inherit:
     variables: true
   rules:
@@ -83,12 +77,6 @@ fuzz-smoke:
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
     - cpu
-  cache:
-    key: rust-cache-${CI_COMMIT_REF_SLUG}
-    paths:
-      - .cargo/registry/
-      - .cargo/git/
-      - target/
   inherit:
     variables: true
   needs:
