@@ -184,6 +184,8 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                                 download::model::run(
                                     &args.model,
                                     &args.model_file,
+                                    &args.sync,
+                                    args.force,
                                     &args.filter,
                                     &args.ignore,
                                     &args.config,
@@ -331,11 +333,12 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
         | Some(Commands::Skill) => skill::run(),
-        | Some(Commands::Sync(arguments)) => with_runtime(async { sync::run(arguments).await }),
+        | Some(Commands::Sync(arguments)) => with_runtime(async { sync::run(arguments, offline).await }),
         | Some(Commands::Import { command, .. }) => match command {
             | Some(ImportCommands::Model(arguments)) => with_runtime(async {
                 let config = DatabaseConfig {
                     initial_download: false,
+                    no_local_database: config.no_local_database || arguments.dry_run,
                     ..config.clone()
                 };
                 match initialize_database(&config).await {
@@ -343,6 +346,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                         import::model::run(
                             &arguments.model,
                             &arguments.model_file,
+                            &arguments.sync,
+                            arguments.force,
+                            arguments.dry_run,
                             &arguments.config,
                             &config.database_path,
                             config.no_local_database,

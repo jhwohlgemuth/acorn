@@ -12,6 +12,7 @@ use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
+use strum::EnumIs;
 /// Remote Docker target arguments shared by container-producing create commands.
 #[derive(Clone, Debug, Args)]
 pub(crate) struct RemoteTarget {
@@ -203,6 +204,17 @@ pub enum OutputFormat {
     #[display("YAML")]
     Yaml,
 }
+/// Local inference configuration target for model synchronization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumIs, ValueEnum)]
+pub(crate) enum SyncTarget {
+    /// Synchronize all targets
+    #[default]
+    All,
+    /// Synchronize OpenCode only
+    Opencode,
+    /// Synchronize llama-swap only
+    LlamaSwap,
+}
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum Size {
@@ -379,6 +391,20 @@ pub(crate) struct DownloadModel {
     /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
     #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
     pub(crate) model_file: Option<String>,
+    /// Add downloaded models to ACORN and synchronize OpenCode and/or llama-swap configuration
+    #[arg(
+        long,
+        value_enum,
+        value_name = "TARGET",
+        num_args = 0..=1,
+        default_missing_value = "all",
+        conflicts_with = "raw",
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) sync: Option<SyncTarget>,
+    /// Assume synchronized models exist under the models directory
+    #[arg(long, requires = "sync", help_heading = "FLAGS")]
+    pub(crate) force: bool,
     /// Path to configuration file listing models to download
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
@@ -463,6 +489,15 @@ pub(crate) struct ImportModel {
     /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
     #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
     pub(crate) model_file: Option<String>,
+    /// Add imported models to ACORN and synchronize OpenCode and/or llama-swap configuration
+    #[arg(long, value_enum, value_name = "TARGET", num_args = 0..=1, default_missing_value = "all", help_heading = "OPTIONS")]
+    pub(crate) sync: Option<SyncTarget>,
+    /// Assume synchronized models exist under the models directory
+    #[arg(long, requires = "sync", help_heading = "FLAGS")]
+    pub(crate) force: bool,
+    /// Resolve model metadata without database or configuration writes
+    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
     /// Path to configuration file listing models to inspect
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
@@ -737,6 +772,14 @@ pub(crate) struct Sync {
     /// Path to ACORN configuration file (JSON, JSONC, or YAML)
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
+    /// URI or local path to a model list file
+    ///
+    /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
+    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
+    pub(crate) model_file: Option<String>,
+    /// Assume models exist under the models directory without checking the filesystem
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) force: bool,
     /// Synchronize OpenCode configuration only
     #[arg(long, help_heading = "TARGETS")]
     pub(crate) opencode: bool,

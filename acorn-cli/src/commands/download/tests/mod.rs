@@ -10,7 +10,7 @@
 )]
 extern crate alloc;
 use super::run;
-use crate::cli::arguments::OutputFormat;
+use crate::cli::arguments::{OutputFormat, SyncTarget};
 use crate::test::server::{
     spawn_basic_model_config_server, spawn_huggingface_missing_model_search_server, spawn_huggingface_model_info_server,
     spawn_huggingface_model_search_server, spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server,
@@ -72,6 +72,8 @@ async fn run_model(
     super::model::run(
         model,
         &None,
+        &None,
+        false,
         filter,
         ignore,
         config,
@@ -293,7 +295,7 @@ async fn test_config_fixture_resolves_models() {
 #[tokio::test]
 async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json"))?;
-    let (entries, whitelist) = super::model::configured_models(Some(config));
+    let (entries, whitelist) = config.model_entries_and_whitelist();
     let whitelist = whitelist.map(OneOrMany::into_vec).unwrap_or_default();
     assert_eq!(whitelist, vec!["meta-llama/Llama-2-7b-hf".to_string(), "openai/gpt-oss-2b".to_string()]);
     let whitelist = whitelist.into_iter().collect::<HashSet<_>>();
@@ -786,6 +788,61 @@ async fn test_download_model_local_file_copy() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+async fn test_download_model_syncs_downloaded_model() -> Result<()> {
+    let temp_dir = temp_test_dir("download_model_sync");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let output_dir = temp_dir.join("models");
+    let model_file = temp_dir.join("tiny.gguf");
+    let config_path = temp_dir.join("acorn.json");
+    let opencode_path = temp_dir.join("opencode.json");
+    write(&model_file, b"fake model data")?;
+    write(
+        &config_path,
+        serde_json::json!({"config":{"opencode":{"path":opencode_path.display().to_string()}}}).to_string(),
+    )?;
+    let result = super::model::run(
+        &[model_file.display().to_string()],
+        &None,
+        &Some(SyncTarget::Opencode),
+        false,
+        &[],
+        &[],
+        &Some(config_path.clone()),
+        &Some(output_dir),
+        &None,
+        &Verbosity::new(0, 1),
+        true,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        true,
+        &[],
+        &None,
+        20,
+        100,
+        false,
+        false,
+        false,
+        &OutputFormat::default(),
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(read_to_string(opencode_path)?.contains("tiny"));
+    let identifiers = ApplicationConfiguration::read(config_path)?
+        .models
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|entry| match entry {
+            | ModelEntry::Selector(identifier) => Some(identifier),
+            | ModelEntry::Entry(_) => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(identifiers, vec!["tiny"]);
+    Ok(())
+}
+#[tokio::test]
 async fn test_download_model_local_file_reference() -> Result<()> {
     let temp_dir = temp_test_dir("download_model_local_reference");
     let _cleanup = TestCleanup::new(temp_dir.clone());
@@ -953,6 +1010,8 @@ async fn test_download_model_reads_model_file() -> Result<()> {
     let result = super::model::run(
         &[],
         &Some(model_file.display().to_string()),
+        &None,
+        false,
         &[],
         &[],
         &None,

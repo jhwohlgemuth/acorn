@@ -57,6 +57,38 @@ acorn import model --model-file https://research.ornl.gov/api/models.json
 
 Positional repository IDs, entries from `--model-file`, and supported `--config` entries are combined and deduplicated before import.
 
+### Synchronize imported models
+
+Pass `--sync` to add the unique model identifiers resolved by this invocation to the ACORN configuration's `models` list and to both OpenCode and llama-swap configuration. Existing ACORN model entries are preserved and duplicate identifiers are omitted. Select one inference target with `--sync opencode` or `--sync llama-swap`:
+
+```sh
+acorn import model openai/gpt-oss-20b --sync
+acorn import model openai/gpt-oss-20b --sync opencode
+acorn import model openai/gpt-oss-20b --sync llama-swap
+```
+
+Import resolves and persists repository metadata; it does not download weights. Synchronization therefore adds only imported models whose GGUF files are already available in the configured models directory by default. Models without a resolvable local GGUF are reported and skipped.
+
+Add `--force` to skip the local existence check and assume each imported model is located at `<models-dir>/<model-id>`:
+
+```sh
+acorn import model openai/gpt-oss-20b --sync --force
+```
+
+Use `--dry-run` without `--sync` to resolve and report model metadata without persisting it to the database:
+
+```sh
+acorn import model openai/gpt-oss-20b --dry-run
+```
+
+Combine `--dry-run` with `--sync` to also print ACORN and inference-configuration diffs without writing files:
+
+```sh
+acorn import model openai/gpt-oss-20b --sync --dry-run
+```
+
+Inline `--sync` is additive and operates only on models resolved by the current import. Use the standalone `acorn sync` command to reconcile every model in ACORN configuration, override target paths or the models directory, preview changes independently, or remove stale ACORN-managed entries with `--prune`.
+
 When a repository has no GGUF files, ACORN searches for a GGUF repository derived from that model. Control fallback discovery with:
 
 ```sh

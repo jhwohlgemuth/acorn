@@ -380,6 +380,17 @@ Download model weights for use with ACORN research harnesses and local inference
 * `--model-file <URI_OR_PATH>` — URI or local path to a model list file
 
    Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
+* `--sync <TARGET>` — Add downloaded models to ACORN and synchronize OpenCode and/or llama-swap configuration
+
+  Possible values:
+  - `all`:
+    Synchronize all targets
+  - `opencode`:
+    Synchronize OpenCode only
+  - `llama-swap`:
+    Synchronize llama-swap only
+
+* `--force` — Assume synchronized models exist under the models directory
 * `-c`, `--config <PATH>` — Path to configuration file listing models to download
 * `--filter <LIST>` — Regular expression pattern(s) used to include model weight sources while downloading
 
@@ -625,6 +636,18 @@ Import model metadata into the local database
 * `--model-file <URI_OR_PATH>` — URI or local path to a model list file
 
    Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
+* `--sync <TARGET>` — Add imported models to ACORN and synchronize OpenCode and/or llama-swap configuration
+
+  Possible values:
+  - `all`:
+    Synchronize all targets
+  - `opencode`:
+    Synchronize OpenCode only
+  - `llama-swap`:
+    Synchronize llama-swap only
+
+* `--force` — Assume synchronized models exist under the models directory
+* `--dry-run` [alias: `what-if`] — Resolve model metadata without database or configuration writes
 * `-c`, `--config <PATH>` — Path to configuration file listing models to inspect
 * `--no-fallback` — Disable automatic GGUF quantization repository discovery
 * `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
@@ -796,6 +819,10 @@ Synchronize local inference configuration from ACORN model entries
 ###### **Options:**
 
 * `-c`, `--config <PATH>` — Path to ACORN configuration file (JSON, JSONC, or YAML)
+* `--model-file <URI_OR_PATH>` — URI or local path to a model list file
+
+   Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
+* `--force` — Assume models exist under the models directory without checking the filesystem
 * `--opencode` — Synchronize OpenCode configuration only
 * `--llama-swap` — Synchronize llama-swap configuration only
 * `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)

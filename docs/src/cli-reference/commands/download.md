@@ -102,6 +102,22 @@ acorn download model --config .acorn.json
 
 Use `--model-file` to load model IDs from a local path, `file://` URI, or HTTP(S) URL. Plain-text lists and JSON/YAML lists of IDs or model details are accepted. Positional models, entries from `--model-file`, and supported `--config` entries are combined and deduplicated before download. Remote model-list documents cannot be loaded with `--offline`.
 
+Pass `--sync` to add the unique model identifiers resolved by this invocation to the ACORN configuration's `models` list and to both OpenCode and llama-swap configuration. Existing ACORN model entries are preserved and duplicate identifiers are omitted. Use `--sync opencode` or `--sync llama-swap` to select one inference target:
+
+```sh
+acorn download model openai/gpt-oss-20b --sync
+acorn download model openai/gpt-oss-20b --sync opencode
+acorn download model openai/gpt-oss-20b --sync llama-swap
+```
+
+`--dry-run` continues to avoid model downloads and prints ACORN and target-configuration diffs without writing them when combined with `--sync`. Only models already available in the selected output/models directory can appear in the inference-configuration diffs by default. Add `--force` to skip this existence check and assume each model is located at `<models-dir>/<model-id>`:
+
+```sh
+acorn download model openai/gpt-oss-20b --sync --dry-run --force
+```
+
+Inline `--sync` is additive and operates only on models resolved by the current download. The standalone `acorn sync` command remains the full reconciliation operation for every model in ACORN configuration, including target-path and models-directory overrides, independent dry runs, and removal of stale ACORN-managed entries with `--prune`.
+
 Metadata import resolves the configured revision, records each GGUF file URL, quantization, and byte size, and inspects a selected fallback GGUF repository when the base repository is unavailable or has no GGUF files. It does not transfer model weights or checksum sidecars. `--quantization` is an ordered, comma-separated exact allowlist. When only `--gpu-memory` is supplied, ACORN evaluates Q4_K_M. Split shards are treated as one variant and their sizes are summed.
 
 Detailed configuration entries can set the same constraints:

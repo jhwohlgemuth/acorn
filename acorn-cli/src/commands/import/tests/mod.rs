@@ -148,6 +148,9 @@ async fn test_model_catalog_import_skips_database_when_disabled() {
         &[],
         &None,
         &None,
+        false,
+        false,
+        &None,
         &Some(".".into()),
         true,
         false,
@@ -159,6 +162,31 @@ async fn test_model_catalog_import_skips_database_when_disabled() {
     )
     .await;
     assert!(result.is_ok());
+}
+#[tokio::test]
+async fn test_model_catalog_import_dry_run_skips_database() {
+    let directory = temp_test_dir("import-model-dry-run");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let database_path = directory.join("models.duckdb");
+    let result = super::model::run(
+        &[],
+        &None,
+        &None,
+        false,
+        true,
+        &None,
+        &Some(database_path.clone()),
+        false,
+        false,
+        false,
+        20,
+        100,
+        false,
+        &Default::default(),
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(!database_path.exists());
 }
 #[test]
 fn test_model_file_import_results_skip_unresolved_models() {

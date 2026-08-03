@@ -8,6 +8,7 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
+use crate::cli::arguments::SyncTarget;
 use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
@@ -159,6 +160,17 @@ fn test_no_color_flags_for_dry_run_diffs() {
     }
 }
 #[test]
+fn test_sync_model_file_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "sync", "--model-file", "https://example.com/models.yaml", "--force"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Sync(arguments)) => {
+            assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
+            assert!(arguments.force);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_download_model_gguf_fallback_arguments() {
     let arguments = Arguments::try_parse_from([
         "acorn",
@@ -204,6 +216,21 @@ fn test_download_model_model_file_argument() {
         | Some(Commands::Download(arguments)) => match arguments.command {
             | Some(DownloadCommands::Model(arguments)) => {
                 assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
+            }
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_download_model_sync_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "model", "acme/model", "--sync", "opencode", "--force", "--dry-run"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => {
+                assert_eq!(arguments.sync, Some(SyncTarget::Opencode));
+                assert!(arguments.force);
+                assert!(arguments.dry_run);
             }
             | other => panic!("unexpected download command: {other:?}"),
         },
@@ -323,6 +350,33 @@ fn test_import_model_metadata_arguments() {
             }
             | other => panic!("unexpected import command: {other:?}"),
         },
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_import_model_sync_argument_defaults_to_all() {
+    let arguments = Arguments::try_parse_from(["acorn", "import", "model", "acme/model", "--sync", "--force", "--dry-run"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Import {
+            command: Some(ImportCommands::Model(arguments)),
+        }) => {
+            assert_eq!(arguments.sync, Some(SyncTarget::All));
+            assert!(arguments.force);
+            assert!(arguments.dry_run);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_import_model_dry_run_does_not_require_sync() {
+    let arguments = Arguments::try_parse_from(["acorn", "import", "model", "acme/model", "--dry-run"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Import {
+            command: Some(ImportCommands::Model(arguments)),
+        }) => {
+            assert_eq!(arguments.sync, None);
+            assert!(arguments.dry_run);
+        }
         | other => panic!("unexpected command: {other:?}"),
     }
 }

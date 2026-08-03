@@ -1,36 +1,15 @@
 use crate::cli::{arguments, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
-use acorn::io::sync::{self, Config, ModelRequest};
-use acorn::io::ApiResult;
-use acorn::prelude::Path;
-use acorn::schema::agent::ModelDetails;
+use acorn::io::sync::{self, Config};
+use acorn::schema::agent::ModelSelectors;
 use acorn::util::Label;
-use tracing::{info, warn};
-
-struct ModelEntries(Vec<ModelEntry>);
-impl ModelEntries {
-    fn resolve(&self, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
-        ModelEntry::requests(&self.0).map(|requests| {
-            requests
-                .into_iter()
-                .filter_map(|request: ModelRequest| {
-                    let id = request.id().to_string();
-                    match request.resolve(models_dir) {
-                        | Ok(model) => Some(model),
-                        | Err(why) => {
-                            warn!("{} Skipping model '{id}' — {why}", Label::CAUTION);
-                            None
-                        }
-                    }
-                })
-                .collect()
-        })
-    }
-}
+use tracing::info;
 /// Synchronize local inference configuration from ACORN model entries
-pub async fn run(args: &arguments::Sync) -> Void {
+pub async fn run(args: &arguments::Sync, offline: bool) -> Void {
     let &arguments::Sync {
         ref config,
+        ref model_file,
+        force,
         opencode,
         llama_swap,
         ref models_dir,
@@ -39,30 +18,42 @@ pub async fn run(args: &arguments::Sync) -> Void {
         prune,
         ..
     } = args;
-    ApplicationConfiguration::load(config).and_then(|configuration| {
-        let llama_swap_config = sync::llama_swap::Config::from(args);
-        let opencode_config = sync::opencode::Config::from(args);
-        let overrides = Config {
-            llama_swap: (llama_swap_config.path.is_some() || llama_swap_config.models_directory.is_some()).then_some(llama_swap_config),
-            opencode: opencode_config.path.is_some().then_some(opencode_config),
-        };
-        let sync_config = configuration.config.clone().unwrap_or_default().merge_cli_overrides(overrides);
-        sync_config.resolve_models_dir(models_dir.as_deref()).and_then(|models_dir| {
-            info!("{} Resolving models from configuration", Label::run());
-            ModelEntries(configuration.models.unwrap_or_default())
-                .resolve(&models_dir)
-                .and_then(|resolved| {
-                    sync_config.sync(sync::Options {
-                        models: &resolved,
-                        opencode,
-                        llama_swap,
-                        dry_run,
-                        no_color,
-                        prune,
+    match ModelSelectors::default().resolve(model_file, offline).await {
+        | Ok(selectors) => {
+            let file_entries = selectors.iter().map(|selector| ModelEntry::Selector(selector.to_string()));
+            ApplicationConfiguration::load(config).and_then(|configuration| {
+                let llama_swap_config = sync::llama_swap::Config::from(args);
+                let opencode_config = sync::opencode::Config::from(args);
+                let overrides = Config {
+                    llama_swap: (llama_swap_config.path.is_some() || llama_swap_config.models_directory.is_some()).then_some(llama_swap_config),
+                    opencode: opencode_config.path.is_some().then_some(opencode_config),
+                };
+                let sync_config = configuration.config.clone().unwrap_or_default().merge_cli_overrides(overrides);
+                let entries = configuration
+                    .models
+                    .unwrap_or_default()
+                    .into_iter()
+                    .chain(file_entries)
+                    .collect::<Vec<_>>();
+                sync_config.resolve_models_dir(models_dir.as_deref()).and_then(|models_dir| {
+                    info!("{} Resolving models for synchronization", Label::run());
+                    ModelEntry::resolve(&entries, &models_dir, force).and_then(|resolved| {
+                        let options = sync::Options::init()
+                            .models(&resolved)
+                            .opencode(opencode)
+                            .llama_swap(llama_swap)
+                            .dry_run(dry_run)
+                            .no_color(no_color)
+                            .prune(prune)
+                            .force(force)
+                            .build();
+                        sync_config.sync(options)
                     })
                 })
-        })
-    })
+            })
+        }
+        | Err(why) => Err(why),
+    }
 }
 impl From<&arguments::Sync> for sync::llama_swap::Config {
     fn from(args: &arguments::Sync) -> Self {
@@ -93,7 +84,7 @@ mod tests {
     )]
     use super::*;
     use crate::test::util::{temp_test_dir, TestCleanup};
-    use acorn::prelude::{create_dir_all, write, PathBuf};
+    use acorn::prelude::{create_dir_all, read_to_string, write, PathBuf};
 
     #[test]
     fn test_resolve_models_skips_unresolved_entries() {
@@ -106,9 +97,103 @@ mod tests {
             ModelEntry::Selector("mozilla/test-llama".to_string()),
             ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
         ];
-        let resolved = ModelEntries(entries).resolve(&models_dir).unwrap();
+        let resolved = ModelEntry::resolve(&entries, &models_dir, false).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].id.as_deref(), Some("mozilla/test-llama"));
+    }
+    #[test]
+    fn test_force_assumes_model_path_from_identifier() {
+        let models_dir = PathBuf::from("models");
+        let entries = [ModelEntry::Selector("acme/missing".to_string())];
+        let resolved = ModelEntry::resolve(&entries, &models_dir, true).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].id.as_deref(), Some("acme/missing"));
+        assert_eq!(
+            resolved[0].path.as_deref(),
+            Some(models_dir.join("acme/missing").display().to_string().as_str())
+        );
+    }
+    #[test]
+    fn test_application_configuration_sync_writes_selected_target() {
+        let root = temp_test_dir("sync_selected_models");
+        let _cleanup = TestCleanup::new(root.clone());
+        let models_dir = root.join("models");
+        let model_dir = models_dir.join("acme").join("model");
+        let opencode_path = root.join("opencode.json");
+        let llama_swap_path = root.join("llama-swap.yaml");
+        create_dir_all(&model_dir).unwrap();
+        write(model_dir.join("model.gguf"), b"model").unwrap();
+        let configuration = ApplicationConfiguration {
+            config: Some(Config {
+                llama_swap: Some(sync::llama_swap::Config {
+                    path: Some(llama_swap_path.display().to_string()),
+                    ..Default::default()
+                }),
+                opencode: Some(sync::opencode::Config {
+                    path: Some(opencode_path.display().to_string()),
+                    ..Default::default()
+                }),
+            }),
+            ..Default::default()
+        };
+        configuration
+            .sync(sync::Options {
+                entries: &[ModelEntry::Selector("acme/model".to_string())],
+                opencode: true,
+                dry_run: true,
+                models_dir: Some(&models_dir),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(!opencode_path.exists());
+        configuration
+            .sync(sync::Options {
+                entries: &[ModelEntry::Selector("acme/model".to_string())],
+                opencode: true,
+                models_dir: Some(&models_dir),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(opencode_path.is_file());
+        assert!(!llama_swap_path.exists());
+    }
+    #[tokio::test]
+    async fn test_sync_combines_configured_models_with_model_file() {
+        let root = temp_test_dir("sync_model_file");
+        let _cleanup = TestCleanup::new(root.clone());
+        let models_dir = root.join("models");
+        let config_path = root.join("acorn.json");
+        let model_file = root.join("models.txt");
+        let opencode_path = root.join("opencode.json");
+        ["configured", "listed"].iter().for_each(|name| {
+            let model_dir = models_dir.join("acme").join(name);
+            create_dir_all(&model_dir).unwrap();
+            write(model_dir.join("model.gguf"), b"model").unwrap();
+        });
+        write(&config_path, br#"{"models":["acme/configured"]}"#).unwrap();
+        write(&model_file, b"acme/listed\n").unwrap();
+        run(
+            &arguments::Sync {
+                config: Some(config_path),
+                model_file: Some(model_file.display().to_string()),
+                force: false,
+                opencode: true,
+                llama_swap: false,
+                models_dir: Some(models_dir),
+                opencode_config: Some(opencode_path.clone()),
+                llama_swap_config: None,
+                dry_run: false,
+                no_color: false,
+                prune: false,
+                verbose: clap_verbosity_flag::Verbosity::new(0, 0),
+            },
+            true,
+        )
+        .await
+        .unwrap();
+        let output = read_to_string(opencode_path).unwrap();
+        assert!(output.contains("acme/configured"));
+        assert!(output.contains("acme/listed"));
     }
     #[test]
     fn test_resolve_sync_config_preserves_llama_swap_values_with_path_overrides() {
@@ -126,6 +211,8 @@ mod tests {
         };
         let args = arguments::Sync {
             config: None,
+            model_file: None,
+            force: false,
             opencode: false,
             llama_swap: false,
             models_dir: Some(PathBuf::from("cli-models")),
@@ -166,6 +253,8 @@ mod tests {
         };
         let args = arguments::Sync {
             config: None,
+            model_file: None,
+            force: false,
             opencode: false,
             llama_swap: false,
             models_dir: None,

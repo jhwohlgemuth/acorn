@@ -2,11 +2,11 @@
 pub mod plan;
 use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
-use crate::cli::arguments::OutputFormat;
+use crate::cli::arguments::{OutputFormat, SyncTarget};
 use crate::cli::{CommandOptions, Void};
 use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{home_directory, ApiResult, ModelListFile, Source, SourceAction};
+use acorn::io::{home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization};
 use acorn::schema::hardware::memory::Memory;
@@ -26,6 +26,8 @@ use tracing::{error, info};
 pub async fn run(
     model: &[String],
     model_file: &Option<String>,
+    sync_target: &Option<SyncTarget>,
+    force: bool,
     filter: &[String],
     ignore: &[String],
     config: &Option<PathBuf>,
@@ -58,13 +60,13 @@ pub async fn run(
     };
     let action = SourceAction::from_options(copy, symlink);
     let configuration = match ApplicationConfiguration::load(config) {
-        | Ok(configuration) => Some(configuration),
+        | Ok(configuration) => configuration,
         | Err(why) => {
             error!("=> {} Read application configuration — {why}", Label::fail());
             return Err(why);
         }
     };
-    let (entries, configured_whitelist) = configured_models(configuration);
+    let (entries, configured_whitelist) = configuration.model_entries_and_whitelist();
     let configured_whitelist = match Whitelist::from_configuration(configured_whitelist, offline).await {
         | Ok(whitelist) => whitelist.0,
         | Err(why) => {
@@ -136,7 +138,7 @@ pub async fn run(
                                 Err(eyre!(why))
                             } else if dry_run {
                                 let models = models.into_iter().map(ModelDetails::from).collect::<Vec<_>>();
-                                if raw {
+                                let rendered = if raw {
                                     output_raw(&models, format)
                                 } else {
                                     info!(
@@ -145,7 +147,7 @@ pub async fn run(
                                         models.len().cyan().bold(),
                                         suffix(models.len())
                                     );
-                                    for details in models {
+                                    for details in &models {
                                         let (id, context) = details.report();
                                         match context {
                                             | Some(ctx) => info!("=> {} {} {}", Label::using(), id.green(), ctx.dimmed()),
@@ -153,7 +155,26 @@ pub async fn run(
                                         }
                                     }
                                     Ok(())
-                                }
+                                };
+                                rendered.and_then(|()| {
+                                    sync_target.as_ref().map_or(Ok(()), |target| {
+                                        let entries = models
+                                            .iter()
+                                            .filter_map(|details| details.id.clone())
+                                            .unique()
+                                            .map(ModelEntry::Selector)
+                                            .collect::<Vec<_>>();
+                                        let options = sync::Options::init()
+                                            .entries(&entries)
+                                            .opencode(target.is_opencode())
+                                            .llama_swap(target.is_llama_swap())
+                                            .force(force)
+                                            .dry_run(true)
+                                            .maybe_models_dir(output.as_deref())
+                                            .build();
+                                        configuration.sync_and_update(config, options)
+                                    })
+                                })
                             } else {
                                 let resolved = models.iter().map(|resolution| resolution.requested()).collect::<HashSet<_>>();
                                 let plans = selectors
@@ -231,16 +252,35 @@ pub async fn run(
                                                 if failure_count > 0 {
                                                     Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
                                                 } else {
-                                                    if !quiet {
-                                                        println!(
-                                                            "\n\n   => {} Resolved {} model{} to {}\n",
-                                                            Label::pass(),
-                                                            success_count.green(),
-                                                            suffix(success_count),
-                                                            root.display()
-                                                        );
-                                                    }
-                                                    Ok(())
+                                                    sync_target
+                                                        .as_ref()
+                                                        .map_or(Ok(()), |target| {
+                                                            let entries = results
+                                                                .iter()
+                                                                .filter_map(|details| details.id.clone())
+                                                                .unique()
+                                                                .map(ModelEntry::Selector)
+                                                                .collect::<Vec<_>>();
+                                                            let options = sync::Options::init()
+                                                                .entries(&entries)
+                                                                .opencode(target.is_opencode())
+                                                                .llama_swap(target.is_llama_swap())
+                                                                .force(force)
+                                                                .models_dir(&root)
+                                                                .build();
+                                                            configuration.sync_and_update(config, options)
+                                                        })
+                                                        .map(|()| {
+                                                            if !quiet {
+                                                                println!(
+                                                                    "\n\n   => {} Resolved {} model{} to {}\n",
+                                                                    Label::pass(),
+                                                                    success_count.green(),
+                                                                    suffix(success_count),
+                                                                    root.display()
+                                                                );
+                                                            }
+                                                        })
                                                 }
                                             }
                                         }
@@ -320,12 +360,6 @@ impl Whitelist {
             | Some(values) => Ok(Self(values.into_vec())),
             | None => Ok(Self(Vec::new())),
         }
-    }
-}
-pub(crate) fn configured_models(configuration: Option<ApplicationConfiguration>) -> (Vec<ModelEntry>, Option<OneOrMany<String>>) {
-    match configuration {
-        | Some(ApplicationConfiguration { models, whitelist, .. }) => (models.unwrap_or_default(), whitelist.and_then(|lookup| lookup.models)),
-        | None => (Vec::new(), None),
     }
 }
 async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {

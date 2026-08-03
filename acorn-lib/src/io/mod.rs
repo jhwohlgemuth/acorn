@@ -48,7 +48,7 @@ use futures::Future;
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
-use jsonc_parser::{parse_to_serde_value, ParseOptions};
+use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
 use nanoid::nanoid;
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
@@ -56,6 +56,7 @@ use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::Value;
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
@@ -90,6 +91,7 @@ pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
 pub type ApiResult<T> = Result<T, Report>;
 /// An RSA key pair consisting of a private key and its corresponding public key
 pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
+pub(crate) struct CstValue<'a>(pub(crate) &'a Value);
 /// Add `from_command` trait to `SemanticVersion`
 pub trait FromCommand {
     /// Convert a command name to a `SemanticVersion` value
@@ -184,78 +186,6 @@ pub enum Executor {
     /// Custom or unspecified execution method
     Other(String),
 }
-/// SSH endpoint for a remote Docker daemon.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Remote(Location);
-impl Remote {
-    /// Return the validated SSH endpoint.
-    pub fn as_str(&self) -> &str {
-        (&self.0).into()
-    }
-    /// Copy a GPU runner template into a container on this remote Docker daemon.
-    pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
-        let copy = self.docker_args(args!["cp", template, format!("{name}:/etc/gitlab-runner/gpu.template.toml")]);
-        match cmd!(runtime, copy) {
-            | Ok(output) if output.status.success() => Ok(()),
-            | Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
-            }
-            | Err(why) => Err(eyre!("Failed to execute docker cp for {self} — {why}")),
-        }
-    }
-    /// Create an optional GPU runner template for a local or remote Docker daemon.
-    pub fn create_gpu_template(remote: Option<&Self>, config_host_dir: &str) -> io::Result<Option<PathBuf>> {
-        let parent = remote.map_or_else(|| PathBuf::from(config_host_dir), |_| temp_dir());
-        let filename = remote.map_or_else(|| "gpu.template.toml".to_string(), |_| format!("acorn-gpu-{}.template.toml", nanoid!()));
-        let template = parent.join(filename);
-        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
-        match create_dir_all(parent).and_then(|_| write(&template, content)) {
-            | Ok(()) => Ok(Some(template)),
-            | Err(why) if remote.is_some() => Err(why),
-            | Err(_) => Ok(None),
-        }
-    }
-    /// Target this remote Docker daemon with command arguments.
-    pub fn docker_args(&self, command: Vec<OsString>) -> Vec<OsString> {
-        args!["--host", self.as_str(), ..command]
-    }
-}
-impl fmt::Display for Remote {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
-impl core::str::FromStr for Remote {
-    type Err = String;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let invalid = || format!("invalid remote '{value}' — expected ssh://[user@]host[:port][/socket]");
-        match Uri::parse(value) {
-            | Ok(uri) => {
-                let is_ssh = uri.scheme().as_str() == "ssh";
-                let is_trimmed = value.trim() == value;
-                let has_no_fragment = uri.fragment().is_none();
-                let has_no_query = uri.query().is_none();
-                let has_no_whitespace = !value.chars().any(char::is_whitespace);
-                let is_valid_uri = is_ssh && is_trimmed && has_no_fragment && has_no_query && has_no_whitespace;
-                match uri.authority() {
-                    | Some(authority) => {
-                        let has_host = !authority.host().is_empty();
-                        let has_no_password = authority.userinfo().is_none_or(|userinfo| !userinfo.as_str().contains(':'));
-                        let has_valid_port = authority.port_to_u16().is_ok();
-                        let is_valid_authority = has_host && has_no_password && has_valid_port;
-                        match is_valid_uri && is_valid_authority {
-                            | true => Ok(Self(Location::from(value))),
-                            | false => Err(invalid()),
-                        }
-                    }
-                    | None => Err(invalid()),
-                }
-            }
-            | Err(_) => Err(invalid()),
-        }
-    }
-}
 /// Root-level or reference-level license declaration.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -326,8 +256,23 @@ pub struct GitlabMergeRequestDiffResponse {
     // deleted_file: bool,
     // generated_file: bool,
 }
+/// SSH endpoint for a remote Docker daemon.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl From<CstValue<'_>> for CstInputValue {
+    fn from(value: CstValue<'_>) -> Self {
+        match value.0 {
+            | Value::Null => Self::Null,
+            | Value::Bool(value) => Self::Bool(*value),
+            | Value::Number(value) => Self::Number(value.to_string()),
+            | Value::String(value) => Self::String(value.clone()),
+            | Value::Array(values) => Self::Array(values.iter().map(|value| CstValue(value).into()).collect()),
+            | Value::Object(values) => Self::Object(values.iter().map(|(key, value)| (key.clone(), CstValue(value).into())).collect()),
+        }
+    }
+}
 impl AsRef<str> for Executor {
     fn as_ref(&self) -> &str {
         match self {
@@ -503,6 +448,75 @@ impl FromPath for MimeType {
         P: AsRef<Path> + ?Sized,
     {
         MimeType::from(value.as_ref().display().to_string())
+    }
+}
+impl fmt::Display for Remote {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl core::str::FromStr for Remote {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let invalid = || format!("invalid remote '{value}' — expected ssh://[user@]host[:port][/socket]");
+        match Uri::parse(value) {
+            | Ok(uri) => {
+                let is_ssh = uri.scheme().as_str() == "ssh";
+                let is_trimmed = value.trim() == value;
+                let has_no_fragment = uri.fragment().is_none();
+                let has_no_query = uri.query().is_none();
+                let has_no_whitespace = !value.chars().any(char::is_whitespace);
+                let is_valid_uri = is_ssh && is_trimmed && has_no_fragment && has_no_query && has_no_whitespace;
+                match uri.authority() {
+                    | Some(authority) => {
+                        let has_host = !authority.host().is_empty();
+                        let has_no_password = authority.userinfo().is_none_or(|userinfo| !userinfo.as_str().contains(':'));
+                        let has_valid_port = authority.port_to_u16().is_ok();
+                        let is_valid_authority = has_host && has_no_password && has_valid_port;
+                        match is_valid_uri && is_valid_authority {
+                            | true => Ok(Self(Location::from(value))),
+                            | false => Err(invalid()),
+                        }
+                    }
+                    | None => Err(invalid()),
+                }
+            }
+            | Err(_) => Err(invalid()),
+        }
+    }
+}
+impl Remote {
+    /// Return the validated SSH endpoint.
+    pub fn as_str(&self) -> &str {
+        (&self.0).into()
+    }
+    /// Copy a GPU runner template into a container on this remote Docker daemon.
+    pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
+        let copy = self.docker_args(args!["cp", template, format!("{name}:/etc/gitlab-runner/gpu.template.toml")]);
+        match cmd!(runtime, copy) {
+            | Ok(output) if output.status.success() => Ok(()),
+            | Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
+            }
+            | Err(why) => Err(eyre!("Failed to execute docker cp for {self} — {why}")),
+        }
+    }
+    /// Create an optional GPU runner template for a local or remote Docker daemon.
+    pub fn create_gpu_template(remote: Option<&Self>, config_host_dir: &str) -> io::Result<Option<PathBuf>> {
+        let parent = remote.map_or_else(|| PathBuf::from(config_host_dir), |_| temp_dir());
+        let filename = remote.map_or_else(|| "gpu.template.toml".to_string(), |_| format!("acorn-gpu-{}.template.toml", nanoid!()));
+        let template = parent.join(filename);
+        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
+        match create_dir_all(parent).and_then(|_| write(&template, content)) {
+            | Ok(()) => Ok(Some(template)),
+            | Err(why) if remote.is_some() => Err(why),
+            | Err(_) => Ok(None),
+        }
+    }
+    /// Target this remote Docker daemon with command arguments.
+    pub fn docker_args(&self, command: Vec<OsString>) -> Vec<OsString> {
+        args!["--host", self.as_str(), ..command]
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {

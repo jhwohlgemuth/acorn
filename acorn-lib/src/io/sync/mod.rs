@@ -14,6 +14,7 @@ use crate::util::{text_diff_changes_with_color, Label};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use owo_colors::OwoColorize;
@@ -70,20 +71,35 @@ pub struct Config {
     pub opencode: Option<opencode::Config>,
 }
 /// Inputs controlling a configuration synchronization operation
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Builder, Clone, Copy, Debug, Default)]
+#[builder(start_fn = init)]
 pub struct Options<'a> {
     /// Resolved models to synchronize.
+    #[builder(default)]
     pub models: &'a [ModelDetails],
+    /// Model configuration entries to resolve before synchronization.
+    #[builder(default)]
+    pub entries: &'a [ModelEntry],
     /// Synchronize OpenCode configuration.
+    #[builder(default)]
     pub opencode: bool,
     /// Synchronize llama-swap configuration.
+    #[builder(default)]
     pub llama_swap: bool,
     /// Preview configuration without writing files.
+    #[builder(default)]
     pub dry_run: bool,
     /// Disable color in dry-run output.
+    #[builder(default)]
     pub no_color: bool,
     /// Remove stale managed models.
+    #[builder(default)]
     pub prune: bool,
+    /// Assume model paths from their identifiers without checking the filesystem.
+    #[builder(default)]
+    pub force: bool,
+    /// Models directory override used to resolve model entries.
+    pub models_dir: Option<&'a Path>,
 }
 /// A normalized model entry ready for local GGUF resolution.
 #[derive(Clone, Debug)]
@@ -391,6 +407,18 @@ impl RenderedOutput {
     }
 }
 impl ModelRequest {
+    /// Build model details from the configured source or expected models-directory path without checking the filesystem.
+    pub fn assume(self, models_dir: &Path) -> ModelDetails {
+        let path = match self.source {
+            | Source::Local { path, .. } => path,
+            | _ => models_dir.join(&self.id),
+        };
+        ModelDetails::init()
+            .id(self.id.clone())
+            .name(self.id)
+            .path(path.display().to_string())
+            .build()
+    }
     fn details(self, path: PathBuf) -> ApiResult<ModelDetails> {
         canonicalize(&path)
             .map_err(|why| {

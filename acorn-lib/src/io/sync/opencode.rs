@@ -3,7 +3,7 @@
 //! When syncing ACORN models to OpenCode, the sync command creates or updates
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
-use crate::io::ApiResult;
+use crate::io::{ApiResult, CstValue};
 use crate::prelude::current_dir;
 use crate::schema::agent::opencode;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -11,13 +11,11 @@ use alloc::string::String;
 use alloc::string::ToString;
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
-use jsonc_parser::cst::CstInputValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
 use validator::Validate;
 
-struct CstValue<'a>(&'a Value);
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 enum Entry {
@@ -232,18 +230,6 @@ impl Config {
                 provider: Some(providers),
                 ..existing.clone()
             }),
-        }
-    }
-}
-impl From<CstValue<'_>> for CstInputValue {
-    fn from(value: CstValue<'_>) -> Self {
-        match value.0 {
-            | Value::Null => Self::Null,
-            | Value::Bool(value) => Self::Bool(*value),
-            | Value::Number(value) => Self::Number(value.to_string()),
-            | Value::String(value) => Self::String(value.clone()),
-            | Value::Array(values) => Self::Array(values.iter().map(|value| CstValue(value).into()).collect()),
-            | Value::Object(values) => Self::Object(values.iter().map(|(key, value)| (key.clone(), CstValue(value).into())).collect()),
         }
     }
 }

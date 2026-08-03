@@ -1,4 +1,5 @@
 # Commands
+- [Model workflows](./model-workflows.md)
 - [🕵️‍♂️ Audit](./audit.md)
 - [✅ Check](./check.md)
 - [👨‍⚕️ Doctor](./doctor.md)
@@ -7,6 +8,7 @@
 - [🤖 Format](./format.md)
 - [📥 Import](./import.md)
 - [🕸️ Link](./link.md)
+- [🔄 Sync](./sync.md)
 
 ## Command Workflow
 ```mermaid

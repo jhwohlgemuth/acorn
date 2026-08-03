@@ -1,19 +1,20 @@
+use crate::cli::arguments::SyncTarget;
 use crate::cli::Void;
-use crate::commands::download::model::configured_models;
 #[cfg(feature = "tui")]
 use crate::commands::download::model::plan::run_gguf_picker;
 use crate::commands::download::model::plan::{resolve_plans, ModelDownloadPlan};
 use acorn::io::api::huggingface;
-use acorn::io::config::ApplicationConfiguration;
+use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::database::schema::Table;
 use acorn::io::database::{Database, Operations, PersistStatus};
-use acorn::io::{ApiResult, Source};
+use acorn::io::{sync, ApiResult, Source};
 use acorn::prelude::{PathBuf, String, Vec};
 use acorn::schema::agent::{ModelSelectors, Weights};
 use acorn::util::{suffix, Label};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tracing::{error, info, warn};
 
@@ -22,6 +23,9 @@ use tracing::{error, info, warn};
 pub async fn run(
     model: &[String],
     model_file: &Option<String>,
+    sync_target: &Option<SyncTarget>,
+    force: bool,
+    dry_run: bool,
     config: &Option<PathBuf>,
     database_path: &Option<PathBuf>,
     no_local_database: bool,
@@ -33,14 +37,15 @@ pub async fn run(
     verbose: &Verbosity,
 ) -> Void {
     let quiet = verbose.is_silent();
+    let persistence_disabled = no_local_database || dry_run;
     match ModelSelectors::from(model).resolve(model_file, offline).await {
-        | Ok(model) => match (model.is_empty() && config.is_none(), no_local_database) {
+        | Ok(model) => match (model.is_empty() && config.is_none(), persistence_disabled) {
             | (true, true) => {
                 if !quiet {
                     println!(
                         "=> {} Model catalog persistence {}",
                         Label::skip(),
-                        "(local database is disabled)".dimmed()
+                        if dry_run { "(dry run)" } else { "(local database is disabled)" }.dimmed()
                     );
                 }
                 Ok(())
@@ -63,7 +68,7 @@ pub async fn run(
             | (false, _) => match ApplicationConfiguration::load(config) {
                 | Err(why) => Err(why),
                 | Ok(configuration) => {
-                    let (configured_entries, _) = configured_models(Some(configuration));
+                    let (configured_entries, _) = configuration.model_entries_and_whitelist();
                     let entries = match config.is_some() {
                         | true => configured_entries,
                         | false => Vec::new(),
@@ -71,7 +76,7 @@ pub async fn run(
                     match resolve_plans(&model, &entries, None, database_path, true, offline).await {
                         | Ok(plans) => {
                             let options = ModelImportOptions {
-                                no_local_database,
+                                no_local_database: persistence_disabled,
                                 offline,
                                 no_fallback,
                                 search_limit,
@@ -81,16 +86,27 @@ pub async fn run(
                                 database_path: database_path.clone(),
                             };
                             let results = join_all(plans.into_iter().map(|plan| plan.import(&options))).await;
-                            collect_imported(results, model_file.is_some()).map(|imported| {
+                            collect_imported(results, model_file.is_some()).and_then(|imported| {
                                 if !quiet {
                                     println!(
                                         "=> {} Resolved metadata for {} model{}{}",
                                         Label::pass(),
                                         imported.len(),
                                         if imported.len() == 1 { "" } else { "s" },
-                                        if no_local_database { " (persistence skipped)" } else { "" }
+                                        if persistence_disabled { " (persistence skipped)" } else { "" }
                                     );
                                 }
+                                sync_target.as_ref().map_or(Ok(()), |target| {
+                                    let entries = imported.into_iter().unique().map(ModelEntry::Selector).collect::<Vec<_>>();
+                                    let options = sync::Options::init()
+                                        .entries(&entries)
+                                        .opencode(target.is_opencode())
+                                        .llama_swap(target.is_llama_swap())
+                                        .force(force)
+                                        .dry_run(dry_run)
+                                        .build();
+                                    configuration.sync_and_update(config, options)
+                                })
                             })
                         }
                         | Err(why) => Err(why),
@@ -138,7 +154,7 @@ impl ModelDownloadPlan {
                 };
                 match huggingface::HuggingFaceRepositoryFiles::resolve(&huggingface_options).await {
                     | Ok(resolution) => {
-                        let (requested, _, weights) = resolution.map(Weights::from).into_parts();
+                        let (requested, resolved, weights) = resolution.map(Weights::from).into_parts();
                         if weights.0.is_empty() {
                             Err(eyre!("No GGUF model files found for '{requested}'"))
                         } else if options.no_local_database {
@@ -150,9 +166,9 @@ impl ModelDownloadPlan {
                                     suffix(count),
                                 );
                             }
-                            Ok(requested)
+                            Ok(resolved)
                         } else {
-                            weights.persist(&requested, options.database_path.clone()).map(|_| requested)
+                            weights.persist(&requested, options.database_path.clone()).map(|_| resolved)
                         }
                     }
                     | Err(why) => Err(why),

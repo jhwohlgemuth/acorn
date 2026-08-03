@@ -6,14 +6,17 @@
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
 use crate::io::{
-    files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, Executor, FromPath,
+    files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
 use crate::prelude::{self, env, exit, Arc, HashSet, Path, PathBuf};
 use crate::schema::OneOrMany;
-use crate::schema::{agent::Quantization, hardware::memory::Memory};
+use crate::schema::{
+    agent::{ModelDetails, Quantization},
+    hardware::memory::Memory,
+};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
-use crate::util::{detect_json, suffix, Label, MimeType, StringConversion};
+use crate::util::{detect_json, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -24,7 +27,7 @@ use fancy_regex::Regex;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use tracing::error;
+use tracing::{error, info, warn};
 
 /// Authentication requirement for a configured model download source
 #[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
@@ -142,24 +145,6 @@ pub enum ModelEntry {
     Selector(String),
     /// Detailed model download entry
     Entry(ModelEntryOptions),
-}
-impl ModelEntry {
-    /// Normalize model entries into unique synchronization requests
-    pub fn requests(entries: &[Self]) -> ApiResult<Vec<sync::ModelRequest>> {
-        entries
-            .iter()
-            .map(sync::ModelRequest::try_from)
-            .try_fold((HashSet::new(), Vec::new()), |(mut identifiers, mut requests), request| {
-                request.and_then(|request| match identifiers.insert(request.id().to_string()) {
-                    | true => {
-                        requests.push(request);
-                        Ok((identifiers, requests))
-                    }
-                    | false => Err(eyre!("Duplicate generated model ID '{}'", request.id())),
-                })
-            })
-            .map(|(_, requests)| requests)
-    }
 }
 /// Runner status for CI/CD pipelines
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
@@ -401,90 +386,6 @@ pub struct WhitelistLookup {
     /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
     pub models: Option<OneOrMany<String>>,
 }
-impl ApplicationConfiguration {
-    /// Load explicit or discovered application configuration, rejecting a missing explicit path.
-    pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
-        match path {
-            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
-            | _ => Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read),
-        }
-    }
-    /// Merge configured synchronization settings with runtime overrides.
-    pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
-        self.config.clone().unwrap_or_default().merge(overrides)
-    }
-    /// Resolve application configuration path
-    pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
-        let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        Self::resolve_in(path, &directory)
-    }
-    /// Resolve an application configuration path relative to an explicit directory.
-    pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
-        path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
-            DEFAULT_CONFIG_FILENAMES
-                .iter()
-                .map(|name| directory.join(name))
-                .find(|candidate| candidate.exists())
-        })
-    }
-    /// Parse ACORN configuration in JSON, JSONC, or YAML format
-    /// ### Note
-    /// If the content is valid JSON, it is parsed as JSON.
-    /// If it is not valid JSON but starts with `{` or `[`, it is first attempted to be parsed as JSON, and if that fails, it is attempted to be parsed as YAML.
-    /// If the content does not start with `{` or `[`, it is parsed as YAML.
-    pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
-        let trimmed = content.as_ref().trim();
-        if detect_json(trimmed) {
-            match Self::parse_json(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(json_errors) => match Self::parse_jsonc(trimmed) {
-                    | Ok(value) => Ok(value),
-                    | Err(_) => {
-                        let details: Vec<String> = json_errors
-                            .iter()
-                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                            .collect();
-                        Err(eyre!("{}", details.join("\n")))
-                    }
-                },
-            }
-        } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
-            match Self::parse_json(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(json_errors) => match Self::parse_yaml(trimmed) {
-                    | Ok(value) => Ok(value),
-                    | Err(why) => {
-                        let details: Vec<String> = json_errors
-                            .iter()
-                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                            .collect();
-                        Err(eyre!(
-                            "Failed to parse ACORN configuration as JSON or YAML.\nJSON errors:\n{}\nYAML error: {why}",
-                            details.join("\n")
-                        ))
-                    }
-                },
-            }
-        } else {
-            match Self::parse_yaml(trimmed) {
-                | Ok(value) => Ok(value),
-                | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
-            }
-        }
-    }
-    fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
-        eserde::json::from_str(content.as_ref())
-    }
-    fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
-        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
-            config.cst = Some(cst);
-            config
-        })
-    }
-    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
-        serde_norway::from_str(content.as_ref())
-    }
-}
 impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON, JSONC, or YAML)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
@@ -587,6 +488,198 @@ impl InputOutput for ApplicationConfiguration {
         serde_norway::to_string(&self)
             .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
             .and_then(|content| write_file(target.clone(), content))
+    }
+}
+impl ApplicationConfiguration {
+    /// Load explicit or discovered application configuration, rejecting a missing explicit path.
+    pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
+        match path {
+            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
+            | _ => Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read),
+        }
+    }
+    /// Merge configured synchronization settings with runtime overrides.
+    pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
+        self.config.clone().unwrap_or_default().merge(overrides)
+    }
+    /// Return configured model entries and their download whitelist.
+    pub fn model_entries_and_whitelist(&self) -> (Vec<ModelEntry>, Option<OneOrMany<String>>) {
+        (
+            self.models.clone().unwrap_or_default(),
+            self.whitelist.as_ref().and_then(|lookup| lookup.models.clone()),
+        )
+    }
+    /// Synchronize selected model entries with configured local inference targets.
+    pub fn sync(&self, options: sync::Options<'_>) -> ApiResult<()> {
+        let sync_config = self.config.clone().unwrap_or_default();
+        sync_config.resolve_models_dir(options.models_dir).and_then(|models_dir| {
+            info!("{} Resolving selected models for synchronization", Label::run());
+            ModelEntry::resolve(options.entries, &models_dir, options.force).and_then(|resolved| {
+                sync_config.sync(sync::Options {
+                    models: &resolved,
+                    ..options
+                })
+            })
+        })
+    }
+    /// Synchronize selected models and add their unique identifiers to ACORN configuration.
+    pub fn sync_and_update(&self, path: &Option<PathBuf>, options: sync::Options<'_>) -> ApiResult<()> {
+        let path = Self::resolve(path)
+            .or_else(|| path.clone())
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_CONFIG_FILENAMES[0]));
+        self.sync(options)
+            .and_then(|()| self.with_models(options.entries))
+            .and_then(|configuration| configuration.write_or_preview(&path, options.dry_run, options.no_color))
+    }
+    fn with_models(&self, entries: &[ModelEntry]) -> ApiResult<Self> {
+        self.models
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .chain(entries.iter().cloned())
+            .try_fold((HashSet::new(), Vec::new()), |(mut identifiers, mut models), entry| {
+                sync::ModelRequest::try_from(&entry).map(|request| {
+                    if identifiers.insert(request.id().to_string()) {
+                        models.push(entry);
+                    }
+                    (identifiers, models)
+                })
+            })
+            .and_then(|(_, models)| {
+                let mut configuration = self.clone();
+                configuration.models = Some(models);
+                match configuration.cst.clone() {
+                    | Some(cst) => serde_json::to_value(&configuration.models)
+                        .map_err(|why| eyre!("Failed to serialize ACORN model configuration — {why}"))
+                        .map(|models| {
+                            let root = cst.object_value_or_set();
+                            match root.get("models") {
+                                | Some(property) => property.set_value(CstValue(&models).into()),
+                                | None => {
+                                    root.append("models", CstValue(&models).into());
+                                }
+                            }
+                            root.array_value_or_set("models").ensure_multiline();
+                            configuration
+                        }),
+                    | None => Ok(configuration),
+                }
+            })
+    }
+    fn write_or_preview(&self, path: &Path, dry_run: bool, no_color: bool) -> ApiResult<()> {
+        let before = path
+            .is_file()
+            .then(|| read_file(path))
+            .transpose()
+            .map(|content| content.unwrap_or_default());
+        before.and_then(|before| {
+            self.render(path).and_then(|content| match (dry_run, before == content) {
+                | (_, true) => {
+                    info!("=> {} No changes for {}", Label::CAUTION, path.display());
+                    Ok(())
+                }
+                | (true, false) => {
+                    match no_color {
+                        | true => println!("\n{}", path.display()),
+                        | false => println!("\n{}", path.display().cyan().bold()),
+                    }
+                    text_diff_changes_with_color(&before, &content, !no_color)
+                        .iter()
+                        .for_each(|(_, line)| print!("{line}"));
+                    Ok(())
+                }
+                | (false, false) => self
+                    .write(path)
+                    .inspect(|()| info!("=> {} Updated {}", Label::pass(), path.display().cyan())),
+            })
+        })
+    }
+    fn render(&self, path: &Path) -> ApiResult<String> {
+        match path.file_name().and_then(|name| name.to_str()) {
+            | Some(".acorn") => self.render_json(),
+            | _ => match MimeType::from_path(path) {
+                | MimeType::Json | MimeType::Jsonc => self.render_json(),
+                | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
+                | _ => Err(eyre!("Unsupported configuration file extension")),
+            },
+        }
+    }
+    fn render_json(&self) -> ApiResult<String> {
+        match &self.cst {
+            | Some(cst) => Ok(cst.to_string()),
+            | None => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON config — {why}")),
+        }
+    }
+    /// Resolve application configuration path
+    pub fn resolve(path: &Option<PathBuf>) -> Option<PathBuf> {
+        let directory = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        Self::resolve_in(path, &directory)
+    }
+    /// Resolve an application configuration path relative to an explicit directory.
+    pub fn resolve_in(path: &Option<PathBuf>, directory: &Path) -> Option<PathBuf> {
+        path.as_ref().filter(|value| value.is_file()).cloned().or_else(|| {
+            DEFAULT_CONFIG_FILENAMES
+                .iter()
+                .map(|name| directory.join(name))
+                .find(|candidate| candidate.exists())
+        })
+    }
+    /// Parse ACORN configuration in JSON, JSONC, or YAML format
+    /// ### Note
+    /// If the content is valid JSON, it is parsed as JSON.
+    /// If it is not valid JSON but starts with `{` or `[`, it is first attempted to be parsed as JSON, and if that fails, it is attempted to be parsed as YAML.
+    /// If the content does not start with `{` or `[`, it is parsed as YAML.
+    pub fn parse(content: impl AsRef<str>) -> ApiResult<Self> {
+        let trimmed = content.as_ref().trim();
+        if detect_json(trimmed) {
+            match Self::parse_json(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(json_errors) => match Self::parse_jsonc(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(_) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!("{}", details.join("\n")))
+                    }
+                },
+            }
+        } else if trimmed.starts_with('{') || trimmed.starts_with('[') {
+            match Self::parse_json(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(json_errors) => match Self::parse_yaml(trimmed) {
+                    | Ok(value) => Ok(value),
+                    | Err(why) => {
+                        let details: Vec<String> = json_errors
+                            .iter()
+                            .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                            .collect();
+                        Err(eyre!(
+                            "Failed to parse ACORN configuration as JSON or YAML.\nJSON errors:\n{}\nYAML error: {why}",
+                            details.join("\n")
+                        ))
+                    }
+                },
+            }
+        } else {
+            match Self::parse_yaml(trimmed) {
+                | Ok(value) => Ok(value),
+                | Err(why) => Err(eyre!("Failed to parse ACORN configuration YAML — {why}")),
+            }
+        }
+    }
+    fn parse_json(content: impl AsRef<str>) -> Result<Self, eserde::DeserializationErrors> {
+        eserde::json::from_str(content.as_ref())
+    }
+    fn parse_jsonc(content: impl AsRef<str>) -> ApiResult<Self> {
+        parse_jsonc_cst::<ApplicationConfiguration>(content.as_ref()).map(|(mut config, cst)| {
+            config.cst = Some(cst);
+            config
+        })
+    }
+    fn parse_yaml(content: impl AsRef<str>) -> serde_norway::Result<Self> {
+        serde_norway::from_str(content.as_ref())
     }
 }
 impl Bucket {
@@ -832,6 +925,46 @@ impl FilterSet {
         }
     }
 }
+impl ModelEntry {
+    /// Normalize model entries into unique synchronization requests
+    pub fn requests(entries: &[Self]) -> ApiResult<Vec<sync::ModelRequest>> {
+        entries
+            .iter()
+            .map(sync::ModelRequest::try_from)
+            .try_fold((HashSet::new(), Vec::new()), |(mut identifiers, mut requests), request| {
+                request.and_then(|request| match identifiers.insert(request.id().to_string()) {
+                    | true => {
+                        requests.push(request);
+                        Ok((identifiers, requests))
+                    }
+                    | false => Err(eyre!("Duplicate generated model ID '{}'", request.id())),
+                })
+            })
+            .map(|(_, requests)| requests)
+    }
+    /// Resolve model entries from a local models directory, skipping entries that cannot be resolved.
+    pub fn resolve(entries: &[Self], models_dir: &Path, force: bool) -> ApiResult<Vec<ModelDetails>> {
+        Self::requests(entries).map(|requests| {
+            requests
+                .into_iter()
+                .filter_map(|request| {
+                    let id = request.id().to_string();
+                    match force {
+                        | true => Some(request.assume(models_dir)),
+                        | false => match request.resolve(models_dir) {
+                            | Ok(model) => Some(model),
+                            | Err(why) => {
+                                let reason = format!("({why})");
+                                warn!("=> {} Could not resolve {} {}", Label::skip(), id.yellow(), reason.dimmed());
+                                None
+                            }
+                        },
+                    }
+                })
+                .collect()
+        })
+    }
+}
 impl fmt::Display for RunnerType {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -997,6 +1130,46 @@ mod tests {
             result.unwrap_err().to_string(),
             format!("Configuration file does not exist — {}", missing.display())
         );
+    }
+    #[test]
+    fn test_with_models_keeps_unique_identifiers() {
+        let configuration = ApplicationConfiguration::parse(r#"{"models":["acme/existing","acme/existing"]}"#).unwrap();
+        let entries = vec![
+            ModelEntry::Selector("acme/existing".to_string()),
+            ModelEntry::Selector("acme/added".to_string()),
+            ModelEntry::Selector("acme/added".to_string()),
+        ];
+        let updated = configuration.with_models(&entries).unwrap();
+        let identifiers = updated
+            .models
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| match entry {
+                | ModelEntry::Selector(identifier) => Some(identifier),
+                | ModelEntry::Entry(_) => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
+    }
+    #[test]
+    fn test_model_update_preserves_jsonc_comments_and_dry_run() {
+        let directory = temp_resolve_dir("sync-acorn-config");
+        create_dir_all(&directory).unwrap();
+        let path = directory.join("config.jsonc");
+        let before = "{\n  // Keep this comment\n  \"models\": [\"acme/existing\"]\n}\n";
+        write(&path, before).unwrap();
+        let configuration = ApplicationConfiguration::read(path.clone()).unwrap();
+        let entries = vec![ModelEntry::Selector("acme/added".to_string())];
+        let updated = configuration.with_models(&entries).unwrap();
+        updated.write_or_preview(&path, true, true).unwrap();
+        assert_eq!(read_file(&path).unwrap(), before);
+        updated.write_or_preview(&path, false, true).unwrap();
+        let content = read_file(&path).unwrap();
+        assert_eq!(
+            content,
+            "{\n  // Keep this comment\n  \"models\": [\n    \"acme/existing\",\n    \"acme/added\"\n  ]\n}\n"
+        );
+        let _ = remove_dir_all(directory);
     }
     #[test]
     fn test_resolve_returns_explicit_existing_path() {
