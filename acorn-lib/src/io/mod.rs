@@ -46,9 +46,10 @@ use fluent_uri::Uri;
 use futures::stream::{self, StreamExt};
 use futures::Future;
 use glob::glob;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
+use lazy_static::lazy_static;
 use nanoid::nanoid;
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
@@ -207,6 +208,9 @@ pub enum ProgressType {
     Counter,
     /// No progress output
     Silent,
+}
+lazy_static! {
+    static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
 }
 /// Struct for parsing GitLab API merge request diff responses
 ///
@@ -1551,6 +1555,9 @@ pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
 }
 /// Creates a new progress bar with the specified count and progress type
 pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
+    create_progress_bar_with_renderer(count, progress_type, &PROGRESS_RENDERER)
+}
+fn create_progress_bar_with_renderer(count: usize, progress_type: ProgressType, renderer: &MultiProgress) -> ProgressBar {
     if matches!(progress_type, ProgressType::Silent) {
         ProgressBar::hidden()
     } else {
@@ -1565,8 +1572,12 @@ pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> Progres
             #[allow(clippy::unwrap_used)]
             progress.set_style(ProgressStyle::with_template(template).unwrap());
         }
-        progress
+        renderer.add(progress)
     }
+}
+/// Returns the shared progress renderer used by ACORN I/O operations.
+pub fn progress_renderer() -> MultiProgress {
+    PROGRESS_RENDERER.clone()
 }
 /// Applies a new style template to an existing progress bar
 pub fn apply_progress_style(progress: &ProgressBar, template: &str) {

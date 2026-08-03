@@ -20,3 +20,7 @@ Prefer core- or alloc-compatible workspace defaults and enable std-dependent fea
 # Acceptance criteria
 
 No-default-feature dependency trees contain only the capabilities required by the selected build.
+
+# Related plans
+
+- [Reduce macOS compact-unwind pressure](macos-compact-unwind-size.md)

@@ -20,12 +20,15 @@ use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::{args, Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
+use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, TermLike};
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zip::ZipArchive;
+
+use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -981,4 +984,90 @@ async fn test_write_file_bytes_propagates_get_bytes_error() {
     assert!(path.exists());
     assert_eq!(std::fs::metadata(path.clone()).unwrap().len(), 0);
     remove_dir_all(dir).unwrap();
+}
+#[test]
+fn test_progress_renderer_coordinates_log_and_bar_redraw() {
+    let terminal = InMemoryTerm::new(10, 80);
+    let renderer = MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(terminal.clone())));
+    let progress = create_progress_bar_with_renderer(2, ProgressType::Bar, &renderer);
+    progress.set_style(ProgressStyle::with_template("{pos}/{len} {msg}").unwrap());
+    progress.set_message("first item");
+    progress.set_position(1);
+    progress.tick();
+    assert!(terminal.contents().contains("1/2 first item"));
+    renderer
+        .suspend(|| terminal.write_line("INFO checkpoint"))
+        .expect("write coordinated log line");
+    progress.set_message("second item");
+    progress.set_position(2);
+    progress.tick();
+    let contents = terminal.contents();
+    assert!(contents.contains("INFO checkpoint"));
+    assert!(contents.contains("2/2 second item"));
+    assert!(!contents.contains("first item"), "redraw should replace the previous progress line");
+    finish_progress_bar(&progress, "download complete".to_string());
+    assert!(terminal.contents().contains("download complete"));
+}
+#[test]
+fn test_progress_renderer_spinner_and_error_cleanup() {
+    let terminal = InMemoryTerm::new(10, 80);
+    let renderer = MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(terminal.clone())));
+    let progress = create_progress_bar_with_renderer(0, ProgressType::Spinner, &renderer);
+    progress.set_style(ProgressStyle::with_template("{spinner} {msg}").unwrap());
+    progress.set_message("waiting");
+    progress.tick();
+    assert!(terminal.contents().contains("waiting"));
+    progress.finish_and_clear();
+    assert!(
+        !terminal.contents().contains("waiting"),
+        "failed operations should be able to clear their indicator"
+    );
+}
+#[test]
+fn test_progress_renderer_silent_mode_stays_hidden() {
+    let terminal = InMemoryTerm::new(10, 80);
+    let renderer = MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(terminal.clone())));
+    let progress = create_progress_bar_with_renderer(1, ProgressType::Silent, &renderer);
+    progress.set_message("hidden work");
+    progress.inc(1);
+    assert!(progress.is_hidden());
+    assert!(terminal.contents().is_empty());
+}
+#[test]
+fn test_progress_renderer_coordinates_parallel_bars_and_logs() {
+    let terminal = InMemoryTerm::new(40, 80);
+    let renderer = MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(terminal.clone())));
+    let first = create_progress_bar_with_renderer(20, ProgressType::Bar, &renderer);
+    let second = create_progress_bar_with_renderer(20, ProgressType::Bar, &renderer);
+    first.set_style(ProgressStyle::with_template("first {pos}/{len} {msg}").unwrap());
+    second.set_style(ProgressStyle::with_template("second {pos}/{len} {msg}").unwrap());
+    let first_progress = first.clone();
+    let second_progress = second.clone();
+    let first_handle = std::thread::spawn(move || {
+        (1..=20).for_each(|position| first_progress.set_position(position));
+    });
+    let second_handle = std::thread::spawn(move || {
+        (1..=20).for_each(|position| second_progress.set_position(position));
+    });
+    let log_renderer = renderer.clone();
+    let log_terminal = terminal.clone();
+    let log_handle = std::thread::spawn(move || {
+        (1..=20).for_each(|position| {
+            log_renderer
+                .suspend(|| log_terminal.write_line(&format!("log {position}")))
+                .expect("write coordinated parallel log line");
+        });
+    });
+    first_handle.join().expect("join first progress thread");
+    second_handle.join().expect("join second progress thread");
+    log_handle.join().expect("join progress log thread");
+    first.tick();
+    second.tick();
+    let contents = terminal.contents();
+    let first_position = contents.find("first 20/20").expect("first completed progress line");
+    let second_position = contents.find("second 20/20").expect("second completed progress line");
+    assert!(first_position < second_position, "parallel bars should retain registration order");
+    assert!(contents.contains("log 20"));
+    first.finish_and_clear();
+    second.finish_and_clear();
 }

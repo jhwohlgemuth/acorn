@@ -1,5 +1,5 @@
 //! # 🌱 ACORN CLI
-use acorn::io::env_var_is_truthy;
+use acorn::io::{env_var_is_truthy, progress_renderer};
 use acorn::prelude::env;
 use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
 use acorn::util::Label;
@@ -9,7 +9,7 @@ use dotenvy::dotenv;
 use owo_colors::OwoColorize;
 use std::process::exit;
 use tracing::debug;
-use tracing_indicatif::IndicatifLayer;
+use tracing_indicatif::writer::{IndicatifWriter, Stderr};
 use tracing_log::AsTrace;
 use tracing_subscriber::fmt::{self};
 use tracing_subscriber::layer::SubscriberExt as __tracing_subscriber_SubscriberExt;
@@ -93,8 +93,7 @@ fn main() -> Void {
     }
 }
 fn init_tracing(args: &Arguments) {
-    let indicatif_layer = IndicatifLayer::new();
-    let writer = indicatif_layer.get_stderr_writer();
+    let writer = IndicatifWriter::<Stderr>::new(progress_renderer());
     let filter = dotenvy::var(LOG_LEVEL)
         .ok()
         .filter(|value| !value.is_empty())
@@ -110,7 +109,7 @@ fn init_tracing(args: &Arguments) {
         .without_time()
         .compact()
         .with_writer(writer);
-    tracing_subscriber::registry().with(filter).with(indicatif_layer).with(format).init();
+    tracing_subscriber::registry().with(filter).with(format).init();
 }
 
 #[cfg(test)]
