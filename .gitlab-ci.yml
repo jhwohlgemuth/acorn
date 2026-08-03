@@ -224,7 +224,7 @@ publish-homebrew-formula:
     - git clone --depth 1 --branch "${TAP_BRANCH}" "${HOMEBREW_TAP_REPO_URL}" tap
     - ./scripts/homebrew/generate-formula.sh "${VERSION}" "tap/${HOMEBREW_TAP_FORMULA_PATH}"
     - cd tap
-    - if git diff --quiet; then echo "No Homebrew formula changes detected"; exit 0; fi
+    - if ! git status --porcelain | grep -q .; then echo "No Homebrew formula changes detected"; exit 0; fi
     - git config user.name "${USER}"
     - git config user.email "${EMAIL}"
     - git add "${HOMEBREW_TAP_FORMULA_PATH}"
