@@ -205,7 +205,7 @@ fn test_model_plan_logs_whitelist_rejection() {
     assert!(!matches);
     assert!(text.contains("REJECTED"));
     assert!(text.contains(identifier));
-    assert!(text.contains("did not match model whitelist"));
+    assert!(text.contains("did not match whitelist"));
 }
 #[test]
 fn test_download_model_basic_config_dry_run_output_snapshot() {
@@ -1934,7 +1934,7 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     assert!(text.contains("REJECTED"));
     assert!(text.contains(fallback));
     assert!(text.contains(base_model));
-    assert!(text.contains("142 downloads, below minimum 143"));
+    assert!(text.contains("142 below minimum 143 popularity"));
     assert!(!text.contains(format!("{fallback}-secondary").as_str()));
 }
 #[test]
