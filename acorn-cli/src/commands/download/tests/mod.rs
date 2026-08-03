@@ -1449,7 +1449,7 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_items_with_progress_are_sequential() {
+async fn test_download_items_with_progress_are_concurrent() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind concurrent download server");
     let address = format!("http://{}", listener.local_addr().expect("concurrent download server address"));
     let active = Arc::new(AtomicUsize::new(0));
@@ -1480,7 +1480,7 @@ async fn test_download_items_with_progress_are_sequential() {
             .into_iter()
             .for_each(|handle| handle.join().expect("join model download handler"));
     });
-    let destination = temp_test_dir("download_model_sequential_progress");
+    let destination = temp_test_dir("download_model_concurrent_progress");
     let _cleanup = TestCleanup::new(destination.clone());
     let items = ["first.gguf", "second.gguf"]
         .into_iter()
@@ -1494,7 +1494,7 @@ async fn test_download_items_with_progress_are_sequential() {
     let result = DownloadItems::new(&destination, items, false, false).download().await;
     assert!(result.is_ok(), "model shard downloads should succeed: {result:?}");
     handle.join().expect("join concurrent download server");
-    assert_eq!(maximum_active.load(Ordering::SeqCst), 1, "visible model downloads must not overlap");
+    assert_eq!(maximum_active.load(Ordering::SeqCst), 2, "visible model downloads should overlap");
 }
 #[tokio::test]
 async fn test_download_task_restarts_partial_file_without_http_range_support() {
