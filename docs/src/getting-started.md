@@ -27,7 +27,11 @@
 ### Install with Homebrew (Linux and MacOS)
 - Add the custom tap:
     ```sh
-    brew tap research-enablement/acorn https://github.com/research-enablement/homebrew-acorn
+    brew tap research-enablement/acorn https://code.ornl.gov/research-enablement/homebrew-acorn.git
+    ```
+- Trust the custom tap:
+    ```sh
+    brew trust research-enablement/acorn
     ```
 - Install ACORN:
     ```sh
@@ -42,10 +46,6 @@
     brew update
     brew upgrade acorn-cli
     ```
-
-> [!TIP]
-> You can use any tap URL for your organization. Keep the formula name as `acorn-cli` so updates remain consistent.
-
 ### Install with Cargo
 - Ensure you have Rust and Cargo installed. If not, you can install them using [rustup.rs](https://rustup.rs/).
 - Open your terminal and run the following command to install ACORN
