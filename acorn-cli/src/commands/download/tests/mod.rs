@@ -22,7 +22,7 @@ use acorn::io::api::huggingface::{
 };
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Row};
-use acorn::io::download::{DownloadItem, DownloadTask};
+use acorn::io::download::{DownloadItem, DownloadItems, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
 use acorn::prelude::{create_dir_all, read_to_string, write, HashSet, PathBuf};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
@@ -33,8 +33,12 @@ use alloc::sync::Arc;
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
-use std::io::Write;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::time::Duration;
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::sync::Mutex;
+use std::thread;
 use temp_env::with_var;
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -1443,6 +1447,54 @@ async fn test_download_model_whitelist_keeps_matching_name() -> Result<()> {
     assert!(output_dir.join("keep").join("keep.gguf").exists());
     assert!(!output_dir.join("drop").join("drop.gguf").exists());
     Ok(())
+}
+#[tokio::test]
+async fn test_download_items_with_progress_are_sequential() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind concurrent download server");
+    let address = format!("http://{}", listener.local_addr().expect("concurrent download server address"));
+    let active = Arc::new(AtomicUsize::new(0));
+    let maximum_active = Arc::new(AtomicUsize::new(0));
+    let server_active = active.clone();
+    let server_maximum_active = maximum_active.clone();
+    let handle = thread::spawn(move || {
+        listener
+            .incoming()
+            .take(2)
+            .map(|stream| {
+                let active = server_active.clone();
+                let maximum_active = server_maximum_active.clone();
+                thread::spawn(move || {
+                    let mut stream = stream.expect("accept model download request");
+                    let mut request = [0_u8; 1];
+                    stream.read_exact(&mut request).expect("read model download request");
+                    let active_count = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    maximum_active.fetch_max(active_count, Ordering::SeqCst);
+                    thread::sleep(Duration::from_millis(150));
+                    stream
+                        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx")
+                        .expect("write model download response");
+                    active.fetch_sub(1, Ordering::SeqCst);
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|handle| handle.join().expect("join model download handler"));
+    });
+    let destination = temp_test_dir("download_model_sequential_progress");
+    let _cleanup = TestCleanup::new(destination.clone());
+    let items = ["first.gguf", "second.gguf"]
+        .into_iter()
+        .map(|path| DownloadItem {
+            url: format!("{address}/{path}"),
+            path: path.to_string(),
+            size: Some(1),
+            sha: None,
+        })
+        .collect();
+    let result = DownloadItems::new(&destination, items, false, false).download().await;
+    assert!(result.is_ok(), "model shard downloads should succeed: {result:?}");
+    handle.join().expect("join concurrent download server");
+    assert_eq!(maximum_active.load(Ordering::SeqCst), 1, "visible model downloads must not overlap");
 }
 #[tokio::test]
 async fn test_download_task_restarts_partial_file_without_http_range_support() {

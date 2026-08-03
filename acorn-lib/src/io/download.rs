@@ -7,6 +7,7 @@ use crate::util::Label;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::future::join_all;
+use futures::stream::{self, StreamExt};
 use std::fs::rename;
 use std::path::Component;
 use tracing::info;
@@ -155,7 +156,7 @@ impl DownloadItems {
             skip_verify_checksum,
         }
     }
-    /// Downloads all items concurrently and returns the first error encountered.
+    /// Downloads items concurrently when progress is hidden and sequentially otherwise.
     pub async fn download(self) -> ApiResult<()> {
         let DownloadItems {
             destination,
@@ -163,11 +164,14 @@ impl DownloadItems {
             quiet,
             skip_verify_checksum,
         } = self;
-        let results = join_all(items.into_iter().map(|item| {
-            let destination = destination.clone();
-            async move { DownloadTask::new(item, &destination, quiet, skip_verify_checksum).download().await }
-        }))
-        .await;
+        let tasks = items
+            .into_iter()
+            .map(|item| DownloadTask::new(item, &destination, quiet, skip_verify_checksum))
+            .collect::<Vec<_>>();
+        let results = match quiet {
+            | true => join_all(tasks.into_iter().map(DownloadTask::download)).await,
+            | false => stream::iter(tasks).then(DownloadTask::download).collect::<Vec<_>>().await,
+        };
         results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))
     }
 }
