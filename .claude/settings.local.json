@@ -1,0 +1,25 @@
+{
+	"hooks": {
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"$HOME/.jolli/jollimemory/run-hook\" stop",
+						"async": true
+					}
+				]
+			}
+		],
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"$HOME/.jolli/jollimemory/run-hook\" session-start"
+					}
+				]
+			}
+		]
+	}
+}
