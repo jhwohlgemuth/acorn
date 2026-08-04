@@ -30,6 +30,8 @@ use validator::Validate;
 pub mod bot;
 pub mod database;
 #[cfg(feature = "analysis")]
+pub mod intake;
+#[cfg(feature = "analysis")]
 pub mod review;
 pub mod service;
 pub mod webhook;
@@ -39,20 +41,22 @@ pub use webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, W
 
 /// Type for GitLab events response
 pub type EventsResponse = Vec<EventDetails>;
+/// Minimal stable GitLab user identity
+pub type GitLabIdentity = Identifier<u64>;
 /// Type for GitLab API descendent groups response
 pub type GroupsResponse = Vec<GroupDetails>;
-/// Type for GitLab API all runners response
-pub type RunnersResponse = Vec<RunnerMetadata>;
+/// Type for a merge request diff list response
+pub type MergeRequestDiffsResponse = Vec<MergeRequestDiff>;
+/// Type for a GitLab note list response
+pub type NotesResponse = Vec<Note>;
 /// Type for GitLab programming language entries
 pub type ProgrammingLanguageEntries = Vec<ProgrammingLanguageMetadata>;
 /// Type for GitLab project programming language usage entries
 pub type ProgrammingLanguageUseEntries = Vec<ProgrammingLanguageUseMetadata>;
 /// Type for a project webhook list response
 pub type ProjectWebhooksResponse = Vec<ProjectWebhook>;
-/// Type for a merge request diff list response
-pub type MergeRequestDiffsResponse = Vec<MergeRequestDiff>;
-/// Type for a merge request note list response
-pub type MergeRequestNotesResponse = Vec<MergeRequestNote>;
+/// Type for GitLab API all runners response
+pub type RunnersResponse = Vec<RunnerMetadata>;
 /// Trait for adding creation and registration functionality (e.g., runners, issues, merge requests, etc.)
 pub trait Create {
     /// Create a new instance of the struct with default values
@@ -78,6 +82,19 @@ pub enum AccessLevel {
     NotProtected,
     /// Ref protected
     RefProtected,
+}
+/// State published through GitLab's external commit status API
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
+pub enum CommitStatusState {
+    /// Analysis is running
+    #[display("running")]
+    Running,
+    /// Analysis passed
+    #[display("success")]
+    Success,
+    /// Analysis failed
+    #[display("failed")]
+    Failed,
 }
 /// GitLab emoji shortcodes
 ///
@@ -175,6 +192,40 @@ pub enum GroupVisibility {
     Internal,
     /// Private visibility
     Private,
+}
+/// GitLab note metadata used by merge request and work-item workflows
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum Note {
+    /// Issue or Task note used for citation intake
+    WorkItem {
+        /// Numeric note identifier
+        #[serde(rename = "id")]
+        identifier: u64,
+        /// Note body
+        body: String,
+        /// Note author
+        author: WorkItemUser,
+        /// Whether this is a system note
+        #[serde(default)]
+        system: bool,
+        /// Whether this note is confidential
+        #[serde(default)]
+        confidential: bool,
+        /// Whether this note is internal
+        #[serde(default)]
+        internal: bool,
+    },
+    /// Merge request note used for idempotent report updates
+    MergeRequest {
+        /// Numeric note identifier
+        #[serde(rename = "id")]
+        identifier: u64,
+        /// Note body
+        body: String,
+        /// Note author
+        author: Option<GitLabIdentity>,
+    },
 }
 /// Valid values for pagination order_by field
 ///
@@ -295,132 +346,6 @@ pub enum TargetType {
     #[serde(other)]
     Unknown,
 }
-/// GitLab API error response
-///
-/// Captures error responses from the GitLab API, which can be a message string,
-/// a message object with field-level errors, or an error/error_description pair.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ErrorResponse {
-    /// Error message string or object with field-level errors
-    message: Option<serde_json::Value>,
-    /// Simple error string (OAuth-style)
-    error: Option<String>,
-    /// Detailed error description (OAuth-style)
-    error_description: Option<String>,
-}
-/// Merge request metadata required for head-specific analysis
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MergeRequestDetails {
-    /// Merge request IID within the target project
-    pub iid: u64,
-    /// Target project identifier
-    pub project_id: u64,
-    /// Source project identifier, including fork projects
-    pub source_project_id: Option<u64>,
-    /// Current source head commit SHA
-    pub sha: String,
-    /// Merge request title
-    pub title: String,
-    /// Merge request description
-    #[serde(default)]
-    pub description: String,
-    /// Browser URL for the merge request
-    pub web_url: String,
-}
-/// One changed file returned by GitLab's merge request diffs API
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MergeRequestDiff {
-    /// Path before the change
-    pub old_path: String,
-    /// Path after the change
-    pub new_path: String,
-    /// Whether this is a newly added file
-    #[serde(default)]
-    pub new_file: bool,
-    /// Whether the file was renamed
-    #[serde(default)]
-    pub renamed_file: bool,
-    /// Whether the file was deleted
-    #[serde(default)]
-    pub deleted_file: bool,
-    /// Whether GitLab classified the file as generated
-    #[serde(default)]
-    pub generated_file: bool,
-    /// Whether the displayed diff was collapsed
-    #[serde(default)]
-    pub collapsed: bool,
-    /// Whether the diff exceeded GitLab's display limits
-    #[serde(default)]
-    pub too_large: bool,
-}
-/// Repository file metadata and Base64-encoded content
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct RepositoryFile {
-    /// Full repository-relative path
-    pub file_path: String,
-    /// File size in bytes
-    pub size: u64,
-    /// Content encoding reported by GitLab
-    pub encoding: String,
-    /// Encoded file content
-    pub content: String,
-}
-impl RepositoryFile {
-    /// Decode the file content returned by GitLab
-    pub fn decoded_content(&self) -> ApiResult<Vec<u8>> {
-        if self.encoding.eq_ignore_ascii_case("base64") {
-            let content = self.content.chars().filter(|character| !character.is_whitespace()).collect::<String>();
-            BASE64
-                .decode(content.as_bytes())
-                .map_err(|why| eyre!("Failed to decode GitLab repository file {} — {why}", self.file_path))
-        } else {
-            Ok(self.content.as_bytes().to_vec())
-        }
-    }
-}
-impl RepositoryFileMetadata for RepositoryFile {
-    fn path(&self) -> &str {
-        &self.file_path
-    }
-    fn size(&self) -> Option<u64> {
-        Some(self.size)
-    }
-}
-/// Minimal merge request note metadata used for idempotent report updates
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MergeRequestNote {
-    /// Numeric note identifier
-    #[serde(rename = "id")]
-    pub identifier: u64,
-    /// Note body
-    pub body: String,
-    /// Note author
-    pub author: Option<GitLabIdentity>,
-}
-/// Minimal stable GitLab user identity
-pub type GitLabIdentity = Identifier<u64>;
-/// State published through GitLab's external commit status API
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
-pub enum CommitStatusState {
-    /// Analysis is running
-    #[display("running")]
-    Running,
-    /// Analysis passed
-    #[display("success")]
-    Success,
-    /// Analysis failed
-    #[display("failed")]
-    Failed,
-}
-impl From<bool> for CommitStatusState {
-    fn from(success: bool) -> Self {
-        if success {
-            Self::Success
-        } else {
-            Self::Failed
-        }
-    }
-}
 /// Minimal response from GitLab's external commit status API
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CommitStatus {
@@ -434,6 +359,19 @@ pub struct CommitStatus {
     pub description: Option<String>,
     /// Optional target URL
     pub target_url: Option<String>,
+}
+/// GitLab API error response
+///
+/// Captures error responses from the GitLab API, which can be a message string,
+/// a message object with field-level errors, or an error/error_description pair.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    /// Error message string or object with field-level errors
+    message: Option<serde_json::Value>,
+    /// Simple error string (OAuth-style)
+    error: Option<String>,
+    /// Detailed error description (OAuth-style)
+    error_description: Option<String>,
 }
 /// GitLab event details
 ///
@@ -577,6 +515,59 @@ pub struct GroupDetails {
     /// Duo core features enabled flag
     pub duo_core_features_enabled: Option<bool>,
 }
+/// GitLab instance version metadata
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct InstanceVersion {
+    /// Semantic version string reported by GitLab
+    pub version: String,
+    /// Build revision when reported
+    pub revision: Option<String>,
+}
+/// Merge request metadata required for head-specific analysis
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MergeRequestDetails {
+    /// Merge request IID within the target project
+    pub iid: u64,
+    /// Target project identifier
+    pub project_id: u64,
+    /// Source project identifier, including fork projects
+    pub source_project_id: Option<u64>,
+    /// Current source head commit SHA
+    pub sha: String,
+    /// Merge request title
+    pub title: String,
+    /// Merge request description
+    #[serde(default)]
+    pub description: String,
+    /// Browser URL for the merge request
+    pub web_url: String,
+}
+/// One changed file returned by GitLab's merge request diffs API
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MergeRequestDiff {
+    /// Path before the change
+    pub old_path: String,
+    /// Path after the change
+    pub new_path: String,
+    /// Whether this is a newly added file
+    #[serde(default)]
+    pub new_file: bool,
+    /// Whether the file was renamed
+    #[serde(default)]
+    pub renamed_file: bool,
+    /// Whether the file was deleted
+    #[serde(default)]
+    pub deleted_file: bool,
+    /// Whether GitLab classified the file as generated
+    #[serde(default)]
+    pub generated_file: bool,
+    /// Whether the displayed diff was collapsed
+    #[serde(default)]
+    pub collapsed: bool,
+    /// Whether the diff exceeded GitLab's display limits
+    #[serde(default)]
+    pub too_large: bool,
+}
 /// GitLab API response for creating a merge request comment
 /// ### Example JSON response
 /// ```json
@@ -680,119 +671,6 @@ pub struct Options {
     #[builder(default = vec![])]
     pub custom_params: Vec<Param>,
 }
-/// GitLab instance version metadata
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct InstanceVersion {
-    /// Semantic version string reported by GitLab
-    pub version: String,
-    /// Build revision when reported
-    pub revision: Option<String>,
-}
-impl InstanceVersion {
-    /// Whether the instance supports Standard Webhooks signing tokens
-    pub fn supports_signing_tokens(&self) -> bool {
-        SemanticVersion::from(self.version.as_str()).major >= 19
-    }
-}
-impl From<SemanticVersion> for InstanceVersion {
-    fn from(version: SemanticVersion) -> Self {
-        Self {
-            version: version.to_string(),
-            revision: None,
-        }
-    }
-}
-/// Webhook endpoint and inbound authentication options
-#[derive(Clone, Debug, Default, Eq, PartialEq, Validate)]
-pub struct WebhookOptions {
-    #[validate(url)]
-    public_url: Option<String>,
-    #[validate(required)]
-    webhook_token: Option<String>,
-    #[validate(required)]
-    signing_token: Option<String>,
-}
-impl WebhookOptions {
-    /// Read webhook credentials from the environment for an optional public URL
-    pub fn from_env(public_url: Option<&str>) -> Self {
-        Self {
-            public_url: public_url.map(str::to_string),
-            webhook_token: var("GITLAB_WEBHOOK_TOKEN").ok().filter(|value| !value.trim().is_empty()),
-            signing_token: var("GITLAB_WEBHOOK_SIGNING_TOKEN").ok().filter(|value| !value.trim().is_empty()),
-        }
-    }
-    /// Create explicit webhook options
-    pub fn new(public_url: Option<&str>, webhook_token: Option<&str>, signing_token: Option<&str>) -> Self {
-        Self {
-            public_url: public_url.map(str::to_string),
-            webhook_token: webhook_token.map(str::to_string),
-            signing_token: signing_token.map(str::to_string),
-        }
-    }
-    fn url(&self) -> Option<String> {
-        self.public_url
-            .as_deref()
-            .map(|public_url| format!("{}/webhooks/gitlab", public_url.trim_end_matches('/')))
-    }
-    fn credentials(&self, supports_signing: bool) -> (Option<&str>, Option<&str>) {
-        let signing_token = supports_signing.then_some(self.signing_token.as_deref()).flatten();
-        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_deref()).flatten();
-        (webhook_token, signing_token)
-    }
-
-    fn for_registration(&self, supports_signing: bool) -> Self {
-        let (webhook_token, signing_token) = self.credentials(supports_signing);
-        Self {
-            public_url: self.url(),
-            webhook_token: webhook_token.map(str::to_string),
-            signing_token: signing_token.map(str::to_string),
-        }
-    }
-}
-/// GitLab project webhook metadata used for idempotent registration
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ProjectWebhook {
-    /// Numeric hook identifier
-    pub id: u64,
-    /// Delivery URL
-    pub url: String,
-    /// Whether merge request events are enabled
-    #[serde(default)]
-    pub merge_requests_events: bool,
-    /// Whether note events are enabled
-    #[serde(default)]
-    pub note_events: bool,
-    /// Whether TLS certificate verification is enabled
-    #[serde(default)]
-    pub enable_ssl_verification: bool,
-    /// Whether a legacy secret token exists
-    #[serde(default)]
-    pub token_present: bool,
-    /// Whether a Standard Webhooks signing token exists
-    #[serde(default)]
-    pub signing_token_present: bool,
-}
-/// Result of ensuring the configured project webhook exists
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WebhookRegistration {
-    /// Registered hook metadata
-    pub hook: ProjectWebhook,
-    /// True when a new hook was created rather than reused or updated
-    pub created: bool,
-}
-#[derive(Serialize)]
-struct ProjectWebhookRequest<'a> {
-    url: &'a str,
-    name: &'static str,
-    description: &'static str,
-    merge_requests_events: bool,
-    note_events: bool,
-    enable_ssl_verification: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    token: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    signing_token: Option<&'a str>,
-}
 /// Language metadata details from GitLab languages YAML file
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -842,6 +720,51 @@ pub struct ProgrammingLanguageUseResponse {
     /// Flattened language usage entries
     pub languages: ProgrammingLanguageUseEntries,
 }
+/// Effective project membership used for command authorization
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProjectMember {
+    /// Numeric user identifier
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Effective GitLab access level
+    pub access_level: u64,
+}
+/// GitLab project webhook metadata used for idempotent registration
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProjectWebhook {
+    /// Numeric hook identifier
+    pub id: u64,
+    /// Delivery URL
+    pub url: String,
+    /// Whether merge request events are enabled
+    #[serde(default)]
+    pub merge_requests_events: bool,
+    /// Whether note events are enabled
+    #[serde(default)]
+    pub note_events: bool,
+    /// Whether TLS certificate verification is enabled
+    #[serde(default)]
+    pub enable_ssl_verification: bool,
+    /// Whether a legacy secret token exists
+    #[serde(default)]
+    pub token_present: bool,
+    /// Whether a Standard Webhooks signing token exists
+    #[serde(default)]
+    pub signing_token_present: bool,
+}
+#[derive(Serialize)]
+struct ProjectWebhookRequest<'a> {
+    url: &'a str,
+    name: &'static str,
+    description: &'static str,
+    merge_requests_events: bool,
+    note_events: bool,
+    enable_ssl_verification: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    token: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    signing_token: Option<&'a str>,
+}
 /// Push data details for a GitLab event
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -864,6 +787,18 @@ pub struct PushData {
     /// Number of references affected
     pub ref_count: Option<u64>,
 }
+/// Repository file metadata and Base64-encoded content
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RepositoryFile {
+    /// Full repository-relative path
+    pub file_path: String,
+    /// File size in bytes
+    pub size: u64,
+    /// Content encoding reported by GitLab
+    pub encoding: String,
+    /// Encoded file content
+    pub content: String,
+}
 /// GitLab API response for creating a runner
 /// ### Example JSON response
 /// ```json
@@ -884,6 +819,24 @@ pub struct RunnerCreationResponse {
     pub token: Option<String>,
     /// Runner access token expiration timestamp
     pub token_expires_at: Option<String>,
+}
+/// Access level entry for branch protection settings
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunnerGroupAccessLevel {
+    /// Numeric access level
+    pub access_level: u64,
+}
+/// Runner group branch protection defaults
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RunnerGroupBranchProtectionDefaults {
+    /// Access levels allowed to push
+    pub allowed_to_push: Vec<RunnerGroupAccessLevel>,
+    /// Whether force push is allowed
+    pub allow_force_push: bool,
+    /// Access levels allowed to merge
+    pub allowed_to_merge: Vec<RunnerGroupAccessLevel>,
 }
 /// GitLab API response for runner details
 /// ### Example JSON response
@@ -993,24 +946,6 @@ pub struct RunnerMetadata {
     /// Maximum timeout in seconds
     pub maximum_timeout: Option<u64>,
 }
-/// Access level entry for branch protection settings
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RunnerGroupAccessLevel {
-    /// Numeric access level
-    pub access_level: u64,
-}
-/// Runner group branch protection defaults
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RunnerGroupBranchProtectionDefaults {
-    /// Access levels allowed to push
-    pub allowed_to_push: Vec<RunnerGroupAccessLevel>,
-    /// Whether force push is allowed
-    pub allow_force_push: bool,
-    /// Access levels allowed to merge
-    pub allowed_to_merge: Vec<RunnerGroupAccessLevel>,
-}
 /// Runner scope details for project or group entries
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1076,6 +1011,69 @@ pub struct UserMetadata {
     /// URL of the user's profile page
     #[serde(rename = "web_url")]
     pub url: String,
+}
+/// Webhook endpoint and inbound authentication options
+#[derive(Clone, Debug, Default, Eq, PartialEq, Validate)]
+pub struct WebhookOptions {
+    #[validate(url)]
+    public_url: Option<String>,
+    #[validate(required)]
+    webhook_token: Option<String>,
+    #[validate(required)]
+    signing_token: Option<String>,
+}
+/// Result of ensuring the configured project webhook exists
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebhookRegistration {
+    /// Registered hook metadata
+    pub hook: ProjectWebhook,
+    /// True when a new hook was created rather than reused or updated
+    pub created: bool,
+}
+/// GitLab Issue or Task metadata required for citation intake
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WorkItem {
+    /// Numeric database identifier
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Project-scoped work-item identifier
+    pub iid: u64,
+    /// Project identifier
+    pub project_id: u64,
+    /// Work-item title
+    pub title: String,
+    /// Work-item description
+    #[serde(default)]
+    pub description: String,
+    /// Stable creator identity
+    pub author: WorkItemUser,
+    /// GitLab issue type, including `issue` or `task`
+    #[serde(default)]
+    pub issue_type: String,
+    /// Whether the work item is confidential
+    #[serde(default)]
+    pub confidential: bool,
+}
+/// Minimal GitLab user metadata used by work-item intake
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct WorkItemUser {
+    /// Numeric stable user identifier
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Current GitLab username
+    pub username: String,
+    /// Whether GitLab identifies the account as a bot
+    #[serde(default)]
+    pub bot: bool,
+}
+impl From<bool> for CommitStatusState {
+    fn from(success: bool) -> Self {
+        if success {
+            Self::Success
+        } else {
+            Self::Failed
+        }
+    }
 }
 impl ErrorResponse {
     fn is_terminal_pagination_message(message: &str) -> bool {
@@ -1196,6 +1194,96 @@ impl ValueValidator for EventFilterKey {
         }
     }
 }
+impl InstanceVersion {
+    /// Whether the instance supports Standard Webhooks signing tokens
+    pub fn supports_signing_tokens(&self) -> bool {
+        SemanticVersion::from(self.version.as_str()).major >= 19
+    }
+}
+impl From<SemanticVersion> for InstanceVersion {
+    fn from(version: SemanticVersion) -> Self {
+        Self {
+            version: version.to_string(),
+            revision: None,
+        }
+    }
+}
+impl Note {
+    /// Return the note's numeric identifier.
+    pub fn identifier(&self) -> u64 {
+        match self {
+            | Self::WorkItem { identifier, .. } | Self::MergeRequest { identifier, .. } => *identifier,
+        }
+    }
+    /// Return the note body.
+    pub fn body(&self) -> &str {
+        match self {
+            | Self::WorkItem { body, .. } | Self::MergeRequest { body, .. } => body,
+        }
+    }
+    /// Return the note author's numeric identifier when available.
+    pub fn author_id(&self) -> Option<u64> {
+        match self {
+            | Self::WorkItem { author, .. } => Some(author.identifier),
+            | Self::MergeRequest { author, .. } => author.as_ref().map(|author| author.identifier),
+        }
+    }
+}
+impl Options {
+    /// Return a copy of options with an internal resource identifier set
+    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            internal_identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with an exact commit SHA set
+    pub fn with_sha(self, value: impl Into<String>) -> Self {
+        Self {
+            sha: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return the configured internal resource identifier
+    pub fn internal_identifier(&self) -> ApiResult<&str> {
+        self.internal_identifier
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab internal resource identifier is required"))
+    }
+    /// Return the configured exact commit SHA
+    pub fn sha(&self) -> ApiResult<&str> {
+        self.sha
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
+    }
+    /// Return the configured repository path
+    pub fn path(&self) -> ApiResult<&str> {
+        self.path
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab repository path is required"))
+    }
+    /// Return a copy of options with page number set
+    pub fn with_page(self, value: u32) -> Self {
+        Self { page: value, ..self }
+    }
+    /// Return a copy of options with repository path set
+    pub fn with_path(self, value: impl Into<String>) -> Self {
+        Self {
+            path: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with runner metadata set
+    pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
+        Self {
+            runner_metadata: metadata,
+            ..self
+        }
+    }
+}
 impl Configuration for Options {
     /// Build options from common GitLab CI environment variables.
     /// - `CI_JOB_TOKEN` or `GITLAB_TOKEN` -> `token`
@@ -1266,54 +1354,6 @@ impl Configuration for Options {
         &self.custom_params
     }
 }
-impl Options {
-    /// Return a copy of options with an internal resource identifier set
-    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            internal_identifier: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with an exact commit SHA set
-    pub fn with_sha(self, value: impl Into<String>) -> Self {
-        Self {
-            sha: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return the configured internal resource identifier
-    pub fn internal_identifier(&self) -> ApiResult<&str> {
-        self.internal_identifier
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab internal resource identifier is required"))
-    }
-    /// Return the configured exact commit SHA
-    pub fn sha(&self) -> ApiResult<&str> {
-        self.sha
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
-    }
-    /// Return a copy of options with page number set
-    pub fn with_page(self, value: u32) -> Self {
-        Self { page: value, ..self }
-    }
-    /// Return a copy of options with repository path set
-    pub fn with_path(self, value: impl Into<String>) -> Self {
-        Self {
-            path: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with runner metadata set
-    pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
-        Self {
-            runner_metadata: metadata,
-            ..self
-        }
-    }
-}
 impl Default for Options {
     fn default() -> Self {
         Self::from_env()
@@ -1341,6 +1381,43 @@ impl TryFrom<&str> for OrderByValue {
             | "updated_at" => Ok(OrderByValue::UpdatedAt),
             | "weight" => Ok(OrderByValue::Weight),
             | _ => Err(format!("Invalid GitLab order_by value: {value}")),
+        }
+    }
+}
+impl fmt::Display for PaginationKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | PaginationKey::OrderBy => "order_by",
+            | PaginationKey::Page => "page",
+            | PaginationKey::Pagination => "pagination",
+            | PaginationKey::PerPage => "per_page",
+            | PaginationKey::Sort => "sort",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl TryFrom<&str> for PaginationKey {
+    type Error = String;
+
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
+        match value {
+            | "order_by" => Ok(PaginationKey::OrderBy),
+            | "page" => Ok(PaginationKey::Page),
+            | "pagination" => Ok(PaginationKey::Pagination),
+            | "per_page" => Ok(PaginationKey::PerPage),
+            | "sort" => Ok(PaginationKey::Sort),
+            | _ => Err(format!("Invalid GitLab pagination field: {value}")),
+        }
+    }
+}
+impl ValueValidator for PaginationKey {
+    /// Validate pagination field values according to GitLab API documentation
+    fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | PaginationKey::OrderBy => OrderByValue::try_from(value).is_ok(),
+            | PaginationKey::Page | PaginationKey::PerPage => value.parse::<u64>().is_ok(),
+            | PaginationKey::Sort => SortValue::try_from(value).is_ok(),
+            | _ => true,
         }
     }
 }
@@ -1385,6 +1462,25 @@ impl ProgrammingLanguagesResponse {
         Self { languages }
     }
 }
+#[async_trait]
+impl DatabasePersistence for ProgrammingLanguagesResponse {
+    /// Persist GitLab programming language metadata to local database
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let Self { languages } = self;
+        let message: fn(&ProgrammingLanguageMetadata) -> String = |item| format!("Saving \"{}\" language metadata", item.name);
+        let operation = |item| async { database.insert(ProgrammingLanguageRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} programming languages", Label::CHECKMARK);
+        with_progress(languages, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum())
+            .map_err(eyre::Report::msg)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
+    }
+}
 impl ProgrammingLanguageUseResponse {
     /// Parse a raw language-to-percentage map into normalized entries
     pub fn parse(data: HashMap<String, f64>) -> Self {
@@ -1410,64 +1506,43 @@ impl ProgrammingLanguageUseResponse {
         self.entries().into_iter().map(|(name, _)| name).collect()
     }
 }
-impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        HashMap::<String, ProgrammingLanguageDetails>::deserialize(deserializer).map(Self::parse)
-    }
-}
 impl<'de> serde::Deserialize<'de> for ProgrammingLanguageUseResponse {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         HashMap::<String, f64>::deserialize(deserializer).map(Self::parse)
     }
 }
-#[async_trait]
-impl DatabasePersistence for ProgrammingLanguagesResponse {
-    /// Persist GitLab programming language metadata to local database
-    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        let Self { languages } = self;
-        let message: fn(&ProgrammingLanguageMetadata) -> String = |item| format!("Saving \"{}\" language metadata", item.name);
-        let operation = |item| async { database.insert(ProgrammingLanguageRow::from(item)) };
-        let finish = |count| format!("{}Saved metadata for {count} programming languages", Label::CHECKMARK);
-        with_progress(languages, message, operation, finish, None, ProgressType::Bar)
-            .await
-            .map(|counts| counts.into_iter().sum())
-            .map_err(eyre::Report::msg)
-    }
-}
-impl fmt::Display for PaginationKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            | PaginationKey::OrderBy => "order_by",
-            | PaginationKey::Page => "page",
-            | PaginationKey::Pagination => "pagination",
-            | PaginationKey::PerPage => "per_page",
-            | PaginationKey::Sort => "sort",
-        };
-        write!(f, "{}", s)
-    }
-}
-impl TryFrom<&str> for PaginationKey {
-    type Error = String;
-
-    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
-        match value {
-            | "order_by" => Ok(PaginationKey::OrderBy),
-            | "page" => Ok(PaginationKey::Page),
-            | "pagination" => Ok(PaginationKey::Pagination),
-            | "per_page" => Ok(PaginationKey::PerPage),
-            | "sort" => Ok(PaginationKey::Sort),
-            | _ => Err(format!("Invalid GitLab pagination field: {value}")),
+impl RepositoryFile {
+    /// Decode the file content returned by GitLab
+    pub fn decoded_content(&self) -> ApiResult<Vec<u8>> {
+        if self.encoding.eq_ignore_ascii_case("base64") {
+            let content = self.content.chars().filter(|character| !character.is_whitespace()).collect::<String>();
+            BASE64
+                .decode(content.as_bytes())
+                .map_err(|why| eyre!("Failed to decode GitLab repository file {} — {why}", self.file_path))
+        } else {
+            Ok(self.content.as_bytes().to_vec())
         }
     }
 }
-impl ValueValidator for PaginationKey {
-    /// Validate pagination field values according to GitLab API documentation
-    fn is_valid(&self, value: &str) -> bool {
-        match self {
-            | PaginationKey::OrderBy => OrderByValue::try_from(value).is_ok(),
-            | PaginationKey::Page | PaginationKey::PerPage => value.parse::<u64>().is_ok(),
-            | PaginationKey::Sort => SortValue::try_from(value).is_ok(),
-            | _ => true,
+impl RepositoryFileMetadata for RepositoryFile {
+    fn path(&self) -> &str {
+        &self.file_path
+    }
+    fn size(&self) -> Option<u64> {
+        Some(self.size)
+    }
+}
+impl RunnerMetadata {
+    /// Whether the runner is active and online
+    pub fn is_available(&self) -> bool {
+        let Self { active, online, paused, .. } = self;
+        *active && online.unwrap_or(false) && !*paused
+    }
+    /// Return a copy of runner metadata with project or group identifier set
+    pub fn with_identifier(self, value: u64) -> Self {
+        Self {
+            identifier: Some(value),
+            ..self
         }
     }
 }
@@ -1511,20 +1586,6 @@ impl From<RunnerDetails> for RunnerMetadata {
             status: None,
             tags,
             version: None,
-        }
-    }
-}
-impl RunnerMetadata {
-    /// Whether the runner is active and online
-    pub fn is_available(&self) -> bool {
-        let Self { active, online, paused, .. } = self;
-        *active && online.unwrap_or(false) && !*paused
-    }
-    /// Return a copy of runner metadata with project or group identifier set
-    pub fn with_identifier(self, value: u64) -> Self {
-        Self {
-            identifier: Some(value),
-            ..self
         }
     }
 }
@@ -1597,6 +1658,53 @@ impl<'de> serde::Deserialize<'de> for TreeResponse {
                 paths: vec![],
                 error: Some(why),
             }),
+        }
+    }
+}
+impl WebhookOptions {
+    /// Read webhook credentials from the environment for an optional public URL
+    pub fn from_env(public_url: Option<&str>) -> Self {
+        Self {
+            public_url: public_url.map(str::to_string),
+            webhook_token: var("GITLAB_WEBHOOK_TOKEN").ok().filter(|value| !value.trim().is_empty()),
+            signing_token: var("GITLAB_WEBHOOK_SIGNING_TOKEN").ok().filter(|value| !value.trim().is_empty()),
+        }
+    }
+    /// Create explicit webhook options
+    pub fn new(public_url: Option<&str>, webhook_token: Option<&str>, signing_token: Option<&str>) -> Self {
+        Self {
+            public_url: public_url.map(str::to_string),
+            webhook_token: webhook_token.map(str::to_string),
+            signing_token: signing_token.map(str::to_string),
+        }
+    }
+    fn url(&self) -> Option<String> {
+        self.public_url
+            .as_deref()
+            .map(|public_url| format!("{}/webhooks/gitlab", public_url.trim_end_matches('/')))
+    }
+    fn credentials(&self, supports_signing: bool) -> (Option<&str>, Option<&str>) {
+        let signing_token = supports_signing.then_some(self.signing_token.as_deref()).flatten();
+        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_deref()).flatten();
+        (webhook_token, signing_token)
+    }
+
+    fn for_registration(&self, supports_signing: bool) -> Self {
+        let (webhook_token, signing_token) = self.credentials(supports_signing);
+        Self {
+            public_url: self.url(),
+            webhook_token: webhook_token.map(str::to_string),
+            signing_token: signing_token.map(str::to_string),
+        }
+    }
+}
+impl WorkItemUser {
+    /// Create work-item user metadata.
+    pub fn new(identifier: u64, username: impl Into<String>, bot: bool) -> Self {
+        Self {
+            identifier,
+            username: username.into(),
+            bot,
         }
     }
 }

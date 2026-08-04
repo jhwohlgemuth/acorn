@@ -5,7 +5,7 @@ use super::{
 };
 use crate::analyzer::discovery::discover_identifiers;
 use crate::analyzer::{analyze_paths, Check, CheckOptions};
-use crate::io::api::RepositoryFileMetadata;
+use crate::io::api::{Configuration, RepositoryFileMetadata};
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, remove_dir_all, write, PathBuf};
 use crate::schema::pid::Identifier;
@@ -324,7 +324,12 @@ async fn fetch_input(
     index: usize,
     diff: MergeRequestDiff,
 ) -> Input {
-    match repository_file(options, source_project_id, &diff.new_path, head_sha).await {
+    let file_options = options
+        .clone()
+        .with_identifier(source_project_id.to_string())
+        .with_path(&diff.new_path)
+        .with_sha(head_sha);
+    match repository_file(&file_options).await {
         | Ok(file) if file.size().is_some_and(|size| size > MAX_ANALYSIS_FILE_BYTES) => Input::Failed {
             path: diff.new_path,
             reason: format!("file exceeds the {MAX_ANALYSIS_FILE_BYTES}-byte analysis limit"),

@@ -242,6 +242,27 @@ pub struct Cff {
     #[validate(custom(function = "is_semantic_version"))]
     pub version: Option<String>,
 }
+impl Cff {
+    /// Parse CFF records embedded in fenced Markdown blocks.
+    pub(crate) fn embedded(content: &str) -> Vec<Self> {
+        content
+            .split("```")
+            .enumerate()
+            .filter(|(index, _)| index % 2 == 1)
+            .filter_map(|(_, block)| {
+                let value = block
+                    .strip_prefix("cff\n")
+                    .or_else(|| block.strip_prefix("yaml\n"))
+                    .or_else(|| block.strip_prefix("yml\n"))
+                    .unwrap_or(block);
+                value
+                    .contains("cff-version")
+                    .then(|| serde_norway::from_str::<Self>(value).ok())
+                    .flatten()
+            })
+            .collect()
+    }
+}
 /// Organization, team, or other non-person entity metadata used in CFF
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]

@@ -2,6 +2,8 @@
 
 use super::bot::Config;
 use super::database::OperationQueue;
+#[cfg(feature = "analysis")]
+use super::intake::analyze_work_item;
 use crate::io::api;
 use crate::io::{self, ApiResult};
 use crate::util::constant_time_eq;
@@ -22,7 +24,6 @@ use tracing::info;
 pub type WebhookOperation = Pin<Box<dyn Future<Output = ApiResult<()>> + Send>>;
 /// Callback used by durable webhook workers
 pub type WebhookOperationHandler = Arc<dyn Fn(WebhookDelivery) -> WebhookOperation + Send + Sync + 'static>;
-
 /// Normalized payload from a GitLab webhook delivery, with struct-like enum variants per event kind.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum HookPayload {
@@ -87,7 +88,6 @@ enum Webhook {
     Delivery(WebhookDelivery),
     Unsupported,
 }
-
 /// User and project context shared across webhook delivery payload variants.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct HookActor {
@@ -108,7 +108,6 @@ struct HookUser {
     #[serde(default)]
     bot: bool,
 }
-
 #[derive(Deserialize)]
 struct RawMergeRequestAttributes {
     iid: u64,
@@ -148,7 +147,6 @@ struct RawNoteHook {
     #[serde(default)]
     merge_request: Option<api::Identifier<u64>>,
 }
-
 /// Immutable webhook config injected into the Axum router via [`Extension`].
 #[derive(Builder, Clone)]
 #[builder(start_fn = init, on(String, into))]
@@ -171,7 +169,17 @@ struct WebhookError {
     status: StatusCode,
     message: String,
 }
-
+impl HookActor {
+    /// Create webhook actor metadata.
+    pub fn new(project_id: u64, user_id: u64, username: impl Into<String>, is_bot: bool) -> Self {
+        Self {
+            project_id,
+            user_id,
+            username: username.into(),
+            is_bot,
+        }
+    }
+}
 impl From<(u64, HookUser)> for HookActor {
     fn from((project_id, user): (u64, HookUser)) -> Self {
         let HookUser {
@@ -206,7 +214,6 @@ impl From<Option<&str>> for MergeRequestAction {
         action.map_or_else(|| Self::Other(String::new()), Self::from)
     }
 }
-
 impl From<Webhook> for StatusCode {
     fn from(webhook: Webhook) -> Self {
         match webhook {
@@ -218,72 +225,6 @@ impl From<Webhook> for StatusCode {
 impl From<WebhookDelivery> for StatusCode {
     fn from(_delivery: WebhookDelivery) -> Self {
         Self::ACCEPTED
-    }
-}
-impl WebhookDelivery {
-    /// Return the canonical operation key for an actionable normalized delivery
-    pub fn key(&self) -> Option<String> {
-        match &self.event {
-            | HookPayload::MergeRequest {
-                actor,
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
-            | HookPayload::Note {
-                actor,
-                note_id,
-                body,
-                noteable_type,
-                noteable_iid: Some(iid),
-                system,
-                confidential,
-                internal,
-                ..
-            } => {
-                let human_authored = !actor.is_bot && !system && !confidential && !internal;
-                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
-                let check_requested = body.lines().any(|line| line.trim() == "/acorn check");
-                (human_authored && work_item && check_requested).then(|| format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
-            }
-            | _ => None,
-        }
-    }
-    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
-        match &config.operation_handler {
-            | Some(handler) => handler(self).await,
-            | None => self.default_handler(config).await,
-        }
-    }
-    #[cfg(feature = "analysis")]
-    async fn default_handler(self, config: &Config) -> ApiResult<()> {
-        match self.event {
-            | HookPayload::MergeRequest {
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } => {
-                let options = config.options.clone().with_internal_identifier(iid.to_string()).with_sha(head_sha);
-                super::review::analyze_merge_request(&options, &config.analysis_options)
-                    .await
-                    .map(|outcome| {
-                        info!("Processed GitLab merge request analysis operation: {outcome:?}");
-                    })
-            }
-            | _ => {
-                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
-                Ok(())
-            }
-        }
-    }
-    #[cfg(not(feature = "analysis"))]
-    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
-        Err(eyre!(
-            "GitLab webhook operation {} requires the acorn-lib analysis feature",
-            self.delivery_id
-        ))
     }
 }
 impl Webhook {
@@ -401,12 +342,6 @@ impl Webhook {
         }
     }
 }
-
-/// Authenticate and normalize an inbound GitLab webhook request into an HTTP status
-pub(super) async fn receive(Extension(config): Extension<Arc<WebhookConfig>>, request: Request) -> Result<StatusCode, (StatusCode, String)> {
-    Webhook::receive(config, request).await
-}
-
 impl Webhook {
     async fn receive(config: Arc<WebhookConfig>, request: Request) -> Result<StatusCode, (StatusCode, String)> {
         let (parts, body) = request.into_parts();
@@ -473,6 +408,84 @@ impl WebhookConfig {
         }
     }
 }
+impl WebhookDelivery {
+    /// Return the canonical operation key for an actionable normalized delivery
+    pub fn key(&self) -> Option<String> {
+        match &self.event {
+            | HookPayload::MergeRequest {
+                actor,
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
+            | HookPayload::Note {
+                actor,
+                note_id,
+                body,
+                noteable_type,
+                noteable_iid: Some(iid),
+                system,
+                confidential,
+                internal,
+                ..
+            } => {
+                let human_authored = !actor.is_bot && !system && !confidential && !internal;
+                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
+                let requested = check_requested(body);
+                (human_authored && work_item && requested).then(|| format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
+            }
+            | _ => None,
+        }
+    }
+    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
+        match &config.operation_handler {
+            | Some(handler) => handler(self).await,
+            | None => self.default_handler(config).await,
+        }
+    }
+    #[cfg(feature = "analysis")]
+    async fn default_handler(self, config: &Config) -> ApiResult<()> {
+        match self.event {
+            | HookPayload::MergeRequest {
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } => {
+                let options = config.options.clone().with_internal_identifier(iid.to_string()).with_sha(head_sha);
+                super::review::analyze_merge_request(&options, &config.analysis_options)
+                    .await
+                    .map(|outcome| {
+                        info!("Processed GitLab merge request analysis operation: {outcome:?}");
+                    })
+            }
+            | HookPayload::Note {
+                actor,
+                note_id,
+                noteable_iid: Some(iid),
+                noteable_type,
+                ..
+            } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
+                let options = config.options.clone().with_internal_identifier(iid.to_string());
+                analyze_work_item(&options, &actor, note_id).await.map(|report| {
+                    info!("Processed GitLab work-item intake operation: {report:?}");
+                })
+            }
+            | _ => {
+                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
+                Ok(())
+            }
+        }
+    }
+    #[cfg(not(feature = "analysis"))]
+    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
+        Err(eyre!(
+            "GitLab webhook operation {} requires the acorn-lib analysis feature",
+            self.delivery_id
+        ))
+    }
+}
 impl WebhookError {
     fn report(status: StatusCode, message: impl Into<String>) -> Report {
         eyre!(Self {
@@ -493,3 +506,10 @@ impl fmt::Display for WebhookError {
     }
 }
 impl core::error::Error for WebhookError {}
+pub(super) fn check_requested(content: &str) -> bool {
+    content.lines().any(|line| line.trim() == "/acorn check")
+}
+/// Authenticate and normalize an inbound GitLab webhook request into an HTTP status
+pub(super) async fn receive(Extension(config): Extension<Arc<WebhookConfig>>, request: Request) -> Result<StatusCode, (StatusCode, String)> {
+    Webhook::receive(config, request).await
+}

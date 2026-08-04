@@ -93,6 +93,81 @@ async fn test_default_worker_dispatches_merge_request_analysis() {
     server.stop().await.unwrap();
 }
 #[tokio::test]
+async fn test_default_worker_dispatches_work_item_intake() {
+    let written = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
+        .route(
+            "/api/v4/projects/30/issues/7",
+            get(|| async {
+                Json(serde_json::json!({
+                    "id": 70,
+                    "iid": 7,
+                    "project_id": 30,
+                    "title": "Result",
+                    "description": "https://example.org/artifact",
+                    "author": {"id": 4, "username": "scientist"},
+                    "issue_type": "issue"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/issues/7/notes",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 10,
+                    "body": "/acorn check",
+                    "author": {"id": 4, "username": "scientist", "bot": false}
+                }]))
+            })
+            .post({
+                let written = Arc::clone(&written);
+                move |Json(body): Json<serde_json::Value>| {
+                    let written = Arc::clone(&written);
+                    async move {
+                        written.lock().unwrap().push(body.clone());
+                        Json(serde_json::json!({
+                            "id": 80,
+                            "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default(),
+                            "author": {"id": 99, "username": "acorn-bot", "bot": true}
+                        }))
+                    }
+                }
+            }),
+        );
+    let server = TestServer::start(router).await.unwrap();
+    let queue = operation_queue();
+    let delivery = WebhookDelivery {
+        delivery_id: "delivery-work-item".to_string(),
+        event: HookPayload::Note {
+            actor: HookActor {
+                project_id: 30,
+                user_id: 4,
+                username: "scientist".to_string(),
+                is_bot: false,
+            },
+            note_id: 10,
+            body: "/acorn check".to_string(),
+            noteable_type: "Issue".to_string(),
+            noteable_id: Some(70),
+            noteable_iid: Some(7),
+            system: false,
+            confidential: false,
+            internal: false,
+        },
+    };
+    let operation_key = delivery.key().unwrap();
+    queue
+        .enqueue(&delivery.delivery_id, &operation_key, &serde_json::to_string(&delivery).unwrap())
+        .unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let config = Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone());
+    assert!(Server::new(config).process_next().await.unwrap());
+    assert_eq!(queue.state(&operation_key).unwrap(), Some(OperationState::Succeeded));
+    assert_eq!(written.lock().unwrap().len(), 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
 async fn test_webhook_worker_awaits_operation_before_marking_success() {
     let queue = operation_queue();
     let processed = Arc::new(AtomicBool::new(false));

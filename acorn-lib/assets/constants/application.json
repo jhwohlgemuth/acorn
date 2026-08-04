@@ -88,6 +88,26 @@
           "template": "{{ base }}/projects/{{ identifier }}/hooks{{ query }}"
         },
         {
+          "name": "issue",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}"
+        },
+        {
+          "name": "issue-note",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}/notes"
+        },
+        {
+          "name": "issue-note::update",
+          "method": "put",
+          "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}/notes/{{ note_id }}"
+        },
+        {
+          "name": "issue-notes",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}/notes{{ query }}"
+        },
+        {
           "name": "hook::create",
           "method": "post",
           "template": "{{ base }}/projects/{{ identifier }}/hooks"
@@ -106,6 +126,11 @@
           "name": "languages",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/languages{{ query }}"
+        },
+        {
+          "name": "member",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/members/all/{{ user_id }}"
         },
         {
           "name": "merge-request-note",

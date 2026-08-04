@@ -38,6 +38,8 @@ pub const MAX_GITLAB_OPERATION_ATTEMPTS: u32 = 5;
 pub const MAX_GITLAB_OPERATION_BACKOFF_SECONDS: i64 = 300;
 /// Hidden marker used to find the bot-authored merge request analysis note
 pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis -->";
+/// Hidden marker used to find the bot-authored work-item citation intake note
+pub const WORK_ITEM_REPORT_MARKER: &str = "<!-- acorn:work-item-intake -->";
 /// Organization name.
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.

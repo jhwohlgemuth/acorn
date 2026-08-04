@@ -3,10 +3,10 @@
 use super::{
     eyre, first_env_var, require_non_empty_secret, ApiResult, BoxFuture, CommitStatus, CommitStatusState, Configuration, EmptyField, Endpoint,
     ErrorResponse, EventFilterKey, EventsResponse, Fallback, FutureExt, GitLabIdentity, GroupsResponse, InstanceVersion, MergeRequestDetails,
-    MergeRequestDiffsResponse, MergeRequestNote, MergeRequestNotesResponse, NoteMetadata, Options, PaginationKey, Params,
-    ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, ProjectWebhook, ProjectWebhookRequest, ProjectWebhooksResponse, RemoteResource,
-    RepositoryFile, ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
-    WebhookRegistration, GITLAB_TOKEN_VARIABLE_NAMES, INCLUDED_ENDPOINTS,
+    MergeRequestDiffsResponse, Note, NoteMetadata, NotesResponse, Options, PaginationKey, Params, ProgrammingLanguageUseResponse,
+    ProgrammingLanguagesResponse, ProjectMember, ProjectWebhook, ProjectWebhookRequest, ProjectWebhooksResponse, RemoteResource, RepositoryFile,
+    ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
+    WebhookRegistration, WorkItem, GITLAB_TOKEN_VARIABLE_NAMES, INCLUDED_ENDPOINTS,
 };
 use serde::Deserialize;
 
@@ -365,23 +365,29 @@ pub fn merge_request_diffs(options: &Options) -> BoxFuture<'_, ApiResult<MergeRe
     }
     .boxed()
 }
-/// Fetch one repository file at an exact commit SHA
-pub async fn repository_file(options: &Options, project_id: u64, file_path: &str, sha: &str) -> ApiResult<RepositoryFile> {
+/// Fetch the configured repository file at an exact commit SHA
+pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
     let action = "repository-file";
-    match authenticated_endpoint(action, options) {
-        | Ok((endpoint, token)) => {
-            let project_id = project_id.to_string();
+    match (
+        authenticated_endpoint(action, options),
+        options.identifier(),
+        options.path(),
+        options.sha(),
+    ) {
+        | (Ok((endpoint, token)), Some(project_identifier), Ok(file_path), Ok(sha)) => {
+            let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_path = urlencoding::encode(file_path);
             let params = Params::new()
                 .with_auth(&token, Some("PRIVATE-TOKEN"))
-                .with_template("identifier", Some(&project_id))
+                .with_template("identifier", Some(encoded_identifier.as_ref()))
                 .with_template("file_path", Some(encoded_path.as_ref()))
                 .with_keyvalue("ref", Some(sha))
                 .build();
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<RepositoryFile, Fallback<ErrorResponse>>(response)
         }
-        | Err(why) => Err(why),
+        | (Err(why), _, _, _) | (_, _, Err(why), _) | (_, _, _, Err(why)) => Err(why),
+        | (_, None, _, _) => Err(eyre!("GitLab project identifier is required")),
     }
 }
 /// Publish the `acorn/check` external commit status
@@ -414,10 +420,10 @@ pub async fn publish_commit_status(
     }
 }
 /// List every note on a merge request
-pub async fn merge_request_notes(options: &Options) -> ApiResult<MergeRequestNotesResponse> {
+pub async fn merge_request_notes(options: &Options) -> ApiResult<NotesResponse> {
     merge_request_notes_page(options).await
 }
-fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<MergeRequestNotesResponse>> {
+fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<NotesResponse>> {
     async move {
         let action = "merge-request-notes";
         match authenticated_endpoint(action, options) {
@@ -431,7 +437,7 @@ fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<MergeR
                     .with_keyvalue("per_page", Some("100"))
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
-                match endpoint.handle_or::<MergeRequestNotesResponse, Fallback<ErrorResponse>>(response) {
+                match endpoint.handle_or::<NotesResponse, Fallback<ErrorResponse>>(response) {
                     | Ok(notes) if notes.len() == 100 => {
                         match merge_request_notes_page(&options.clone().with_page(options.page.saturating_add(1))).await {
                             | Ok(remaining) => Ok(notes.into_iter().chain(remaining).collect()),
@@ -458,22 +464,117 @@ pub async fn current_user(options: &Options) -> ApiResult<GitLabIdentity> {
         | Err(why) => Err(why),
     }
 }
-/// Create or update the bot-authored merge request report note
-pub async fn upsert_merge_request_note(options: &Options, marker: &str, body: &str) -> ApiResult<MergeRequestNote> {
+/// Get one GitLab Issue or Task by IID
+pub async fn work_item(options: &Options) -> ApiResult<WorkItem> {
+    let action = "issue";
+    match authenticated_endpoint(action, options) {
+        | Ok((endpoint, token)) => {
+            let params = Params::new()
+                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_template("identifier", options.identifier())
+                .with_template("internal_identifier", options.internal_identifier.as_deref())
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
+        }
+        | Err(why) => Err(why),
+    }
+}
+/// Get a user's effective project membership, including inherited membership
+pub async fn project_member(options: &Options, user_id: u64) -> ApiResult<ProjectMember> {
+    let action = "member";
+    match authenticated_endpoint(action, options) {
+        | Ok((endpoint, token)) => {
+            let user_id = user_id.to_string();
+            let params = Params::new()
+                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_template("identifier", options.identifier())
+                .with_template("user_id", Some(&user_id))
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<ProjectMember, Fallback<ErrorResponse>>(response)
+        }
+        | Err(why) => Err(why),
+    }
+}
+/// List every note on one GitLab Issue or Task
+pub fn work_item_notes(options: &Options) -> BoxFuture<'_, ApiResult<NotesResponse>> {
+    async move {
+        let action = "issue-notes";
+        match authenticated_endpoint(action, options) {
+            | Ok((endpoint, token)) => {
+                let page = options.page.to_string();
+                let params = Params::new()
+                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_template("identifier", options.identifier())
+                    .with_template("internal_identifier", options.internal_identifier.as_deref())
+                    .with_keyvalue("page", Some(&page))
+                    .with_keyvalue("per_page", Some("100"))
+                    .with_keyvalue("sort", Some("asc"))
+                    .build();
+                let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
+                match endpoint.handle_or::<NotesResponse, Fallback<ErrorResponse>>(response) {
+                    | Ok(notes) if notes.len() == 100 => match work_item_notes(&options.clone().with_page(options.page.saturating_add(1))).await {
+                        | Ok(remaining) => Ok(notes.into_iter().chain(remaining).collect()),
+                        | Err(why) => Err(why),
+                    },
+                    | result => result,
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    .boxed()
+}
+/// Create or update the bot-authored citation-intake report note
+pub async fn upsert_work_item_note(options: &Options, marker: &str, body: &str) -> ApiResult<Note> {
     match current_user(options).await {
-        | Ok(identity) => match merge_request_notes(options).await {
+        | Ok(identity) => match work_item_notes(options).await {
             | Ok(notes) => {
                 let existing = notes
                     .into_iter()
-                    .find(|note| note.body.contains(marker) && note.author.as_ref().is_some_and(|author| author.identifier == identity.identifier));
-                write_merge_request_note(options, existing.map(|note| note.identifier), body).await
+                    .find(|note| note.body().contains(marker) && note.author_id() == Some(identity.identifier));
+                write_work_item_note(options, existing.map(|note| note.identifier()), body).await
             }
             | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
 }
-async fn write_merge_request_note(options: &Options, note_id: Option<u64>, body: &str) -> ApiResult<MergeRequestNote> {
+async fn write_work_item_note(options: &Options, note_id: Option<u64>, body: &str) -> ApiResult<Note> {
+    let action = if note_id.is_some() { "issue-note::update" } else { "issue-note" };
+    match authenticated_endpoint(action, options) {
+        | Ok((endpoint, token)) => {
+            let note_id = note_id.map(|value| value.to_string());
+            let params = Params::new()
+                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_template("identifier", options.identifier())
+                .with_template("internal_identifier", options.internal_identifier.as_deref())
+                .with_template("note_id", note_id.as_deref())
+                .with_body("body", body)
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<Note, Fallback<ErrorResponse>>(response)
+        }
+        | Err(why) => Err(why),
+    }
+}
+/// Create or update the bot-authored merge request report note
+pub async fn upsert_merge_request_note(options: &Options, marker: &str, body: &str) -> ApiResult<Note> {
+    match current_user(options).await {
+        | Ok(identity) => match merge_request_notes(options).await {
+            | Ok(notes) => {
+                let existing = notes
+                    .into_iter()
+                    .find(|note| note.body().contains(marker) && note.author_id() == Some(identity.identifier));
+                write_merge_request_note(options, existing.map(|note| note.identifier()), body).await
+            }
+            | Err(why) => Err(why),
+        },
+        | Err(why) => Err(why),
+    }
+}
+async fn write_merge_request_note(options: &Options, note_id: Option<u64>, body: &str) -> ApiResult<Note> {
     let action = if note_id.is_some() {
         "merge-request-note::update"
     } else {
@@ -490,7 +591,7 @@ async fn write_merge_request_note(options: &Options, note_id: Option<u64>, body:
                 .with_body("body", body)
                 .build();
             let response = endpoint.invoke(action, Some(params)).await;
-            endpoint.handle_or::<MergeRequestNote, Fallback<ErrorResponse>>(response)
+            endpoint.handle_or::<Note, Fallback<ErrorResponse>>(response)
         }
         | Err(why) => Err(why),
     }

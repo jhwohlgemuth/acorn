@@ -775,9 +775,11 @@ async fn test_upsert_merge_request_note_updates_existing_marker() {
     let result = upsert_merge_request_note(&options, MERGE_REQUEST_REPORT_MARKER, "<!-- acorn:merge-request-analysis -->\nnew")
         .await
         .unwrap();
-    assert_eq!(result.identifier, 91);
+    assert_eq!(result.identifier(), 91);
     assert_eq!(bodies.lock().unwrap().len(), 1);
     server.stop().await.unwrap();
 }
 #[cfg(test)]
 mod bot;
+#[cfg(feature = "analysis")]
+mod intake;
