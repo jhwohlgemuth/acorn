@@ -428,11 +428,11 @@ pub(crate) struct DownloadModel {
     /// Maximum GPU memory available for model weights
     #[arg(long, value_name = "MEMORY", help_heading = "OPTIONS")]
     pub(crate) gpu_memory: Option<Memory>,
-    /// Path to output directory where downloaded model weights should be saved
+    /// Local directory where downloaded model weights should be saved
     ///
     /// Defaults to $HOME/.models when omitted
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
-    pub(crate) output: Option<PathBuf>,
+    #[arg(short = 'o', long = "local-dir", visible_alias = "output", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) local_dir: Option<PathBuf>,
     /// Copy local model files into the model directory instead of referencing in place
     #[arg(long, conflicts_with = "symlink", help_heading = "OPTIONS")]
     pub(crate) copy: bool,

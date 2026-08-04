@@ -189,7 +189,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                                     &args.filter,
                                     &args.ignore,
                                     &args.config,
-                                    &args.output,
+                                    &args.local_dir,
                                     &config.database_path,
                                     &args.verbose,
                                     offline,

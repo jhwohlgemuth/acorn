@@ -404,7 +404,7 @@ Download model weights for use with ACORN research harnesses and local inference
    Sources matching any ignore pattern are excluded even if they match a filter pattern
 * `--quantization <LIST>` — Ordered, exact GGUF quantizations to consider
 * `--gpu-memory <MEMORY>` — Maximum GPU memory available for model weights
-* `-o`, `--output <PATH>` — Path to output directory where downloaded model weights should be saved
+* `-o`, `--local-dir <PATH>` [alias: `output`] — Local directory where downloaded model weights should be saved
 
    Defaults to $HOME/.models when omitted
 * `--copy` — Copy local model files into the model directory instead of referencing in place

@@ -258,6 +258,21 @@ fn test_download_model_model_file_argument() {
     }
 }
 #[test]
+fn test_download_model_local_dir_argument_and_output_alias() {
+    ["--local-dir", "--output"].into_iter().for_each(|flag| {
+        let arguments = Arguments::try_parse_from(["acorn", "download", "model", "acme/model", flag, "./local-models"]).unwrap();
+        match arguments.command {
+            | Some(Commands::Download(arguments)) => match arguments.command {
+                | Some(DownloadCommands::Model(arguments)) => {
+                    assert_eq!(arguments.local_dir.as_deref(), Some(Path::new("./local-models")));
+                }
+                | other => panic!("unexpected download command: {other:?}"),
+            },
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
+}
+#[test]
 fn test_download_model_sync_argument() {
     let arguments = Arguments::try_parse_from(["acorn", "download", "model", "acme/model", "--sync", "opencode", "--force", "--dry-run"]).unwrap();
     match arguments.command {

@@ -90,6 +90,9 @@ acorn download model openai/gpt-oss-20b --quantization Q4_K_M --gpu-memory 24GB
 # Download default GGUF (Q4_K_M) from a Hugging Face repo
 acorn download model meta-llama/Llama-3.1-8B
 
+# Download model weights into a specific local directory
+acorn download model meta-llama/Llama-3.1-8B --local-dir ./models
+
 # Download a specific quantization
 acorn download model meta-llama/Llama-3.1-8B --quantization Q8_0
 
