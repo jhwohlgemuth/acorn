@@ -231,7 +231,7 @@ pub struct ApplicationConfiguration {
     /// List of buckets
     #[eserde(compat)]
     pub buckets: Option<Vec<Bucket>>,
-    /// Synchronization targets for llama-swap and OpenCode
+    /// Synchronization targets for llama-swap, OpenCode, VS Code, and Goose
     #[eserde(compat)]
     pub config: Option<sync::Config>,
     /// List of endpoints
@@ -519,12 +519,13 @@ impl ApplicationConfiguration {
             info!("{} Resolving selected models for synchronization", Label::run());
             let request_options = sync::ModelRequestOptions {
                 models_dir: &models_dir,
-                force: options.force,
+                assume_models: options.assume_models,
                 fallbacks: Vec::new(),
             };
             ModelEntry::resolve(options.entries, &request_options).and_then(|resolved| {
                 sync_config.sync(sync::Options {
                     models: &resolved,
+                    models_dir: Some(&models_dir),
                     ..options
                 })
             })

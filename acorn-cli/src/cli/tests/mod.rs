@@ -167,6 +167,7 @@ fn test_sync_model_file_argument() {
         "--model-file",
         "https://example.com/models.yaml",
         "--force",
+        "--assume-models",
         "--no-fallback",
     ])
     .unwrap();
@@ -174,9 +175,34 @@ fn test_sync_model_file_argument() {
         | Some(Commands::Sync(arguments)) => {
             assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
             assert!(arguments.force);
+            assert!(arguments.assume_models);
             assert!(arguments.no_fallback);
         }
         | other => panic!("unexpected command: {other:?}"),
+    }
+}
+
+#[test]
+fn test_sync_vscode_and_goose_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "sync",
+        "--vscode",
+        "--goose",
+        "--vscode-config",
+        "models.json",
+        "--goose-config",
+        "goose.yaml",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Sync(arguments)) => {
+            assert!(arguments.vscode);
+            assert!(arguments.goose);
+            assert_eq!(arguments.vscode_config.as_deref(), Some(Path::new("models.json")));
+            assert_eq!(arguments.goose_config.as_deref(), Some(Path::new("goose.yaml")));
+        }
+        | _ => panic!("expected sync command"),
     }
 }
 #[test]

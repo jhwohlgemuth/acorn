@@ -207,13 +207,17 @@ pub enum OutputFormat {
 /// Local inference configuration target for model synchronization.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumIs, ValueEnum)]
 pub(crate) enum SyncTarget {
-    /// Synchronize all targets
+    /// Synchronize all eligible targets
     #[default]
     All,
     /// Synchronize OpenCode only
     Opencode,
     /// Synchronize llama-swap only
     LlamaSwap,
+    /// Synchronize VS Code only
+    Vscode,
+    /// Synchronize Goose CLI only
+    Goose,
 }
 /// Target artifact aspect ratio size available when exporting research activity data using acorn
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -761,11 +765,12 @@ pub(crate) struct Spec {
     long_about = "Synchronize local inference configuration from ACORN model entries.\n\
         \n\
         Resolves configured models to downloaded GGUF files and merges them into\n\
-        llama-swap and/or OpenCode configuration.\n\
+        llama-swap, OpenCode, VS Code, and/or Goose configuration.\n\
         \n\
-        With neither target flag, synchronizes both configurations.\n\
-        With --opencode or --llama-swap, synchronizes only the selected target.\n\
-        Both flags may be used together.",
+        With no target flags, synchronizes configurations for installed applications.\n\
+        Target flags include one or more applications, subject to command availability.\n\
+        --force bypasses command detection only for explicitly included targets.
+        --assume-models bypasses model directory and GGUF file verification.",
     verbatim_doc_comment
 )]
 pub(crate) struct Sync {
@@ -777,18 +782,27 @@ pub(crate) struct Sync {
     /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
     #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
     pub(crate) model_file: Option<String>,
-    /// Assume models exist under the models directory without checking the filesystem
+    /// Bypass command detection for explicitly included targets
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) force: bool,
+    /// Assume configured models exist without checking directories or GGUF files
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) assume_models: bool,
     /// Disable resolution through previously downloaded GGUF fallback repositories
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) no_fallback: bool,
-    /// Synchronize OpenCode configuration only
+    /// Include OpenCode configuration synchronization
     #[arg(long, help_heading = "TARGETS")]
     pub(crate) opencode: bool,
-    /// Synchronize llama-swap configuration only
+    /// Include llama-swap configuration synchronization
     #[arg(long, help_heading = "TARGETS")]
     pub(crate) llama_swap: bool,
+    /// Include VS Code custom endpoint configuration synchronization
+    #[arg(long, help_heading = "TARGETS")]
+    pub(crate) vscode: bool,
+    /// Include Goose CLI configuration synchronization
+    #[arg(long, help_heading = "TARGETS")]
+    pub(crate) goose: bool,
     /// Default directory where downloaded model weights live (overrides config)
     #[arg(long = "models-dir", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) models_dir: Option<PathBuf>,
@@ -798,6 +812,12 @@ pub(crate) struct Sync {
     /// Path to llama-swap configuration file (overrides config)
     #[arg(long = "llama-swap-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) llama_swap_config: Option<PathBuf>,
+    /// Path to VS Code `chatLanguageModels.json` (overrides config)
+    #[arg(long = "vscode-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) vscode_config: Option<PathBuf>,
+    /// Path to Goose CLI `config.yaml` (overrides config)
+    #[arg(long = "goose-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) goose_config: Option<PathBuf>,
     /// Preview changes without writing any files
     #[arg(long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,

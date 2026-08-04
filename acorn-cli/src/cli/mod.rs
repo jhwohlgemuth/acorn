@@ -347,14 +347,20 @@ pub enum Commands {
     },
     /// Synchronize local inference configuration from ACORN model entries
     ///
-    ///     Synchronize both llama-swap and OpenCode configuration
+    ///     Synchronize configurations for installed applications
     ///     $> acorn sync
     ///
-    ///     Synchronize OpenCode configuration only
+    ///     Include OpenCode configuration
     ///     $> acorn sync --opencode
     ///
-    ///     Synchronize llama-swap configuration only
+    ///     Include llama-swap configuration
     ///     $> acorn sync --llama-swap
+    ///
+    ///     Include VS Code configuration
+    ///     $> acorn sync --vscode
+    ///
+    ///     Include Goose CLI configuration
+    ///     $> acorn sync --goose
     ///
     ///     Preview changes without writing files
     ///     $> acorn sync --dry-run

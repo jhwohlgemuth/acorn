@@ -1307,12 +1307,12 @@ where
                 match set_permissions(path.as_path(), Permissions::from_mode(0o755)) {
                     | Ok(()) => path.is_executable(),
                     | Err(why) => {
-                        debug!(path = path.to_absolute_string(), "=> {} Set permissions — {why}", Label::fail());
+                        debug!(path = path.to_absolute_path(), "=> {} Set permissions — {why}", Label::fail());
                         false
                     }
                 }
             } else {
-                debug!(path = path.to_absolute_string(), "=> {} Create executable file — {why}", Label::fail());
+                debug!(path = path.to_absolute_path(), "=> {} Create executable file — {why}", Label::fail());
                 false
             }
         }

@@ -384,11 +384,15 @@ Download model weights for use with ACORN research harnesses and local inference
 
   Possible values:
   - `all`:
-    Synchronize all targets
+    Synchronize all eligible targets
   - `opencode`:
     Synchronize OpenCode only
   - `llama-swap`:
     Synchronize llama-swap only
+  - `vscode`:
+    Synchronize VS Code only
+  - `goose`:
+    Synchronize Goose CLI only
 
 * `--force` — Assume synchronized models exist under the models directory
 * `-c`, `--config <PATH>` — Path to configuration file listing models to download
@@ -640,11 +644,15 @@ Import model metadata into the local database
 
   Possible values:
   - `all`:
-    Synchronize all targets
+    Synchronize all eligible targets
   - `opencode`:
     Synchronize OpenCode only
   - `llama-swap`:
     Synchronize llama-swap only
+  - `vscode`:
+    Synchronize VS Code only
+  - `goose`:
+    Synchronize Goose CLI only
 
 * `--force` — Assume synchronized models exist under the models directory
 * `--dry-run` [alias: `what-if`] — Resolve model metadata without database or configuration writes
@@ -802,14 +810,20 @@ Model context protocol (MCP) server
 
 Synchronize local inference configuration from ACORN model entries
 
-    Synchronize both llama-swap and OpenCode configuration
+    Synchronize configurations for installed applications
     $> acorn sync
 
-    Synchronize OpenCode configuration only
+    Include OpenCode configuration
     $> acorn sync --opencode
 
-    Synchronize llama-swap configuration only
+    Include llama-swap configuration
     $> acorn sync --llama-swap
+
+    Include VS Code configuration
+    $> acorn sync --vscode
+
+    Include Goose CLI configuration
+    $> acorn sync --goose
 
     Preview changes without writing files
     $> acorn sync --dry-run
@@ -822,13 +836,18 @@ Synchronize local inference configuration from ACORN model entries
 * `--model-file <URI_OR_PATH>` — URI or local path to a model list file
 
    Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
-* `--force` — Assume models exist under the models directory without checking the filesystem
+* `--force` — Bypass command detection for explicitly included targets
+* `--assume-models` — Assume configured models exist without checking directories or GGUF files
 * `--no-fallback` — Disable resolution through previously downloaded GGUF fallback repositories
-* `--opencode` — Synchronize OpenCode configuration only
-* `--llama-swap` — Synchronize llama-swap configuration only
+* `--opencode` — Include OpenCode configuration synchronization
+* `--llama-swap` — Include llama-swap configuration synchronization
+* `--vscode` — Include VS Code custom endpoint configuration synchronization
+* `--goose` — Include Goose CLI configuration synchronization
 * `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)
 * `--opencode-config <PATH>` — Path to OpenCode configuration file (overrides config)
 * `--llama-swap-config <PATH>` — Path to llama-swap configuration file (overrides config)
+* `--vscode-config <PATH>` — Path to VS Code `chatLanguageModels.json` (overrides config)
+* `--goose-config <PATH>` — Path to Goose CLI `config.yaml` (overrides config)
 * `--dry-run` [alias: `what-if`] — Preview changes without writing any files
 * `--no-color` — Disable color in dry-run output
 * `--prune` — Remove stale managed models from target configurations

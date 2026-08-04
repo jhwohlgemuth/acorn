@@ -5,9 +5,10 @@
 //! a command that launches `llama-server` with the appropriate flags.
 //!
 //! See <https://github.com/mostlygeek/llama-swap/blob/main/docs/configuration.md>
+use super::{Options, RenderedOutput, SyncTarget};
 use crate::args;
-use crate::io::{home_directory, ApiResult, PathConversion};
-use crate::prelude::OsString;
+use crate::io::{home_directory, read_file, ApiResult};
+use crate::prelude::{OsString, PathBuf};
 use crate::schema::agent::ModelDetails;
 use crate::util::cmd::command_string;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
@@ -16,6 +17,7 @@ use crate::util::ToStrings;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
+use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_norway::{Mapping, Number, Value};
@@ -106,6 +108,62 @@ pub(super) struct ModelValidation<'a> {
     config: &'a Config,
     model_ids: &'a [String],
 }
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "llama-swap";
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            executable: overrides.executable.or(self.executable),
+            context_size: overrides.context_size.or(self.context_size),
+            ttl: overrides.ttl.or(self.ttl),
+            extra_args: overrides.extra_args.or(self.extra_args),
+            environment: overrides.environment.or(self.environment),
+            models: overrides.models.or(self.models),
+        }
+    }
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            ..self
+        }
+    }
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        explicit
+            .map(|path| PathBuf::from(path.to_string().to_cross_platform_path()))
+            .map_or_else(|| home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH), Ok)
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match before.is_empty() {
+                        | true => Ok(Value::Mapping(Default::default())),
+                        | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
+                    }
+                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
+                    .and_then(|merged| {
+                        serde_norway::to_string(&merged)
+                            .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
+                            .and_then(|content| {
+                                serde_norway::from_str::<Value>(&content)
+                                    .map(|_| RenderedOutput {
+                                        target: "llama-swap",
+                                        path,
+                                        before,
+                                        content,
+                                    })
+                                    .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
+                            })
+                    })
+                })
+        })
+    }
+}
 impl Config {
     /// Build a shell-safe `llama-server` command string for a given GGUF model path
     /// ### Note
@@ -118,14 +176,32 @@ impl Config {
         context_size: Option<u64>,
     ) -> String {
         let line = |command: &str, arguments: Vec<OsString>| command_string(command, &arguments);
+        let extra = extra_args.into_iter().flatten().map(ToString::to_string).collect::<Vec<_>>();
+        let arguments = args![
+            "--offline",
+            "--jinja",
+            ("--batch-size", "2048"),
+            ("--host", "0.0.0.0"),
+            ("--sleep-idle-seconds", "600"),
+            ("--tools", "all"),
+            ("--ubatch-size", "2048")
+        ];
+        let defaults = arguments.iter().enumerate().filter_map(|(index, option)| {
+            let option = option.to_string_lossy();
+            option.starts_with("--").then(|| {
+                let values = index
+                    .checked_add(1)
+                    .and_then(|index| arguments.get(index))
+                    .filter(|value| !value.to_string_lossy().starts_with("--"))
+                    .cloned()
+                    .into_iter()
+                    .collect();
+                line(&option, values)
+            })
+        });
         let model = gguf_path.map(|path| line("--model", args![path]));
         let context = context_size.map(|size| line("--ctx-size", args![size.to_string()]));
-        let extra = extra_args
-            .into_iter()
-            .flatten()
-            .map(ToString::to_string)
-            .map(OsString::from)
-            .collect::<Vec<_>>();
+        let extra = extra.into_iter().map(OsString::from).collect::<Vec<_>>();
         let extra = extra
             .split_first()
             .map(|(command, arguments)| command_string(&command.to_string_lossy(), arguments));
@@ -134,34 +210,14 @@ impl Config {
             .flatten()
             .map(|entry| command_string(&format!("env:{entry}"), &[]));
         once(command_string(executable, &[]))
-            .chain(once(line("--port", args!["${PORT}"])))
             .chain(model)
+            .chain(once(line("--port", args!["${PORT}"])))
             .chain(context)
+            .chain(defaults)
             .chain(extra)
             .chain(environment)
             .collect::<Vec<_>>()
             .join("\n  ")
-    }
-    /// Merge populated runtime overrides into this configuration
-    pub fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            models_directory: overrides.models_directory.or(self.models_directory),
-            executable: overrides.executable.or(self.executable),
-            context_size: overrides.context_size.or(self.context_size),
-            ttl: overrides.ttl.or(self.ttl),
-            extra_args: overrides.extra_args.or(self.extra_args),
-            environment: overrides.environment.or(self.environment),
-            models: overrides.models.or(self.models),
-        }
-    }
-    /// Merge CLI-supported overrides while preserving configured model defaults
-    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            models_directory: overrides.models_directory.or(self.models_directory),
-            ..self
-        }
     }
     /// Build a llama-swap model entry from resolved model details
     pub fn model_entry(&self, model: &ModelDetails) -> Value {
@@ -182,7 +238,8 @@ impl Config {
             context_size,
         );
         let metadata = Value::Mapping(once((Value::String("acorn".to_string()), Value::Bool(true))).collect());
-        let mapping = once((Value::String("cmd".to_string()), Value::String(command)))
+        let mapping = once((Value::String("proxy".to_string()), Value::String("http://127.0.0.1:${PORT}".to_string())))
+            .chain(once((Value::String("cmd".to_string()), Value::String(command))))
             .chain(
                 overrides
                     .and_then(|config| config.ttl)
@@ -194,18 +251,12 @@ impl Config {
             .collect();
         Value::Mapping(mapping)
     }
-    /// Resolve the configured llama-swap path or the user default.
-    pub fn resolve_path(&self) -> ApiResult<String> {
-        self.path.clone().map_or_else(
-            || home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).map(|path| path.cross_platform_display()),
-            |path| Ok(path.to_cross_platform_path()),
-        )
-    }
     /// Merge synchronized models into an existing llama-swap document
     pub fn upsert(&self, existing: Value, models: &[ModelDetails], prune: bool) -> ApiResult<Value> {
         match existing {
             | Value::Null => self.upsert(Value::Mapping(Default::default()), models, prune),
-            | Value::Mapping(mut root) => {
+            | Value::Mapping(root) => {
+                let mut root = merge_mappings(Self::base_config(), root);
                 let models_key = Value::String("models".to_string());
                 root.remove(Value::String("modelsDir".to_string()));
                 let existing_models = root
@@ -241,8 +292,28 @@ impl Config {
                 root.insert(models_key, Value::Mapping(merged));
                 Ok(Value::Mapping(root))
             }
-            | _ => Err(color_eyre::eyre::eyre!("Existing llama-swap configuration root must be a mapping")),
+            | _ => Err(eyre!("Existing llama-swap configuration root must be a mapping")),
         }
+    }
+    fn base_config() -> Mapping {
+        let proxy = once((Value::String("listen".to_string()), Value::String("http://0.0.0.0:10732".to_string()))).collect();
+        let macros = [
+            ("context_size", "${env.LLAMA_ARG_CTX_SIZE}"),
+            ("parallel", "${env.LLAMA_ARG_N_PARALLEL}"),
+            ("models_dir", "${env.HOME}/.models"),
+            ("ssl_key", "${env.HOME}/certs/my.key"),
+            ("ssl_cert", "${env.HOME}/certs/my.pem"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (Value::String(key.to_string()), Value::String(value.to_string())))
+        .collect();
+        [
+            (Value::String("healthCheckTimeout".to_string()), Value::Number(Number::from(500))),
+            (Value::String("proxy".to_string()), Value::Mapping(proxy)),
+            (Value::String("macros".to_string()), Value::Mapping(macros)),
+        ]
+        .into_iter()
+        .collect()
     }
 }
 impl Alias {
@@ -366,6 +437,19 @@ fn is_managed(model: &Value) -> bool {
         .and_then(Value::as_bool)
         .unwrap_or(false)
 }
+fn merge_mappings(defaults: Mapping, overrides: Mapping) -> Mapping {
+    defaults.into_iter().fold(overrides, |mut merged, (key, default_value)| {
+        let value = match (merged.get(&key), default_value) {
+            | (Some(Value::Mapping(overrides)), Value::Mapping(defaults)) => Some(Value::Mapping(merge_mappings(defaults, overrides.clone()))),
+            | (None, value) => Some(value),
+            | _ => None,
+        };
+        if let Some(value) = value {
+            merged.insert(key, value);
+        }
+        merged
+    })
+}
 fn merge_model(existing: Value, generated: Value) -> Value {
     let owned = vec!["cmd", "command", "ttl", "aliases"]
         .to_strings()
@@ -380,6 +464,10 @@ fn merge_model(existing: Value, generated: Value) -> Value {
         | Value::Mapping(mapping) => mapping,
         | _ => Default::default(),
     };
+    let proxy_key = Value::String("proxy".to_string());
+    if existing.contains_key(&proxy_key) {
+        generated.remove(&proxy_key);
+    }
     let metadata_key = Value::String("metadata".to_string());
     let metadata = existing
         .remove(&metadata_key)
@@ -429,7 +517,10 @@ mod tests {
     #[test]
     fn test_build_command_simple() {
         let cmd = Config::build_command("llama-server", Some("/models/qwen.gguf"), None, None, Some(8192));
-        assert_eq!(cmd, "llama-server\n  --port ${PORT}\n  --model /models/qwen.gguf\n  --ctx-size 8192");
+        assert_eq!(
+            cmd,
+            "llama-server\n  --model /models/qwen.gguf\n  --port ${PORT}\n  --ctx-size 8192\n  --offline\n  --jinja\n  --batch-size 2048\n  --host 0.0.0.0\n  --sleep-idle-seconds 600\n  --tools all\n  --ubatch-size 2048"
+        );
     }
     #[test]
     fn test_build_command_with_environment() {
@@ -439,15 +530,26 @@ mod tests {
     }
     #[test]
     fn test_build_command_with_extra_args() {
-        let extras = vec![Argument::from("--flash-attn"), Argument::from("on")];
+        let extras = vec![
+            Argument::from("--batch-size"),
+            Argument::from("1024"),
+            Argument::from("--flash-attn"),
+            Argument::from("on"),
+        ];
         let cmd = Config::build_command("llama-server", Some("/models/qwen.gguf"), Some(&extras), None, None);
+        assert!(cmd.contains("--batch-size 1024"));
+        assert!(cmd
+            .find("--batch-size 2048")
+            .zip(cmd.rfind("--batch-size 1024"))
+            .is_some_and(|(default, override_)| default < override_));
         assert!(cmd.contains("--flash-attn"));
         assert!(cmd.contains("on"));
     }
     #[test]
     fn test_build_command_with_optional_values() {
         let cmd = Config::build_command("llama-server", None, None, None, None);
-        assert_eq!(cmd, "llama-server\n  --port ${PORT}");
+        assert!(cmd.starts_with("llama-server\n  --port ${PORT}\n  --offline"));
+        assert!(cmd.ends_with("--ubatch-size 2048"));
     }
     #[test]
     fn test_build_command_with_spaces_in_path() {
@@ -457,8 +559,8 @@ mod tests {
     #[test]
     fn test_resolve_path_uses_llama_swap_user_config() {
         assert_eq!(
-            Config::default().resolve_path().unwrap(),
-            home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).unwrap().cross_platform_display()
+            Config::resolve_path(None).unwrap(),
+            home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).unwrap()
         );
     }
     #[test]
@@ -502,6 +604,24 @@ models:
         assert!(pruned_text.contains("custom:"));
         let repeated = config.upsert(pruned, &models, true).unwrap();
         assert_eq!(pruned_text, serde_norway::to_string(&repeated).unwrap());
+    }
+    #[test]
+    fn test_upsert_adds_gold_base_defaults() {
+        let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
+        let output = Config::default()
+            .upsert(Value::Mapping(Default::default()), &models, false)
+            .and_then(|value| serde_norway::to_string(&value).map_err(Into::into))
+            .unwrap();
+        assert!(output.contains("healthCheckTimeout: 500"));
+        assert!(output.contains("listen: http://0.0.0.0:10732"));
+        assert!(output.contains("context_size: ${env.LLAMA_ARG_CTX_SIZE}"));
+        assert!(output.contains("parallel: ${env.LLAMA_ARG_N_PARALLEL}"));
+        assert!(output.contains("models_dir: ${env.HOME}/.models"));
+        assert!(output.contains("ssl_key: ${env.HOME}/certs/my.key"));
+        assert!(output.contains("ssl_cert: ${env.HOME}/certs/my.pem"));
+        assert!(output.contains("proxy: http://127.0.0.1:${PORT}"));
+        assert!(output.contains("--offline\n"));
+        assert!(output.contains("--tools all\n"));
     }
     #[test]
     fn test_validate_rejects_invalid_context_ttl_environment_and_aliases() {

@@ -295,13 +295,12 @@ pub(crate) fn spawn_retry_resume_server(
     let address = format!("http://{}/model.gguf", listener.local_addr().expect("local addr"));
     let handle = thread::spawn(move || {
         listener.set_nonblocking(true).expect("set nonblocking");
-        let mut served = 0;
         let mut idle = 0;
-        while served < 3 && idle < 200 {
+        let mut completed = false;
+        while !completed && idle < 500 {
             let mut stream = match listener.accept() {
                 | Ok((stream, _)) => {
                     idle = 0;
-                    served += 1;
                     stream
                 }
                 | Err(why) if why.kind() == ErrorKind::WouldBlock => {
@@ -312,21 +311,23 @@ pub(crate) fn spawn_retry_resume_server(
                 | Err(why) => panic!("accept failed: {why}"),
             };
             let parsed = parse_request(&mut stream);
-            let response = if parsed.is_head {
-                response_200_head(content.len())
+            let (response, done) = if parsed.is_head {
+                (response_200_head(content.len()), false)
             } else if parsed.range == Some(initial_offset) {
                 let end = updated_offset.min(content.len());
                 let mut file = OpenOptions::new().append(true).open(&part_path).expect("open partial file");
                 file.write_all(&content[initial_offset..end]).expect("extend partial file");
-                response_500()
+                (response_500(), false)
             } else if let Some(offset) = parsed.range {
                 let tail = if offset < content.len() { &content[offset..] } else { &[] };
-                response_206_with_body(offset, content.len(), tail)
+                (response_206_with_body(offset, content.len(), tail), true)
             } else {
-                response_200_with_body(&content)
+                (response_200_with_body(&content), true)
             };
             stream.write_all(&response).expect("write response");
+            completed = done;
         }
+        assert!(completed, "retry-resume server timed out before a successful download response");
     });
     (address, handle)
 }

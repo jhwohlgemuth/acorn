@@ -2,13 +2,14 @@
 //!
 //! Provides types for the `acorn sync` command, which resolves ACORN model
 //! entries to downloaded GGUF files and merges the corresponding models into
-//! llama-swap and OpenCode project configuration.
+//! llama-swap, OpenCode, VS Code, and Goose configuration.
 use crate::io::{
+    command_exists,
     config::{FilterSet, ModelEntry},
-    files_all, home_directory, read_file, write_file, ApiResult, PathConversion, Source,
+    files_all, home_directory, write_file, ApiResult, PathConversion, Source,
 };
 use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
-use crate::schema::agent::{self, ModelDetails};
+use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::{text_diff_changes_with_color, Label};
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -20,18 +21,21 @@ use core::fmt;
 use core::ops::ControlFlow;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use serde_norway::Value;
 use serde_with::skip_serializing_none;
 use tracing::info;
 use validator::Validate;
 
+pub mod goose;
 pub mod llama_swap;
 pub mod opencode;
+pub mod vscode;
 
 #[derive(Debug)]
 enum SyncError {
+    Goose(color_eyre::Report),
     LlamaSwap(color_eyre::Report),
     OpenCode(color_eyre::Report),
+    VsCode(color_eyre::Report),
 }
 #[derive(Debug)]
 enum ShardError {
@@ -59,17 +63,29 @@ enum ShardError {
 ///     path: ./opencode.jsonc
 ///     baseUrl: http://localhost:8080/v1
 ///     providerId: llama-swap
+///   vscode:
+///     path: ./chatLanguageModels.json
+///     url: http://localhost:8080/v1/chat/completions
+///   goose:
+///     path: ./goose.yaml
+///     host: http://localhost:8080
 /// ```
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    /// Goose CLI configuration for local inference
+    #[validate(nested)]
+    pub goose: Option<goose::Config>,
     /// llama-swap configuration for local inference
     #[validate(nested)]
     pub llama_swap: Option<llama_swap::Config>,
     /// OpenCode configuration for local inference
     #[validate(nested)]
     pub opencode: Option<opencode::Config>,
+    /// VS Code custom endpoint configuration for local inference
+    #[validate(nested)]
+    pub vscode: Option<vscode::Config>,
 }
 /// Inputs controlling a configuration synchronization operation
 #[derive(Builder, Clone, Copy, Debug, Default)]
@@ -84,6 +100,12 @@ pub struct Options<'a> {
     /// Synchronize OpenCode configuration.
     #[builder(default)]
     pub opencode: bool,
+    /// Synchronize VS Code configuration.
+    #[builder(default)]
+    pub vscode: bool,
+    /// Synchronize Goose CLI configuration.
+    #[builder(default)]
+    pub goose: bool,
     /// Synchronize llama-swap configuration.
     #[builder(default)]
     pub llama_swap: bool,
@@ -96,9 +118,12 @@ pub struct Options<'a> {
     /// Remove stale managed models.
     #[builder(default)]
     pub prune: bool,
-    /// Assume model paths from their identifiers without checking the filesystem.
+    /// Bypass command detection for explicitly selected targets.
     #[builder(default)]
     pub force: bool,
+    /// Assume model paths from their identifiers without checking the filesystem.
+    #[builder(default)]
+    pub assume_models: bool,
     /// Models directory override used to resolve model entries.
     pub models_dir: Option<&'a Path>,
 }
@@ -116,16 +141,23 @@ pub struct ModelRequestOptions<'a> {
     /// Root directory containing downloaded model repositories.
     pub models_dir: &'a Path,
     /// Assume the configured model path exists without checking the filesystem.
-    pub force: bool,
+    pub assume_models: bool,
     /// Downloaded fallback repository identifiers to try after the configured identifier.
     pub fallbacks: Vec<String>,
 }
 #[derive(Clone, Debug)]
-struct RenderedOutput {
+pub(crate) struct RenderedOutput {
     target: &'static str,
     path: PathBuf,
     before: String,
     content: String,
+}
+pub(crate) trait SyncTarget: Clone + Default {
+    const COMMAND: &'static str;
+    fn merge(self, overrides: Self) -> Self;
+    fn merge_cli_overrides(self, overrides: Self) -> Self;
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf>;
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput>;
 }
 /// A parsed GGUF file candidate used to validate and order split model shards.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,31 +170,50 @@ pub(crate) struct Shard {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Shards(Vec<Shard>);
+fn merge_target<T: SyncTarget>(config: Option<T>, overrides: Option<T>) -> Option<T> {
+    match (config, overrides) {
+        | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
+        | (config, overrides) => overrides.or(config),
+    }
+}
+fn merge_target_cli<T: SyncTarget>(config: Option<T>, overrides: Option<T>) -> Option<T> {
+    match (config, overrides) {
+        | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
+        | (config, overrides) => overrides.or(config),
+    }
+}
+fn select_target<T: SyncTarget>(config: Option<&T>, requested: bool, explicit: bool, force: bool) -> Option<T> {
+    ((requested || !explicit) && (command_exists(T::COMMAND) || (requested && force))).then(|| config.cloned().unwrap_or_default())
+}
 impl Config {
     /// Merge populated runtime overrides into configured synchronization targets
     pub fn merge(self, overrides: Self) -> Self {
+        let Self {
+            goose,
+            llama_swap,
+            opencode,
+            vscode,
+        } = self;
         Self {
-            llama_swap: match (self.llama_swap, overrides.llama_swap) {
-                | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
-                | (config, overrides) => overrides.or(config),
-            },
-            opencode: match (self.opencode, overrides.opencode) {
-                | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
-                | (config, overrides) => overrides.or(config),
-            },
+            goose: merge_target(goose, overrides.goose),
+            llama_swap: merge_target(llama_swap, overrides.llama_swap),
+            opencode: merge_target(opencode, overrides.opencode),
+            vscode: merge_target(vscode, overrides.vscode),
         }
     }
     /// Merge CLI-supported overrides into configured synchronization targets
     pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        let Self {
+            goose,
+            llama_swap,
+            opencode,
+            vscode,
+        } = self;
         Self {
-            llama_swap: match (self.llama_swap, overrides.llama_swap) {
-                | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
-                | (config, overrides) => overrides.or(config),
-            },
-            opencode: match (self.opencode, overrides.opencode) {
-                | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
-                | (config, overrides) => overrides.or(config),
-            },
+            goose: merge_target_cli(goose, overrides.goose),
+            llama_swap: merge_target_cli(llama_swap, overrides.llama_swap),
+            opencode: merge_target_cli(opencode, overrides.opencode),
+            vscode: merge_target_cli(vscode, overrides.vscode),
         }
     }
     /// Resolve the model directory from a CLI override, configuration, or the user default
@@ -180,82 +231,142 @@ impl Config {
     /// Synchronize all selected configuration targets
     pub fn sync(&self, options: Options<'_>) -> ApiResult<()> {
         let selected = self.selected(&options);
-        let model_ids = options.models.iter().filter_map(|model| model.id.as_ref()).cloned().collect::<Vec<_>>();
-        Validate::validate(&selected)
-            .map_err(|why| eyre!("Invalid synchronization configuration: {why}"))
-            .and_then(|()| {
-                selected.llama_swap.as_ref().map_or(Ok(()), |config| {
-                    Validate::validate(&llama_swap::ModelValidation::from((config, model_ids.as_slice())))
-                        .map_err(|why| eyre!("Invalid llama-swap model configuration: {why}"))
-                })
-            })
-            .and_then(|()| {
-                selected
-                    .opencode
-                    .as_ref()
-                    .and_then(|config| config.default_model.as_ref())
-                    .map_or(Ok(()), |default_model| match model_ids.iter().any(|model_id| model_id == default_model) {
-                        | true => Ok(()),
-                        | false => Err(eyre!("opencode.defaultModel references unknown model '{default_model}'")),
+        selected.models_for_sync(&options).and_then(|models| {
+            let options = Options { models: &models, ..options };
+            let model_ids = options.models.iter().filter_map(|model| model.id.as_ref()).cloned().collect::<Vec<_>>();
+            Validate::validate(&selected)
+                .map_err(|why| eyre!("Invalid synchronization configuration: {why}"))
+                .and_then(|()| {
+                    selected.llama_swap.as_ref().map_or(Ok(()), |config| {
+                        Validate::validate(&llama_swap::ModelValidation::from((config, model_ids.as_slice())))
+                            .map_err(|why| eyre!("Invalid llama-swap model configuration: {why}"))
                     })
-            })
-            .and_then(|()| match options.models.is_empty() {
-                | true => {
-                    info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
-                    Ok(())
-                }
-                | false => selected
-                    .llama_swap
-                    .is_some()
-                    .then(|| selected.render_llama_swap(options).map_err(|why| eyre!(SyncError::LlamaSwap(why))))
-                    .transpose()
-                    .and_then(|llama_swap_output| {
+                })
+                .and_then(|()| {
+                    selected
+                        .opencode
+                        .as_ref()
+                        .and_then(|config| config.default_model.as_ref())
+                        .map_or(Ok(()), |default_model| match model_ids.iter().any(|model_id| model_id == default_model) {
+                            | true => Ok(()),
+                            | false => Err(eyre!("opencode.defaultModel references unknown model '{default_model}'")),
+                        })
+                })
+                .and_then(|()| {
+                    selected
+                        .goose
+                        .as_ref()
+                        .and_then(|config| config.default_model.as_ref())
+                        .map_or(Ok(()), |default_model| match model_ids.iter().any(|model_id| model_id == default_model) {
+                            | true => Ok(()),
+                            | false => Err(eyre!("goose.defaultModel references unknown model '{default_model}'")),
+                        })
+                })
+                .and_then(|()| match (selected.is_empty(), options.models.is_empty()) {
+                    | (true, _) => {
+                        info!("{} No eligible synchronization targets detected — nothing to synchronize", Label::CAUTION);
+                        Ok(())
+                    }
+                    | (_, true) => {
+                        info!("{} No models resolved — nothing to synchronize", Label::CAUTION);
+                        Ok(())
+                    }
+                    | _ => [
+                        selected
+                            .llama_swap
+                            .as_ref()
+                            .map(|config| SyncTarget::render(config, options).map_err(|why| eyre!(SyncError::LlamaSwap(why)))),
                         selected
                             .opencode
-                            .is_some()
-                            .then(|| selected.render_opencode(options).map_err(|why| eyre!(SyncError::OpenCode(why))))
-                            .transpose()
-                            .and_then(|opencode_output| {
-                                let outputs = [llama_swap_output, opencode_output].into_iter().flatten().collect::<Vec<_>>();
-                                match options.dry_run {
-                                    | true => {
-                                        outputs.iter().for_each(|output| {
-                                            let path = output.path.display().to_string();
-                                            match (output.before == output.content, options.no_color) {
-                                                | (true, true) => info!("=> {} No changes for {path}", Label::CAUTION),
-                                                | (true, false) => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
-                                                | (false, _) => {
-                                                    match options.no_color {
-                                                        | true => println!("\n{path}"),
-                                                        | false => println!("\n{}", path.cyan().bold()),
-                                                    }
-                                                    text_diff_changes_with_color(&output.before, &output.content, !options.no_color)
-                                                        .iter()
-                                                        .for_each(|(_, line)| print!("{line}"));
-                                                }
-                                            }
-                                        });
-                                        info!("=> {} Dry run complete — no files were modified", Label::pass());
-                                        Ok(Vec::new())
+                            .as_ref()
+                            .map(|config| SyncTarget::render(config, options).map_err(|why| eyre!(SyncError::OpenCode(why)))),
+                        selected
+                            .vscode
+                            .as_ref()
+                            .map(|config| SyncTarget::render(config, options).map_err(|why| eyre!(SyncError::VsCode(why)))),
+                        selected
+                            .goose
+                            .as_ref()
+                            .map(|config| SyncTarget::render(config, options).map_err(|why| eyre!(SyncError::Goose(why)))),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect::<ApiResult<Vec<_>>>()
+                    .and_then(|outputs| match options.dry_run {
+                        | true => {
+                            outputs.iter().for_each(|output| {
+                                let path = output.path.display().to_string();
+                                match (output.before == output.content, options.no_color) {
+                                    | (true, true) => info!("=> {} No changes for {path}", Label::CAUTION),
+                                    | (true, false) => info!("=> {} No changes for {}", Label::CAUTION, path.cyan()),
+                                    | (false, _) => {
+                                        match options.no_color {
+                                            | true => println!("\n{path}"),
+                                            | false => println!("\n{}", path.cyan().bold()),
+                                        }
+                                        text_diff_changes_with_color(&output.before, &output.content, !options.no_color)
+                                            .iter()
+                                            .for_each(|(_, line)| print!("{line}"));
                                     }
-                                    | false => Self::commit(&outputs),
                                 }
-                            })
-                            .map(|paths| {
-                                paths
-                                    .iter()
-                                    .for_each(|path| info!("=> {} Updated {}", Label::pass(), path.display().cyan()));
-                            })
+                            });
+                            info!("=> {} Dry run complete — no files were modified", Label::pass());
+                            Ok(Vec::new())
+                        }
+                        | false => Self::commit(&outputs),
+                    })
+                    .map(|paths| {
+                        paths
+                            .iter()
+                            .for_each(|path| info!("=> {} Updated {}", Label::pass(), path.display().cyan()));
                     }),
-            })
+                })
+        })
+    }
+    fn models_for_sync(&self, options: &Options<'_>) -> ApiResult<Vec<ModelDetails>> {
+        match (self.llama_swap.is_none(), options.entries.is_empty(), options.models_dir) {
+            | (true, false, Some(models_dir)) => ModelEntry::requests(options.entries).map(|requests| {
+                options
+                    .models
+                    .iter()
+                    .cloned()
+                    .chain(
+                        requests
+                            .into_iter()
+                            .filter(|request| !options.models.iter().any(|model| model.id.as_deref() == Some(request.id())))
+                            .filter(|request| request.source_exists(models_dir))
+                            .map(|request| ModelDetails::init().id(request.id().to_string()).name(request.id().to_string()).build()),
+                    )
+                    .collect()
+            }),
+            | _ => Ok(options.models.to_vec()),
+        }
     }
     fn selected(&self, options: &Options<'_>) -> Self {
-        let sync_llama_swap = options.llama_swap || !options.opencode;
-        let sync_opencode = options.opencode || !options.llama_swap;
+        let Options {
+            goose,
+            llama_swap,
+            opencode,
+            vscode,
+            force,
+            ..
+        } = options;
+        let explicit = *llama_swap || *opencode || *vscode || *goose;
         Self {
-            llama_swap: sync_llama_swap.then(|| self.llama_swap.clone().unwrap_or_default()),
-            opencode: sync_opencode.then(|| self.opencode.clone().unwrap_or_default()),
+            goose: select_target(self.goose.as_ref(), *goose, explicit, *force),
+            llama_swap: select_target(self.llama_swap.as_ref(), *llama_swap, explicit, *force),
+            opencode: select_target(self.opencode.as_ref(), *opencode, explicit, *force),
+            vscode: select_target(self.vscode.as_ref(), *vscode, explicit, *force),
         }
+    }
+    fn is_empty(&self) -> bool {
+        let Self {
+            goose,
+            llama_swap,
+            opencode,
+            vscode,
+        } = self;
+        goose.is_none() && llama_swap.is_none() && opencode.is_none() && vscode.is_none()
     }
     fn commit(outputs: &[RenderedOutput]) -> ApiResult<Vec<PathBuf>> {
         let changed = outputs.iter().filter(|output| output.before != output.content).collect::<Vec<_>>();
@@ -329,76 +440,6 @@ impl Config {
         })
         .map(|()| paths)
     }
-    fn render_llama_swap(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        self.llama_swap
-            .as_ref()
-            .ok_or_else(|| eyre!("llama-swap configuration is not set"))
-            .and_then(|config| {
-                config.resolve_path().and_then(|config_path| {
-                    let path = PathBuf::from(config_path);
-                    path.is_file()
-                        .then(|| read_file(path.clone()))
-                        .transpose()
-                        .map(|content| content.unwrap_or_default())
-                        .and_then(|before| {
-                            let existing = match before.is_empty() {
-                                | true => Ok(Value::Mapping(Default::default())),
-                                | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
-                            };
-                            existing
-                                .and_then(|existing| config.upsert(existing, options.models, options.prune))
-                                .and_then(|merged| {
-                                    serde_norway::to_string(&merged)
-                                        .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
-                                        .and_then(|content| {
-                                            serde_norway::from_str::<Value>(&content)
-                                                .map(|_| RenderedOutput {
-                                                    target: "llama-swap",
-                                                    path,
-                                                    before,
-                                                    content,
-                                                })
-                                                .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
-                                        })
-                                })
-                        })
-                })
-            })
-    }
-    fn render_opencode(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        self.opencode
-            .as_ref()
-            .ok_or_else(|| eyre!("OpenCode configuration is not set"))
-            .and_then(|config| {
-                opencode::Config::resolve_path(config.path.as_deref()).and_then(|config_path| {
-                    let path = PathBuf::from(config_path);
-                    let models = options
-                        .models
-                        .iter()
-                        .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
-                        .map(|name| (name.clone(), name.clone()))
-                        .collect::<Vec<_>>();
-                    path.is_file()
-                        .then(|| read_file(path.clone()))
-                        .transpose()
-                        .map(|content| content.unwrap_or_default())
-                        .and_then(|before| {
-                            match path.is_file() {
-                                | true => agent::opencode::Config::from_path(&path),
-                                | false => Ok(agent::opencode::Config::default()),
-                            }
-                            .and_then(|existing| config.upsert(&existing, &models, options.prune))
-                            .and_then(|opencode| config.render(&opencode))
-                            .map(|content| RenderedOutput {
-                                target: "OpenCode",
-                                path,
-                                before,
-                                content,
-                            })
-                        })
-                })
-            })
-    }
 }
 impl RenderedOutput {
     fn backup_path(&self) -> PathBuf {
@@ -450,6 +491,12 @@ impl ModelRequest {
     pub fn id(&self) -> &str {
         &self.id
     }
+    fn source_exists(&self, models_dir: &Path) -> bool {
+        match &self.source {
+            | Source::Local { path, .. } => path.exists(),
+            | _ => models_dir.join(&self.id).is_dir(),
+        }
+    }
     fn is_gguf(path: &Path) -> bool {
         path.extension()
             .and_then(|extension| extension.to_str())
@@ -470,10 +517,10 @@ impl ModelRequest {
     pub fn resolve(&self, options: &ModelRequestOptions<'_>) -> ApiResult<ModelDetails> {
         let ModelRequestOptions {
             models_dir,
-            force,
+            assume_models,
             fallbacks,
         } = options;
-        match force {
+        match assume_models {
             | true => Ok(self.assume(models_dir)),
             | false => {
                 let direct_path = match &self.source {
@@ -587,8 +634,10 @@ impl From<PathBuf> for Shard {
 impl fmt::Display for SyncError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            | Self::Goose(why) => write!(formatter, "Synchronize Goose — {why}"),
             | Self::LlamaSwap(why) => write!(formatter, "Synchronize llama-swap — {why}"),
             | Self::OpenCode(why) => write!(formatter, "Synchronize OpenCode — {why}"),
+            | Self::VsCode(why) => write!(formatter, "Synchronize VS Code — {why}"),
         }
     }
 }
@@ -786,7 +835,7 @@ mod tests {
         ModelEntry::requests(configuration.models.as_deref().unwrap_or_default()).and_then(|requests| {
             let options = ModelRequestOptions {
                 models_dir,
-                force: false,
+                assume_models: false,
                 fallbacks: Vec::new(),
             };
             requests.into_iter().map(|request| request.resolve(&options)).collect()
@@ -799,7 +848,9 @@ mod tests {
             r#"{
                 "config": {
                     "llamaSwap": {"path": "./llama-swap.yaml"},
-                    "opencode": {"path": "./opencode.jsonc"}
+                    "opencode": {"path": "./opencode.jsonc"},
+                    "vscode": {"path": "./chatLanguageModels.json"},
+                    "goose": {"path": "./goose.yaml"}
                 }
             }"#,
         )
@@ -810,9 +861,16 @@ mod tests {
             Some("./llama-swap.yaml")
         );
         assert_eq!(config.opencode.as_ref().and_then(|value| value.path.as_deref()), Some("./opencode.jsonc"));
+        assert_eq!(
+            config.vscode.as_ref().and_then(|value| value.path.as_deref()),
+            Some("./chatLanguageModels.json")
+        );
+        assert_eq!(config.goose.as_ref().and_then(|value| value.path.as_deref()), Some("./goose.yaml"));
         let serialized = serde_json::to_value(config).unwrap();
         assert!(serialized["llamaSwap"].get("path").is_none());
         assert!(serialized["opencode"].get("path").is_none());
+        assert!(serialized["vscode"].get("path").is_none());
+        assert!(serialized["goose"].get("path").is_none());
     }
     #[test]
     fn test_application_config_rejects_unknown_model_override_fields() {
@@ -882,10 +940,14 @@ mod tests {
                 path: Some(dir.join("nested").join("opencode.jsonc").display().to_string()),
                 ..Default::default()
             }),
+            ..Default::default()
         };
         let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
         let output = config
-            .render_llama_swap(Options {
+            .llama_swap
+            .as_ref()
+            .unwrap()
+            .render(Options {
                 models: &models,
                 dry_run: true,
                 ..Default::default()
@@ -906,6 +968,8 @@ mod tests {
             .sync(Options {
                 models: &models,
                 dry_run: true,
+                force: true,
+                llama_swap: true,
                 ..Default::default()
             })
             .is_ok());
@@ -928,11 +992,15 @@ mod tests {
                 path: Some(opencode_path.display().to_string()),
                 ..Default::default()
             }),
+            ..Default::default()
         };
         let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
         assert!(config
             .sync(Options {
                 models: &models,
+                force: true,
+                llama_swap: true,
+                opencode: true,
                 ..Default::default()
             })
             .is_err());
@@ -1038,7 +1106,7 @@ mod tests {
             .unwrap();
         let options = ModelRequestOptions {
             models_dir: &dir,
-            force: false,
+            assume_models: false,
             fallbacks: vec!["fallback/one".to_string(), "fallback/two".to_string()],
         };
         let error = request.resolve(&options).unwrap_err().to_string();
@@ -1104,11 +1172,15 @@ mod tests {
                 path: Some(opencode_path.display().to_string()),
                 ..Default::default()
             }),
+            ..Default::default()
         };
         let models = [ModelDetails::init().id("qwen").name("qwen").path("/models/qwen.gguf").build()];
         assert!(config
             .sync(Options {
                 models: &models,
+                force: true,
+                llama_swap: true,
+                opencode: true,
                 ..Default::default()
             })
             .is_ok());
@@ -1116,6 +1188,9 @@ mod tests {
         assert!(config
             .sync(Options {
                 models: &models,
+                force: true,
+                llama_swap: true,
+                opencode: true,
                 ..Default::default()
             })
             .is_ok());
@@ -1123,23 +1198,111 @@ mod tests {
         let _ = remove_dir_all(dir);
     }
     #[test]
-    fn test_sync_selected_targets_use_defaults_when_unconfigured() {
+    fn test_sync_writes_vscode_and_goose_targets() {
+        let dir = temp_dir("sync-vscode-goose");
+        let vscode_path = dir.join("chatLanguageModels.json");
+        let goose_path = dir.join("goose.yaml");
+        let config = Config {
+            vscode: Some(vscode::Config {
+                path: Some(vscode_path.display().to_string()),
+                ..Default::default()
+            }),
+            goose: Some(goose::Config {
+                path: Some(goose_path.display().to_string()),
+                default_model: Some("qwen".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let models = [ModelDetails::init().id("qwen").name("Qwen").path("/models/qwen.gguf").build()];
+        config
+            .sync(Options {
+                models: &models,
+                force: true,
+                vscode: true,
+                goose: true,
+                ..Default::default()
+            })
+            .unwrap();
+        let vscode = read_to_string(vscode_path).unwrap();
+        let goose = read_to_string(goose_path).unwrap();
+        assert!(vscode.contains("\"vendor\": \"customendpoint\""));
+        assert!(vscode.contains("\"id\": \"qwen\""));
+        assert!(goose.contains("active_provider: openai"));
+        assert!(goose.contains("model: qwen"));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
+    fn test_sync_force_bypasses_detection_only_for_explicit_targets() {
         let config = Config::default();
-        let both = config.selected(&Options::default());
-        assert!(both.llama_swap.is_some());
-        assert!(both.opencode.is_some());
-        let llama_swap = config.selected(&Options {
-            llama_swap: true,
+        let implicit = config.selected(&Options::default());
+        assert_eq!(implicit.llama_swap.is_some(), command_exists("llama-swap"));
+        assert_eq!(implicit.opencode.is_some(), command_exists("opencode"));
+        assert_eq!(implicit.vscode.is_some(), command_exists("code"));
+        assert_eq!(implicit.goose.is_some(), command_exists("goose"));
+        let forced = config.selected(&Options {
+            force: true,
             ..Default::default()
         });
-        assert!(llama_swap.llama_swap.is_some());
-        assert!(llama_swap.opencode.is_none());
-        let opencode = config.selected(&Options {
+        assert_eq!(forced.llama_swap.is_some(), command_exists("llama-swap"));
+        assert_eq!(forced.opencode.is_some(), command_exists("opencode"));
+        assert_eq!(forced.vscode.is_some(), command_exists("code"));
+        assert_eq!(forced.goose.is_some(), command_exists("goose"));
+        let included = config.selected(&Options {
+            opencode: true,
+            vscode: true,
+            ..Default::default()
+        });
+        assert!(included.llama_swap.is_none());
+        assert_eq!(included.opencode.is_some(), command_exists("opencode"));
+        assert_eq!(included.vscode.is_some(), command_exists("code"));
+        assert!(included.goose.is_none());
+        let forced_opencode = config.selected(&Options {
+            force: true,
             opencode: true,
             ..Default::default()
         });
-        assert!(opencode.llama_swap.is_none());
-        assert!(opencode.opencode.is_some());
+        assert!(forced_opencode.llama_swap.is_none());
+        assert!(forced_opencode.opencode.is_some());
+        assert!(forced_opencode.vscode.is_none());
+        assert!(forced_opencode.goose.is_none());
+    }
+    #[test]
+    fn test_non_llama_targets_fall_back_only_for_existing_model_directories() {
+        let models_dir = temp_dir("sync-existing-model-identity");
+        create_dir_all(models_dir.join("acme/unresolved")).unwrap();
+        let entries = [
+            ModelEntry::Selector("acme/resolved".to_string()),
+            ModelEntry::Selector("acme/unresolved".to_string()),
+            ModelEntry::Selector("acme/missing".to_string()),
+        ];
+        let resolved = [ModelDetails::init().id("acme/resolved").name("Resolved").build()];
+        let options = Options {
+            models: &resolved,
+            entries: &entries,
+            models_dir: Some(&models_dir),
+            ..Default::default()
+        };
+        let opencode = Config {
+            opencode: Some(opencode::Config::default()),
+            ..Default::default()
+        }
+        .models_for_sync(&options)
+        .unwrap();
+        assert_eq!(opencode.len(), 2);
+        assert_eq!(opencode[0].name.as_deref(), Some("Resolved"));
+        assert_eq!(opencode[1].id.as_deref(), Some("acme/unresolved"));
+        assert!(!opencode.iter().any(|model| model.id.as_deref() == Some("acme/missing")));
+        let llama_swap = Config {
+            llama_swap: Some(llama_swap::Config::default()),
+            opencode: Some(opencode::Config::default()),
+            ..Default::default()
+        }
+        .models_for_sync(&options)
+        .unwrap();
+        assert_eq!(llama_swap.len(), 1);
+        assert_eq!(llama_swap[0].id.as_deref(), Some("acme/resolved"));
+        let _ = remove_dir_all(models_dir);
     }
     #[test]
     fn test_sync_rejects_invalid_settings() {
@@ -1149,19 +1312,29 @@ mod tests {
                 ..Default::default()
             }),
             opencode: None,
+            ..Default::default()
         };
-        assert!(invalid_config.sync(Options::default()).is_err());
+        assert!(invalid_config
+            .sync(Options {
+                force: true,
+                llama_swap: true,
+                ..Default::default()
+            })
+            .is_err());
         let invalid_config = Config {
             llama_swap: None,
             opencode: Some(opencode::Config {
                 default_model: Some("missing".to_string()),
                 ..Default::default()
             }),
+            ..Default::default()
         };
         let models = [ModelDetails::init().id("qwen").build()];
         assert!(invalid_config
             .sync(Options {
                 models: &models,
+                force: true,
+                opencode: true,
                 ..Default::default()
             })
             .is_err());
@@ -1174,19 +1347,29 @@ mod tests {
                 ..Default::default()
             }),
             opencode: None,
+            ..Default::default()
         };
-        assert!(reserved_args.sync(Options::default()).is_err());
+        assert!(reserved_args
+            .sync(Options {
+                force: true,
+                llama_swap: true,
+                ..Default::default()
+            })
+            .is_err());
         let unknown_override = Config {
             llama_swap: Some(llama_swap::Config {
                 models: Some([("missing".to_string(), llama_swap::ModelOverride::default())].into_iter().collect()),
                 ..Default::default()
             }),
             opencode: None,
+            ..Default::default()
         };
         let models = [ModelDetails::init().id("qwen").build()];
         assert!(unknown_override
             .sync(Options {
                 models: &models,
+                force: true,
+                llama_swap: true,
                 ..Default::default()
             })
             .is_err());
@@ -1199,6 +1382,7 @@ mod tests {
                 ..Default::default()
             }),
             opencode: Some(opencode::Config::default()),
+            ..Default::default()
         };
         let invalid_opencode = Config {
             llama_swap: Some(llama_swap::Config::default()),
@@ -1206,20 +1390,35 @@ mod tests {
                 default_model: Some("missing".to_string()),
                 ..Default::default()
             }),
+            ..Default::default()
         };
         assert!(invalid_llama_swap
             .sync(Options {
+                force: true,
                 opencode: true,
                 ..Default::default()
             })
             .is_ok());
-        assert!(invalid_llama_swap.sync(Options::default()).is_err());
+        assert!(invalid_llama_swap
+            .sync(Options {
+                force: true,
+                llama_swap: true,
+                ..Default::default()
+            })
+            .is_err());
         assert!(invalid_opencode
             .sync(Options {
+                force: true,
                 llama_swap: true,
                 ..Default::default()
             })
             .is_ok());
-        assert!(invalid_opencode.sync(Options::default()).is_err());
+        assert!(invalid_opencode
+            .sync(Options {
+                force: true,
+                opencode: true,
+                ..Default::default()
+            })
+            .is_err());
     }
 }

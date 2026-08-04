@@ -3,7 +3,8 @@
 //! When syncing ACORN models to OpenCode, the sync command creates or updates
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
-use crate::io::{home_directory, ApiResult, CstValue, PathConversion};
+use super::{Options, RenderedOutput, SyncTarget};
+use crate::io::{home_directory, read_file, ApiResult, CstValue, PathConversion};
 use crate::prelude::{current_dir, Path, PathBuf};
 use crate::schema::agent::opencode;
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
@@ -70,9 +71,9 @@ impl fmt::Display for Config {
         self.provider_id.fmt(formatter)
     }
 }
-impl Config {
-    /// Merge populated runtime overrides into this configuration
-    pub fn merge(self, overrides: Self) -> Self {
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "opencode";
+    fn merge(self, overrides: Self) -> Self {
         Self {
             path: overrides.path.or(self.path),
             base_url: overrides.base_url,
@@ -81,13 +82,50 @@ impl Config {
             default_model: overrides.default_model.or(self.default_model),
         }
     }
-    /// Merge CLI-supported overrides while preserving configured provider values
-    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
         Self {
             path: overrides.path.or(self.path),
             ..self
         }
     }
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        match explicit {
+            | Some(path) => Ok(PathBuf::from(Path::new(path).cross_platform_display())),
+            | None => current_dir()
+                .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
+                .and_then(|directory| home_directory(DEFAULT_OPENCODE_CONFIG_PATH).map(|user_config| Self::discover_path(&directory, user_config))),
+        }
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            let models = options
+                .models
+                .iter()
+                .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
+                .map(|name| (name.clone(), name.clone()))
+                .collect::<Vec<_>>();
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match path.is_file() {
+                        | true => opencode::Config::from_path(&path),
+                        | false => Ok(opencode::Config::default()),
+                    }
+                    .and_then(|existing| self.upsert(&existing, &models, options.prune))
+                    .and_then(|opencode| Config::render(self, &opencode))
+                    .map(|content| RenderedOutput {
+                        target: "OpenCode",
+                        path,
+                        before,
+                        content,
+                    })
+                })
+        })
+    }
+}
+impl Config {
     /// Build the JSON structure for a model entry.
     pub fn model_entry(&self, display_name: &str) -> Value {
         serde_json::to_value(Entry::Model {
@@ -103,25 +141,6 @@ impl Config {
             options: once(("baseURL".to_string(), self.base_url.clone())).collect(),
         })
         .unwrap_or(Value::Null)
-    }
-    /// Determine the path to the OpenCode config file.
-    ///
-    /// Search order:
-    /// 1. Explicit path from `--opencode-config`
-    /// 2. `opencode.jsonc` in the ACORN calling directory
-    /// 3. `opencode.json` in the ACORN calling directory
-    /// 4. Existing user-level `opencode.jsonc` or `opencode.json`
-    /// 5. User-level `opencode.jsonc`
-    pub fn resolve_path(explicit: Option<&str>) -> ApiResult<String> {
-        match explicit {
-            | Some(path) => Ok(Path::new(path).cross_platform_display()),
-            | None => current_dir()
-                .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
-                .and_then(|directory| {
-                    home_directory(DEFAULT_OPENCODE_CONFIG_PATH)
-                        .map(|user_config| Self::discover_path(&directory, user_config).cross_platform_display())
-                }),
-        }
     }
     fn discover_path(calling_directory: &Path, user_config: PathBuf) -> PathBuf {
         [
@@ -276,13 +295,12 @@ mod tests {
         ]
         .into_iter()
         .find(|path| path.is_file())
-        .unwrap_or(user_config)
-        .cross_platform_display();
+        .unwrap_or(user_config);
         assert_eq!(Config::resolve_path(None).unwrap(), expected);
     }
     #[test]
     fn test_resolve_path_prefers_explicit_path() {
-        let explicit = Path::new("custom/opencode.json").cross_platform_display();
+        let explicit = PathBuf::from(Path::new("custom/opencode.json").cross_platform_display());
         assert_eq!(Config::resolve_path(Some("custom/opencode.json")).unwrap(), explicit);
     }
     #[test]

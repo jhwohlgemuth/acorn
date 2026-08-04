@@ -52,6 +52,15 @@ pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
 /// Default OpenCode configuration path beneath the user's home directory.
 pub const DEFAULT_OPENCODE_CONFIG_PATH: &str = ".config/opencode/opencode.jsonc";
+/// Default VS Code language-model path relative to the platform configuration directory.
+///
+/// This resolves beneath `~/Library/Application Support` on macOS, `~/.config` on Linux,
+/// and `%APPDATA%` on Windows.
+pub const DEFAULT_VSCODE_CONFIG_PATH: &str = "Code/User/chatLanguageModels.json";
+/// Default Goose configuration path beneath the user's home directory on macOS and Linux.
+pub const DEFAULT_GOOSE_CONFIG_PATH: &str = ".config/goose/config.yaml";
+/// Default Goose configuration path beneath the Windows roaming application-data directory.
+pub const DEFAULT_GOOSE_WINDOWS_CONFIG_PATH: &str = "Block/goose/config/config.yaml";
 /// Default directory under the user's home directory for downloaded models.
 pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
 /// Default model search result limit.

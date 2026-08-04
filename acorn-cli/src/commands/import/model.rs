@@ -102,7 +102,10 @@ pub async fn run(
                                         .entries(&entries)
                                         .opencode(target.is_opencode())
                                         .llama_swap(target.is_llama_swap())
+                                        .vscode(target.is_vscode())
+                                        .goose(target.is_goose())
                                         .force(force)
+                                        .assume_models(force)
                                         .dry_run(dry_run)
                                         .build();
                                     configuration.sync_and_update(config, options)
