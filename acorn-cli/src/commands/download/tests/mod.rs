@@ -809,7 +809,7 @@ async fn test_download_model_syncs_downloaded_model() -> Result<()> {
         &[model_file.display().to_string()],
         &None,
         &Some(SyncTarget::Opencode),
-        false,
+        true,
         &[],
         &[],
         &Some(config_path.clone()),

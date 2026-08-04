@@ -206,7 +206,7 @@ mod tests {
         let args = arguments::Sync {
             config: Some(config_path),
             model_file: None,
-            force: false,
+            force: true,
             assume_models: false,
             no_fallback: true,
             opencode: true,
