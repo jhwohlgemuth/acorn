@@ -1,15 +1,17 @@
 use crate::cli::{arguments, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::sync::{self, Config};
+use acorn::prelude::PathBuf;
 use acorn::schema::agent::ModelSelectors;
 use acorn::util::Label;
 use tracing::info;
 /// Synchronize local inference configuration from ACORN model entries
-pub async fn run(args: &arguments::Sync, offline: bool) -> Void {
+pub async fn run(args: &arguments::Sync, database_path: &Option<PathBuf>, no_local_database: bool, offline: bool) -> Void {
     let &arguments::Sync {
         ref config,
         ref model_file,
         force,
+        no_fallback,
         opencode,
         llama_swap,
         ref models_dir,
@@ -37,7 +39,16 @@ pub async fn run(args: &arguments::Sync, offline: bool) -> Void {
                     .collect::<Vec<_>>();
                 sync_config.resolve_models_dir(models_dir.as_deref()).and_then(|models_dir| {
                     info!("{} Resolving models for synchronization", Label::run());
-                    ModelEntry::resolve(&entries, &models_dir, force).and_then(|resolved| {
+                    let options = sync::ModelRequestOptions {
+                        models_dir: &models_dir,
+                        force,
+                        fallbacks: Vec::new(),
+                    };
+                    let resolved = match no_local_database || no_fallback {
+                        | true => ModelEntry::resolve(&entries, &options),
+                        | false => ModelEntry::resolve_with_fallbacks(&entries, &options, database_path.clone()),
+                    };
+                    resolved.and_then(|resolved| {
                         let options = sync::Options::init()
                             .models(&resolved)
                             .opencode(opencode)
@@ -84,7 +95,9 @@ mod tests {
     )]
     use super::*;
     use crate::test::util::{temp_test_dir, TestCleanup};
-    use acorn::prelude::{create_dir_all, read_to_string, write, PathBuf};
+    use acorn::io::database::schema::{ModelRow, Table};
+    use acorn::io::database::{Database, Operations};
+    use acorn::prelude::{create_dir_all, read_to_string, write};
 
     #[test]
     fn test_resolve_models_skips_unresolved_entries() {
@@ -97,15 +110,103 @@ mod tests {
             ModelEntry::Selector("mozilla/test-llama".to_string()),
             ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
         ];
-        let resolved = ModelEntry::resolve(&entries, &models_dir, false).unwrap();
+        let options = sync::ModelRequestOptions {
+            models_dir: &models_dir,
+            force: false,
+            fallbacks: Vec::new(),
+        };
+        let resolved = ModelEntry::resolve(&entries, &options).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].id.as_deref(), Some("mozilla/test-llama"));
+    }
+    #[test]
+    fn test_resolve_models_uses_downloaded_fallback_repository() {
+        let root = temp_test_dir("sync_fallback_repository");
+        let _cleanup = TestCleanup::new(root.clone());
+        let models_dir = root.join("models");
+        let fallback_dir = models_dir.join("unsloth").join("gpt-oss-20b-GGUF");
+        let database_path = root.join("acorn.db");
+        create_dir_all(&fallback_dir).unwrap();
+        write(fallback_dir.join("gpt-oss-20b-Q4_K_M.gguf"), b"model").unwrap();
+        let database = Database::<Table>::from_path(Some(database_path.clone()));
+        database.migrate().unwrap();
+        database
+            .insert(
+                ModelRow::init()
+                    .model_id("openai/gpt-oss-20b")
+                    .weights(
+                        r#"[{"label":"Q4_K_M","url":"https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf","quantization":"Q4_K_M"}]"#,
+                    )
+                    .build(),
+            )
+            .unwrap();
+        let entries = [ModelEntry::Selector("openai/gpt-oss-20b".to_string())];
+        let options = sync::ModelRequestOptions {
+            models_dir: &models_dir,
+            force: false,
+            fallbacks: Vec::new(),
+        };
+        let resolved = ModelEntry::resolve_with_fallbacks(&entries, &options, Some(database_path)).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].id.as_deref(), Some("openai/gpt-oss-20b"));
+        assert!(resolved[0].path.as_deref().is_some_and(|path| path.ends_with("gpt-oss-20b-Q4_K_M.gguf")));
+    }
+    #[tokio::test]
+    async fn test_sync_no_fallback_skips_downloaded_fallback_repository() {
+        let root = temp_test_dir("sync_no_fallback_repository");
+        let _cleanup = TestCleanup::new(root.clone());
+        let models_dir = root.join("models");
+        let fallback_dir = models_dir.join("unsloth").join("gpt-oss-20b-GGUF");
+        let database_path = root.join("acorn.db");
+        let config_path = root.join("acorn.json");
+        let opencode_path = root.join("opencode.jsonc");
+        create_dir_all(&fallback_dir).unwrap();
+        write(fallback_dir.join("gpt-oss-20b-Q4_K_M.gguf"), b"model").unwrap();
+        write(&config_path, br#"{"models":["openai/gpt-oss-20b"]}"#).unwrap();
+        let database = Database::<Table>::from_path(Some(database_path.clone()));
+        database.migrate().unwrap();
+        database
+            .insert(
+                ModelRow::init()
+                    .model_id("openai/gpt-oss-20b")
+                    .weights(
+                        r#"[{"label":"Q4_K_M","url":"https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf","quantization":"Q4_K_M"}]"#,
+                    )
+                    .build(),
+            )
+            .unwrap();
+        let args = arguments::Sync {
+            config: Some(config_path),
+            model_file: None,
+            force: false,
+            no_fallback: true,
+            opencode: true,
+            llama_swap: false,
+            models_dir: Some(models_dir),
+            opencode_config: Some(opencode_path.clone()),
+            llama_swap_config: None,
+            dry_run: false,
+            no_color: false,
+            prune: false,
+            verbose: clap_verbosity_flag::Verbosity::new(0, 0),
+        };
+        run(&args, &Some(database_path.clone()), false, true).await.unwrap();
+        assert!(!opencode_path.exists());
+        run(&arguments::Sync { no_fallback: false, ..args }, &Some(database_path), false, true)
+            .await
+            .unwrap();
+        assert!(read_to_string(opencode_path).unwrap().contains("openai/gpt-oss-20b"));
     }
     #[test]
     fn test_force_assumes_model_path_from_identifier() {
         let models_dir = PathBuf::from("models");
         let entries = [ModelEntry::Selector("acme/missing".to_string())];
-        let resolved = ModelEntry::resolve(&entries, &models_dir, true).unwrap();
+        let options = sync::ModelRequestOptions {
+            models_dir: &models_dir,
+            force: true,
+            fallbacks: Vec::new(),
+        };
+        let resolved = ModelEntry::resolve(&entries, &options).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].id.as_deref(), Some("acme/missing"));
         assert_eq!(
@@ -177,6 +278,7 @@ mod tests {
                 config: Some(config_path),
                 model_file: Some(model_file.display().to_string()),
                 force: false,
+                no_fallback: false,
                 opencode: true,
                 llama_swap: false,
                 models_dir: Some(models_dir),
@@ -187,6 +289,8 @@ mod tests {
                 prune: false,
                 verbose: clap_verbosity_flag::Verbosity::new(0, 0),
             },
+            &None,
+            true,
             true,
         )
         .await
@@ -213,6 +317,7 @@ mod tests {
             config: None,
             model_file: None,
             force: false,
+            no_fallback: false,
             opencode: false,
             llama_swap: false,
             models_dir: Some(PathBuf::from("cli-models")),
@@ -255,6 +360,7 @@ mod tests {
             config: None,
             model_file: None,
             force: false,
+            no_fallback: false,
             opencode: false,
             llama_swap: false,
             models_dir: None,

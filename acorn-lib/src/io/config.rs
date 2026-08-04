@@ -5,6 +5,8 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
+use crate::io::database::schema::ModelRow;
+use crate::io::database::{resolve_database_path, Row};
 use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
     InputOutput, ProgressType, Source,
@@ -24,6 +26,7 @@ use core::fmt::{self, Debug};
 use core::future::Future;
 use derive_more::Display;
 use fancy_regex::Regex;
+use itertools::Itertools;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -514,7 +517,12 @@ impl ApplicationConfiguration {
         let sync_config = self.config.clone().unwrap_or_default();
         sync_config.resolve_models_dir(options.models_dir).and_then(|models_dir| {
             info!("{} Resolving selected models for synchronization", Label::run());
-            ModelEntry::resolve(options.entries, &models_dir, options.force).and_then(|resolved| {
+            let request_options = sync::ModelRequestOptions {
+                models_dir: &models_dir,
+                force: options.force,
+                fallbacks: Vec::new(),
+            };
+            ModelEntry::resolve(options.entries, &request_options).and_then(|resolved| {
                 sync_config.sync(sync::Options {
                     models: &resolved,
                     ..options
@@ -943,26 +951,58 @@ impl ModelEntry {
             .map(|(_, requests)| requests)
     }
     /// Resolve model entries from a local models directory, skipping entries that cannot be resolved.
-    pub fn resolve(entries: &[Self], models_dir: &Path, force: bool) -> ApiResult<Vec<ModelDetails>> {
+    pub fn resolve(entries: &[Self], options: &sync::ModelRequestOptions<'_>) -> ApiResult<Vec<ModelDetails>> {
+        Self::resolve_using(entries, options, |_| Vec::new())
+    }
+    /// Resolve model entries using fallback repository metadata from the local model database.
+    pub fn resolve_with_fallbacks(
+        entries: &[Self],
+        options: &sync::ModelRequestOptions<'_>,
+        database_path: Option<PathBuf>,
+    ) -> ApiResult<Vec<ModelDetails>> {
+        Self::resolve_using(entries, options, |model_id| Self::fallback_repositories(model_id, database_path.as_ref()))
+    }
+    fn resolve_using(
+        entries: &[Self],
+        options: &sync::ModelRequestOptions<'_>,
+        fallback: impl Fn(&str) -> Vec<String>,
+    ) -> ApiResult<Vec<ModelDetails>> {
         Self::requests(entries).map(|requests| {
             requests
                 .into_iter()
                 .filter_map(|request| {
                     let id = request.id().to_string();
-                    match force {
-                        | true => Some(request.assume(models_dir)),
-                        | false => match request.resolve(models_dir) {
-                            | Ok(model) => Some(model),
-                            | Err(why) => {
-                                let reason = format!("({why})");
-                                warn!("=> {} Could not resolve {} {}", Label::skip(), id.yellow(), reason.dimmed());
-                                None
-                            }
-                        },
+                    let options = sync::ModelRequestOptions {
+                        fallbacks: fallback(&id),
+                        ..options.clone()
+                    };
+                    match request.resolve(&options) {
+                        | Ok(model) => Some(model),
+                        | Err(why) => {
+                            let reason = format!("({why})");
+                            warn!("=> {} Could not resolve {} {}", Label::skip(), id.yellow(), reason.dimmed());
+                            None
+                        }
                     }
                 })
                 .collect()
         })
+    }
+    fn fallback_repositories(model_id: &str, database_path: Option<&PathBuf>) -> Vec<String> {
+        resolve_database_path(database_path)
+            .ok()
+            .filter(|path| path.is_file())
+            .and_then(|path| {
+                ModelRow::init()
+                    .model_id(model_id.to_string())
+                    .build()
+                    .select(Some(path), |row| row.model_id.as_deref() == Some(model_id))
+                    .ok()
+                    .flatten()
+            })
+            .and_then(|row| row.parsed_weights())
+            .map(|weights| weights.groups().0.into_iter().map(|group| group.repository).unique().collect())
+            .unwrap_or_default()
     }
 }
 impl fmt::Display for RunnerType {

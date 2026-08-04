@@ -109,6 +109,16 @@ pub struct ModelRequest {
     filter: Vec<String>,
     ignore: Vec<String>,
 }
+/// Filesystem and fallback inputs used to resolve a model request.
+#[derive(Clone, Debug)]
+pub struct ModelRequestOptions<'a> {
+    /// Root directory containing downloaded model repositories.
+    pub models_dir: &'a Path,
+    /// Assume the configured model path exists without checking the filesystem.
+    pub force: bool,
+    /// Downloaded fallback repository identifiers to try after the configured identifier.
+    pub fallbacks: Vec<String>,
+}
 #[derive(Clone, Debug)]
 struct RenderedOutput {
     target: &'static str,
@@ -409,18 +419,18 @@ impl RenderedOutput {
 }
 impl ModelRequest {
     /// Build model details from the configured source or expected models-directory path without checking the filesystem.
-    pub fn assume(self, models_dir: &Path) -> ModelDetails {
-        let path = match self.source {
-            | Source::Local { path, .. } => path,
+    pub fn assume(&self, models_dir: &Path) -> ModelDetails {
+        let path = match &self.source {
+            | Source::Local { path, .. } => path.clone(),
             | _ => models_dir.join(&self.id),
         };
         ModelDetails::init()
             .id(self.id.clone())
-            .name(self.id)
+            .name(self.id.clone())
             .path(path.display().to_string())
             .build()
     }
-    fn details(self, path: PathBuf) -> ApiResult<ModelDetails> {
+    fn details(&self, path: PathBuf) -> ApiResult<ModelDetails> {
         canonicalize(&path)
             .map_err(|why| {
                 eyre!(ShardError::Canonicalize {
@@ -430,7 +440,7 @@ impl ModelRequest {
             })
             .map(|path| ModelDetails {
                 id: Some(self.id.clone()),
-                name: Some(self.id),
+                name: Some(self.id.clone()),
                 path: Some(path.display().to_string()),
                 ..Default::default()
             })
@@ -456,33 +466,49 @@ impl ModelRequest {
         }
     }
     /// Resolve this request to one local GGUF model.
-    pub fn resolve(self, models_dir: &Path) -> ApiResult<ModelDetails> {
-        let direct_path = match &self.source {
-            | Source::Local { path, .. } if path.is_file() || Self::is_gguf(path) => Some(path.clone()),
-            | _ => None,
-        };
-        match direct_path {
-            | Some(path) => self.resolve_direct(&path),
-            | None => {
-                resolve_gguf(&models_dir.display().to_string(), &self.id, Some(&self.filter), Some(&self.ignore)).and_then(|models| {
-                    match models.as_slice() {
-                        | [model] => model
-                            .path
-                            .as_ref()
-                            .map(PathBuf::from)
-                            .ok_or_else(|| eyre!("Resolved model '{}' has no GGUF path", self.id))
-                            .and_then(|path| self.details(path)),
-                        | [] => Err(eyre!("No GGUF candidates resolved for model '{}'", self.id)),
-                        | _ => Err(eyre!(ShardError::Ambiguous {
-                            model: self.id.clone(),
-                            paths: models.iter().filter_map(|model| model.path.clone()).collect(),
-                        })),
-                    }
-                })
+    pub fn resolve(&self, options: &ModelRequestOptions<'_>) -> ApiResult<ModelDetails> {
+        let ModelRequestOptions {
+            models_dir,
+            force,
+            fallbacks,
+        } = options;
+        match force {
+            | true => Ok(self.assume(models_dir)),
+            | false => {
+                let direct_path = match &self.source {
+                    | Source::Local { path, .. } if path.is_file() || Self::is_gguf(path) => Some(path.clone()),
+                    | _ => None,
+                };
+                match direct_path {
+                    | Some(path) => self.resolve_direct(&path),
+                    | None => match self.resolve_repository(models_dir, &self.id) {
+                        | Ok(model) => Ok(model),
+                        | Err(direct_error) => fallbacks
+                            .iter()
+                            .find_map(|repository| self.resolve_repository(models_dir, repository).ok())
+                            .ok_or(direct_error),
+                    },
+                }
             }
         }
     }
-    fn resolve_direct(self, path: &Path) -> ApiResult<ModelDetails> {
+    fn resolve_repository(&self, models_dir: &Path, repository: &str) -> ApiResult<ModelDetails> {
+        let Self { id, filter, ignore, .. } = self;
+        resolve_gguf(&models_dir.display().to_string(), repository, Some(filter), Some(ignore)).and_then(|models| match models.as_slice() {
+            | [model] => model
+                .path
+                .as_ref()
+                .map(PathBuf::from)
+                .ok_or_else(|| eyre!("Resolved model '{id}' has no GGUF path"))
+                .and_then(|path| self.details(path)),
+            | [] => Err(eyre!("No GGUF candidates resolved for model '{id}'")),
+            | _ => Err(eyre!(ShardError::Ambiguous {
+                model: id.clone(),
+                paths: models.iter().filter_map(|model| model.path.clone()).collect(),
+            })),
+        })
+    }
+    fn resolve_direct(&self, path: &Path) -> ApiResult<ModelDetails> {
         match (path.is_file(), Self::is_gguf(path)) {
             | (false, _) => Err(eyre!("Direct local GGUF source for '{}' does not exist — {}", self.id, path.display())),
             | (_, true) => FilterSet::filter(
@@ -739,8 +765,14 @@ mod tests {
         })
     }
     fn resolve_models(configuration: &ApplicationConfiguration, models_dir: &Path) -> ApiResult<Vec<ModelDetails>> {
-        ModelEntry::requests(configuration.models.as_deref().unwrap_or_default())
-            .and_then(|requests| requests.into_iter().map(|request| request.resolve(models_dir)).collect())
+        ModelEntry::requests(configuration.models.as_deref().unwrap_or_default()).and_then(|requests| {
+            let options = ModelRequestOptions {
+                models_dir,
+                force: false,
+                fallbacks: Vec::new(),
+            };
+            requests.into_iter().map(|request| request.resolve(&options)).collect()
+        })
     }
 
     #[test]

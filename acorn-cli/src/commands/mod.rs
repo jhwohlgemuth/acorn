@@ -333,7 +333,9 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
         | Some(Commands::Skill) => skill::run(),
-        | Some(Commands::Sync(arguments)) => with_runtime(async { sync::run(arguments, offline).await }),
+        | Some(Commands::Sync(arguments)) => {
+            with_runtime(async { sync::run(arguments, &config.database_path, config.no_local_database, offline).await })
+        }
         | Some(Commands::Import { command, .. }) => match command {
             | Some(ImportCommands::Model(arguments)) => with_runtime(async {
                 let config = DatabaseConfig {

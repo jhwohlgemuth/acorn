@@ -780,6 +780,9 @@ pub(crate) struct Sync {
     /// Assume models exist under the models directory without checking the filesystem
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) force: bool,
+    /// Disable resolution through previously downloaded GGUF fallback repositories
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) no_fallback: bool,
     /// Synchronize OpenCode configuration only
     #[arg(long, help_heading = "TARGETS")]
     pub(crate) opencode: bool,

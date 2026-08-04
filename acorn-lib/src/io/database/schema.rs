@@ -6,6 +6,7 @@ use crate::io::api::{self, DatabasePersistence};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::io::{create_progress_bar, finish_progress_bar, ApiResult, ProgressType};
 use crate::prelude::PathBuf;
+use crate::schema::agent::Weights;
 use crate::util::{print_values_as_table, Label};
 use acorn_macros::DatabaseRow;
 use async_trait::async_trait;
@@ -718,6 +719,10 @@ impl fmt::Display for ModelRow {
     }
 }
 impl ModelRow {
+    /// Deserialize the model's persisted weight metadata.
+    pub fn parsed_weights(&self) -> Option<Weights> {
+        self.weights.as_deref().and_then(|weights| serde_json::from_str(weights).ok())
+    }
     /// Update the serialized weight metadata for this model.
     pub fn update_weights(&self, path: Option<PathBuf>) -> ApiResult<usize> {
         match (self.model_id.as_deref(), self.weights.as_deref()) {

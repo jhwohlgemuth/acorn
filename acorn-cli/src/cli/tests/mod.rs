@@ -161,11 +161,20 @@ fn test_no_color_flags_for_dry_run_diffs() {
 }
 #[test]
 fn test_sync_model_file_argument() {
-    let arguments = Arguments::try_parse_from(["acorn", "sync", "--model-file", "https://example.com/models.yaml", "--force"]).unwrap();
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "sync",
+        "--model-file",
+        "https://example.com/models.yaml",
+        "--force",
+        "--no-fallback",
+    ])
+    .unwrap();
     match arguments.command {
         | Some(Commands::Sync(arguments)) => {
             assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
             assert!(arguments.force);
+            assert!(arguments.no_fallback);
         }
         | other => panic!("unexpected command: {other:?}"),
     }

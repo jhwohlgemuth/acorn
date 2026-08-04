@@ -823,6 +823,7 @@ Synchronize local inference configuration from ACORN model entries
 
    Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
 * `--force` — Assume models exist under the models directory without checking the filesystem
+* `--no-fallback` — Disable resolution through previously downloaded GGUF fallback repositories
 * `--opencode` — Synchronize OpenCode configuration only
 * `--llama-swap` — Synchronize llama-swap configuration only
 * `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)
