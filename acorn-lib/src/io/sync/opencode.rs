@@ -3,9 +3,10 @@
 //! When syncing ACORN models to OpenCode, the sync command creates or updates
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
-use crate::io::{ApiResult, CstValue};
-use crate::prelude::current_dir;
+use crate::io::{home_directory, ApiResult, CstValue, PathConversion};
+use crate::prelude::{current_dir, Path, PathBuf};
 use crate::schema::agent::opencode;
+use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::string::ToString;
@@ -107,25 +108,31 @@ impl Config {
     ///
     /// Search order:
     /// 1. Explicit path from `--opencode-config`
-    /// 2. `opencode.jsonc` in the working directory
-    /// 3. `opencode.json` in the working directory
-    ///
-    /// If neither exists, defaults to `opencode.jsonc`.
+    /// 2. `opencode.jsonc` in the ACORN calling directory
+    /// 3. `opencode.json` in the ACORN calling directory
+    /// 4. Existing user-level `opencode.jsonc` or `opencode.json`
+    /// 5. User-level `opencode.jsonc`
     pub fn resolve_path(explicit: Option<&str>) -> ApiResult<String> {
         match explicit {
-            | Some(path) => Ok(path.to_string()),
-            | None => opencode::Config::resolve()
-                .and_then(|config| config.path)
-                .map(|path| path.display().to_string())
-                .map_or_else(
-                    || {
-                        current_dir()
-                            .map(|directory| directory.join("opencode.jsonc").display().to_string())
-                            .map_err(|why| eyre!("Failed to get working directory: {why}"))
-                    },
-                    Ok,
-                ),
+            | Some(path) => Ok(Path::new(path).cross_platform_display()),
+            | None => current_dir()
+                .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
+                .and_then(|directory| {
+                    home_directory(DEFAULT_OPENCODE_CONFIG_PATH)
+                        .map(|user_config| Self::discover_path(&directory, user_config).cross_platform_display())
+                }),
         }
+    }
+    fn discover_path(calling_directory: &Path, user_config: PathBuf) -> PathBuf {
+        [
+            calling_directory.join("opencode.jsonc"),
+            calling_directory.join("opencode.json"),
+            user_config.clone(),
+            user_config.with_extension("json"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
+        .unwrap_or(user_config)
     }
     /// Render an updated OpenCode configuration while preserving JSONC comments outside the managed provider
     pub fn render(&self, config: &opencode::Config) -> ApiResult<String> {
@@ -240,20 +247,57 @@ fn default_provider_id() -> String {
     "llama-swap".to_string()
 }
 fn default_provider_name() -> String {
-    "Llama Swap".to_string()
+    "Local (llama-swap)".to_string()
 }
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
+    use crate::prelude::{create_dir_all, remove_dir_all, write};
+    use crate::test::utils::temp_dir;
 
     #[test]
     fn test_default_values() {
         let config = Config::default();
         assert_eq!(config.base_url, "http://localhost:8080/v1");
         assert_eq!(config.provider_id, "llama-swap");
-        assert_eq!(config.provider_name, "Llama Swap");
+        assert_eq!(config.provider_name, "Local (llama-swap)");
         assert_eq!(config.to_string(), "llama-swap");
+    }
+    #[test]
+    fn test_resolve_path_uses_discovered_or_default_config() {
+        let calling_directory = current_dir().unwrap();
+        let user_config = home_directory(DEFAULT_OPENCODE_CONFIG_PATH).unwrap();
+        let expected = [
+            calling_directory.join("opencode.jsonc"),
+            calling_directory.join("opencode.json"),
+            user_config.clone(),
+            user_config.with_extension("json"),
+        ]
+        .into_iter()
+        .find(|path| path.is_file())
+        .unwrap_or(user_config)
+        .cross_platform_display();
+        assert_eq!(Config::resolve_path(None).unwrap(), expected);
+    }
+    #[test]
+    fn test_resolve_path_prefers_explicit_path() {
+        let explicit = Path::new("custom/opencode.json").cross_platform_display();
+        assert_eq!(Config::resolve_path(Some("custom/opencode.json")).unwrap(), explicit);
+    }
+    #[test]
+    fn test_discover_path_prefers_calling_directory_jsonc_then_json() {
+        let dir = temp_dir("opencode-calling-directory");
+        let user_config = dir.join("user").join("opencode.jsonc");
+        create_dir_all(user_config.parent().unwrap()).unwrap();
+        write(&user_config, "{}").unwrap();
+        let project_json = dir.join("opencode.json");
+        write(&project_json, "{}").unwrap();
+        assert_eq!(Config::discover_path(&dir, user_config.clone()), project_json);
+        let project_jsonc = dir.join("opencode.jsonc");
+        write(&project_jsonc, "not valid jsonc").unwrap();
+        assert_eq!(Config::discover_path(&dir, user_config), project_jsonc);
+        let _ = remove_dir_all(dir);
     }
     #[test]
     fn test_model_json_structure() {
@@ -265,7 +309,7 @@ mod tests {
         let config = Config::default();
         let json = config.provider_entry();
         assert_eq!(json.get("npm").unwrap().as_str().unwrap(), "@ai-sdk/openai-compatible");
-        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Llama Swap");
+        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Local (llama-swap)");
         let options = json.get("options").unwrap();
         assert_eq!(options.get("baseURL").unwrap().as_str().unwrap(), "http://localhost:8080/v1");
     }

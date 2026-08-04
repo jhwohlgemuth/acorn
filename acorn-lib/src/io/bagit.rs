@@ -155,7 +155,7 @@ impl Bag {
         let payload = files_all(base_directory.clone(), None)
             .into_iter()
             .filter(|x| x.is_file())
-            .flat_map(|x| x.strip_prefix(base_directory.to_absolute_string()).ok().map(|p| p.to_path_buf()))
+            .flat_map(|x| x.strip_prefix(base_directory.to_absolute_path()).ok().map(|p| p.to_path_buf()))
             .map(|x| x.display().to_string())
             .collect::<Vec<_>>();
         let Bag {
@@ -195,17 +195,13 @@ impl Save for Bag {
                     let to = dest.join("data").join(&payload);
                     if let Some(parent) = to.parent() {
                         if let Err(why) = create_dir_all(parent) {
-                            error!(
-                                directory = parent.to_path_buf().to_absolute_string(),
-                                "=> {} Create - {why}",
-                                Label::fail()
-                            );
+                            error!(directory = parent.to_path_buf().to_absolute_path(), "=> {} Create - {why}", Label::fail());
                             return;
                         }
                         if let Err(why) = copy(from.clone(), to.clone()) {
                             error!(
-                                from = from.to_absolute_string(),
-                                to = to.to_absolute_string(),
+                                from = from.to_absolute_path(),
+                                to = to.to_absolute_path(),
                                 "=> {} Copy - {why}",
                                 Label::fail()
                             );
@@ -224,7 +220,7 @@ impl Save for Bag {
                                 format!("{acc}{checksum} data/{x}{LINE_ENDING}")
                             }
                             | None => {
-                                warn!(payload = payload.to_absolute_string(), "=> {} Calculate checksum", Label::fail());
+                                warn!(payload = payload.to_absolute_path(), "=> {} Calculate checksum", Label::fail());
                                 acc
                             }
                         }

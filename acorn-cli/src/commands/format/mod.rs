@@ -60,7 +60,7 @@ pub async fn run(
                         })
                         .and_then(|(old_content, new_content)| {
                             if dry_run {
-                                let path = path.clone().to_absolute_string();
+                                let path = path.clone().to_absolute_path();
                                 match no_color {
                                     | true => println!("{} Format {path}", Label::DRY_RUN),
                                     | false => println!("{} Format {}", Label::dry_run(), path.yellow()),

@@ -54,7 +54,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
             .and_then(|path| -> ApiResult<(PathBuf, PathBuf, ResearchActivity)> {
                 ResearchActivity::read(path.clone())
                     .map_err(|why| {
-                        error!(path = path.to_absolute_string(), "=> {} Read data for PDF export — {why}", Label::fail());
+                        error!(path = path.to_absolute_path(), "=> {} Read data for PDF export — {why}", Label::fail());
                         eyre!("Read data for PDF export — {why}")
                     })
                     .and_then(|data| {
@@ -63,7 +63,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                             .map(|p| (p.to_path_buf(), formatted))
                             .ok_or_else(|| {
                                 error!(
-                                    path = path.to_absolute_string(),
+                                    path = path.to_absolute_path(),
                                     "=> {} Cannot resolve parent directory for PDF export input",
                                     Label::fail()
                                 );
@@ -83,7 +83,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
             let index_path = absolute(parent.join("index.html"))
                 .map_err(|why| {
                     error!(
-                        path = path.to_absolute_string(),
+                        path = path.to_absolute_path(),
                         "=> {} Resolve temporary index path — {why}",
                         Label::fail()
                     );
@@ -95,7 +95,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                     | Ok(_) => true,
                     | Err(why) if why.kind() == ErrorKind::AlreadyExists => true,
                     | Err(why) => {
-                        error!(path = index.to_absolute_string(), "=> {} Create temporary index — {why}", Label::fail());
+                        error!(path = index.to_absolute_path(), "=> {} Create temporary index — {why}", Label::fail());
                         false
                     }
                 };
@@ -110,7 +110,7 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                             let id = data.meta.identifier;
                             match absolute(output_dir.join(format!("{id}.pdf"))) {
                                 | Ok(output_path) => {
-                                    debug!(path = output_path.to_absolute_string(), "=> {} Output", Label::using());
+                                    debug!(path = output_path.to_absolute_path(), "=> {} Output", Label::using());
                                     page.save_pdf(
                                         PrintToPdfParams {
                                             margin_bottom: Some(0.0),
@@ -124,10 +124,10 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                                         &output_path,
                                     )
                                     .await
-                                    .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.to_absolute_string()))
+                                    .map_err(|why| eyre!("Failed to render PDF at {} — {why}", output_path.to_absolute_path()))
                                     .and_then(|_| match output_path.is_file() {
                                         | true => Ok(()),
-                                        | false => Err(eyre!("Chromium did not create PDF at {}", output_path.to_absolute_string())),
+                                        | false => Err(eyre!("Chromium did not create PDF at {}", output_path.to_absolute_path())),
                                     })
                                 }
                                 | Err(why) => Err(eyre!("Failed to resolve PDF output path — {why}")),

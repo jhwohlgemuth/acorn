@@ -6,11 +6,12 @@
 //!
 //! See <https://github.com/mostlygeek/llama-swap/blob/main/docs/configuration.md>
 use crate::args;
-use crate::io::{home_directory, ApiResult};
+use crate::io::{home_directory, ApiResult, PathConversion};
 use crate::prelude::OsString;
 use crate::schema::agent::ModelDetails;
 use crate::util::cmd::command_string;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
+use crate::util::StringConversion;
 use crate::util::ToStrings;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
@@ -116,20 +117,30 @@ impl Config {
         environment: Option<&[EnvironmentVariable]>,
         context_size: Option<u64>,
     ) -> String {
-        let context_args = context_size
-            .map(|size| vec!["--ctx-size".to_string(), size.to_string()])
-            .unwrap_or_default();
-        let model_args = gguf_path.map(|path| vec!["--model".to_string(), path.to_string()]).unwrap_or_default();
-        let environment_args = environment.into_iter().flatten().map(|entry| format!("env:{entry}"));
-        let arguments: Vec<OsString> = args![
-            "--port",
-            "${PORT}",
-            ..model_args,
-            ..context_args,
-            ..extra_args.into_iter().flatten().map(ToString::to_string),
-            ..environment_args
-        ];
-        command_string(executable, &arguments)
+        let line = |command: &str, arguments: Vec<OsString>| command_string(command, &arguments);
+        let model = gguf_path.map(|path| line("--model", args![path]));
+        let context = context_size.map(|size| line("--ctx-size", args![size.to_string()]));
+        let extra = extra_args
+            .into_iter()
+            .flatten()
+            .map(ToString::to_string)
+            .map(OsString::from)
+            .collect::<Vec<_>>();
+        let extra = extra
+            .split_first()
+            .map(|(command, arguments)| command_string(&command.to_string_lossy(), arguments));
+        let environment = environment
+            .into_iter()
+            .flatten()
+            .map(|entry| command_string(&format!("env:{entry}"), &[]));
+        once(command_string(executable, &[]))
+            .chain(once(line("--port", args!["${PORT}"])))
+            .chain(model)
+            .chain(context)
+            .chain(extra)
+            .chain(environment)
+            .collect::<Vec<_>>()
+            .join("\n  ")
     }
     /// Merge populated runtime overrides into this configuration
     pub fn merge(self, overrides: Self) -> Self {
@@ -186,8 +197,8 @@ impl Config {
     /// Resolve the configured llama-swap path or the user default.
     pub fn resolve_path(&self) -> ApiResult<String> {
         self.path.clone().map_or_else(
-            || home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).map(|path| path.display().to_string()),
-            Ok,
+            || home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).map(|path| path.cross_platform_display()),
+            |path| Ok(path.to_cross_platform_path()),
         )
     }
     /// Merge synchronized models into an existing llama-swap document
@@ -418,7 +429,7 @@ mod tests {
     #[test]
     fn test_build_command_simple() {
         let cmd = Config::build_command("llama-server", Some("/models/qwen.gguf"), None, None, Some(8192));
-        assert_eq!(cmd, "llama-server --port ${PORT} --model /models/qwen.gguf --ctx-size 8192");
+        assert_eq!(cmd, "llama-server\n  --port ${PORT}\n  --model /models/qwen.gguf\n  --ctx-size 8192");
     }
     #[test]
     fn test_build_command_with_environment() {
@@ -436,7 +447,7 @@ mod tests {
     #[test]
     fn test_build_command_with_optional_values() {
         let cmd = Config::build_command("llama-server", None, None, None, None);
-        assert_eq!(cmd, "llama-server --port ${PORT}");
+        assert_eq!(cmd, "llama-server\n  --port ${PORT}");
     }
     #[test]
     fn test_build_command_with_spaces_in_path() {
@@ -447,7 +458,7 @@ mod tests {
     fn test_resolve_path_uses_llama_swap_user_config() {
         assert_eq!(
             Config::default().resolve_path().unwrap(),
-            home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).unwrap().display().to_string()
+            home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH).unwrap().cross_platform_display()
         );
     }
     #[test]
@@ -480,7 +491,10 @@ models:
         assert!(additive_text.contains("acorn: true"));
         assert!(additive_text.contains("stale:"));
         assert!(additive_text.contains("custom:"));
-        assert!(additive_text.contains("cmd: llama-server"));
+        assert!(additive_text.contains("cmd: |-"));
+        assert!(additive_text.contains("llama-server\n"));
+        assert!(additive_text.contains("--port ${PORT}\n"));
+        assert!(additive_text.contains("--model /models/qwen.gguf\n"));
         assert!(!additive_text.contains("modelsDir"));
         let pruned = config.upsert(existing, &models, true).unwrap();
         let pruned_text = serde_norway::to_string(&pruned).unwrap();

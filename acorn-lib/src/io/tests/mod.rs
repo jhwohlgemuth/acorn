@@ -13,10 +13,12 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, Remote, Source, SourceAction,
+    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, PathConversion, Remote, Source,
+    SourceAction,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
+use crate::util::StringConversion;
 use crate::{args, Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
@@ -24,7 +26,7 @@ use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, 
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use zip::ZipArchive;
 
@@ -973,6 +975,23 @@ fn test_unique_file_extensions() {
     ];
     let extensions = unique_file_extensions(&paths);
     assert_eq!(extensions, vec!["json", "yaml"]);
+}
+#[test]
+fn test_path_conversion_uses_platform_string_paths() {
+    #[cfg(windows)]
+    let (path, expected) = (
+        Path::new(r"\\?\C:\Users\acorn\.config/opencode/opencode.jsonc"),
+        r"C:\Users\acorn\.config\opencode\opencode.jsonc",
+    );
+    #[cfg(not(windows))]
+    let (path, expected) = (
+        Path::new("/home/acorn/.config/opencode/opencode.jsonc"),
+        "/home/acorn/.config/opencode/opencode.jsonc",
+    );
+    assert_eq!(path.cross_platform_display(), expected);
+    assert_eq!(<&Path as PathConversion>::cross_platform_display(&path), expected);
+    assert_eq!(PathBuf::from(path).cross_platform_display(), expected);
+    assert_eq!(path.display().to_string().to_cross_platform_path(), expected);
 }
 #[test]
 fn test_uri_to_path() {

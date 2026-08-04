@@ -830,12 +830,12 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             .unwrap_or_else(|| standard_project_folder("check", None));
         match create_dir_all(root.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(path = root.clone().to_absolute_string(), "=> {} Create — {why}", Label::fail()),
+            | Err(why) => error!(path = root.clone().to_absolute_path(), "=> {} Create — {why}", Label::fail()),
         }
         match write(&path, content.as_bytes()) {
             | Ok(_) => {}
             | Err(why) => {
-                error!(path = path.to_absolute_string(), "=> {} Write file — {why}", Label::fail());
+                error!(path = path.to_absolute_path(), "=> {} Write file — {why}", Label::fail());
                 return vec![check_err!(
                     CheckCategory::Prose,
                     uri: uri,
@@ -852,9 +852,9 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         match &self.config {
             | Some(config) => {
-                let binary_path = binary.to_absolute_string();
-                let config_path = config.clone().path.to_absolute_string();
-                let path_string = path.clone().to_absolute_string();
+                let binary_path = binary.to_absolute_path();
+                let config_path = config.clone().path.to_absolute_path();
+                let path_string = path.clone().to_absolute_path();
                 let args = [
                     "--no-exit".to_string(),
                     "--no-wrap".to_string(),
@@ -1002,7 +1002,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
         let command = self.command();
         let parent = match destination {
-            | Some(value) => value.to_absolute_string(),
+            | Some(value) => value.to_absolute_path(),
             | None => format!("./.{command}/"),
         };
         let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string();
@@ -1123,7 +1123,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                 }
             }
             | Err(why) => {
-                error!(config = config_path.to_absolute_string(), "=> {} Vale sync — {why}", Label::fail());
+                error!(config = config_path.to_absolute_path(), "=> {} Vale sync — {why}", Label::fail());
                 Err(why)
             }
         }
@@ -1152,7 +1152,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             let version = stdout.strip_prefix("vale version ").unwrap_or(stdout.as_str()).trim().to_string();
                             self.version = Some(SemanticVersion::from(version.as_ref()));
                             debug!(
-                                path = path.to_absolute_string(),
+                                path = path.to_absolute_path(),
                                 "=> {} System {} (v{version}) command",
                                 Label::using(),
                                 name.green().bold(),
@@ -1229,11 +1229,11 @@ impl StaticAnalyzerConfig for ValeConfig {
         let parent = path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
-            | Err(why) => error!(directory = parent.to_absolute_string(), "=> {} Create — {why}", Label::fail()),
+            | Err(why) => error!(directory = parent.to_absolute_path(), "=> {} Create — {why}", Label::fail()),
         }
         match self.clone().ini().await.write_to_file(path.clone()) {
             | Ok(_) => {
-                debug!(path = path.to_absolute_string(), "=> {} Saved configuration", Label::using());
+                debug!(path = path.to_absolute_path(), "=> {} Saved configuration", Label::using());
             }
             | Err(why) => {
                 error!("=> {} Save configuration — {why}", Label::fail());

@@ -4,6 +4,8 @@
 
 `acorn sync` resolves model entries to GGUF files in the local models directory and updates both application configurations by default. Use `--opencode` or `--llama-swap` to select one target.
 
+Unless overridden, llama-swap configuration is written to `~/.config/llama-swap/config.yaml`. OpenCode uses an existing project or user `opencode.jsonc`/`opencode.json` configuration when available and otherwise writes `~/.config/opencode/opencode.jsonc`. Generated llama-swap commands use YAML multiline scripts with one option per line, and generated filesystem paths use the platform's native form.
+
 ## Model lists
 
 Use `--model-file` to load model IDs from a local path, `file://` URI, or HTTP(S) URL. Plain-text lists and JSON/YAML lists of IDs or model details are accepted:

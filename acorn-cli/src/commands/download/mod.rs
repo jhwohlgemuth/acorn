@@ -73,7 +73,7 @@ pub async fn run(
                 }
                 if branch_result.is_ok() {
                     if let Some(path) = output {
-                        log_activity("download", path.to_absolute_string(), database_path, true);
+                        log_activity("download", path.to_absolute_path(), database_path, true);
                     }
                     if !quiet {
                         println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
@@ -117,7 +117,7 @@ pub async fn run(
                 }
             }
             if branch_result.is_ok() {
-                log_activity("download", path.to_absolute_string(), database_path, true);
+                log_activity("download", path.to_absolute_path(), database_path, true);
                 if !quiet {
                     println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 }

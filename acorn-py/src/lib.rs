@@ -404,7 +404,7 @@ impl PyResearchActivity {
             }
             | Err(why) => Err(PyValueError::new_err(format!(
                 "Failed to read research activity data from {} — {why}",
-                path.to_absolute_string(),
+                path.to_absolute_path(),
             ))),
         }
     }

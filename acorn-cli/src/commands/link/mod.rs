@@ -51,13 +51,13 @@ pub async fn run(
                         })
                         .and_then(|(old_content, new_content)| {
                             if dry_run {
-                                println!("{} Link {}", Label::dry_run(), path.clone().to_absolute_string().yellow());
+                                println!("{} Link {}", Label::dry_run(), path.clone().to_absolute_path().yellow());
                             }
                             if dry_run || verbose.log_level().unwrap_or(Level::Info) > Level::Error {
                                 print_changes(&old_content, &new_content);
                             }
                             if !dry_run {
-                                let filepath = path.clone().with_extension("jsonld").to_absolute_string();
+                                let filepath = path.clone().with_extension("jsonld").to_absolute_path();
                                 write(&filepath, new_content.as_bytes())
                                     .map_err(|why| {
                                         error!(file = filepath, "=> {} Write - {why}", Label::fail());

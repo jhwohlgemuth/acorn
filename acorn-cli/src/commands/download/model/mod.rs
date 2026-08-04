@@ -252,7 +252,7 @@ pub async fn run(
                                                     }
                                                 }
                                                 if !no_local_database {
-                                                    log_activity("download model", root.to_absolute_string(), database_path, failure_count == 0);
+                                                    log_activity("download model", root.to_absolute_path(), database_path, failure_count == 0);
                                                 }
                                                 if failure_count > 0 {
                                                     Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))

@@ -167,7 +167,7 @@ impl ChartOptions {
             .iter()
             .map(|path| match ResearchActivity::read(path.clone()) {
                 | Ok(data) => self.render(data.aspect.as_ref()).map(|chart| (path.clone(), chart)),
-                | Err(why) => Err(eyre!("Read data for ASPECT chart at {} — {why}", path.to_absolute_string())),
+                | Err(why) => Err(eyre!("Read data for ASPECT chart at {} — {why}", path.to_absolute_path())),
             })
             .collect()
     }

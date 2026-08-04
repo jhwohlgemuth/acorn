@@ -50,6 +50,8 @@ pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 /// Default llama-swap configuration path beneath the user's home directory.
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
+/// Default OpenCode configuration path beneath the user's home directory.
+pub const DEFAULT_OPENCODE_CONFIG_PATH: &str = ".config/opencode/opencode.jsonc";
 /// Default directory under the user's home directory for downloaded models.
 pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
 /// Default model search result limit.

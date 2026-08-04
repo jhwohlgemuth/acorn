@@ -82,10 +82,12 @@ pub trait Searchable<T> {
 }
 /// Trait for augmenting and formatting data for display
 pub trait StringConversion {
+    /// Render a path string using native separators without a Windows extended-length prefix
+    fn to_cross_platform_path(&self) -> String;
     /// Return a string representation of the file_name with its parent folder (or just the folder name if it is a folder)
     fn file_name_with_parent(&self) -> String;
     /// Return a string representation of the absolute path
-    fn to_absolute_string(&self) -> String;
+    fn to_absolute_path(&self) -> String;
 }
 /// Add enhanced string interpolation functionality
 pub trait StringInterpolation<T>

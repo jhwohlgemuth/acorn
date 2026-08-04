@@ -88,6 +88,29 @@ pub use source::{Source, SourceAction};
 
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
+/// Convert filesystem paths to portable configuration strings.
+pub trait PathConversion {
+    /// Render a path using native separators without a Windows extended-length prefix.
+    fn cross_platform_display(&self) -> String;
+}
+impl PathConversion for Path {
+    fn cross_platform_display(&self) -> String {
+        let value = self.display().to_string();
+        #[cfg(windows)]
+        let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
+        value
+    }
+}
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathConversion for PathBuf {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(self)
+    }
+}
 /// Utility type alias for I/O operation results (e.g., read, write, copy, etc.)
 pub type ApiResult<T> = Result<T, Report>;
 /// An RSA key pair consisting of a private key and its corresponding public key
@@ -373,7 +396,7 @@ impl Executor {
                 if let Some(value) = var_os("XDG_RUNTIME_DIR") {
                     let path = PathBuf::from(value).join("podman/podman.sock");
                     if path.exists() {
-                        Some(path.to_absolute_string())
+                        Some(path.to_absolute_path())
                     } else {
                         None
                     }
@@ -381,7 +404,7 @@ impl Executor {
                     // root permission fallback
                     let path = PathBuf::from("/run/podman/podman.sock");
                     if path.exists() {
-                        Some(path.to_absolute_string())
+                        Some(path.to_absolute_path())
                     } else {
                         None
                     }
@@ -530,7 +553,7 @@ impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
             .collect()
     }
     fn to_absolute_strings(&self) -> Vec<String> {
-        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_string()).collect()
+        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_path()).collect()
     }
 }
 impl ProgressType {
@@ -547,10 +570,24 @@ impl ProgressType {
     }
 }
 impl StringConversion for PathBuf {
+    fn to_cross_platform_path(&self) -> String {
+        self.cross_platform_display()
+    }
     fn file_name_with_parent(&self) -> String {
         file_name_with_parent(self.clone())
     }
-    fn to_absolute_string(&self) -> String {
+    fn to_absolute_path(&self) -> String {
+        to_absolute_string(self.clone())
+    }
+}
+impl StringConversion for String {
+    fn to_cross_platform_path(&self) -> String {
+        Path::new(self).cross_platform_display()
+    }
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self.clone())
+    }
+    fn to_absolute_path(&self) -> String {
         to_absolute_string(self.clone())
     }
 }
@@ -561,7 +598,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
         | Some(value) => value,
         | None => path.with_extension("zip"),
     };
-    info!("=> {} Create archive at {}", Label::using(), zip_file_path.to_absolute_string());
+    info!("=> {} Create archive at {}", Label::using(), zip_file_path.to_absolute_path());
     let prepared = if zip_file_path.exists() {
         match zip_file_path.symlink_metadata() {
             | Ok(metadata) => {
@@ -614,7 +651,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
                 });
                 match name {
                     | Some(name) => {
-                        trace!(file = name.to_absolute_string(), "=> {} Add file to archive", Label::using());
+                        trace!(file = name.to_absolute_path(), "=> {} Add file to archive", Label::using());
                         match zip.start_file_from_path(name, options) {
                             | Ok(_) => {
                                 let mut buffer = Vec::new();
@@ -622,7 +659,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
                                     | Ok(_) => match zip.write_all(&buffer) {
                                         | Ok(_) => {}
                                         | Err(why) => {
-                                            error!(file = file_path.to_absolute_string(), "=> {} Write zip archive — {why}", Label::fail())
+                                            error!(file = file_path.to_absolute_path(), "=> {} Write zip archive — {why}", Label::fail())
                                         }
                                     },
                                     | Err(why) => {
@@ -631,13 +668,13 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
                                 }
                             }
                             | Err(why) => {
-                                error!(file = file_path.to_absolute_string(), "=> {} Start zip archive - {why}", Label::fail());
+                                error!(file = file_path.to_absolute_path(), "=> {} Start zip archive - {why}", Label::fail());
                             }
                         }
                     }
                     | None => {
                         error!(
-                            file = file_path.to_absolute_string(),
+                            file = file_path.to_absolute_path(),
                             "=> {} Resolve relative zip archive path",
                             Label::fail()
                         );
@@ -648,7 +685,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
         match zip.finish() {
             | Ok(_) => Ok(zip_file_path),
             | Err(why) => {
-                error!(file = path.to_absolute_string(), "=> {} Finish zip archive - {why}", Label::fail());
+                error!(file = path.to_absolute_path(), "=> {} Finish zip archive - {why}", Label::fail());
                 Err(why.into())
             }
         }
@@ -684,7 +721,7 @@ where
     let command = name.into();
     match which(&command) {
         | Ok(value) => {
-            let path = value.clone().to_absolute_string();
+            let path = value.clone().to_absolute_path();
             match value.try_exists() {
                 | Ok(true) => {
                     debug!(path, "=> {} Command", Label::found());
@@ -811,43 +848,43 @@ pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<Pat
                         if let Some(parent) = target.parent() {
                             match create_dir_all(parent) {
                                 | Ok(_) => {}
-                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_string(), "=> {} Create - {}", Label::fail(), why),
+                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_path(), "=> {} Create - {}", Label::fail(), why),
                             }
                         }
                         match OpenOptions::new().write(true).create_new(true).open(&target) {
                             | Ok(mut output_file) => match io::copy(&mut file, &mut output_file) {
                                 | Ok(_) => true,
                                 | Err(why) => {
-                                    error!(path = target.to_absolute_string(), "=> {} Copy file content - {why}", Label::fail());
+                                    error!(path = target.to_absolute_path(), "=> {} Copy file content - {why}", Label::fail());
                                     false
                                 }
                             },
                             | Err(_) => {
-                                error!(path = target.to_absolute_string(), "=> {} Create file", Label::fail());
+                                error!(path = target.to_absolute_path(), "=> {} Create file", Label::fail());
                                 false
                             }
                         }
                     }
                     | Err(why) => {
-                        error!(path = path.to_absolute_string(), "=> {} Extract file - {why}", Label::fail());
+                        error!(path = path.to_absolute_path(), "=> {} Extract file - {why}", Label::fail());
                         false
                     }
                 });
                 if success {
-                    info!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::pass());
+                    info!(path = root.to_absolute_path(), "=> {} Extract zip archive", Label::pass());
                     Ok(root)
                 } else {
-                    error!(path = root.to_absolute_string(), "=> {} Extract zip archive", Label::fail());
+                    error!(path = root.to_absolute_path(), "=> {} Extract zip archive", Label::fail());
                     Err(eyre!("Failed to extract zip archive"))
                 }
             }
             | Err(why) => {
-                error!(path = path.to_absolute_string(), "=> {} Read zip archive - {why}", Label::fail());
+                error!(path = path.to_absolute_path(), "=> {} Read zip archive - {why}", Label::fail());
                 Err(eyre!("Failed to read zip archive - {why}"))
             }
         },
         | Err(why) => {
-            error!(path = path.to_absolute_string(), "=> {} Read file - {why}", Label::fail());
+            error!(path = path.to_absolute_path(), "=> {} Read file - {why}", Label::fail());
             Err(eyre!("Failed to read file - {why}"))
         }
     }
@@ -882,7 +919,7 @@ where
                     | Err(err) => {
                         error!(
                             error = err.to_string(),
-                            path = value.to_absolute_string(),
+                            path = value.to_absolute_path(),
                             "=> {} Read file checksum",
                             Label::fail()
                         );
@@ -902,12 +939,7 @@ where
             })
         }
         | Err(err) => {
-            error!(
-                error = err.to_string(),
-                path = value.to_absolute_string(),
-                "=> {} Read file",
-                Label::fail()
-            );
+            error!(error = err.to_string(), path = value.to_absolute_path(), "=> {} Read file", Label::fail());
             None
         }
     }
@@ -927,7 +959,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     }
     fn pattern(path: PathBuf, extension: &str) -> String {
         let ext = &extension.to_lowercase();
-        let result = format!("{}/**/*.{}", path.to_absolute_string(), ext);
+        let result = format!("{}/**/*.{}", path.to_absolute_path(), ext);
         debug!("=> {} {result}", Label::using());
         result
     }
@@ -950,7 +982,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
                     })
                     .1
             }
-            | None => match glob(&format!("{}/**/*", path.to_absolute_string())) {
+            | None => match glob(&format!("{}/**/*", path.to_absolute_path())) {
                 | Ok(paths) => paths_to_vec(paths),
                 | Err(why) => {
                     error!("=> {} Get all files (Glob) - {why}", Label::fail());
@@ -961,7 +993,7 @@ pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
     } else {
         if extensions.is_some() {
             warn!(
-                path = path.clone().to_absolute_string(),
+                path = path.clone().to_absolute_path(),
                 "=> {} Extension passed with single file to files_all()...was this intended?",
                 Label::using()
             );
@@ -1146,8 +1178,8 @@ pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, roo
                         | Err(_) => {
                             return Err(eyre!(
                                 "Path '{}' is outside resolved root '{}'",
-                                normalized_path.to_absolute_string(),
-                                normalized_root.to_absolute_string()
+                                normalized_path.to_absolute_path(),
+                                normalized_root.to_absolute_path()
                             ));
                         }
                     }
@@ -1300,7 +1332,7 @@ pub fn make_executable<P>(path: P) -> bool
 where
     P: Into<PathBuf> + Clone,
 {
-    let binary = match file_extension(path.clone().into().to_absolute_string()) {
+    let binary = match file_extension(path.clone().into().to_absolute_path()) {
         | None => path.into().with_extension("exe"),
         | _ => path.into(),
     };
@@ -1345,7 +1377,7 @@ where
         | Err(why) => {
             debug!("=> {} Resolve absolute path - {why}", Label::fail());
             match path.into().parent() {
-                | Some(value) if !value.to_path_buf().to_absolute_string().is_empty() => value.to_path_buf(),
+                | Some(value) if !value.to_path_buf().to_absolute_path().is_empty() => value.to_path_buf(),
                 | Some(_) | None => {
                     warn!("=> {} Parent path was empty or could not be resolved", Label::fail());
                     default
@@ -1458,7 +1490,7 @@ pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> Pat
     };
     match create_dir_all(root.clone()) {
         | Ok(_) => {}
-        | Err(why) => error!(directory = root.clone().to_absolute_string(), "=> {} Create - {why}", Label::fail()),
+        | Err(why) => error!(directory = root.clone().to_absolute_path(), "=> {} Create - {why}", Label::fail()),
     };
     root.join(generate_guid())
 }

@@ -716,7 +716,7 @@ impl Bucket {
                 match code_repository.is_local() {
                     | true => {
                         let bucket_root = match code_repository.location().path() {
-                            | Some(value) => PathBuf::from(value).to_absolute_string(),
+                            | Some(value) => PathBuf::from(value).to_absolute_path(),
                             | None => {
                                 return Err(eyre!(
                                     "Bucket {} has no local path — cannot copy files",
@@ -952,7 +952,7 @@ impl ModelEntry {
     }
     /// Resolve model entries from a local models directory, skipping entries that cannot be resolved.
     pub fn resolve(entries: &[Self], options: &sync::ModelRequestOptions<'_>) -> ApiResult<Vec<ModelDetails>> {
-        Self::resolve_using(entries, options, |_| Vec::new())
+        Self::resolve_using(entries, options, false, |_| Vec::new())
     }
     /// Resolve model entries using fallback repository metadata from the local model database.
     pub fn resolve_with_fallbacks(
@@ -960,11 +960,14 @@ impl ModelEntry {
         options: &sync::ModelRequestOptions<'_>,
         database_path: Option<PathBuf>,
     ) -> ApiResult<Vec<ModelDetails>> {
-        Self::resolve_using(entries, options, |model_id| Self::fallback_repositories(model_id, database_path.as_ref()))
+        Self::resolve_using(entries, options, true, |model_id| {
+            Self::fallback_repositories(model_id, database_path.as_ref())
+        })
     }
     fn resolve_using(
         entries: &[Self],
         options: &sync::ModelRequestOptions<'_>,
+        fallbacks_enabled: bool,
         fallback: impl Fn(&str) -> Vec<String>,
     ) -> ApiResult<Vec<ModelDetails>> {
         Self::requests(entries).map(|requests| {
@@ -972,14 +975,14 @@ impl ModelEntry {
                 .into_iter()
                 .filter_map(|request| {
                     let id = request.id().to_string();
-                    let options = sync::ModelRequestOptions {
+                    let request_options = sync::ModelRequestOptions {
                         fallbacks: fallback(&id),
                         ..options.clone()
                     };
-                    match request.resolve(&options) {
+                    match request.resolve(&request_options) {
                         | Ok(model) => Some(model),
                         | Err(why) => {
-                            let reason = format!("({why})");
+                            let reason = Self::resolution_failure_reason(&why, fallbacks_enabled, &request_options.fallbacks);
                             warn!("=> {} Could not resolve {} {}", Label::skip(), id.yellow(), reason.dimmed());
                             None
                         }
@@ -987,6 +990,12 @@ impl ModelEntry {
                 })
                 .collect()
         })
+    }
+    fn resolution_failure_reason(why: &impl fmt::Display, fallbacks_enabled: bool, fallbacks: &[String]) -> String {
+        match (fallbacks_enabled, fallbacks.is_empty()) {
+            | (true, true) => format!("({why}; no fallback repositories found in the local model database)"),
+            | _ => format!("({why})"),
+        }
     }
     fn fallback_repositories(model_id: &str, database_path: Option<&PathBuf>) -> Vec<String> {
         resolve_database_path(database_path)
@@ -1148,6 +1157,19 @@ mod tests {
     )]
     use super::*;
     use crate::prelude::{create_dir_all, remove_dir_all, write};
+
+    #[test]
+    fn test_resolution_failure_reason_reports_fallback_lookup_status() {
+        assert_eq!(
+            ModelEntry::resolution_failure_reason(&"missing", true, &[]),
+            "(missing; no fallback repositories found in the local model database)"
+        );
+        assert_eq!(ModelEntry::resolution_failure_reason(&"missing", false, &[]), "(missing)");
+        assert_eq!(
+            ModelEntry::resolution_failure_reason(&"missing", true, &["fallback/model".to_string()]),
+            "(missing)"
+        );
+    }
 
     fn temp_resolve_dir(name: &str) -> PathBuf {
         let nanos = std::time::SystemTime::now()

@@ -551,14 +551,14 @@ fn test_test_command() {
 #[test]
 fn test_to_absolute_string() {
     let path = PathBuf::from(FIXTURES).join("test.txt");
-    assert!(path.to_absolute_string().ends_with("test.txt"));
+    assert!(path.to_absolute_path().ends_with("test.txt"));
     assert!(to_absolute_string(path).ends_with("test.txt"));
     assert_eq!(to_absolute_string(PathBuf::from("foo/bar")), "foo/bar");
     assert_eq!(to_absolute_string(PathBuf::from("../../../does/not/exist")), "../../../does/not/exist");
     let path = "/root/dev/command/xylem-cli/Cargo.toml";
     match PathBuf::from(path).try_exists() {
         | Ok(true) => {
-            assert_eq!(PathBuf::from("../xylem-cli/Cargo.toml").to_absolute_string(), path);
+            assert_eq!(PathBuf::from("../xylem-cli/Cargo.toml").to_absolute_path(), path);
         }
         | Ok(false) | Err(_) => (),
     }

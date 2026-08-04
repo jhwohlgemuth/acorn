@@ -45,7 +45,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
     izip!(slide_paths(1, reference_extract_path), new_slide_paths, relationship_replacements)
         .map(|(first_slide_path, new_slide_path, replacement)| {
             read_file(&first_slide_path)
-                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", first_slide_path.to_absolute_string()))
+                .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", first_slide_path.to_absolute_path()))
                 .and_then(|content| match replacement {
                     | Some((current_target, target)) => update_relationship_target(&content, current_target, &target),
                     | None => Ok(content),
@@ -54,12 +54,12 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                     | true => Ok(content),
                     | false => Err(eyre!(
                         "Malformed OOXML content while copying PowerPoint part to {}",
-                        new_slide_path.to_absolute_string()
+                        new_slide_path.to_absolute_path()
                     )),
                 })
                 .and_then(|content| {
                     write_file(&new_slide_path, content)
-                        .map_err(|why| eyre!("Failed to write PowerPoint part at {} — {why}", new_slide_path.to_absolute_string()))
+                        .map_err(|why| eyre!("Failed to write PowerPoint part at {} — {why}", new_slide_path.to_absolute_path()))
                 })
         })
         .collect::<ApiResult<Vec<_>>>()
@@ -69,7 +69,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                 .ok_or_else(|| {
                     eyre!(
                         "Failed to read PowerPoint presentation relationships at {}",
-                        presentation_xml_rels_path.to_absolute_string()
+                        presentation_xml_rels_path.to_absolute_path()
                     )
                 })
                 .and_then(|presentation_xml_rels| {
@@ -86,7 +86,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                             write_file(&presentation_xml_rels_path, updated).map_err(|why| {
                                 eyre!(
                                     "Failed to write PowerPoint presentation relationships at {} — {why}",
-                                    presentation_xml_rels_path.to_absolute_string()
+                                    presentation_xml_rels_path.to_absolute_path()
                                 )
                             })
                         })
@@ -99,7 +99,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                 .map_err(|why| {
                     eyre!(
                         "Failed to read PowerPoint presentation XML at {} — {why}",
-                        presentation_xml_path.to_absolute_string()
+                        presentation_xml_path.to_absolute_path()
                     )
                 })
                 .and_then(|presentation_xml| {
@@ -112,7 +112,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
                     write_file(&presentation_xml_path, updated).map_err(|why| {
                         eyre!(
                             "Failed to write PowerPoint presentation XML at {} — {why}",
-                            presentation_xml_path.to_absolute_string()
+                            presentation_xml_path.to_absolute_path()
                         )
                     })
                 })
@@ -123,7 +123,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
     read_xml_rel(xml_rels_path.clone())
         .map(|Relationships { relationship, .. }| relationship)
         .ok_or_else(|| {
-            let path = xml_rels_path.to_absolute_string();
+            let path = xml_rels_path.to_absolute_path();
             error!(path, "=> {} Read PowerPoint slide relationships", Label::fail());
             eyre!("Failed to read PowerPoint slide relationships at {path}")
         })
@@ -133,7 +133,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                 .find(|x| x.target.ends_with("png"))
                 .map(|x| x.target)
                 .ok_or_else(|| {
-                    let path = xml_rels_path.to_absolute_string();
+                    let path = xml_rels_path.to_absolute_path();
                     error!(path, "=> {} Find slide image relationship", Label::fail());
                     eyre!("No PNG image relationship found in PowerPoint slide at {path}")
                 })
@@ -156,7 +156,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                 .and_then(|updated| {
                     write_file(xml_rels_path.clone(), updated).map_err(|why| {
                         error!(
-                            path = xml_rels_path.to_absolute_string(),
+                            path = xml_rels_path.to_absolute_path(),
                             "=> {} Write slide relationship XML — {why}",
                             Label::fail()
                         );
@@ -173,13 +173,13 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
     let media_name = format!("{}-aspect.png", data.meta.identifier);
     let media_path = destination.join("ppt/media").join(&media_name);
     read_file(&slide_path)
-        .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_string()))
+        .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_path()))
         .and_then(|slide_xml| {
             read_xml_rel(relationships_path.clone())
                 .ok_or_else(|| {
                     eyre!(
                         "Failed to read PowerPoint slide relationships at {}",
-                        relationships_path.to_absolute_string()
+                        relationships_path.to_absolute_path()
                     )
                 })
                 .map(|relationships| (slide_xml, relationships))
@@ -202,19 +202,19 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
                             write_file(&relationships_path, xml).map_err(|why| {
                                 eyre!(
                                     "Failed to write ASPECT chart relationship at {} — {why}",
-                                    relationships_path.to_absolute_string()
+                                    relationships_path.to_absolute_path()
                                 )
                             })
                         })
                         .and_then(|_| {
                             write_file(&slide_path, updated_slide)
-                                .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_string()))
+                                .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_path()))
                         })
                         .and_then(|_| {
                             read_file(&content_types_path).map_err(|why| {
                                 eyre!(
                                     "Failed to read PowerPoint content types at {} — {why}",
-                                    content_types_path.to_absolute_string()
+                                    content_types_path.to_absolute_path()
                                 )
                             })
                         })
@@ -223,13 +223,13 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
                             write_file(&content_types_path, xml).map_err(|why| {
                                 eyre!(
                                     "Failed to write PowerPoint content types at {} — {why}",
-                                    content_types_path.to_absolute_string()
+                                    content_types_path.to_absolute_path()
                                 )
                             })
                         })
                         .and_then(|_| {
                             write(&media_path, chart)
-                                .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_string()))
+                                .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_path()))
                         })
                 }
                 | None => Ok(()),
@@ -256,7 +256,7 @@ fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResul
     match invalid {
         | Some(path) => Err(eyre!(
             "Malformed OOXML content detected before archive write at {}",
-            path.to_absolute_string()
+            path.to_absolute_path()
         )),
         | None => Ok(()),
     }
@@ -276,7 +276,7 @@ pub fn create(
             | Ok(value) => Some(value.format_with(Some(path.clone()))),
             | Err(why) => {
                 error!(
-                    path = path.to_absolute_string(),
+                    path = path.to_absolute_path(),
                     "=> {} Read data for PowerPoint export - {why}",
                     Label::fail(),
                 );
@@ -308,7 +308,7 @@ pub fn create(
         })
         .and_then(|reference_path| {
             extract_zip(reference_path.clone(), None).map(Arc::new).map_err(|_| {
-                error!(path = reference_path.to_absolute_string(), "=> {} Extract reference", Label::fail());
+                error!(path = reference_path.to_absolute_path(), "=> {} Extract reference", Label::fail());
                 eyre!("Failed to extract PowerPoint reference at {reference_path:?}")
             })
         })
@@ -338,7 +338,7 @@ pub fn create(
                                 .for_each(|path| interpolate_values(path, &data));
                             if let Err(why) = copy_image(slide_number, &data, &index_path, &reference_extract_path) {
                                 error!(
-                                    path = index_path.to_absolute_string(),
+                                    path = index_path.to_absolute_path(),
                                     "=> {} Copy image for slide {slide_number} — {why}",
                                     Label::fail()
                                 );
@@ -346,7 +346,7 @@ pub fn create(
                             match aspect_charts.get(index) {
                                 | Some(Some(chart)) => add_aspect_chart(slide_number, &data, chart, &reference_extract_path).inspect_err(|why| {
                                     error!(
-                                        path = index_path.to_absolute_string(),
+                                        path = index_path.to_absolute_path(),
                                         "=> {} Add ASPECT chart to slide {slide_number} — {why}",
                                         Label::fail()
                                     );

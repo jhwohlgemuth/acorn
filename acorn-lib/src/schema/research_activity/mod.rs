@@ -838,7 +838,7 @@ impl ResearchActivityMetadata {
             | Some(value) => parent(value),
             | None => PathBuf::from("."),
         };
-        debug!(path = path_parent.to_absolute_string(), "=> {} Parent directory", Label::using());
+        debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
         let name = match image_paths(&path_parent) {
             | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
             | _ => None,

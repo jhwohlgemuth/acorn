@@ -867,17 +867,13 @@ pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
             match parsed {
                 | Ok(value) => Some(value),
                 | Err(why) => {
-                    error!(
-                        path = path.to_absolute_string(),
-                        "=> {} Cannot parse relationships - {why}",
-                        Label::fail()
-                    );
+                    error!(path = path.to_absolute_path(), "=> {} Cannot parse relationships - {why}", Label::fail());
                     None
                 }
             }
         }
         | Err(why) => {
-            error!(path = path.to_absolute_string(), "=> {} Cannot read xml.rels file - {why}", Label::fail());
+            error!(path = path.to_absolute_path(), "=> {} Cannot read xml.rels file - {why}", Label::fail());
             None
         }
     }

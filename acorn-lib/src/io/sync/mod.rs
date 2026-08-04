@@ -5,7 +5,7 @@
 //! llama-swap and OpenCode project configuration.
 use crate::io::{
     config::{FilterSet, ModelEntry},
-    files_all, home_directory, read_file, write_file, ApiResult, Source,
+    files_all, home_directory, read_file, write_file, ApiResult, PathConversion, Source,
 };
 use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
 use crate::schema::agent::{self, ModelDetails};
@@ -17,6 +17,7 @@ use alloc::vec::Vec;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
+use core::ops::ControlFlow;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
@@ -441,7 +442,7 @@ impl ModelRequest {
             .map(|path| ModelDetails {
                 id: Some(self.id.clone()),
                 name: Some(self.id.clone()),
-                path: Some(path.display().to_string()),
+                path: Some(path.cross_platform_display()),
                 ..Default::default()
             })
     }
@@ -483,10 +484,27 @@ impl ModelRequest {
                     | Some(path) => self.resolve_direct(&path),
                     | None => match self.resolve_repository(models_dir, &self.id) {
                         | Ok(model) => Ok(model),
-                        | Err(direct_error) => fallbacks
-                            .iter()
-                            .find_map(|repository| self.resolve_repository(models_dir, repository).ok())
-                            .ok_or(direct_error),
+                        | Err(direct_error) if fallbacks.is_empty() => Err(direct_error),
+                        | Err(direct_error) => {
+                            match fallbacks.iter().try_fold(Vec::new(), |failures, repository| {
+                                match self.resolve_repository(models_dir, repository) {
+                                    | Ok(model) => ControlFlow::Break(model),
+                                    | Err(why) => {
+                                        ControlFlow::Continue(failures.into_iter().chain([(repository.clone(), why.to_string())]).collect::<Vec<_>>())
+                                    }
+                                }
+                            }) {
+                                | ControlFlow::Break(model) => Ok(model),
+                                | ControlFlow::Continue(failures) => Err(eyre!(
+                                    "{direct_error}; fallback attempts: {}",
+                                    failures
+                                        .into_iter()
+                                        .map(|(repository, why)| format!("{repository} ({why})"))
+                                        .collect::<Vec<_>>()
+                                        .join("; ")
+                                )),
+                            }
+                        }
                     },
                 }
             }
@@ -1010,6 +1028,27 @@ mod tests {
         let _ = remove_dir_all(dir);
     }
     #[test]
+    fn test_resolve_model_reports_every_failed_fallback() {
+        let dir = temp_dir("sync-fallback-errors");
+        create_dir_all(&dir).unwrap();
+        let request = ModelEntry::requests(&[ModelEntry::Selector("primary/model".to_string())])
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let options = ModelRequestOptions {
+            models_dir: &dir,
+            force: false,
+            fallbacks: vec!["fallback/one".to_string(), "fallback/two".to_string()],
+        };
+        let error = request.resolve(&options).unwrap_err().to_string();
+        assert!(error.contains("Model directory does not exist"));
+        assert!(error.contains("fallback attempts:"));
+        assert!(error.contains("fallback/one (Model directory does not exist"));
+        assert!(error.contains("fallback/two (Model directory does not exist"));
+        let _ = remove_dir_all(dir);
+    }
+    #[test]
     fn test_resolve_models_uses_direct_local_gguf_source() {
         let dir = temp_dir("sync-direct-gguf");
         create_dir_all(&dir).unwrap();
@@ -1022,7 +1061,10 @@ mod tests {
         let resolved = resolve_models(&configuration, &dir).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].id.as_deref(), Some("direct"));
-        assert_eq!(resolved[0].path.as_deref(), Some(path.canonicalize().unwrap().to_str().unwrap()));
+        assert_eq!(
+            resolved[0].path.as_deref(),
+            Some(path.canonicalize().unwrap().cross_platform_display().as_str())
+        );
         let _ = remove_dir_all(dir);
     }
     #[test]
