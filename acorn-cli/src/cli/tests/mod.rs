@@ -15,6 +15,9 @@ use acorn::prelude::{Path, PathBuf};
 use acorn::util::constants::env::CHROME_PATH;
 use clap::{CommandFactory, Parser};
 use futures::executor::block_on;
+use std::sync::Mutex;
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
@@ -94,6 +97,7 @@ fn test_cli() {
 }
 #[test]
 fn test_export_chrome_path_argument_and_environment() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_var(CHROME_PATH, Some("/environment/chrome"), || {
         let environment = Arguments::try_parse_from(["acorn", "export", "--format", "pdf"]).expect("parse CHROME_PATH");
         match environment.command {
@@ -289,6 +293,7 @@ fn test_download_model_sync_argument() {
 }
 #[test]
 fn test_download_model_search_limit_from_env() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_var("ACORN_SEARCH_LIMIT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
@@ -302,6 +307,7 @@ fn test_download_model_search_limit_from_env() {
 }
 #[test]
 fn test_download_model_minimum_download_count_default_and_env_precedence() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
@@ -320,14 +326,16 @@ fn test_download_model_minimum_download_count_default_and_env_precedence() {
             | other => panic!("unexpected command: {other:?}"),
         }
     });
-    let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
-    match arguments.command {
-        | Some(Commands::Download(arguments)) => match arguments.command {
-            | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.minimum_download_count, 100),
-            | other => panic!("unexpected download command: {other:?}"),
-        },
-        | other => panic!("unexpected command: {other:?}"),
-    }
+    temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", None::<&str>, || {
+        let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
+        match arguments.command {
+            | Some(Commands::Download(arguments)) => match arguments.command {
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.minimum_download_count, 100),
+                | other => panic!("unexpected download command: {other:?}"),
+            },
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_download_model_interactive_flag() {
@@ -442,6 +450,7 @@ fn test_import_model_quiet_argument() {
 }
 #[test]
 fn test_import_model_minimum_download_count_default_and_env_precedence() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
@@ -458,16 +467,19 @@ fn test_import_model_minimum_download_count_default_and_env_precedence() {
             | other => panic!("unexpected command: {other:?}"),
         }
     });
-    let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b"]).unwrap();
-    match arguments.command {
-        | Some(Commands::Import {
-            command: Some(ImportCommands::Model(arguments)),
-        }) => assert_eq!(arguments.minimum_download_count, 100),
-        | other => panic!("unexpected command: {other:?}"),
-    }
+    temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", None::<&str>, || {
+        let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b"]).unwrap();
+        match arguments.command {
+            | Some(Commands::Import {
+                command: Some(ImportCommands::Model(arguments)),
+            }) => assert_eq!(arguments.minimum_download_count, 100),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_bot_identifier_from_ci_project_id_env() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_vars([("CI_PROJECT_ID", Some("16689"))], || {
         let serve = Arguments::try_parse_from(["acorn", "serve", "bot"]).unwrap();
         match serve.command {
@@ -487,6 +499,7 @@ fn test_bot_identifier_from_ci_project_id_env() {
 }
 #[test]
 fn test_bot_identifier_positional_overrides_ci_project_id_env() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_vars([("CI_PROJECT_ID", Some("16689"))], || {
         let serve = Arguments::try_parse_from(["acorn", "serve", "bot", "12345"]).unwrap();
         match serve.command {
@@ -499,6 +512,7 @@ fn test_bot_identifier_positional_overrides_ci_project_id_env() {
 }
 #[test]
 fn test_create_bot_domain_from_ci_server_host_env() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_vars([("CI_PROJECT_ID", Some("16689")), ("CI_SERVER_HOST", Some("code.ornl.gov"))], || {
         let create = Arguments::try_parse_from(["acorn", "create", "bot"]).unwrap();
         match create.command {
@@ -511,6 +525,7 @@ fn test_create_bot_domain_from_ci_server_host_env() {
 }
 #[test]
 fn test_create_bot_domain_option_overrides_ci_server_host_env() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     temp_env::with_vars([("CI_SERVER_HOST", Some("code.ornl.gov"))], || {
         let create = Arguments::try_parse_from(["acorn", "create", "bot", "16689", "--domain", "gitlab.example.com"]).unwrap();
         match create.command {
