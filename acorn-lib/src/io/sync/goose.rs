@@ -1,9 +1,8 @@
 //! Goose CLI YAML synchronization configuration types
 use super::{Options, RenderedOutput, SyncTarget};
-use crate::io::{home_directory, read_file, ApiResult};
+use crate::io::{read_file, ApiResult};
 use crate::prelude::PathBuf;
 use crate::schema::agent::ModelDetails;
-use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
 use alloc::string::{String, ToString};
