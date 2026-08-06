@@ -152,7 +152,6 @@ fn clear_chromium_cache() -> Result<(), Report> {
         .and_then(|path| clear_cache_directory(&path))
 }
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::test::util::{temp_test_dir, TestCleanup};

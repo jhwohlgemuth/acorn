@@ -484,7 +484,6 @@ fn build_register_args(name: &str, url: &str, description: &str, token: &str, lo
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
 
     fn remote() -> Remote {

@@ -143,7 +143,6 @@ fn default_base_path() -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]

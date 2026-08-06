@@ -709,7 +709,6 @@ pub(crate) fn run_gguf_picker(candidates: huggingface::Candidates, options: &hug
     }
 }
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod metadata_filter_tests {
     use super::*;
     use acorn::schema::agent::Weight;

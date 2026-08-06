@@ -367,7 +367,6 @@ fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
     use nanoid::nanoid;
     use std::env::temp_dir;

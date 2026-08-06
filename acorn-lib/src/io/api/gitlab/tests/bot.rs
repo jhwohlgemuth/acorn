@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used)]
 use super::*;
 use crate::io::api::gitlab::database::{OperationQueue, OperationState};
 use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};

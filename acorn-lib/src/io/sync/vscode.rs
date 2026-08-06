@@ -198,7 +198,6 @@ const fn default_max_output_tokens() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
 
     #[test]

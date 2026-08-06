@@ -204,7 +204,6 @@ fn parse_memory_string(value: &str) -> ApiResult<Memory> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

@@ -1036,7 +1036,6 @@ fn variant_matches(declared: &str, requested: &str) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::{
         extract_sha256, target_path_from_sidecar, Candidate, CandidateSelection, Candidates, Downloaded, HuggingFaceRepositoryFiles, ModelInfo,

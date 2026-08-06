@@ -147,7 +147,6 @@ fn bind_port(bind: &str) -> Option<u16> {
 }
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
     use super::*;
     #[test]
     fn test_remote_container_targets_the_requested_docker_host() {

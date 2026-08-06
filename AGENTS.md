@@ -160,7 +160,7 @@ Located in `tests/fixtures/`:
 
 ## Fixing `clippy::unwrap_used` Warnings
 
-The workspace enables `unwrap_used = "warn"` in Cargo.toml. Test modules suppress it with `#[allow(clippy::unwrap_used)]`, but production code must not use bare `.unwrap()`. Use these strategies (in order of preference):
+The workspace enables `unwrap_used = "warn"` in Cargo.toml. `clippy.toml` sets `allow-unwrap-in-tests = true` and `allow-expect-in-tests = true`, so `unwrap()`/`expect()` are permitted in `#[cfg(test)]` modules and `#[test]` functions without an attribute. Production code must not use bare `.unwrap()`. Use these strategies (in order of preference):
 
 ### Strategy 1: Arithmetic rounding
 `format!("{val:.2}").parse().unwrap()` → `(val * 100.0).round() / 100.0`

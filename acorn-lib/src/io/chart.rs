@@ -207,7 +207,6 @@ fn sector_path(start: f64, end: f64, outer: f64) -> String {
 }
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used)]
     use super::ChartOptions;
     use crate::schema::research_activity::aspect::{AspectFramework, Autonomy, Motivity, SoftwarePortability};
     use crate::schema::TechnologyReadinessLevel;

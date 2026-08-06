@@ -306,7 +306,6 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used)]
     use super::{Convert, DataUri, Style};
     use acorn::schema::research_activity::ResearchActivity;
 

@@ -1,4 +1,3 @@
-#![allow(clippy::unwrap_used)]
 extern crate alloc;
 use super::model::collect_imported;
 use super::spec::endpoint_from_import;

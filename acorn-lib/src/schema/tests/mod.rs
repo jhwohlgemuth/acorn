@@ -115,7 +115,6 @@ const VALID_ROR_VALUES: [&str; 28] = [
 ];
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod custom_deserialization {
     use super::*;
     use pretty_assertions::assert_eq;

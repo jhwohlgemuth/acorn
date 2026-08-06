@@ -1,0 +1,8 @@
+# Clippy configuration for the ACORN workspace.
+# Lint LEVELS stay in [workspace.lints.*] in the root Cargo.toml;
+# this file only holds configurable lint SETTINGS.
+
+# Allow unwrap()/expect() inside #[test] functions and #[cfg(test)] modules so
+# test code doesn't need per-module `#![allow(clippy::unwrap_used)]`.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
