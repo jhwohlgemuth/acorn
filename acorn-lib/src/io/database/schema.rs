@@ -1,19 +1,19 @@
 //! Database schema model
 //!
-use super::backend::{self, BackendRow, Connection, Params};
+use super::backend::{self, BackendRow, BackendRowExt, Connection, Params};
 use super::{Database, Row, SelectQuery, TableSchemaProvider};
 use crate::io::api::{self, DatabasePersistence};
 use crate::io::database::macros::{build_query, define_required_fn};
 use crate::io::{create_progress_bar, finish_progress_bar, ApiResult, ProgressType};
 use crate::prelude::PathBuf;
 use crate::schema::agent::Weights;
-use crate::util::{print_values_as_table, Label};
+use crate::util::{print_values_as_table, to_rfc3339, Label};
 use acorn_macros::DatabaseRow;
 use async_trait::async_trait;
 use bon::Builder;
-use chrono::{DateTime, Utc};
 use color_eyre::eyre::eyre;
 use core::fmt;
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
 define_required_fn!(1, required1, A, a);
@@ -53,7 +53,7 @@ pub struct ActivityRow {
     /// Command that was executed
     pub command: Option<String>,
     /// When the command was executed
-    pub executed_at: Option<DateTime<Utc>>,
+    pub executed_at: Option<Timestamp>,
     /// Path provided by user (if any)
     pub user_path: Option<String>,
     /// Whether the command succeeded
@@ -75,7 +75,7 @@ pub struct CatalogRow {
     /// Research activity title
     pub title: Option<String>,
     /// When the entry was last updated
-    pub updated_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<Timestamp>,
 }
 /// SPDX license entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -229,9 +229,9 @@ pub struct LinkCacheRow {
     /// Whether the URL was reachable
     pub is_reachable: Option<bool>,
     /// When the URL was checked
-    pub checked_at: Option<DateTime<Utc>>,
+    pub checked_at: Option<Timestamp>,
     /// When the cache entry expires
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<Timestamp>,
 }
 /// Research activity cache entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -247,7 +247,7 @@ pub struct ResearchActivityCacheRow {
     /// Research activity title
     pub title: Option<String>,
     /// When the activity was downloaded
-    pub downloaded_at: Option<DateTime<Utc>>,
+    pub downloaded_at: Option<Timestamp>,
     /// Local file path where the activity is stored
     pub file_path: Option<String>,
 }
@@ -267,7 +267,7 @@ pub struct ValidationRow {
     /// Validation message or error details
     pub message: Option<String>,
     /// When the validation was performed
-    pub checked_at: Option<DateTime<Utc>>,
+    pub checked_at: Option<Timestamp>,
 }
 impl From<&str> for Table {
     fn from(value: &str) -> Self {
@@ -357,7 +357,7 @@ impl From<&BackendRow<'_>> for ActivityRow {
         ActivityRow {
             id: row.get(0).ok(),
             command: row.get(1).ok(),
-            executed_at: parse_rfc3339_column(row, 2),
+            executed_at: row.parse_rfc3339(2),
             user_path: row.get(3).ok(),
             success: row.get::<_, i32>(4).ok().map(|value| value != 0),
         }
@@ -410,7 +410,7 @@ impl From<&BackendRow<'_>> for CatalogRow {
             bucket_url: row.get(2).ok(),
             identifier: row.get(3).ok(),
             title: row.get(4).ok(),
-            updated_at: parse_rfc3339_column(row, 5),
+            updated_at: row.parse_rfc3339(5),
         }
     }
 }
@@ -426,8 +426,8 @@ impl From<&BackendRow<'_>> for LinkCacheRow {
             url: row.get(1).ok(),
             status_code: row.get(2).ok(),
             is_reachable: row.get::<_, i32>(3).ok().map(|value| value != 0),
-            checked_at: parse_rfc3339_column(row, 4),
-            expires_at: parse_rfc3339_column(row, 5),
+            checked_at: row.parse_rfc3339(4),
+            expires_at: row.parse_rfc3339(5),
         }
     }
 }
@@ -443,7 +443,7 @@ impl From<&BackendRow<'_>> for ResearchActivityCacheRow {
             identifier: row.get(1).ok(),
             source_bucket: row.get(2).ok(),
             title: row.get(3).ok(),
-            downloaded_at: parse_rfc3339_column(row, 4),
+            downloaded_at: row.parse_rfc3339(4),
             file_path: row.get(5).ok(),
         }
     }
@@ -461,7 +461,7 @@ impl From<&BackendRow<'_>> for ValidationRow {
             check_type: row.get(2).ok(),
             success: row.get::<_, i32>(3).ok().map(|value| value != 0),
             message: row.get(4).ok(),
-            checked_at: parse_rfc3339_column(row, 5),
+            checked_at: row.parse_rfc3339(5),
         }
     }
 }
@@ -475,7 +475,7 @@ impl From<ActivityRow> for Vec<String> {
         vec![
             row.id.map_or_else(String::new, |v| v.to_string()),
             row.command.unwrap_or_default(),
-            row.executed_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.executed_at.map_or_else(String::new, to_rfc3339),
             row.user_path.unwrap_or_default(),
             row.success.map_or_else(String::new, |v| v.to_string()),
         ]
@@ -489,7 +489,7 @@ impl From<CatalogRow> for Vec<String> {
             row.bucket_url.unwrap_or_default(),
             row.identifier.unwrap_or_default(),
             row.title.unwrap_or_default(),
-            row.updated_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
         ]
     }
 }
@@ -524,8 +524,8 @@ impl From<LinkCacheRow> for Vec<String> {
             row.url.unwrap_or_default(),
             row.status_code.map_or_else(String::new, |v| v.to_string()),
             row.is_reachable.map_or_else(String::new, |v| v.to_string()),
-            row.checked_at.map_or_else(String::new, |v| v.to_rfc3339()),
-            row.expires_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.checked_at.map_or_else(String::new, to_rfc3339),
+            row.expires_at.map_or_else(String::new, to_rfc3339),
         ]
     }
 }
@@ -536,7 +536,7 @@ impl From<ResearchActivityCacheRow> for Vec<String> {
             row.identifier.unwrap_or_default(),
             row.source_bucket.unwrap_or_default(),
             row.title.unwrap_or_default(),
-            row.downloaded_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.downloaded_at.map_or_else(String::new, to_rfc3339),
             row.file_path.unwrap_or_default(),
         ]
     }
@@ -549,7 +549,7 @@ impl From<ValidationRow> for Vec<String> {
             row.check_type.unwrap_or_default(),
             row.success.map_or_else(String::new, |v| v.to_string()),
             row.message.unwrap_or_default(),
-            row.checked_at.map_or_else(String::new, |v| v.to_rfc3339()),
+            row.checked_at.map_or_else(String::new, to_rfc3339),
         ]
     }
 }
@@ -1023,7 +1023,7 @@ impl Row for ActivityRow {
             success,
             ..
         } = self.clone();
-        let executed_at = executed_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let executed_at = to_rfc3339(executed_at.unwrap_or_else(Timestamp::now));
         let success = i32::from(success.unwrap_or(true));
         let required = required1(command);
         match required {
@@ -1054,7 +1054,7 @@ impl Row for CatalogRow {
             updated_at,
             ..
         } = self.clone();
-        let updated_at = updated_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
         let required = required4(bucket_name, bucket_url, identifier, title);
         match required {
             | Ok((bucket_name, bucket_url, identifier, title)) => match self.next_row_id(conn) {
@@ -1120,12 +1120,12 @@ impl Row for LinkCacheRow {
             expires_at,
             ..
         } = self.clone();
-        let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let checked_at = to_rfc3339(checked_at.unwrap_or_else(Timestamp::now));
         let required = required4(url, status_code, is_reachable, expires_at);
         match required {
             | Ok((url, status_code, is_reachable, expires_at)) => match self.next_row_id(conn) {
                 | Ok(id) => {
-                    let params = backend::params![id, url, status_code, i32::from(is_reachable), checked_at, expires_at.to_rfc3339()];
+                    let params = backend::params![id, url, status_code, i32::from(is_reachable), checked_at, to_rfc3339(expires_at)];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),
@@ -1179,7 +1179,7 @@ impl Row for ResearchActivityCacheRow {
             file_path,
             ..
         } = self.clone();
-        let downloaded_at = downloaded_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let downloaded_at = to_rfc3339(downloaded_at.unwrap_or_else(Timestamp::now));
         let required = required4(identifier, source_bucket, title, file_path);
         match required {
             | Ok((identifier, source_bucket, title, file_path)) => match self.next_row_id(conn) {
@@ -1210,7 +1210,7 @@ impl Row for ValidationRow {
             ..
         } = self.clone();
         let success = i32::from(success.unwrap_or(true));
-        let checked_at = checked_at.unwrap_or_else(Utc::now).to_rfc3339();
+        let checked_at = to_rfc3339(checked_at.unwrap_or_else(Timestamp::now));
         let required = required3(path, check_type, message);
         match required {
             | Ok((path, check_type, message)) => match self.next_row_id(conn) {
@@ -1368,7 +1368,7 @@ impl Row for ProviderRow {
 impl LinkCacheRow {
     /// Check if the cache entry is expired
     pub fn is_expired(&self) -> bool {
-        self.expires_at.map(|e| Utc::now() > e).unwrap_or(true)
+        self.expires_at.map(|expires_at| Timestamp::now() > expires_at).unwrap_or(true)
     }
 }
 fn display_or_none<T>(value: Option<&T>) -> String
@@ -1390,12 +1390,6 @@ where
     conn.execute(&query, params)
         .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
 }
-fn parse_rfc3339_column(row: &BackendRow<'_>, index: usize) -> Option<DateTime<Utc>> {
-    row.get::<_, String>(index)
-        .ok()
-        .and_then(|value| DateTime::parse_from_rfc3339(&value).ok())
-        .map(|value| value.with_timezone(&Utc))
-}
 fn write_optional_field<T>(f: &mut fmt::Formatter<'_>, label: &str, value: Option<&T>) -> fmt::Result
 where
     T: fmt::Display,
@@ -1405,13 +1399,12 @@ where
         | None => Ok(()),
     }
 }
-fn write_optional_timestamp(f: &mut fmt::Formatter<'_>, label: &str, value: Option<&DateTime<Utc>>) -> fmt::Result {
+fn write_optional_timestamp(f: &mut fmt::Formatter<'_>, label: &str, value: Option<&Timestamp>) -> fmt::Result {
     match value {
-        | Some(value) => write!(f, ", {label}: {}", value.format("%Y-%m-%d %H:%M:%S")),
+        | Some(value) => write!(f, ", {label}: {}", value.strftime("%Y-%m-%d %H:%M:%S")),
         | None => Ok(()),
     }
 }
-
 #[cfg(feature = "duckdb")]
 fn id_column_definition() -> &'static str {
     "id BIGINT PRIMARY KEY"

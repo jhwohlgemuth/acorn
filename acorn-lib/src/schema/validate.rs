@@ -20,14 +20,10 @@ use crate::util::Constant;
 use crate::util::License;
 use crate::util::SemanticVersion;
 use crate::{list_validator, method_validator, regex_validator};
-#[cfg(feature = "std")]
-use chrono::SecondsFormat;
-#[cfg(feature = "std")]
-use chrono::Utc;
-use chrono::{DateTime, Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use core::iter::once;
 use fluent_uri::UriRef;
+use jiff::{civil::Date, fmt::temporal::Pieces, tz::Offset, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError, ValidationErrors};
@@ -192,9 +188,9 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
 pub fn format_timestamp(value: &str) -> String {
     #[cfg(feature = "std")]
     {
-        DateTime::parse_from_rfc3339(value)
-            .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Micros, false))
-            .unwrap_or_else(|_| value.to_string())
+        parse_rfc3339(value)
+            .map(|(timestamp, offset)| format!("{:.6}", timestamp.display_with_offset(offset)))
+            .unwrap_or_else(|| value.to_string())
     }
     #[cfg(not(feature = "std"))]
     {
@@ -237,7 +233,7 @@ pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
 }
 /// Check if value is either an ISO 8601 date (`YYYY-MM-DD`) or an RFC3339 timestamp.
 pub fn is_iso_date_or_rfc3339_timestamp(value: &str) -> bool {
-    is_date(value).is_ok() || DateTime::parse_from_rfc3339(value).is_ok()
+    is_date(value).is_ok() || parse_rfc3339(value).is_some()
 }
 /// Check if value is a valid ISO 639 language code (two-letter code with optional region subtag, e.g., "en" or "en-US")
 ///
@@ -401,9 +397,9 @@ pub fn is_rfc3339(value: impl ToString) -> Result<(), ValidationError> {
     const CODE: &str = "date";
     const MESSAGE: &str = "Provide valid RFC 3339 timestamp (ISO 8601 compliant)";
     let x = value.to_string();
-    let is_rfc3339 = DateTime::parse_from_rfc3339(&x).is_ok();
-    let is_date = NaiveDate::parse_from_str(&x, "%Y-%m-%d").is_ok();
-    let is_supported_date_value = |value: &str| DateTime::parse_from_rfc3339(value).is_ok() || NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok();
+    let is_rfc3339 = parse_rfc3339(&x).is_some();
+    let is_date = Date::strptime("%Y-%m-%d", &x).is_ok();
+    let is_supported_date_value = |value: &str| parse_rfc3339(value).is_some() || Date::strptime("%Y-%m-%d", value).is_ok();
     let is_date_interval = x
         .split_once('/')
         .map(|(start, end)| is_supported_date_value(start) && is_supported_date_value(end))
@@ -463,9 +459,10 @@ pub fn is_year(value: impl ToString) -> Result<(), ValidationError> {
     const MESSAGE: &str = "Provide valid ISO 8601 year (e.g., YYYY)";
     let x = value.to_string();
     let parsed_year = (x.len() == 4)
-        .then(|| format!("{x}-01-01"))
-        .and_then(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d").ok())
-        .map(|date| date.year());
+        .then(|| x.parse::<i16>().ok())
+        .flatten()
+        .and_then(|year| Date::new(year, 1, 1).ok())
+        .map(|date| i32::from(date.year()));
     match parsed_year {
         | Some(year) if is_viable_year(year) => Ok(()),
         | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
@@ -473,12 +470,37 @@ pub fn is_year(value: impl ToString) -> Result<(), ValidationError> {
 }
 #[cfg(feature = "std")]
 fn is_viable_year(year: i32) -> bool {
-    let now: DateTime<Utc> = Utc::now();
-    year <= now.year()
+    year <= i32::from(Timestamp::now().to_zoned(jiff::tz::TimeZone::UTC).year())
 }
 #[cfg(not(feature = "std"))]
 fn is_viable_year(_year: i32) -> bool {
     true
+}
+fn parse_rfc3339(value: &str) -> Option<(Timestamp, Offset)> {
+    let pieces = Pieces::parse(value).ok();
+    pieces
+        .filter(|parts| parts.time().is_some() && parts.time_zone_annotation().is_none() && has_compatible_offset(value))
+        .and_then(|parts| parts.offset().map(|offset| (parts, offset.to_numeric_offset())))
+        .and_then(|(_, offset)| value.parse::<Timestamp>().ok().map(|timestamp| (timestamp, offset)))
+}
+fn has_compatible_offset(value: &str) -> bool {
+    let value = value.trim_end();
+    value.ends_with('Z')
+        || value
+            .char_indices()
+            .rev()
+            .find(|(index, character)| *index > 9 && matches!(character, '+' | '-'))
+            .map(|(index, _)| &value[index..])
+            .is_some_and(|offset| {
+                offset.get(1..).is_some_and(|body| match body.len() {
+                    | 5 => body
+                        .chars()
+                        .enumerate()
+                        .all(|(index, character)| if index == 2 { character == ':' } else { character.is_ascii_digit() }),
+                    | 4 => body.chars().all(|character| character.is_ascii_digit()),
+                    | _ => false,
+                })
+            })
 }
 impl Validate for IntegerOrString {
     fn validate(&self) -> Result<(), ValidationErrors> {

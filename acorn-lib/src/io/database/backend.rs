@@ -3,19 +3,29 @@
 //! Conditionally re-exports types from either `rusqlite` (default) or `duckdb`
 //! based on enabled feature flags.
 use crate::io::ApiResult;
-use crate::prelude::env;
+use crate::prelude::{env, String};
 use crate::util::constants::env::DATABASE_BACKEND;
 use color_eyre::eyre::eyre;
+#[cfg(feature = "duckdb")]
+pub use duckdb::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
+use jiff::Timestamp;
+#[cfg(not(feature = "duckdb"))]
+pub use rusqlite::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
+
 /// SQLite backend value.
 pub const BACKEND_SQLITE: &str = "sqlite";
 /// DuckDB backend value.
 pub const BACKEND_DUCKDB: &str = "duckdb";
-
-#[cfg(feature = "duckdb")]
-pub use duckdb::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
-#[cfg(not(feature = "duckdb"))]
-pub use rusqlite::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
-
+/// Additional parsing operations for database backend rows.
+pub trait BackendRowExt {
+    /// Parse an RFC 3339 timestamp from the column at `index`.
+    fn parse_rfc3339(&self, index: usize) -> Option<Timestamp>;
+}
+impl BackendRowExt for BackendRow<'_> {
+    fn parse_rfc3339(&self, index: usize) -> Option<Timestamp> {
+        self.get::<_, String>(index).ok().and_then(|value| value.parse().ok())
+    }
+}
 /// Returns the backend compiled into this binary.
 pub fn backend() -> &'static str {
     #[cfg(feature = "duckdb")]

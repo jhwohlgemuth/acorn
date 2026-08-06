@@ -250,7 +250,13 @@ fn test_date_validation() {
         "2026-03-12T15:04:05+00:00",
         "2026-03-12T15:04:05.123456Z",
     ];
-    let invalid_timestamps = ["2026/03/12T15:04:05Z", "not-a-date", "2026-13-12T15:04:05Z"];
+    let invalid_timestamps = [
+        "2026/03/12T15:04:05Z",
+        "not-a-date",
+        "2026-13-12T15:04:05Z",
+        "2026-03-12T15:04:05-04",
+        "2026-03-12T15:04:05-04:00[America/New_York]",
+    ];
     for x in valid_timestamps.iter() {
         assert!(is_rfc3339(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid RFC3339/ISO 8601 date-time");
     }
@@ -273,6 +279,10 @@ fn test_format_phone_number() {
 fn test_format_timestamp() {
     let normalized = format_timestamp("2026-03-10T15:37:24.355614500+00:00");
     assert_eq!(normalized, "2026-03-10T15:37:24.355614+00:00");
+    let normalized_zulu = format_timestamp("2023-01-01T12:00:00.123456789Z");
+    assert_eq!(normalized_zulu, "2023-01-01T12:00:00.123456+00:00");
+    let normalized_offset = format_timestamp("2026-03-10T15:37:24.5-04:30");
+    assert_eq!(normalized_offset, "2026-03-10T15:37:24.500000-04:30");
     let passthrough = format_timestamp("not-a-date");
     assert_eq!(passthrough, "not-a-date");
 }

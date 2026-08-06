@@ -9,6 +9,7 @@ use acorn::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use acorn::util::{suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
+use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use tracing::error;
 
@@ -142,7 +143,7 @@ fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<P
     let database = Database::<Table>::from_path(database_path.clone());
     let activity = ActivityRow::init()
         .command(command)
-        .executed_at(chrono::Utc::now())
+        .executed_at(Timestamp::now())
         .user_path(path)
         .success(success)
         .build();

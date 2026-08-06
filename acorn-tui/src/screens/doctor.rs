@@ -3,6 +3,7 @@ use crate::event::{to_internal_event, Event};
 use crate::export;
 use crate::Screen;
 use crossterm::event;
+use jiff::Timestamp;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -284,7 +285,7 @@ pub fn handle_event(app: &mut App, evt: event::Event) {
         }
         | Event::Export => {
             if let Some(ref data) = app.doctor.data {
-                let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+                let timestamp = Timestamp::now().strftime("%Y%m%d_%H%M%S");
                 let filename = format!("acorn_doctor_report_{timestamp}.json");
                 match export::export_doctor_report(data, Some(std::path::Path::new(&filename))) {
                     | Ok(path) => {

@@ -1,5 +1,6 @@
 use crate::app::DoctorData;
-use chrono::Utc;
+use acorn::util::to_rfc3339;
+use jiff::Timestamp;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -19,7 +20,7 @@ pub fn export_doctor_report(data: &DoctorData, path: Option<&Path>) -> Result<St
 fn build_doctor_json(data: &DoctorData) -> Value {
     let mut map = serde_json::Map::new();
     map.insert("report_type".into(), json!("doctor"));
-    map.insert("timestamp".into(), json!(Utc::now().to_rfc3339()));
+    map.insert("timestamp".into(), json!(to_rfc3339(Timestamp::now())));
     if let Some(ref sys) = data.system {
         map.insert(
             "system".into(),

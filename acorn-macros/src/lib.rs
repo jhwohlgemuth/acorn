@@ -210,8 +210,8 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             let ident = field.ident.as_ref().unwrap();
             if is_option_bool(&field.ty) {
                 quote! { #ident => |value| i32::from(value), }
-            } else if is_option_datetime(&field.ty) {
-                quote! { #ident => |value| value.to_rfc3339(), }
+            } else if is_option_timestamp(&field.ty) {
+                quote! { #ident => crate::util::to_rfc3339, }
             } else {
                 quote! { #ident, }
             }
@@ -266,7 +266,7 @@ fn is_option_bool(ty: &syn::Type) -> bool {
         | _ => false,
     }
 }
-fn is_option_datetime(ty: &syn::Type) -> bool {
+fn is_option_timestamp(ty: &syn::Type) -> bool {
     match ty {
         | syn::Type::Path(type_path) => type_path
             .path
@@ -281,7 +281,7 @@ fn is_option_datetime(ty: &syn::Type) -> bool {
                 | syn::GenericArgument::Type(syn::Type::Path(inner_path)) => inner_path.path.segments.last(),
                 | _ => None,
             })
-            .is_some_and(|segment| segment.ident == "DateTime"),
+            .is_some_and(|segment| segment.ident == "Timestamp"),
         | _ => false,
     }
 }
@@ -385,11 +385,11 @@ mod tests {
         assert!(!is_option_bool(&string_ty));
     }
     #[test]
-    fn test_option_datetime_detection() {
-        let datetime_ty: Type = parse_quote!(Option<DateTime<Utc>>);
+    fn test_option_timestamp_detection() {
+        let timestamp_ty: Type = parse_quote!(Option<Timestamp>);
         let string_ty: Type = parse_quote!(Option<String>);
-        assert!(is_option_datetime(&datetime_ty));
-        assert!(!is_option_datetime(&string_ty));
+        assert!(is_option_timestamp(&timestamp_ty));
+        assert!(!is_option_timestamp(&string_ty));
     }
     #[test]
     fn test_expand_database_row_generates_expected_tokens() {
@@ -398,7 +398,7 @@ mod tests {
             struct ActivityRow {
                 id: Option<i64>,
                 command: Option<String>,
-                executed_at: Option<DateTime<Utc>>,
+                executed_at: Option<Timestamp>,
                 success: Option<bool>,
             }
         };
@@ -409,7 +409,7 @@ mod tests {
         assert!(tokens.contains("executed_at DESC"));
         assert!(tokens.contains("pub const FIELDS"));
         assert!(tokens.contains("\"id\"") && tokens.contains("\"command\"") && tokens.contains("\"executed_at\"") && tokens.contains("\"success\""));
-        assert!(tokens.contains("executed_at => | value | value . to_rfc3339 ()"));
+        assert!(tokens.contains("executed_at => crate :: util :: to_rfc3339"));
         assert!(tokens.contains("success => | value | i32 :: from (value)"));
     }
     #[test]

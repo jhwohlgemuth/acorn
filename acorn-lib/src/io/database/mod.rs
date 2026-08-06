@@ -8,13 +8,13 @@ use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, Mutex, OnceLock, PathBuf};
 use crate::util::constants::app::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ORGANIZATION, QUALIFIER};
 use crate::util::constants::env::{CACHE_TTL, DATABASE_PATH};
-use crate::util::Label;
+use crate::util::{to_rfc3339, Label};
 use async_trait::async_trait;
 use backend::{params, BackendRow, Connection, Params};
-use chrono::{Duration, Utc};
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use directories::ProjectDirs;
+use jiff::{SignedDuration, Timestamp};
 use tracing::{debug, info};
 
 pub mod backend;
@@ -213,22 +213,22 @@ where
             })
     }
     /// Get the cache TTL value from environment or use default.
-    pub fn cache_ttl(&self) -> Duration {
+    pub fn cache_ttl(&self) -> SignedDuration {
         #[cfg(feature = "std")]
         {
             if let Ok(env_ttl) = dotenvy::var(CACHE_TTL) {
                 if let Ok(seconds) = env_ttl.parse::<i64>() {
                     if seconds > 0 {
-                        return Duration::seconds(seconds);
+                        return SignedDuration::from_secs(seconds);
                     }
                 }
             }
         }
-        let default_ttl = Duration::seconds(DEFAULT_CACHE_TTL_SECONDS as i64);
+        let default_ttl = i64::try_from(DEFAULT_CACHE_TTL_SECONDS).map_or(SignedDuration::MAX, SignedDuration::from_secs);
         if let Ok(env_ttl) = env::var(CACHE_TTL) {
             if let Ok(seconds) = env_ttl.parse::<i64>() {
                 if seconds > 0 {
-                    return Duration::seconds(seconds);
+                    return SignedDuration::from_secs(seconds);
                 }
             }
         }
@@ -303,9 +303,8 @@ where
     /// Clean up expired link cache entries and trim validation history.
     pub fn cleanup_expired_cache(&self) -> ApiResult<usize> {
         let ttl = self.cache_ttl();
-        let now = Utc::now();
-        #[allow(clippy::arithmetic_side_effects)]
-        let cutoff = (now - ttl).to_rfc3339();
+        let now = Timestamp::now();
+        let cutoff = to_rfc3339(now.checked_sub(ttl).unwrap_or(now));
         self.delete_expired_before(Table::LinkCache, "expires_at", &cutoff)
             .and_then(|link_count| {
                 self.trim_to_recent(Table::ValidationHistory, "id", "checked_at", 1000).map(|_| {

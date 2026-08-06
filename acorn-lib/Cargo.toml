@@ -32,7 +32,7 @@ async-trait = { workspace = true }
 axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
-chrono = { workspace = true }
+jiff = { workspace = true }
 color-eyre = { workspace = true }
 comfy-table = { version = "7.1.4", default-features = false, optional = true }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
@@ -123,7 +123,7 @@ harness = false
 
 [features]
 core = []
-alloc = ["core", "serde/std"]
+alloc = ["core", "serde/std", "jiff/alloc"]
 wasm = ["alloc"]
 unicode = ["console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
@@ -136,8 +136,7 @@ powerpoint = ["std"]
 std = [
   "alloc",
   "dep:ammonia",
-  "chrono/std",
-  "chrono/clock",
+  "jiff/std",
   "dep:axum",
   "dep:comfy-table",
   "dep:directories",

@@ -11,9 +11,9 @@ use crate::io::command_exists;
 use crate::io::database::{schema::Table, Database, Operations};
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, write, CommandOutput, PathBuf};
-use chrono::Utc;
 use core::time::Duration;
 use data_encoding::BASE64;
+use jiff::Timestamp;
 use ring::hmac as ring_hmac;
 use std::env::temp_dir as system_temp_dir;
 use std::time::SystemTime;
@@ -30,11 +30,11 @@ pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, web
 }
 /// Returns the current UTC time as a Unix timestamp string.
 pub(crate) fn current_unix_timestamp() -> String {
-    Utc::now().timestamp().to_string()
+    Timestamp::now().as_second().to_string()
 }
 /// Returns a Unix timestamp string that is `stale_by_secs` seconds in the past.
 pub(crate) fn stale_unix_timestamp(stale_by_secs: u64) -> String {
-    (Utc::now().timestamp() - stale_by_secs as i64).to_string()
+    (Timestamp::now().as_second() - stale_by_secs as i64).to_string()
 }
 /// Get path to test fixtures relative to workspace root
 pub fn fixture_path(path: &str) -> PathBuf {
@@ -86,7 +86,7 @@ pub(crate) fn temp_dir(name: &str) -> PathBuf {
 }
 /// Build a unique path under `target/test_artifacts`.
 pub(crate) fn unique_path(name: &str, extension: &str) -> PathBuf {
-    let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or_default();
+    let timestamp = Timestamp::now().as_nanosecond();
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("target")

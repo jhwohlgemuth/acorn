@@ -7,6 +7,10 @@
 ### 🚧 In Progress
 
 - ISBN data modeling - ([9e2f243](https://code.ornl.gov/research-enablement/acorn/commit/9e2f2435dc4fd66788b50cc830d3f46c1af43dde))
+
+### Changed
+
+- Replace direct Chrono usage with Jiff; public database timestamp fields now use `jiff::Timestamp`, and queue and cache intervals use `jiff::SignedDuration`.
 ## [0.1.49](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.48..v0.1.49) - 2025-12-24
 
 ### 🐛 Bug Fixes
@@ -1246,4 +1250,3 @@
 ### 🤓 Developer Experience
 
 - Add vscode settings - ([8eea7dc](https://code.ornl.gov/research-enablement/acorn/commit/8eea7dc8064acb6b50664efee8c63ace24c2102a))
-

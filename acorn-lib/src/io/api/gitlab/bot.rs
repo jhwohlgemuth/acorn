@@ -63,6 +63,7 @@ use axum::{Extension, Json, Router};
 use bon::Builder;
 use color_eyre::eyre::{eyre, WrapErr};
 use core::{fmt, net::SocketAddr, time::Duration};
+use jiff::SignedDuration;
 use serde::Serialize;
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -622,7 +623,7 @@ impl Server {
     /// Claim and process one durable webhook operation
     pub async fn process_next(&self) -> ApiResult<bool> {
         let Server { config, .. } = self;
-        match config.operation_queue.claim_next(chrono::Duration::minutes(5)) {
+        match config.operation_queue.claim_next(SignedDuration::from_mins(5)) {
             | Ok(Some(operation)) => {
                 let result = match serde_json::from_str::<WebhookDelivery>(&operation.event_json) {
                     | Ok(delivery) => match delivery.process(config).await {

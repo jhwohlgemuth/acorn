@@ -36,6 +36,7 @@ use core::iter::successors;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
+use jiff::{tz::Offset, Timestamp};
 use jsonc_parser::{parse_to_serde_value, ParseOptions};
 #[cfg(feature = "std")]
 use nanoid::nanoid;
@@ -58,6 +59,10 @@ pub mod macros;
 
 use constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 
+/// Format a timestamp as RFC 3339 with an explicit UTC offset.
+pub fn to_rfc3339(value: Timestamp) -> String {
+    value.display_with_offset(Offset::UTC).to_string()
+}
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context

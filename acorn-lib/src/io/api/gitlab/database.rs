@@ -4,9 +4,10 @@ use crate::io::database::resolve_database_path;
 use crate::io::ApiResult;
 use crate::prelude::{Mutex, OnceLock, PathBuf};
 use crate::util::constants::app::{MAX_GITLAB_OPERATION_ATTEMPTS, MAX_GITLAB_OPERATION_BACKOFF_SECONDS};
-use chrono::{Duration, Utc};
+use crate::util::to_rfc3339;
 use color_eyre::eyre::eyre;
 use core::fmt;
+use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -137,7 +138,7 @@ impl OperationQueue {
     pub fn enqueue(&self, delivery_id: &str, operation_key: &str, event_json: &str) -> ApiResult<EnqueueStatus> {
         self.migrate().and_then(|_| {
             self.with_transaction(|connection| {
-                let now = Utc::now().to_rfc3339();
+                let now = to_rfc3339(Timestamp::now());
                 connection
                     .execute(
                         "INSERT INTO bot_webhook_deliveries (delivery_id, operation_key, event_json, received_at, deduplicated)
@@ -177,12 +178,12 @@ impl OperationQueue {
         })
     }
     /// Recover stale work and claim the oldest available operation.
-    pub fn claim_next(&self, stale_after: Duration) -> ApiResult<Option<ClaimedOperation>> {
+    pub fn claim_next(&self, stale_after: SignedDuration) -> ApiResult<Option<ClaimedOperation>> {
         self.migrate().and_then(|_| {
             self.with_transaction(|connection| {
-                let now = Utc::now();
-                let stale_before = now.checked_sub_signed(stale_after).unwrap_or(now).to_rfc3339();
-                let now = now.to_rfc3339();
+                let now = Timestamp::now();
+                let stale_before = to_rfc3339(now.checked_sub(stale_after).unwrap_or(now));
+                let now = to_rfc3339(now);
                 connection
                     .execute(
                         "UPDATE bot_operations
@@ -214,7 +215,7 @@ impl OperationQueue {
     }
     /// Mark an operation successful.
     pub fn succeed(&self, operation_key: &str) -> ApiResult<()> {
-        self.update_state(operation_key, OperationState::Succeeded, None, Utc::now())
+        self.update_state(operation_key, OperationState::Succeeded, None, Timestamp::now())
     }
     /// Retain a failure and schedule a bounded retry, or make it terminal after five attempts.
     pub fn fail(&self, operation: &ClaimedOperation, error: &str) -> ApiResult<OperationState> {
@@ -228,7 +229,8 @@ impl OperationQueue {
             .checked_shl(exponent)
             .unwrap_or(MAX_GITLAB_OPERATION_BACKOFF_SECONDS)
             .min(MAX_GITLAB_OPERATION_BACKOFF_SECONDS);
-        let available_at = Utc::now().checked_add_signed(Duration::seconds(backoff)).unwrap_or_else(Utc::now);
+        let now = Timestamp::now();
+        let available_at = now.checked_add(SignedDuration::from_secs(backoff)).unwrap_or(now);
         self.update_state(&operation.operation_key, state, Some(error), available_at)
             .map(|_| state)
     }
@@ -282,16 +284,16 @@ impl OperationQueue {
             })
         })
     }
-    fn update_state(&self, operation_key: &str, state: OperationState, error: Option<&str>, available_at: chrono::DateTime<Utc>) -> ApiResult<()> {
+    fn update_state(&self, operation_key: &str, state: OperationState, error: Option<&str>, available_at: Timestamp) -> ApiResult<()> {
         self.migrate().and_then(|_| {
             self.with_connection(|connection| {
-                let now = Utc::now().to_rfc3339();
+                let now = to_rfc3339(Timestamp::now());
                 connection
                     .execute(
                         "UPDATE bot_operations
                          SET state = ?, available_at = ?, claimed_at = NULL, last_error = ?, updated_at = ?
                          WHERE operation_key = ?",
-                        params![state.to_string(), available_at.to_rfc3339(), error, now, operation_key],
+                        params![state.to_string(), to_rfc3339(available_at), error, now, operation_key],
                     )
                     .map_err(|why| eyre!("Failed to update bot operation — {why}"))
                     .and_then(|updated| {
@@ -397,7 +399,7 @@ mod tests {
     fn claims_retries_and_retains_terminal_failure() {
         let queue = queue();
         queue.enqueue("delivery-1", "work-item-check:1:2:3", "{}").unwrap();
-        let mut operation = queue.claim_next(Duration::minutes(5)).unwrap().unwrap();
+        let mut operation = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
         assert_eq!(operation.attempts, 1);
         for expected_attempt in 1..=MAX_GITLAB_OPERATION_ATTEMPTS {
             operation.attempts = expected_attempt;
@@ -410,7 +412,7 @@ mod tests {
                             .execute(
                                 "UPDATE bot_operations SET available_at = ? WHERE operation_key = ?",
                                 params![
-                                    Utc::now().checked_sub_signed(Duration::seconds(1)).unwrap().to_rfc3339(),
+                                    to_rfc3339(Timestamp::now().checked_sub(SignedDuration::from_secs(1)).unwrap()),
                                     operation.operation_key
                                 ],
                             )
@@ -418,7 +420,7 @@ mod tests {
                             .map_err(|why| eyre!("{why}"))
                     })
                     .unwrap();
-                operation = queue.claim_next(Duration::minutes(5)).unwrap().unwrap();
+                operation = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
             } else {
                 assert_eq!(state, OperationState::TerminalFailure);
             }
@@ -431,14 +433,14 @@ mod tests {
     fn stale_running_operation_is_recovered_after_restart() {
         let queue = queue();
         queue.enqueue("delivery-1", "mr-check:1:2:abc", "{}").unwrap();
-        let claimed = queue.claim_next(Duration::minutes(5)).unwrap().unwrap();
+        let claimed = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
         queue
             .with_connection(|connection| {
                 connection
                     .execute(
                         "UPDATE bot_operations SET claimed_at = ? WHERE operation_key = ?",
                         params![
-                            Utc::now().checked_sub_signed(Duration::minutes(10)).unwrap().to_rfc3339(),
+                            to_rfc3339(Timestamp::now().checked_sub(SignedDuration::from_mins(10)).unwrap()),
                             claimed.operation_key
                         ],
                     )
@@ -447,7 +449,7 @@ mod tests {
             })
             .unwrap();
         let restarted = OperationQueue::from_path(queue.path.clone().unwrap());
-        assert_eq!(restarted.claim_next(Duration::minutes(5)).unwrap().unwrap().attempts, 2);
+        assert_eq!(restarted.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap().attempts, 2);
     }
 
     #[test]

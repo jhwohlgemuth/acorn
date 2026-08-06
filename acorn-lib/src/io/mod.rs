@@ -34,7 +34,6 @@ use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHO
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
 use crate::{args, cmd, Location};
-use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::fmt;
 use core::pin::Pin;
@@ -48,6 +47,7 @@ use futures::Future;
 use glob::glob;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
+use jiff::Timestamp;
 use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
 use lazy_static::lazy_static;
 use nanoid::nanoid;
@@ -765,7 +765,7 @@ pub fn create_rsa_keypair() -> ApiResult<RsaKeyPair> {
 /// assert!(date.contains("-"));
 /// ```
 pub fn current_date() -> String {
-    Utc::now().format("%Y-%m-%d").to_string()
+    Timestamp::now().strftime("%Y-%m-%d").to_string()
 }
 /// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
 ///
@@ -773,7 +773,7 @@ pub fn current_date() -> String {
 ///
 /// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
 pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
-    let now = Utc::now().timestamp();
+    let now = Timestamp::now().as_second();
     if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
         Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
     } else {

@@ -1,13 +1,13 @@
 //! Tests for Display implementations of database row structs
 use crate::io::database::schema::*;
-use chrono::Utc;
+use jiff::Timestamp;
 
 #[test]
 fn test_activity_row_display() {
     let row = ActivityRow {
         id: Some(1),
         command: Some("check".to_string()),
-        executed_at: Some(Utc::now()),
+        executed_at: Some(Timestamp::now()),
         user_path: Some("/path/to/file".to_string()),
         success: Some(true),
     };
@@ -25,7 +25,7 @@ fn test_catalog_row_display() {
         bucket_url: Some("https://example.com/bucket".to_string()),
         identifier: Some("test-identifier".to_string()),
         title: Some("Test Title".to_string()),
-        updated_at: Some(Utc::now()),
+        updated_at: Some(Timestamp::now()),
     };
     let display = format!("{}", row);
     assert!(display.contains("CatalogRow"));
@@ -41,8 +41,8 @@ fn test_link_cache_row_display() {
         url: Some("https://example.com".to_string()),
         status_code: Some(200),
         is_reachable: Some(true),
-        checked_at: Some(Utc::now()),
-        expires_at: Some(Utc::now()),
+        checked_at: Some(Timestamp::now()),
+        expires_at: Some(Timestamp::now()),
     };
     let display = format!("{}", row);
     assert!(display.contains("LinkCacheRow"));
@@ -75,7 +75,7 @@ fn test_research_activity_cache_row_display() {
         identifier: Some("test-id".to_string()),
         source_bucket: Some("test-bucket".to_string()),
         title: Some("Test Activity".to_string()),
-        downloaded_at: Some(Utc::now()),
+        downloaded_at: Some(Timestamp::now()),
         file_path: Some("/path/to/activity.json".to_string()),
     };
     let display = format!("{}", row);
@@ -93,7 +93,7 @@ fn test_validation_row_display() {
         check_type: Some("schema".to_string()),
         success: Some(true),
         message: Some("Validation passed".to_string()),
-        checked_at: Some(Utc::now()),
+        checked_at: Some(Timestamp::now()),
     };
     let display = format!("{}", row);
     assert!(display.contains("ValidationRow"));

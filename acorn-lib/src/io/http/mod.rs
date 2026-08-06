@@ -6,9 +6,9 @@ use crate::util::Label;
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, RANGE, USER_AGENT};
 use axum::http::HeaderMap;
-use chrono::Utc;
 use color_eyre::eyre::eyre;
 use core::fmt;
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
@@ -241,7 +241,7 @@ async fn stream_request_with_policy(
     let max_attempts = policy.max_attempts();
     let mut outcome = None;
     for attempt in 1..=max_attempts {
-        let started = Utc::now();
+        let started = Timestamp::now();
         let attempt_resume_from = resume_from.and_then(|_| output.metadata().ok().map(|metadata| metadata.len()).filter(|size| *size > 0));
         let result = stream_request_once(
             client.clone(),
@@ -253,8 +253,7 @@ async fn stream_request_with_policy(
             auth_error_message,
         )
         .await;
-        #[allow(clippy::arithmetic_side_effects)]
-        let elapsed_ms = (Utc::now() - started).num_milliseconds();
+        let elapsed_ms = Timestamp::now().duration_since(started).as_millis();
         match result {
             | Ok(()) => {
                 debug!(attempt, elapsed_ms, url, "=> {} HTTP download", Label::using());
@@ -348,10 +347,9 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
     let url = request.url.clone();
     let max_attempts = policy.max_attempts();
     for attempt in 1..=max_attempts {
-        let started = Utc::now();
+        let started = Timestamp::now();
         let result = execute_with_timeout(client.clone(), request.clone()).await;
-        #[allow(clippy::arithmetic_side_effects)]
-        let elapsed_ms = (Utc::now() - started).num_milliseconds();
+        let elapsed_ms = Timestamp::now().duration_since(started).as_millis();
         match result {
             | Ok(response) => {
                 let retry = should_retry(&method, Some(response.status_code));

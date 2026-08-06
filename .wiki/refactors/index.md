@@ -20,7 +20,3 @@
 - [Analyzer](analyzer/) - Composable analysis and validation abstractions.
 - [API](api/) - Shared API-client contracts and reusable provider utilities.
 - [acorn-cmd extraction](acorn-cmd-extraction.md) - Extract command macros and runtime helpers into a standalone crate.
-
-## Completed
-
-No retained plans are currently complete.

@@ -1783,7 +1783,7 @@ fn test_hf_token_not_persisted_in_activity_rows() {
         let columns = [
             row.command.unwrap_or_default(),
             row.user_path.unwrap_or_default(),
-            row.executed_at.map(|value| value.to_rfc3339()).unwrap_or_default(),
+            row.executed_at.map(|value| value.to_string()).unwrap_or_default(),
             row.success.map(|value| value.to_string()).unwrap_or_default(),
         ];
         assert!(columns.iter().all(|value| !value.contains(token)));

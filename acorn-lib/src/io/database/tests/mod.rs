@@ -13,6 +13,7 @@ use crate::io::database::schema::{
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::prelude::PathBuf;
 use crate::util::constants::env::DATABASE_PATH;
+use jiff::Timestamp;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";
@@ -30,6 +31,7 @@ fn test_activity_insert_round_trip_with_database_handle() {
     database.migrate().unwrap();
     let activity = ActivityRow::init()
         .command("download")
+        .executed_at("2026-03-10T15:37:24.123456Z".parse::<Timestamp>().unwrap())
         .user_path("target/test_artifacts")
         .success(true)
         .build();
@@ -44,6 +46,14 @@ fn test_activity_insert_round_trip_with_database_handle() {
     let rows = rows.unwrap();
     assert!(!rows.is_empty());
     assert_eq!(rows[0].command.as_deref(), Some("download"));
+    let stored = database
+        .with_connection(|connection| {
+            connection
+                .query_row("SELECT executed_at FROM activity", params![], |row| row.get::<_, String>(0))
+                .map_err(|why| color_eyre::eyre::eyre!("{why}"))
+        })
+        .unwrap();
+    assert_eq!(stored, "2026-03-10T15:37:24.123456+00:00");
 }
 #[test]
 fn test_model_weights_update_round_trip() {
