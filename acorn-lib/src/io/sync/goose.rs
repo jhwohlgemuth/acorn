@@ -1,8 +1,23 @@
 //! Goose CLI YAML synchronization configuration types
 use super::{Options, RenderedOutput, SyncTarget};
+<<<<<<< Updated upstream
 use crate::io::{read_file, ApiResult};
+||||||| Stash base
+use crate::io::{home_directory, read_file, ApiResult};
+=======
+#[cfg(not(target_os = "windows"))]
+use crate::io::home_directory;
+use crate::io::{read_file, ApiResult};
+>>>>>>> Stashed changes
 use crate::prelude::PathBuf;
 use crate::schema::agent::ModelDetails;
+<<<<<<< Updated upstream
+||||||| Stash base
+use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
+=======
+#[cfg(not(target_os = "windows"))]
+use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
+>>>>>>> Stashed changes
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
 use alloc::string::{String, ToString};
