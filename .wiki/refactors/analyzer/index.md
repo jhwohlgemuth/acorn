@@ -1,5 +1,7 @@
 # Analyzer Refactor Plans
 
+These plans prepare the pure analysis boundary defined by the [crate boundary architecture](../crate-boundary-architecture.md).
+
 ## Recommended first
 
 - [Check batch monoid](check-batch-monoid.md) - Reduce repeated asynchronous collection assembly.

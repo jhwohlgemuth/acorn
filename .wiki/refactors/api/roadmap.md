@@ -31,3 +31,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 # Acceptance criteria
 
 Shared mechanics live at the API root and provider modules retain only provider-specific policy and data shapes.
+
+# Related plans
+
+- [Crate boundary architecture](../crate-boundary-architecture.md)

@@ -48,6 +48,7 @@ Prioritize reliability, security, and correctness impact first, then difficulty 
 
 # Related plans
 
+- [Crate boundary architecture](crate-boundary-architecture.md)
 - [Core refactors](core/)
 - [Portability](portability/)
 - [Analyzer refactors](analyzer/)

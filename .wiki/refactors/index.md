@@ -14,6 +14,7 @@
 
 ## Planned
 
+- [Crate boundary architecture](crate-boundary-architecture.md) - Split acorn-lib into portable domain crates, capability adapters, services, and a compatibility facade.
 - [GitLab claimed-operation capabilities](api/gitlab-claimed-operation-capabilities.md) - Consume queue claims through guarded single-settlement transitions.
 - [Core refactors](core/) - Export, CLI, schema, path, interpolation, and binding boundaries.
 - [Portability](portability/) - no-std and WASM capability work.

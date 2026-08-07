@@ -34,6 +34,7 @@ Check the default, no-default, alloc, std, and WASM target configurations indepe
 
 # Related plans
 
+- [Crate boundary architecture](../crate-boundary-architecture.md)
 - [Isolate std-only modules](isolate-std-only-modules.md)
 - [Host abstraction traits](host-abstraction-traits.md)
 - [WASM feature path](wasm-feature-path.md)

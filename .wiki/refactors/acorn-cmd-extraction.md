@@ -35,3 +35,7 @@ Extract `cmd!`, `args!`, and `cmd_sh_words!` into a standalone `acorn-cmd` crate
 # Acceptance criteria
 
 The extracted crate passes the existing macro and runtime-helper coverage, and `acorn-lib` consumers retain compatible imports during migration.
+
+# Related plans
+
+- [Crate boundary architecture](crate-boundary-architecture.md)
