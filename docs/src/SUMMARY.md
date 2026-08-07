@@ -22,6 +22,7 @@
     - [download](./cli-reference/commands/download.md)
     - [export](./cli-reference/commands/export.md)
     - [format](./cli-reference/commands/format.md)
+    - [gather](./cli-reference/commands/gather.md)
     - [import](./cli-reference/commands/import.md)
     - [link](./cli-reference/commands/link.md)
     - [sync](./cli-reference/commands/sync.md)

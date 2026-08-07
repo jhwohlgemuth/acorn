@@ -705,7 +705,7 @@ pub(crate) fn run_gguf_picker(candidates: huggingface::Candidates, options: &hug
             base_model: options.identifier.clone().unwrap_or_default(),
             result: None,
         });
-        acorn_tui::run_tui_with(acorn_tui::Screen::GgufPicker, Some(state))?.ok_or_else(|| eyre!("GGUF repository selection cancelled"))
+        acorn_tui::run_with(acorn_tui::Screen::GgufPicker, Some(state))?.ok_or_else(|| eyre!("GGUF repository selection cancelled"))
     }
 }
 #[cfg(test)]

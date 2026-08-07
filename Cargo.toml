@@ -51,6 +51,7 @@ unsafe_code = "forbid"
 broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
+anydoc = { version = "0.1.6", default-features = false }
 async-trait = { version = "0.1.86", default-features = false }
 axum = { version = "0.8.9", default-features = false }
 jiff = { version = "0.2", features = ["serde"], default-features = false }
@@ -62,7 +63,6 @@ derive_more = { version = "2.1.1", features = [
 ], default-features = false }
 directories = { version = "6.0.0", default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
-docx-rs = { version = "0.4.22", default-features = false }
 duckdb = { version = "1.10502.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }

@@ -8,6 +8,7 @@
 
 ## Additional plans
 
+- [Website and resolution checks](link-resolution-checks.md) - Route URL reachability and PID resolution through one link-analysis contract.
 - [Summary monoid](summary-monoid.md) - Fold checks into one additive summary.
 - [Vale configuration normalization](vale-config-normalization.md) - Compose configuration transformations.
 - [Applicative validation](applicative-validation.md) - Accumulate independent failures.

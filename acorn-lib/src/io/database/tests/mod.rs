@@ -18,7 +18,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";
 
-mod display_tests;
+mod discovery;
+mod display;
 
 #[test]
 fn test_activity_insert_round_trip_with_database_handle() {

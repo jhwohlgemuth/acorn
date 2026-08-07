@@ -43,6 +43,13 @@ fn test_normalize_discovery_url_preserves_case_sensitive_components() {
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
 }
 #[test]
+fn test_pid_from_str() {
+    assert_eq!(PID::from("doi"), PID::DOI);
+    assert_eq!(PID::from("ORCID"), PID::ORCID);
+    assert_eq!(PID::from(" pidinst "), PID::PIDINST);
+    assert_eq!(PID::from("unsupported"), PID::Unknown);
+}
+#[test]
 fn test_identifier_normalize_uses_declared_kind() {
     let doi = Identifier {
         kind: PID::DOI,

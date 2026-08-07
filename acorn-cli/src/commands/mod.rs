@@ -1,6 +1,7 @@
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
+use acorn::analyzer::discovery;
 use acorn::fail;
 use acorn::util::Label;
 use color_eyre::eyre;
@@ -308,15 +309,37 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
         }),
         | Some(Commands::Gather(arguments)) => with_runtime(async {
             let arguments::Gather {
-                path,
                 filter,
+                format,
                 ignore,
+                input,
+                max_depth,
                 merge_request,
+                output,
+                resolve,
+                standard,
+                text,
                 verbose,
                 ..
             } = arguments.as_ref();
             initialize_database(config).await?;
-            gather::run(path, filter, ignore, merge_request, &config.database_path, verbose, offline).await
+            gather::run(discovery::Options {
+                database_path: &config.database_path,
+                filter,
+                format: format.into(),
+                ignore,
+                input,
+                max_depth: *max_depth,
+                merge_request: *merge_request,
+                no_local_database: config.no_local_database,
+                offline,
+                output,
+                resolve: *resolve,
+                standard,
+                text,
+                quiet: verbose.is_silent(),
+            })
+            .await
         }),
         | Some(Commands::Link(arguments)) => with_runtime(async {
             let arguments::Link {
@@ -401,13 +424,28 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run().await }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
-        | Some(Commands::Tui) => tui::run(),
+        | Some(Commands::Tui) => {
+            with_runtime(async { initialize_database(config).await }).and_then(|_| tui::run(&config.database_path, config.no_local_database, offline))
+        }
         | None if args.interactive => {
             #[cfg(feature = "tui")]
-            return acorn_tui::run_tui(acorn_tui::Screen::Dashboard);
+            {
+                with_runtime(async { initialize_database(config).await }).and_then(|_| {
+                    acorn_tui::run_with_options(
+                        acorn_tui::Screen::Dashboard,
+                        None,
+                        acorn_tui::TuiOptions {
+                            database_path: config.database_path.clone(),
+                            no_local_database: config.no_local_database,
+                            offline,
+                        },
+                    )
+                    .map(|_| ())
+                })
+            }
             #[cfg(not(feature = "tui"))]
             {
-                return Err(eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"));
+                Err(eyre::eyre!("TUI feature not enabled. Build with: cargo build --features tui"))
             }
         }
         | None => {

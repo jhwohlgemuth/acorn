@@ -123,13 +123,6 @@ pub trait RepositoryFileMetadata {
     /// Return the reported file size when available
     fn size(&self) -> Option<u64>;
 }
-/// Generic API response containing a single identifier
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct Identifier<T> {
-    /// Provider-specific identifier
-    #[serde(rename = "id", alias = "iid")]
-    pub identifier: T,
-}
 /// Trait for types that can serve as a fallback error response parser
 ///
 /// When `handle_or` fails to parse the primary response type, it calls
@@ -259,28 +252,6 @@ pub enum ResponseContent {
     /// XML response content
     Xml(String),
 }
-/// Generic repository tree entry shared across provider APIs
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct TreeEntry {
-    /// Repository-relative path
-    pub path: String,
-    /// Entry type normalized across provider naming
-    #[serde(rename = "type")]
-    pub entry_type: TreeEntryType,
-    /// File size in bytes, when provided
-    pub size: Option<u64>,
-    /// Provider-specific identifier, when provided
-    pub id: Option<String>,
-    /// Entry basename, when provided
-    pub name: Option<String>,
-    /// File mode, when provided
-    pub mode: Option<String>,
-    /// Git object SHA, when provided
-    pub sha: Option<String>,
-    /// Provider URL, when provided
-    pub url: Option<String>,
-}
 /// Type for repository tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
@@ -293,20 +264,6 @@ pub enum TreeEntryType {
     #[serde(alias = "tree")]
     #[display("directory")]
     Directory,
-}
-impl TreeEntry {
-    /// Whether this tree entry is a file
-    pub fn is_file(&self) -> bool {
-        self.entry_type == TreeEntryType::File
-    }
-    /// Whether this tree entry is a directory
-    pub fn is_directory(&self) -> bool {
-        self.entry_type == TreeEntryType::Directory
-    }
-    /// Consume the entry and return its repository-relative path
-    pub fn path(self) -> String {
-        self.path
-    }
 }
 /// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
 /// error response parser
@@ -360,6 +317,13 @@ pub struct Endpoint {
     /// Resource data for generating full paths for the API endpoint using templates
     #[builder(default = vec![])]
     pub resources: Vec<Resource>,
+}
+/// Generic API response containing a single identifier
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Identifier<T> {
+    /// Provider-specific identifier
+    #[serde(rename = "id", alias = "iid")]
+    pub identifier: T,
 }
 /// Describes a parameter (path, query, header, etc.) for an API resource
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
@@ -420,6 +384,28 @@ pub struct Resource {
 pub struct TextResponse {
     /// The raw text content from the response
     pub content: String,
+}
+/// Generic repository tree entry shared across provider APIs
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TreeEntry {
+    /// Repository-relative path
+    pub path: String,
+    /// Entry type normalized across provider naming
+    #[serde(rename = "type")]
+    pub entry_type: TreeEntryType,
+    /// File size in bytes, when provided
+    pub size: Option<u64>,
+    /// Provider-specific identifier, when provided
+    pub id: Option<String>,
+    /// Entry basename, when provided
+    pub name: Option<String>,
+    /// File mode, when provided
+    pub mode: Option<String>,
+    /// Git object SHA, when provided
+    pub sha: Option<String>,
+    /// Provider URL, when provided
+    pub url: Option<String>,
 }
 impl Endpoint {
     /// Create an endpoint from explicit domain, scheme, and port parts.
@@ -970,7 +956,20 @@ impl ValueValidator for EmptyField {
         true
     }
 }
-
+impl TreeEntry {
+    /// Whether this tree entry is a file
+    pub fn is_file(&self) -> bool {
+        self.entry_type == TreeEntryType::File
+    }
+    /// Whether this tree entry is a directory
+    pub fn is_directory(&self) -> bool {
+        self.entry_type == TreeEntryType::Directory
+    }
+    /// Consume the entry and return its repository-relative path
+    pub fn path(self) -> String {
+        self.path
+    }
+}
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
     fn extract_key(expression: &str) -> Option<String> {
         let trimmed = expression.trim().trim_matches('-');

@@ -9,24 +9,6 @@ use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use core::iter::once;
 use strum::IntoEnumIterator;
 
-/// Paths assigned to one analysis standard.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StandardPaths {
-    /// Standard selected for these paths.
-    pub standard: Standard,
-    /// Paths analyzed with the standard.
-    pub paths: Vec<PathBuf>,
-}
-
-/// Checks returned for one category.
-#[derive(Clone, Debug)]
-pub struct CategoryChecks {
-    /// Category that produced the checks.
-    pub category: CheckCategory,
-    /// Structured check results.
-    pub checks: Vec<Check>,
-}
-
 /// Results for one standard-specific group of paths.
 #[derive(Clone, Debug)]
 pub struct AnalysisBatch {
@@ -37,7 +19,6 @@ pub struct AnalysisBatch {
     /// Results retained by category.
     pub categories: Vec<CategoryChecks>,
 }
-
 /// Complete structured analysis result.
 #[derive(Clone, Debug)]
 pub struct AnalysisReport {
@@ -45,6 +26,22 @@ pub struct AnalysisReport {
     pub skipped_categories: Vec<CheckCategory>,
     /// Standard-specific result batches.
     pub batches: Vec<AnalysisBatch>,
+}
+/// Checks returned for one category.
+#[derive(Clone, Debug)]
+pub struct CategoryChecks {
+    /// Category that produced the checks.
+    pub category: CheckCategory,
+    /// Structured check results.
+    pub checks: Vec<Check>,
+}
+/// Paths assigned to one analysis standard.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StandardPaths {
+    /// Standard selected for these paths.
+    pub standard: Standard,
+    /// Paths analyzed with the standard.
+    pub paths: Vec<PathBuf>,
 }
 impl AnalysisReport {
     /// Flatten all structured checks without printing or exiting.
@@ -56,32 +53,17 @@ impl AnalysisReport {
             .collect()
     }
 }
-
-/// Classify paths by explicit standard or by file type for the default RAD mode.
-pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {
-    paths.iter().cloned().fold(Vec::<StandardPaths>::new(), |mut groups, path| {
-        let selected = if standard == Standard::ResearchActivityData {
-            match path.extension().and_then(|value| value.to_str()).map(str::to_ascii_lowercase).as_deref() {
-                | Some("cff") => Standard::CitationFileFormat,
-                | Some("docx") => Standard::Docx,
-                | Some("txt" | "md" | "markdown") => Standard::Text,
-                | _ => Standard::ResearchActivityData,
-            }
-        } else {
-            standard
-        };
-        match groups.iter_mut().find(|group| group.standard == selected) {
-            | Some(group) => group.paths.push(path),
-            | None => groups.push(StandardPaths {
-                standard: selected,
-                paths: vec![path],
-            }),
-        }
-        groups
-    })
+async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
+    let mut results = Vec::with_capacity(categories.len());
+    for category in categories {
+        results.push(CategoryChecks {
+            category: category.clone(),
+            checks: T::check(category.clone(), paths, Some(options)).await,
+        });
+    }
+    results
 }
-
-/// Analyze paths and return structured results without rendering or process-exit behavior.
+/// Analyze paths and return structured results without rendering or process-exit behavior
 pub async fn analyze_paths(paths: &[PathBuf], options: &CheckOptions) -> AnalysisReport {
     let skipped_categories = skipped_categories(options);
     let categories = CheckCategory::iter()
@@ -107,18 +89,29 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &CheckOptions) -> Analysi
     }
     AnalysisReport { skipped_categories, batches }
 }
-
-async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
-    let mut results = Vec::with_capacity(categories.len());
-    for category in categories {
-        results.push(CategoryChecks {
-            category: category.clone(),
-            checks: T::check(category.clone(), paths, Some(options)).await,
-        });
-    }
-    results
+/// Classify paths by explicit standard or by file type for the default RAD mode
+pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {
+    paths.iter().cloned().fold(Vec::<StandardPaths>::new(), |mut groups, path| {
+        let selected = if standard == Standard::ResearchActivityData {
+            match path.extension().and_then(|value| value.to_str()).map(str::to_ascii_lowercase).as_deref() {
+                | Some("cff") => Standard::CitationFileFormat,
+                | Some("docx") => Standard::Docx,
+                | Some("txt" | "md" | "markdown") => Standard::Text,
+                | _ => Standard::ResearchActivityData,
+            }
+        } else {
+            standard
+        };
+        match groups.iter_mut().find(|group| group.standard == selected) {
+            | Some(group) => group.paths.push(path),
+            | None => groups.push(StandardPaths {
+                standard: selected,
+                paths: vec![path],
+            }),
+        }
+        groups
+    })
 }
-
 fn skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
     options
         .skip

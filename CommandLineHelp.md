@@ -56,7 +56,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
 * `format` — Formats research activity data in place (inherently includes some elements of `acorn check`)
-* `gather` — Gather (extract) research activity data
+* `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
@@ -575,19 +575,19 @@ Formats research activity data in place (inherently includes some elements of `a
 
 ## `acorn-cli gather`
 
-Gather (extract) research activity data
+Gather persistent identifiers from documents, URLs, or text
 
-    $> acorn gather /path/to/data/
+    $> acorn gather report.docx --text "doi:10.1234/example"
 
-**Usage:** `acorn-cli gather [OPTIONS] [PATH]`
+Directory inputs are searched recursively. Use `--max-depth 1` to search only direct children.
+
+**Usage:** `acorn-cli gather [OPTIONS] [INPUT]...`
 
 **Command Alias:** `harvest`
 
 ###### **Arguments:**
 
-* `<PATH>` — Path to look for files to process
-
-  Default value: `./`
+* `<INPUT>` — Files, directories, URLs, or PID values; piped standard input is included automatically
 
 ###### **Options:**
 
@@ -601,10 +601,24 @@ Gather (extract) research activity data
    Patterns that contain whitespace or special characters should be enclosed in quotes for most terminals
 
    Example: --ignore "[/]valid.json$"
+* `--max-depth <DEPTH>` — Maximum directory descendant depth to search; direct children have depth 1
 * `-m`, `--merge-request` — Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
-* `-s`, `--standard <STANDARD>` — Metadata standard to validate against
+* `-o`, `--output <PATH>` — Write the structured report to a file instead of stdout
+* `--format <FORMAT>` — Structured report format
 
-  Default value: `rads`
+  Default value: `json`
+
+  Possible values:
+  - `json`:
+    JavaScript Object Notation
+  - `markdown`:
+    GitHub-Flavored Markdown
+  - `yaml`:
+    YAML
+
+* `--resolve` — Resolve supported identifiers through their metadata providers
+* `-s`, `--standard <STANDARD>` — Metadata standard to validate against
+* `--text <TEXT>` — Literal text to inspect; may be repeated
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

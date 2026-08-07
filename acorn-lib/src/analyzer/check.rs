@@ -69,6 +69,10 @@ pub trait Analysis {
     async fn check_quality(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Calculate readability using a given metric
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    /// Check whether values were resolved successfully
+    fn check_resolution(&self) -> Vec<Check> {
+        Vec::new()
+    }
     /// Execute validation checks for a given item
     async fn check_schema(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
     /// Check if URLs links are valid and readable

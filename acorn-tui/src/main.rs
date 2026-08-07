@@ -1,6 +1,6 @@
-use acorn_tui::{run_tui, Screen};
+use acorn_tui::{run, Screen};
 
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
-    run_tui(Screen::Dashboard)
+    run(Screen::Dashboard)
 }

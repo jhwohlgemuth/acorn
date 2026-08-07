@@ -71,7 +71,7 @@ pub mod bagit;
 pub mod chart;
 pub mod config;
 pub mod database;
-pub mod docx;
+pub mod document;
 pub mod download;
 pub mod http;
 #[cfg(feature = "agentic")]
@@ -953,43 +953,58 @@ where
 /// # Returns
 /// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
 pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+    files_all_with_max_depth(path, extensions, None)
+}
+/// Returns matching directory entries up to an optional descendant depth.
+///
+/// Direct children have depth 1. A depth of 0 returns no descendants. A single-file input is returned regardless of depth.
+pub fn files_all_with_max_depth(path: PathBuf, extensions: Option<Vec<&str>>, max_depth: Option<usize>) -> Vec<PathBuf> {
     let path = uri_to_path(path);
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
-    fn pattern(path: PathBuf, extension: &str) -> String {
-        let ext = &extension.to_lowercase();
-        let result = format!("{}/**/*.{}", path.to_absolute_path(), ext);
-        debug!("=> {} {result}", Label::using());
-        result
+    fn patterns(path: &PathBuf, extension: Option<&str>, max_depth: Option<usize>) -> Vec<String> {
+        let suffix = extension.map_or_else(|| "*".to_string(), |value| format!("*.{}", value.to_lowercase()));
+        match max_depth {
+            | Some(value) => (1..=value)
+                .map(|depth| {
+                    let descendants = (1..depth)
+                        .map(|_| "*")
+                        .chain(core::iter::once(suffix.as_str()))
+                        .collect::<Vec<_>>()
+                        .join("/");
+                    format!("{}/{descendants}", path.to_absolute_path())
+                })
+                .collect(),
+            | None => vec![format!("{}/**/{suffix}", path.to_absolute_path())],
+        }
     }
     if path.is_dir() {
-        match extensions {
-            | Some(values) => {
-                values
-                    .into_iter()
-                    .map(|extension| {
-                        let glob_pattern = pattern(path.clone(), extension);
-                        glob(&glob_pattern)
-                    })
-                    .filter_map(|x| x.ok())
-                    .flat_map(paths_to_vec)
-                    .fold((HashSet::new(), Vec::new()), |(mut seen, mut ordered), path| {
-                        if seen.insert(path.clone()) {
-                            ordered.push(path);
-                        }
-                        (seen, ordered)
-                    })
-                    .1
-            }
-            | None => match glob(&format!("{}/**/*", path.to_absolute_path())) {
-                | Ok(paths) => paths_to_vec(paths),
-                | Err(why) => {
-                    error!("=> {} Get all files (Glob) - {why}", Label::fail());
-                    vec![]
+        extensions
+            .map_or_else(
+                || patterns(&path, None, max_depth),
+                |values| {
+                    values
+                        .into_iter()
+                        .flat_map(|extension| patterns(&path, Some(extension), max_depth))
+                        .collect()
+                },
+            )
+            .into_iter()
+            .inspect(|pattern| debug!("=> {} {pattern}", Label::using()))
+            .filter_map(|pattern| {
+                glob(&pattern)
+                    .map_err(|why| error!("=> {} Get all files (Glob) - {why}", Label::fail()))
+                    .ok()
+            })
+            .flat_map(paths_to_vec)
+            .fold((HashSet::new(), Vec::new()), |(mut seen, mut ordered), path| {
+                if seen.insert(path.clone()) {
+                    ordered.push(path);
                 }
-            },
-        }
+                (seen, ordered)
+            })
+            .1
     } else {
         if extensions.is_some() {
             warn!(

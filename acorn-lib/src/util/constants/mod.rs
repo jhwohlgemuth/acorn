@@ -95,6 +95,8 @@ pub const RE_RAID_TEXT: &str =
 pub const RE_ROR_TEXT: &str = r#"(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})"#;
 
 lazy_static! {
+    /// Regex that matches HTTP and HTTPS URLs.
+    pub static ref HTTP_URL: Regex = Regex::new(r"^https?://").expect("HTTP URL regex should compile");
     /// Regex that should match a Archival Resource Key (ARK)
     ///
     /// See <https://arks.org/> for more information

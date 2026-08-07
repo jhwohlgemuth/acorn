@@ -1,6 +1,7 @@
 use crate::screens;
 use crate::theme::Theme;
-use crate::Screen;
+use crate::{Screen, TuiOptions};
+use acorn::analyzer::Check;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn::io::api::huggingface;
 use color_eyre::eyre::Result;
@@ -25,10 +26,14 @@ pub struct App {
     pub check: CheckState,
     /// GGUF picker state
     pub gguf_picker: Option<State<GgufPickerData>>,
+    /// Gather screen state
+    pub gather: GatherState,
     /// Theme picker state
     pub theme_picker: State<ThemePickerData>,
     /// Current theme
     pub theme: Theme,
+    /// Network and database settings inherited from the caller
+    pub options: TuiOptions,
     /// When the theme was last changed (for debounce)
     theme_last_changed: Instant,
 }
@@ -59,6 +64,32 @@ pub struct CheckState {
     pub selected_index: usize,
     /// Whether loaded
     pub loaded: bool,
+}
+/// Persistent identifier displayed by the gather screen.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GatherDiscovery {
+    /// Normalized identifier value
+    pub identifier: String,
+    /// Identifier kind
+    pub identifier_type: String,
+    /// Source from which the identifier was discovered
+    pub source: String,
+    /// Detected source format
+    pub source_format: String,
+}
+/// Interactive gather input and output state.
+#[derive(Clone, Debug)]
+pub struct GatherState {
+    /// Checks produced while loading and persisting inputs
+    pub checks: Vec<Check>,
+    /// Discovered persistent identifiers
+    pub discoveries: Vec<GatherDiscovery>,
+    /// Current input value
+    pub input: String,
+    /// Number of processed sources
+    pub input_count: usize,
+    /// Selected discovery
+    pub selected_index: usize,
 }
 /// A GGUF repository presented by the interactive picker.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -179,7 +210,12 @@ pub struct SystemData {
 }
 impl App {
     /// Create a new App with the given initial screen
+    #[cfg(test)]
     pub fn new(initial_screen: Screen) -> Self {
+        Self::with_options(initial_screen, TuiOptions::default())
+    }
+    /// Create application state with caller-provided runtime settings.
+    pub fn with_options(initial_screen: Screen, options: TuiOptions) -> Self {
         Self {
             should_quit: false,
             current_screen: initial_screen,
@@ -188,9 +224,11 @@ impl App {
             doctor: DoctorState::new(),
             check: CheckState::new(),
             gguf_picker: None,
+            gather: GatherState::new(),
             theme_picker: State::new(ThemePickerData {
                 names: Theme::NAMES.to_vec(),
             }),
+            options,
             theme_last_changed: Instant::now(),
         }
     }
@@ -214,11 +252,12 @@ impl App {
             | Screen::Doctor => screens::doctor::render(f, self),
             | Screen::Check => screens::check::render(f, self),
             | Screen::GgufPicker => screens::gguf_picker::render(f, self),
+            | Screen::Gather => screens::gather::render(f, self),
             | Screen::ThemePicker => screens::theme_picker::render(f, self),
         }
     }
     fn handle_event(&mut self, evt: event::Event) {
-        if self.current_screen != Screen::Dashboard {
+        if self.current_screen != Screen::Dashboard && self.current_screen != Screen::Gather {
             if let event::Event::Key(key) = &evt {
                 if key.kind == event::KeyEventKind::Press && (key.code == event::KeyCode::Char('t') || key.code == event::KeyCode::Char('T')) {
                     self.cycle_theme();
@@ -231,6 +270,7 @@ impl App {
             | Screen::Doctor => screens::doctor::handle_event(self, evt),
             | Screen::Check => screens::check::handle_event(self, evt),
             | Screen::GgufPicker => screens::gguf_picker::handle_event(self, evt),
+            | Screen::Gather => screens::gather::handle_event(self, evt),
             | Screen::ThemePicker => screens::theme_picker::handle_event(self, evt),
         }
     }
@@ -379,6 +419,17 @@ impl CheckState {
             items: Vec::new(),
             selected_index: 0,
             loaded: false,
+        }
+    }
+}
+impl GatherState {
+    pub(crate) fn new() -> Self {
+        Self {
+            checks: Vec::new(),
+            discoveries: Vec::new(),
+            input: String::new(),
+            input_count: 0,
+            selected_index: 0,
         }
     }
 }

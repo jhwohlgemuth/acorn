@@ -15,7 +15,7 @@ pub fn run(fix: &bool, interactive: &bool, report: &bool, check: &[Diagnostic], 
     if *interactive {
         #[cfg(feature = "tui")]
         {
-            acorn_tui::run_tui(acorn_tui::Screen::Doctor)
+            acorn_tui::run(acorn_tui::Screen::Doctor)
         }
         #[cfg(not(feature = "tui"))]
         {

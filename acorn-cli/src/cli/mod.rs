@@ -297,9 +297,11 @@ pub enum Commands {
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "fmt")]
     Format(Box<arguments::Format>),
-    /// Gather (extract) research activity data
+    /// Gather persistent identifiers from documents, URLs, or text
     ///
-    ///     $> acorn gather /path/to/data/
+    ///     $> acorn gather report.docx --text "doi:10.1234/example"
+    ///
+    /// Directory inputs are searched recursively. Use `--max-depth 1` to search only direct children.
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "harvest")]

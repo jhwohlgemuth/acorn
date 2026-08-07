@@ -10,27 +10,33 @@ use ratatui::Frame;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Command {
-    Doctor,
     Check,
-    Theme,
+    Doctor,
+    Gather,
+    Harvest,
     Quit,
+    Theme,
 }
 impl Command {
-    const ALL: [Self; 4] = [Self::Doctor, Self::Check, Self::Theme, Self::Quit];
+    const ALL: [Self; 6] = [Self::Check, Self::Doctor, Self::Gather, Self::Harvest, Self::Quit, Self::Theme];
     fn name(self) -> &'static str {
         match self {
-            | Self::Doctor => "/doctor",
             | Self::Check => "/check",
-            | Self::Theme => "/theme",
+            | Self::Doctor => "/doctor",
+            | Self::Gather => "/gather",
+            | Self::Harvest => "/harvest",
             | Self::Quit => "/quit",
+            | Self::Theme => "/theme",
         }
     }
     fn description(self) -> &'static str {
         match self {
-            | Self::Doctor => "Inspect system diagnostics",
             | Self::Check => "Browse research activity checks",
-            | Self::Theme => "Choose an accessible terminal palette",
+            | Self::Doctor => "Inspect system diagnostics",
+            | Self::Gather => "Discover persistent identifiers",
+            | Self::Harvest => "Discover persistent identifiers",
             | Self::Quit => "Exit ACORN",
+            | Self::Theme => "Choose an accessible terminal palette",
         }
     }
 }
@@ -155,10 +161,11 @@ fn render_dropdown(f: &mut Frame, composer: Rect, app: &App) {
 }
 fn execute(app: &mut App, command: Command) {
     match command {
-        | Command::Doctor => app.navigate_to(Screen::Doctor),
         | Command::Check => app.navigate_to(Screen::Check),
-        | Command::Theme => app.navigate_to(Screen::ThemePicker),
+        | Command::Doctor => app.navigate_to(Screen::Doctor),
+        | Command::Gather | Command::Harvest => app.navigate_to(Screen::Gather),
         | Command::Quit => app.should_quit = true,
+        | Command::Theme => app.navigate_to(Screen::ThemePicker),
     }
     app.dashboard.data.input.clear();
     app.dashboard.selected = 0;
@@ -206,14 +213,39 @@ mod tests {
     use ratatui::Terminal;
 
     #[test]
-    fn test_slash_filter_updates_for_each_query_fragment() {
-        assert_eq!(filtered_commands("/t"), vec![Command::Theme]);
-        assert_eq!(filtered_commands("/theme"), vec![Command::Theme]);
-        assert_eq!(filtered_commands("/doctor"), vec![Command::Doctor]);
+    fn test_gather_command_opens_gather_screen() {
+        let mut app = App::new(Screen::Dashboard);
+        execute(&mut app, Command::Gather);
+        assert_eq!(app.current_screen, Screen::Gather);
+        assert!(app.dashboard.data.input.is_empty());
     }
     #[test]
     fn test_slash_filter_reports_no_unknown_commands() {
         assert!(filtered_commands("/missing").is_empty());
+    }
+    #[test]
+    fn test_slash_filter_updates_for_each_query_fragment() {
+        assert_eq!(filtered_commands("/t"), vec![Command::Theme]);
+        assert_eq!(filtered_commands("/theme"), vec![Command::Theme]);
+        assert_eq!(filtered_commands("/doctor"), vec![Command::Doctor]);
+        assert_eq!(filtered_commands("/gather"), vec![Command::Gather]);
+        assert_eq!(filtered_commands("/harvest"), vec![Command::Harvest]);
+    }
+    #[test]
+    fn test_splash_renders_at_full_and_compact_terminal_sizes() {
+        [Rect::new(0, 0, 100, 30), Rect::new(0, 0, 40, 10)].into_iter().for_each(|area| {
+            let backend = TestBackend::new(area.width, area.height);
+            let mut terminal = Terminal::new(backend).expect("test backend should initialize");
+            let app = App::new(Screen::Dashboard);
+            assert!(terminal.draw(|frame| render(frame, &app)).is_ok());
+        });
+    }
+    #[test]
+    fn test_theme_command_opens_picker() {
+        let mut app = App::new(Screen::Dashboard);
+        execute(&mut app, Command::Theme);
+        assert_eq!(app.current_screen, Screen::ThemePicker);
+        assert!(app.dashboard.data.input.is_empty());
     }
     #[test]
     fn test_typed_characters_immediately_change_the_filter() {
@@ -228,21 +260,5 @@ mod tests {
         );
         assert_eq!(app.dashboard.data.input, "/c");
         assert_eq!(filtered_commands(&app.dashboard.data.input), vec![Command::Check]);
-    }
-    #[test]
-    fn test_theme_command_opens_picker() {
-        let mut app = App::new(Screen::Dashboard);
-        execute(&mut app, Command::Theme);
-        assert_eq!(app.current_screen, Screen::ThemePicker);
-        assert!(app.dashboard.data.input.is_empty());
-    }
-    #[test]
-    fn test_splash_renders_at_full_and_compact_terminal_sizes() {
-        [Rect::new(0, 0, 100, 30), Rect::new(0, 0, 40, 10)].into_iter().for_each(|area| {
-            let backend = TestBackend::new(area.width, area.height);
-            let mut terminal = Terminal::new(backend).expect("test backend should initialize");
-            let app = App::new(Screen::Dashboard);
-            assert!(terminal.draw(|frame| render(frame, &app)).is_ok());
-        });
     }
 }

@@ -1,5 +1,6 @@
 use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
 use super::DownloadCommands;
+use acorn::analyzer::discovery::OutputFormat as DiscoveryOutputFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
@@ -194,6 +195,29 @@ pub enum FileFormat {
     Powerpoint,
     #[display("YAML")]
     Yaml,
+}
+/// Structured output format for gathered identifiers.
+#[derive(Clone, Debug, Default, Display, ValueEnum)]
+pub enum GatherOutputFormat {
+    /// JavaScript Object Notation.
+    #[default]
+    #[display("json")]
+    Json,
+    /// GitHub-Flavored Markdown.
+    #[display("markdown")]
+    Markdown,
+    /// YAML.
+    #[display("yaml")]
+    Yaml,
+}
+impl From<&GatherOutputFormat> for DiscoveryOutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
+    }
 }
 /// Structured output format for raw/dry-run results (JSON or YAML)
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -674,9 +698,9 @@ pub(crate) struct Format {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Gather {
-    /// Path to look for files to process
-    #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
-    pub(crate) path: Option<PathBuf>,
+    /// Files, directories, URLs, or PID values; piped standard input is included automatically.
+    #[arg(value_name = "INPUT", value_hint = ValueHint::AnyPath)]
+    pub(crate) input: Vec<String>,
     /// Regex pattern applied to absolute paths of files to include in processing
     ///
     /// Only files matching the pattern will be processed
@@ -691,12 +715,27 @@ pub(crate) struct Gather {
     /// Example: --ignore "[/]valid.json$"
     #[arg(short, long, value_name = "REGEX", help_heading = "OPTIONS")]
     pub(crate) ignore: Option<String>,
+    /// Maximum directory descendant depth to search; direct children have depth 1
+    #[arg(long, value_name = "DEPTH", help_heading = "OPTIONS")]
+    pub(crate) max_depth: Option<usize>,
     /// Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
     #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) merge_request: bool,
+    /// Write the structured report to a file instead of stdout.
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    /// Structured report format.
+    #[arg(long, default_value = "json", value_enum, help_heading = "OPTIONS")]
+    pub(crate) format: GatherOutputFormat,
+    /// Resolve supported identifiers through their metadata providers.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) resolve: bool,
     /// Metadata standard to validate against
-    #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
-    pub(crate) standard: Standard,
+    #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
+    pub(crate) standard: Option<Standard>,
+    /// Literal text to inspect; may be repeated.
+    #[arg(long, value_name = "TEXT", help_heading = "OPTIONS")]
+    pub(crate) text: Vec<String>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

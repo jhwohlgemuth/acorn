@@ -42,6 +42,8 @@ pub enum Table {
     Models = 7,
     /// Models.dev provider metadata
     Providers = 8,
+    /// Persistent identifiers discovered by gather
+    Discoveries = 9,
 }
 /// Activity log entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -76,6 +78,28 @@ pub struct CatalogRow {
     pub title: Option<String>,
     /// When the entry was last updated
     pub updated_at: Option<Timestamp>,
+}
+/// Persistent identifier discovery history entry.
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = discoveries, order_by = "discovered_at DESC")]
+pub struct IdentifierRow {
+    /// Unique identifier for the discovery entry.
+    pub id: Option<i64>,
+    /// When the identifier was discovered.
+    pub discovered_at: Option<Timestamp>,
+    /// Normalized persistent identifier.
+    pub identifier: Option<String>,
+    /// Persistent identifier type.
+    pub identifier_type: Option<String>,
+    /// Serialized resolved metadata, when requested and available.
+    pub metadata: Option<String>,
+    /// Resolution outcome.
+    pub resolution_status: Option<String>,
+    /// Input label without raw text content.
+    pub source: Option<String>,
+    /// Detected input format.
+    pub source_format: Option<String>,
 }
 /// SPDX license entry
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -274,6 +298,7 @@ impl From<&str> for Table {
         let normalized = value.trim().to_ascii_lowercase();
         match normalized.as_str() {
             | "catalog" => Self::Catalog,
+            | "discoveries" | "discovery" => Self::Discoveries,
             | "licenses" | "license" => Self::Licenses,
             | "link_cache" | "linkcache" => Self::LinkCache,
             | "validation_history" | "validationhistory" => Self::ValidationHistory,
@@ -366,6 +391,25 @@ impl From<&BackendRow<'_>> for ActivityRow {
 impl From<BackendRow<'_>> for ActivityRow {
     fn from(row: BackendRow<'_>) -> Self {
         ActivityRow::from(&row)
+    }
+}
+impl From<&BackendRow<'_>> for IdentifierRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        IdentifierRow {
+            id: row.get(0).ok(),
+            discovered_at: row.parse_rfc3339(1),
+            identifier: row.get(2).ok(),
+            identifier_type: row.get(3).ok(),
+            metadata: row.get(4).ok(),
+            resolution_status: row.get(5).ok(),
+            source: row.get(6).ok(),
+            source_format: row.get(7).ok(),
+        }
+    }
+}
+impl From<BackendRow<'_>> for IdentifierRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        IdentifierRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for LicenseRow {
@@ -490,6 +534,20 @@ impl From<CatalogRow> for Vec<String> {
             row.identifier.unwrap_or_default(),
             row.title.unwrap_or_default(),
             row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<IdentifierRow> for Vec<String> {
+    fn from(row: IdentifierRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.discovered_at.map_or_else(String::new, to_rfc3339),
+            row.identifier.unwrap_or_default(),
+            row.identifier_type.unwrap_or_default(),
+            row.metadata.unwrap_or_default(),
+            row.resolution_status.unwrap_or_default(),
+            row.source.unwrap_or_default(),
+            row.source_format.unwrap_or_default(),
         ]
     }
 }
@@ -650,6 +708,19 @@ impl fmt::Display for CatalogRow {
         .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
     }
 }
+impl fmt::Display for IdentifierRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "IdentifierRow = id: {}, identifier: {}, type: {}, source: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.identifier.as_ref()),
+            display_or_none(self.identifier_type.as_ref()),
+            display_or_none(self.source.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "discovered_at", self.discovered_at.as_ref()))
+    }
+}
 impl fmt::Display for ProgrammingLanguageRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -753,6 +824,7 @@ impl TableSchemaProvider for Table {
         &[
             Table::Activity,
             Table::Catalog,
+            Table::Discoveries,
             Table::Licenses,
             Table::LinkCache,
             Table::ValidationHistory,
@@ -781,6 +853,17 @@ impl TableSchemaProvider for Table {
                     title TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     UNIQUE(bucket_name, identifier)
+                "#
+            }
+            | Table::Discoveries => {
+                r#"
+                    discovered_at TEXT NOT NULL,
+                    identifier TEXT NOT NULL,
+                    identifier_type TEXT NOT NULL,
+                    metadata TEXT,
+                    resolution_status TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    source_format TEXT NOT NULL
                 "#
             }
             | Table::Licenses => {
@@ -898,6 +981,7 @@ impl TableSchemaProvider for Table {
         match self {
             | Table::Activity => "activity",
             | Table::Catalog => "catalog",
+            | Table::Discoveries => "discoveries",
             | Table::Licenses => "licenses",
             | Table::LinkCache => "link_cache",
             | Table::ValidationHistory => "validation_history",
@@ -982,6 +1066,7 @@ impl TableSchemaProvider for Table {
         match self {
             | Table::Activity => print_rows::<ActivityRow>(self, path.as_ref()),
             | Table::Catalog => print_rows::<CatalogRow>(self, path.as_ref()),
+            | Table::Discoveries => print_rows::<IdentifierRow>(self, path.as_ref()),
             | Table::Licenses => print_rows::<LicenseRow>(self, path.as_ref()),
             | Table::ProgrammingLanguages => print_rows::<ProgrammingLanguageRow>(self, path.as_ref()),
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
@@ -1062,6 +1147,47 @@ impl Row for CatalogRow {
                     let params = backend::params![id, bucket_name, bucket_url, identifier, title, updated_at];
                     execute_insert(&self, conn, params)
                 }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for IdentifierRow {
+    fn table(&self) -> Table {
+        Table::Discoveries
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            discovered_at,
+            identifier,
+            identifier_type,
+            metadata,
+            resolution_status,
+            source,
+            source_format,
+            ..
+        } = self.clone();
+        let discovered_at = to_rfc3339(discovered_at.unwrap_or_else(Timestamp::now));
+        match required1(identifier) {
+            | Ok((identifier,)) => match self.next_row_id(conn) {
+                | Ok(id) => execute_insert(
+                    &self,
+                    conn,
+                    backend::params![
+                        id,
+                        discovered_at,
+                        identifier,
+                        identifier_type.unwrap_or_else(|| "unknown".to_string()),
+                        metadata,
+                        resolution_status.unwrap_or_else(|| "not-requested".to_string()),
+                        source.unwrap_or_else(|| "unknown".to_string()),
+                        source_format.unwrap_or_else(|| "text".to_string()),
+                    ],
+                ),
                 | Err(why) => Err(why),
             },
             | Err(why) => Err(why),

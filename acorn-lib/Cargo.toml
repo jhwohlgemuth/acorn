@@ -27,6 +27,7 @@ maintenance = { status = "actively-developed" }
 ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
+anydoc = { workspace = true, optional = true }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
 async-trait = { workspace = true }
 axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
@@ -41,7 +42,6 @@ data-encoding = { workspace = true }
 derive_more = { workspace = true }
 directories = { workspace = true, optional = true }
 dotenvy = { workspace = true, optional = true }
-docx-rs = { workspace = true, optional = true }
 duckdb = { workspace = true, features = ["bundled"], default-features = false, optional = true }
 fancy-regex = { workspace = true }
 flate2 = { version = "1.1.5", default-features = false, optional = true }
@@ -136,12 +136,12 @@ powerpoint = ["std"]
 std = [
   "alloc",
   "dep:ammonia",
+  "dep:anydoc",
   "jiff/std",
   "dep:axum",
   "dep:comfy-table",
   "dep:directories",
   "dep:dotenvy",
-  "dep:docx-rs",
   "dep:hf-hub",
   "dep:indicatif",
   "dep:is_executable",

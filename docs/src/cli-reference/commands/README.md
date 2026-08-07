@@ -6,6 +6,7 @@
 - [📥 Download](./download.md)
 - [📤 Export](./export.md)
 - [🤖 Format](./format.md)
+- [🌾 Gather](./gather.md)
 - [📥 Import](./import.md)
 - [🕸️ Link](./link.md)
 - [🔄 Sync](./sync.md)

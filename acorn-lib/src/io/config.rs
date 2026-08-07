@@ -921,17 +921,15 @@ impl FilterSet {
         keep: impl Fn(&T) -> bool,
     ) -> ApiResult<Vec<T>> {
         match FilterSet::compile(ignore, filter) {
-            | Ok(FilterSet { ignore, filter }) => Ok(items
-                .into_iter()
-                .filter(|item| {
-                    let value = value(item);
-                    let ignored = ignore.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                    let filtered = filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(&value).unwrap_or(false));
-                    !ignored && filtered && keep(item)
-                })
-                .collect()),
+            | Ok(filters) => Ok(items.into_iter().filter(|item| filters.matches(&value(item)) && keep(item)).collect()),
             | Err(why) => Err(why),
         }
+    }
+    /// Determine whether a value satisfies the compiled include and ignore patterns
+    pub fn matches(&self, value: &str) -> bool {
+        let ignored = self.ignore.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
+        let filtered = self.filter.is_empty() || self.filter.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
+        !ignored && filtered
     }
 }
 impl ModelEntry {

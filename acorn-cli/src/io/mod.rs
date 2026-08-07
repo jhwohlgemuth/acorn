@@ -37,12 +37,11 @@ pub fn read_stdin() -> Option<String> {
         | InputOutputStreamState::Piped => {
             let stdin = io::stdin();
             let reader = stdin.lock();
-            let lines = reader.lines();
-            let value = match lines.last() {
-                | Some(Ok(v)) => v,
-                | _ => return None,
-            };
-            Some(value)
+            reader
+                .lines()
+                .collect::<core::result::Result<Vec<_>, _>>()
+                .ok()
+                .map(|lines| lines.join("\n"))
         }
         | InputOutputStreamState::NotPiped => None,
     }

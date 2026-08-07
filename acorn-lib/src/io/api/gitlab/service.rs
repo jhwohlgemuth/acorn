@@ -368,12 +368,11 @@ pub fn merge_request_diffs(options: &Options) -> BoxFuture<'_, ApiResult<MergeRe
 /// Fetch the configured repository file at an exact commit SHA
 pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
     let action = "repository-file";
-    match (
-        authenticated_endpoint(action, options),
-        options.identifier(),
-        options.path(),
-        options.sha(),
-    ) {
+    let endpoint = authenticated_endpoint(action, options);
+    let identifier = options.identifier();
+    let path = options.path();
+    let sha = options.sha();
+    match (endpoint, identifier, path, sha) {
         | (Ok((endpoint, token)), Some(project_identifier), Ok(file_path), Ok(sha)) => {
             let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_path = urlencoding::encode(file_path);

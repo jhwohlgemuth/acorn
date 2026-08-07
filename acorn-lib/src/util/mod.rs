@@ -286,6 +286,18 @@ pub enum MimeType {
     /// Comma Separated Values (CSV)
     #[display("text/csv")]
     Csv,
+    /// Binary Microsoft Word document.
+    #[display("application/msword")]
+    Doc,
+    /// OOXML Microsoft Word document.
+    #[display("application/vnd.openxmlformats-officedocument.wordprocessingml.document")]
+    Docx,
+    /// EPUB publication.
+    #[display("application/epub+zip")]
+    Epub,
+    /// Microsoft Excel workbook.
+    #[display("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+    Excel,
     /// GPT-Generated Unified Format (GGUF) model
     ///
     /// See <https://github.com/ggml-org/ggml/blob/master/docs/gguf.md> for more information
@@ -320,6 +332,15 @@ pub enum MimeType {
     /// See <https://onnx.ai/> for more information
     #[display("application/vnd.onnx.model")]
     Onnx,
+    /// OpenDocument presentation.
+    #[display("application/vnd.oasis.opendocument.presentation")]
+    Odp,
+    /// OpenDocument spreadsheet.
+    #[display("application/vnd.oasis.opendocument.spreadsheet")]
+    Ods,
+    /// OpenDocument text.
+    #[display("application/vnd.oasis.opendocument.text")]
+    Odt,
     /// OpenType Font (OTF)
     #[display("font/otf")]
     Otf,
@@ -334,6 +355,9 @@ pub enum MimeType {
     /// Portable Network Graphic (PNG)
     #[display("image/png")]
     Png,
+    /// Binary Microsoft PowerPoint presentation.
+    #[display("application/vnd.ms-powerpoint")]
+    Ppt,
     /// PyTorch model
     ///
     /// Commonly used for `.pt` and `.pth` model files.
@@ -349,6 +373,9 @@ pub enum MimeType {
     /// This includes .prompt files (see <https://google.github.io/dotprompt/>)
     #[display("application/vnd.ai.prompt.v1+json")]
     Prompt,
+    /// Rich Text Format.
+    #[display("application/rtf")]
+    Rtf,
     /// Rust Source Code (RS)
     #[display("text/rust")]
     Rust,
@@ -733,10 +760,7 @@ impl License {
         }
     }
 }
-impl<T: AsRef<str>> From<T> for MimeType
-where
-    T: ToString,
-{
+impl From<&str> for MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
     /// # Supported MIME types
@@ -764,12 +788,15 @@ where
     /// | txt | text/plain |
     /// | yaml | application/yaml |
     /// | zip | application/zip |
-    fn from(value: T) -> Self {
-        let name = value.to_string().to_lowercase();
+    fn from(value: &str) -> Self {
+        let name = value.to_lowercase();
         match file_extension(name.clone()) {
             | Some(value) => match value.as_str() {
                 | "cff" => MimeType::Cff,
                 | "csv" => MimeType::Csv,
+                | "doc" => MimeType::Doc,
+                | "docx" | "docm" => MimeType::Docx,
+                | "epub" => MimeType::Epub,
                 | "gguf" => MimeType::Gguf,
                 | "jpg" | "jpeg" => MimeType::Jpeg,
                 | "json" => MimeType::Json,
@@ -777,25 +804,41 @@ where
                 | "jsonld" | "json-ld" => MimeType::LdJson,
                 | "md" | "markdown" => MimeType::Markdown,
                 | "onnx" => MimeType::Onnx,
+                | "odp" => MimeType::Odp,
+                | "ods" => MimeType::Ods,
+                | "odt" => MimeType::Odt,
                 | "otf" => MimeType::Otf,
                 | "ttf" => MimeType::Ttf,
                 | "parquet" => MimeType::Parquet,
                 | "pdf" => MimeType::Pdf,
                 | "png" => MimeType::Png,
                 | "pt" | "pth" => MimeType::Pytorch,
-                | "pptx" | "ppt" => MimeType::Powerpoint,
+                | "ppt" | "pps" | "pot" => MimeType::Ppt,
+                | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
                 | "prompt" => MimeType::Prompt,
+                | "rtf" => MimeType::Rtf,
                 | "rs" => MimeType::Rust,
                 | "safetensors" => MimeType::Safetensors,
                 | "spdx.json" => MimeType::Sbom,
                 | "svg" => MimeType::Svg,
                 | "toml" => MimeType::Toml,
                 | "txt" => MimeType::Text,
+                | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
                 | "yml" | "yaml" => MimeType::Yaml,
                 | value => MimeType::Vendor(value.to_string()),
             },
             | None => MimeType::Unknown(name),
         }
+    }
+}
+impl From<&String> for MimeType {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl From<String> for MimeType {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 impl MimeType {
@@ -811,6 +854,10 @@ impl MimeType {
         match self {
             | MimeType::Cff => "cff",
             | MimeType::Csv => "csv",
+            | MimeType::Doc => "doc",
+            | MimeType::Docx => "docx",
+            | MimeType::Epub => "epub",
+            | MimeType::Excel => "xlsx",
             | MimeType::Gguf => "gguf",
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
@@ -819,14 +866,19 @@ impl MimeType {
             | MimeType::Markdown => "md",
             | MimeType::ModelCard => "modelcard",
             | MimeType::Onnx => "onnx",
+            | MimeType::Odp => "odp",
+            | MimeType::Ods => "ods",
+            | MimeType::Odt => "odt",
             | MimeType::Otf => "otf",
             | MimeType::Ttf => "ttf",
             | MimeType::Parquet => "parquet",
             | MimeType::Pdf => "pdf",
             | MimeType::Png => "png",
+            | MimeType::Ppt => "ppt",
             | MimeType::Pytorch => "pt",
             | MimeType::Powerpoint => "pptx",
             | MimeType::Prompt => "prompt",
+            | MimeType::Rtf => "rtf",
             | MimeType::Rust => "rs",
             | MimeType::Safetensors => "safetensors",
             | MimeType::Sbom => "spdx.json",
@@ -871,6 +923,12 @@ impl From<&str> for SemanticVersion {
             | [Ok(major)] => SemanticVersion::init().major(*major).build(),
             | _ => SemanticVersion::default(),
         }
+    }
+}
+impl SemanticVersion {
+    /// Parse the numeric components of a semantic version string
+    pub fn from_string(value: impl AsRef<str>) -> Self {
+        Self::from(value.as_ref())
     }
 }
 impl<T: AsRef<str>> StringInterpolation<T> for T
@@ -1226,12 +1284,6 @@ where
 /// not `new`, and lines that are the same in both are prefixed with a space.
 pub fn print_changes(old: &str, new: &str) {
     print_changes_with_color(old, new, true);
-}
-impl SemanticVersion {
-    /// Parse the numeric components of a semantic version string
-    pub fn from_string(value: impl AsRef<str>) -> Self {
-        Self::from(value.as_ref())
-    }
 }
 /// Prints a diff of changes between two strings, optionally using ANSI colors.
 pub fn print_changes_with_color(old: &str, new: &str, color: bool) {

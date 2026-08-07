@@ -10,16 +10,12 @@ use crate::cmd;
 use crate::io::command_exists;
 use crate::io::database::{schema::Table, Database, Operations};
 use crate::io::ApiResult;
-use crate::prelude::{create_dir_all, write, CommandOutput, PathBuf};
+use crate::prelude::{create_dir_all, CommandOutput, PathBuf};
 use core::time::Duration;
 use data_encoding::BASE64;
 use jiff::Timestamp;
 use ring::hmac as ring_hmac;
-use std::env::temp_dir as system_temp_dir;
 use std::time::SystemTime;
-pub(crate) fn cleanup(path: &PathBuf) {
-    let _ = write(path, []);
-}
 /// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
 pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {
     let key_bytes = BASE64.decode(signing_token_base64.strip_prefix("whsec_").unwrap().as_bytes()).unwrap();
@@ -65,12 +61,6 @@ pub(crate) async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
     database.migrate()?;
     let _ = database.populate(Table::Licenses).await?;
     Ok(path)
-}
-pub(crate) fn temp_file() -> PathBuf {
-    let dir = system_temp_dir();
-    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-    let filename = format!("test_docx_{}.docx", timestamp);
-    dir.join(filename)
 }
 /// Build a unique temporary directory path under `target/test_artifacts`.
 pub(crate) fn temp_dir(name: &str) -> PathBuf {

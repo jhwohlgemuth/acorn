@@ -16,13 +16,12 @@ use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::is_partial_date;
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
+use crate::util::constants::HTTP_URL;
 use crate::util::{strip_suffixes, Label, SemanticVersion, ToMarkdown};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
 use derive_more::Display;
-use fancy_regex::Regex;
-use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
 use rust_embed::Embed;
 use schemars::JsonSchema;
@@ -36,9 +35,6 @@ use validator::{Validate, ValidationError};
 
 pub mod opencode;
 
-lazy_static! {
-    static ref HTTP_URL: Result<Regex, fancy_regex::Error> = Regex::new(r"^https?://");
-}
 pub(crate) const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
 
 /// Benchmark evaluation harness or framework
@@ -969,7 +965,7 @@ impl ModelDetails {
     pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
         let repository = Option::<Source>::from(self.clone())
             .map(|source| source.identifier())
-            .filter(|identifier| HTTP_URL.as_ref().is_ok_and(|regex| !regex.is_match(identifier).unwrap_or(false)));
+            .filter(|identifier| !HTTP_URL.is_match(identifier).unwrap_or(false));
         let identifier = self
             .id
             .or(self.name)

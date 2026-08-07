@@ -11,7 +11,7 @@
 use crate::prelude::*;
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::util::constants::{
-    RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
+    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
 use bon::Builder;
@@ -22,7 +22,7 @@ use data_encoding::HEXLOWER;
 use ring::digest::{digest, SHA256};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use strum::EnumIs;
+use strum::{EnumIs, EnumIter, IntoEnumIterator};
 
 pub mod patent;
 pub mod raid;
@@ -167,7 +167,7 @@ pub struct PersistentIdentifierInternal {
 /// Persistent Identifier (PID) types
 ///
 /// PIDs are globally unique identifiers, resolvable on the Web, and associated with a set of additional descriptive metadata (ex. [`raid::Metadata`])
-#[derive(Clone, Debug, Default, Deserialize, EnumIs, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, EnumIs, EnumIter, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum PID {
     /// Unknown PID
     #[default]
@@ -218,19 +218,29 @@ pub enum PID {
 impl PID {
     /// Whether this PID type participates in artifact discovery
     pub fn is_discoverable(&self) -> bool {
-        self.is_ark() || self.is_doi() || self.is_isbn() || self.is_patent() || self.is_raid() || self.is_url()
+        self.is_ark() || self.is_doi() || self.is_isbn() || self.is_orcid() || self.is_patent() || self.is_raid() || self.is_ror() || self.is_url()
     }
     /// Return the stable lowercase path component
     pub fn as_str(&self) -> &'static str {
         match self {
             | Self::DOI => "doi",
             | Self::ISBN => "isbn",
+            | Self::ORCID => "orcid",
             | Self::Patent => "patent",
+            | Self::PIDINST => "pidinst",
             | Self::ARK => "ark",
             | Self::RAID => "raid",
+            | Self::ROR => "ror",
             | Self::URL => "url",
             | _ => "unknown",
         }
+    }
+}
+impl From<&str> for PID {
+    fn from(value: &str) -> Self {
+        Self::iter()
+            .find(|pid| pid.as_str().eq_ignore_ascii_case(value.trim()))
+            .unwrap_or_default()
     }
 }
 /// A persistent identifier type paired with its value.
@@ -258,10 +268,12 @@ impl Identifier {
         match self.kind {
             | PID::DOI => Self::parsed::<DOI>(PID::DOI, trimmed),
             | PID::ISBN => Self::parsed::<ISBN>(PID::ISBN, trimmed),
+            | PID::ORCID => Self::parsed::<ORCID>(PID::ORCID, trimmed),
             | PID::ARK => Self::parsed::<ARK>(PID::ARK, trimmed),
             | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
             | PID::Patent => Self::parsed::<Patent>(PID::Patent, trimmed),
-            | PID::URL if trimmed.starts_with("https://") || trimmed.starts_with("http://") => Some(Self {
+            | PID::ROR => Self::parsed::<ROR>(PID::ROR, trimmed),
+            | PID::URL if HTTP_URL.is_match(trimmed).unwrap_or(false) => Some(Self {
                 kind: PID::URL,
                 value: trimmed.trim_end_matches('/').to_string(),
             }),
@@ -272,13 +284,15 @@ impl Identifier {
                 } else {
                     PID::DOI
                 };
-                [primary, PID::ISBN, PID::ARK, PID::Patent, PID::URL].into_iter().find_map(|kind| {
-                    Self {
-                        kind,
-                        value: self.value.clone(),
-                    }
-                    .normalize()
-                })
+                [primary, PID::ARK, PID::ISBN, PID::ORCID, PID::Patent, PID::ROR, PID::URL]
+                    .into_iter()
+                    .find_map(|kind| {
+                        Self {
+                            kind,
+                            value: self.value.clone(),
+                        }
+                        .normalize()
+                    })
             }
             | _ => None,
         }
@@ -304,6 +318,62 @@ impl<'a> From<&'a Identifier> for &'a str {
 impl From<&str> for Identifier {
     fn from(value: &str) -> Self {
         Self::new(value)
+    }
+}
+impl From<ARK> for Identifier {
+    fn from(value: ARK) -> Self {
+        Self {
+            kind: PID::ARK,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<DOI> for Identifier {
+    fn from(value: DOI) -> Self {
+        Self {
+            kind: PID::DOI,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ISBN> for Identifier {
+    fn from(value: ISBN) -> Self {
+        Self {
+            kind: PID::ISBN,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ORCID> for Identifier {
+    fn from(value: ORCID) -> Self {
+        Self {
+            kind: PID::ORCID,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<Patent> for Identifier {
+    fn from(value: Patent) -> Self {
+        Self {
+            kind: PID::Patent,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<RAID> for Identifier {
+    fn from(value: RAID) -> Self {
+        Self {
+            kind: PID::RAID,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ROR> for Identifier {
+    fn from(value: ROR) -> Self {
+        Self {
+            kind: PID::ROR,
+            value: value.to_string(),
+        }
     }
 }
 /// Archival Resource Key (ARK)

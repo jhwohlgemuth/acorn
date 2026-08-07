@@ -3,7 +3,7 @@
 //! Primary use case is to leverage prose analysis and readability metrics on unstructured text content, such as abstracts or descriptions.
 
 #[cfg(feature = "std")]
-use crate::io::docx::extract_text_from_path;
+use crate::io::document::{DocumentFormat, SourceDocument};
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, ApiResult, InputOutput};
 #[cfg(feature = "std")]
@@ -77,10 +77,12 @@ impl InputOutput for Text {
 impl InputOutput for Docx {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
-        match file_extension(source.display().to_string()).as_deref() {
-            | Some("docx") => Self::read_docx(source),
-            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => Self::read_text(source),
-            | _ => Err(eyre!("Unsupported DOCX file extension")),
+        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
+            | Ok(_) => Self::read_docx(source),
+            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
+                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => Self::read_text(source),
+                | _ => Err(eyre!("Unsupported document file extension")),
+            },
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
@@ -143,7 +145,7 @@ impl Unstructured for Text {
 #[cfg(feature = "std")]
 impl Docx {
     fn read_docx(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        extract_text_from_path(path.into()).map(|content| Self { content })
+        SourceDocument::at(path).extract().map(|content| Self { content })
     }
     fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {
         read_file(path.into()).map(|content| Self { content })
