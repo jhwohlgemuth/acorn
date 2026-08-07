@@ -6,12 +6,12 @@ difficulty: medium
 impact: low
 package: [acorn-lib, workspace]
 tags: [refactor, dependencies, no-std]
-status: planned
+status: in-progress
 ---
 
 # Evidence
 
-Workspace dependency features can enable std behavior before `acorn-lib` selects its own capability set.
+Host reporting, terminal formatting, diff, and generic embedded-asset dependencies are now optional and selected through `std`; the alloc feature enables `serde/alloc` instead of `serde/std`. The remaining dependency tree still needs classification before extraction.
 
 # Recommendation
 

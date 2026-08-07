@@ -6,16 +6,17 @@ difficulty: medium
 impact: medium
 package: [acorn-lib]
 tags: [refactor, utilities, no-std]
-status: planned
+status: in-progress
+priority: next
 ---
 
 # Evidence
 
-`acorn-lib/src/util/mod.rs` combines pure helpers with console tables, colors, and embedded assets.
+Terminal output now lives in `util::terminal`, and minimal/alloc builds no longer resolve console, color, diff, or generic embedded-asset dependencies. `util::portable` still re-exports implementations owned by the mixed root module, so ownership is not yet extractable.
 
 # Recommendation
 
-Move pure string, identifier, and interpolation helpers into a portable module; move console formatting and rendering into a std module; re-export both conditionally.
+Move pure string, identifier, and interpolation implementations into the portable module and re-export them from legacy root paths. Keep terminal formatting std-only. Move immutable validation vocabularies to the schema boundary rather than treating them as generic utility assets.
 
 # Acceptance criteria
 

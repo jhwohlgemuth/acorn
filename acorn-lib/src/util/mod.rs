@@ -15,21 +15,13 @@
 //! }
 //! ```
 //!
+use crate::fail;
 use crate::prelude::HashMap;
 #[cfg(feature = "std")]
 use crate::prelude::Path;
 use crate::prelude::*;
-use crate::{fail, skip};
 use aho_corasick::AhoCorasick;
 use bon::Builder;
-#[cfg(feature = "std")]
-use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-#[cfg(feature = "std")]
-use comfy_table::presets::UTF8_FULL;
-#[cfg(feature = "std")]
-use comfy_table::{ContentArrangement, Table};
-#[cfg(feature = "unicode")]
-use console::Emoji;
 use convert_case::{Case, Casing};
 use core::fmt;
 use core::iter::successors;
@@ -40,24 +32,22 @@ use jiff::{tz::Offset, Timestamp};
 use jsonc_parser::{parse_to_serde_value, ParseOptions};
 #[cfg(feature = "std")]
 use nanoid::nanoid;
-use owo_colors::{OwoColorize, Style, Styled};
-#[cfg(feature = "std")]
-use ring::digest::SHA512;
-use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use similar::{
-    ChangeTag::{self, Delete, Equal, Insert},
-    TextDiff,
-};
 use validator::Validate;
+pub mod assets;
 #[cfg(feature = "std")]
 pub mod cmd;
 pub mod constants;
 pub mod macros;
-
+pub mod portable;
+pub mod terminal;
+pub use assets::Constant;
 use constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
+pub use terminal::Label;
+#[cfg(feature = "std")]
+pub use terminal::{print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color};
 
 /// Format a timestamp as RFC 3339 with an explicit UTC offset.
 pub fn to_rfc3339(value: Timestamp) -> String {
@@ -431,24 +421,6 @@ pub struct Checksum {
     #[serde(rename = "checksumValue")]
     pub checksum_value: String,
 }
-/// Struct for using and sharing constants
-///
-/// See <https://git.sr.ht/~pyrossh/rust-embed>
-#[derive(Embed)]
-#[folder = "assets/constants/"]
-pub struct Constant;
-/// Struct for using and sharing colorized logging labels
-///
-/// ### Labels [^1]
-/// | Name    | Example Output |
-/// |---------|----------------|
-/// | Dry run | "=> DRY_RUN ■ Pretending to do a thing" |
-/// | Skip    | "=> ⚠️  Thing was skipped" |
-/// | Pass    | "=> ✅ Thing passed " |
-/// | Fail    | "=> ✗ Thing failed " |
-///
-/// [^1]: Incomplete list of examples without foreground/background coloring
-pub struct Label {}
 /// Semantic version
 ///
 /// see <https://semver.org/>
@@ -499,205 +471,6 @@ impl From<&str> for ChecksumAlgorithm {
 impl From<String> for ChecksumAlgorithm {
     fn from(value: String) -> Self {
         ChecksumAlgorithm::from(value.as_str())
-    }
-}
-#[cfg(feature = "std")]
-impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
-    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
-        if core::ptr::eq(algorithm, &SHA512) {
-            ChecksumAlgorithm::Sha512
-        } else {
-            ChecksumAlgorithm::Sha256
-        }
-    }
-}
-impl Constant {
-    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
-    pub fn from_asset(file_name: &str) -> Option<String> {
-        match Self::get(file_name) {
-            | Some(value) => Some(String::from_utf8_lossy(value.data.as_ref()).into()),
-            | None => None,
-        }
-    }
-    /// Returns an iterator over the last values of each row in the given file.
-    ///
-    /// If a row is empty, it is skipped.
-    pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {
-        Self::csv(file_name)
-            .into_iter()
-            .filter_map(|x| x.last().cloned())
-            .filter(|x| !x.is_empty())
-    }
-    /// Returns an iterator over the values at the given column index for each row in the given file.
-    ///
-    /// If a row does not have a value at the given index, it is skipped.
-    pub fn nth_values(file_name: &str, column: usize) -> impl Iterator<Item = String> {
-        Self::csv(file_name)
-            .into_iter()
-            .filter_map(move |x| x.get(column).cloned())
-            .filter(|x| !x.is_empty())
-    }
-    /// Reads a file from the asset folder and returns its contents as an iterator over individual lines.
-    pub fn read_lines(file_name: &str) -> Vec<String> {
-        Self::from_asset(file_name)
-            .map(|value| value.lines().map(String::from).collect())
-            .unwrap_or_default()
-    }
-    /// Reads a CSV file from the asset folder and returns its contents as a `Vec` of `Vec<String>`,
-    /// where each inner vector represents a row and each string within the inner vector represents a cell value.
-    ///
-    /// # Arguments
-    /// * `file_name` - A string slice representing the name of the CSV file (without extension)
-    pub fn csv(file_name: impl AsRef<str>) -> Vec<Vec<String>> {
-        Self::read_lines(format!("{}.csv", file_name.as_ref()).as_str())
-            .into_iter()
-            .map(|x| x.split(",").map(String::from).collect())
-            .collect()
-    }
-    /// Reads a JSON file from the asset folder and returns its contents
-    ///
-    /// # Arguments
-    /// * `file_name` - A string slice representing the name of the JSON file (without extension)
-    pub fn json<T>(file_name: impl AsRef<str>) -> T
-    where
-        T: Default + serde::de::DeserializeOwned,
-    {
-        Self::from_asset(format!("{}.json", file_name.as_ref()).as_str())
-            .map(|text| serde_json::from_str(&text).unwrap_or_default())
-            .unwrap_or_default()
-    }
-}
-impl Label {
-    /// Prefix for use when logging a warning, caution, etc.
-    #[cfg(not(feature = "unicode"))]
-    pub const CAUTION: &str = "!!! ";
-    /// Prefix for use when logging a warning, caution, etc.
-    #[cfg(feature = "unicode")]
-    pub const CAUTION: Emoji<'_, '_> = Emoji("⚠️ ", "!!! ");
-    /// Prefix for use when logging a success, pass, etc.
-    #[cfg(not(feature = "unicode"))]
-    pub const CHECKMARK: &str = "✓ ";
-    /// Prefix for use when logging a success, pass, etc.
-    #[cfg(feature = "unicode")]
-    pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
-    /// Template string to customize the progress bar
-    ///
-    /// See <https://docs.rs/indicatif/latest/indicatif/#templates>
-    pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
-    /// Template string for progress spinner (indeterminate)
-    pub const PROGRESS_SPINNER_TEMPLATE: &str = "  {spinner:.green}  {msg}";
-    /// Template string for progress counter (simple X of Y)
-    pub const PROGRESS_COUNTER_TEMPLATE: &str = "{pos:>5} of{len:^5} {msg}";
-    /// "Dry run" label
-    pub const DRY_RUN: &str = " DRY_RUN ■ ";
-    /// Styled "dry run" label
-    pub fn dry_run() -> Styled<&'static &'static str> {
-        let style = Style::new().black().on_yellow();
-        Self::DRY_RUN.style(style)
-    }
-    /// "Invalid" label
-    pub fn invalid() -> String {
-        Label::fmt_invalid(" ✗ INVALID")
-    }
-    /// "Invalid" label formatting
-    pub fn fmt_invalid(value: &str) -> String {
-        let style = Style::new().red().on_default_color();
-        value.style(style).to_string()
-    }
-    /// "Valid" label
-    pub fn valid() -> String {
-        Label::fmt_valid(" ✓ VALID  ")
-    }
-    /// "Invalid" label formatting
-    pub fn fmt_valid(value: &str) -> String {
-        let style = Style::new().green().on_default_color();
-        value.style(style).to_string()
-    }
-    /// "Fail" label
-    pub fn fail() -> String {
-        Label::fmt_fail("FAIL")
-    }
-    /// "Fail" label formatting
-    pub fn fmt_fail(value: &str) -> String {
-        let style = Style::new().white().on_red();
-        format!(" ✗ {value} ").style(style).to_string()
-    }
-    /// "Found" label
-    pub fn found() -> String {
-        Label::fmt_found("FOUND")
-    }
-    /// "Found" label formatting
-    pub fn fmt_found(value: &str) -> String {
-        let style = Style::new().green().on_default_color();
-        value.to_string().style(style).to_string()
-    }
-    /// "Not found" label
-    pub fn not_found() -> String {
-        Label::fmt_not_found("NOT_FOUND")
-    }
-    /// "Not found" label formatting
-    pub fn fmt_not_found(value: &str) -> String {
-        let style = Style::new().red().on_default_color();
-        value.style(style).to_string()
-    }
-    /// "Output" label
-    pub fn output() -> String {
-        Label::fmt_output("OUTPUT")
-    }
-    /// "Output" label formatting
-    pub fn fmt_output(value: &str) -> String {
-        let style = Style::new().cyan().dimmed().on_default_color();
-        value.style(style).to_string()
-    }
-    /// "Pass" label
-    pub fn pass() -> String {
-        Label::fmt_pass("SUCCESS")
-    }
-    /// "Pass" label formatting
-    pub fn fmt_pass(value: &str) -> String {
-        let style = Style::new().green().bold().on_default_color();
-        format!("{}{}", Label::CHECKMARK, value).style(style).to_string()
-    }
-    /// "Read" label
-    pub fn read() -> Styled<&'static &'static str> {
-        let style = Style::new().green().on_default_color();
-        "READ".style(style)
-    }
-    /// "Rejected" label
-    pub fn rejected() -> String {
-        Label::fmt_rejected("REJECTED")
-    }
-    /// "Rejected" label formatting
-    pub fn fmt_rejected(value: &str) -> String {
-        let style = Style::new().red().on_default_color();
-        format!("🛑 {value} ").style(style).to_string()
-    }
-    /// "Run" label
-    pub fn run() -> String {
-        Label::fmt_run("RUN")
-    }
-    /// "Run" label formatting
-    pub fn fmt_run(value: &str) -> String {
-        let style = Style::new().black().on_yellow();
-        format!(" {value} ▶ ").style(style).to_string()
-    }
-    /// "Skip" label
-    pub fn skip() -> String {
-        Label::fmt_skip("SKIP")
-    }
-    /// "Skip" label formatting
-    pub fn fmt_skip(value: &str) -> String {
-        let style = Style::new().yellow().on_default_color();
-        format!("{}{}", Label::CAUTION, value).style(style).to_string()
-    }
-    /// "Using" label
-    pub fn using() -> String {
-        Label::fmt_using("USING")
-    }
-    /// "Using" label formatting
-    pub fn fmt_using(value: &str) -> String {
-        let style = Style::new().cyan();
-        value.style(style).to_string()
     }
 }
 impl<T: AsRef<str>> From<T> for License
@@ -1201,15 +974,7 @@ where
         lookup.get("body").cloned().unwrap_or_else(|| content.trim().to_string()),
     )
 }
-/// Generates a random GUID using a custom alphabet.
-///
-/// The generated GUID is a 10-character string composed of a mix of uppercase
-/// letters, lowercase letters, digits, and a hyphen. The function uses the
-/// [nanoid](https://github.com/ai/nanoid) library to ensure randomness and uniqueness of the GUID.
-///
-/// # Returns
-///
-/// A `String` representing a randomly generated GUID.
+/// Generate a random ten-character ACORN identifier
 pub fn generate_guid() -> String {
     #[cfg(feature = "std")]
     {
@@ -1217,13 +982,10 @@ pub fn generate_guid() -> String {
             '-', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'b', 'c',
             'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
         ];
-        let id = nanoid!(10, &alphabet);
-        id
+        nanoid!(10, &alphabet)
     }
     #[cfg(not(feature = "std"))]
-    {
-        String::new()
-    }
+    String::new()
 }
 /// Simple glob pattern matching supporting `*` (any sequence) and `?` (any single char).
 pub fn glob_matches(path: &str, pattern: &str) -> bool {
@@ -1275,59 +1037,6 @@ where
         .chain(b.into_iter().flatten().map(|value| value.as_ref().trim().to_string()))
         .filter(|value| !value.is_empty() && seen.insert(value.clone()))
         .collect()
-}
-/// Prints a diff of changes between two strings.
-///
-/// If there are no changes between `old` and `new`, prints a debug message indicating so.
-/// Otherwise, prints a unified diff of the changes, with `+` indicating lines that are
-/// present in `new` but not `old`, `-` indicating lines that are present in `old` but
-/// not `new`, and lines that are the same in both are prefixed with a space.
-pub fn print_changes(old: &str, new: &str) {
-    print_changes_with_color(old, new, true);
-}
-/// Prints a diff of changes between two strings, optionally using ANSI colors.
-pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
-    let changes = text_diff_changes_with_color(old, new, color);
-    let has_no_changes = changes.clone().into_iter().all(|(tag, _)| tag == Equal);
-    if has_no_changes {
-        skip!("No format changes");
-    } else {
-        #[cfg(feature = "std")]
-        for change in changes {
-            print!("{}", change.1);
-        }
-    }
-}
-/// Prints the given values as a table.
-///
-/// # Arguments
-/// * `headers` - The headers of the table.
-/// * `rows` - The rows of the table as a vector of vectors of strings.
-/// * `title` - Optional title of the table.
-pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>)
-where
-    T: ToString,
-{
-    #[cfg(feature = "std")]
-    {
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(headers);
-        rows.into_iter().for_each(|row| {
-            table.add_row(row);
-        });
-        match title {
-            | Some(value) => println!("{} \n{table}", value.to_string().bold()),
-            | None => println!("{table}"),
-        }
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        let _ = (headers, rows, title);
-    }
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note
@@ -1471,43 +1180,6 @@ where
     T: PartialEq + From<u8>,
 {
     (if value == T::from(1) { "" } else { "s" }).to_string()
-}
-/// Computes the differences between two strings line by line and returns a vector of changes.
-///
-/// Each change is represented as a tuple containing a `ChangeTag` indicating the type of change
-/// (deletion, insertion, or equality) and a `String` with the formatted line prefixed with a
-/// symbol indicating the type of change (`-` for deletions, `+` for insertions, and a space for equal lines).
-///
-/// The formatted string is also colored: red for deletions, green for insertions, and dimmed for equal lines.
-///
-/// # Arguments
-///
-/// * `old` - A string slice representing the original text.
-/// * `new` - A string slice representing the modified text.
-///
-/// # Returns
-///
-/// A vector of tuples, each containing a `ChangeTag` and a formatted `String` representing the changes.
-pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
-    text_diff_changes_with_color(old, new, true)
-}
-/// Returns line-oriented diff changes, optionally formatted with ANSI colors.
-pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(ChangeTag, String)> {
-    TextDiff::from_lines(old, new)
-        .iter_all_changes()
-        .map(|line| {
-            let tag = line.tag();
-            let text = match (color, tag) {
-                | (true, Delete) => format!("- {line}").red().to_string(),
-                | (true, Insert) => format!("+ {line}").green().to_string(),
-                | (true, Equal) => format!("  {line}").dimmed().to_string(),
-                | (false, Delete) => format!("- {line}"),
-                | (false, Insert) => format!("+ {line}"),
-                | (false, Equal) => format!("  {line}"),
-            };
-            (tag, text)
-        })
-        .collect::<Vec<_>>()
 }
 /// Normalize a string to lowercase ASCII alphanumeric characters.
 pub fn to_ascii_alphanumeric(value: &str) -> String {

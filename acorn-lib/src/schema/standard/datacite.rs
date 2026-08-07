@@ -4,9 +4,11 @@
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
 #[cfg(feature = "std")]
+use crate::error::ApiResult;
+#[cfg(feature = "std")]
 use crate::io::License;
 #[cfg(feature = "std")]
-use crate::io::{read_file, write_file, ApiResult, InputOutput};
+use crate::io::{read_file, write_file, InputOutput};
 use crate::prelude::*;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};

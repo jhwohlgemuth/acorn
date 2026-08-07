@@ -1,8 +1,7 @@
 //! Data model for harware memory resources, including memory units and (de)serialization logic
-use crate::io::ApiResult;
+use crate::error::{AcornError, AcornResult};
 use crate::prelude::*;
 use alloc::borrow::Cow;
-use color_eyre::eyre::{eyre, Report};
 use core::{convert::TryInto, str::FromStr};
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -129,8 +128,8 @@ impl Memory {
     }
 }
 impl FromStr for Memory {
-    type Err = Report;
-    fn from_str(value: &str) -> ApiResult<Self> {
+    type Err = AcornError;
+    fn from_str(value: &str) -> AcornResult<Self> {
         parse_memory_string(value)
     }
 }
@@ -173,11 +172,11 @@ impl JsonSchema for MemoryUnit {
         true
     }
 }
-fn memory_from_number(amount: f64) -> ApiResult<Memory> {
+fn memory_from_number(amount: f64) -> AcornResult<Memory> {
     if !amount.is_finite() {
-        Err(eyre!("Memory amount must be finite"))
+        Err(AcornError::new("Memory amount must be finite"))
     } else if amount < 0.0 {
-        Err(eyre!("Memory amount cannot be negative"))
+        Err(AcornError::new("Memory amount cannot be negative"))
     } else {
         Ok(Memory {
             amount,
@@ -185,7 +184,7 @@ fn memory_from_number(amount: f64) -> ApiResult<Memory> {
         })
     }
 }
-fn parse_memory_string(value: &str) -> ApiResult<Memory> {
+fn parse_memory_string(value: &str) -> AcornResult<Memory> {
     let s = value.trim();
     match s.find(|c: char| !c.is_ascii_digit() && c != '.') {
         | Some(split) => match (s.get(..split), s.get(split..)) {
@@ -193,13 +192,13 @@ fn parse_memory_string(value: &str) -> ApiResult<Memory> {
                 | Ok(amount) => memory_from_number(amount).and_then(|_| {
                     MemoryUnit::deserialize(serde::de::value::StrDeserializer::<serde::de::value::Error>::new(unit.trim()))
                         .map(|unit| Memory { amount, unit })
-                        .map_err(|why| eyre!(why.to_string()))
+                        .map_err(|why| AcornError::new(why.to_string()))
                 }),
-                | Err(_) => Err(eyre!("Invalid memory amount — '{value}'")),
+                | Err(_) => Err(AcornError::new(format!("Invalid memory amount — '{value}'"))),
             },
-            | _ => Err(eyre!("Invalid memory value — '{s}'")),
+            | _ => Err(AcornError::new(format!("Invalid memory value — '{s}'"))),
         },
-        | None => Err(eyre!("Missing unit in memory value — '{s}'")),
+        | None => Err(AcornError::new(format!("Missing unit in memory value — '{s}'"))),
     }
 }
 

@@ -6,12 +6,12 @@ difficulty: medium
 impact: high
 package: [acorn-lib]
 tags: [refactor, no-std, errors]
-status: planned
+status: complete
 ---
 
 # Evidence
 
-Portable-facing modules use `ApiResult<T>` backed by a rich host report type.
+`AcornError` and `AcornResult` provide the core-compatible error contract. `ApiResult` is std-only, `color-eyre` is enabled only by the `std` feature, and minimal/alloc dependency trees no longer resolve it.
 
 # Recommendation
 

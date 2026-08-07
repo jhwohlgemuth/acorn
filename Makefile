@@ -80,9 +80,12 @@ check:
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
 	@cargo check -p acorn-lib --no-default-features
-	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
+	@$(MAKE) wasm
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
+
+wasm:
+	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 
 cover: clean lint
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
@@ -266,7 +269,8 @@ TARGETS = \
 	riscv64gc-unknown-linux-gnu \
 	x86_64-unknown-linux-gnu \
 	x86_64-unknown-linux-musl \
-	x86_64-pc-windows-gnu
+	x86_64-pc-windows-gnu \
+	wasm32-unknown-unknown
 FUZZ_TARGET = research_activity
 FUZZ_ARGS =
 BENCH_BASELINE = $(VERSION)
@@ -291,6 +295,7 @@ TASKS = \
 	setup \
 	test \
 	test-ci \
+	wasm \
 	version \
 	release-version \
 	check-version \

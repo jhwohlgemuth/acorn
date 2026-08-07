@@ -29,4 +29,4 @@
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)
   - [🐍 Python package](./packages/acorn-py.md)
-  - [WebAssembly package](./packages/acorn-web.md)
+  - [WebAssembly development](./packages/acorn-web.md)

@@ -3,9 +3,11 @@
 //! Primary use case is to leverage prose analysis and readability metrics on unstructured text content, such as abstracts or descriptions.
 
 #[cfg(feature = "std")]
+use crate::error::ApiResult;
+#[cfg(feature = "std")]
 use crate::io::document::{DocumentFormat, SourceDocument};
 #[cfg(feature = "std")]
-use crate::io::{read_file, write_file, ApiResult, InputOutput};
+use crate::io::{read_file, write_file, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::prelude::*;

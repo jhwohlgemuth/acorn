@@ -59,6 +59,14 @@ make cover
 make audit
 ```
 
+### WASM Portability Check
+Install the Rust target once, then check the portable WASM feature path:
+```bash
+rustup target add wasm32-unknown-unknown
+make wasm
+```
+This checks `acorn-lib` without default features and does not produce a browser package. See the [public WASM developer guide](docs/src/packages/acorn-web.md) for the supported surface and the [WASM feature plan](.wiki/refactors/portability/wasm-feature-path.md) for planned browser adapters.
+
 ### Running From Source
 ACORN's full API is available without installation:
 ```bash

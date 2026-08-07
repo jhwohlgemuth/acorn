@@ -3,9 +3,9 @@
 //! Module that defines the research activity schema
 //!
 #[cfg(feature = "std")]
-use crate::fail;
+use crate::error::ApiResult;
 #[cfg(feature = "std")]
-use crate::io::ApiResult;
+use crate::fail;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]

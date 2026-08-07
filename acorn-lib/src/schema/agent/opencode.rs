@@ -1,7 +1,8 @@
 //! OpenCode configuration data model
 //!
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
-use crate::io::{parse_jsonc_cst, read_file, write_file, ApiResult, CstRootNode, FromPath, InputOutput};
+use crate::error::ApiResult;
+use crate::io::{parse_jsonc_cst, read_file, write_file, CstRootNode, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::Path;
 use crate::prelude::PathBuf;

@@ -1,6 +1,7 @@
 //! Structured model for working with prompt files (body text and front-matter metadata)
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
+use crate::error::ApiResult;
 use crate::io::api::AuthenticationScheme;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{Database, Operations, Row};
@@ -8,7 +9,7 @@ use crate::io::database::{Database, Operations, Row};
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::License;
-use crate::io::{ApiResult, ModelListFile, Source};
+use crate::io::{ModelListFile, Source};
 use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::hardware::memory::Memory;

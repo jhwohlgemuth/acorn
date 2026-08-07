@@ -32,12 +32,12 @@ use urlencoding::encode;
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
+pub mod error;
 #[cfg(feature = "std")]
 pub mod io;
 pub mod prelude;
 pub mod schema;
 pub mod util;
-
 #[cfg(all(feature = "std", feature = "analysis"))]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
@@ -46,6 +46,7 @@ use crate::prelude::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::{Path, PathBuf};
 use crate::util::Label;
+pub use error::{AcornError, AcornResult};
 use strum::EnumIs;
 
 /// **Descriptive/persistent** location reference for use in configuration (buckets, repositories, etc.).

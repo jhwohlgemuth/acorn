@@ -34,9 +34,9 @@ axum = { workspace = true, features = ["http1", "json", "tokio"], optional = tru
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
 jiff = { workspace = true }
-color-eyre = { workspace = true }
+color-eyre = { workspace = true, optional = true }
 comfy-table = { version = "7.1.4", default-features = false, optional = true }
-console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false }
+console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false, optional = true }
 convert_case = { version = "0.11.0", default-features = false }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
@@ -58,7 +58,7 @@ lazy_static = { workspace = true }
 lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true, optional = true }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
-owo-colors = { workspace = true }
+owo-colors = { workspace = true, optional = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
@@ -74,7 +74,7 @@ shuck-parser = { version = "0.0.41", optional = true }
 rand = { version = "0.8", features = ["std_rng"], optional = true }
 rsa = { version = "0.9.10", default-features = false, optional = true }
 rusqlite = { workspace = true, features = ["bundled"], default-features = false, optional = true }
-rust-embed = { workspace = true }
+rust-embed = { workspace = true, optional = true }
 rust-ini = { version = "0.21.3", default-features = false, optional = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
 strum = { workspace = true }
@@ -86,7 +86,7 @@ serde_repr = { workspace = true }
 serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_norway = { workspace = true }
-similar = { version = "3.1.0", features = ["text"], default-features = false}
+similar = { version = "3.1.0", features = ["text"], default-features = false, optional = true }
 sophia = { workspace = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
@@ -123,9 +123,9 @@ harness = false
 
 [features]
 core = []
-alloc = ["core", "serde/std", "jiff/alloc"]
+alloc = ["core", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc"]
-unicode = ["console/std"]
+unicode = ["std", "console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:flate2", "dep:polars", "dep:rayon", "dep:rust-ini", "dep:tar"]
 chart = ["dep:resvg"]
@@ -137,9 +137,11 @@ std = [
   "alloc",
   "dep:ammonia",
   "dep:anydoc",
+  "dep:color-eyre",
   "jiff/std",
   "dep:axum",
   "dep:comfy-table",
+  "dep:console",
   "dep:directories",
   "dep:dotenvy",
   "dep:hf-hub",
@@ -147,12 +149,15 @@ std = [
   "dep:is_executable",
   "dep:lychee-lib",
   "dep:nanoid",
+  "dep:owo-colors",
   "dep:percy-dom",
   "dep:rand",
   "dep:reqwest",
   "dep:ring",
   "dep:rsa",
+  "dep:rust-embed",
   "dep:rusqlite",
+  "dep:similar",
   "dep:tera",
   "dep:tokio",
   "dep:tower",

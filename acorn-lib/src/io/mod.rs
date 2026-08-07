@@ -19,6 +19,7 @@
 //! write_file(PathBuf::from("/path/to/that/file"), contents);
 //! ```
 //!
+pub use crate::error::ApiResult;
 #[cfg(unix)]
 use crate::prelude;
 use crate::prelude::{
@@ -34,7 +35,7 @@ use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHO
 use crate::util::file_extension;
 use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
 use crate::{args, cmd, Location};
-use color_eyre::eyre::{eyre, Report, Result};
+use color_eyre::eyre::{eyre, Report};
 use core::fmt;
 use core::pin::Pin;
 use core::time::Duration;
@@ -52,7 +53,7 @@ use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
 use lazy_static::lazy_static;
 use nanoid::nanoid;
 use rand::rngs::OsRng;
-use ring::digest::{Context, SHA256};
+use ring::digest::{Context, SHA256, SHA512};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
@@ -86,6 +87,15 @@ pub use jsonc_parser::cst::CstRootNode;
 pub use model::ModelListFile;
 pub use source::{Source, SourceAction};
 
+impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
+    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
+        if core::ptr::eq(algorithm, &SHA512) {
+            Self::Sha512
+        } else {
+            Self::Sha256
+        }
+    }
+}
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
 /// Convert filesystem paths to portable configuration strings.
@@ -111,8 +121,6 @@ impl PathConversion for PathBuf {
         <Path as PathConversion>::cross_platform_display(self)
     }
 }
-/// Utility type alias for I/O operation results (e.g., read, write, copy, etc.)
-pub type ApiResult<T> = Result<T, Report>;
 /// An RSA key pair consisting of a private key and its corresponding public key
 pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
 pub(crate) struct CstValue<'a>(pub(crate) &'a Value);

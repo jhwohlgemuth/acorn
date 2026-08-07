@@ -2,7 +2,9 @@
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
 #[cfg(feature = "std")]
-use crate::io::{read_file, write_file, ApiResult, InputOutput, License};
+use crate::error::ApiResult;
+#[cfg(feature = "std")]
+use crate::io::{read_file, write_file, InputOutput, License};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
 use crate::prelude::*;
@@ -244,6 +246,7 @@ pub struct Cff {
 }
 impl Cff {
     /// Parse CFF records embedded in fenced Markdown blocks.
+    #[cfg(feature = "analysis")]
     pub(crate) fn embedded(content: &str) -> Vec<Self> {
         content
             .split("```")
