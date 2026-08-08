@@ -19,7 +19,7 @@ use crate::{Location, Repository, Scheme};
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 13);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 14);
 }
 #[test]
 fn test_tree_entry_type_deserializes_provider_aliases() {

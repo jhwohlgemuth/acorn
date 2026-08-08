@@ -40,6 +40,7 @@ pub mod models_dev;
 pub mod openai;
 pub mod openapi;
 pub mod orcid;
+pub mod osti;
 pub mod raid;
 pub mod ror;
 pub mod spdx;

@@ -1,6 +1,7 @@
 use crate::screens;
 use crate::theme::Theme;
 use crate::{Screen, TuiOptions};
+use acorn::analyzer::discovery::{RemoteMatch, RemoteOrganizationRole, RemoteSearchResponse};
 use acorn::analyzer::Check;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn::io::api::huggingface;
@@ -9,6 +10,7 @@ use crossterm::event;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::Stdout;
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 /// Main application state
@@ -28,6 +30,8 @@ pub struct App {
     pub gguf_picker: Option<State<GgufPickerData>>,
     /// Gather screen state
     pub gather: GatherState,
+    /// Pending remote gather response.
+    pub(crate) gather_remote: Option<Receiver<Result<RemoteSearchResponse, String>>>,
     /// Theme picker state
     pub theme_picker: State<ThemePickerData>,
     /// Current theme
@@ -90,6 +94,37 @@ pub struct GatherState {
     pub input_count: usize,
     /// Selected discovery
     pub selected_index: usize,
+    /// Active local or remote gather mode.
+    pub mode: GatherMode,
+    /// Remote provider matches.
+    pub remote_matches: Vec<RemoteMatch>,
+    /// Total matching upstream projects.
+    pub remote_total: usize,
+    /// Whether another remote page is available.
+    pub remote_has_more: bool,
+    /// Current remote project offset.
+    pub remote_offset: usize,
+    /// Whether a remote request is running.
+    pub remote_loading: bool,
+    /// Remote request error.
+    pub remote_error: Option<String>,
+    /// Treat the input as an organization filter.
+    pub organization_filter: bool,
+    /// Organization relationship filter.
+    pub organization_role: RemoteOrganizationRole,
+}
+/// Gather input mode.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GatherMode {
+    /// Local document and PID discovery.
+    #[default]
+    Local,
+    /// DOE CODE projects.
+    OstiProjects,
+    /// DOE CODE people.
+    OstiPeople,
+    /// DOE CODE organizations.
+    OstiOrganizations,
 }
 /// A GGUF repository presented by the interactive picker.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -225,6 +260,7 @@ impl App {
             check: CheckState::new(),
             gguf_picker: None,
             gather: GatherState::new(),
+            gather_remote: None,
             theme_picker: State::new(ThemePickerData {
                 names: Theme::NAMES.to_vec(),
             }),
@@ -235,6 +271,7 @@ impl App {
     /// Run the TUI event loop
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         loop {
+            screens::gather::poll_remote(self);
             terminal.draw(|f| self.render(f))?;
             if self.should_quit {
                 break;
@@ -430,6 +467,15 @@ impl GatherState {
             input: String::new(),
             input_count: 0,
             selected_index: 0,
+            mode: GatherMode::Local,
+            remote_matches: Vec::new(),
+            remote_total: 0,
+            remote_has_more: false,
+            remote_offset: 0,
+            remote_loading: false,
+            remote_error: None,
+            organization_filter: false,
+            organization_role: RemoteOrganizationRole::Any,
         }
     }
 }

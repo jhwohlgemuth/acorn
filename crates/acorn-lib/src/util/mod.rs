@@ -47,7 +47,9 @@ pub use assets::Constant;
 use constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 pub use terminal::Label;
 #[cfg(feature = "std")]
-pub use terminal::{print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color};
+pub use terminal::{
+    print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
+};
 
 /// Format a timestamp as RFC 3339 with an explicit UTC offset.
 pub fn to_rfc3339(value: Timestamp) -> String {

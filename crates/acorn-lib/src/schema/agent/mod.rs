@@ -120,6 +120,22 @@ pub enum Model {
     /// Large language model useful for natural language processing, generative AI, etc.
     LLM(ModelDetails),
 }
+/// Reason model metadata cannot resolve to a Hugging Face repository.
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
+pub enum ModelResolutionReason {
+    /// The model explicitly declares that its weights are not open.
+    #[display("model is not open")]
+    NotOpen,
+    /// The model declares open weights but provides no weight sources.
+    #[display("no open weight sources are declared")]
+    NoOpenWeights,
+    /// The declared weight sources do not identify a Hugging Face repository.
+    #[display("declared weights do not identify a Hugging Face repository")]
+    NoHuggingFaceRepository,
+    /// The model has no usable identifier or name.
+    #[display("model has no identifier or name")]
+    MissingIdentifier,
+}
 /// Prompt file assets embedded in this crate
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub enum PromptFileAsset {
@@ -315,38 +331,6 @@ pub enum Quantization {
     #[serde(untagged)]
     Other(String),
 }
-impl<'de> Deserialize<'de> for Quantization {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).map(Self::from)
-    }
-}
-impl Quantization {
-    /// Detect a quantization tag in a GGUF filename.
-    pub fn from_gguf_filename(filename: &str) -> Option<Self> {
-        let filename = filename.to_ascii_uppercase();
-        filename.strip_suffix(".GGUF").and_then(|stem| {
-            stem.split(['-', '.'])
-                .find(|part| {
-                    matches!(*part, "F16" | "BF16")
-                        || part
-                            .strip_prefix('Q')
-                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
-                        || part
-                            .strip_prefix("IQ")
-                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
-                })
-                .or_else(|| {
-                    stem.split(['-', '.'])
-                        .rev()
-                        .find(|part| part.contains("FP") && part.chars().any(|character| character.is_ascii_digit()))
-                })
-                .map(Self::from)
-        })
-    }
-}
 /// Benchmark evaluation result
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
@@ -520,22 +504,6 @@ pub struct ModelDetails {
     pub version: Option<SemanticVersion>,
     /// Download sources for model weights
     pub weights: Option<Weights>,
-}
-/// Reason model metadata cannot resolve to a Hugging Face repository.
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq)]
-pub enum ModelResolutionReason {
-    /// The model explicitly declares that its weights are not open.
-    #[display("model is not open")]
-    NotOpen,
-    /// The model declares open weights but provides no weight sources.
-    #[display("no open weight sources are declared")]
-    NoOpenWeights,
-    /// The declared weight sources do not identify a Hugging Face repository.
-    #[display("declared weights do not identify a Hugging Face repository")]
-    NoHuggingFaceRepository,
-    /// The model has no usable identifier or name.
-    #[display("model has no identifier or name")]
-    MissingIdentifier,
 }
 /// A normalized model lookup value supplied by a user or model catalog.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -1237,6 +1205,38 @@ impl FromStr for Quantization {
     type Err = Infallible;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Ok(Self::from(value))
+    }
+}
+impl<'de> Deserialize<'de> for Quantization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Self::from)
+    }
+}
+impl Quantization {
+    /// Detect a quantization tag in a GGUF filename.
+    pub fn from_gguf_filename(filename: &str) -> Option<Self> {
+        let filename = filename.to_ascii_uppercase();
+        filename.strip_suffix(".GGUF").and_then(|stem| {
+            stem.split(['-', '.'])
+                .find(|part| {
+                    matches!(*part, "F16" | "BF16")
+                        || part
+                            .strip_prefix('Q')
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                        || part
+                            .strip_prefix("IQ")
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                })
+                .or_else(|| {
+                    stem.split(['-', '.'])
+                        .rev()
+                        .find(|part| part.contains("FP") && part.chars().any(|character| character.is_ascii_digit()))
+                })
+                .map(Self::from)
+        })
     }
 }
 impl ToMarkdown for ProviderDetails {

@@ -8,16 +8,21 @@ use crate::io::database::{Database, Operations};
 use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::param;
-use crate::prelude::{temp_dir, Path, PathBuf};
+use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
+pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use crate::schema::pid::{Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR};
+use crate::util::values_as_table;
+use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
-use core::iter::once;
+use core::{fmt, iter::once};
 use futures::future::join_all;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
+
+pub mod osti;
 
 /// Serializable gather record
 #[derive(Clone, Debug, Serialize)]
@@ -57,6 +62,8 @@ pub enum Record {
 /// Structured gather output format
 #[derive(Clone, Copy, Debug, Default)]
 pub enum OutputFormat {
+    /// Human-readable console table
+    Console,
     /// JavaScript Object Notation
     #[default]
     Json,
@@ -64,6 +71,189 @@ pub enum OutputFormat {
     Markdown,
     /// YAML
     Yaml,
+}
+/// Remote metadata provider used by gather.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RemoteProvider {
+    /// DOE CODE from the Office of Scientific and Technical Information.
+    Osti,
+}
+impl fmt::Display for RemoteProvider {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Osti => "osti",
+        })
+    }
+}
+impl RemoteProvider {
+    /// Describe the entity views and filters supported by this provider.
+    pub fn capabilities(self) -> ProviderCapabilities {
+        match self {
+            | Self::Osti => ProviderCapabilities {
+                entities: vec![RemoteEntity::Project, RemoteEntity::Person, RemoteEntity::Organization],
+                organization_filter: true,
+                pagination: true,
+            },
+        }
+    }
+}
+/// Features exposed by a remote gather provider.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderCapabilities {
+    /// Entity views supported by the provider.
+    pub entities: Vec<RemoteEntity>,
+    /// Whether organization-scoped searches are supported.
+    pub organization_filter: bool,
+    /// Whether offset, limit, and all-page retrieval are supported.
+    pub pagination: bool,
+}
+/// Provider-neutral remote search request.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
+pub struct RemoteSearchRequest {
+    /// Provider to search.
+    pub provider: RemoteProvider,
+    /// Entity view to return.
+    pub entity: RemoteEntity,
+    /// Direct search expressions.
+    #[builder(default)]
+    pub queries: Vec<String>,
+    /// Optional organization filter.
+    pub organization: Option<String>,
+    /// Organization relationship filter.
+    #[builder(default)]
+    pub organization_role: RemoteOrganizationRole,
+    /// Upstream page size.
+    #[builder(default = 20)]
+    pub limit: usize,
+    /// Upstream offset.
+    #[builder(default)]
+    pub offset: usize,
+    /// Retrieve all pages.
+    #[builder(default)]
+    pub all: bool,
+}
+impl RemoteSearchRequest {
+    /// Return whether neither a direct query nor an organization filter was supplied.
+    pub fn is_empty(&self) -> bool {
+        self.queries.is_empty() && self.organization.as_deref().is_none_or(str::is_empty)
+    }
+    /// Return whether the selected provider supports the requested entity.
+    pub fn supports_entity(&self) -> bool {
+        self.provider.capabilities().entities.contains(&self.entity)
+    }
+    fn queries(&self) -> Vec<String> {
+        match self.queries.is_empty() {
+            | true => vec![String::new()],
+            | false => self.queries.clone(),
+        }
+    }
+    fn osti_options(&self, query: String) -> api::osti::Options {
+        let organization_query = self.entity == RemoteEntity::Organization && self.organization.is_none();
+        api::osti::Options {
+            query: match organization_query {
+                | true => String::new(),
+                | false => query.clone(),
+            },
+            view: self.entity.into(),
+            organization: self.organization.clone().or_else(|| organization_query.then_some(query)),
+            organization_role: self.organization_role,
+            limit: self.limit,
+            start: self.offset,
+            all: self.all,
+        }
+    }
+    async fn search_osti(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
+        join_all(self.queries().into_iter().map(|query| {
+            let options = self.osti_options(query);
+            async move { api::osti::search(&options).await.and_then(RemoteSearchResponse::from_osti) }
+        }))
+        .await
+        .into_iter()
+        .collect::<ApiResult<Vec<_>>>()
+        .map(|responses| responses.into_iter().reduce(RemoteSearchResponse::merge).into_iter().collect())
+    }
+    /// Search the configured remote provider.
+    pub async fn search(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
+        match (self.supports_entity(), self.provider) {
+            | (false, _) => Err(color_eyre::eyre::eyre!("{} does not support {} searches", self.provider, self.entity)),
+            | (true, RemoteProvider::Osti) => self.search_osti().await,
+        }
+    }
+    /// Run the remote search and emit its gather report.
+    pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
+        let Options { format, offline, output, .. } = options;
+        match (offline, self.is_empty()) {
+            | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
+            | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
+            | (false, false) => self.search().await.and_then(|responses| {
+                let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
+                let report = Report::new(&[], Records::default(), inputs).with_remote(responses);
+                let format = format.unwrap_or_else(|| match output.is_none() && io::stdout().is_terminal() {
+                    | true => OutputFormat::Console,
+                    | false => OutputFormat::Json,
+                });
+                match output {
+                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+                    | None => report.serialize(format).map(|serialized| println!("{serialized}")),
+                }
+            }),
+        }
+    }
+}
+/// Provider-neutral remote search match.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RemoteMatch {
+    /// Entity kind.
+    pub entity: RemoteEntity,
+    /// Provider-native stable identifier.
+    pub identifier: String,
+    /// Human-readable label.
+    pub title: String,
+    /// Optional persistent identifier.
+    pub pid: Option<String>,
+    /// Optional canonical link.
+    pub url: Option<String>,
+    /// Provider-native metadata retained for structured output and details.
+    pub metadata: serde_json::Value,
+}
+/// Provider-neutral remote search response.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RemoteSearchResponse {
+    /// Provider that produced the results.
+    pub provider: RemoteProvider,
+    /// Total upstream records matched.
+    pub total: usize,
+    /// Upstream offset.
+    pub offset: usize,
+    /// Whether another page is available.
+    pub has_more: bool,
+    /// Normalized matches.
+    pub matches: Vec<RemoteMatch>,
+}
+impl RemoteSearchResponse {
+    /// Merge another response, retaining the first occurrence of each provider identifier.
+    pub fn merge(self, other: Self) -> Self {
+        let matches = self
+            .matches
+            .into_iter()
+            .chain(other.matches)
+            .fold((BTreeSet::new(), Vec::new()), |(mut seen, mut matches), value| {
+                if seen.insert((value.entity, value.identifier.clone())) {
+                    matches.push(value);
+                }
+                (seen, matches)
+            })
+            .1;
+        Self {
+            provider: self.provider,
+            total: self.total.saturating_add(other.total),
+            offset: self.offset,
+            has_more: self.has_more || other.has_more,
+            matches,
+        }
+    }
 }
 /// Candidate artifact record before standard-specific mapping
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -85,7 +275,7 @@ pub struct Options<'a> {
     /// Optional input inclusion pattern
     pub filter: &'a Option<String>,
     /// Structured report format
-    pub format: OutputFormat,
+    pub format: Option<OutputFormat>,
     /// Optional input exclusion pattern
     pub ignore: &'a Option<String>,
     /// Input locations
@@ -108,6 +298,8 @@ pub struct Options<'a> {
     pub text: &'a [String],
     /// Whether analysis output should be quiet
     pub quiet: bool,
+    /// Optional remote metadata search.
+    pub remote: Option<&'a RemoteSearchRequest>,
 }
 /// Gather discoveries and the source documents from which they were derived
 #[derive(Clone, Debug, Default, Serialize)]
@@ -118,6 +310,8 @@ pub struct Records(Vec<Record>, #[serde(skip)] Vec<SourceDocument>);
 pub struct Report {
     checks: Vec<Record>,
     discoveries: Records,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    remote: Vec<RemoteSearchResponse>,
     summary: Summary,
 }
 #[derive(Builder, Clone, Debug)]
@@ -131,6 +325,11 @@ struct Summary {
     discoveries: usize,
     failures: usize,
     inputs: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    matches: usize,
+}
+fn is_zero(value: &usize) -> bool {
+    *value == 0
 }
 #[async_trait]
 impl Analysis for Records {
@@ -393,15 +592,43 @@ impl Report {
                 discoveries: discoveries.len(),
                 failures: checks.iter().filter(|check| check.is_failure()).count(),
                 inputs,
+                matches: 0,
             },
             discoveries,
+            remote: Vec::new(),
+        }
+    }
+    /// Attach remote search results to this report.
+    pub fn with_remote(self, remote: Vec<RemoteSearchResponse>) -> Self {
+        let Self {
+            checks,
+            discoveries,
+            summary,
+            ..
+        } = self;
+        let matches = remote.iter().map(|response| response.matches.len()).sum();
+        Self {
+            checks,
+            discoveries,
+            remote,
+            summary: Summary { matches, ..summary },
         }
     }
     /// Serialize the report in the selected structured format.
     pub fn serialize(&self, format: OutputFormat) -> ApiResult<String> {
         match format {
+            | OutputFormat::Console => {
+                let (headers, rows) = self.table();
+                Ok(values_as_table(headers, rows, Some(self.title())))
+            }
             | OutputFormat::Json => serde_json::to_string_pretty(self).map_err(EyreReport::from),
             | OutputFormat::Markdown => {
+                let Summary {
+                    inputs,
+                    discoveries: discovery_count,
+                    matches,
+                    failures,
+                } = &self.summary;
                 let discoveries = self
                     .discoveries
                     .0
@@ -418,8 +645,18 @@ impl Report {
                     .collect::<Vec<_>>()
                     .join("\n");
                 Ok(format!(
-                    "# ACORN gather\n\n## Summary\n\n- Inputs: {}\n- Discoveries: {}\n- Failures: {}\n\n## Discoveries\n\n{}\n\n## Checks\n\n{}",
-                    self.summary.inputs, self.summary.discoveries, self.summary.failures, discoveries, checks,
+                    "# ACORN gather\n\n## Summary\n\n- Inputs: {}\n- Discoveries: {}\n- Matches: {}\n- Failures: {}\n\n## Discoveries\n\n{}\n\n## Remote matches\n\n{}\n\n## Checks\n\n{}",
+                    inputs,
+                    discovery_count,
+                    matches,
+                    failures,
+                    discoveries,
+                    self.remote
+                        .iter()
+                        .flat_map(|response| response.matches.iter().map(move |value| format!("- **{}** {}: {}", response.provider, value.identifier, value.title)))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    checks,
                 ))
             }
             | OutputFormat::Yaml => serde_norway::to_string(self).map_err(EyreReport::from),
@@ -428,8 +665,8 @@ impl Report {
     /// Build the title used for terminal table output.
     pub fn title(&self) -> String {
         format!(
-            "ACORN gather: {} inputs, {} discoveries, {} failures",
-            self.summary.inputs, self.summary.discoveries, self.summary.failures
+            "ACORN gather: {} inputs, {} discoveries, {} matches, {} failures",
+            self.summary.inputs, self.summary.discoveries, self.summary.matches, self.summary.failures
         )
     }
     /// Convert the report to terminal table headers and rows.
@@ -464,7 +701,27 @@ impl Report {
             ]),
             | Record::Discovery { .. } => None,
         });
-        (vec!["Type", "Value", "Status", "Source"], discoveries.chain(checks).collect())
+        let remote = self.remote.iter().flat_map(|response| {
+            response.matches.iter().map(|value| {
+                let label = match value.identifier == value.title {
+                    | true => value.title.clone(),
+                    | false => format!("{}: {}", value.identifier, value.title),
+                };
+                vec![
+                    format!("{} {:?}", response.provider, value.entity).to_ascii_lowercase(),
+                    label,
+                    match response.has_more {
+                        | true => format!("{} of {}", response.matches.len(), response.total),
+                        | false => "complete".to_string(),
+                    },
+                    value.url.clone().unwrap_or_default(),
+                ]
+            })
+        });
+        (
+            vec!["Type", "Value", "Status", "Source"],
+            discoveries.chain(remote).chain(checks).collect(),
+        )
     }
 }
 impl Identifier {
@@ -664,7 +921,7 @@ mod tests {
             .analyze(Options {
                 database_path: &database_path,
                 filter: &filter,
-                format: OutputFormat::Json,
+                format: Some(OutputFormat::Json),
                 ignore: &ignore,
                 input: &input,
                 max_depth: None,
@@ -676,6 +933,7 @@ mod tests {
                 standard: &standard,
                 text: &text,
                 quiet: true,
+                remote: None,
             })
             .await;
         assert!(discoveries.is_empty());
@@ -725,10 +983,12 @@ mod tests {
                 }],
                 Vec::new(),
             ),
+            remote: Vec::new(),
             summary: Summary {
                 discoveries: 1,
                 failures: 1,
                 inputs: 1,
+                matches: 0,
             },
         };
         let markdown = report.serialize(OutputFormat::Markdown).unwrap_or_default();
@@ -759,14 +1019,59 @@ mod tests {
                 }],
                 Vec::new(),
             ),
+            remote: Vec::new(),
             summary: Summary {
                 discoveries: 1,
                 failures: 1,
                 inputs: 1,
+                matches: 0,
             },
         };
         let (headers, rows) = report.table();
         assert_eq!(headers, vec!["Type", "Value", "Status", "Source"]);
         assert_eq!(rows.len(), 2);
+        let console = report.serialize(OutputFormat::Console).unwrap_or_default();
+        assert!(console.contains("10.1234/example"));
+        assert!(console.contains("schema: example"));
+    }
+    #[test]
+    fn test_remote_responses_merge_duplicate_provider_identifiers() {
+        let response = |identifier: &str| RemoteSearchResponse {
+            provider: RemoteProvider::Osti,
+            total: 1,
+            offset: 0,
+            has_more: false,
+            matches: vec![RemoteMatch {
+                entity: RemoteEntity::Project,
+                identifier: identifier.to_string(),
+                title: "Example".to_string(),
+                pid: None,
+                url: None,
+                metadata: serde_json::Value::Null,
+            }],
+        };
+        let merged = vec![response("1"), response("1"), response("2")]
+            .into_iter()
+            .reduce(RemoteSearchResponse::merge)
+            .into_iter()
+            .collect::<Vec<_>>();
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].matches.len(), 2);
+        assert_eq!(response("1").merge(response("2")).matches.len(), 2);
+    }
+    #[test]
+    fn test_remote_search_request_builder_and_capabilities() {
+        let request = RemoteSearchRequest::init()
+            .provider(RemoteProvider::Osti)
+            .entity(RemoteEntity::Project)
+            .build();
+        assert!(request.is_empty());
+        assert!(request.supports_entity());
+        assert_eq!(request.limit, 20);
+        let unsupported = RemoteSearchRequest::init()
+            .provider(RemoteProvider::Osti)
+            .entity(RemoteEntity::Repository)
+            .build();
+        assert!(!unsupported.supports_entity());
     }
 }

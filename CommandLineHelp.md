@@ -604,11 +604,83 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 * `--max-depth <DEPTH>` — Maximum directory descendant depth to search; direct children have depth 1
 * `-m`, `--merge-request` — Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
 * `-o`, `--output <PATH>` — Write the structured report to a file instead of stdout
-* `--format <FORMAT>` — Structured report format
-
-  Default value: `json`
+* `--osti <OSTI>` — Search DOE CODE and return projects, people, or organizations
 
   Possible values:
+  - `projects`:
+    Software projects
+  - `people`:
+    Developers and contributors
+  - `organizations`:
+    Credited organizations
+
+* `--organization <TERM>` — Restrict remote results to a credited organization
+* `--organization-role <ORGANIZATION_ROLE>` — Organization relationship to match
+
+  Possible values:
+  - `any`:
+    Any credited organization relationship
+  - `site-owner`:
+    Submitting site
+  - `research`:
+    Research organization
+  - `sponsor`:
+    Sponsoring organization
+  - `contributor`:
+    Contributing organization
+  - `developer`:
+    Developing organization
+
+* `--lab <LAB>` — Restrict results to projects submitted by a DOE national laboratory
+
+  Possible values:
+  - `ames`:
+    Ames National Laboratory
+  - `anl`:
+    Argonne National Laboratory
+  - `bnl`:
+    Brookhaven National Laboratory
+  - `fnal`:
+    Fermi National Accelerator Laboratory
+  - `inl`:
+    Idaho National Laboratory
+  - `lbnl`:
+    Lawrence Berkeley National Laboratory
+  - `llnl`:
+    Lawrence Livermore National Laboratory
+  - `lanl`:
+    Los Alamos National Laboratory
+  - `netl`:
+    National Energy Technology Laboratory
+  - `nrel`:
+    National Renewable Energy Laboratory
+  - `ornl`:
+    Oak Ridge National Laboratory
+  - `pnnl`:
+    Pacific Northwest National Laboratory
+  - `pppl`:
+    Princeton Plasma Physics Laboratory
+  - `snl`:
+    Sandia National Laboratories
+  - `srnl`:
+    Savannah River National Laboratory
+  - `slac`:
+    SLAC National Accelerator Laboratory
+  - `tjnaf`:
+    Thomas Jefferson National Accelerator Facility
+
+* `--limit <COUNT>` — Number of upstream projects requested per page
+
+  Default value: `20`
+* `--offset <COUNT>` — Zero-based upstream project offset
+
+  Default value: `0`
+* `--all` — Retrieve every matching upstream project page
+* `--format <FORMAT>` — Report format; defaults to console for terminals and JSON for pipes or files
+
+  Possible values:
+  - `console`:
+    Human-readable console table
   - `json`:
     JavaScript Object Notation
   - `markdown`:

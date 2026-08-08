@@ -301,6 +301,7 @@ pub(crate) fn spawn_retry_resume_server(
             let mut stream = match listener.accept() {
                 | Ok((stream, _)) => {
                     idle = 0;
+                    stream.set_nonblocking(false).expect("set retry-resume stream blocking");
                     stream
                 }
                 | Err(why) if why.kind() == ErrorKind::WouldBlock => {

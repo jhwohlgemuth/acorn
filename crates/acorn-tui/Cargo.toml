@@ -24,6 +24,7 @@ reqwest = { version = "0.13.2", features = ["blocking", "rustls"], default-featu
 serde = { workspace = true }
 serde_json = { workspace = true }
 shell-words = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time"] }
 
 [lints.rust]
 unsafe_code = "allow"

@@ -8,6 +8,7 @@
 // The `-V` assertion changed from `is_ok()` to `is_err()` because clap's auto-generated
 // version flag (used after removing the problematic custom `version` + `disable_version_flag`)
 // returns Err during `try_parse_from` as a signal to display version info.
+use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::SyncTarget;
 use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands};
 use acorn::io::filter_ignored_with_root;
@@ -92,6 +93,34 @@ fn test_cli() {
         "example::api",
         "--domain",
         "api.example.com"
+    ])
+    .is_err());
+}
+#[test]
+fn test_gather_lab_parses_acronyms_case_insensitively() {
+    for (value, expected) in [("ORNL", DoeLab::Ornl), ("lanl", DoeLab::Lanl), ("SNL", DoeLab::Snl)] {
+        let arguments = Arguments::try_parse_from(["acorn", "gather", "--osti", "projects", "--lab", value]).unwrap();
+        match arguments.command {
+            | Some(Commands::Gather(arguments)) => assert_eq!(arguments.lab, Some(expected)),
+            | _ => panic!("expected gather arguments"),
+        }
+    }
+    assert_eq!(DoeLab::Ornl.to_string(), "ORNL");
+    assert_eq!(DoeLab::Lanl.to_string(), "LANL");
+    assert_eq!(DoeLab::Snl.to_string(), "SNL");
+}
+#[test]
+fn test_gather_lab_rejects_overlapping_organization_options() {
+    assert!(Arguments::try_parse_from(["acorn", "gather", "--osti", "projects", "--lab", "ORNL", "--organization", "ORNL"]).is_err());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "gather",
+        "--osti",
+        "projects",
+        "--lab",
+        "ORNL",
+        "--organization-role",
+        "site-owner"
     ])
     .is_err());
 }

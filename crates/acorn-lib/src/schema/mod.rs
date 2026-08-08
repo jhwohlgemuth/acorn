@@ -53,6 +53,7 @@ use validator::Validate;
 
 #[cfg(feature = "std")]
 pub mod agent;
+pub mod discovery;
 pub mod geonames;
 pub mod graph;
 pub mod namespaces;

@@ -1,5 +1,6 @@
-use crate::app::{App, GatherDiscovery, GatherState};
+use crate::app::{App, GatherDiscovery, GatherMode, GatherState};
 use crate::{Screen, TuiOptions};
+use acorn::analyzer::discovery::{RemoteEntity, RemoteOrganizationRole, RemoteProvider, RemoteSearchRequest};
 use acorn::analyzer::{Check, CheckCategory};
 use acorn::check_err;
 use acorn::io::database::schema::{IdentifierRow, Table};
@@ -15,6 +16,8 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
+use std::sync::mpsc;
+use std::thread;
 
 #[derive(Clone, Debug)]
 struct GatherOutput {
@@ -41,10 +44,16 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 }
 fn render_title(frame: &mut Frame, area: Rect, app: &App) {
     let mode = if app.options.offline { "offline" } else { "online" };
+    let source = match app.gather.mode {
+        | GatherMode::Local => "local",
+        | GatherMode::OstiProjects => "OSTI projects",
+        | GatherMode::OstiPeople => "OSTI people",
+        | GatherMode::OstiOrganizations => "OSTI organizations",
+    };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" ACORN Gather ", Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("· {mode}"), Style::default().fg(app.theme.text_muted)),
+            Span::styled(format!("· {source} · {mode}"), Style::default().fg(app.theme.text_muted)),
         ]))
         .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.accent)))
         .alignment(Alignment::Center),
@@ -53,7 +62,10 @@ fn render_title(frame: &mut Frame, area: Rect, app: &App) {
 }
 fn render_input(frame: &mut Frame, area: Rect, app: &App) {
     let value = match app.gather.input.is_empty() {
-        | true => Span::styled("Path, directory, URL, PID, or text", Style::default().fg(app.theme.text_muted)),
+        | true if app.gather.mode == GatherMode::Local => {
+            Span::styled("Path, directory, URL, PID, or text", Style::default().fg(app.theme.text_muted))
+        }
+        | true => Span::styled("Search term, DOI, ORCID, or organization", Style::default().fg(app.theme.text_muted)),
         | false => Span::styled(app.gather.input.as_str(), Style::default().fg(app.theme.text)),
     };
     frame.render_widget(
@@ -71,13 +83,23 @@ fn render_input(frame: &mut Frame, area: Rect, app: &App) {
 fn render_summary(frame: &mut Frame, area: Rect, app: &App) {
     let failures = app.gather.checks.iter().filter(|check| check.is_failure()).count();
     let persistence = if app.options.no_local_database { "disabled" } else { "enabled" };
-    let summary = format!(
-        " Inputs: {}  ·  Discoveries: {}  ·  Failures: {}  ·  Database: {} ",
-        app.gather.input_count,
-        app.gather.discoveries.len(),
-        failures,
-        persistence,
-    );
+    let summary = match app.gather.mode {
+        | GatherMode::Local => format!(
+            " Inputs: {}  ·  Discoveries: {}  ·  Failures: {}  ·  Database: {} ",
+            app.gather.input_count,
+            app.gather.discoveries.len(),
+            failures,
+            persistence,
+        ),
+        | _ if app.gather.remote_loading => " Loading OSTI results… ".to_string(),
+        | _ => format!(
+            " Matches: {}  ·  Project total: {}  ·  Offset: {}  ·  More: {} ",
+            app.gather.remote_matches.len(),
+            app.gather.remote_total,
+            app.gather.remote_offset,
+            app.gather.remote_has_more,
+        ),
+    };
     frame.render_widget(
         Paragraph::new(summary)
             .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.border)))
@@ -86,6 +108,10 @@ fn render_summary(frame: &mut Frame, area: Rect, app: &App) {
     );
 }
 fn render_output(frame: &mut Frame, area: Rect, app: &App) {
+    if app.gather.mode != GatherMode::Local {
+        render_remote_output(frame, area, app);
+        return;
+    }
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
@@ -152,9 +178,68 @@ fn render_output(frame: &mut Frame, area: Rect, app: &App) {
         columns[1],
     );
 }
-fn render_controls(frame: &mut Frame, area: Rect, app: &App) {
+fn render_remote_output(frame: &mut Frame, area: Rect, app: &App) {
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(area);
+    let items = match (&app.gather.remote_error, app.gather.remote_matches.is_empty()) {
+        | (Some(why), _) => vec![ListItem::new(Span::styled(why.clone(), Style::default().fg(app.theme.error)))],
+        | (None, true) => vec![ListItem::new(Span::styled(" No matches", Style::default().fg(app.theme.text_muted)))],
+        | (None, false) => app
+            .gather
+            .remote_matches
+            .iter()
+            .map(|value| {
+                ListItem::new(vec![
+                    Line::from(Span::styled(format!(" {}", value.title), Style::default().fg(app.theme.text))),
+                    Line::from(Span::styled(
+                        format!("   {}", value.identifier),
+                        Style::default().fg(app.theme.text_muted),
+                    )),
+                ])
+            })
+            .collect(),
+    };
+    let selection =
+        (!app.gather.remote_matches.is_empty()).then_some(app.gather.selected_index.min(app.gather.remote_matches.len().saturating_sub(1)));
+    let mut state = ListState::default().with_selected(selection);
+    frame.render_stateful_widget(
+        List::new(items)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" OSTI matches ")
+                    .border_style(Style::default().fg(app.theme.border)),
+            )
+            .highlight_style(Style::default().bg(app.theme.selection_bg).fg(app.theme.selection_fg))
+            .highlight_symbol("› "),
+        columns[0],
+        &mut state,
+    );
+    let detail = app
+        .gather
+        .remote_matches
+        .get(app.gather.selected_index)
+        .and_then(|value| serde_json::to_string_pretty(&value.metadata).ok())
+        .unwrap_or_else(|| "Select a result to inspect its metadata".to_string());
     frame.render_widget(
-        Paragraph::new(" [Enter] Gather  ·  [↑↓] Select  ·  [Ctrl+L] Clear  ·  [Esc] Back  ·  [Ctrl+C] Quit ")
+        Paragraph::new(detail).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Details ")
+                .border_style(Style::default().fg(app.theme.border)),
+        ),
+        columns[1],
+    );
+}
+fn render_controls(frame: &mut Frame, area: Rect, app: &App) {
+    let controls = match app.gather.mode {
+        | GatherMode::Local => " [Tab] Mode · [Enter] Gather · [↑↓] Select · [Ctrl+L] Clear · [Esc] Back ",
+        | _ => " [Tab] Mode · [Enter] Search · [PgUp/PgDn] Page · [Ctrl+A] All · [Ctrl+O] Org · [Ctrl+R] Role · [Esc] Back ",
+    };
+    frame.render_widget(
+        Paragraph::new(controls)
             .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
             .alignment(Alignment::Center)
             .style(Style::default().fg(app.theme.text_muted)),
@@ -166,29 +251,142 @@ pub fn handle_event(app: &mut App, event: Event) {
         | Event::Key(key) if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat => match key.code {
             | KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => app.should_quit = true,
             | KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                let mode = app.gather.mode;
                 app.gather = GatherState::new();
+                app.gather.mode = mode;
             }
+            | KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
+                app.gather.organization_filter = !app.gather.organization_filter;
+            }
+            | KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
+                app.gather.organization_role = next_role(app.gather.organization_role);
+            }
+            | KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => start_remote(app, true),
             | KeyCode::Char(character) => app.gather.input.push(character),
             | KeyCode::Backspace => {
                 app.gather.input.pop();
             }
             | KeyCode::Down => {
-                app.gather.selected_index = next_index(app.gather.selected_index, app.gather.discoveries.len());
+                let length = match app.gather.mode {
+                    | GatherMode::Local => app.gather.discoveries.len(),
+                    | _ => app.gather.remote_matches.len(),
+                };
+                app.gather.selected_index = next_index(app.gather.selected_index, length);
             }
-            | KeyCode::Enter => {
-                let output = gather(&app.gather.input, &app.options);
-                app.gather.checks = output.checks;
-                app.gather.discoveries = output.discoveries;
-                app.gather.input_count = output.input_count;
-                app.gather.selected_index = 0;
+            | KeyCode::Enter => match app.gather.mode {
+                | GatherMode::Local => {
+                    let output = gather(&app.gather.input, &app.options);
+                    app.gather.checks = output.checks;
+                    app.gather.discoveries = output.discoveries;
+                    app.gather.input_count = output.input_count;
+                    app.gather.selected_index = 0;
+                }
+                | _ => start_remote(app, false),
+            },
+            | KeyCode::PageDown if app.gather.mode != GatherMode::Local && app.gather.remote_has_more => {
+                app.gather.remote_offset = app.gather.remote_offset.saturating_add(20);
+                start_remote(app, false);
+            }
+            | KeyCode::PageUp if app.gather.mode != GatherMode::Local => {
+                app.gather.remote_offset = app.gather.remote_offset.saturating_sub(20);
+                start_remote(app, false);
             }
             | KeyCode::Esc => app.navigate_to(Screen::Dashboard),
+            | KeyCode::Tab => {
+                app.gather.mode = next_mode(app.gather.mode);
+                app.gather.selected_index = 0;
+                app.gather.remote_matches.clear();
+                app.gather.remote_error = None;
+            }
             | KeyCode::Up => {
-                app.gather.selected_index = previous_index(app.gather.selected_index, app.gather.discoveries.len());
+                let length = match app.gather.mode {
+                    | GatherMode::Local => app.gather.discoveries.len(),
+                    | _ => app.gather.remote_matches.len(),
+                };
+                app.gather.selected_index = previous_index(app.gather.selected_index, length);
             }
             | _ => {}
         },
         | _ => {}
+    }
+}
+fn next_mode(mode: GatherMode) -> GatherMode {
+    match mode {
+        | GatherMode::Local => GatherMode::OstiProjects,
+        | GatherMode::OstiProjects => GatherMode::OstiPeople,
+        | GatherMode::OstiPeople => GatherMode::OstiOrganizations,
+        | GatherMode::OstiOrganizations => GatherMode::Local,
+    }
+}
+fn next_role(role: RemoteOrganizationRole) -> RemoteOrganizationRole {
+    match role {
+        | RemoteOrganizationRole::Any => RemoteOrganizationRole::SiteOwner,
+        | RemoteOrganizationRole::SiteOwner => RemoteOrganizationRole::Research,
+        | RemoteOrganizationRole::Research => RemoteOrganizationRole::Sponsor,
+        | RemoteOrganizationRole::Sponsor => RemoteOrganizationRole::Contributor,
+        | RemoteOrganizationRole::Contributor => RemoteOrganizationRole::Developer,
+        | RemoteOrganizationRole::Developer => RemoteOrganizationRole::Any,
+    }
+}
+fn start_remote(app: &mut App, all: bool) {
+    if app.options.offline {
+        app.gather.remote_error = Some("OSTI search is unavailable in offline mode".to_string());
+    } else if !app.gather.remote_loading {
+        let entity = match app.gather.mode {
+            | GatherMode::OstiProjects => RemoteEntity::Project,
+            | GatherMode::OstiPeople => RemoteEntity::Person,
+            | GatherMode::OstiOrganizations => RemoteEntity::Organization,
+            | GatherMode::Local => return,
+        };
+        let input = app.gather.input.trim().to_string();
+        let organization_filter = app.gather.organization_filter || entity == RemoteEntity::Organization;
+        let request = RemoteSearchRequest::init()
+            .provider(RemoteProvider::Osti)
+            .entity(entity)
+            .queries((!organization_filter && !input.is_empty()).then_some(input.clone()).into_iter().collect())
+            .maybe_organization(organization_filter.then_some(input))
+            .organization_role(app.gather.organization_role)
+            .limit(20)
+            .offset(app.gather.remote_offset)
+            .all(all)
+            .build();
+        let (sender, receiver) = mpsc::channel();
+        app.gather_remote = Some(receiver);
+        app.gather.remote_loading = true;
+        app.gather.remote_error = None;
+        thread::spawn(move || {
+            let result = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|why| why.to_string())
+                .and_then(|runtime| {
+                    runtime
+                        .block_on(request.search())
+                        .map_err(|why| why.to_string())
+                        .and_then(|responses| responses.into_iter().next().ok_or_else(|| "OSTI returned no response".to_string()))
+                });
+            let _ = sender.send(result);
+        });
+    }
+}
+pub(crate) fn poll_remote(app: &mut App) {
+    let result = app.gather_remote.as_ref().and_then(|receiver| receiver.try_recv().ok());
+    if let Some(result) = result {
+        app.gather.remote_loading = false;
+        app.gather_remote = None;
+        match result {
+            | Ok(response) => {
+                app.gather.remote_total = response.total;
+                app.gather.remote_offset = response.offset;
+                app.gather.remote_has_more = response.has_more;
+                app.gather.remote_matches = response.matches;
+                app.gather.selected_index = 0;
+            }
+            | Err(why) => {
+                app.gather.remote_matches.clear();
+                app.gather.remote_error = Some(why);
+            }
+        }
     }
 }
 fn gather(input: &str, options: &TuiOptions) -> GatherOutput {
@@ -376,6 +574,29 @@ mod tests {
     fn test_selection_wraps_in_both_directions() {
         assert_eq!(next_index(2, 3), 0);
         assert_eq!(previous_index(0, 3), 2);
+    }
+    #[test]
+    fn test_tab_cycles_remote_gather_modes() {
+        let mut app = App::with_options(Screen::Gather, disabled_database());
+        handle_event(&mut app, Event::Key(crossterm::event::KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE)));
+        assert_eq!(app.gather.mode, GatherMode::OstiProjects);
+        assert_eq!(next_mode(GatherMode::OstiProjects), GatherMode::OstiPeople);
+        assert_eq!(next_mode(GatherMode::OstiOrganizations), GatherMode::Local);
+    }
+    #[test]
+    fn test_offline_remote_search_reports_error_without_spawning() {
+        let mut app = App::with_options(
+            Screen::Gather,
+            TuiOptions {
+                offline: true,
+                ..disabled_database()
+            },
+        );
+        app.gather.mode = GatherMode::OstiProjects;
+        app.gather.input = "ACORN".to_string();
+        start_remote(&mut app, false);
+        assert!(app.gather.remote_error.as_deref().is_some_and(|value| value.contains("offline")));
+        assert!(app.gather_remote.is_none());
     }
     fn disabled_database() -> TuiOptions {
         TuiOptions {

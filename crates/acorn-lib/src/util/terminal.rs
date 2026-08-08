@@ -252,6 +252,14 @@ pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, titl
 where
     T: ToString,
 {
+    println!("{}", values_as_table(headers, rows, title));
+}
+/// Render rows as a host-formatted table without writing to stdout
+#[cfg(feature = "std")]
+pub fn values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>) -> String
+where
+    T: ToString,
+{
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
@@ -261,10 +269,7 @@ where
     rows.into_iter().for_each(|row| {
         table.add_row(row);
     });
-    match title {
-        | Some(value) => println!("{} \n{table}", value.to_string().bold()),
-        | None => println!("{table}"),
-    }
+    title.map_or_else(|| table.to_string(), |value| format!("{} \n{table}", value.to_string()))
 }
 /// Return line-oriented diff changes with ANSI colors
 #[cfg(feature = "std")]

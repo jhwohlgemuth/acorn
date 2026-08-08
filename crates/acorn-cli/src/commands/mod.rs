@@ -316,6 +316,13 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 max_depth,
                 merge_request,
                 output,
+                osti,
+                organization,
+                organization_role,
+                lab,
+                limit,
+                offset,
+                all,
                 resolve,
                 standard,
                 text,
@@ -323,10 +330,27 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 ..
             } = arguments.as_ref();
             initialize_database(config).await?;
+            let remote = osti.as_ref().map(|view| {
+                let organization = lab.map(|value| value.to_string()).or_else(|| organization.clone());
+                let organization_role = lab.map_or_else(
+                    || organization_role.as_ref().map(Into::into).unwrap_or_default(),
+                    |_| discovery::RemoteOrganizationRole::SiteOwner,
+                );
+                discovery::RemoteSearchRequest::init()
+                    .provider(discovery::RemoteProvider::Osti)
+                    .entity(view.into())
+                    .queries(input.iter().chain(text.iter()).cloned().collect())
+                    .maybe_organization(organization)
+                    .organization_role(organization_role)
+                    .limit(*limit)
+                    .offset(*offset)
+                    .all(*all)
+                    .build()
+            });
             gather::run(discovery::Options {
                 database_path: &config.database_path,
                 filter,
-                format: format.into(),
+                format: format.as_ref().map(Into::into),
                 ignore,
                 input,
                 max_depth: *max_depth,
@@ -338,6 +362,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 standard,
                 text,
                 quiet: verbose.is_silent(),
+                remote: remote.as_ref(),
             })
             .await
         }),

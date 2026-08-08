@@ -1,64 +1,68 @@
 use crate::io::{is_stdout_piped, read_stdin};
-use acorn::analyzer::discovery::{Options, Records, Report};
+use acorn::analyzer::discovery::{Options, OutputFormat, Records, Report};
 use acorn::analyzer::{Analysis, Check, CheckCategory};
 use acorn::check_err;
 use acorn::io::config::FilterSet;
 use acorn::io::document::SourceDocument;
 use acorn::io::{files_all_with_max_depth, files_from_gitlab_merge_request, uri_to_path, write_file, ApiResult};
 use acorn::prelude::remove_file;
-use acorn::util::print_values_as_table;
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 
 pub async fn run(options: Options<'_>) -> ApiResult<()> {
-    let Options {
-        filter,
-        ignore,
-        input,
-        max_depth,
-        merge_request,
-        offline,
-        resolve,
-        text,
-        ..
-    } = options;
-    match (offline && resolve, offline && merge_request) {
-        | (true, _) => Err(eyre!("--resolve cannot be used with --offline")),
-        | (_, true) => Err(eyre!("--merge-request cannot be used with --offline")),
-        | (false, false) => {
-            let stdin = read_stdin().filter(|content| !content.trim().is_empty());
-            match (input.iter().any(|value| value == "-"), stdin) {
-                | (true, None) => Err(eyre!("No content received from stdin for '-'")),
-                | (_, stdin) => {
-                    let content_supplied = !text.is_empty() || stdin.is_some();
-                    let inputs = match (merge_request, input.is_empty(), content_supplied) {
-                        | (true, _, _) => files_from_gitlab_merge_request(None)
-                            .await
-                            .into_iter()
-                            .map(|path| path.display().to_string())
-                            .collect(),
-                        | (false, true, false) => vec![".".to_string()],
-                        | (false, _, _) => input.iter().filter(|value| value.as_str() != "-").cloned().collect(),
-                    };
-                    let items = text
-                        .iter()
-                        .enumerate()
-                        .map(|(index, content)| {
-                            Ok(SourceDocument::init()
-                                .content(content)
-                                .format("text")
-                                .source(format!("<text:{}>", index.saturating_add(1)))
-                                .build())
-                        })
-                        .chain(stdin.map(|content| Ok(SourceDocument::init().content(content).format("text").source("<stdin>").build())))
-                        .collect::<Vec<_>>();
-                    match FilterSet::compile(ignore.as_slice(), filter.as_slice()) {
-                        | Ok(filters) => {
-                            let expanded = expand(&inputs, &filters, max_depth);
-                            let loaded = join_all(expanded.iter().map(|value| SourceDocument::load(value.as_str(), offline))).await;
-                            process(items.into_iter().chain(loaded).collect(), options).await
+    match options.remote {
+        | Some(remote) => remote.run(options).await,
+        | None => {
+            let Options {
+                filter,
+                ignore,
+                input,
+                max_depth,
+                merge_request,
+                offline,
+                resolve,
+                text,
+                ..
+            } = options;
+            match (offline && resolve, offline && merge_request) {
+                | (true, _) => Err(eyre!("--resolve cannot be used with --offline")),
+                | (_, true) => Err(eyre!("--merge-request cannot be used with --offline")),
+                | (false, false) => {
+                    let stdin = read_stdin().filter(|content| !content.trim().is_empty());
+                    match (input.iter().any(|value| value == "-"), stdin) {
+                        | (true, None) => Err(eyre!("No content received from stdin for '-'")),
+                        | (_, stdin) => {
+                            let content_supplied = !text.is_empty() || stdin.is_some();
+                            let inputs = match (merge_request, input.is_empty(), content_supplied) {
+                                | (true, _, _) => files_from_gitlab_merge_request(None)
+                                    .await
+                                    .into_iter()
+                                    .map(|path| path.display().to_string())
+                                    .collect(),
+                                | (false, true, false) => vec![".".to_string()],
+                                | (false, _, _) => input.iter().filter(|value| value.as_str() != "-").cloned().collect(),
+                            };
+                            let items = text
+                                .iter()
+                                .enumerate()
+                                .map(|(index, content)| {
+                                    Ok(SourceDocument::init()
+                                        .content(content)
+                                        .format("text")
+                                        .source(format!("<text:{}>", index.saturating_add(1)))
+                                        .build())
+                                })
+                                .chain(stdin.map(|content| Ok(SourceDocument::init().content(content).format("text").source("<stdin>").build())))
+                                .collect::<Vec<_>>();
+                            match FilterSet::compile(ignore.as_slice(), filter.as_slice()) {
+                                | Ok(filters) => {
+                                    let expanded = expand(&inputs, &filters, max_depth);
+                                    let loaded = join_all(expanded.iter().map(|value| SourceDocument::load(value.as_str(), offline))).await;
+                                    process(items.into_iter().chain(loaded).collect(), options).await
+                                }
+                                | Err(why) => Err(why),
+                            }
                         }
-                        | Err(why) => Err(why),
                     }
                 }
             }
@@ -123,14 +127,13 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
         let _ = remove_file(path);
     });
     let report = Report::new(&checks, discoveries, inputs);
+    let format = format.unwrap_or_else(|| match output.is_none() && !is_stdout_piped() {
+        | true => OutputFormat::Console,
+        | false => OutputFormat::Json,
+    });
     match output {
         | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-        | None if is_stdout_piped() => report.serialize(format).map(|serialized| println!("{serialized}")),
-        | None => {
-            let (headers, rows) = report.table();
-            print_values_as_table(headers, rows, Some(report.title()));
-            Ok(())
-        }
+        | None => report.serialize(format).map(|serialized| println!("{serialized}")),
     }
     .and_then(|_| match checks.iter().any(Check::is_failure) {
         | true => Err(eyre!("ACORN gather found one or more failures")),
@@ -189,5 +192,45 @@ mod tests {
         let report = String::from_utf8_lossy(&output.stdout);
         assert!(report.contains(r#""identifier": "10.1234/example""#));
         assert!(report.contains(r#""source": "<stdin>""#));
+    }
+    #[test]
+    fn test_console_format_renders_current_gather_results() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args([
+                "--offline",
+                "--no-local-database",
+                "gather",
+                "--text",
+                "doi:10.1234/example",
+                "--format",
+                "console",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let report = String::from_utf8_lossy(&output.stdout);
+        assert!(report.contains("ACORN gather:"));
+        assert!(report.contains("10.1234/example"));
+    }
+    #[test]
+    fn test_osti_rejects_offline_mode_before_network_access() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args(["--offline", "--no-local-database", "gather", "--osti", "projects", "ACORN"])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("--osti cannot be used with --offline"));
+    }
+    #[test]
+    fn test_osti_conflicts_with_file_analysis_options() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args(["--no-local-database", "gather", "--osti", "projects", "ACORN", "--resolve"])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("cannot be used with"));
     }
 }

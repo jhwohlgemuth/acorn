@@ -301,6 +301,23 @@
       ]
     },
     {
+      "name": "osti",
+      "domain": "www.osti.gov",
+      "root": "doecodeapi/services",
+      "resources": [
+        {
+          "name": "search",
+          "method": "get",
+          "template": "{{ base }}/search{{ query }}"
+        },
+        {
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/search/{{ identifier }}"
+        }
+      ]
+    },
+    {
       "name": "raid::api",
       "domain": "api.demo.raid.org.au",
       "resources": [

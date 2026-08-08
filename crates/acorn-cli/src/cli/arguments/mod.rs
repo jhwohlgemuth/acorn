@@ -1,3 +1,4 @@
+use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
 use super::DownloadCommands;
 use acorn::analyzer::discovery::OutputFormat as DiscoveryOutputFormat;
@@ -14,6 +15,7 @@ use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
 use strum::EnumIs;
+pub(crate) mod osti;
 /// Remote Docker target arguments shared by container-producing create commands.
 #[derive(Clone, Debug, Args)]
 pub(crate) struct RemoteTarget {
@@ -199,6 +201,9 @@ pub enum FileFormat {
 /// Structured output format for gathered identifiers.
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum GatherOutputFormat {
+    /// Human-readable console table.
+    #[display("console")]
+    Console,
     /// JavaScript Object Notation.
     #[default]
     #[display("json")]
@@ -213,6 +218,7 @@ pub enum GatherOutputFormat {
 impl From<&GatherOutputFormat> for DiscoveryOutputFormat {
     fn from(format: &GatherOutputFormat) -> Self {
         match format {
+            | GatherOutputFormat::Console => Self::Console,
             | GatherOutputFormat::Json => Self::Json,
             | GatherOutputFormat::Markdown => Self::Markdown,
             | GatherOutputFormat::Yaml => Self::Yaml,
@@ -724,9 +730,30 @@ pub(crate) struct Gather {
     /// Write the structured report to a file instead of stdout.
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
-    /// Structured report format.
-    #[arg(long, default_value = "json", value_enum, help_heading = "OPTIONS")]
-    pub(crate) format: GatherOutputFormat,
+    /// Search DOE CODE and return projects, people, or organizations.
+    #[arg(long, value_enum, conflicts_with_all = ["filter", "ignore", "max_depth", "merge_request", "resolve", "standard"], help_heading = "OPTIONS")]
+    pub(crate) osti: Option<OstiSearchView>,
+    /// Restrict remote results to a credited organization.
+    #[arg(long, requires = "osti", value_name = "TERM", help_heading = "OPTIONS")]
+    pub(crate) organization: Option<String>,
+    /// Organization relationship to match.
+    #[arg(long, requires = "organization", value_enum, help_heading = "OPTIONS")]
+    pub(crate) organization_role: Option<OstiOrganizationRole>,
+    /// Restrict results to projects submitted by a DOE national laboratory.
+    #[arg(long, requires = "osti", conflicts_with_all = ["organization", "organization_role"], value_enum, ignore_case = true, help_heading = "OPTIONS")]
+    pub(crate) lab: Option<DoeLab>,
+    /// Number of upstream projects requested per page.
+    #[arg(long, requires = "osti", default_value_t = 20, value_name = "COUNT", help_heading = "OPTIONS")]
+    pub(crate) limit: usize,
+    /// Zero-based upstream project offset.
+    #[arg(long, requires = "osti", default_value_t = 0, value_name = "COUNT", help_heading = "OPTIONS")]
+    pub(crate) offset: usize,
+    /// Retrieve every matching upstream project page.
+    #[arg(long, requires = "osti", help_heading = "FLAGS")]
+    pub(crate) all: bool,
+    /// Report format; defaults to console for terminals and JSON for pipes or files.
+    #[arg(long, value_enum, help_heading = "OPTIONS")]
+    pub(crate) format: Option<GatherOutputFormat>,
     /// Resolve supported identifiers through their metadata providers.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) resolve: bool,
