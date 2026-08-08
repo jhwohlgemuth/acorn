@@ -1,0 +1,76 @@
+---
+source: crates/acorn-lib/src/schema/standard/tests/datacite.rs
+assertion_line: 210
+expression: "serde_json::to_string_pretty(&json).expect(\"failed to format json\")"
+---
+[
+  {
+    "attributes": {
+      "creators": [
+        {
+          "affiliation": [
+            {
+              "name": "Example University"
+            }
+          ],
+          "familyName": "Smith",
+          "givenName": "Jane",
+          "name": "Smith, Jane",
+          "nameIdentifiers": [
+            {
+              "nameIdentifier": "https://orcid.org/0000-0001-2345-6789",
+              "nameIdentifierScheme": "ORCID",
+              "schemeUri": "https://orcid.org"
+            }
+          ],
+          "nameType": "Personal"
+        }
+      ],
+      "descriptions": [
+        {
+          "description": "This is an example dataset used to illustrate DataCite JSON metadata.",
+          "descriptionType": "Abstract"
+        }
+      ],
+      "doi": "10.5072/example-doi",
+      "event": "publish",
+      "language": "en",
+      "publicationYear": 2024,
+      "publisher": {
+        "name": "Example Repository"
+      },
+      "relatedIdentifiers": [
+        {
+          "relatedIdentifier": "10.1234/example-article",
+          "relatedIdentifierType": "DOI",
+          "relationType": "IsCitedBy",
+          "resourceTypeGeneral": "JournalArticle"
+        },
+        {
+          "relatedIdentifier": "https://example.org/dataset/123-v2",
+          "relatedIdentifierType": "URL",
+          "relationType": "IsNewVersionOf",
+          "resourceTypeGeneral": "Dataset"
+        }
+      ],
+      "schemaVersion": "http://datacite.org/schema/kernel-4",
+      "subjects": [
+        {
+          "subject": "Climate change"
+        }
+      ],
+      "titles": [
+        {
+          "title": "Example Dataset Title"
+        }
+      ],
+      "types": {
+        "resourceType": "Dataset",
+        "resourceTypeGeneral": "Dataset"
+      },
+      "url": "https://example.org/dataset/123"
+    },
+    "id": "10.5072/example-doi",
+    "type": "dois"
+  }
+]

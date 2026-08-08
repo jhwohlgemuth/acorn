@@ -1,0 +1,10 @@
+---
+source: crates/acorn-lib/src/schema/agent/tests/mod.rs
+expression: names
+---
+- eli5.prompt
+- extract-claim.prompt
+- find-gaps.prompt
+- summarize.prompt
+- teach.prompt
+- translate.prompt

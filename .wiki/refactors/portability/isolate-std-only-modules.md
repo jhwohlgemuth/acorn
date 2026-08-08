@@ -16,7 +16,7 @@ Pure JSON and JSONC detection no longer imports the std-gated I/O module, but br
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` still coordinates process, network, and filesystem-like behavior alongside transformations.
+`crates/acorn-lib/src/analyzer/mod.rs` still coordinates process, network, and filesystem-like behavior alongside transformations.
 
 # Recommendation
 

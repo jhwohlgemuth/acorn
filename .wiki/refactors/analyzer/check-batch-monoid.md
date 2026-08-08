@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` and `check.rs` repeat join, flatten, and collect pipelines.
+`crates/acorn-lib/src/analyzer/mod.rs` and `check.rs` repeat join, flatten, and collect pipelines.
 
 # Recommendation
 

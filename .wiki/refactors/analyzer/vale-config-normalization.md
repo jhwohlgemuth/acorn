@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` resolves packages and mutates `ValeConfig` through multiple steps.
+`crates/acorn-lib/src/analyzer/mod.rs` resolves packages and mutates `ValeConfig` through multiple steps.
 
 # Recommendation
 

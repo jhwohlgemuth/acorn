@@ -16,10 +16,10 @@ Use authenticated GitLab webhooks to guide research artifact citation collection
 
 # Current evidence
 
-- `acorn-lib/src/io/api/gitlab/bot.rs` now accepts authenticated GitLab webhook deliveries, persists canonical operations before returning `202 Accepted`, and dispatches head-specific merge request analysis through a database-backed worker alongside the existing project-events poller.
-- `acorn-lib/src/io/api/gitlab/database.rs` provides durable delivery and operation records for SQLite and DuckDB, including deduplication, stale-work recovery, bounded retries, terminal failures, and queue counters without storing raw request bodies.
+- `crates/acorn-lib/src/io/api/gitlab/bot.rs` now accepts authenticated GitLab webhook deliveries, persists canonical operations before returning `202 Accepted`, and dispatches head-specific merge request analysis through a database-backed worker alongside the existing project-events poller.
+- `crates/acorn-lib/src/io/api/gitlab/database.rs` provides durable delivery and operation records for SQLite and DuckDB, including deduplication, stale-work recovery, bounded retries, terminal failures, and queue counters without storing raw request bodies.
 - `acorn check --merge-request` discovers changed paths from GitLab CI variables and assumes those files exist in a local checkout. The independently deployed bot has no merge request workspace, so it must fetch and materialize changed files at the merge request head SHA.
-- `acorn-lib/src/analyzer/service.rs` now exposes reusable structured checks for CFF, RAD JSON/JSONC/YAML, text, and DOCX inputs, while `discovery.rs` provides generic artifact grouping and deterministic hash helpers, PID normalization reuses `schema::pid`, and creator slugs live with the GitLab API boundary.
+- `crates/acorn-lib/src/analyzer/service.rs` now exposes reusable structured checks for CFF, RAD JSON/JSONC/YAML, text, and DOCX inputs, while `discovery.rs` provides generic artifact grouping and deterministic hash helpers, PID normalization reuses `schema::pid`, and creator slugs live with the GitLab API boundary.
 - The CFF schema requires a title and authors. An identifier alone can start intake, but the bot must request missing fields when deterministic enrichment cannot create a valid CFF record.
 - The GitLab client now supports merge request details and paginated diffs, fork-aware repository file reads at an exact SHA, external commit statuses, work-item reads and paginated notes, effective project membership, bot-authored report-note upserts, instance-version discovery, and idempotent project-hook registration. It does not yet expose the branch, commit, merge request creation, label, or Task mutation operations required by citation repository writes and completion handling.
 - Detached bot creation now publishes the selected port, mounts persistent bot state, binds the webhook server to `0.0.0.0`, forwards credential names without rendering values, and can register an externally reachable HTTPS webhook before serving.
@@ -106,9 +106,9 @@ Steps are ordered by impact, then by estimated difficulty within the same impact
 
 | Area | Change |
 |---|---|
-| `acorn-lib/src/io/api/gitlab/` | Add webhook ingress, GitLab DTOs/API operations, durable dispatch, MR/work-item workflows, repository writes, and focused fixtures/tests. |
-| `acorn-lib/src/analyzer/` and `acorn-lib/src/io/database/` | Expose structured analysis and add durable delivery/operation state plus pure citation/slug helpers at the appropriate existing boundary. |
-| `acorn-cli/src/cli/arguments.rs` and bot command modules | Add event-source, public URL, registration, port publication, persistent volume, credential forwarding, and generated help changes. |
+| `crates/acorn-lib/src/io/api/gitlab/` | Add webhook ingress, GitLab DTOs/API operations, durable dispatch, MR/work-item workflows, repository writes, and focused fixtures/tests. |
+| `crates/acorn-lib/src/analyzer/` and `crates/acorn-lib/src/io/database/` | Expose structured analysis and add durable delivery/operation state plus pure citation/slug helpers at the appropriate existing boundary. |
+| `crates/acorn-cli/src/cli/arguments.rs` and bot command modules | Add event-source, public URL, registration, port publication, persistent volume, credential forwarding, and generated help changes. |
 | Embedded GitLab endpoint metadata and workspace manifests | Add only the required GitLab operations and cryptographic dependencies. |
 | Bot deployment and user documentation | Document the complete intake, correction, review, security, and staging workflows. |
 

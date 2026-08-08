@@ -11,8 +11,8 @@ status: planned
 
 # Evidence
 
-- `acorn-lib/src/util/mod.rs`
-- `acorn-lib/src/io/powerpoint/mod.rs`
+- `crates/acorn-lib/src/util/mod.rs`
+- `crates/acorn-lib/src/io/powerpoint/mod.rs`
 
 # Recommendation
 

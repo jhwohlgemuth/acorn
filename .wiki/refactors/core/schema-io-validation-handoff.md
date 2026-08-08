@@ -11,9 +11,9 @@ status: planned
 
 # Evidence
 
-- `acorn-lib/src/io/mod.rs`
-- `acorn-lib/src/schema/research_activity/mod.rs`
-- `acorn-cli/src/commands/export/mod.rs`
+- `crates/acorn-lib/src/io/mod.rs`
+- `crates/acorn-lib/src/schema/research_activity/mod.rs`
+- `crates/acorn-cli/src/commands/export/mod.rs`
 
 # Recommendation
 

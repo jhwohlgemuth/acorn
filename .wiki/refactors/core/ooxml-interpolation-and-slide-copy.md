@@ -16,8 +16,8 @@ Slide-copy failures now return typed errors and relationship updates are structu
 
 # Evidence
 
-- `acorn-cli/src/commands/export/powerpoint.rs`
-- `acorn-lib/src/io/powerpoint/mod.rs`
+- `crates/acorn-cli/src/commands/export/powerpoint.rs`
+- `crates/acorn-lib/src/io/powerpoint/mod.rs`
 
 # Recommendation
 

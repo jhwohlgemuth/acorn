@@ -1,0 +1,116 @@
+---
+source: crates/acorn-lib/src/io/api/tests/mod.rs
+expression: "format!(\"{:#?}\", response)"
+---
+SearchResponse {
+    number_of_results: 1,
+    time_taken: 4,
+    items: [
+        SearchResult {
+            identifier: "https://ror.org/05p915b28",
+            domains: [],
+            established: Some(
+                2005,
+            ),
+            external_ids: [
+                ExternalIdentifierField {
+                    all: [
+                        "Q7073703",
+                    ],
+                    preferred: "Q7073703",
+                    external_identifier_type: Wikidata,
+                },
+            ],
+            links: [
+                LinkField {
+                    value: "https://www.olcf.ornl.gov",
+                    link_type: Website,
+                },
+                LinkField {
+                    value: "https://en.wikipedia.org/wiki/Oak_Ridge_Leadership_Computing_Facility",
+                    link_type: Wikipedia,
+                },
+            ],
+            locations: [
+                LocationField {
+                    identifier: 4646571,
+                    details: LocationDetailsField {
+                        continent_code: "NA",
+                        continent_name: "North America",
+                        country_code: "US",
+                        country_name: "United States",
+                        country_subdivision_code: "TN",
+                        country_subdivision_name: "Tennessee",
+                        lat: 36.01036,
+                        lng: -84.26964,
+                        name: "Oak Ridge",
+                    },
+                },
+            ],
+            names: [
+                NameField {
+                    value: "OLCF",
+                    lang: None,
+                    types: [
+                        Acronym,
+                    ],
+                },
+                NameField {
+                    value: "ORNL OLCF",
+                    lang: None,
+                    types: [
+                        Acronym,
+                    ],
+                },
+                NameField {
+                    value: "Oak Ridge Leadership Computing Facility",
+                    lang: Some(
+                        "en",
+                    ),
+                    types: [
+                        RorDisplay,
+                        Label,
+                    ],
+                },
+                NameField {
+                    value: "Oak Ridge National Laboratory Oak Ridge Leadership Computing Facility",
+                    lang: Some(
+                        "en",
+                    ),
+                    types: [
+                        Alias,
+                    ],
+                },
+                NameField {
+                    value: "U.S. Department of Energy Office of Science Oak Ridge National Laboratory Oak Ridge Leadership Computing Facility",
+                    lang: Some(
+                        "en",
+                    ),
+                    types: [
+                        Alias,
+                    ],
+                },
+                NameField {
+                    value: "United States Department of Energy Office of Science Oak Ridge National Laboratory Oak Ridge Leadership Computing Facility",
+                    lang: Some(
+                        "en",
+                    ),
+                    types: [
+                        Alias,
+                    ],
+                },
+            ],
+            relationships: [
+                RelationshipField {
+                    label: "Oak Ridge National Laboratory",
+                    relationship_type: Parent,
+                    identifier: "https://ror.org/01qz5mb56",
+                },
+            ],
+            status: Active,
+            types: [
+                Facility,
+            ],
+        },
+    ],
+}

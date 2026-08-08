@@ -1,0 +1,123 @@
+---
+source: crates/acorn-lib/src/io/tests/mod.rs
+assertion_line: 86
+expression: "format!(\"{:#?}\", config.endpoints)"
+---
+Some(
+    [
+        Endpoint {
+            domain: "pub.orcid.org",
+            name: "orcid",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: Some(
+                "v3.0",
+            ),
+            resources: [
+                Resource {
+                    name: "search",
+                    method: Get,
+                    template: "{{ base }}/expanded-search/{{ query }}",
+                },
+                Resource {
+                    name: "status",
+                    method: Get,
+                    template: "{{ base }}/pubStatus",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "api.ror.org",
+            name: "ror",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "status",
+                    method: Get,
+                    template: "{{ base }}/heartbeat",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "api.github.com",
+            name: "github",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "tree",
+                    method: Get,
+                    template: "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "code.ornl.gov",
+            name: "gitlab",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: Some(
+                "api/v4",
+            ),
+            resources: [
+                Resource {
+                    name: "tree",
+                    method: Get,
+                    template: "{{ base }}/projects/{{ project_id }}//repository/tree/{{ query }}",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "gitlab.com",
+            name: "languages::gitlab",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "languages",
+                    method: Get,
+                    template: "{{ base }}/gitlab-org/gitlab/-/raw/master/vendor/languages.yml",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "raw.githubusercontent.com",
+            name: "languages::github",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "languages",
+                    method: Get,
+                    template: "{{ base }}/github-linguist/linguist/refs/heads/main/lib/linguist/languages.yml",
+                },
+            ],
+        },
+        Endpoint {
+            domain: "spdx.org",
+            name: "spdx",
+            scheme: None,
+            port: None,
+            authentication: None,
+            root: None,
+            resources: [
+                Resource {
+                    name: "licenses",
+                    method: Get,
+                    template: "{{ base }}/licenses/licenses.json",
+                },
+            ],
+        },
+    ],
+)

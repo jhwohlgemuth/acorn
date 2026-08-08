@@ -22,6 +22,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 - The portable foundation now exists inside `acorn-lib`: `AcornError` and `AcornResult` are independent of host reporting, schema result ownership no longer points through `io`, and utility code exposes a portable surface separate from terminal output while legacy paths remain available.
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
 - Default, minimal, alloc, and `wasm32-unknown-unknown` checks now pass for the in-tree boundary, and the WASM dependency tree also excludes those presentation and generic asset packages.
+- Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
 - The current no-default build still imports `std` for schema derive output, and `util::portable` still re-exports definitions owned by the mixed root utility module. These are remaining Phase 1 portability boundaries rather than extraction work.
 - `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
 - `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
@@ -49,6 +50,31 @@ JS / WASM          = service + browser adapters
 ```
 
 The diagram shows the dominant direction rather than every direct edge. Port traits live with the domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` implement those ports, while interface crates act as composition roots and select concrete adapters. `acorn-service` must not depend on a native adapter. `acorn-lib` sits beside this graph as an optional re-export facade and must not become an implementation layer.
+
+# Repository layout
+
+All ACORN product and library packages use a flat namespace under `crates/`. The directory nesting expresses workspace ownership; dependency direction remains defined by the package graph rather than directory order.
+
+```text
+crates/
+├── acorn-cli
+├── acorn-lib
+├── acorn-macros
+├── acorn-py
+├── acorn-tui
+├── acorn-core       (planned)
+├── acorn-schema     (planned)
+├── acorn-analysis   (planned)
+├── acorn-api        (planned)
+├── acorn-store      (planned)
+├── acorn-export     (planned)
+├── acorn-host       (planned)
+├── acorn-wasm       (planned)
+├── acorn-service    (planned)
+└── acorn-cmd        (planned)
+```
+
+Workspace-wide support projects that are not published ACORN product crates, including `xtask` and `fuzz`, remain top-level directories. Tests, documentation, notebooks, scripts, and fixtures also remain rooted outside `crates/` and must be addressed through explicit workspace-relative paths.
 
 | Package | Owns | Must not own |
 |---|---|---|
@@ -78,6 +104,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 8. `acorn-lib` may map legacy features to new package features, but first-party interfaces should depend directly on the narrow packages they use.
 9. Public compatibility shims re-export implementation; they must not duplicate it.
 10. Browser dependencies are target-specific to `acorn-wasm`; portable crates must not gain a `wasm-bindgen` or `js-sys` dependency merely because they compile for a WASM target.
+11. New ACORN packages are created as `crates/<package-name>`; product crates must not return to the workspace root.
 
 # Migration sequence
 
@@ -114,7 +141,7 @@ Keep endpoint, authentication, request, response, and provider protocol mechanic
 
 ## 2. Extract the portable foundation
 
-Extract `acorn-core`, followed by `acorn-schema`. Preserve existing `acorn::schema`, root type, and utility paths through facade re-exports. Give each crate an explicit core, alloc, and std contract; target selection alone must not enable browser dependencies. Retain the facade's legacy `wasm` feature as compatibility wiring.
+Create `crates/acorn-core`, followed by `crates/acorn-schema`. Preserve existing `acorn::schema`, root type, and utility paths through facade re-exports. Give each crate an explicit core, alloc, and std contract; target selection alone must not enable browser dependencies. Retain the facade's legacy `wasm` feature as compatibility wiring.
 
 ## 3. Extract domain capabilities
 
@@ -154,6 +181,7 @@ Make `acorn-lib` re-export-only and map its existing feature names and default b
 # Acceptance criteria
 
 - Cargo resolves an acyclic package graph matching the documented dependency direction.
+- Every ACORN product crate is a direct child of `crates/`, and workspace tooling resolves fixtures and manifests without relying on the former top-level crate paths.
 - `acorn-core` and `acorn-schema` compile without host-only services.
 - `acorn-wasm` is the only crate that owns browser bindings and concrete browser adapters.
 - Schemas do not directly read paths or URLs, and analysis logic does not instantiate concrete host services.

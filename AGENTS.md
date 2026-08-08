@@ -15,19 +15,19 @@ When assigned a task:
    - Feature: Start by reading relevant schema/command module, check if new field needs validation
 
 2. **Does it involve schema changes?**
-   - YES → Update `ResearchActivity` or relevant struct in `acorn-lib/src/schema/`
+   - YES → Update `ResearchActivity` or relevant struct in `crates/acorn-lib/src/schema/`
    - Add validators (`#[validate(...)]`)
    - Add/update tests in adjacent `#[cfg(test)]` module
    - Update ARCHITECTURE.md if major structural change
 
 3. **Does it involve CLI output?**
-   - YES → Use `Label::*()` methods from `acorn-lib/src/util/mod.rs` for consistent coloring
+   - YES → Use `Label::*()` methods from `crates/acorn-lib/src/util/mod.rs` for consistent coloring
    - Use `owo_colors` for additional styling
    - Test with `-vvv` or `-vvvv` verbose flags
 
 4. **Does it require external data or network?**
    - YES → Respect `offline` flag (passed through most command functions)
-   - Use `acorn-lib/src/io/` utilities for file/network operations
+   - Use `crates/acorn-lib/src/io/` utilities for file/network operations
    - Check `tests/fixtures/` for test data
 
 ## Development Commands
@@ -80,7 +80,7 @@ cargo run --bin acorn -- export --format pdf path/to/file.json
 ## Common Tasks
 
 ### Adding a Schema Field
-1. Edit struct in `acorn-lib/src/schema/research_activity/mod.rs` (or relevant schema file)
+1. Edit struct in `crates/acorn-lib/src/schema/research_activity/mod.rs` (or relevant schema file)
 2. Add validation attributes using `validator` crate:
    ```rust
    #[validate(length(min = 1, max = 100))]
@@ -93,24 +93,24 @@ cargo run --bin acorn -- export --format pdf path/to/file.json
 6. Update JSON schema if needed (schemas are auto-generated via `schemars`)
 
 ### Adding a CLI Command
-1. Create `acorn-cli/src/commands/{command_name}/mod.rs`
+1. Create `crates/acorn-cli/src/commands/{command_name}/mod.rs`
 2. Add `pub fn run(...)` that takes parsed arguments and returns `color_eyre::eyre::Result<(), eyre::Report>`
-3. Export module in `acorn-cli/src/commands/mod.rs`
-4. Add command variant to `Commands` enum in `acorn-cli/src/cli/mod.rs`
-5. Add match arm in `acorn-cli/src/main.rs` to call your run function
+3. Export module in `crates/acorn-cli/src/commands/mod.rs`
+4. Add command variant to `Commands` enum in `crates/acorn-cli/src/cli/mod.rs`
+5. Add match arm in `crates/acorn-cli/src/main.rs` to call your run function
 6. Use `#[derive(Parser)]` from `clap` for argument parsing
 
 ### Adding Analysis/Checking Logic
-1. Add module in `acorn-lib/src/analyzer/`
-2. Integrate result into `Check` struct (see `acorn-lib/src/analyzer/mod.rs`)
-3. Call from `acorn-cli/src/commands/check/mod.rs`
+1. Add module in `crates/acorn-lib/src/analyzer/`
+2. Integrate result into `Check` struct (see `crates/acorn-lib/src/analyzer/mod.rs`)
+3. Call from `crates/acorn-cli/src/commands/check/mod.rs`
 4. Surface results using `Label::*()` for output
 
 ### Fixing Export/PowerPoint Issues
-1. Check `acorn-lib/src/powerpoint/mod.rs` for OOXML manipulation
-2. Check `acorn-cli/src/template/mod.rs` for HTML template generation
-3. Test both PDF and PPTX targets from `acorn-cli/src/cli/arguments.rs`
-4. Verify embedded assets are included (fonts, images, skills in `acorn-cli/assets/`)
+1. Check `crates/acorn-lib/src/powerpoint/mod.rs` for OOXML manipulation
+2. Check `crates/acorn-cli/src/template/mod.rs` for HTML template generation
+3. Test both PDF and PPTX targets from `crates/acorn-cli/src/cli/arguments.rs`
+4. Verify embedded assets are included (fonts, images, skills in `crates/acorn-cli/assets/`)
 
 ## Testing Strategy
 
@@ -387,7 +387,7 @@ Stop and ask the user if:
 ## Important Implementation Details
 
 ### Schema System
-- Main schemas are in `acorn-lib/src/schema/`:
+- Main schemas are in `crates/acorn-lib/src/schema/`:
   - `ResearchActivity` - Primary RAD schema
   - `pid::raid::Metadata` - RAiD metadata schema
 - Schemas use `schemars` for JSON Schema generation
@@ -395,21 +395,21 @@ Stop and ask the user if:
 - Serde trimming utilities: `string_trim`, `vec_string_trim`, `option_string_trim` from `serde_trim`
 
 ### CLI Architecture  
-- Commands defined in `acorn-cli/src/commands/`
+- Commands defined in `crates/acorn-cli/src/commands/`
 - Current commands: check, doctor, download, export, format, link, schema
 - All commands accessed through main.rs match expression
 - Arguments parsed via `clap` with `#[derive(Parser)]`
 - `CommandLineHelp.md` is generated dynamically with `cargo run --bin acorn -- --markdown-help`; use `make help` after changing CLI arguments or command help text
 
 ### Analysis Features
-- Analyzer module in `acorn-lib/src/analyzer/`
+- Analyzer module in `crates/acorn-lib/src/analyzer/`
 - Vale integration for prose analysis (vale.rs)
 - Readability metrics (readability/ submodule)
 - Website checking via `lychee-lib` (when std feature enabled)
 
 ### Export/PowerPoint
-- Template generation in `acorn-cli/src/template/`
-- PowerPoint manipulation in `acorn-lib/src/powerpoint/`
+- Template generation in `crates/acorn-cli/src/template/`
+- PowerPoint manipulation in `crates/acorn-lib/src/powerpoint/`
 - Supports PDF and PPTX output formats
 - Uses `rust-embed` for embedded assets (fonts, images, agent skills)
 
@@ -488,12 +488,12 @@ pub fn process() { }
 → Run: `cargo check --all-features`
 
 **CLI argument parsing fails**
-→ Check `acorn-cli/src/cli/arguments.rs` for ValueEnum definitions
+→ Check `crates/acorn-cli/src/cli/arguments.rs` for ValueEnum definitions
 → Verify clap derive attributes (e.g., `#[derive(Parser)]`)
 
 **Export output malformed**
-→ Check `acorn-cli/src/template/mod.rs` for HTML generation
-→ Verify assets exist in `acorn-cli/assets/` (fonts, images, skills, styles)
+→ Check `crates/acorn-cli/src/template/mod.rs` for HTML generation
+→ Verify assets exist in `crates/acorn-cli/assets/` (fonts, images, skills, styles)
 → Compare with working examples in `tests/fixtures/`
 
 ## Performance Considerations
@@ -505,7 +505,7 @@ pub fn process() { }
 
 ## File Organization Reference
 
-### CLI Structure (acorn-cli/)
+### CLI Structure (crates/acorn-cli/)
 - Commands: `src/commands/{command}/mod.rs`
 - CLI definitions: `src/cli/mod.rs` and `src/cli/arguments.rs`  
 - Main entry: `src/main.rs`
@@ -513,7 +513,7 @@ pub fn process() { }
 - Config: `src/config/mod.rs`
 - I/O utilities: `src/io/mod.rs`
 
-### Library Structure (acorn-lib/)
+### Library Structure (crates/acorn-lib/)
 - Schemas: `src/schema/` (research_activity, pid, graph, validate, prompt)
 - Analysis: `src/analyzer/` (mod.rs, vale.rs, readability/)
 - Utilities: `src/util/` (mod.rs, constants.rs)

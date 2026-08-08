@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/prelude.rs` has capability-dependent exports, while analyzer, utility, and I/O call sites still assume host APIs.
+`crates/acorn-lib/src/prelude.rs` has capability-dependent exports, while analyzer, utility, and I/O call sites still assume host APIs.
 
 # Recommendation
 

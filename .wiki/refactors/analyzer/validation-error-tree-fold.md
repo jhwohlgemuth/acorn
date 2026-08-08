@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/error.rs` recursively handles field, struct, and list errors with repeated path logic.
+`crates/acorn-lib/src/analyzer/error.rs` recursively handles field, struct, and list errors with repeated path logic.
 
 # Recommendation
 

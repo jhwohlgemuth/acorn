@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/check.rs` aggregates category counts through chained mapping and collection.
+`crates/acorn-lib/src/analyzer/check.rs` aggregates category counts through chained mapping and collection.
 
 # Recommendation
 

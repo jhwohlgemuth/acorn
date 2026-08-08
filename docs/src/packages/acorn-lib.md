@@ -32,7 +32,7 @@ The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `ac
 
 [^pid]: Persistent Identifiers (PIDs) supported by `acorn-lib` include [DOI](https://www.doi.org/)s, [ORCID](https://orcid.org/)s, [RAiD](https://raid.org/)s, [ROR](https://ror.org/)s, and [ARK](https://arks.org)s.
 [^version]: Check [crates.io](https://crates.io/crates/acorn-lib) for the latest version
-[^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/Cargo.toml#L83) for more details.
+[^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.
 [^ark]: [`noid_check_digit`](docs.rs/acorn-lib/latest/acorn/schema/pid/fn.noid_check_digit.html)
 [^isbn]: [`isbn_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.isbn_check_digit.html)
 [^orcid]: [`orcid_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.orcid_check_digit.html)

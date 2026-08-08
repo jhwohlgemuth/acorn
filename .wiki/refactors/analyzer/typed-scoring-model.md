@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/readability/mod.rs` and `check.rs` map scores and severity through ad hoc conditionals.
+`crates/acorn-lib/src/analyzer/readability/mod.rs` and `check.rs` map scores and severity through ad hoc conditionals.
 
 # Recommendation
 

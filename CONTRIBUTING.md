@@ -46,7 +46,7 @@ If you would like to generously provide a pull request to correct a verified iss
 
 ### Benchmarking
 
-ACORN uses Criterion benchmarks for repeatable micro-performance measurements in `acorn-lib/benches/`.
+ACORN uses Criterion benchmarks for repeatable micro-performance measurements in `crates/acorn-lib/benches/`.
 
 Run all library benchmarks:
 
@@ -110,7 +110,7 @@ Run both PDF visual regression tests:
 cargo test -p acorn-cli --all-features visual_snapshot -- --ignored --nocapture
 ```
 
-The snapshots are stored in `acorn-cli/src/commands/export/tests/snapshots/`. When an intentional PDF layout change produces new snapshots, install the review tool with `cargo install cargo-insta`, inspect the differences, and accept or reject them with:
+The snapshots are stored in `crates/acorn-cli/src/commands/export/tests/snapshots/`. When an intentional PDF layout change produces new snapshots, install the review tool with `cargo install cargo-insta`, inspect the differences, and accept or reject them with:
 
 ```shell
 cargo insta review

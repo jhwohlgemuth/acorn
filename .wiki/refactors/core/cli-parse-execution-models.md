@@ -11,8 +11,8 @@ status: planned
 
 # Evidence
 
-- `acorn-cli/src/cli/mod.rs`
-- `acorn-cli/src/main.rs`
+- `crates/acorn-cli/src/cli/mod.rs`
+- `crates/acorn-cli/src/main.rs`
 
 # Recommendation
 

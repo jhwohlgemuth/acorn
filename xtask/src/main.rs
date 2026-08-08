@@ -8,23 +8,23 @@ struct InternalDep {
 }
 const INTERNAL_DEPS: &[InternalDep] = &[
     InternalDep {
-        manifest: "acorn-cli/Cargo.toml",
+        manifest: "crates/acorn-cli/Cargo.toml",
         name: "acorn-lib",
     },
     InternalDep {
-        manifest: "acorn-cli/Cargo.toml",
+        manifest: "crates/acorn-cli/Cargo.toml",
         name: "acorn-tui",
     },
     InternalDep {
-        manifest: "acorn-lib/Cargo.toml",
+        manifest: "crates/acorn-lib/Cargo.toml",
         name: "acorn-macros",
     },
     InternalDep {
-        manifest: "acorn-py/Cargo.toml",
+        manifest: "crates/acorn-py/Cargo.toml",
         name: "acorn-lib",
     },
     InternalDep {
-        manifest: "acorn-tui/Cargo.toml",
+        manifest: "crates/acorn-tui/Cargo.toml",
         name: "acorn-lib",
     },
 ];

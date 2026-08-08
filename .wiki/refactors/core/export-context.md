@@ -12,8 +12,8 @@ priority: next
 
 # Evidence
 
-- `acorn-cli/src/template/mod.rs`
-- `acorn-lib/src/io/powerpoint/mod.rs`
+- `crates/acorn-cli/src/template/mod.rs`
+- `crates/acorn-lib/src/io/powerpoint/mod.rs`
 
 # Recommendation
 

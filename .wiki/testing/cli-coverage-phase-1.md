@@ -265,7 +265,7 @@ Phase 1 is complete when:
 1. All 22 test cases (7 link + 9 assert_cmd + 9 error path — TC-A1 through TC-C9, minus overlap) pass with `make test` and `make test-ci`
 2. The 3 broken tests in `tests/check.rs` are removed
 3. New `assert_cmd` test files exist: `tests/check.rs` (rewritten), `tests/export.rs`, `tests/format.rs`, `tests/doctor.rs`
-4. A `#[cfg(test)] mod tests` module exists in `acorn-cli/src/commands/link/mod.rs`
+4. A `#[cfg(test)] mod tests` module exists in `crates/acorn-cli/src/commands/link/mod.rs`
 5. No new `#[ignore]` annotations were added
 6. All test modules include the clippy suppression banner
 7. All error tests verify both `is_err()` and error message content

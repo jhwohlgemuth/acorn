@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-cli/src/main.rs` configures logging, the runtime and thread pool, database state, preflight checks, and command dispatch.
+`crates/acorn-cli/src/main.rs` configures logging, the runtime and thread pool, database state, preflight checks, and command dispatch.
 
 # Recommendation
 

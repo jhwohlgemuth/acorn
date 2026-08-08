@@ -1,0 +1,10 @@
+---
+source: crates/acorn-lib/src/schema/agent/tests/mod.rs
+expression: headers
+---
+- "---\nname: eli5\nvariant: default\nmodel:\n  family: any\n  name: any"
+- "---\nname: extract-claim\nvariant: default\nmodel:\n  family: any\n  name: any"
+- "---\nname: find-gaps\nvariant: default\nmodel:\n  family: any\n  name: any"
+- "---\nname: summarize\nvariant: default\nmodel:\n  family: any\n  name: any"
+- "---\nname: teach\nvariant: default\nmodel:\n  family: any\n  name: any"
+- "---\nname: translate\nvariant: default\nmodel:\n  family: any\n  name: any"

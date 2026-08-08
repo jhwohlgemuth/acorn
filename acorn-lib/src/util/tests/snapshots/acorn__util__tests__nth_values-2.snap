@@ -1,9 +1,0 @@
----
-source: acorn-lib/src/util/tests/mod.rs
-expression: "third_column[..5].join(\"\\n\")"
----
-Apache Airflow
-AngularJS
-Apptainer
-AstroJS
-C sharp

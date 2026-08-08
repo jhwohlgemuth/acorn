@@ -52,10 +52,10 @@ acorn format path/to/project/index.json --dry-run
 - 🖼️ **Resolve missing images**: Find first image in associated RAD folders and add to metadata if missing
 
 ## Resolved Values
-- `meta.keywords`: Resolve keywords against [ACORN Keywords Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/keywords.csv)
-- `meta.technology`: Resolve technology against [ACORN Technology Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/technology.csv)
-- `meta.partners`: Resolve partner names against [ACORN Partners Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/partners.csv)
-- `meta.sponsors`: Resolve sponsor names against [ACORN Sponsors Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/acorn-lib/assets/constants/sponsors.csv)
+- `meta.keywords`: Resolve keywords against [ACORN Keywords Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/keywords.csv)
+- `meta.technology`: Resolve technology against [ACORN Technology Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/technology.csv)
+- `meta.partners`: Resolve partner names against [ACORN Partners Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/partners.csv)
+- `meta.sponsors`: Resolve sponsor names against [ACORN Sponsors Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/sponsors.csv)
 - `contact.organization`: Resolve organization name against a given org chart (currently only supports ORNL org chart)
 - `contact.affiliation`: Resolve organization name against a given org chart (currently only supports ORNL org chart)
 

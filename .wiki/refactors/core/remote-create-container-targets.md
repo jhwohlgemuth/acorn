@@ -24,9 +24,9 @@ Bot creation already runs detached. The remote option selects the Docker daemon;
 
 Implemented on 2026-07-26:
 
-- `acorn-lib/src/io/mod.rs` defines a validated `Remote` target backed by `Location`. It accepts `ssh://[user@]host[:port][/socket]`, rejects embedded passwords and unsupported URI components, adds Docker `--host` arguments, creates GPU templates, and copies templates through the selected `Executor`.
+- `crates/acorn-lib/src/io/mod.rs` defines a validated `Remote` target backed by `Location`. It accepts `ssh://[user@]host[:port][/socket]`, rejects embedded passwords and unsupported URI components, adds Docker `--host` arguments, creates GPU templates, and copies templates through the selected `Executor`.
 - `Executor` exposes `is_available` and Strum's `is_docker` predicate. Remote creation rejects non-Docker runtimes and non-Docker runner configurations before the GitLab create-runner request.
-- `acorn-cli/src/cli/arguments.rs` exposes `--remote <URI>` on `create bot` and `create runner`.
+- `crates/acorn-cli/src/cli/arguments.rs` exposes `--remote <URI>` on `create bot` and `create runner`.
 - Bot creation targets the selected daemon while preserving its existing detached mode, ports, restart policy, environment, naming, and volumes.
 - Runner creation targets its `run`, `exec`, and GPU-template `cp` operations consistently through `Remote` methods. Remote runners use a named configuration volume, the remote Docker socket, and an in-container GPU template copied through the selected daemon.
 - Local bot and runner behavior remains unchanged when `--remote` is absent.

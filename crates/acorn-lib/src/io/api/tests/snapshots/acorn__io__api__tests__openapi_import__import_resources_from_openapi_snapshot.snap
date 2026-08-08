@@ -1,0 +1,31 @@
+---
+source: crates/acorn-lib/src/io/api/tests/mod.rs
+expression: resources
+---
+[
+  {
+    "name": "create-widget",
+    "method": "post",
+    "template": "{{ base }}/widgets{{ query }}"
+  },
+  {
+    "name": "delete-widget",
+    "method": "delete",
+    "template": "{{ base }}/widgets/{{ widget_id }}{{ query }}"
+  },
+  {
+    "name": "get-widget",
+    "method": "get",
+    "template": "{{ base }}/widgets/{{ widget_id }}{{ query }}"
+  },
+  {
+    "name": "list-widgets",
+    "method": "get",
+    "template": "{{ base }}/widgets{{ query }}"
+  },
+  {
+    "name": "update-widget-part",
+    "method": "patch",
+    "template": "{{ base }}/widgets/{{ widget_id }}/parts/{{ part_id }}{{ query }}"
+  }
+]

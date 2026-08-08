@@ -23,10 +23,10 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 
 # Evidence
 
-- `acorn-lib/src/io/api/mod.rs`
-- `acorn-lib/src/io/api/openai.rs`
-- `acorn-lib/src/io/api/raid.rs`
-- `acorn-lib/src/io/api/gitlab/mod.rs`
+- `crates/acorn-lib/src/io/api/mod.rs`
+- `crates/acorn-lib/src/io/api/openai.rs`
+- `crates/acorn-lib/src/io/api/raid.rs`
+- `crates/acorn-lib/src/io/api/gitlab/mod.rs`
 
 # Acceptance criteria
 

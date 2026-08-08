@@ -6,14 +6,14 @@
 
 ## Project Structure
 
-- **`acorn-lib/`**: Core library with schemas, validation, analysis, and export logic
-- **`acorn-cli/`**: CLI application with 8 main commands
-- **`acorn-py/`**: Python bindings using maturin (for PyO3)
+- **`crates/acorn-lib/`**: Core library with schemas, validation, analysis, and export logic
+- **`crates/acorn-cli/`**: CLI application with 8 main commands
+- **`crates/acorn-py/`**: Python bindings using maturin (for PyO3)
 - **`docs/`**: mdBook documentation
 
 ### Key Modules
 
-**Schema System** (`acorn-lib/src/schema/`)
+**Schema System** (`crates/acorn-lib/src/schema/`)
 - `ResearchActivity`: Main RAD struct with metadata, sections, and contact info
 - `Metadata` (RAiD): Research Activity Identifier metadata
 - `pid/`: Persistent Identifier schemas and utilities
@@ -23,7 +23,7 @@
 - Custom validators via `serde_trim` and `validator` crate
 - JSON Schema generation via `schemars`
 
-**Commands** (`acorn-cli/src/commands/`)
+**Commands** (`crates/acorn-cli/src/commands/`)
 - `check`: Static analysis, readability, prose validation
 - `doctor`: System diagnostics  
 - `download`: Fetch data from repositories
@@ -33,12 +33,12 @@
 - `link`: Add linked-data context
 - `schema`: Output JSON schemas for RAD and RAiD metadata structures
 
-**Analysis Pipeline** (`acorn-lib/src/analyzer/`)
+**Analysis Pipeline** (`crates/acorn-lib/src/analyzer/`)
 - Vale integration for prose linting
 - Readability metrics (FKGL, ARI, CLI, FRES, GFI, Lix, SMOG)
 - Website accessibility checks via `lychee-lib`
 
-**Export** (`acorn-lib/src/powerpoint/` + `acorn-cli/src/template/`)
+**Export** (`crates/acorn-lib/src/powerpoint/` + `crates/acorn-cli/src/template/`)
 - HTML template generation with embedded fonts/images
 - PowerPoint export via OOXML manipulation
 - PDF generation with QR codes and branding
@@ -132,23 +132,23 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 - `.vale/`: Vale prose linting config (git-ignored)
 
 **Asset Embedding**
-- CLI assets: `acorn-cli/assets/` (fonts, images, styles)
-- Library assets: `acorn-lib/assets/constants/` (constants and configuration)
+- CLI assets: `crates/acorn-cli/assets/` (fonts, images, styles)
+- Library assets: `crates/acorn-lib/assets/constants/` (constants and configuration)
 - All assets are embedded in the binary via `rust-embed` crate
 
-**Python Bindings** (`acorn-py/`)
+**Python Bindings** (`crates/acorn-py/`)
 - Built with `maturin` (PyO3 wrapper)
 - Compiled to wheels in `target/wheels/`
-- Tests in `acorn-py/tests/`: `test_pid.py`, `test_schema.py`, `test_validate.py`
+- Tests in `crates/acorn-py/tests/`: `test_pid.py`, `test_schema.py`, `test_validate.py`
 
 ## When Adding Features
 
-1. **New command**: Add module in `acorn-cli/src/commands/{name}/mod.rs`, add case to main.rs
+1. **New command**: Add module in `crates/acorn-cli/src/commands/{name}/mod.rs`, add case to main.rs
 2. **New schema field**: Update `ResearchActivity` or relevant struct, add validators, update tests
 3. **New analysis**: Extend `analyzer/` module, integrate in `check` command
-4. **Export template**: Add HTML in `acorn-cli/src/template/`, register in export pipeline
-5. **New PID schema**: Add to `acorn-lib/src/schema/pid/` for persistent identifier support
-6. **New prompt template**: Add to `acorn-lib/src/schema/prompt.rs` for guided data entry
+4. **Export template**: Add HTML in `crates/acorn-cli/src/template/`, register in export pipeline
+5. **New PID schema**: Add to `crates/acorn-lib/src/schema/pid/` for persistent identifier support
+6. **New prompt template**: Add to `crates/acorn-lib/src/schema/prompt.rs` for guided data entry
 7. **Documentation**: Add rustdoc comments (`///`) to public items; forbidden lints will enforce this
 
 ## Documentation & Resources

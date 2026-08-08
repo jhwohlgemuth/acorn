@@ -24,13 +24,13 @@ DCAT → CKAN should be planned separately after a publishing use case identifie
 
 # Current evidence
 
-- `Standard` parsing and `Standard::crosswalk()` support DataCite, DCAT, InvenioRDM, and HuWise, but have no CKAN variant or dispatch path (`acorn-cli/src/cli/parse.rs`, `acorn-lib/src/analyzer/check.rs`).
+- `Standard` parsing and `Standard::crosswalk()` support DataCite, DCAT, InvenioRDM, and HuWise, but have no CKAN variant or dispatch path (`crates/acorn-cli/src/cli/parse.rs`, `crates/acorn-lib/src/analyzer/check.rs`).
 - The three CKAN fixtures are not referenced by tests or production code. Each has a manually derived file with the same stem under `tests/fixtures/schema/dcat/`.
 - The CKAN fixtures resemble unwrapped `package_show` result objects and include core fields plus extension-specific `contact`, `creator`, `publisher`, and `qualified_relation` fields.
 - All three fixture `resources` arrays are empty, so they cannot verify the important CKAN resource → DCAT distribution mapping.
 - The expected DCAT files omit `@type`, a catalog or catalog-record wrapper, distributions, profile declaration, and several CKAN administrative fields. They are valid inputs for ACORN's permissive `dcat::Dataset`, but they are not evidence of full DCAT-US v3 conformance.
 - The expected files currently map `metadata_created` and `metadata_modified` to dataset `issued` and `modified`. CKAN describes those values as metadata-record administration, while DCAT distinguishes a dataset from its catalog record. The custom CKAN fields `issued` and `modified` are better candidates for dataset lifecycle dates.
-- Crosswalk warning collection covers direct DataCite mappings and DCAT → DataCite, not conversions routed through DataCite. In the CLI, `--strict` and `--dry-run` currently call the warning-free conversion path, so strict mode cannot enforce its documented loss check and dry-run always reports zero warnings (`acorn-cli/src/commands/export/mod.rs`).
+- Crosswalk warning collection covers direct DataCite mappings and DCAT → DataCite, not conversions routed through DataCite. In the CLI, `--strict` and `--dry-run` currently call the warning-free conversion path, so strict mode cannot enforce its documented loss check and dry-run always reports zero warnings (`crates/acorn-cli/src/commands/export/mod.rs`).
 
 # CKAN compared with DCAT v3 and DCAT-US v3
 

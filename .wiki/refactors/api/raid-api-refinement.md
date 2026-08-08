@@ -15,7 +15,7 @@ Provide focused, testable RAiD API operations without embedding API experiments 
 
 # Current evidence
 
-`acorn-lib/src/io/api/raid.rs` exposes service-point listing and lookup, record listing and lookup, and record creation. The removed gather prototype exercised service point `20000033`, record retrieval, metadata construction, schema validation, JSON serialization, and record creation, but it did so as command-local example code rather than tests or supported workflows.
+`crates/acorn-lib/src/io/api/raid.rs` exposes service-point listing and lookup, record listing and lookup, and record creation. The removed gather prototype exercised service point `20000033`, record retrieval, metadata construction, schema validation, JSON serialization, and record creation, but it did so as command-local example code rather than tests or supported workflows.
 
 # Recommendation
 

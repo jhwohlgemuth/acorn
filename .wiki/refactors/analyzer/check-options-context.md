@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` repeatedly threads options and derived values through nested asynchronous closures.
+`crates/acorn-lib/src/analyzer/mod.rs` repeatedly threads options and derived values through nested asynchronous closures.
 
 # Recommendation
 

@@ -16,7 +16,7 @@ Add focused fuzz coverage for the pure OOXML transformation boundary used when c
 
 # Evidence
 
-- `acorn-lib/src/io/powerpoint/ooxml.rs` implements a custom XML event loop in `add_slide_to_presentation_xml`, plus relationship rewriting and well-formedness validation.
+- `crates/acorn-lib/src/io/powerpoint/ooxml.rs` implements a custom XML event loop in `add_slide_to_presentation_xml`, plus relationship rewriting and well-formedness validation.
 - These helpers process externally supplied PPTX XML and must handle malformed nesting, namespaces, duplicate slide lists, declarations, entities, truncated input, and large attributes without panicking or silently corrupting output.
 - `fuzz/` currently covers Research Activity, Location, and Repository parsing, but has no OOXML target.
 

@@ -224,8 +224,8 @@ Implementation steps:
 
 1. Map every optional dependency to the module and command that requires it.
 2. Define the minimum coherent capability graph without feature cycles.
-3. Update `acorn-lib/Cargo.toml` feature wiring.
-4. Update `acorn-cli/Cargo.toml` to request explicit library capabilities.
+3. Update `crates/acorn-lib/Cargo.toml` feature wiring.
+4. Update `crates/acorn-cli/Cargo.toml` to request explicit library capabilities.
 5. Gate imports, modules, public exports, and command branches at the narrowest maintainable boundary.
 6. Keep unavailable-feature behavior explicit at CLI parsing or execution boundaries; avoid obscure downstream compilation failures.
 7. Add compile checks for supported feature combinations.

@@ -15,9 +15,9 @@ Represent website reachability and persistent-identifier resolution as one link-
 
 # Current evidence
 
-- `acorn-lib/src/analyzer/check.rs` dispatches `CheckCategory::Link` to the path-oriented `Analysis::check_websites` method, while the optional instance method `Analysis::check_resolution` is not reachable through `Analysis::check`.
-- `acorn-lib/src/analyzer/service.rs` places website results in `AnalysisReport`, but skips the complete link category when either `offline` or `disable_website_checks` is set.
-- `acorn-cli/src/commands/gather/mod.rs` invokes `DiscoveryRecords::check_resolution` directly and chains those checks beside `analyze_paths` output. Resolution checks therefore bypass `AnalysisReport` even though they use the same check category.
+- `crates/acorn-lib/src/analyzer/check.rs` dispatches `CheckCategory::Link` to the path-oriented `Analysis::check_websites` method, while the optional instance method `Analysis::check_resolution` is not reachable through `Analysis::check`.
+- `crates/acorn-lib/src/analyzer/service.rs` places website results in `AnalysisReport`, but skips the complete link category when either `offline` or `disable_website_checks` is set.
+- `crates/acorn-cli/src/commands/gather/mod.rs` invokes `DiscoveryRecords::check_resolution` directly and chains those checks beside `analyze_paths` output. Resolution checks therefore bypass `AnalysisReport` even though they use the same check category.
 - `DiscoveryRecords` implements the path-oriented `Analysis` trait with no-op prose, quality, readability, schema, and website methods solely to provide resolution checks. Its `Text` standard and identity output path do not describe identifier discovery.
 - Gather disables website checks before calling `analyze_paths`. A direct merger of the existing skip conditions would incorrectly suppress checks derived from resolution outcomes that are already available and require no network access.
 

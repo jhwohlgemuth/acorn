@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-py/src/lib.rs` repeats wrapper patterns for PID-backed data.
+`crates/acorn-py/src/lib.rs` repeats wrapper patterns for PID-backed data.
 
 # Recommendation
 

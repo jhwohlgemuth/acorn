@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` has near-isomorphic check flows for CFF, Research Activity, DOCX, and text inputs.
+`crates/acorn-lib/src/analyzer/mod.rs` has near-isomorphic check flows for CFF, Research Activity, DOCX, and text inputs.
 
 # Recommendation
 

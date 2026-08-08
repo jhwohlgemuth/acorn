@@ -47,15 +47,16 @@ book-write:
 	@mdbook serve --open docs
 
 build: clean
-	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 ifeq ($(OS),Windows_NT)
+	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
 	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
 else
+	@mkdir -p ./bin
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
-	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
+	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
 endif
 
 build-in-image: clean

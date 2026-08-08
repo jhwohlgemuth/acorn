@@ -16,10 +16,10 @@ Make repository resolution accept only a semantically valid repository identifie
 
 # Current evidence
 
-- `acorn-lib/src/io/api/huggingface.rs` uses one public `Options` type for repository discovery, candidate selection, tree parsing, filtering, and download. Both `identifier` and `output` are optional.
+- `crates/acorn-lib/src/io/api/huggingface.rs` uses one public `Options` type for repository discovery, candidate selection, tree parsing, filtering, and download. Both `identifier` and `output` are optional.
 - `HuggingFaceRepositoryFiles::parse` and `HuggingFaceRepositoryFiles::resolve` independently reject a missing identifier at runtime.
 - `HuggingFaceRepositoryFiles::download` independently rejects a missing identifier or output directory at runtime.
-- `acorn-cli/src/commands/download/model/plan.rs` and `acorn-cli/src/commands/import/model.rs` construct overlapping subsets of `Options`, then pass them into operations with different readiness requirements.
+- `crates/acorn-cli/src/commands/download/model/plan.rs` and `crates/acorn-cli/src/commands/import/model.rs` construct overlapping subsets of `Options`, then pass them into operations with different readiness requirements.
 - `CandidateSelector` receives all of `Options` even though candidate choice needs only selection context. The TUI callback consequently depends on a broader request shape than it uses.
 - Public `CandidateSelector`, `CandidateSelection`, and `HuggingFaceRepository` contracts mention `Options`; retaining only the struct would not preserve compatibility when those signatures change.
 - `HuggingFaceRepositoryFiles` already stores the identifier and revision that produced its files, while `download` separately reads identifier and revision from `Options`. The values can disagree.

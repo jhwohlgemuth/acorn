@@ -15,10 +15,10 @@ Extract `cmd!`, `args!`, and `cmd_sh_words!` into a standalone `acorn-cmd` crate
 
 # Current locations
 
-- Proc macro `cmd_sh_words!`: `acorn-macros/src/lib.rs`
-- Declarative macros `cmd!` and `args!`: `acorn-lib/src/util/macros.rs`
-- Runtime helpers: `acorn-lib/src/util/cmd.rs`
-- Tests: `acorn-lib/src/util/tests/cmd.rs`
+- Proc macro `cmd_sh_words!`: `crates/acorn-macros/src/lib.rs`
+- Declarative macros `cmd!` and `args!`: `crates/acorn-lib/src/util/macros.rs`
+- Runtime helpers: `crates/acorn-lib/src/util/cmd.rs`
+- Tests: `crates/acorn-lib/src/util/tests/cmd.rs`
 
 # Recommendation
 

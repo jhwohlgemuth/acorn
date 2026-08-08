@@ -11,7 +11,7 @@ status: planned
 
 # Evidence
 
-`acorn-lib/src/analyzer/mod.rs` and `vale.rs` contain repeated matches that convert failures into defaults or checks.
+`crates/acorn-lib/src/analyzer/mod.rs` and `vale.rs` contain repeated matches that convert failures into defaults or checks.
 
 # Recommendation
 

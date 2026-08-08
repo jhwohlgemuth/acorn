@@ -2,45 +2,32 @@
 > This file describes the high-level architecture and some specific design decisions of ACORN
 
 ## Workspace Structure
-The project uses Cargo workspaces with two main crates:
+The project keeps ACORN product crates under `crates/` and repository tooling at the workspace root:
 
 ```
 acorn/
-├── acorn-cli/          # CLI application
-│   ├── assets/         # Embedded assets (fonts, images, skills, styles)
-│   │   └── skills/     # Agent skill files (e.g. acorn/SKILL.md)
-│   ├── src/
-│   │   ├── cli/        # Command-line interface definitions
-│   │   ├── commands/   # Command implementations (check, export, etc.)
-│   │   ├── template/   # Export template generation
-│   │   └── main.rs     # Entry point
-│   └── Cargo.toml
-├── acorn-lib/          # Core library
-│   ├── src/
-│   │   ├── analyzer/   # Text analysis and readability checks
-│   │   ├── doctor/     # System diagnostics
-│   │   ├── powerpoint/ # PowerPoint import/export functionality
-│   │   ├── schema/     # Data schemas and validation
-│   │   ├── util/       # Common utilities and CLI helpers
-│   │   └── lib.rs      # Library entry point
-│   └── Cargo.toml
-├── acorn-py/           # Python package project
-│   ├── src/
-│   │   └── lib.rs      # Library entry point
-│   ├── Cargo.toml      # Rust configuration
-│   └── pyproject.toml  # Python configuration
-└── Cargo.toml          # Workspace configuration
+├── crates/
+│   ├── acorn-cli/      # CLI application and embedded presentation assets
+│   ├── acorn-lib/      # Compatibility library, schemas, analysis, and host services
+│   ├── acorn-macros/   # Procedural macros
+│   ├── acorn-py/       # Python bindings and package configuration
+│   └── acorn-tui/      # Terminal user interface
+├── docs/               # Public mdBook documentation
+├── fuzz/               # Cargo fuzz targets
+├── tests/              # Shared fixtures and integration data
+├── xtask/              # Repository maintenance commands
+└── Cargo.toml           # Workspace configuration
 ```
 
 ### Core Components
 
-**Schema System (`acorn-lib/src/schema/`)**
+**Schema System (`crates/acorn-lib/src/schema/`)**
 - `ResearchActivity`: Main data structure for research activity data (RAD)
 - `raid::Metadata`: RAiD (Research Activity Identifier) metadata schema
 - Validation logic using Rust's type system and the `validator` crate
 - JSON Schema generation via `schemars`
 
-**Command Structure (`acorn-cli/src/commands/`)**
+**Command Structure (`crates/acorn-cli/src/commands/`)**
 - `check`: Static analysis and validation of research data
 - `doctor`: System diagnostics and environment setup
 - `download`: Fetch data from remote buckets (GitLab/GitHub repositories)  
@@ -49,12 +36,12 @@ acorn/
 - `link`: Add linked data context to research activity data
 - `schema`: Output JSON schemas for RAD and RAiD
 
-**Analysis Pipeline (`acorn-lib/src/analyzer/`)**
+**Analysis Pipeline (`crates/acorn-lib/src/analyzer/`)**
 - Vale integration for prose analysis
 - Readability metrics (Flesch-Kincaid, etc.)
 - Website accessibility checking using `lychee-lib`
 
-**Export System (`acorn-lib/src/powerpoint/` and `acorn-cli/src/template/`)**
+**Export System (`crates/acorn-lib/src/powerpoint/` and `crates/acorn-cli/src/template/`)**
 - HTML template generation
 - PowerPoint export via OOXML manipulation
 - PDF generation with embedded QR codes and branding
@@ -67,7 +54,7 @@ acorn/
 
 **CLI Architecture**: Uses `clap` for argument parsing with derive macros and extensive help documentation.
 
-**Asset Embedding**: Uses `rust-embed` to include fonts, images, agent skill files (`acorn-cli/assets/skills/`), and styles in the binary.
+**Asset Embedding**: Uses `rust-embed` to include fonts, images, agent skill files (`crates/acorn-cli/assets/skills/`), and styles in the binary.
 
 ## Configuration and Environment
 
