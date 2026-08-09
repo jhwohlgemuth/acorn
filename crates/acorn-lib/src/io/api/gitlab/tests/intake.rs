@@ -83,7 +83,7 @@ fn embedded_cff_is_complete_and_identifier_only_candidate_is_excluded() {
     let content = "```cff\ncff-version: 1.2.0\ntitle: Existing result\nmessage: Cite this\nauthors:\n  - family-names: Example\n    given-names: Alice\ndoi: 10.1234/example\n```";
     let candidate = ArtifactCandidate::from(Cff::embedded(content).into_iter().next().unwrap());
     assert!(candidate.classify(None).cff.is_some());
-    let identifier = Identifier::new("https://example.org/artifact").normalize().unwrap();
+    let identifier = Identifier::new("https://example.org/artifact").normalized().unwrap();
     let excluded = ArtifactCandidate {
         identifiers: vec![identifier],
         ..ArtifactCandidate::default()
@@ -94,7 +94,7 @@ fn embedded_cff_is_complete_and_identifier_only_candidate_is_excluded() {
 }
 #[test]
 fn citeas_metadata_completes_a_doi_candidate() {
-    let identifier = Identifier::new("doi:10.1234/example").normalize().unwrap();
+    let identifier = Identifier::new("doi:10.1234/example").normalized().unwrap();
     let candidate = ArtifactCandidate {
         identifiers: vec![identifier],
         ..ArtifactCandidate::default()

@@ -26,6 +26,7 @@ pub async fn run(
     threads: usize,
     verbose: &Verbosity,
     offline: bool,
+    no_local_database: bool,
 ) -> Result<(), Report> {
     let quiet = verbose.is_silent();
     preflight!(&CommandOptions::init()
@@ -56,9 +57,13 @@ pub async fn run(
                                 bucket.download_files(&bucket_options).await
                             };
                             match bucket_result {
-                                | Ok(count) => {
-                                    total = total.saturating_add(count);
-                                }
+                                | Ok(manifest) => match manifest.ingest(&bucket_options, database_path, no_local_database) {
+                                    | Ok(()) => total = total.saturating_add(manifest.count()),
+                                    | Err(why) => {
+                                        branch_result = Err(why);
+                                        break;
+                                    }
+                                },
                                 | Err(why) => {
                                     if is_local {
                                         error!("=> {} Copy data — {why}", Label::fail());
@@ -74,7 +79,9 @@ pub async fn run(
                 }
                 if branch_result.is_ok() {
                     if let Some(path) = output {
-                        log_activity("download", path.to_absolute_path(), database_path, true);
+                        if !no_local_database {
+                            log_activity("download", path.to_absolute_path(), database_path, true);
+                        }
                     }
                     if !quiet {
                         println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
@@ -84,7 +91,9 @@ pub async fn run(
             }
             | Err(why) => {
                 error!("=> {} Download data — {why}", Label::fail());
-                log_activity("download", path.file_name_with_parent(), database_path, false);
+                if !no_local_database {
+                    log_activity("download", path.file_name_with_parent(), database_path, false);
+                }
                 return Err(eyre!("Failed to process download configuration"));
             }
         }
@@ -103,9 +112,10 @@ pub async fn run(
                         bucket.download_files(&bucket_options).await
                     };
                     match bucket_result {
-                        | Ok(count) => {
-                            total = total.saturating_add(count);
-                        }
+                        | Ok(manifest) => match manifest.ingest(&bucket_options, database_path, no_local_database) {
+                            | Ok(()) => total = total.saturating_add(manifest.count()),
+                            | Err(why) => branch_result = Err(why),
+                        },
                         | Err(why) => {
                             if is_local {
                                 error!("=> {} Copy data — {why}", Label::fail());
@@ -118,7 +128,9 @@ pub async fn run(
                 }
             }
             if branch_result.is_ok() {
-                log_activity("download", path.to_absolute_path(), database_path, true);
+                if !no_local_database {
+                    log_activity("download", path.to_absolute_path(), database_path, true);
+                }
                 if !quiet {
                     println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
                 }

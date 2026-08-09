@@ -69,21 +69,20 @@ fn test_programming_language_row_display() {
     assert!(display.contains("type: programming"));
 }
 #[test]
-fn test_research_activity_cache_row_display() {
-    let row = ResearchActivityCacheRow {
+fn test_research_activity_row_display() {
+    let row = ResearchActivityRow {
         id: Some(1),
-        identifier: Some("test-id".to_string()),
-        source_bucket: Some("test-bucket".to_string()),
-        title: Some("Test Activity".to_string()),
-        downloaded_at: Some(Timestamp::now()),
-        file_path: Some("/path/to/activity.json".to_string()),
+        iid: Some("portable-id".to_string()),
+        rad_json: Some("{}".to_string()),
+        identity_keys_json: Some("[]".to_string()),
+        provenance_json: Some("[]".to_string()),
+        created_at: Some(Timestamp::now()),
+        updated_at: Some(Timestamp::now()),
     };
     let display = format!("{}", row);
-    assert!(display.contains("ResearchActivityCacheRow"));
+    assert!(display.contains("ResearchActivityRow"));
     assert!(display.contains("id: 1"));
-    assert!(display.contains("identifier: test-id"));
-    assert!(display.contains("bucket: test-bucket"));
-    assert!(display.contains("title: Test Activity"));
+    assert!(display.contains("iid: portable-id"));
 }
 #[test]
 fn test_validation_row_display() {

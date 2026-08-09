@@ -4,13 +4,13 @@ use super::{analyze_paths, Analysis, Check, CheckCategory, CheckOptions, Standar
 use crate::check_err;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
-use crate::io::database::{Database, Operations};
+use crate::io::database::{CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate};
 use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::param;
 use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR};
+use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR};
 use crate::util::values_as_table;
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
@@ -18,12 +18,21 @@ use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
 use core::{fmt, iter::once};
 use futures::future::join_all;
+use itertools::Itertools;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
 pub mod osti;
 
+trait DeserializeMetadata: for<'de> Deserialize<'de> {
+    fn deserialize_metadata(value: Option<&str>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        value.and_then(|value| serde_json::from_str(value).ok())
+    }
+}
 /// Serializable gather record
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "record", rename_all = "lowercase")]
@@ -79,25 +88,6 @@ pub enum RemoteProvider {
     /// DOE CODE from the Office of Scientific and Technical Information.
     Osti,
 }
-impl fmt::Display for RemoteProvider {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Osti => "osti",
-        })
-    }
-}
-impl RemoteProvider {
-    /// Describe the entity views and filters supported by this provider.
-    pub fn capabilities(self) -> ProviderCapabilities {
-        match self {
-            | Self::Osti => ProviderCapabilities {
-                entities: vec![RemoteEntity::Project, RemoteEntity::Person, RemoteEntity::Organization],
-                organization_filter: true,
-                pagination: true,
-            },
-        }
-    }
-}
 /// Features exposed by a remote gather provider.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProviderCapabilities {
@@ -134,74 +124,6 @@ pub struct RemoteSearchRequest {
     #[builder(default)]
     pub all: bool,
 }
-impl RemoteSearchRequest {
-    /// Return whether neither a direct query nor an organization filter was supplied.
-    pub fn is_empty(&self) -> bool {
-        self.queries.is_empty() && self.organization.as_deref().is_none_or(str::is_empty)
-    }
-    /// Return whether the selected provider supports the requested entity.
-    pub fn supports_entity(&self) -> bool {
-        self.provider.capabilities().entities.contains(&self.entity)
-    }
-    fn queries(&self) -> Vec<String> {
-        match self.queries.is_empty() {
-            | true => vec![String::new()],
-            | false => self.queries.clone(),
-        }
-    }
-    fn osti_options(&self, query: String) -> api::osti::Options {
-        let organization_query = self.entity == RemoteEntity::Organization && self.organization.is_none();
-        api::osti::Options {
-            query: match organization_query {
-                | true => String::new(),
-                | false => query.clone(),
-            },
-            view: self.entity.into(),
-            organization: self.organization.clone().or_else(|| organization_query.then_some(query)),
-            organization_role: self.organization_role,
-            limit: self.limit,
-            start: self.offset,
-            all: self.all,
-        }
-    }
-    async fn search_osti(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
-        join_all(self.queries().into_iter().map(|query| {
-            let options = self.osti_options(query);
-            async move { api::osti::search(&options).await.and_then(RemoteSearchResponse::from_osti) }
-        }))
-        .await
-        .into_iter()
-        .collect::<ApiResult<Vec<_>>>()
-        .map(|responses| responses.into_iter().reduce(RemoteSearchResponse::merge).into_iter().collect())
-    }
-    /// Search the configured remote provider.
-    pub async fn search(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
-        match (self.supports_entity(), self.provider) {
-            | (false, _) => Err(color_eyre::eyre::eyre!("{} does not support {} searches", self.provider, self.entity)),
-            | (true, RemoteProvider::Osti) => self.search_osti().await,
-        }
-    }
-    /// Run the remote search and emit its gather report.
-    pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
-        let Options { format, offline, output, .. } = options;
-        match (offline, self.is_empty()) {
-            | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
-            | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
-            | (false, false) => self.search().await.and_then(|responses| {
-                let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
-                let report = Report::new(&[], Records::default(), inputs).with_remote(responses);
-                let format = format.unwrap_or_else(|| match output.is_none() && io::stdout().is_terminal() {
-                    | true => OutputFormat::Console,
-                    | false => OutputFormat::Json,
-                });
-                match output {
-                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-                    | None => report.serialize(format).map(|serialized| println!("{serialized}")),
-                }
-            }),
-        }
-    }
-}
 /// Provider-neutral remote search match.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteMatch {
@@ -232,29 +154,6 @@ pub struct RemoteSearchResponse {
     /// Normalized matches.
     pub matches: Vec<RemoteMatch>,
 }
-impl RemoteSearchResponse {
-    /// Merge another response, retaining the first occurrence of each provider identifier.
-    pub fn merge(self, other: Self) -> Self {
-        let matches = self
-            .matches
-            .into_iter()
-            .chain(other.matches)
-            .fold((BTreeSet::new(), Vec::new()), |(mut seen, mut matches), value| {
-                if seen.insert((value.entity, value.identifier.clone())) {
-                    matches.push(value);
-                }
-                (seen, matches)
-            })
-            .1;
-        Self {
-            provider: self.provider,
-            total: self.total.saturating_add(other.total),
-            offset: self.offset,
-            has_more: self.has_more || other.has_more,
-            matches,
-        }
-    }
-}
 /// Candidate artifact record before standard-specific mapping
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ArtifactCandidate {
@@ -266,6 +165,10 @@ pub struct ArtifactCandidate {
     pub title: Option<String>,
     /// Enriched author display names
     pub authors: Vec<String>,
+    /// Provider-native project identifiers, including their provider prefix.
+    pub provider_ids: Vec<String>,
+    /// Evidence supporting mapped fields and project relationships.
+    pub provenance: Vec<serde_json::Value>,
 }
 /// Gather command options shared with discovery analysis
 #[derive(Clone, Copy, Debug)]
@@ -312,6 +215,8 @@ pub struct Report {
     discoveries: Records,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     remote: Vec<RemoteSearchResponse>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    candidates: Vec<CandidatePersistence>,
     summary: Summary,
 }
 #[derive(Builder, Clone, Debug)]
@@ -327,9 +232,182 @@ struct Summary {
     inputs: usize,
     #[serde(default, skip_serializing_if = "is_zero")]
     matches: usize,
+    #[serde(default, skip_serializing_if = "CandidateCounts::is_empty")]
+    candidates: CandidateCounts,
 }
-fn is_zero(value: &usize) -> bool {
-    *value == 0
+/// Candidate persistence totals included in gather reports.
+#[derive(Clone, Debug, Default, Serialize)]
+struct CandidateCounts {
+    created: usize,
+    enriched: usize,
+    unchanged: usize,
+    conflicts: usize,
+}
+impl DeserializeMetadata for api::citeas::Citations {}
+impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
+impl ArtifactCandidate {
+    /// Return sorted exact project identities suitable for persistence
+    pub fn identity_keys(&self) -> Vec<String> {
+        self.identifiers
+            .iter()
+            .filter(|identifier| identifier.kind.is_project_identifier())
+            .map(Identifier::identity_key)
+            .chain(self.provider_ids.iter().map(|value| Identifier::normalize(value)))
+            .filter(|value| !value.is_empty())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+    fn identifier_values(&self, kind: PID) -> Option<serde_json::Value> {
+        let values = self
+            .identifiers
+            .iter()
+            .filter(|identifier| identifier.kind == kind)
+            .map(|identifier| serde_json::Value::String(identifier.value.clone()))
+            .collect::<Vec<_>>();
+        (!values.is_empty()).then_some(serde_json::Value::Array(values))
+    }
+    /// Build partial RAD JSON from fields that map without information loss
+    pub fn to_partial_rad_json(&self) -> serde_json::Value {
+        let metadata = [("doi", PID::DOI), ("books", PID::ISBN), ("patents", PID::Patent), ("raid", PID::RAID)]
+            .into_iter()
+            .filter_map(|(field, kind)| self.identifier_values(kind).map(|values| (field.to_string(), values)))
+            .chain(self.canonical_url.as_ref().map(|url| {
+                (
+                    "websites".to_string(),
+                    serde_json::json!([{"description": "Provider-confirmed project URL", "url": url}]),
+                )
+            }))
+            .collect::<serde_json::Map<_, _>>();
+        let title = self
+            .title
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .map(|title| ("title".to_string(), serde_json::Value::String(title.clone())));
+        let fields = [
+            (!metadata.is_empty()).then(|| ("meta".to_string(), serde_json::Value::Object(metadata))),
+            title,
+        ];
+        serde_json::Value::Object(fields.into_iter().flatten().collect())
+    }
+    /// Enrich this candidate with losslessly mapped resolver metadata
+    pub fn resolved(self, metadata: Option<&str>, identifier_type: &str) -> Self {
+        match PID::from(identifier_type) {
+            | PID::DOI => match api::citeas::Citations::deserialize_metadata(metadata) {
+                | Some(citations) => {
+                    let api::citeas::Metadata { title, doi, url, .. } = citations.metadata;
+                    let identifier = Identifier::new(doi.clone())
+                        .normalized()
+                        .filter(|identifier| !self.identifiers.contains(identifier));
+                    let identifiers = self.identifiers.into_iter().chain(identifier).collect();
+                    let candidate_title = (!title.trim().is_empty()).then(|| title.clone()).or(self.title);
+                    let canonical_url = (!url.trim().is_empty()).then(|| url.clone()).or(self.canonical_url);
+                    let provenance = Provenance::Citeas {
+                        title,
+                        doi,
+                        project_url: url,
+                    };
+                    Self {
+                        identifiers,
+                        canonical_url,
+                        title: candidate_title,
+                        provenance: self
+                            .provenance
+                            .into_iter()
+                            .chain(once(serde_json::to_value(provenance).unwrap_or_default()))
+                            .collect(),
+                        ..self
+                    }
+                }
+                | None => self,
+            },
+            | PID::RAID => match Vec::<pid::raid::Metadata>::deserialize_metadata(metadata) {
+                | Some(records) => {
+                    let title = records
+                        .iter()
+                        .flat_map(|record| record.title.iter().flatten())
+                        .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
+                        .cloned();
+                    let provenance = Provenance::Raid { records };
+                    Self {
+                        title: title.or(self.title),
+                        provenance: self
+                            .provenance
+                            .into_iter()
+                            .chain(once(serde_json::to_value(provenance).unwrap_or_default()))
+                            .collect(),
+                        ..self
+                    }
+                }
+                | None => self,
+            },
+            | _ => self,
+        }
+    }
+    fn merge(self, candidate: Self) -> Self {
+        let identifiers = self
+            .identifiers
+            .into_iter()
+            .chain(candidate.identifiers)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let provider_ids = self
+            .provider_ids
+            .into_iter()
+            .chain(candidate.provider_ids)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let provenance = self.provenance.into_iter().chain(candidate.provenance).unique().collect();
+        Self {
+            identifiers,
+            canonical_url: self.canonical_url.or(candidate.canonical_url),
+            title: self.title.or(candidate.title),
+            authors: if self.authors.is_empty() { candidate.authors } else { self.authors },
+            provider_ids,
+            provenance,
+        }
+    }
+}
+impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
+    type Error = ArtifactCandidate;
+
+    fn try_from(candidate: ArtifactCandidate) -> Result<Self, Self::Error> {
+        let keys = candidate.identity_keys();
+        match keys.is_empty() {
+            | true => Err(candidate),
+            | false => {
+                let rad_json = candidate.to_partial_rad_json();
+                Ok(Self::new(rad_json, keys, candidate.provenance))
+            }
+        }
+    }
+}
+impl CandidateCounts {
+    fn from_results(results: &[CandidatePersistence]) -> Self {
+        results.iter().fold(Self::default(), |counts, result| match result.action {
+            | CandidateAction::Created => Self {
+                created: counts.created.saturating_add(1),
+                ..counts
+            },
+            | CandidateAction::Enriched => Self {
+                enriched: counts.enriched.saturating_add(1),
+                ..counts
+            },
+            | CandidateAction::Unchanged => Self {
+                unchanged: counts.unchanged.saturating_add(1),
+                ..counts
+            },
+            | CandidateAction::Conflict => Self {
+                conflicts: counts.conflicts.saturating_add(1),
+                ..counts
+            },
+        })
+    }
+    fn is_empty(&self) -> bool {
+        self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
+    }
 }
 #[async_trait]
 impl Analysis for Records {
@@ -409,6 +487,20 @@ impl Records {
             .build();
         (write_checks.chain(analyze_paths(&paths, &options).await.checks()).collect(), paths)
     }
+    /// Convert project-like discoveries into exact-identity artifact candidates.
+    pub fn candidates(&self) -> Vec<ArtifactCandidate> {
+        self.0
+            .iter()
+            .filter_map(|record| ArtifactCandidate::try_from(record).ok())
+            .fold(Vec::new(), |grouped, candidate| {
+                let keys = candidate.identity_keys();
+                let (matching, remaining): (Vec<_>, Vec<_>) = grouped
+                    .into_iter()
+                    .partition(|existing: &ArtifactCandidate| existing.identity_keys().iter().any(|key| keys.contains(key)));
+                let merged = matching.into_iter().fold(candidate, |merged, existing| existing.merge(merged));
+                remaining.into_iter().chain(once(merged)).collect()
+            })
+    }
     /// Return the number of discovered records
     pub fn len(&self) -> usize {
         self.0.len()
@@ -431,23 +523,51 @@ impl Records {
                     resolution_status,
                     source,
                     source_format,
-                } => database
-                    .insert(
-                        IdentifierRow::init()
-                            .discovered_at(discovered_at)
-                            .identifier(identifier.clone())
-                            .identifier_type(identifier_type.clone())
-                            .maybe_metadata(metadata.clone())
-                            .resolution_status(resolution_status.clone())
-                            .source(source.clone())
-                            .source_format(source_format.clone())
-                            .build(),
-                    )
-                    .err()
-                    .map(|why| check_err!(CheckCategory::Schema, message: why.to_string(), uri: source.clone())),
+                } => {
+                    let value = IdentifierRow::init()
+                        .discovered_at(discovered_at)
+                        .identifier(identifier.clone())
+                        .identifier_type(identifier_type.clone())
+                        .maybe_metadata(metadata.clone())
+                        .resolution_status(resolution_status.clone())
+                        .source(source.clone())
+                        .source_format(source_format.clone())
+                        .build();
+                    database
+                        .insert(value)
+                        .err()
+                        .map(|why| check_err!(CheckCategory::Schema, message: why.to_string(), uri: source.clone()))
+                }
                 | Record::Check { .. } => None,
             })
             .collect()
+    }
+    /// Persist exact-identity project candidates and return results plus failure checks.
+    pub fn persist_candidates(&self, database_path: &Option<PathBuf>) -> (Vec<CandidatePersistence>, Vec<Check>) {
+        let database = Database::<Table>::from_path(database_path.clone());
+        self.candidates()
+            .into_iter()
+            .filter_map(|candidate| {
+                let uri = candidate
+                    .provenance
+                    .first()
+                    .and_then(|value| value.get("source"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("gather")
+                    .to_string();
+                ResearchActivityCandidate::try_from(candidate).ok().map(|value| (uri, value))
+            })
+            .fold((Vec::new(), Vec::new()), |(mut results, mut checks), (uri, value)| {
+                match database.create_or_enrich(value) {
+                    | Ok(result) => results.push(result),
+                    | Err(why) => checks.push(check_err!(
+                        CheckCategory::Schema,
+                        message: why.to_string(),
+                        uri: uri,
+                    )),
+                }
+                (results, checks)
+            })
     }
     /// Resolve supported identifiers through their metadata providers
     pub async fn resolve(self) -> Self {
@@ -476,6 +596,47 @@ impl From<Vec<SourceDocument>> for Records {
 impl<'a> From<&'a Records> for &'a [SourceDocument] {
     fn from(discoveries: &'a Records) -> Self {
         discoveries.1.as_slice()
+    }
+}
+impl<'a> TryFrom<&'a Record> for ArtifactCandidate {
+    type Error = &'a Record;
+
+    fn try_from(record: &'a Record) -> Result<Self, Self::Error> {
+        match record {
+            | Record::Discovery {
+                identifier,
+                identifier_type,
+                metadata,
+                resolution_status,
+                source,
+                source_format,
+            } => {
+                let kind = PID::from(identifier_type.as_str());
+                kind.is_project_identifier()
+                    .then(|| {
+                        let value = Identifier {
+                            kind,
+                            value: identifier.clone(),
+                        };
+                        let normalized = value.normalized().unwrap_or_else(|| Identifier::new(identifier.clone()));
+                        let provenance = Provenance::Discovery {
+                            source: source.clone(),
+                            source_format: source_format.clone(),
+                            identifier: identifier.clone(),
+                            resolution_status: resolution_status.clone(),
+                            observed_at: Timestamp::now().to_string(),
+                        };
+                        let candidate = Self {
+                            identifiers: vec![normalized],
+                            provenance: vec![serde_json::to_value(provenance).unwrap_or_default()],
+                            ..Self::default()
+                        };
+                        candidate.resolved(metadata.as_deref(), identifier_type)
+                    })
+                    .ok_or(record)
+            }
+            | Record::Check { .. } => Err(record),
+        }
     }
 }
 impl Record {
@@ -569,6 +730,155 @@ impl From<&Check> for Record {
         }
     }
 }
+impl fmt::Display for RemoteProvider {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Osti => "osti",
+        })
+    }
+}
+impl RemoteProvider {
+    /// Describe the entity views and filters supported by this provider.
+    pub fn capabilities(self) -> ProviderCapabilities {
+        match self {
+            | Self::Osti => ProviderCapabilities {
+                entities: vec![RemoteEntity::Project, RemoteEntity::Person, RemoteEntity::Organization],
+                organization_filter: true,
+                pagination: true,
+            },
+        }
+    }
+}
+impl RemoteSearchResponse {
+    /// Merge another response, retaining the first occurrence of each provider identifier.
+    pub fn merge(self, other: Self) -> Self {
+        let matches = self
+            .matches
+            .into_iter()
+            .chain(other.matches)
+            .fold((BTreeSet::new(), Vec::new()), |(mut seen, mut matches), value| {
+                if seen.insert((value.entity, value.identifier.clone())) {
+                    matches.push(value);
+                }
+                (seen, matches)
+            })
+            .1;
+        Self {
+            provider: self.provider,
+            total: self.total.saturating_add(other.total),
+            offset: self.offset,
+            has_more: self.has_more || other.has_more,
+            matches,
+        }
+    }
+    /// Persist project matches as canonical research activity candidates.
+    pub fn persist(&self, database: &Database<Table>) -> ApiResult<Vec<CandidatePersistence>> {
+        self.matches
+            .iter()
+            .filter_map(|value| match value.entity {
+                | RemoteEntity::Project => {
+                    let identifiers = value
+                        .pid
+                        .as_deref()
+                        .and_then(|identifier| Identifier::new(identifier).normalized())
+                        .into_iter()
+                        .collect();
+                    let prov = Provenance::Osti {
+                        provider_identifier: value.identifier.clone(),
+                        entity: value.entity,
+                        metadata: value.metadata.clone(),
+                        observed_at: Timestamp::now().to_string(),
+                    };
+                    Some(ArtifactCandidate {
+                        identifiers,
+                        canonical_url: value.url.clone(),
+                        title: Some(value.title.clone()),
+                        authors: Vec::new(),
+                        provider_ids: vec![format!("{}-project:{}", self.provider, value.identifier)],
+                        provenance: vec![serde_json::to_value(prov).unwrap_or_default()],
+                    })
+                }
+                | RemoteEntity::Person | RemoteEntity::Organization | RemoteEntity::Repository => None,
+            })
+            .filter_map(|candidate| ResearchActivityCandidate::try_from(candidate).ok())
+            .map(|candidate| database.create_or_enrich(candidate))
+            .collect()
+    }
+}
+impl RemoteSearchRequest {
+    /// Return whether neither a direct query nor an organization filter was supplied.
+    pub fn is_empty(&self) -> bool {
+        self.queries.is_empty() && self.organization.as_deref().is_none_or(str::is_empty)
+    }
+    /// Return whether the selected provider supports the requested entity.
+    pub fn supports_entity(&self) -> bool {
+        self.provider.capabilities().entities.contains(&self.entity)
+    }
+    fn queries(&self) -> Vec<String> {
+        match self.queries.is_empty() {
+            | true => vec![String::new()],
+            | false => self.queries.clone(),
+        }
+    }
+    /// Run the remote search and emit its gather report
+    pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
+        let Options {
+            database_path,
+            format,
+            no_local_database,
+            offline,
+            output,
+            ..
+        } = options;
+        match (offline, self.is_empty()) {
+            | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
+            | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
+            | (false, false) => self.search().await.and_then(|responses| {
+                let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
+                let candidates = match no_local_database {
+                    | true => Ok(Vec::new()),
+                    | false => {
+                        let database = Database::<Table>::from_path(database_path.clone());
+                        responses
+                            .iter()
+                            .map(|response| response.persist(&database))
+                            .collect::<ApiResult<Vec<_>>>()
+                            .map(|results| results.into_iter().flatten().collect())
+                    }
+                }?;
+                let report = Report::new(&[], Records::default(), inputs)
+                    .with_remote(responses)
+                    .with_candidates(candidates);
+                let format = format.unwrap_or_else(|| match output.is_none() && io::stdout().is_terminal() {
+                    | true => OutputFormat::Console,
+                    | false => OutputFormat::Json,
+                });
+                match output {
+                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+                    | None => report.serialize(format).map(|serialized| println!("{serialized}")),
+                }
+            }),
+        }
+    }
+    /// Search the configured remote provider
+    pub async fn search(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
+        match (self.supports_entity(), self.provider) {
+            | (false, _) => Err(color_eyre::eyre::eyre!("{} does not support {} searches", self.provider, self.entity)),
+            | (true, RemoteProvider::Osti) => self.search_osti().await,
+        }
+    }
+    async fn search_osti(&self) -> ApiResult<Vec<RemoteSearchResponse>> {
+        let options = api::osti::Options::from(self.clone());
+        join_all(self.queries().into_iter().map(|query| {
+            let options = options.clone().with_query(query);
+            async move { api::osti::search(&options).await.and_then(RemoteSearchResponse::from_osti) }
+        }))
+        .await
+        .into_iter()
+        .collect::<ApiResult<Vec<_>>>()
+        .map(|responses| responses.into_iter().reduce(RemoteSearchResponse::merge).into_iter().collect())
+    }
+}
 impl<T> From<ApiResult<T>> for Resolution
 where
     T: Serialize,
@@ -593,9 +903,11 @@ impl Report {
                 failures: checks.iter().filter(|check| check.is_failure()).count(),
                 inputs,
                 matches: 0,
+                candidates: CandidateCounts::default(),
             },
             discoveries,
             remote: Vec::new(),
+            candidates: Vec::new(),
         }
     }
     /// Attach remote search results to this report.
@@ -604,6 +916,7 @@ impl Report {
             checks,
             discoveries,
             summary,
+            candidates,
             ..
         } = self;
         let matches = remote.iter().map(|response| response.matches.len()).sum();
@@ -611,7 +924,20 @@ impl Report {
             checks,
             discoveries,
             remote,
+            candidates,
             summary: Summary { matches, ..summary },
+        }
+    }
+    /// Attach canonical candidate persistence results to this report.
+    pub fn with_candidates(self, candidates: Vec<CandidatePersistence>) -> Self {
+        let counts = CandidateCounts::from_results(&candidates);
+        Self {
+            candidates,
+            summary: Summary {
+                candidates: counts,
+                ..self.summary
+            },
+            ..self
         }
     }
     /// Serialize the report in the selected structured format.
@@ -628,6 +954,7 @@ impl Report {
                     discoveries: discovery_count,
                     matches,
                     failures,
+                    ..
                 } = &self.summary;
                 let discoveries = self
                     .discoveries
@@ -735,7 +1062,7 @@ impl Identifier {
                     kind: PID::RAID,
                     value: value.to_string(),
                 }
-                .normalize()
+                .normalized()
             })
             .collect::<Vec<_>>();
         let parsed = PID::iter()
@@ -769,7 +1096,7 @@ impl PID {
 pub fn discover_identifiers(content: &str) -> Vec<Identifier> {
     content
         .split_whitespace()
-        .filter_map(|value| Identifier::new(value).normalize())
+        .filter_map(|value| Identifier::new(value).normalized())
         .fold(Vec::new(), |mut identifiers, identifier| {
             if !identifiers.contains(&identifier) {
                 identifiers.push(identifier);
@@ -781,27 +1108,14 @@ pub fn discover_identifiers(content: &str) -> Vec<Identifier> {
 pub fn group_artifacts(candidates: Vec<ArtifactCandidate>) -> Vec<ArtifactCandidate> {
     candidates.into_iter().fold(Vec::<ArtifactCandidate>::new(), |mut grouped, candidate| {
         match grouped.iter_mut().find(|existing| same_artifact(existing, &candidate)) {
-            | Some(existing) => {
-                candidate.identifiers.into_iter().for_each(|identifier| {
-                    if !existing.identifiers.contains(&identifier) {
-                        existing.identifiers.push(identifier);
-                    }
-                });
-                existing.identifiers.sort();
-                if existing.canonical_url.is_none() {
-                    existing.canonical_url = candidate.canonical_url;
-                }
-                if existing.title.is_none() {
-                    existing.title = candidate.title;
-                }
-                if existing.authors.is_empty() {
-                    existing.authors = candidate.authors;
-                }
-            }
+            | Some(existing) => *existing = existing.clone().merge(candidate),
             | None => grouped.push(candidate),
         }
         grouped
     })
+}
+fn is_zero(value: &usize) -> bool {
+    *value == 0
 }
 fn same_artifact(left: &ArtifactCandidate, right: &ArtifactCandidate) -> bool {
     let canonical_match = left
@@ -841,7 +1155,7 @@ mod tests {
     use crate::prelude::remove_file;
     #[test]
     fn identifier_hash_is_stable_and_short() {
-        let identifier = Identifier::new("doi:10.1234/abc").normalize().unwrap();
+        let identifier = Identifier::new("doi:10.1234/abc").normalized().unwrap();
         assert_eq!(identifier.identifier_hash().len(), 12);
         assert_eq!(identifier.identifier_hash(), identifier.identifier_hash());
     }
@@ -855,8 +1169,8 @@ mod tests {
 
     #[test]
     fn groups_only_proven_equivalent_candidates() {
-        let doi = Identifier::new("doi:10.1234/abc").normalize().unwrap();
-        let url = Identifier::new("https://example.org/artifact").normalize().unwrap();
+        let doi = Identifier::new("doi:10.1234/abc").normalized().unwrap();
+        let url = Identifier::new("https://example.org/artifact").normalized().unwrap();
         let candidates = vec![
             ArtifactCandidate {
                 identifiers: vec![doi.clone()],
@@ -869,7 +1183,7 @@ mod tests {
                 ..ArtifactCandidate::default()
             },
             ArtifactCandidate {
-                identifiers: vec![Identifier::new("doi:10.9999/other").normalize().unwrap()],
+                identifiers: vec![Identifier::new("doi:10.9999/other").normalized().unwrap()],
                 title: Some("A Different Result".to_string()),
                 authors: vec!["Alice Example".to_string()],
                 ..ArtifactCandidate::default()
@@ -878,6 +1192,74 @@ mod tests {
         let grouped = group_artifacts(candidates);
         assert_eq!(grouped.len(), 2);
         assert_eq!(grouped[0].identifiers.len(), 2);
+    }
+    #[test]
+    fn test_project_identity_excludes_people_organizations_and_urls() {
+        let candidate = ArtifactCandidate {
+            identifiers: [
+                "doi:10.1234/example",
+                "https://orcid.org/0000-0002-2057-9115",
+                "https://ror.org/01qz5mb56",
+                "https://example.org/project",
+            ]
+            .into_iter()
+            .filter_map(|value| Identifier::new(value).normalized())
+            .collect(),
+            ..ArtifactCandidate::default()
+        };
+        assert_eq!(candidate.identity_keys(), vec!["doi:10.1234/example"]);
+        assert!(ResearchActivityCandidate::try_from(candidate).is_ok());
+        let entity_only = ArtifactCandidate {
+            identifiers: ["https://orcid.org/0000-0002-2057-9115", "https://ror.org/01qz5mb56"]
+                .into_iter()
+                .filter_map(|value| Identifier::new(value).normalized())
+                .collect(),
+            ..ArtifactCandidate::default()
+        };
+        assert!(ResearchActivityCandidate::try_from(entity_only).is_err());
+    }
+    #[test]
+    fn test_exact_grouping_does_not_use_matching_metadata() {
+        let candidates = vec![
+            ArtifactCandidate {
+                identifiers: vec![Identifier::new("doi:10.1234/one").normalized().unwrap()],
+                title: Some("Same title".to_string()),
+                authors: vec!["Same author".to_string()],
+                ..ArtifactCandidate::default()
+            },
+            ArtifactCandidate {
+                identifiers: vec![Identifier::new("doi:10.1234/two").normalized().unwrap()],
+                title: Some("Same title".to_string()),
+                authors: vec!["Same author".to_string()],
+                ..ArtifactCandidate::default()
+            },
+        ];
+        assert_eq!(group_artifacts(candidates.clone()).len(), 1);
+        let records = Records(
+            candidates
+                .into_iter()
+                .flat_map(|candidate| candidate.identifiers)
+                .map(Record::from)
+                .collect(),
+            Vec::new(),
+        );
+        assert_eq!(records.candidates().len(), 2);
+    }
+    #[test]
+    fn test_partial_rad_mapping_preserves_supported_identifiers() {
+        let candidate = ArtifactCandidate {
+            identifiers: ["doi:10.1234/example", "ISBN 978-0-306-40627-0", "US1234567B2"]
+                .into_iter()
+                .filter_map(|value| Identifier::new(value).normalized())
+                .collect(),
+            canonical_url: Some("https://example.org/project".to_string()),
+            title: Some("Example project".to_string()),
+            ..ArtifactCandidate::default()
+        };
+        let rad = candidate.to_partial_rad_json();
+        assert_eq!(rad["title"], "Example project");
+        assert_eq!(rad["meta"]["doi"], serde_json::json!(["10.1234/example"]));
+        assert_eq!(rad["meta"]["websites"][0]["url"], "https://example.org/project");
     }
     #[test]
     fn test_discovers_all_persistent_identifier_types() {
@@ -984,11 +1366,13 @@ mod tests {
                 Vec::new(),
             ),
             remote: Vec::new(),
+            candidates: Vec::new(),
             summary: Summary {
                 discoveries: 1,
                 failures: 1,
                 inputs: 1,
                 matches: 0,
+                candidates: CandidateCounts::default(),
             },
         };
         let markdown = report.serialize(OutputFormat::Markdown).unwrap_or_default();
@@ -1020,11 +1404,13 @@ mod tests {
                 Vec::new(),
             ),
             remote: Vec::new(),
+            candidates: Vec::new(),
             summary: Summary {
                 discoveries: 1,
                 failures: 1,
                 inputs: 1,
                 matches: 0,
+                candidates: CandidateCounts::default(),
             },
         };
         let (headers, rows) = report.table();
@@ -1058,6 +1444,54 @@ mod tests {
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].matches.len(), 2);
         assert_eq!(response("1").merge(response("2")).matches.len(), 2);
+    }
+    #[test]
+    fn test_remote_persistence_keeps_non_projects_report_only() {
+        let path = temp_dir().join(format!("acorn-remote-candidates-{}.db", nanoid::nanoid!()));
+        let database_path = Some(path.clone());
+        let response = RemoteSearchResponse {
+            provider: RemoteProvider::Osti,
+            total: 3,
+            offset: 0,
+            has_more: false,
+            matches: vec![
+                RemoteMatch {
+                    entity: RemoteEntity::Project,
+                    identifier: "123".to_string(),
+                    title: "Project".to_string(),
+                    pid: Some("10.1234/example".to_string()),
+                    url: Some("https://example.org/project".to_string()),
+                    metadata: serde_json::json!({"code_id": 123}),
+                },
+                RemoteMatch {
+                    entity: RemoteEntity::Person,
+                    identifier: "person".to_string(),
+                    title: "Person".to_string(),
+                    pid: Some("0000-0002-2057-9115".to_string()),
+                    url: None,
+                    metadata: serde_json::json!({}),
+                },
+                RemoteMatch {
+                    entity: RemoteEntity::Organization,
+                    identifier: "org".to_string(),
+                    title: "Organization".to_string(),
+                    pid: None,
+                    url: None,
+                    metadata: serde_json::json!({}),
+                },
+            ],
+        };
+        let database = Database::<Table>::from_path(database_path);
+        let results = response.persist(&database).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].action, CandidateAction::Created);
+        let rows = database.research_activities_by_identity(&["osti-project:123".to_string()]).unwrap();
+        assert_eq!(rows.len(), 1);
+        let provenance: serde_json::Value = serde_json::from_str(rows[0].provenance_json.as_deref().unwrap()).unwrap();
+        assert_eq!(provenance[0]["provider"], "osti");
+        assert_eq!(provenance[0]["provider_identifier"], "123");
+        assert_eq!(provenance[0]["entity"], "project");
+        assert_eq!(provenance[0]["metadata"]["code_id"], 123);
     }
     #[test]
     fn test_remote_search_request_builder_and_capabilities() {

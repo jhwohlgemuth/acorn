@@ -129,6 +129,8 @@ impl ArtifactCandidate {
             canonical_url: metadata.canonical_url.or(self.canonical_url),
             title: metadata.title.filter(|title| !title.trim().is_empty()).or(self.title),
             authors: if metadata.authors.is_empty() { self.authors } else { metadata.authors },
+            provider_ids: self.provider_ids,
+            provenance: self.provenance,
         }
     }
     pub(crate) fn apply_citeas(self, citations: citeas::Citations) -> Self {
@@ -177,10 +179,10 @@ impl From<Cff> for ArtifactCandidate {
         let identifiers = cff
             .doi
             .as_deref()
-            .map(|doi| Identifier::new(doi).normalize())
+            .map(|doi| Identifier::new(doi).normalized())
             .into_iter()
             .flatten()
-            .chain(cff.url.as_deref().map(|url| Identifier::new(url).normalize()).into_iter().flatten())
+            .chain(cff.url.as_deref().map(|url| Identifier::new(url).normalized()).into_iter().flatten())
             .collect::<Vec<_>>();
         Self {
             identifiers,
@@ -199,6 +201,8 @@ impl From<Cff> for ArtifactCandidate {
                 })
                 .filter(|author| !author.trim().is_empty())
                 .collect(),
+            provider_ids: Vec::new(),
+            provenance: Vec::new(),
         }
     }
 }

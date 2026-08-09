@@ -177,6 +177,14 @@ fn test_file_extension() {
     assert_eq!(file_extension("path/to/.hidden/folder"), None);
 }
 #[test]
+fn test_is_filetype_matches_extensions_and_compound_filenames() {
+    let allowed = ["index.json", "jsonc", "yaml", "yml"];
+    let paths = [PathBuf::from("project/index.JSON"), PathBuf::from("project/activity.YAML")];
+    assert!(paths.iter().all(is_filetype(allowed)));
+    assert!(!is_filetype(allowed)(&PathBuf::from("project/data.json")));
+    assert!(!is_filetype(allowed)(&PathBuf::from("project/README.md")));
+}
+#[test]
 fn test_find_first() {
     let values = vec![
         ("a".to_string(), "b".to_string()),

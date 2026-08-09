@@ -1001,6 +1001,29 @@ pub fn glob_matches(path: &str, pattern: &str) -> bool {
     }
     go(path.as_bytes(), pattern.as_bytes())
 }
+/// Build a predicate that matches paths with one of the allowed file extensions
+/// ## Note
+/// An allowed compound filename, such as `index.json`, is matched exactly.
+#[cfg(feature = "std")]
+pub fn is_filetype<I, S, P>(extensions: I) -> impl Fn(&P) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+    P: AsRef<Path> + ?Sized,
+{
+    let extensions = extensions
+        .into_iter()
+        .map(|extension| extension.as_ref().trim_start_matches('.').to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    move |path| {
+        let path = path.as_ref();
+        let filename = path.file_name().and_then(|value| value.to_str()).unwrap_or_default();
+        let extension = path.extension().and_then(|value| value.to_str()).unwrap_or_default();
+        extensions
+            .iter()
+            .any(|allowed| filename.eq_ignore_ascii_case(allowed) || extension.eq_ignore_ascii_case(allowed))
+    }
+}
 /// Check if value is a URI or filesystem path
 pub fn is_uri_or_path(value: &str) -> bool {
     value.starts_with('/')

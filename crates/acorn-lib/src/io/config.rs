@@ -5,28 +5,32 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
-use crate::io::database::schema::ModelRow;
-use crate::io::database::{resolve_database_path, Row};
+use crate::io::database::schema::{ModelRow, Table};
+use crate::io::database::{resolve_database_path, Database, Provenance, ResearchActivityCandidate, Row};
 use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
 use crate::prelude::{self, env, exit, Arc, HashSet, Path, PathBuf};
+use crate::schema::pid::{Identifier, PID};
+use crate::schema::research_activity::ResearchActivity;
 use crate::schema::OneOrMany;
 use crate::schema::{
     agent::{ModelDetails, Quantization},
     hardware::memory::Memory,
 };
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
-use crate::util::{detect_json, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
+use crate::util::{detect_json, is_filetype, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Report};
 use core::fmt::{self, Debug};
 use core::future::Future;
+use core::iter::once;
 use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
+use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -321,6 +325,17 @@ pub struct BucketOptions {
     #[builder(default)]
     pub filter: Vec<String>,
 }
+/// Files successfully transferred from one configured bucket.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferManifest {
+    /// Configured bucket name.
+    pub bucket: Option<String>,
+    /// Repository location used for the transfer.
+    pub repository: String,
+    /// Relative paths written beneath the output directory.
+    pub files: Vec<PathBuf>,
+}
+const SUPPORTED_RAD_FILETYPES: [&str; 4] = ["index.json", "jsonc", "yaml", "yml"];
 /// Struct for filtering files based on regex patterns
 #[derive(Clone, Debug)]
 pub struct FilterSet {
@@ -708,7 +723,7 @@ impl Bucket {
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
-    pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
+    pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<TransferManifest> {
         let BucketOptions { output, ignore, filter, .. } = options;
         let output = Arc::new(output.clone().unwrap_or_default());
         match FilterSet::compile(ignore, filter) {
@@ -734,6 +749,12 @@ impl Bucket {
                         )
                         .into_iter()
                         .filter(|path| PathBuf::from(path).is_file())
+                        .filter_map(|path| {
+                            PathBuf::from(&path)
+                                .strip_prefix(&bucket_root)
+                                .ok()
+                                .map(|relative| relative.display().to_string())
+                        })
                         .collect::<Vec<String>>();
                         let bucket_root = Arc::new(bucket_root);
                         let operation = {
@@ -743,17 +764,18 @@ impl Bucket {
                                 let bucket_root = Arc::clone(&bucket_root);
                                 let output = Arc::clone(&output);
                                 async move {
-                                    let path_buf = PathBuf::from(&path);
-                                    match path_buf.strip_prefix(PathBuf::from(bucket_root.as_str())) {
-                                        | Ok(relative) => write_file_bytes(output.join(relative), || async { prelude::read(path.clone()) }).await,
-                                        | Err(_) => Err(eyre!("Failed to strip prefix {bucket_root} from {path}")),
-                                    }
+                                    let source = PathBuf::from(bucket_root.as_str()).join(&path);
+                                    write_file_bytes(output.join(&path), || async { prelude::read(source) }).await
                                 }
                             }
                         };
-                        transfer_bucket_files(name, items, options, "Copying", operation).await
+                        transfer_bucket_files(name, code_repository.location().to_string(), items, options, "Copying", operation).await
                     }
-                    | false => Ok(0),
+                    | false => Ok(TransferManifest {
+                        bucket: name,
+                        repository: code_repository.location().to_string(),
+                        files: Vec::new(),
+                    }),
                 }
             }
             | Err(why) => Err(why),
@@ -764,7 +786,7 @@ impl Bucket {
     /// Ignores files listed in [`IGNORE`]
     ///
     /// Downloads files concurrently using buffered streams
-    pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<usize> {
+    pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<TransferManifest> {
         let BucketOptions { filter, ignore, .. } = options;
         match FilterSet::compile(ignore, filter) {
             | Ok(filters) => {
@@ -773,6 +795,7 @@ impl Bucket {
                 match self.file_paths("").await {
                     | Ok(paths) => {
                         let items = filter_paths(paths, &filters);
+                        let repository = code_repository.location().to_string();
                         let operation = {
                             let code_repository = Arc::new(code_repository);
                             let output = Arc::new(options.output.clone().unwrap_or_default());
@@ -790,7 +813,7 @@ impl Bucket {
                                 }
                             }
                         };
-                        transfer_bucket_files(name, items, options, "Downloading", operation).await
+                        transfer_bucket_files(name, repository, items, options, "Downloading", operation).await
                     }
                     | Err(why) => {
                         error!("=> {} Get file paths for download — {why}", Label::fail());
@@ -1054,6 +1077,66 @@ impl From<String> for RunnerType {
         Self::from(value.as_str())
     }
 }
+impl TransferManifest {
+    /// Return the legacy reported count of transferred JSON and image files.
+    pub fn count(&self) -> usize {
+        let paths = self.files.iter().map(|path| path.display().to_string()).collect::<Vec<_>>();
+        count_json_files(&paths).saturating_add(count_image_files(&paths))
+    }
+    /// Ingest transferred RAD files into the canonical research activity table.
+    pub fn ingest(&self, options: &BucketOptions, database_path: &Option<PathBuf>, no_local_database: bool) -> ApiResult<()> {
+        match no_local_database {
+            | true => Ok(()),
+            | false => {
+                let output = options.output.clone().unwrap_or_default();
+                let database = Database::<Table>::from_path(database_path.clone());
+                self.files
+                    .iter()
+                    .filter(is_filetype(SUPPORTED_RAD_FILETYPES))
+                    .try_fold((), |(), relative| {
+                        let path = output.join(relative);
+                        ResearchActivity::read(path.clone())
+                            .and_then(|rad| {
+                                serde_json::to_value(&rad)
+                                    .map_err(Report::from)
+                                    .and_then(|rad_json| database.create_or_enrich(self.candidate(&rad, rad_json, relative)).map(|_| ()))
+                            })
+                            .map_err(|why| eyre!("Failed to ingest transferred RAD {} — {why}", path.display()))
+                    })
+            }
+        }
+    }
+    fn candidate(&self, rad: &ResearchActivity, rad_json: serde_json::Value, relative: &Path) -> ResearchActivityCandidate {
+        let pairs = [
+            (PID::DOI, rad.meta.doi.as_ref()),
+            (PID::ISBN, rad.meta.books.as_ref()),
+            (PID::Patent, rad.meta.patents.as_ref()),
+            (PID::RAID, rad.meta.raid.as_ref()),
+        ];
+        let pid_keys = pairs.into_iter().flat_map(|(kind, values)| {
+            values.into_iter().flatten().filter_map(move |value| {
+                Identifier::init()
+                    .kind(kind.clone())
+                    .value(value)
+                    .build()
+                    .normalized()
+                    .map(|identifier| format!("{}:{}", identifier.kind.as_str(), identifier.value))
+            })
+        });
+        let rad_key = format!("rad:{}:{}", self.repository, rad.meta.identifier);
+        let prov = Provenance::Bucket {
+            bucket: self.bucket.clone(),
+            repository: self.repository.clone(),
+            relative_path: relative.display().to_string(),
+            observed_at: Timestamp::now().to_string(),
+        };
+        ResearchActivityCandidate::new(
+            rad_json,
+            pid_keys.chain(once(rad_key)).collect(),
+            vec![serde_json::to_value(prov).unwrap_or_default()],
+        )
+    }
+}
 fn count_json_files(paths: &[String]) -> usize {
     paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
 }
@@ -1121,11 +1204,12 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
 }
 async fn transfer_bucket_files<F, Fut>(
     name: Option<String>,
+    repository: String,
     items: Vec<String>,
     options: &BucketOptions,
     verb: &'static str,
     operation: F,
-) -> ApiResult<usize>
+) -> ApiResult<TransferManifest>
 where
     F: Fn(String) -> Fut,
     Fut: Future<Output = ApiResult<()>>,
@@ -1133,16 +1217,21 @@ where
     let BucketOptions { threads, quiet, .. } = options;
     let total_data = count_json_files(&items);
     let total_images = count_image_files(&items);
-    let total = total_data.saturating_add(total_images);
     let message = move |path: &String| format!("{verb} {path}");
-    let finish_message = |_| operations_complete_message(name, total_data, total_images);
+    let finish_name = name.clone();
+    let finish_message = |_| operations_complete_message(finish_name, total_data, total_images);
     let progress_type = match quiet {
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
+    let files = items.iter().map(PathBuf::from).collect::<Vec<_>>();
     with_progress(items, message, operation, finish_message, Some(*threads), progress_type)
         .await
-        .map(|_| total)
+        .map(|_| TransferManifest {
+            bucket: name,
+            repository,
+            files,
+        })
 }
 
 #[cfg(test)]

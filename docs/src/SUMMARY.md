@@ -5,6 +5,7 @@
 - [🚀 Getting Started](./getting-started.md)
 - [🧠 Concepts](./concepts/README.md)
   - [ACORN](./concepts/acorn.md)
+  - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [ASPECT](./concepts/aspect/README.md)
     - [📦 Portability](./concepts/aspect/portability.md)
     - [🤝 Autonomy](./concepts/aspect/autonomy.md)

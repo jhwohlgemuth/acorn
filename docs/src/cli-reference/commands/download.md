@@ -21,6 +21,17 @@ acorn download --config /path/to/.acorn.jsonc
 
 ## Buckets
 
+After a bucket transfer, ACORN ingests transferred `index.json`, JSONC, YAML, and YML research activity files into the local `research_activities` table. Each row has a portable NanoID and retains the typed RAD JSON plus provenance for the bucket, repository, relative path, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a repository-qualified RAD identifier always identifies the transferred activity.
+
+Repeated transfers are idempotent. A matching candidate gains missing fields and unique array values, while conflicting populated fields remain unchanged and are recorded as provenance. Filters and ignore rules apply before transfer, so only transferred RAD files are ingested.
+
+If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence.
+
+```sh
+# Transfer bucket files without creating or updating local candidates
+acorn --no-local-database download --config /path/to/.acorn.json
+```
+
 ### Local vs Remote
 The `download` command copies files from a *local* ACORN bucket when local `file://` URIs are used for associated buckets in the [configuration](../configuration.md) file. Use `"git"` as the `provider` for local buckets.
 

@@ -225,6 +225,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                             threads,
                             &arguments.verbose,
                             offline,
+                            config.no_local_database,
                         )
                         .await
                     }

@@ -18,8 +18,12 @@ use jiff::{SignedDuration, Timestamp};
 use tracing::{debug, info};
 
 pub mod backend;
+mod candidate;
 pub(crate) mod macros;
 pub mod schema;
+
+pub(crate) use candidate::Provenance;
+pub use candidate::{CandidateAction, CandidatePersistence, ResearchActivityCandidate};
 
 use schema::Table;
 
@@ -318,12 +322,10 @@ where
     /// Clear all cache-related tables.
     pub fn clear_cache(&self) -> ApiResult<usize> {
         self.clear(Table::LinkCache).and_then(|link_count| {
-            self.clear(Table::ValidationHistory).and_then(|validation_count| {
-                self.clear(Table::ResearchActivityCache).map(|cache_count| {
-                    let total = link_count.saturating_add(validation_count).saturating_add(cache_count);
-                    info!("=> {} Cleared {total} entries from cache tables", Label::pass());
-                    total
-                })
+            self.clear(Table::ValidationHistory).map(|validation_count| {
+                let total = link_count.saturating_add(validation_count);
+                info!("=> {} Cleared {total} entries from cache tables", Label::pass());
+                total
             })
         })
     }

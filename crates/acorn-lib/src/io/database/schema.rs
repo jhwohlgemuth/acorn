@@ -34,8 +34,8 @@ pub enum Table {
     LinkCache = 3,
     /// Validation/check results history
     ValidationHistory = 4,
-    /// Downloaded research activity snapshots
-    ResearchActivityCache = 5,
+    /// Canonical evolving research activity candidates
+    ResearchActivities = 5,
     /// Programming language metadata cached from GitLab
     ProgrammingLanguages = 6,
     /// Models.dev model metadata
@@ -257,23 +257,25 @@ pub struct LinkCacheRow {
     /// When the cache entry expires
     pub expires_at: Option<Timestamp>,
 }
-/// Research activity cache entry
+/// Canonical evolving research activity candidate.
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
 #[builder(start_fn = init, on(String, into))]
-#[row(table = research_activity_cache)]
-pub struct ResearchActivityCacheRow {
-    /// Unique identifier for the cache entry
+#[row(table = research_activities, order_by = "updated_at DESC")]
+pub struct ResearchActivityRow {
+    /// Backend-local numeric identifier.
     pub id: Option<i64>,
-    /// Research activity identifier
-    pub identifier: Option<String>,
-    /// Source bucket name
-    pub source_bucket: Option<String>,
-    /// Research activity title
-    pub title: Option<String>,
-    /// When the activity was downloaded
-    pub downloaded_at: Option<Timestamp>,
-    /// Local file path where the activity is stored
-    pub file_path: Option<String>,
+    /// Portable NanoID identifier.
+    pub iid: Option<String>,
+    /// Canonical partial or complete RAD JSON.
+    pub rad_json: Option<String>,
+    /// Sorted normalized project identity keys as JSON.
+    pub identity_keys_json: Option<String>,
+    /// Deduplicated provenance observations as JSON.
+    pub provenance_json: Option<String>,
+    /// When the candidate was created.
+    pub created_at: Option<Timestamp>,
+    /// When the candidate was last enriched.
+    pub updated_at: Option<Timestamp>,
 }
 /// Validation/check result history
 #[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
@@ -302,7 +304,7 @@ impl From<&str> for Table {
             | "licenses" | "license" => Self::Licenses,
             | "link_cache" | "linkcache" => Self::LinkCache,
             | "validation_history" | "validationhistory" => Self::ValidationHistory,
-            | "research_activity_cache" | "researchactivitycache" => Self::ResearchActivityCache,
+            | "research_activities" | "researchactivities" => Self::ResearchActivities,
             | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
             | "models" | "model" => Self::Models,
             | "providers" | "provider" => Self::Providers,
@@ -480,21 +482,22 @@ impl From<BackendRow<'_>> for LinkCacheRow {
         LinkCacheRow::from(&row)
     }
 }
-impl From<&BackendRow<'_>> for ResearchActivityCacheRow {
+impl From<&BackendRow<'_>> for ResearchActivityRow {
     fn from(row: &BackendRow<'_>) -> Self {
-        ResearchActivityCacheRow {
+        ResearchActivityRow {
             id: row.get(0).ok(),
-            identifier: row.get(1).ok(),
-            source_bucket: row.get(2).ok(),
-            title: row.get(3).ok(),
-            downloaded_at: row.parse_rfc3339(4),
-            file_path: row.get(5).ok(),
+            iid: row.get(1).ok(),
+            rad_json: row.get(2).ok(),
+            identity_keys_json: row.get(3).ok(),
+            provenance_json: row.get(4).ok(),
+            created_at: row.parse_rfc3339(5),
+            updated_at: row.parse_rfc3339(6),
         }
     }
 }
-impl From<BackendRow<'_>> for ResearchActivityCacheRow {
+impl From<BackendRow<'_>> for ResearchActivityRow {
     fn from(row: BackendRow<'_>) -> Self {
-        ResearchActivityCacheRow::from(&row)
+        ResearchActivityRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for ValidationRow {
@@ -587,15 +590,16 @@ impl From<LinkCacheRow> for Vec<String> {
         ]
     }
 }
-impl From<ResearchActivityCacheRow> for Vec<String> {
-    fn from(row: ResearchActivityCacheRow) -> Self {
+impl From<ResearchActivityRow> for Vec<String> {
+    fn from(row: ResearchActivityRow) -> Self {
         vec![
             row.id.map_or_else(String::new, |v| v.to_string()),
-            row.identifier.unwrap_or_default(),
-            row.source_bucket.unwrap_or_default(),
-            row.title.unwrap_or_default(),
-            row.downloaded_at.map_or_else(String::new, to_rfc3339),
-            row.file_path.unwrap_or_default(),
+            row.iid.unwrap_or_default(),
+            row.rad_json.unwrap_or_default(),
+            row.identity_keys_json.unwrap_or_default(),
+            row.provenance_json.unwrap_or_default(),
+            row.created_at.map_or_else(String::new, to_rfc3339),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
         ]
     }
 }
@@ -749,18 +753,16 @@ impl fmt::Display for LinkCacheRow {
         .and_then(|_| write_optional_timestamp(f, "expires_at", self.expires_at.as_ref()))
     }
 }
-impl fmt::Display for ResearchActivityCacheRow {
+impl fmt::Display for ResearchActivityRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ResearchActivityCacheRow = id: {}, identifier: {}, bucket: {}, title: {}",
+            "ResearchActivityRow = id: {}, iid: {}",
             display_or_none(self.id.as_ref()),
-            display_or_none(self.identifier.as_ref()),
-            display_or_none(self.source_bucket.as_ref()),
-            display_or_none(self.title.as_ref())
+            display_or_none(self.iid.as_ref())
         )
-        .and_then(|_| write_optional_field(f, "file_path", self.file_path.as_ref()))
-        .and_then(|_| write_optional_timestamp(f, "downloaded_at", self.downloaded_at.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
     }
 }
 impl fmt::Display for ValidationRow {
@@ -828,7 +830,7 @@ impl TableSchemaProvider for Table {
             Table::Licenses,
             Table::LinkCache,
             Table::ValidationHistory,
-            Table::ResearchActivityCache,
+            Table::ResearchActivities,
             Table::ProgrammingLanguages,
             Table::Models,
             Table::Providers,
@@ -893,13 +895,14 @@ impl TableSchemaProvider for Table {
                     checked_at TEXT NOT NULL
                 "#
             }
-            | Table::ResearchActivityCache => {
+            | Table::ResearchActivities => {
                 r#"
-                    identifier TEXT NOT NULL UNIQUE,
-                    source_bucket TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    downloaded_at TEXT NOT NULL,
-                    file_path TEXT NOT NULL
+                    iid TEXT NOT NULL UNIQUE,
+                    rad_json TEXT NOT NULL,
+                    identity_keys_json TEXT NOT NULL,
+                    provenance_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
                 "#
             }
             | Table::ProgrammingLanguages => {
@@ -985,7 +988,7 @@ impl TableSchemaProvider for Table {
             | Table::Licenses => "licenses",
             | Table::LinkCache => "link_cache",
             | Table::ValidationHistory => "validation_history",
-            | Table::ResearchActivityCache => "research_activity_cache",
+            | Table::ResearchActivities => "research_activities",
             | Table::ProgrammingLanguages => "programming_languages",
             | Table::Models => "models",
             | Table::Providers => "providers",
@@ -1071,7 +1074,7 @@ impl TableSchemaProvider for Table {
             | Table::ProgrammingLanguages => print_rows::<ProgrammingLanguageRow>(self, path.as_ref()),
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
             | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
-            | Table::ResearchActivityCache => print_rows::<ResearchActivityCacheRow>(self, path.as_ref()),
+            | Table::ResearchActivities => print_rows::<ResearchActivityRow>(self, path.as_ref()),
             | Table::Models => print_rows::<ModelRow>(self, path.as_ref()),
             | Table::Providers => print_rows::<ProviderRow>(self, path.as_ref()),
         }
@@ -1292,25 +1295,27 @@ impl Row for ProgrammingLanguageRow {
         Self::build_select_query(self, base)
     }
 }
-impl Row for ResearchActivityCacheRow {
+impl Row for ResearchActivityRow {
     fn table(&self) -> Table {
-        Table::ResearchActivityCache
+        Table::ResearchActivities
     }
     fn insert(self, conn: &Connection) -> ApiResult<usize> {
         let Self {
-            identifier,
-            source_bucket,
-            title,
-            downloaded_at,
-            file_path,
+            iid,
+            rad_json,
+            identity_keys_json,
+            provenance_json,
+            created_at,
+            updated_at,
             ..
         } = self.clone();
-        let downloaded_at = to_rfc3339(downloaded_at.unwrap_or_else(Timestamp::now));
-        let required = required4(identifier, source_bucket, title, file_path);
+        let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+        let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
+        let required = required4(iid, rad_json, identity_keys_json, provenance_json);
         match required {
-            | Ok((identifier, source_bucket, title, file_path)) => match self.next_row_id(conn) {
+            | Ok((iid, rad_json, identity_keys_json, provenance_json)) => match self.next_row_id(conn) {
                 | Ok(id) => {
-                    let params = backend::params![id, identifier, source_bucket, title, downloaded_at, file_path];
+                    let params = backend::params![id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),

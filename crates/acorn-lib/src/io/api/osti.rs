@@ -152,10 +152,24 @@ impl Default for Options {
         }
     }
 }
+impl Options {
+    /// Return these options with a search expression.
+    pub fn with_query(self, query: impl Into<String>) -> Self {
+        let query = query.into();
+        match (self.view, self.organization.is_none()) {
+            | (SearchView::Organizations, true) => Self {
+                query: String::new(),
+                organization: Some(query),
+                ..self
+            },
+            | _ => Self { query, ..self },
+        }
+    }
+}
 impl Query {
     fn from_value(value: &str) -> ApiResult<Self> {
         let trimmed = value.trim();
-        let normalized = Identifier::new(trimmed).normalize();
+        let normalized = Identifier::new(trimmed).normalized();
         match normalized {
             | Some(identifier) if identifier.kind == PID::DOI => Ok(Self::Doi(DOI::format(trimmed))),
             | Some(identifier) if identifier.kind == PID::ORCID => {
@@ -572,5 +586,18 @@ mod tests {
         };
         let orcid_query = Param::to_query_string::<EmptyField, EmptyField>(request_params(&orcid).unwrap());
         assert!(orcid_query.contains("orcid=0000-0002-2057-9115"));
+    }
+    #[test]
+    fn test_with_query_uses_organization_filter_for_organization_view() {
+        let projects = Options::default().with_query("visualization");
+        assert_eq!(projects.query, "visualization");
+        assert_eq!(projects.organization, None);
+        let organizations = Options {
+            view: SearchView::Organizations,
+            ..Options::default()
+        }
+        .with_query("ORNL");
+        assert_eq!(organizations.query, "");
+        assert_eq!(organizations.organization.as_deref(), Some("ORNL"));
     }
 }

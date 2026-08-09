@@ -26,6 +26,7 @@ use acorn::io::download::{DownloadItem, DownloadItems, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
 use acorn::prelude::{create_dir_all, read_to_string, write, HashSet, PathBuf};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::merge;
@@ -45,6 +46,21 @@ use tracing_subscriber::fmt::MakeWriter;
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
 static HF_ENDPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent)?;
+    }
+    let mut rad = ResearchActivity::default();
+    rad.meta.identifier = identifier.to_string();
+    rad.title = format!("Project {identifier}");
+    let content = match path.extension().and_then(|value| value.to_str()) {
+        | Some("yaml" | "yml") => serde_norway::to_string(&rad)?,
+        | _ => serde_json::to_string_pretty(&rad)?,
+    };
+    write(path, content)?;
+    Ok(())
+}
 
 fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
     let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
@@ -462,6 +478,7 @@ async fn test_download_local_config_silent() -> Result<()> {
         TEST_THREADS,
         &verbose,
         OFFLINE,
+        true,
     )
     .await;
     assert!(result.is_ok(), "download from local config should succeed");
@@ -488,10 +505,122 @@ async fn test_download_local_url_silent() -> Result<()> {
         TEST_THREADS,
         &verbose,
         OFFLINE,
+        true,
     )
     .await;
     assert!(result.is_ok(), "download from local URL should succeed");
     assert!(output_dir.exists(), "output directory should exist");
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
+    let temp_dir = temp_test_dir("download_ingests_valid_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    create_dir_all(&bucket_dir)?;
+    write_rad(&bucket_dir.join("index.json"), "downloaded-project")?;
+    let url = vec![format!("file:{}/", bucket_dir.display())];
+    let verbose = Verbosity::new(0, 1);
+    for index in 0..2 {
+        let run_output = output_dir.join(index.to_string());
+        run(
+            &None,
+            &url,
+            &[],
+            &[],
+            &Some(run_output),
+            &database_path,
+            TEST_THREADS,
+            &verbose,
+            OFFLINE,
+            false,
+        )
+        .await?;
+    }
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
+    assert!(output_dir.join("0/index.json").exists());
+    assert!(output_dir.join("1/index.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
+    let temp_dir = temp_test_dir("download_malformed_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    create_dir_all(&bucket_dir)?;
+    write(bucket_dir.join("index.json"), "{ malformed")?;
+    let result = run(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        &Some(temp_dir.join("acorn.db")),
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(output_dir.join("index.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
+    let temp_dir = temp_test_dir("download_multiple_rad");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    write_rad(&bucket_dir.join("keep/index.json"), "kept-json")?;
+    write_rad(&bucket_dir.join("keep/project.yaml"), "kept-yaml")?;
+    write_rad(&bucket_dir.join("skip/index.json"), "filtered-out")?;
+    run(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &["keep".to_string()],
+        &[],
+        &Some(output_dir.clone()),
+        &database_path,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await?;
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 2);
+    assert!(output_dir.join("keep/index.json").exists());
+    assert!(output_dir.join("keep/project.yaml").exists());
+    assert!(!output_dir.join("skip/index.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_download_no_local_database_disables_candidate_persistence() -> Result<()> {
+    let temp_dir = temp_test_dir("download_no_candidate_persistence");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let database_path = temp_dir.join("acorn.db");
+    write_rad(&bucket_dir.join("index.json"), "not-persisted")?;
+    run(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(temp_dir.join("output")),
+        &Some(database_path.clone()),
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        true,
+    )
+    .await?;
+    assert!(!database_path.exists());
     Ok(())
 }
 #[tokio::test]

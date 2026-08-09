@@ -14,7 +14,3 @@
 - [macOS compact-unwind size](macos-compact-unwind-size.md) - Reduce Darwin debug and test unwind metadata without suppressing linker diagnostics.
 - [no-std and WASM CI](no-std-wasm-ci.md) - Make portable builds a quality gate.
 - [Portability roadmap](roadmap.md) - Coordinate features, implementation stages, and dependency isolation.
-
-## Completed
-
-- [Core error surface](core-error-surface.md) - Portable errors no longer resolve rich host reporting dependencies.

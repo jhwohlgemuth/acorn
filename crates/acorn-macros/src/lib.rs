@@ -427,13 +427,13 @@ mod tests {
     #[test]
     fn test_expand_database_row_infers_table_name_when_not_provided() {
         let input: DeriveInput = parse_quote! {
-            struct ResearchActivityCacheRow {
+            struct CanonicalRecordRow {
                 id: Option<i64>,
             }
         };
         let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
         assert!(tokens.contains("pub const TABLE_NAME"));
-        assert!(tokens.contains("research_activity_cache"));
+        assert!(tokens.contains("canonical_record"));
     }
     #[test]
     fn test_expand_database_row_rejects_tuple_struct() {

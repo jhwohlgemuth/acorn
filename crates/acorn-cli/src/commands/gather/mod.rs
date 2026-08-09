@@ -111,10 +111,12 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
         | true => discoveries.resolve().await,
         | false => discoveries,
     };
-    let persistence_checks = if no_local_database {
-        Vec::new()
+    let (candidate_results, persistence_checks) = if no_local_database {
+        (Vec::new(), Vec::new())
     } else {
-        discoveries.persist(database_path)
+        let history_checks = discoveries.persist(database_path);
+        let (candidate_results, candidate_checks) = discoveries.persist_candidates(database_path);
+        (candidate_results, history_checks.into_iter().chain(candidate_checks).collect())
     };
     let (analysis_checks, temporary_paths) = discoveries.analyze(options).await;
     let checks = load_checks
@@ -126,7 +128,7 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
     temporary_paths.iter().for_each(|path| {
         let _ = remove_file(path);
     });
-    let report = Report::new(&checks, discoveries, inputs);
+    let report = Report::new(&checks, discoveries, inputs).with_candidates(candidate_results);
     let format = format.unwrap_or_else(|| match output.is_none() && !is_stdout_piped() {
         | true => OutputFormat::Console,
         | false => OutputFormat::Json,
@@ -143,6 +145,7 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::indexing_slicing)]
     use super::*;
     use acorn::prelude::PathBuf;
     use acorn::Location;
@@ -212,6 +215,35 @@ mod tests {
         let report = String::from_utf8_lossy(&output.stdout);
         assert!(report.contains("ACORN gather:"));
         assert!(report.contains("10.1234/example"));
+    }
+    #[test]
+    fn test_gather_persists_project_candidate_and_reports_replay() {
+        let database_path = acorn::prelude::temp_dir().join(format!("acorn-gather-{}.db", nanoid::nanoid!()));
+        let run = || {
+            Command::cargo_bin("acorn")
+                .unwrap()
+                .args([
+                    "--offline",
+                    "--database-path",
+                    database_path.to_str().unwrap(),
+                    "gather",
+                    "--text",
+                    "doi:10.1234/example https://orcid.org/0000-0002-2057-9115",
+                    "--format",
+                    "json",
+                ])
+                .output()
+                .unwrap()
+        };
+        let created = run();
+        assert!(created.status.success(), "{}", String::from_utf8_lossy(&created.stderr));
+        let report: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
+        assert_eq!(report["summary"]["candidates"]["created"], 1);
+        assert_eq!(report["candidates"].as_array().unwrap().len(), 1);
+        let replayed = run();
+        assert!(replayed.status.success(), "{}", String::from_utf8_lossy(&replayed.stderr));
+        let report: serde_json::Value = serde_json::from_slice(&replayed.stdout).unwrap();
+        assert_eq!(report["summary"]["candidates"]["unchanged"], 1);
     }
     #[test]
     fn test_osti_rejects_offline_mode_before_network_access() {

@@ -30,15 +30,15 @@ const INVALID_PATENT_IDENTIFIERS: [&str; 5] = [
 ];
 #[test]
 fn test_normalize_discovery_identifiers() {
-    assert_eq!(Identifier::new("https://doi.org/10.1234/ABC").normalize().unwrap().value, "10.1234/ABC");
-    assert_eq!(Identifier::new("ISBN 978-0-306-40627-0").normalize().unwrap().kind, PID::ISBN);
-    assert_eq!(Identifier::new("ark:/12345/abc").normalize().unwrap().kind, PID::ARK);
-    assert_eq!(Identifier::new("RAID:10.12345/xyz").normalize().unwrap().kind, PID::RAID);
-    assert_eq!(Identifier::new("US-123456-A1").normalize().unwrap().kind, PID::Patent);
+    assert_eq!(Identifier::new("https://doi.org/10.1234/ABC").normalized().unwrap().value, "10.1234/ABC");
+    assert_eq!(Identifier::new("ISBN 978-0-306-40627-0").normalized().unwrap().kind, PID::ISBN);
+    assert_eq!(Identifier::new("ark:/12345/abc").normalized().unwrap().kind, PID::ARK);
+    assert_eq!(Identifier::new("RAID:10.12345/xyz").normalized().unwrap().kind, PID::RAID);
+    assert_eq!(Identifier::new("US-123456-A1").normalized().unwrap().kind, PID::Patent);
 }
 #[test]
 fn test_normalize_discovery_url_preserves_case_sensitive_components() {
-    let normalized = Identifier::new("https://Example.org/Data/Artifact?Key=Value").normalize().unwrap();
+    let normalized = Identifier::new("https://Example.org/Data/Artifact?Key=Value").normalized().unwrap();
     assert_eq!(normalized.kind, PID::URL);
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
 }
@@ -57,12 +57,12 @@ fn test_identifier_normalize_uses_declared_kind() {
     };
     let kind: &str = (&doi).into();
     assert_eq!(kind, "doi");
-    assert_eq!(doi.normalize().unwrap().value, "10.1234/ABC");
+    assert_eq!(doi.normalized().unwrap().value, "10.1234/ABC");
     let mismatched = Identifier {
         kind: PID::ISBN,
         value: "https://doi.org/10.1234/ABC".to_string(),
     };
-    assert!(mismatched.normalize().is_none());
+    assert!(mismatched.normalized().is_none());
 }
 
 #[test]

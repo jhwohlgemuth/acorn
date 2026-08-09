@@ -20,7 +20,7 @@ ACORN seeks to meet scientists where they are in all aspects. This includes the 
 The `acorn-py` package provides tools to work with common scientific artifact identifiers such as [DOI](https://www.doi.org/)s, [ARK](https://arks.org/)s, [ORCID](https://orcid.org/)s, and [ROR](https://ror.org/)s and other indirectly related identifiers such as patent numbers and books (e.g., [ISBN](https://www.isbn.org/)s). You can validate these identifiers, work with their components, and even extract them from text.
 
 > [!TIP]
-> See the [acorn-lib documentation](https://docs.rs/acorn-lib/latest/acorn_lib/schema/pid/index.html) for more details on persistent identifiers and how to work with them in your code.
+> Start with the [persistent identifier lifecycle](../concepts/persistent-identifiers.md), then see the [acorn-lib PID API](https://docs.rs/acorn-lib/latest/acorn/schema/pid/index.html) for type-level details.
 
 ### Example
 Find all patent numbers in a string
@@ -55,9 +55,9 @@ The `acorn-py` API strives to adhere to the Rust API as closely as possible. If 
 ### Validate DOIs
 🦀 Rust
 ```rust
-use acorn::schema::validate::DOI;
+use acorn::schema::validate::is_doi;
 
-assert!("10.11578/dc.20250604.1".is_doi());
+assert!(is_doi("10.11578/dc.20250604.1").is_ok());
 ```
 🐍 Python
 ```python
@@ -69,7 +69,7 @@ assert is_doi("10.11578/dc.20250604.1")
 ### Find all DOI values in a string
 🦀 Rust
 ```rust
-use acorn::schema::pid::DOI;
+use acorn::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
 
 let pid = "https://doi.org/10.11578/dc.20250604.1";
 let text = format!("The DOI for ACORN is: {pid}");
