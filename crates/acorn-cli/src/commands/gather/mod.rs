@@ -92,6 +92,7 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
         format,
         no_local_database,
         output,
+        quiet,
         resolve,
         ..
     } = options;
@@ -135,6 +136,7 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
     });
     match output {
         | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+        | None if quiet => Ok(()),
         | None => report.serialize(format).map(|serialized| println!("{serialized}")),
     }
     .and_then(|_| match checks.iter().any(Check::is_failure) {
@@ -215,6 +217,42 @@ mod tests {
         let report = String::from_utf8_lossy(&output.stdout);
         assert!(report.contains("ACORN gather:"));
         assert!(report.contains("10.1234/example"));
+    }
+    #[test]
+    fn test_raw_format_prints_only_discovered_identifiers() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args([
+                "--offline",
+                "--no-local-database",
+                "gather",
+                "--text",
+                "doi:10.1234/example https://ror.org/01qz5mb56 doi:10.1234/example",
+                "--raw",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "10.1234/example\nhttps://ror.org/01qz5mb56\n");
+    }
+    #[test]
+    fn test_quiet_suppresses_gather_stdout() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args([
+                "--offline",
+                "--no-local-database",
+                "gather",
+                "--text",
+                "doi:10.1234/example",
+                "--format",
+                "console",
+                "--quiet",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        assert!(output.stdout.is_empty());
     }
     #[test]
     fn test_gather_persists_project_candidate_and_reports_replay() {

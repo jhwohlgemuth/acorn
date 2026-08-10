@@ -370,6 +370,11 @@ fn test_param_vec_notation() {
     );
 }
 #[test]
+fn test_param_flat_vec_notation() {
+    let param = param!(ParamStyle::FieldList, "fields", vec!["field1", "field2"]);
+    assert_eq!(param.values, vec![vec![Some("field1".to_string())], vec![Some("field2".to_string())]]);
+}
+#[test]
 fn test_param_template_value() {
     let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
     assert_eq!(param.name, "identifier");
@@ -570,6 +575,10 @@ fn test_to_absolute_string() {
         }
         | Ok(false) | Err(_) => (),
     }
+}
+#[test]
+fn test_normalized_string_conversion() {
+    assert_eq!("  Mixed\nCASE  ".normalized(), "mixed case");
 }
 #[test]
 fn test_file_name_with_parent() {

@@ -1,4 +1,5 @@
 use acorn::analyzer::discovery::{RemoteEntity, RemoteOrganizationRole};
+use acorn::util::Constant;
 use clap::ValueEnum;
 use derive_more::Display;
 
@@ -109,6 +110,21 @@ impl DoeLab {
             | Self::Slac => "SLAC",
             | Self::Tjnaf => "TJNAF",
         }
+    }
+    /// Return the laboratory's ROR from the embedded partner and sponsor vocabularies.
+    pub(crate) fn ror(self) -> Option<String> {
+        let partner_code = match self {
+            | Self::Ames => "AL",
+            | Self::Tjnaf => "JLAB",
+            | _ => self.code(),
+        };
+        ["partners", "sponsors"]
+            .into_iter()
+            .flat_map(Constant::csv)
+            .find_map(|row| match row.as_slice() {
+                | [_, code, ror, ..] if code == partner_code && ror != "---" => Some(ror.clone()),
+                | _ => None,
+            })
     }
 }
 impl core::fmt::Display for DoeLab {

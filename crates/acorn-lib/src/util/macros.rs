@@ -774,8 +774,9 @@ macro_rules! skip {
 /// 1. Single value: `param!(FieldList, "fl", "family-name")`
 /// 2. Single tuple: `param!(QueryPair, "filter", ("status", "inactive"))`
 /// 3. Multiple tuples: `param!(QueryPair, "q", (("key1", "val1"), ("key2", "val2")))`
-/// 4. Vec notation: `param!(FieldList, "fields", vec![vec!["field1"], vec!["field2"]])`
-/// 5. Body shorthand: `param!(Body &payload)` (uses an empty key for raw curl `-d` semantics)
+/// 4. Flat list: `param!(FieldList, "fields", vec!["field1", "field2"])`
+/// 5. Grouped list: `param!(FieldList, "fields", vec![vec!["field1"], vec!["field2"]])`
+/// 6. Body shorthand: `param!(Body &payload)` (uses an empty key for raw curl `-d` semantics)
 ///
 /// # Examples
 ///
@@ -846,6 +847,12 @@ macro_rules! param {
             .values(vec![ $( vec![ $( Some($val) ),* ] ),* ])
             .with_key($name)
     };
+    // Ident with flat vec notation: param!(FieldList, "fields", vec!["f1", "f2"])
+    ($style:ident, $name:expr, vec![ $($val:expr),* $(,)? ]) => {
+        $crate::io::api::Param::of_type($crate::io::api::ParamStyle::$style)
+            .values(vec![ $( vec![Some($val)] ),* ])
+            .with_key($name)
+    };
     // Ident with single value: param!(FieldList, "fl", "family-name")
     ($style:ident, $name:expr, $val:expr) => {
         $crate::io::api::Param::of_type($crate::io::api::ParamStyle::$style)
@@ -868,6 +875,12 @@ macro_rules! param {
     ($style:path, $name:expr, vec![ $( vec![ $($val:expr),* $(,)? ] ),* $(,)? ]) => {
         $crate::io::api::Param::of_type($style)
             .values(vec![ $( vec![ $( Some($val) ),* ] ),* ])
+            .with_key($name)
+    };
+    // Path with flat vec notation: param!(ParamStyle::FieldList, "fields", vec!["f1", "f2"])
+    ($style:path, $name:expr, vec![ $($val:expr),* $(,)? ]) => {
+        $crate::io::api::Param::of_type($style)
+            .values(vec![ $( vec![Some($val)] ),* ])
             .with_key($name)
     };
     // Path with single value: param!(ParamStyle::FieldList, "fl", "family-name")

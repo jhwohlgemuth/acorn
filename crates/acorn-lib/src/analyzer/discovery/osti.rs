@@ -1,9 +1,13 @@
 //! OSTI-backed remote discovery search support.
-use super::{RemoteEntity, RemoteMatch, RemoteProvider, RemoteSearchRequest, RemoteSearchResponse};
-use crate::io::api::osti;
+use super::{candidate_repositories, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteSearchRequest, RemoteSearchResponse};
 use crate::io::api::osti::SearchResults;
+use crate::io::api::{gitlab, orcid, osti, Configuration};
 use crate::io::ApiResult;
+use crate::schema::discovery::{Person, ProjectOrganization};
 use color_eyre::eyre::Report as EyreReport;
+use futures::future::join_all;
+use itertools::Itertools;
+
 impl From<RemoteSearchRequest> for osti::Options {
     fn from(request: RemoteSearchRequest) -> Self {
         Self {
@@ -23,42 +27,63 @@ impl RemoteSearchResponse {
             | SearchResults::Projects(values) => values
                 .into_iter()
                 .map(|value| {
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| RemoteMatch {
-                        entity: RemoteEntity::Project,
-                        identifier: value.code_id.to_string(),
-                        title: value.software_title,
-                        pid: value.doi,
-                        url: value
-                            .repository_link
-                            .or(value.landing_page)
-                            .or_else(|| value.links.iter().find(|link| link.rel == "citation").map(|link| link.href.clone())),
-                        metadata,
+                    let websites = project_websites(&value);
+                    let sponsors = organization_names(&value.sponsoring_organizations);
+                    let partners = organization_names(
+                        &value
+                            .research_organizations
+                            .iter()
+                            .chain(&value.contributing_organizations)
+                            .chain(&value.developing_organizations)
+                            .cloned()
+                            .collect::<Vec<_>>(),
+                    );
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Project)
+                            .identifier(value.code_id.to_string())
+                            .title(value.software_title)
+                            .maybe_pid(value.doi)
+                            .maybe_url(
+                                value
+                                    .repository_link
+                                    .clone()
+                                    .or(value.landing_page.clone())
+                                    .or_else(|| value.links.iter().find(|link| link.rel == "citation").map(|link| link.href.clone())),
+                            )
+                            .metadata(metadata)
+                            .maybe_description(value.description)
+                            .websites(websites)
+                            .sponsors(sponsors)
+                            .partners(partners)
+                            .build()
                     })
                 })
                 .collect::<ApiResult<Vec<_>>>(),
             | SearchResults::People(values) => values
                 .into_iter()
                 .map(|value| {
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| RemoteMatch {
-                        entity: RemoteEntity::Person,
-                        identifier: value.orcid.clone().or(value.email.clone()).unwrap_or_else(|| value.name.clone()),
-                        title: value.name,
-                        pid: value.orcid,
-                        url: None,
-                        metadata,
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Person)
+                            .identifier(value.orcid.clone().or(value.email.clone()).unwrap_or_else(|| value.name.clone()))
+                            .title(value.name)
+                            .maybe_pid(value.orcid)
+                            .metadata(metadata)
+                            .build()
                     })
                 })
                 .collect::<ApiResult<Vec<_>>>(),
             | SearchResults::Organizations(values) => values
                 .into_iter()
                 .map(|value| {
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| RemoteMatch {
-                        entity: RemoteEntity::Organization,
-                        identifier: value.aliases.first().cloned().unwrap_or_else(|| value.name.clone()),
-                        title: value.name,
-                        pid: None,
-                        url: None,
-                        metadata,
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Organization)
+                            .identifier(value.aliases.first().cloned().unwrap_or_else(|| value.name.clone()))
+                            .title(value.name)
+                            .metadata(metadata)
+                            .build()
                     })
                 })
                 .collect::<ApiResult<Vec<_>>>(),
@@ -71,33 +96,120 @@ impl RemoteSearchResponse {
             matches,
         })
     }
+    pub(super) async fn enrich_people(self) -> Self {
+        let matches = join_all(self.matches.into_iter().map(RemoteMatch::enrich_person)).await;
+        Self { matches, ..self }
+    }
+    pub(super) async fn enrich_repositories(self) -> Self {
+        let matches = join_all(self.matches.into_iter().map(RemoteMatch::enrich_repository)).await;
+        Self { matches, ..self }
+    }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_remote_types_convert_to_osti_types() {
-        assert_eq!(osti::SearchView::from(RemoteEntity::Person), osti::SearchView::People);
+impl RemoteMatch {
+    async fn enrich_person(self) -> Self {
+        match (self.entity, self.pid.as_deref()) {
+            | (RemoteEntity::Person, Some(identifier)) => {
+                let options = orcid::Options::from_env().with_identifier(identifier);
+                match orcid::record(&options).await {
+                    | Ok(profile) => self.with_orcid(profile),
+                    | Err(_) => self,
+                }
+            }
+            | _ => self,
+        }
     }
-    #[test]
-    fn test_remote_request_converts_to_osti_options() {
-        let request = RemoteSearchRequest::init()
-            .provider(RemoteProvider::Osti)
-            .entity(RemoteEntity::Organization)
-            .organization_role(crate::schema::discovery::RemoteOrganizationRole::Research)
-            .limit(50)
-            .offset(25)
-            .all(true)
-            .build();
-        let options = osti::Options::from(request).with_query("ORNL");
-        assert_eq!(options.query, "");
-        assert_eq!(options.view, osti::SearchView::Organizations);
-        assert_eq!(options.organization.as_deref(), Some("ORNL"));
-        assert_eq!(options.organization_role, crate::schema::discovery::RemoteOrganizationRole::Research);
-        assert_eq!(options.limit, 50);
-        assert_eq!(options.start, 25);
-        assert!(options.all);
+    async fn enrich_repository(self) -> Self {
+        match self.entity {
+            | RemoteEntity::Project => {
+                let options = gitlab::Options::from_env();
+                let repositories = candidate_repositories(self.url.as_deref(), &self.websites, options.domain());
+                match crate::Repository::technology(&repositories, Some(options)).await {
+                    | Some(technology) => Self { technology, ..self },
+                    | None => self,
+                }
+            }
+            | _ => self,
+        }
     }
+    pub(super) fn with_orcid(self, profile: orcid::SearchResult) -> Self {
+        match serde_json::from_value::<Person>(self.metadata.clone()) {
+            | Ok(person) => {
+                let profile_name = profile.credit_name.or_else(|| {
+                    let name = [profile.given_names, profile.family_names]
+                        .into_iter()
+                        .flatten()
+                        .filter(|value| !value.trim().is_empty())
+                        .join(" ")
+                        .trim()
+                        .to_string();
+                    (!name.is_empty()).then_some(name)
+                });
+                let name = profile_name.filter(|value| !value.is_empty()).unwrap_or(person.name);
+                let orcid = profile.orcid_id.or(person.orcid);
+                let email = person
+                    .email
+                    .or_else(|| profile.emails.into_iter().flatten().find(|value| !value.trim().is_empty()));
+                let affiliations = person
+                    .affiliations
+                    .into_iter()
+                    .chain(profile.institution_names.into_iter().flatten())
+                    .filter(|value| !value.trim().is_empty())
+                    .unique()
+                    .collect();
+                let enriched = Person {
+                    name: name.clone(),
+                    orcid: orcid.clone(),
+                    email,
+                    affiliations,
+                    ..person
+                };
+                Self {
+                    identifier: orcid.clone().unwrap_or(self.identifier),
+                    title: name,
+                    pid: orcid,
+                    metadata: serde_json::to_value(enriched).unwrap_or(self.metadata),
+                    ..self
+                }
+            }
+            | Err(_) => self,
+        }
+    }
+}
+fn organization_names(values: &[ProjectOrganization]) -> Vec<String> {
+    values
+        .iter()
+        .map(|value| value.organization_name.trim())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unique()
+        .collect()
+}
+fn project_websites(value: &osti::Project) -> Vec<Candidate> {
+    value
+        .repository_link
+        .as_ref()
+        .map(|url| Candidate::Website {
+            description: "Source repository".to_string(),
+            url: url.clone(),
+        })
+        .into_iter()
+        .chain(value.landing_page.as_ref().map(|url| Candidate::Website {
+            description: "Project landing page".to_string(),
+            url: url.clone(),
+        }))
+        .chain(
+            value
+                .links
+                .iter()
+                .filter(|link| !link.href.trim().is_empty())
+                .map(|link| Candidate::Website {
+                    description: match link.rel.trim() {
+                        | "" => "Related project link".to_string(),
+                        | relation => relation.to_string(),
+                    },
+                    url: link.href.clone(),
+                }),
+        )
+        .unique_by(|candidate| candidate.url().unwrap_or_default().to_string())
+        .collect()
 }

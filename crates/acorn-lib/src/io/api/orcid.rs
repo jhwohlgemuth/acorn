@@ -28,7 +28,9 @@
 //! ```
 use crate::io::api::{self, Configuration, Param, Params, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::ApiResult;
+use crate::param;
 use crate::prelude::var;
+use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, ORCID};
 use crate::schema::validate::{is_orcid, is_ror};
 use crate::util::{Label, Searchable};
 use bon::Builder;
@@ -388,6 +390,40 @@ pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
         | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
+/// Get the expanded-search profile for one ORCID identifier
+pub async fn record(options: &Options) -> ApiResult<SearchResult> {
+    let value = options.identifier().unwrap_or_default();
+    let identifier = ORCID::from_string(value).identifier();
+    match identifier.is_empty() {
+        | true => Err(eyre!("Invalid ORCID identifier: {value}")),
+        | false => {
+            let query = param!(QueryPair, "q", ("orcid", identifier.as_str()));
+            let fields = param!(
+                FieldList,
+                "fl",
+                vec![
+                    "orcid",
+                    "email",
+                    "credit-name",
+                    "given-names",
+                    "family-name",
+                    "other-name",
+                    "current-institution-affiliation-name",
+                    "past-institution-affiliation-name",
+                ]
+            );
+            let params = [query, fields].into_iter().chain(options.params().iter().cloned()).collect();
+            let search_options = options.clone().with_params(params);
+            search(&search_options).await.and_then(|response| {
+                response
+                    .results
+                    .into_iter()
+                    .find(|result| result.orcid_id.as_deref() == Some(identifier.as_str()))
+                    .ok_or_else(|| eyre!("ORCID profile not found: {identifier}"))
+            })
+        }
+    }
+}
 /// Get status of ORCiD API
 pub async fn status() -> ApiResult<StatusResponse> {
     let name = "ORCiD";
@@ -399,5 +435,16 @@ pub async fn status() -> ApiResult<StatusResponse> {
             endpoint.handle::<StatusResponse>(response)
         }
         | None => Err(eyre!("{name} API endpoint not found")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_record_rejects_invalid_identifier_before_network_access() {
+        let options = Options::from_env().with_identifier("invalid");
+        assert!(record(&options).await.is_err());
     }
 }

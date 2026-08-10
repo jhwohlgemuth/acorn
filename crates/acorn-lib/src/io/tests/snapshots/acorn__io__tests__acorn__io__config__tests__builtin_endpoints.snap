@@ -55,6 +55,11 @@ Some(
                     method: Get,
                     template: "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}",
                 },
+                Resource {
+                    name: "languages",
+                    method: Get,
+                    template: "{{ base }}/repos/{{ path }}/languages",
+                },
             ],
         },
         Endpoint {

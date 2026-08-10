@@ -16,7 +16,9 @@ use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAU
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
-use crate::schema::{ClassificationLevel, ContactPoint, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website};
+use crate::schema::{
+    ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
+};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{
     MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT, MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE,
@@ -871,15 +873,7 @@ impl ResearchActivityMetadata {
 impl Vocabulary {
     /// Resolve values to intended values according to associated controlled vocabulary
     fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
-        match values {
-            | Some(items) => {
-                let mut data: Vec<_> = items.into_iter().flat_map(|x| resolve_from_csv_asset(self.to_string(), x)).collect();
-                data.sort();
-                data.dedup();
-                data
-            }
-            | None => vec![],
-        }
+        ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
     }
 }
 impl Default for Sections {

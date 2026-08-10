@@ -317,6 +317,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 max_depth,
                 merge_request,
                 output,
+                raw,
                 osti,
                 organization,
                 organization_role,
@@ -342,6 +343,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     .entity(view.into())
                     .queries(input.iter().chain(text.iter()).cloned().collect())
                     .maybe_organization(organization)
+                    .maybe_organization_ror(lab.and_then(|value| value.ror()))
                     .organization_role(organization_role)
                     .limit(*limit)
                     .offset(*offset)
@@ -351,7 +353,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
             gather::run(discovery::Options {
                 database_path: &config.database_path,
                 filter,
-                format: format.as_ref().map(Into::into),
+                format: raw.then_some(discovery::OutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
                 ignore,
                 input,
                 max_depth: *max_depth,

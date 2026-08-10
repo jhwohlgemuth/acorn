@@ -2,6 +2,7 @@
 //!
 use crate::io::api::{Endpoint, Params, RemoteResource, TreeEntryType};
 use crate::io::ApiResult;
+use alloc::collections::BTreeMap;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -64,6 +65,10 @@ pub struct TreeResponse {
     /// Whether tree is truncated
     pub truncated: bool,
 }
+/// GitHub repository language usage keyed by language name.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct LanguagesResponse(BTreeMap<String, u64>);
 impl TreeEntry {
     /// Get path of tree entry
     pub fn path(self) -> String {
@@ -135,5 +140,29 @@ pub(crate) fn path_for(prefix: &str, path: &str) -> String {
         path.to_string()
     } else {
         format!("{prefix}/{path}")
+    }
+}
+/// Fetch programming language names for a GitHub repository path.
+pub(crate) async fn languages(path: impl Into<String>) -> ApiResult<Vec<String>> {
+    let endpoint = match Endpoint::from_template("github::api") {
+        | Ok(endpoint) => endpoint,
+        | Err(why) => return Err(why),
+    };
+    let path = path.into();
+    let params = Params::new().with_template("path", Some(path.as_str())).build();
+    let response = endpoint.invoke("languages", Some(params)).await;
+    endpoint
+        .handle::<LanguagesResponse>(response)
+        .map(|response| response.0.into_keys().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LanguagesResponse;
+
+    #[test]
+    fn test_language_response_returns_deterministic_names() {
+        let response: LanguagesResponse = serde_json::from_str(r#"{"Rust": 900, "Python": 100}"#).unwrap();
+        assert_eq!(response.0.into_keys().collect::<Vec<_>>(), vec!["Python", "Rust"]);
     }
 }

@@ -4,24 +4,24 @@ ACORN treats a persistent identifier (PID) as evidence that moves through severa
 
 ```mermaid
 flowchart LR
-    input[Text or metadata] --> find[Find candidates]
-    find --> parse[Parse components]
-    parse --> validate[Validate locally]
-    validate --> normalize[Normalize representation]
-    normalize --> classify[Classify the entity]
-    classify --> report[Report and retain evidence]
-    classify -->|Project identity| persist[Create or enrich candidate]
-    classify -. optional .-> resolve[Resolve metadata]
+    input["Text<br/>or metadata"] --> find["Find<br/>candidates"]
+    find --> parse["Parse<br/>components"]
+    parse --> validate[Validate]
+    validate --> normalize[Normalize]
+    normalize --> classify[Classify]
+    classify --> report["Report<br/>and retain"]
+    classify -->|Project identity| persist["Create<br/>or enrich"]
+    classify -. optional .-> resolve["Resolve<br/>metadata"]
     resolve --> report
     resolve -->|Project identity| persist
-    persist -. exact identity .-> merge[Merge deterministically]
+    persist -. exact identity .-> merge["Merge<br/>deterministically"]
 ```
 
 ## Supported identifiers
 
 The typed Rust API supports ARK, DOI, ISBN, ORCID, RAiD, ROR, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
-| Kind | Local validation | Normalized display | Candidate role |
+| Kind | Validation | Normalized | Role |
 |---|---|---|---|
 | ARK | NAAN and assigned-name structure | ARK, retaining a supplied resolver | Project identity |
 | DOI | DOI prefix and suffix structure | Bare DOI | Project identity |
@@ -120,11 +120,23 @@ This distinction matters: the normalized display is suitable for RAD fields and 
 
 A provider can explicitly relate person or organization evidence to a project, but ACORN does not infer that relationship merely because the values occur in the same input.
 
-## 6. Resolve optional metadata
+## 6. Resolve and enrich optional metadata
 
-`acorn gather --resolve` runs after local discovery. Resolution can add only data that maps without information loss, currently supported identifiers, a title, and a provider-confirmed project URL. A resolver failure does not turn a locally valid identifier into an invalid one; it is reported as separate evidence.
+`acorn gather --resolve` runs after local discovery. DOI evidence is sent to CiteAs and RAiD evidence to the RAiD resolver. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into an invalid one; the original discovery remains valid evidence.
 
-Remote DOE CODE project matches use a provider identity such as `osti-project:<code_id>` and add a DOI when one is available. DOE CODE people and organization searches remain report-only.
+Remote DOE CODE project matches enter the same candidate pipeline with a provider identity such as `osti-project:<code_id>` and a DOI when one is available. DOE CODE supplies project descriptions, websites, and role-separated organization names. A `--lab` filter additionally associates the selected laboratory's known ROR. Valid ORCIDs enrich person reports, while overt GitHub and configured GitLab repository URLs found in either the canonical URL or additional websites enrich project candidates with provider-reported programming languages. These optional lookups are best-effort: failure retains the unenhanced DOE CODE result. DOE CODE people and organization searches remain report-only.
+
+GitLab work-item intake uses the same artifact candidate representation but is separate from the `gather` command. An embedded or repository `CITATION.cff` can contribute normalized DOI and other supported identifiers, title, abstract, author names, an explicitly declared singular contact, landing and repository websites, canonical keywords, and repository languages. It does not infer sponsors, partners, or a contact from the author order. Dates, contributor roles, licenses, and award identifiers are not currently mapped or placed in notes; dedicated typed schema fields are planned.
+
+All enrichment follows the same merge rules:
+
+1. Accept values only from a provider field with a defined semantic mapping; do not infer relationships from proximity or list order.
+2. Normalize recognized identifiers before identity or field mapping.
+3. At database persistence, prefer an existing populated scalar value and fill only missing scalar values.
+4. Union and deduplicate list values, using the URL as the identity for websites; normalize keywords and technologies through their controlled vocabularies.
+5. When resolver or provider evidence is persisted, retain it as provenance; do not coerce an unsupported value into an unrelated field.
+
+RAiD organization roles are mapped independently from ROR name resolution. `Funder` produces a sponsor relationship; every supported non-funder organization role produces a partner relationship. A mixed-role organization can therefore be both. A single organization without a role is treated as the RAiD default lead organization, but roleless entries in a multi-organization record are not classified. The organization name is emitted only when its ROR is present in ACORN's embedded sponsor or partner vocabulary; an unknown ROR remains organization evidence without a guessed name.
 
 ## 7. Build exact identities and persist candidates
 

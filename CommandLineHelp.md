@@ -603,7 +603,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
    Example: --ignore "[/]valid.json$"
 * `--max-depth <DEPTH>` — Maximum directory descendant depth to search; direct children have depth 1
 * `-m`, `--merge-request` — Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
-* `-o`, `--output <PATH>` — Write the structured report to a file instead of stdout
+* `-o`, `--output <PATH>` — Write the report to a file instead of stdout
 * `--osti <OSTI>` — Search DOE CODE and return projects, people, or organizations
 
   Possible values:
@@ -631,7 +631,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
   - `developer`:
     Developing organization
 
-* `--lab <LAB>` — Restrict results to projects submitted by a DOE national laboratory
+* `--lab <LAB>` — Restrict results to a DOE laboratory and add its known ROR to persisted project candidates
 
   Possible values:
   - `ames`:
@@ -676,7 +676,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 
   Default value: `0`
 * `--all` — Retrieve every matching upstream project page
-* `--format <FORMAT>` — Report format; defaults to console for terminals and JSON for pipes or files
+* `--format <FORMAT>` — Structured report format; defaults to console for terminals and JSON for pipes or files
 
   Possible values:
   - `console`:
@@ -688,6 +688,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
   - `yaml`:
     YAML
 
+* `--raw` — Print discovered identifiers as plain text, one per line
 * `--resolve` — Resolve supported identifiers through their metadata providers
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 * `--text <TEXT>` — Literal text to inspect; may be repeated
@@ -958,4 +959,3 @@ Launch the interactive terminal user interface (TUI)
     This document was generated automatically by
     <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
-

@@ -1,5 +1,5 @@
 use super::*;
-use crate::analyzer::discovery::ArtifactCandidate;
+use crate::analyzer::discovery::{ArtifactCandidate, Candidate};
 use crate::io::api::citeas;
 use crate::io::api::gitlab::intake::{analyze_work_item, verified_command_author, Authorization};
 use crate::io::api::gitlab::{webhook, HookActor, Note, WorkItem, WorkItemUser};
@@ -80,8 +80,12 @@ fn content_excludes_commands_and_non_human_or_later_notes() {
 }
 #[test]
 fn embedded_cff_is_complete_and_identifier_only_candidate_is_excluded() {
-    let content = "```cff\ncff-version: 1.2.0\ntitle: Existing result\nmessage: Cite this\nauthors:\n  - family-names: Example\n    given-names: Alice\ndoi: 10.1234/example\n```";
+    let content = "```cff\ncff-version: 1.2.0\ntitle: Existing result\nmessage: Cite this\nabstract: A complete software description\nkeywords: [ai, hpc]\nrepository-code: https://gitlab.com/example/project\nauthors:\n  - family-names: Example\n    given-names: Alice\ncontact:\n  - family-names: Contact\n    given-names: Casey\n    orcid: https://orcid.org/0000-0002-2057-9115\n    email: contact@example.org\ndoi: 10.1234/example\n```";
     let candidate = ArtifactCandidate::from(Cff::embedded(content).into_iter().next().unwrap());
+    assert_eq!(candidate.description.as_deref(), Some("A complete software description"));
+    assert_eq!(candidate.keywords, ["artificial-intelligence", "high-performance-computing"]);
+    assert_eq!(candidate.websites[0].url(), Some("https://gitlab.com/example/project"));
+    assert_eq!(candidate.contact.as_ref().and_then(Candidate::email), Some("contact@example.org"));
     assert!(candidate.classify(None).cff.is_some());
     let identifier = Identifier::new("https://example.org/artifact").normalized().unwrap();
     let excluded = ArtifactCandidate {

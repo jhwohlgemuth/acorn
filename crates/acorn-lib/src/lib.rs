@@ -41,10 +41,15 @@ pub mod util;
 #[cfg(all(feature = "std", feature = "analysis"))]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
+use crate::io::api::{github, gitlab, Configuration};
+#[cfg(feature = "std")]
 use crate::io::http::get;
 use crate::prelude::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::{Path, PathBuf};
+#[cfg(feature = "std")]
+use crate::schema::ControlledVocabulary;
+use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::Label;
 pub use error::{AcornError, AcornResult};
 use strum::EnumIs;
@@ -79,7 +84,7 @@ pub enum Location {
     },
 }
 /// Git hosting repository data
-#[derive(Clone, Debug, Display, Serialize, Deserialize)]
+#[derive(Clone, Debug, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "provider", rename_all = "lowercase")]
 pub enum Repository {
     /// Generic Git repository
@@ -335,6 +340,24 @@ impl Default for Repository {
     }
 }
 impl Repository {
+    /// Classify a remote repository URL using its overt provider domain
+    pub fn from_remote(value: &str, domain: &str) -> Option<Self> {
+        let location = Location::from(value);
+        let host = location.host().map(|host| host.trim_start_matches("www.").to_ascii_lowercase());
+        let configured_url = if domain.contains("://") {
+            domain.to_string()
+        } else {
+            format!("https://{domain}")
+        };
+        let configured = Location::from(configured_url.as_str());
+        let is_gitlab = configured.host() == location.host() && configured.port() == location.port();
+        match (location.scheme(), host.as_deref()) {
+            | (Scheme::HTTP | Scheme::HTTPS, Some("github.com")) => Some(Self::GitHub { location }),
+            | (Scheme::HTTP | Scheme::HTTPS, Some(host)) if host == DEFAULT_HUGGINGFACE_DOMAIN => Some(Self::HuggingFace { location }),
+            | (Scheme::HTTP | Scheme::HTTPS, Some(_)) if is_gitlab => Some(Self::GitLab { id: None, location }),
+            | _ => None,
+        }
+    }
     /// Get repository domain (e.g., "github.com" or "code.ornl.gov")
     pub fn domain(&self) -> Option<String> {
         self.location().host()
@@ -388,6 +411,46 @@ impl Repository {
                         None
                     }
                 },
+            },
+        }
+    }
+    /// Return the provider-native repository path or identifier.
+    pub fn project_path(&self) -> Option<String> {
+        match self {
+            | Repository::GitHub { location } | Repository::HuggingFace { location } => location.path().and_then(|path| {
+                let mut segments = path.trim_matches('/').split('/');
+                segments
+                    .next()
+                    .zip(segments.next())
+                    .map(|(owner, repository)| format!("{owner}/{}", repository.trim_end_matches(".git")))
+            }),
+            | Repository::GitLab { id: Some(id), .. } => Some(id.to_string()),
+            | Repository::GitLab { id: None, location } => location.path().and_then(|path| {
+                let project_path = path.trim_matches('/').split("/-/").next().unwrap_or_default().trim_end_matches(".git");
+                (project_path.split('/').count() >= 2).then(|| project_path.to_string())
+            }),
+            | Repository::Git { .. } => None,
+        }
+    }
+    /// Fetch canonical programming-language names for the first supported repository.
+    #[cfg(feature = "std")]
+    pub async fn technology(repositories: &[Self], options: Option<gitlab::Options>) -> Option<Vec<String>> {
+        let options = options.unwrap_or_else(gitlab::Options::from_env);
+        match repositories.iter().find(|repository| repository.is_git_hub()) {
+            | Some(repository) => github::languages(repository.project_path()?)
+                .await
+                .ok()
+                .map(|values| ControlledVocabulary::normalize("technology", values).into_values()),
+            | None => match repositories
+                .iter()
+                .find(|repository| repository.is_git_lab())
+                .and_then(Repository::project_path)
+                .map(|path| options.with_identifier(path))
+            {
+                | Some(options) => gitlab::language_use(&options).await.ok().map(|response| {
+                    ControlledVocabulary::normalize("technology", response.languages.into_iter().map(|language| language.name)).into_values()
+                }),
+                | None => None,
             },
         }
     }
@@ -511,6 +574,17 @@ mod tests {
             }
             | _ => panic!("Repository default should be Git with local file URI"),
         }
+    }
+    #[test]
+    fn test_repository_from_remote_requires_overt_provider_domain() {
+        let github = Repository::from_remote("https://www.github.com/openai/codex/tree/main", "gitlab.com").unwrap();
+        assert!(github.is_git_hub());
+        assert_eq!(github.project_path(), Some("openai/codex".to_string()));
+        let gitlab = Repository::from_remote("https://code.ornl.gov/group/project/-/tree/main", "code.ornl.gov").unwrap();
+        assert!(gitlab.is_git_lab());
+        assert_eq!(gitlab.project_path(), Some("group/project".to_string()));
+        assert_eq!(Repository::from_remote("https://example.org/group/project", "gitlab.com"), None);
+        assert_eq!(Repository::from_remote("git@github.com:openai/codex.git", "gitlab.com"), None);
     }
     #[test]
     fn test_repository_id_prefers_explicit_gitlab_id() {

@@ -70,6 +70,11 @@ const ENDPOINTS: &str = r#"{
                     "name": "tree",
                     "method": "get",
                     "template": "{{ base }}/repos/{{ path }}/git/trees/{{ branch }}{{ query }}"
+                },
+                {
+                    "name": "languages",
+                    "method": "get",
+                    "template": "{{ base }}/repos/{{ path }}/languages"
                 }
             ]
         },

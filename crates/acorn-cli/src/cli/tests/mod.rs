@@ -14,7 +14,7 @@ use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateComma
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
 use acorn::util::constants::env::CHROME_PATH;
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
 use std::sync::Mutex;
 
@@ -108,6 +108,10 @@ fn test_gather_lab_parses_acronyms_case_insensitively() {
     assert_eq!(DoeLab::Ornl.to_string(), "ORNL");
     assert_eq!(DoeLab::Lanl.to_string(), "LANL");
     assert_eq!(DoeLab::Snl.to_string(), "SNL");
+    assert_eq!(DoeLab::Ames.ror().as_deref(), Some("041m9xr71"));
+    assert_eq!(DoeLab::Ornl.ror().as_deref(), Some("01qz5mb56"));
+    assert_eq!(DoeLab::Tjnaf.ror().as_deref(), Some("02vwzrd76"));
+    assert!(DoeLab::value_variants().iter().all(|lab| lab.ror().is_some()));
 }
 #[test]
 fn test_gather_lab_rejects_overlapping_organization_options() {

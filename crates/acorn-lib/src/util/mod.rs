@@ -21,6 +21,7 @@ use crate::prelude::HashMap;
 use crate::prelude::Path;
 use crate::prelude::*;
 use aho_corasick::AhoCorasick;
+use alloc::collections::BTreeSet;
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::fmt;
@@ -50,11 +51,6 @@ pub use terminal::Label;
 pub use terminal::{
     print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
 };
-
-/// Format a timestamp as RFC 3339 with an explicit UTC offset.
-pub fn to_rfc3339(value: Timestamp) -> String {
-    value.display_with_offset(Offset::UTC).to_string()
-}
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
@@ -79,6 +75,8 @@ pub trait Searchable<T> {
 }
 /// Trait for augmenting and formatting data for display
 pub trait StringConversion {
+    /// Collapse whitespace and convert text to lowercase.
+    fn normalized(&self) -> String;
     /// Render a path string using native separators without a Windows extended-length prefix
     fn to_cross_platform_path(&self) -> String;
     /// Return a string representation of the file_name with its parent folder (or just the folder name if it is a folder)
@@ -1045,10 +1043,9 @@ pub fn is_uri_or_path(value: &str) -> bool {
             false
         })
 }
-/// Merge two string collections, preserving first-seen order and removing duplicates.
-///
-/// Values are trimmed before comparison and output. Empty or whitespace-only values
-/// are skipped.
+/// Merge two string collections, preserving first-seen order and removing duplicates
+/// ## Note
+/// Values are trimmed before comparison and output. Empty or whitespace-only values are skipped.
 pub fn merge<A, B, S, T>(a: A, b: Option<B>) -> Vec<String>
 where
     A: IntoIterator<Item = S>,
@@ -1062,6 +1059,10 @@ where
         .chain(b.into_iter().flatten().map(|value| value.as_ref().trim().to_string()))
         .filter(|value| !value.is_empty() && seen.insert(value.clone()))
         .collect()
+}
+/// Merge two sequences into sorted unique values
+pub fn merge_unique<T: Ord>(left: impl IntoIterator<Item = T>, right: impl IntoIterator<Item = T>) -> Vec<T> {
+    left.into_iter().chain(right).collect::<BTreeSet<_>>().into_iter().collect()
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note
@@ -1206,13 +1207,17 @@ where
 {
     (if value == T::from(1) { "" } else { "s" }).to_string()
 }
-/// Normalize a string to lowercase ASCII alphanumeric characters.
+/// Normalize a string to lowercase ASCII alphanumeric characters
 pub fn to_ascii_alphanumeric(value: &str) -> String {
     value
         .chars()
         .filter(|character| character.is_ascii_alphanumeric())
         .collect::<String>()
         .to_ascii_lowercase()
+}
+/// Format a timestamp as RFC 3339 with an explicit UTC offset
+pub fn to_rfc3339(value: Timestamp) -> String {
+    value.display_with_offset(Offset::UTC).to_string()
 }
 /// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {

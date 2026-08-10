@@ -727,7 +727,7 @@ pub(crate) struct Gather {
     /// Process files that were changed in a given merge request (GitLab) or pull request (GitHub)
     #[arg(short, long = "merge-request", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) merge_request: bool,
-    /// Write the structured report to a file instead of stdout.
+    /// Write the report to a file instead of stdout.
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     /// Search DOE CODE and return projects, people, or organizations.
@@ -739,7 +739,7 @@ pub(crate) struct Gather {
     /// Organization relationship to match.
     #[arg(long, requires = "organization", value_enum, help_heading = "OPTIONS")]
     pub(crate) organization_role: Option<OstiOrganizationRole>,
-    /// Restrict results to projects submitted by a DOE national laboratory.
+    /// Restrict results to a DOE laboratory and add its known ROR to persisted project candidates.
     #[arg(long, requires = "osti", conflicts_with_all = ["organization", "organization_role"], value_enum, ignore_case = true, help_heading = "OPTIONS")]
     pub(crate) lab: Option<DoeLab>,
     /// Number of upstream projects requested per page.
@@ -751,9 +751,12 @@ pub(crate) struct Gather {
     /// Retrieve every matching upstream project page.
     #[arg(long, requires = "osti", help_heading = "FLAGS")]
     pub(crate) all: bool,
-    /// Report format; defaults to console for terminals and JSON for pipes or files.
+    /// Structured report format; defaults to console for terminals and JSON for pipes or files.
     #[arg(long, value_enum, help_heading = "OPTIONS")]
     pub(crate) format: Option<GatherOutputFormat>,
+    /// Print discovered identifiers as plain text, one per line.
+    #[arg(long, conflicts_with = "format", help_heading = "FLAGS")]
+    pub(crate) raw: bool,
     /// Resolve supported identifiers through their metadata providers.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) resolve: bool,

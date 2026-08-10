@@ -578,6 +578,9 @@ impl ProgressType {
     }
 }
 impl StringConversion for PathBuf {
+    fn normalized(&self) -> String {
+        self.to_string_lossy().as_ref().normalized()
+    }
     fn to_cross_platform_path(&self) -> String {
         self.cross_platform_display()
     }
@@ -589,6 +592,9 @@ impl StringConversion for PathBuf {
     }
 }
 impl StringConversion for String {
+    fn normalized(&self) -> String {
+        self.as_str().normalized()
+    }
     fn to_cross_platform_path(&self) -> String {
         Path::new(self).cross_platform_display()
     }
@@ -597,6 +603,20 @@ impl StringConversion for String {
     }
     fn to_absolute_path(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+impl StringConversion for &str {
+    fn normalized(&self) -> String {
+        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn to_cross_platform_path(&self) -> String {
+        Path::new(self).cross_platform_display()
+    }
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(*self)
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_string(*self)
     }
 }
 /// Creates zip archive from directory

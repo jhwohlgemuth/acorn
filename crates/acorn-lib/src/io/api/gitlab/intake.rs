@@ -2,19 +2,22 @@
 
 use super::webhook;
 use super::{current_user, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options, WorkItem};
-use crate::analyzer::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate};
+use crate::analyzer::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
 use crate::io::api::citeas;
 use crate::io::api::Configuration;
 use crate::io::ApiResult;
 use crate::param;
 use crate::schema::pid::{Identifier, PID};
 use crate::schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
+use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
 use crate::util::ToMarkdown;
-use crate::Location;
+use crate::Repository;
+use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use futures::future::join_all;
+use itertools::Itertools;
 use serde::Serialize;
 
 const MAINTAINER_ACCESS_LEVEL: u64 = 40;
@@ -34,7 +37,7 @@ pub enum Authorization {
 }
 /// One candidate's CFF readiness result.
 #[derive(Clone, Debug, Serialize)]
-pub struct Candidate {
+pub struct ArtifactReport {
     /// Grouped artifact candidate.
     pub artifact: ArtifactCandidate,
     /// Complete CFF 1.2.0 metadata when available.
@@ -56,7 +59,7 @@ pub struct Report {
     /// Authorization decision.
     pub authorization: Authorization,
     /// Independently classified artifact candidates.
-    pub candidates: Vec<Candidate>,
+    pub candidates: Vec<ArtifactReport>,
 }
 impl ArtifactCandidate {
     async fn enrich(self, options: &Options) -> (Self, Option<String>) {
@@ -65,7 +68,7 @@ impl ArtifactCandidate {
             | Some(Err(why)) => (self, Some(why)),
             | None => (self, None),
         };
-        match candidate.identifiers.iter().find(|identifier| identifier.kind == PID::DOI) {
+        let (candidate, enrichment_error) = match candidate.identifiers.iter().find(|identifier| identifier.kind == PID::DOI) {
             | Some(identifier) if candidate.title.is_none() || candidate.authors.is_empty() => {
                 let options = citeas::Options::from_env().with_params(vec![param!(TemplateValue, "doi", &identifier.value)]);
                 match citeas::search(&options).await {
@@ -74,10 +77,11 @@ impl ArtifactCandidate {
                 }
             }
             | _ => (candidate, repository_error),
-        }
+        };
+        (candidate.enrich_repository(Some(options.clone())).await, enrichment_error)
     }
     async fn repository_cff(&self, options: &Options) -> Option<Result<Cff, String>> {
-        match self.gitlab_project_path(options.domain()) {
+        match self.gitlab_repository(options.domain()).and_then(|repository| repository.project_path()) {
             | Some(project_path) => {
                 let file_options = options.clone().with_identifier(project_path).with_path("CITATION.cff").with_sha("HEAD");
                 match repository_file(&file_options).await {
@@ -95,22 +99,19 @@ impl ArtifactCandidate {
             | None => None,
         }
     }
-    fn gitlab_project_path(&self, domain: &str) -> Option<String> {
-        let configured = Location::Simple(if domain.contains("://") {
-            domain.to_string()
-        } else {
-            format!("https://{domain}")
-        });
-        self.identifiers
+    fn gitlab_repository(&self, domain: &str) -> Option<Repository> {
+        self.canonical_url
             .iter()
-            .filter(|identifier| identifier.kind == PID::URL)
-            .map(|identifier| Location::Simple(identifier.value.clone()))
-            .find(|candidate| configured.host() == candidate.host() && configured.port() == candidate.port())
-            .and_then(|candidate| candidate.path())
-            .and_then(|path| {
-                let project_path = path.trim_matches('/').split("/-/").next().unwrap_or_default().trim_end_matches(".git");
-                (project_path.split('/').count() >= 2).then(|| project_path.to_string())
-            })
+            .map(String::as_str)
+            .chain(self.websites.iter().filter_map(Candidate::url))
+            .chain(
+                self.identifiers
+                    .iter()
+                    .filter(|identifier| identifier.kind == PID::URL)
+                    .map(|identifier| identifier.value.as_str()),
+            )
+            .filter_map(|value| Repository::from_remote(value, domain))
+            .find(|repository| matches!(repository, Repository::GitLab { .. }))
     }
     fn merge_cff(self, cff: Cff) -> Self {
         let metadata = Self::from(cff);
@@ -128,14 +129,28 @@ impl ArtifactCandidate {
             identifiers,
             canonical_url: metadata.canonical_url.or(self.canonical_url),
             title: metadata.title.filter(|title| !title.trim().is_empty()).or(self.title),
+            description: metadata.description.or(self.description),
             authors: if metadata.authors.is_empty() { self.authors } else { metadata.authors },
             provider_ids: self.provider_ids,
             provenance: self.provenance,
+            websites: self
+                .websites
+                .into_iter()
+                .chain(metadata.websites)
+                .unique_by(|candidate| candidate.url().unwrap_or_default().to_string())
+                .collect(),
+            keywords: ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(metadata.keywords)).into_values(),
+            sponsors: self.sponsors,
+            partners: self.partners,
+            related: self.related,
+            technology: self.technology,
+            contact: metadata.contact.or(self.contact),
         }
     }
     pub(crate) fn apply_citeas(self, citations: citeas::Citations) -> Self {
         let metadata = citations.metadata;
         let title = (!metadata.title.trim().is_empty()).then_some(metadata.title);
+        let keywords = ControlledVocabulary::normalize("keywords", self.keywords.into_iter().chain(metadata.categories)).into_values();
         let authors = metadata
             .author
             .into_iter()
@@ -146,10 +161,11 @@ impl ArtifactCandidate {
             canonical_url: (!metadata.url.trim().is_empty()).then_some(metadata.url),
             title: title.or(self.title),
             authors: if authors.is_empty() { self.authors } else { authors },
+            keywords,
             ..self
         }
     }
-    pub(crate) fn classify(self, enrichment_error: Option<String>) -> Candidate {
+    pub(crate) fn classify(self, enrichment_error: Option<String>) -> ArtifactReport {
         let missing = [
             self.identifiers.is_empty().then_some("Identifier"),
             self.title.as_deref().is_none_or(str::is_empty).then_some("Title"),
@@ -160,7 +176,7 @@ impl ArtifactCandidate {
         .map(str::to_string)
         .collect::<Vec<_>>();
         let cff = missing.is_empty().then(|| Cff::from(self.clone()));
-        Candidate {
+        ArtifactReport {
             artifact: self,
             cff,
             missing,
@@ -183,11 +199,42 @@ impl From<Cff> for ArtifactCandidate {
             .into_iter()
             .flatten()
             .chain(cff.url.as_deref().map(|url| Identifier::new(url).normalized()).into_iter().flatten())
+            .chain(
+                cff.identifiers
+                    .iter()
+                    .flatten()
+                    .filter_map(|identifier| Identifier::new(&identifier.value).normalized()),
+            )
+            .collect::<BTreeSet<_>>()
+            .into_iter()
             .collect::<Vec<_>>();
+        let canonical_url = cff
+            .url
+            .clone()
+            .or(cff.repository_code.clone())
+            .or(cff.repository.clone())
+            .or(cff.repository_artifact.clone());
+        let website_pairs = [
+            ("Landing page", cff.url.clone()),
+            ("Source repository", cff.repository_code.clone()),
+            ("Repository", cff.repository.clone()),
+            ("Artifact repository", cff.repository_artifact.clone()),
+        ];
+        let websites = website_pairs
+            .into_iter()
+            .filter_map(|(description, url)| {
+                url.map(|url| Candidate::Website {
+                    description: description.to_string(),
+                    url,
+                })
+            })
+            .unique_by(|candidate| candidate.url().unwrap_or_default().to_string())
+            .collect();
         Self {
             identifiers,
-            canonical_url: cff.url,
+            canonical_url,
             title: Some(cff.title),
+            description: cff.abstract_text,
             authors: cff
                 .authors
                 .into_iter()
@@ -203,8 +250,43 @@ impl From<Cff> for ArtifactCandidate {
                 .collect(),
             provider_ids: Vec::new(),
             provenance: Vec::new(),
+            websites,
+            keywords: ControlledVocabulary::normalize("keywords", cff.keywords.unwrap_or_default()).into_values(),
+            sponsors: Vec::new(),
+            partners: Vec::new(),
+            related: Vec::new(),
+            technology: Vec::new(),
+            contact: cff.contact.as_deref().and_then(cff_contact),
         }
     }
+}
+fn cff_contact(values: &[Agent]) -> Option<Candidate> {
+    values
+        .iter()
+        .map(|agent| match agent {
+            | Agent::Entity(entity) => Candidate::Contact {
+                identifier: entity
+                    .orcid
+                    .as_deref()
+                    .and_then(|value| Identifier::new(value).normalized())
+                    .filter(|identifier| identifier.kind == PID::ORCID)
+                    .map(|identifier| identifier.value),
+                email: entity.email.clone(),
+            },
+            | Agent::Person(person) => Candidate::Contact {
+                identifier: person
+                    .orcid
+                    .as_deref()
+                    .and_then(|value| Identifier::new(value).normalized())
+                    .filter(|identifier| identifier.kind == PID::ORCID)
+                    .map(|identifier| identifier.value),
+                email: person.email.clone(),
+            },
+        })
+        .filter(|candidate| matches!(candidate, Candidate::Contact { identifier, email } if identifier.is_some() || email.is_some()))
+        .unique()
+        .exactly_one()
+        .ok()
 }
 impl From<ArtifactCandidate> for Cff {
     fn from(candidate: ArtifactCandidate) -> Self {
@@ -394,7 +476,7 @@ pub async fn analyze_work_item(options: &Options, actor: &HookActor, command_not
         | None => Err(eyre!("GitLab work-item IID is required")),
     }
 }
-pub(crate) async fn classify_content(content: &str, options: &Options) -> Vec<Candidate> {
+pub(crate) async fn classify_content(content: &str, options: &Options) -> Vec<ArtifactReport> {
     let candidates = discover_identifiers(content)
         .into_iter()
         .map(|identifier| ArtifactCandidate {

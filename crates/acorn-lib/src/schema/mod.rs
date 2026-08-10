@@ -3,6 +3,7 @@
 //! Here you'll find everything needed to build and use the research activity data schema, including metadata fields, section information, media objects, formats, and functions that power ACORN CLI commands.
 //!
 use crate::prelude::*;
+use alloc::collections::BTreeSet;
 pub mod hardware;
 pub use hardware::memory::{Memory, MemoryUnit};
 pub use hardware::{
@@ -83,6 +84,27 @@ use validate::{has_image_extension, is_date, is_orcid, is_phone_number};
 ///
 /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
+/// Canonical values resolved against one of ACORN's controlled-vocabulary assets.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct ControlledVocabulary(Vec<Keyword>);
+impl ControlledVocabulary {
+    /// Normalize candidate values against the named controlled-vocabulary asset.
+    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
+        Self(
+            values
+                .into_iter()
+                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+        )
+    }
+    /// Consume the vocabulary and return its canonical values.
+    pub fn into_values(self) -> Vec<Keyword> {
+        self.0
+    }
+}
 /// Generic wrapper for a single value or multiple values.
 ///
 /// Supports schema fields and metadata entry points that accept either one item

@@ -16,10 +16,12 @@ use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{has_at_least_one_truthy, is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 use crate::schema::Date;
+use crate::util::Constant;
 #[cfg(feature = "std")]
 use crate::util::Label;
 #[cfg(not(feature = "std"))]
 use crate::util::License;
+use alloc::collections::BTreeSet;
 use bon::Builder;
 use derive_more::Display;
 #[cfg(feature = "std")]
@@ -30,6 +32,80 @@ use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::error;
 use validator::{Validate, ValidationError};
+
+/// Read normalized discovery values from a collection of RAiD metadata records.
+pub struct Extractor<'a> {
+    records: &'a [Metadata],
+}
+impl<'a> Extractor<'a> {
+    /// Create an extractor over RAiD metadata records.
+    pub fn new(records: &'a [Metadata]) -> Self {
+        Self { records }
+    }
+    fn titles(&self) -> impl Iterator<Item = &Title> {
+        self.records.iter().flat_map(|record| record.title.iter().flatten())
+    }
+    /// Return the primary title, falling back to the first non-empty title.
+    pub fn title(&self) -> Option<String> {
+        self.titles()
+            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Primary)))
+            .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
+            .cloned()
+            .or_else(|| {
+                self.titles()
+                    .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
+                    .cloned()
+            })
+    }
+    /// Return the single distinct explicit contact identifier and email.
+    pub fn contact(&self) -> Option<(Option<String>, Option<String>)> {
+        let contacts = self
+            .records
+            .iter()
+            .flat_map(|record| record.contributor.iter().flatten())
+            .filter(|contributor| contributor.contact)
+            .map(|contributor| {
+                (
+                    contributor.id.clone().filter(|value| !value.trim().is_empty()),
+                    contributor.email.clone().filter(|value| !value.trim().is_empty()),
+                )
+            })
+            .filter(|(identifier, email)| identifier.is_some() || email.is_some())
+            .collect::<BTreeSet<_>>();
+        (contacts.len() == 1).then(|| contacts.into_iter().next()).flatten()
+    }
+    /// Return controlled organization names mapped as sponsors or partners by RAiD role.
+    pub fn organization_names(&self, sponsors: bool) -> Vec<String> {
+        self.records
+            .iter()
+            .flat_map(|record| {
+                let organizations = record.organization.as_deref().unwrap_or_default();
+                organizations.iter().filter(move |organization| {
+                    let is_funder = organization.role.iter().any(|role| matches!(role.id, OrganizationRoleType::Funder));
+                    let is_partner = (organizations.len() == 1 && organization.role.is_empty())
+                        || organization.role.iter().any(|role| !matches!(role.id, OrganizationRoleType::Funder));
+                    match sponsors {
+                        | true => is_funder,
+                        | false => is_partner,
+                    }
+                })
+            })
+            .filter_map(|organization| {
+                let vocabularies = match sponsors {
+                    | true => ["sponsors", "partners"],
+                    | false => ["partners", "sponsors"],
+                };
+                let ror = organization.id.trim_end_matches('/').rsplit('/').next().unwrap_or(&organization.id);
+                vocabularies.iter().flat_map(Constant::csv).find_map(|row| match row.as_slice() {
+                    | [name, _, value, ..] if value.eq_ignore_ascii_case(ror) => Some(name.clone()),
+                    | _ => None,
+                })
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+}
 
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
@@ -473,6 +549,12 @@ pub struct AlternateIdentifier {
 pub struct AlternateUrl {
     #[validate(url)]
     url: String,
+}
+impl AlternateUrl {
+    /// Return the alternate project URL.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
 }
 /// Metadata schema block containing a contributor to a RAiD and their associated properties
 ///

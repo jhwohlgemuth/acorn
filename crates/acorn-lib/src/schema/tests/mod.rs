@@ -313,6 +313,13 @@ fn test_fuzzy_matching_keywords() {
     assert_eq!(resolve_from_csv_asset(name.clone(), exact.clone()), Some(exact));
 }
 #[test]
+fn test_controlled_vocabulary_normalizes_aliases_and_discards_unknown_values() {
+    assert_eq!(
+        ControlledVocabulary::normalize("keywords", ["AI", "unknown-value", "hpc", "AI"]).into_values(),
+        ["artificial-intelligence", "high-performance-computing"]
+    );
+}
+#[test]
 fn test_fuzzy_matching_organizations() {
     let exact: String = "Oak Ridge National Laboratory".into();
     assert_eq!(resolve_from_organization_json(exact.clone()), Some(exact.clone()));
