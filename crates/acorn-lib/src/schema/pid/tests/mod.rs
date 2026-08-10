@@ -169,6 +169,10 @@ fn test_doi() {
     assert_eq!(results[0].to_string(), "10.11578/dc.20250604.1");
     assert_eq!(results[1].to_string(), "10.11578/dc.20250604.1");
     assert_eq!(results[2].to_string(), "10.11578/dc.20250604.1");
+    let results = DOI::find_all("[DOI](https://doi.org/10.1234/example) 10.1234/(balanced)");
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].to_string(), "10.1234/example");
+    assert_eq!(results[1].to_string(), "10.1234/(balanced)");
     let valid = "10.11578/dc.20250604.1";
     assert!(valid.is_pid(PID::DOI));
     assert!(valid.is_doi());

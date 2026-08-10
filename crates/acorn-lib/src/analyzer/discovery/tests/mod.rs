@@ -21,7 +21,7 @@ fn test_discovers_supported_identifiers_without_duplicates() {
 }
 #[test]
 fn test_gather_pdf_discovers_only_valid_identifiers() {
-    let document = SourceDocument::from_path("../../tests/fixtures/gather.pdf").unwrap();
+    let document = SourceDocument::from_path("../../tests/fixtures/gather/gather.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)
         .into_iter()
         .map(|identifier| (identifier.kind, identifier.value))
@@ -37,6 +37,58 @@ fn test_gather_pdf_discovers_only_valid_identifiers() {
             (PID::ISBN, "978-3-642-00590-9".to_string()),
         ]
     );
+}
+#[test]
+fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
+    let document = SourceDocument::from_path("../../tests/fixtures/gather/resume.pdf").unwrap();
+    let identifiers = Identifier::find_all(&document.content)
+        .into_iter()
+        .map(|identifier| (identifier.kind, identifier.value))
+        .collect::<Vec<_>>();
+    let expected = [
+        (PID::RAID, "10.99999/example"),
+        (PID::ARK, "ark:99166/w66d60p2"),
+        (PID::ARK, "https://n2t.net/ark:99166/w66d60p2"),
+        (PID::ARK, "ark:99166/W66D60P2"),
+        (PID::DOI, "10.1234/alpha.2026.001"),
+        (PID::DOI, "10.1234/beta(2026"),
+        (PID::DOI, "10.1234/beta(2026))7"),
+        (PID::DOI, "10.1234/CaseSensitive.XyZ;"),
+        (PID::DOI, "10.1234/CaseSensitive.XyZ"),
+        (PID::DOI, "10.1234/gamma.2025.003"),
+        (PID::DOI, "10.1234/gamma.2025.003))"),
+        (PID::DOI, "10.97812345/99990"),
+        (PID::DOI, "10.1234/software_v2.1;"),
+        (PID::DOI, "10.1234/software_v2.1"),
+        (PID::DOI, "10.1234/software_v2.1)"),
+        (PID::DOI, "10.1234/data-set_04"),
+        (PID::DOI, "10.99999/example)"),
+        (PID::DOI, "10.1234/beta(2026)7"),
+        (PID::DOI, "10.1234/wrapped.004"),
+        (PID::DOI, "10.1234/trailing-period.005"),
+        (PID::DOI, "10.5555/not-a-doi"),
+        (PID::DOI, "10.1234/annotation-target.006"),
+        (PID::DOI, "10.1234/list-a"),
+        (PID::DOI, "10.1234/list-b;"),
+        (PID::DOI, "10.1234/list-c"),
+        (PID::DOI, "10.1234/brackets"),
+        (PID::DOI, "10.1234/braces"),
+        (PID::DOI, "10.1234/parentheses)"),
+        (PID::DOI, "10.1234/line-break-"),
+        (PID::DOI, "10.1234/not-a-path-boundary"),
+        (PID::DOI, "10.1234/not-a-path-boundary)"),
+        (PID::ISBN, "978-12-3-4-5"),
+        (PID::ISBN, "978-0-306-40627-0"),
+        (PID::ISBN, "978-03064-062-7-0"),
+        (PID::ORCID, "https://orcid.org/0000-0000-0000-0001"),
+        (PID::ORCID, "https://orcid.org/0000-0000-0000-0002"),
+        (PID::Patent, "US 1234567 B2"),
+        (PID::ROR, "https://ror.org/01qz5mb56"),
+    ]
+    .into_iter()
+    .map(|(kind, value)| (kind, value.to_string()))
+    .collect::<Vec<_>>();
+    assert_eq!(identifiers, expected);
 }
 #[test]
 fn test_groups_only_proven_equivalent_candidates() {

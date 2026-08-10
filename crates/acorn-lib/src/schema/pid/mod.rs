@@ -1104,10 +1104,17 @@ impl PersistentIdentifierParse for ARK {
 impl PersistentIdentifierParse for DOI {
     /// Find all [`DOI`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
+        fn trim_unmatched_closing_parentheses(value: &str) -> &str {
+            let opening = value.chars().filter(|character| *character == '(').count();
+            let closing = value.chars().filter(|character| *character == ')').count();
+            let trailing = value.chars().rev().take_while(|character| *character == ')').count();
+            let trim = closing.saturating_sub(opening).min(trailing);
+            value.get(..value.len().saturating_sub(trim)).unwrap_or(value)
+        }
         let re = &RE_DOI;
         re.find_iter(&value.to_string())
             .filter_map(Result::ok)
-            .map(|m| DOI::from_string(m.as_str()))
+            .map(|m| DOI::from_string(trim_unmatched_closing_parentheses(m.as_str())))
             .collect()
     }
     /// Convenience method for easily parsing and formatting a [`DOI`] from a string value
