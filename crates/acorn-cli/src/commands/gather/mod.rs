@@ -88,6 +88,7 @@ fn expand(inputs: &[String], filters: &FilterSet, max_depth: Option<usize>) -> V
 }
 async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -> ApiResult<()> {
     let Options {
+        citation_format,
         database_path,
         format,
         no_local_database,
@@ -129,11 +130,22 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
     temporary_paths.iter().for_each(|path| {
         let _ = remove_file(path);
     });
-    let report = Report::new(&checks, discoveries, inputs).with_candidates(candidate_results);
+    let report = Report::new(&checks, discoveries, inputs)
+        .with_candidates(candidate_results)
+        .with_citation_format(citation_format);
     let format = format.unwrap_or_else(|| match output.is_none() && !is_stdout_piped() {
         | true => OutputFormat::Console,
         | false => OutputFormat::Json,
     });
+    let failures = checks.iter().filter(|check| check.is_failure()).collect::<Vec<_>>();
+    match format {
+        | OutputFormat::Raw => failures.iter().for_each(|check| eprintln!("{check}")),
+        | OutputFormat::Console => failures
+            .into_iter()
+            .enumerate()
+            .for_each(|(index, check)| check.clone().with_index(index).report()),
+        | _ => {}
+    }
     match output {
         | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
         | None if quiet => Ok(()),
@@ -174,6 +186,48 @@ mod tests {
     async fn test_load_accepts_location() {
         let document = SourceDocument::load(Location::from("10.1234/example"), true).await.unwrap();
         assert_eq!(document.format, "pid");
+    }
+    #[test]
+    fn test_cli_citation_format_takes_precedence_over_environment() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .env("ACORN_CITATION_FORMAT", "invalid")
+            .args([
+                "--offline",
+                "--no-local-database",
+                "gather",
+                "--raw",
+                "--resolve",
+                "--citation-format",
+                "apa",
+                "--text",
+                "doi:10.1234/example",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("Unsupported citation format 'invalid'"));
+    }
+    #[test]
+    fn test_invalid_citation_format_warns_and_uses_ieee() {
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .env("ACORN_CITATION_FORMAT", "invalid")
+            .args([
+                "--offline",
+                "--no-local-database",
+                "gather",
+                "--raw",
+                "--resolve",
+                "--text",
+                "doi:10.1234/example",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Unsupported citation format 'invalid'"));
+        assert!(stderr.contains("using ieee"));
     }
     #[test]
     fn test_max_depth_limits_directory_expansion() {
@@ -236,6 +290,19 @@ mod tests {
         assert_eq!(String::from_utf8_lossy(&output.stdout), "10.1234/example\nhttps://ror.org/01qz5mb56\n");
     }
     #[test]
+    fn test_raw_format_writes_load_failures_to_stderr() {
+        let path = acorn::prelude::temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
+        write_file(path.clone(), "not a PDF".to_string()).unwrap();
+        let output = Command::cargo_bin("acorn")
+            .unwrap()
+            .args(["--offline", "--no-local-database", "gather", "--raw", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        let _ = remove_file(path);
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Failed to convert document"));
+    }
+    #[test]
     fn test_quiet_suppresses_gather_stdout() {
         let output = Command::cargo_bin("acorn")
             .unwrap()
@@ -294,10 +361,10 @@ mod tests {
         assert!(String::from_utf8_lossy(&output.stderr).contains("--osti cannot be used with --offline"));
     }
     #[test]
-    fn test_osti_conflicts_with_file_analysis_options() {
+    fn test_osti_conflicts_with_schema_analysis_options() {
         let output = Command::cargo_bin("acorn")
             .unwrap()
-            .args(["--no-local-database", "gather", "--osti", "projects", "ACORN", "--resolve"])
+            .args(["--no-local-database", "gather", "--osti", "projects", "ACORN", "--standard", "rads"])
             .output()
             .unwrap();
         assert!(!output.status.success());

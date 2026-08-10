@@ -69,3 +69,10 @@ ACORN_LOG_LEVEL=info
 READABILITY_METRIC=ari
 MAX_ALLOWED_ARI=12
 ```
+
+`ACORN_CITATION_FORMAT` selects the DOI citation family used by `acorn gather --raw --resolve` when `--citation-format` is not provided. Accepted case-insensitive values are `apa`, `chicago`, `harvard`, `ieee`, `mla`, and `vancouver`; IEEE is the default. The precedence is CLI option, environment variable, then IEEE. An unsupported environment value emits a warning and falls back to IEEE.
+
+```powershell
+$env:ACORN_CITATION_FORMAT = "apa"
+acorn gather report.pdf --raw --resolve
+```

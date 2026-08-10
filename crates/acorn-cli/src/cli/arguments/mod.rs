@@ -1,7 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
 use super::DownloadCommands;
-use acorn::analyzer::discovery::OutputFormat as DiscoveryOutputFormat;
+use acorn::analyzer::discovery::{self, CitationFormat};
 use acorn::analyzer::{self, Standard};
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
@@ -215,7 +215,7 @@ pub enum GatherOutputFormat {
     #[display("yaml")]
     Yaml,
 }
-impl From<&GatherOutputFormat> for DiscoveryOutputFormat {
+impl From<&GatherOutputFormat> for discovery::OutputFormat {
     fn from(format: &GatherOutputFormat) -> Self {
         match format {
             | GatherOutputFormat::Console => Self::Console,
@@ -731,7 +731,7 @@ pub(crate) struct Gather {
     #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     /// Search DOE CODE and return projects, people, or organizations.
-    #[arg(long, value_enum, conflicts_with_all = ["filter", "ignore", "max_depth", "merge_request", "resolve", "standard"], help_heading = "OPTIONS")]
+    #[arg(long, value_enum, conflicts_with_all = ["filter", "ignore", "max_depth", "merge_request", "standard"], help_heading = "OPTIONS")]
     pub(crate) osti: Option<OstiSearchView>,
     /// Restrict remote results to a credited organization.
     #[arg(long, requires = "osti", value_name = "TERM", help_heading = "OPTIONS")]
@@ -760,6 +760,9 @@ pub(crate) struct Gather {
     /// Resolve supported identifiers through their metadata providers.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) resolve: bool,
+    /// Citation format used for resolved DOI lines.
+    #[arg(long, value_name = "FORMAT", requires_all = ["raw", "resolve"], help_heading = "OPTIONS")]
+    pub(crate) citation_format: Option<CitationFormat>,
     /// Metadata standard to validate against
     #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Option<Standard>,

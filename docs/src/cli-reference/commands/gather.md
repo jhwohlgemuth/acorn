@@ -33,13 +33,16 @@ Non-empty standard input is gathered automatically and can be combined with posi
 
 ## Output formats
 
-Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives the console table and piped or file output uses JSON. An explicit format is always honored. Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. Use `-q` or `--quiet` to suppress stdout output.
+Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives the console table and piped or file output uses JSON. An explicit format is always honored. Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. With `--raw --resolve`, DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress stdout output.
 
 ```sh
 acorn gather report.docx --format console
 acorn gather report.docx --format yaml --output discoveries.yaml
 acorn gather report.docx --raw | sort -u
+acorn gather report.docx --raw --resolve --citation-format apa
 ```
+
+Resolved raw output remains machine-readable: successful values use one line each, while detailed load or resolution failures are written to stderr and cause a nonzero exit. A DOI without the selected citation style and an ORCID without public given/family or credit-name data falls back to its normalized identifier.
 
 ## Research activity candidates
 
@@ -72,6 +75,7 @@ acorn --no-local-database gather --text "doi:10.1234/example" --format json
 
 # Resolve supported metadata and create or enrich candidates
 acorn gather report.docx --resolve --format yaml
+acorn gather report.docx --raw --resolve
 ```
 
 Candidates are internal evolving records. Database-backed candidate export and completeness scoring are not currently available.
@@ -94,6 +98,6 @@ DOE CODE searches return one page by default. `--limit` controls the upstream pa
 
 Project matches create or enrich candidates using the DOE CODE project ID and DOI when available. Gather retains the project title and description, repository and related websites, sponsoring organizations, and research, contributing, and developing partner organizations. When the repository overtly uses `github.com`, gather queries the GitHub API for programming languages. A repository on the configured GitLab domain receives equivalent enrichment when GitLab credentials are available. Language names are recorded in `meta.technology`.
 
-People searches enrich valid ORCID matches with the preferred name, public email, and institution data returned by the ORCID API. If an optional enrichment lookup fails, the original provider data is retained. People and organization searches are report-only. Global `--no-local-database` keeps all DOE CODE results report-only.
+With `--resolve`, people searches enrich valid ORCID matches with the preferred name, public email, and institution data returned by the ORCID API; project repository links are checked and enriched with provider-reported languages when available. Canonical and additional provider links are also checked for liveness during this optional online stage. A failed lookup retains the original provider data. People and organization searches are report-only. Global `--no-local-database` keeps all DOE CODE results report-only.
 
-OSTI mode treats positional inputs and `--text` values as direct queries rather than files or URLs. It requires network access and is incompatible with file filtering, merge-request gathering, identifier resolution, and schema analysis options.
+OSTI mode treats positional inputs and `--text` values as direct queries rather than files or URLs. It requires network access and is incompatible with file filtering, merge-request gathering, and schema analysis options. With `--resolve`, project DOIs and person ORCIDs use the same raw rendering and structured resolution metadata as local discoveries.

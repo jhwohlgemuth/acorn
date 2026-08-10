@@ -30,6 +30,7 @@ use crate::io::api::{self, Configuration, Param, Params, RemoteResource, ValueVa
 use crate::io::ApiResult;
 use crate::param;
 use crate::prelude::var;
+use crate::schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, ORCID};
 use crate::schema::validate::{is_orcid, is_ror};
 use crate::util::{Label, Searchable};
@@ -185,7 +186,7 @@ pub struct SearchResponse {
     #[serde(rename = "@num-found")]
     pub num_found: usize,
     /// XML namespace for expanded search
-    #[builder(default = "http://www.orcid.org/ns/expanded-search".to_string())]
+    #[builder(default = ORCID_EXPANDED_SEARCH_SCHEMA_URI.to_string())]
     #[serde(rename = "@xmlns:expanded-search")]
     pub namespace: String,
     /// List of expanded search results
@@ -232,6 +233,15 @@ pub struct SearchResult {
     /// Other names
     #[serde(rename = "other-name")]
     pub other_name: Option<Vec<String>>,
+}
+impl From<SearchResult> for SearchResponse {
+    fn from(profile: SearchResult) -> Self {
+        Self {
+            num_found: 1,
+            namespace: ORCID_EXPANDED_SEARCH_SCHEMA_URI.to_string(),
+            results: vec![profile],
+        }
+    }
 }
 /// Describes status of the ORCiD API
 /// ### Caution

@@ -64,19 +64,29 @@ pub trait Analysis {
         }
     }
     /// Perform analysis of prose
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_prose(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        Vec::new()
+    }
     /// Perform quality checks and verify data consistency
-    async fn check_quality(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_quality(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        Vec::new()
+    }
     /// Calculate readability using a given metric
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        Vec::new()
+    }
     /// Check whether values were resolved successfully
     fn check_resolution(&self) -> Vec<Check> {
         Vec::new()
     }
     /// Execute validation checks for a given item
-    async fn check_schema(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        Vec::new()
+    }
     /// Check if URLs links are valid and readable
-    async fn check_websites(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>;
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        Vec::new()
+    }
     /// Returns the output path used for Vale analysis artifacts.
     fn output_path(path: &Path, data: &Self) -> PathBuf;
     /// Returns the metadata standard represented by the implementing type.

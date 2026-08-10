@@ -7,10 +7,81 @@ use crate::prelude::remove_file;
 use crate::schema::discovery::{Person, ProjectOrganization};
 
 #[test]
+fn test_citation_format_parses_supported_values() {
+    assert_eq!(CitationFormat::from("APA"), CitationFormat::Apa);
+    assert_eq!(CitationFormat::from("unknown"), CitationFormat::Ieee);
+    assert_eq!("APA".parse(), Ok(CitationFormat::Apa));
+    assert_eq!("chicago".parse(), Ok(CitationFormat::Chicago));
+    assert_eq!("harvard".parse(), Ok(CitationFormat::Harvard));
+    assert_eq!("ieee".parse(), Ok(CitationFormat::Ieee));
+    assert_eq!("mla".parse(), Ok(CitationFormat::Mla));
+    assert_eq!("vancouver".parse(), Ok(CitationFormat::Vancouver));
+    assert!("unknown".parse::<CitationFormat>().is_err());
+}
+#[test]
+fn test_citation_format_selects_and_flattens_requested_style() {
+    let citations = api::citeas::Citations {
+        citations: vec![
+            api::citeas::Citation {
+                text: "APA citation".to_string(),
+                style_fullname: "American Psychological Association".to_string(),
+                style_shortname: "APA".to_string(),
+            },
+            api::citeas::Citation {
+                text: "IEEE\n citation\ttext".to_string(),
+                style_fullname: "Institute of Electrical and Electronics Engineers".to_string(),
+                style_shortname: "IEEE".to_string(),
+            },
+        ],
+        ..api::citeas::Citations::default()
+    };
+    assert_eq!(CitationFormat::Ieee.citation(&citations).as_deref(), Some("IEEE citation text"));
+    assert_eq!(CitationFormat::Apa.citation(&citations).as_deref(), Some("APA citation"));
+    assert!(CitationFormat::Mla.citation(&citations).is_none());
+}
+
+#[test]
 fn test_identifier_hash_is_stable_and_short() {
     let identifier = Identifier::new("doi:10.1234/abc").normalized().unwrap();
     assert_eq!(identifier.identifier_hash().len(), 12);
     assert_eq!(identifier.identifier_hash(), identifier.identifier_hash());
+}
+#[test]
+fn test_orcid_raw_resolution_prefers_names_then_credit_name() {
+    let response = |given_names: Option<&str>, family_names: Option<&str>, credit_name: Option<&str>| {
+        serde_json::to_value(orcid::SearchResponse::from(orcid::SearchResult {
+            orcid_id: Some("0000-0002-2057-9115".to_string()),
+            given_names: given_names.map(str::to_string),
+            family_names: family_names.map(str::to_string),
+            credit_name: credit_name.map(str::to_string),
+            emails: None,
+            institution_names: None,
+            other_name: None,
+        }))
+        .unwrap()
+    };
+    let identifier = "https://orcid.org/0000-0002-2057-9115";
+    assert_eq!(
+        resolved_pid_output(
+            identifier,
+            PID::ORCID,
+            &response(Some("Jason"), Some("Wohlgemuth"), Some("J. Wohlgemuth")),
+            CitationFormat::Ieee
+        )
+        .unwrap(),
+        "Jason Wohlgemuth (https://orcid.org/0000-0002-2057-9115)"
+    );
+    assert_eq!(
+        resolved_pid_output(
+            identifier,
+            PID::ORCID,
+            &response(None, Some("Wohlgemuth"), Some("Jason W.")),
+            CitationFormat::Ieee
+        )
+        .unwrap(),
+        "Jason W. (https://orcid.org/0000-0002-2057-9115)"
+    );
+    assert!(resolved_pid_output(identifier, PID::ORCID, &response(None, None, None), CitationFormat::Ieee).is_err());
 }
 #[test]
 fn test_discovers_supported_identifiers_without_duplicates() {
@@ -332,6 +403,7 @@ async fn test_analysis_materializes_source_content_without_discoveries() {
     assert_eq!(retained_sources.len(), 1);
     let (_, paths) = discoveries
         .analyze(Options {
+            citation_format: CitationFormat::default(),
             database_path: &database_path,
             filter: &filter,
             format: Some(OutputFormat::Json),
@@ -368,7 +440,7 @@ fn test_discovery_analysis_checks_failed_resolution() {
         }],
         Vec::new(),
     );
-    let checks = discoveries.check_resolution();
+    let checks = <Records as Analysis>::check_resolution(&discoveries);
     assert_eq!(checks.len(), 1);
     let check = checks.first().expect("failed resolution should produce one check");
     assert_eq!(check.category, CheckCategory::Link);
@@ -405,6 +477,7 @@ fn test_markdown_report_contains_checks_and_summary() {
             matches: 0,
             candidates: PersistenceCounts::default(),
         },
+        citation_format: CitationFormat::default(),
     };
     let markdown = report.serialize(OutputFormat::Markdown).unwrap_or_default();
     assert!(markdown.contains("## Summary"));
@@ -443,6 +516,7 @@ fn test_report_table_contains_checks_and_discoveries() {
             matches: 0,
             candidates: PersistenceCounts::default(),
         },
+        citation_format: CitationFormat::default(),
     };
     let (headers, rows) = report.table();
     assert_eq!(headers, vec!["Type", "Value", "Status", "Source"]);
@@ -450,6 +524,43 @@ fn test_report_table_contains_checks_and_discoveries() {
     let console = report.serialize(OutputFormat::Console).unwrap_or_default();
     assert!(console.contains("10.1234/example"));
     assert!(console.contains("schema: example"));
+}
+#[test]
+fn test_resolved_raw_report_renders_citations_and_orcid_names() {
+    let citations = api::citeas::Citations {
+        citations: vec![api::citeas::Citation {
+            text: "IEEE citation".to_string(),
+            style_fullname: "Institute of Electrical and Electronics Engineers".to_string(),
+            style_shortname: "IEEE".to_string(),
+        }],
+        ..api::citeas::Citations::default()
+    };
+    let profile = orcid::SearchResponse::from(orcid::SearchResult {
+        orcid_id: Some("0000-0002-2057-9115".to_string()),
+        given_names: Some("Jason".to_string()),
+        family_names: Some("Wohlgemuth".to_string()),
+        credit_name: None,
+        emails: None,
+        institution_names: None,
+        other_name: None,
+    });
+    let discovery = |identifier: &str, identifier_type: &str, metadata: String| Record::Discovery {
+        identifier: identifier.to_string(),
+        identifier_type: identifier_type.to_string(),
+        metadata: Some(metadata),
+        resolution_status: "resolved".to_string(),
+        source: "example.md".to_string(),
+        source_format: "markdown".to_string(),
+    };
+    let records = Records(
+        vec![
+            discovery("10.1234/example", "doi", serde_json::to_string(&citations).unwrap()),
+            discovery("https://orcid.org/0000-0002-2057-9115", "orcid", serde_json::to_string(&profile).unwrap()),
+        ],
+        Vec::new(),
+    );
+    let output = Report::new(&[], records, 1).serialize(OutputFormat::Raw).unwrap();
+    assert_eq!(output, "IEEE citation\nJason Wohlgemuth (https://orcid.org/0000-0002-2057-9115)");
 }
 #[test]
 fn test_remote_responses_merge_duplicate_provider_identifiers() {
@@ -464,6 +575,7 @@ fn test_remote_responses_merge_duplicate_provider_identifiers() {
             .title("Example")
             .metadata(serde_json::Value::Null)
             .build()],
+        resolution_checks: Vec::new(),
     };
     let merged = vec![response("1"), response("1"), response("2")]
         .into_iter()
@@ -516,6 +628,7 @@ fn test_remote_persistence_keeps_non_projects_report_only() {
                 .metadata(serde_json::json!({}))
                 .build(),
         ],
+        resolution_checks: Vec::new(),
     };
     let database = Database::<Table>::from_path(database_path);
     let results = response.clone().persist(&database, None).unwrap();
@@ -539,6 +652,26 @@ fn test_remote_persistence_keeps_non_projects_report_only() {
     assert_eq!(provenance[0]["provider_identifier"], "123");
     assert_eq!(provenance[0]["entity"], "project");
     assert_eq!(provenance[0]["metadata"]["code_id"], 123);
+}
+#[test]
+fn test_remote_match_analysis_checks_failed_resolution() {
+    let value = RemoteMatch::init()
+        .entity(RemoteEntity::Project)
+        .identifier("123")
+        .title("Project")
+        .pid("10.1234/example")
+        .metadata(serde_json::Value::Null)
+        .resolution(
+            RemoteResolution::init()
+                .provider("citeas")
+                .status(ResolutionStatus::Failed)
+                .error("resolution error")
+                .build(),
+        )
+        .build();
+    let checks = <RemoteMatch as Analysis>::check_resolution(&value);
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].message, "resolution error");
 }
 #[test]
 fn test_remote_search_request_builder_and_capabilities() {
@@ -613,6 +746,8 @@ fn test_osti_project_maps_candidate_metadata() {
     assert_eq!(candidate.sponsors, ["US Department of Energy"]);
     assert_eq!(candidate.partners, ["Research Laboratory"]);
     assert_eq!(candidate.websites.len(), 3);
+    assert!(candidate.resolution.is_none());
+    assert!(candidate.technology.is_empty());
 }
 #[test]
 fn test_orcid_profile_enriches_person_match() {

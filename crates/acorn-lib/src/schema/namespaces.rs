@@ -5,6 +5,8 @@ use lazy_static::lazy_static;
 use sophia::api::ns::Namespace;
 /// Default schema URI for ORCiD values
 pub const DEFAULT_ORCID_SCHEMA_URI: &str = "https://orcid.org";
+/// ORCiD expanded-search XML namespace URI
+pub const ORCID_EXPANDED_SEARCH_SCHEMA_URI: &str = "http://www.orcid.org/ns/expanded-search";
 /// Default schema URI for RAiD values
 pub const DEFAULT_RAID_SCHEMA_URI: &str = "https://raid.org";
 /// Default schema URI for ROR values

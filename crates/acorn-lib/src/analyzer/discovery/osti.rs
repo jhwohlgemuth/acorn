@@ -1,9 +1,14 @@
 //! OSTI-backed remote discovery search support.
-use super::{candidate_repositories, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteSearchRequest, RemoteSearchResponse};
+use super::{
+    candidate_repositories, candidate_urls, link_check, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteResolution, RemoteSearchRequest,
+    RemoteSearchResponse,
+};
+use crate::io::api::citeas;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{gitlab, orcid, osti, Configuration};
 use crate::io::ApiResult;
 use crate::schema::discovery::{Person, ProjectOrganization};
+use crate::schema::pid::{PersistentIdentifierParse, DOI, PID};
 use color_eyre::eyre::Report as EyreReport;
 use futures::future::join_all;
 use itertools::Itertools;
@@ -94,31 +99,59 @@ impl RemoteSearchResponse {
             offset: response.offset,
             has_more: response.has_more,
             matches,
+            resolution_checks: Vec::new(),
         })
     }
-    pub(super) async fn enrich_people(self) -> Self {
-        let matches = join_all(self.matches.into_iter().map(RemoteMatch::enrich_person)).await;
-        Self { matches, ..self }
-    }
-    pub(super) async fn enrich_repositories(self) -> Self {
-        let matches = join_all(self.matches.into_iter().map(RemoteMatch::enrich_repository)).await;
-        Self { matches, ..self }
+    pub(super) async fn resolve(self) -> Self {
+        let matches = join_all(self.matches.into_iter().map(RemoteMatch::resolve)).await;
+        let links = matches
+            .iter()
+            .flat_map(|value| candidate_urls(value.url.as_deref(), &value.websites))
+            .collect::<Vec<_>>();
+        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string())))).await;
+        Self {
+            matches,
+            resolution_checks,
+            ..self
+        }
     }
 }
 impl RemoteMatch {
-    async fn enrich_person(self) -> Self {
+    async fn resolve(self) -> Self {
+        self.resolve_person().await.resolve_project().await.resolve_repository().await
+    }
+    async fn resolve_person(self) -> Self {
         match (self.entity, self.pid.as_deref()) {
             | (RemoteEntity::Person, Some(identifier)) => {
                 let options = orcid::Options::from_env().with_identifier(identifier);
                 match orcid::record(&options).await {
-                    | Ok(profile) => self.with_orcid(profile),
-                    | Err(_) => self,
+                    | Ok(profile) => {
+                        let resolution = Some(RemoteResolution::from_result("orcid", Ok(orcid::SearchResponse::from(profile.clone()))));
+                        let enriched = self.with_orcid(profile);
+                        Self { resolution, ..enriched }
+                    }
+                    | Err(why) => Self {
+                        resolution: Some(RemoteResolution::from_error("orcid", why)),
+                        ..self
+                    },
                 }
             }
             | _ => self,
         }
     }
-    async fn enrich_repository(self) -> Self {
+    async fn resolve_project(self) -> Self {
+        match self.normalized_pid() {
+            | Some(identifier) if identifier.kind == PID::DOI => {
+                let result = citeas::Citations::from(DOI::from_string(identifier.value)).await;
+                Self {
+                    resolution: Some(RemoteResolution::from_result("citeas", result)),
+                    ..self
+                }
+            }
+            | _ => self,
+        }
+    }
+    async fn resolve_repository(self) -> Self {
         match self.entity {
             | RemoteEntity::Project => {
                 let options = gitlab::Options::from_env();

@@ -1,5 +1,7 @@
 /// Environment variable name for cache TTL override.
 pub const CACHE_TTL: &str = "ACORN_CACHE_TTL";
+/// Environment variable used to select the citation format for resolved raw gather output.
+pub const CITATION_FORMAT: &str = "ACORN_CITATION_FORMAT";
 /// Environment variable used to select a Chrome or Chromium executable for PDF export.
 pub const CHROME_PATH: &str = "CHROME_PATH";
 /// Environment variable used to select a database backend at runtime.

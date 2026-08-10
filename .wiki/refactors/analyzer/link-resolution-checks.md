@@ -18,8 +18,9 @@ Represent website reachability and persistent-identifier resolution as one link-
 - `crates/acorn-lib/src/analyzer/check.rs` dispatches `CheckCategory::Link` to the path-oriented `Analysis::check_websites` method, while the optional instance method `Analysis::check_resolution` is not reachable through `Analysis::check`.
 - `crates/acorn-lib/src/analyzer/service.rs` places website results in `AnalysisReport`, but skips the complete link category when either `offline` or `disable_website_checks` is set.
 - `crates/acorn-cli/src/commands/gather/mod.rs` invokes `DiscoveryRecords::check_resolution` directly and chains those checks beside `analyze_paths` output. Resolution checks therefore bypass `AnalysisReport` even though they use the same check category.
-- `DiscoveryRecords` implements the path-oriented `Analysis` trait with no-op prose, quality, readability, schema, and website methods solely to provide resolution checks. Its `Text` standard and identity output path do not describe identifier discovery.
+- `Analysis` now supplies empty defaults for every `check_*` method. Resolution-focused implementations override only `check_resolution`, although their `Text` standard and identity output path still do not describe identifier discovery.
 - Gather disables website checks before calling `analyze_paths`. A direct merger of the existing skip conditions would incorrectly suppress checks derived from resolution outcomes that are already available and require no network access.
+- Resolved raw gather output consumes stored DOI and ORCID outcomes for citation and person-name rendering, including remote OSTI matches. Remote search first maps provider and local data, then `--resolve` gates person, project, repository, and link-liveness requests. DOI citation style precedence is `--citation-format`, `ACORN_CITATION_FORMAT`, then IEEE. The unified link contract must preserve configuration and stderr diagnostics rather than treating resolution as reachability alone.
 
 # Recommendation
 
@@ -29,7 +30,7 @@ Model the minimum shared evidence needed to create a `Check`: target or identifi
 
 Replace `Analysis::check_websites` and `Analysis::check_resolution` with one clearly named link-check entry point. Prefer a focused composable trait or input type over retaining a general `Analysis` implementation whose other methods are no-ops. Keep standard-specific parsing at the boundary and move common request gating, outcome conversion, and check construction into the shared evaluator.
 
-Route the unified results through `CategoryChecks` and `AnalysisReport`. Gather should consume the report output instead of manually chaining resolution checks. Preserve its report serialization, failure calculation, TUI behavior, and database persistence.
+Route the unified results through `CategoryChecks` and `AnalysisReport`. Gather should consume the report output instead of manually chaining resolution checks. Preserve its structured report serialization, failure calculation, TUI behavior, database persistence, configured DOI citations, ORCID display names, normalized fallbacks, and detailed raw-mode stderr failures.
 
 Separate policy flags during migration:
 
@@ -54,6 +55,7 @@ Retain the current CLI flag as a compatibility boundary unless a separately docu
 - Test that offline analysis performs no website or PID network request while still reporting a supplied failed resolution outcome.
 - Test website-disable behavior independently from offline behavior.
 - Test gather with resolution disabled, successful resolution, failed resolution, unsupported identifiers, file input, literal text, and offline input.
+- Test resolved raw DOI styles, CLI/environment/default style precedence, ORCID names, OSTI outcomes, normalized fallbacks, stderr diagnostics, and the absence of optional online enrichment without `--resolve` through the unified contract.
 - Verify CLI and TUI gather output retain the same discovery, failure, and source fields.
 - Verify discovered records and resolution metadata continue to persist through the existing database integration.
 - Run `cargo fmt --all`, clippy for all affected targets with warnings denied, focused analyzer and gather tests, and `make test`.
@@ -65,8 +67,9 @@ Retain the current CLI flag as a compatibility boundary unless a separately docu
 - Gather does not manually append resolution checks outside the analysis report.
 - Offline mode prevents network access without hiding checks derived from existing resolution outcomes.
 - Website-disable behavior does not suppress resolution-outcome checks.
+- Remote providers obtain and locally enrich data before optional resolution and link-liveness checks.
 - `DiscoveryRecords` no longer implements unrelated analysis methods as no-ops.
-- CLI output, TUI output, failure status, and database persistence remain behaviorally compatible.
+- CLI output, citation-format precedence, TUI output, failure status, and database persistence remain behaviorally compatible.
 - No obsolete direct dependency remains after the trait migration.
 
 # Related concepts

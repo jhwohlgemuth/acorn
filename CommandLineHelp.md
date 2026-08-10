@@ -690,6 +690,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 
 * `--raw` — Print discovered identifiers as plain text, one per line
 * `--resolve` — Resolve supported identifiers through their metadata providers
+* `--citation-format <FORMAT>` — Citation format used for resolved DOI lines
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 * `--text <TEXT>` — Literal text to inspect; may be repeated
 * `-v`, `--verbose` — Increase logging verbosity

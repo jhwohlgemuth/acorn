@@ -578,10 +578,6 @@ impl Analysis for huwise::Dataset {
             })
             .collect()
     }
-    #[cfg(feature = "std")]
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
-    }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
@@ -606,13 +602,6 @@ impl Analysis for Docx {
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
-    }
-    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
-    }
-    #[cfg(feature = "std")]
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -725,13 +714,6 @@ impl Analysis for Text {
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
-    }
-    #[cfg(feature = "std")]
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
-    }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
@@ -742,9 +724,6 @@ impl Analysis for raid::Metadata {
     fn standard() -> Standard {
         Standard::Raid
     }
-    async fn check_prose(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
-    }
     async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
@@ -753,9 +732,6 @@ impl Analysis for raid::Metadata {
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
             .collect()
-    }
-    async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
     }
     async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
@@ -775,10 +751,6 @@ impl Analysis for raid::Metadata {
                     .collect(),
             })
             .collect()
-    }
-    #[cfg(feature = "std")]
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        vec![]
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())

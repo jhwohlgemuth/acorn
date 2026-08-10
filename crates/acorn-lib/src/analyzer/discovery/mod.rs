@@ -1,6 +1,6 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
 use super::readability::ReadabilityType;
-use super::{analyze_paths, Analysis, Check, CheckCategory, CheckOptions, Standard};
+use super::{analyze_paths, link_check, Analysis, Check, CheckCategory, CheckOptions, Standard};
 use crate::check_err;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
@@ -18,12 +18,12 @@ use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
-use core::{fmt, iter::once};
+use core::{fmt, iter::once, str::FromStr};
 use futures::future::join_all;
 use itertools::Itertools;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
+use strum::{IntoEnumIterator, VariantNames};
 
 pub mod osti;
 
@@ -92,7 +92,7 @@ pub enum Record {
     },
 }
 /// Structured gather output format
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum OutputFormat {
     /// Human-readable console table
     Console,
@@ -105,6 +105,70 @@ pub enum OutputFormat {
     Raw,
     /// YAML
     Yaml,
+}
+/// Citation format used for resolved DOI output.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::Display, strum::EnumIter, VariantNames)]
+#[serde(rename_all = "lowercase")]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+pub enum CitationFormat {
+    /// American Psychological Association.
+    Apa,
+    /// Chicago Manual of Style.
+    Chicago,
+    /// Harvard author-date style.
+    Harvard,
+    /// Institute of Electrical and Electronics Engineers.
+    #[default]
+    Ieee,
+    /// Modern Language Association.
+    Mla,
+    /// Vancouver numeric style.
+    Vancouver,
+}
+impl CitationFormat {
+    fn matches(self, citation: &api::citeas::Citation) -> bool {
+        let values = [&citation.style_shortname, &citation.style_fullname].map(|value| {
+            value
+                .chars()
+                .filter(|character| character.is_ascii_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        });
+        values.into_iter().any(|value| match self {
+            | Self::Apa => value == "apa" || value.starts_with("americanpsychologicalassociation"),
+            | Self::Chicago => value.starts_with("chicago") || value.contains("chicagomanualofstyle"),
+            | Self::Harvard => value.contains("harvard"),
+            | Self::Ieee => value == "ieee" || value.contains("instituteofelectricalandelectronicsengineers"),
+            | Self::Mla => value == "mla" || value.contains("modernlanguageassociation"),
+            | Self::Vancouver => value.contains("vancouver"),
+        })
+    }
+    fn citation(self, citations: &api::citeas::Citations) -> Option<String> {
+        citations
+            .citations
+            .iter()
+            .find(|citation| self.matches(citation))
+            .map(|citation| citation.text.split_whitespace().join(" "))
+            .filter(|citation| !citation.is_empty())
+    }
+    /// Return every accepted configuration value.
+    pub const fn values() -> &'static [&'static str] {
+        Self::VARIANTS
+    }
+}
+impl From<&str> for CitationFormat {
+    fn from(value: &str) -> Self {
+        value.trim().parse().unwrap_or_default()
+    }
+}
+impl FromStr for CitationFormat {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::iter()
+            .zip(Self::VARIANTS)
+            .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
+            .ok_or_else(|| value.to_string())
+    }
 }
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -194,6 +258,9 @@ pub struct RemoteMatch {
     #[builder(default = Vec::new())]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub technology: Vec<String>,
+    /// Optional metadata-provider outcome requested for raw resolution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<RemoteResolution>,
 }
 /// Provider-neutral remote search response.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -208,6 +275,8 @@ pub struct RemoteSearchResponse {
     pub has_more: bool,
     /// Normalized matches.
     pub matches: Vec<RemoteMatch>,
+    #[serde(skip)]
+    resolution_checks: Vec<Check>,
 }
 /// Candidate artifact record before standard-specific mapping
 #[derive(Builder, Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -250,9 +319,36 @@ pub struct ArtifactCandidate {
     #[serde(default)]
     pub contact: Option<Candidate>,
 }
+/// Resolver outcome attached to a remote gather match.
+#[derive(Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+pub struct RemoteResolution {
+    /// Metadata provider name.
+    pub provider: String,
+    /// Resolution status.
+    pub status: ResolutionStatus,
+    /// Full provider metadata when resolution succeeded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+    /// Provider diagnostic when resolution failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+/// Outcome state for remote identifier resolution.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum ResolutionStatus {
+    /// Identifier resolution failed.
+    Failed,
+    /// Identifier resolution succeeded.
+    Resolved,
+}
 /// Gather command options shared with discovery analysis
 #[derive(Clone, Copy, Debug)]
 pub struct Options<'a> {
+    /// Citation format used for resolved raw DOI output
+    pub citation_format: CitationFormat,
     /// Optional database path
     pub database_path: &'a Option<PathBuf>,
     /// Optional input inclusion pattern
@@ -289,15 +385,21 @@ pub struct Options<'a> {
 #[serde(transparent)]
 pub struct Records(Vec<Record>, #[serde(skip)] Vec<SourceDocument>);
 /// Structured gather report
-#[derive(Clone, Debug, Serialize)]
+#[derive(Builder, Clone, Debug, Serialize)]
+#[builder(builder_type(vis = "pub(crate)"), start_fn(name = init, vis = "pub(crate)"))]
 pub struct Report {
     checks: Vec<Record>,
     discoveries: Records,
+    #[builder(default)]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     remote: Vec<RemoteSearchResponse>,
+    #[builder(default)]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     candidates: Vec<CandidatePersistence>,
     summary: Summary,
+    #[builder(default)]
+    #[serde(skip)]
+    citation_format: CitationFormat,
 }
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
@@ -305,13 +407,16 @@ struct Resolution {
     metadata: Option<String>,
     status: String,
 }
-#[derive(Clone, Debug, Serialize)]
-struct Summary {
+#[derive(Builder, Clone, Debug, Serialize)]
+#[builder(builder_type(vis = "pub(self)"), start_fn(name = init, vis = "pub(self)"))]
+pub(crate) struct Summary {
     discoveries: usize,
     failures: usize,
     inputs: usize,
+    #[builder(default)]
     #[serde(default, skip_serializing_if = "is_zero")]
     matches: usize,
+    #[builder(default)]
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
 }
@@ -324,7 +429,31 @@ struct PersistenceCounts {
     conflicts: usize,
 }
 impl DeserializeMetadata for api::citeas::Citations {}
+impl DeserializeMetadata for api::orcid::SearchResponse {}
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
+fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value, citation_format: CitationFormat) -> Result<String, String> {
+    match kind {
+        | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
+            .ok()
+            .and_then(|citations| citation_format.citation(&citations))
+            .ok_or_else(|| format!("{citation_format} citation not found for DOI {identifier}")),
+        | PID::ORCID => serde_json::from_value::<api::orcid::SearchResponse>(metadata.clone())
+            .ok()
+            .and_then(|response| {
+                response.results.into_iter().find_map(|profile| {
+                    let name = match (profile.given_names, profile.family_names) {
+                        | (Some(given), Some(family)) if !given.trim().is_empty() && !family.trim().is_empty() => {
+                            Some(format!("{} {}", given.trim(), family.trim()))
+                        }
+                        | _ => profile.credit_name.map(|name| name.trim().to_string()).filter(|name| !name.is_empty()),
+                    };
+                    name.map(|name| format!("{name} ({identifier})"))
+                })
+            })
+            .ok_or_else(|| format!("Public name not found for ORCID {identifier}")),
+        | _ => Ok(identifier.to_string()),
+    }
+}
 impl ArtifactCandidate {
     /// Return sorted exact project identities suitable for persistence
     pub fn identity_keys(&self) -> Vec<String> {
@@ -624,15 +753,6 @@ impl Analysis for Records {
     fn standard() -> Standard {
         Standard::Text
     }
-    async fn check_prose(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
-    }
-    async fn check_quality(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
-    }
-    async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
-    }
     fn check_resolution(&self) -> Vec<Check> {
         self.0
             .iter()
@@ -650,12 +770,6 @@ impl Analysis for Records {
                 | _ => None,
             })
             .collect()
-    }
-    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
-    }
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         path.to_path_buf()
@@ -865,7 +979,9 @@ impl Record {
                         api::citeas::search(&api::citeas::Options::from_env().with_params(vec![param!(TemplateValue, "doi", &identifier)])).await,
                     ),
                     | PID::ORCID => Resolution::from(
-                        api::orcid::search(&api::orcid::Options::from_env().with_params(vec![param!(FieldList, "q", &identifier)])).await,
+                        api::orcid::record(&api::orcid::Options::from_env().with_identifier(identifier.clone()))
+                            .await
+                            .map(api::orcid::SearchResponse::from),
                     ),
                     | PID::RAID => Resolution::from(api::raid::record(&api::raid::Options::from_env().with_identifier(identifier.clone())).await),
                     | PID::ROR => Resolution::from(api::ror::record(&api::ror::Options::from_env().with_identifier(identifier.clone())).await),
@@ -915,6 +1031,21 @@ impl Record {
             } => format!("- **{severity}** {category}: {message}"),
         }
     }
+    fn resolved_raw_value(&self, citation_format: CitationFormat) -> Result<String, String> {
+        match self {
+            | Self::Discovery {
+                identifier,
+                identifier_type,
+                metadata: Some(metadata),
+                resolution_status,
+                ..
+            } if resolution_status == "resolved" => serde_json::from_str(metadata)
+                .map_err(|_| format!("Invalid resolver metadata for {identifier}"))
+                .and_then(|metadata| resolved_pid_output(identifier, PID::from(identifier_type.as_str()), &metadata, citation_format)),
+            | Self::Discovery { identifier, .. } => Ok(identifier.clone()),
+            | Self::Check { .. } => Ok(String::new()),
+        }
+    }
 }
 impl From<Identifier> for Record {
     fn from(identifier: Identifier) -> Self {
@@ -945,6 +1076,83 @@ impl fmt::Display for RemoteProvider {
         formatter.write_str(match self {
             | Self::Osti => "osti",
         })
+    }
+}
+impl RemoteResolution {
+    fn from_result<T: Serialize>(provider: &str, result: ApiResult<T>) -> Self {
+        match result {
+            | Ok(metadata) => match serde_json::to_value(metadata) {
+                | Ok(metadata) => Self::init()
+                    .provider(provider)
+                    .status(ResolutionStatus::Resolved)
+                    .metadata(metadata)
+                    .build(),
+                | Err(why) => Self::init()
+                    .provider(provider)
+                    .status(ResolutionStatus::Failed)
+                    .error(why.to_string())
+                    .build(),
+            },
+            | Err(why) => Self::init()
+                .provider(provider)
+                .status(ResolutionStatus::Failed)
+                .error(why.to_string())
+                .build(),
+        }
+    }
+    fn from_error(provider: &str, error: impl fmt::Display) -> Self {
+        Self::init()
+            .provider(provider)
+            .status(ResolutionStatus::Failed)
+            .error(error.to_string())
+            .build()
+    }
+}
+impl RemoteMatch {
+    fn normalized_pid(&self) -> Option<Identifier> {
+        self.pid.as_deref().and_then(|identifier| Identifier::new(identifier).normalized())
+    }
+    fn normalized_identifier(&self) -> String {
+        self.normalized_pid().map_or_else(
+            || self.pid.clone().unwrap_or_else(|| self.identifier.clone()),
+            |identifier| identifier.value,
+        )
+    }
+    fn resolved_raw_value(&self, citation_format: CitationFormat) -> String {
+        let identifier = self.normalized_identifier();
+        let kind = self.normalized_pid().map_or(PID::Unknown, |identifier| identifier.kind);
+        self.resolution
+            .as_ref()
+            .filter(|resolution| resolution.status == ResolutionStatus::Resolved)
+            .and_then(|resolution| resolution.metadata.as_ref())
+            .and_then(|metadata| resolved_pid_output(&identifier, kind, metadata, citation_format).ok())
+            .unwrap_or(identifier)
+    }
+}
+#[async_trait]
+impl Analysis for RemoteMatch {
+    fn standard() -> Standard {
+        Standard::Text
+    }
+    fn check_resolution(&self) -> Vec<Check> {
+        match &self.resolution {
+            | Some(RemoteResolution {
+                status: ResolutionStatus::Failed,
+                error,
+                ..
+            }) => {
+                let identifier = self.normalized_identifier();
+                vec![check_err!(
+                    CheckCategory::Link,
+                    message: error.clone().unwrap_or_else(|| format!("Identifier resolution failed: {identifier}")),
+                    uri: identifier,
+                )]
+            }
+            | _ => Vec::new(),
+        }
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        path.to_path_buf()
     }
 }
 impl RemoteProvider {
@@ -979,6 +1187,7 @@ impl RemoteSearchResponse {
             offset: self.offset,
             has_more: self.has_more || other.has_more,
             matches,
+            resolution_checks: self.resolution_checks.into_iter().chain(other.resolution_checks).collect(),
         }
     }
     /// Persist project matches as canonical research activity candidates, optionally associated with an organization ROR.
@@ -1056,44 +1265,79 @@ impl RemoteSearchRequest {
     /// Run the remote search and emit its gather report
     pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
         let Options {
+            citation_format,
             database_path,
             format,
             no_local_database,
             offline,
             output,
             quiet,
+            resolve,
             ..
         } = options;
         match (offline, self.is_empty()) {
             | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
             | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
-            | (false, false) => self.search().await.and_then(|responses| {
-                let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
-                let candidates = match no_local_database {
-                    | true => Ok(Vec::new()),
-                    | false => {
-                        let database = Database::<Table>::from_path(database_path.clone());
-                        responses
-                            .clone()
+            | (false, false) => {
+                let responses = match (resolve, self.search().await) {
+                    | (true, Ok(responses)) => Ok(join_all(responses.into_iter().map(RemoteSearchResponse::resolve)).await),
+                    | (_, responses) => responses,
+                };
+                responses.and_then(|responses| {
+                    let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
+                    let checks = match resolve {
+                        | true => responses
+                            .iter()
+                            .flat_map(|response| {
+                                response
+                                    .resolution_checks
+                                    .iter()
+                                    .cloned()
+                                    .chain(response.matches.iter().flat_map(<RemoteMatch as Analysis>::check_resolution))
+                            })
+                            .collect::<Vec<_>>(),
+                        | false => Vec::new(),
+                    };
+                    let candidates = match no_local_database {
+                        | true => Ok(Vec::new()),
+                        | false => {
+                            let database = Database::<Table>::from_path(database_path.clone());
+                            responses
+                                .clone()
+                                .into_iter()
+                                .map(|response| response.persist(&database, self.organization_ror.as_deref()))
+                                .collect::<ApiResult<Vec<_>>>()
+                                .map(|results| results.into_iter().flatten().collect())
+                        }
+                    }?;
+                    let report = Report::new(&checks, Records::default(), inputs)
+                        .with_remote(responses)
+                        .with_candidates(candidates)
+                        .with_citation_format(citation_format);
+                    let format = format.unwrap_or_else(|| match output.is_none() && io::stdout().is_terminal() {
+                        | true => OutputFormat::Console,
+                        | false => OutputFormat::Json,
+                    });
+                    let failures = checks.iter().filter(|check| check.is_failure()).collect::<Vec<_>>();
+                    match format {
+                        | OutputFormat::Raw => failures.iter().for_each(|check| eprintln!("{check}")),
+                        | OutputFormat::Console => failures
                             .into_iter()
-                            .map(|response| response.persist(&database, self.organization_ror.as_deref()))
-                            .collect::<ApiResult<Vec<_>>>()
-                            .map(|results| results.into_iter().flatten().collect())
+                            .enumerate()
+                            .for_each(|(index, check)| check.clone().with_index(index).report()),
+                        | _ => {}
                     }
-                }?;
-                let report = Report::new(&[], Records::default(), inputs)
-                    .with_remote(responses)
-                    .with_candidates(candidates);
-                let format = format.unwrap_or_else(|| match output.is_none() && io::stdout().is_terminal() {
-                    | true => OutputFormat::Console,
-                    | false => OutputFormat::Json,
-                });
-                match output {
-                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-                    | None if quiet => Ok(()),
-                    | None => report.serialize(format).map(|serialized| println!("{serialized}")),
-                }
-            }),
+                    match output {
+                        | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+                        | None if quiet => Ok(()),
+                        | None => report.serialize(format).map(|serialized| println!("{serialized}")),
+                    }
+                    .and_then(|_| match checks.iter().any(Check::is_failure) {
+                        | true => Err(color_eyre::eyre::eyre!("ACORN gather found one or more failures")),
+                        | false => Ok(()),
+                    })
+                })
+            }
         }
     }
     /// Search the configured remote provider
@@ -1111,7 +1355,10 @@ impl RemoteSearchRequest {
         });
         let responses = join_all(futures).await.into_iter().collect::<ApiResult<Vec<_>>>();
         match responses.map(|responses| responses.into_iter().reduce(RemoteSearchResponse::merge)) {
-            | Ok(Some(response)) => Ok(vec![response.enrich_people().await.enrich_repositories().await]),
+            | Ok(Some(response)) => {
+                let responses = vec![response];
+                Ok(responses)
+            }
             | Ok(None) => Ok(Vec::new()),
             | Err(why) => Err(why),
         }
@@ -1134,19 +1381,20 @@ where
 impl Report {
     /// Build a report from checks, discoveries, and the number of loaded inputs.
     pub fn new(checks: &[Check], discoveries: Records, inputs: usize) -> Self {
-        Self {
-            checks: checks.iter().map(Record::from).collect(),
-            summary: Summary {
-                discoveries: discoveries.len(),
-                failures: checks.iter().filter(|check| check.is_failure()).count(),
-                inputs,
-                matches: 0,
-                candidates: PersistenceCounts::default(),
-            },
-            discoveries,
-            remote: Vec::new(),
-            candidates: Vec::new(),
-        }
+        let summary = Summary::init()
+            .discoveries(discoveries.len())
+            .failures(checks.iter().filter(|check| check.is_failure()).count())
+            .inputs(inputs)
+            .build();
+        Self::init()
+            .checks(checks.iter().map(Record::from).collect())
+            .discoveries(discoveries)
+            .summary(summary)
+            .build()
+    }
+    /// Select the citation format used by resolved raw output.
+    pub fn with_citation_format(self, citation_format: CitationFormat) -> Self {
+        Self { citation_format, ..self }
     }
     /// Attach remote search results to this report.
     pub fn with_remote(self, remote: Vec<RemoteSearchResponse>) -> Self {
@@ -1155,6 +1403,7 @@ impl Report {
             discoveries,
             summary,
             candidates,
+            citation_format,
             ..
         } = self;
         let matches = remote.iter().map(|response| response.matches.len()).sum();
@@ -1164,6 +1413,7 @@ impl Report {
             remote,
             candidates,
             summary: Summary { matches, ..summary },
+            citation_format,
         }
     }
     /// Attach canonical candidate persistence results to this report.
@@ -1230,16 +1480,20 @@ impl Report {
                     .0
                     .iter()
                     .filter_map(|record| match record {
-                        | Record::Discovery { identifier, .. } => Some(identifier.as_str()),
+                        | Record::Discovery { identifier, .. } => Some((
+                            identifier.clone(),
+                            record.resolved_raw_value(self.citation_format).unwrap_or_else(|_| identifier.clone()),
+                        )),
                         | Record::Check { .. } => None,
                     })
                     .chain(self.remote.iter().flat_map(|response| {
                         response
                             .matches
                             .iter()
-                            .map(|value| value.pid.as_deref().unwrap_or(value.identifier.as_str()))
+                            .map(|value| (value.normalized_identifier(), value.resolved_raw_value(self.citation_format)))
                     }))
-                    .unique()
+                    .unique_by(|(identifier, _)| identifier.clone())
+                    .map(|(_, value)| value)
                     .join("\n");
                 Ok(output)
             }
