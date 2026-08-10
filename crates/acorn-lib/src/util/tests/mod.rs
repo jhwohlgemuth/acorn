@@ -416,6 +416,17 @@ fn test_regex_capture_lookup() {
     assert_eq!(lookup["day"], "30");
 }
 #[test]
+fn test_regex_capture_lookup_with_invalid_pattern_returns_empty_lookup() {
+    let lookup = regex_capture_lookup("(", "2023-06-30", vec!["year"]);
+    assert!(lookup.is_empty());
+}
+#[test]
+fn test_trim_unmatched_closing_parentheses() {
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182)"), "10.1000/182");
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/(182)"), "10.1000/(182)");
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182"), "10.1000/182");
+}
+#[test]
 fn test_regex_inverse() {
     assert_eq!(regex_inverse("\\.json$"), "^(?!.*(?:\\.json$)).*$".to_string());
     let joined = regex_join(&["\\.json$".to_string(), "^README".to_string()]).unwrap();

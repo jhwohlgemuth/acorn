@@ -13,7 +13,7 @@ use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI
 use crate::util::constants::{
     HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
-use crate::util::{base32_crockford_decode, regex_capture_lookup, ToStringChunks};
+use crate::util::{base32_crockford_decode, regex_capture_lookup, trim_unmatched_trailing_parentheses, ToStringChunks};
 use bon::Builder;
 use core::fmt;
 #[cfg(feature = "std")]
@@ -133,12 +133,14 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://raid.org/10.83962/fb5be317".is_raid());
+    /// ```````
     fn is_raid(&self) -> bool;
     /// Determines if `self` is a ROR
     /// ```ignore
     /// use acorn::schema::pid::{PID, PersistentIdentifier};
     ///
     /// assert!("https://ror.org/01qz5mb56".is_ror());
+    /// ```
     fn is_ror(&self) -> bool;
 }
 /// Trait for working with persistent identifiers (PID) as and within string values
@@ -405,6 +407,7 @@ impl Identifier {
             .value
             .trim()
             .trim_matches(|character: char| matches!(character, '<' | '>' | '(' | ')' | '[' | ']' | ',' | ';'));
+        let trimmed = trim_unmatched_trailing_parentheses(trimmed);
         match self.kind {
             | PID::DOI => Self::parsed::<DOI>(PID::DOI, trimmed),
             | PID::ISBN => Self::parsed::<ISBN>(PID::ISBN, trimmed),
@@ -922,7 +925,7 @@ impl PersistentIdentifier for ROR {
         self.identifier.clone()
     }
     fn check_digit(&self) -> Option<Vec<char>> {
-        ror_check_digit(&self.identifier()[1..])
+        self.identifier().get(1..).and_then(|value| ror_check_digit(value))
     }
 }
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
@@ -1104,17 +1107,10 @@ impl PersistentIdentifierParse for ARK {
 impl PersistentIdentifierParse for DOI {
     /// Find all [`DOI`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
-        fn trim_unmatched_closing_parentheses(value: &str) -> &str {
-            let opening = value.chars().filter(|character| *character == '(').count();
-            let closing = value.chars().filter(|character| *character == ')').count();
-            let trailing = value.chars().rev().take_while(|character| *character == ')').count();
-            let trim = closing.saturating_sub(opening).min(trailing);
-            value.get(..value.len().saturating_sub(trim)).unwrap_or(value)
-        }
         let re = &RE_DOI;
         re.find_iter(&value.to_string())
             .filter_map(Result::ok)
-            .map(|m| DOI::from_string(trim_unmatched_closing_parentheses(m.as_str())))
+            .map(|m| DOI::from_string(trim_unmatched_trailing_parentheses(m.as_str())))
             .collect()
     }
     /// Convenience method for easily parsing and formatting a [`DOI`] from a string value
@@ -1308,7 +1304,7 @@ impl PersistentIdentifierParse for RAID {
         let re = &RE_DOI;
         re.find_iter(&value.to_string())
             .filter_map(Result::ok)
-            .map(|m| RAID::from_string(m.as_str()))
+            .map(|m| RAID::from_string(trim_unmatched_trailing_parentheses(m.as_str())))
             .collect()
     }
     /// Convenience method for easily parsing and formatting a [`RAID`] from a string value

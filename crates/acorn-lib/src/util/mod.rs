@@ -1084,25 +1084,24 @@ pub fn regex_capture_lookup<S>(pattern: S, text: S, groups: Vec<S>) -> HashMap<S
 where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
-    #[allow(clippy::unwrap_used)]
-    let re = Regex::new(pattern.as_ref()).unwrap();
-    let mut lookup = HashMap::new();
-    if let Some(capture_matches) = re.captures_iter(text.as_ref()).last() {
-        match capture_matches {
-            | Ok(captures) => {
-                captures.iter().skip(1).enumerate().for_each(|(index, data)| {
-                    if let Some(results) = data {
-                        if let Some(key) = groups.get(index) {
-                            let value = results.as_str().to_string();
-                            lookup.insert(key.clone(), value);
-                        }
-                    }
-                });
-            }
-            | Err(_) => (),
-        }
-    };
-    lookup
+    match Regex::new(pattern.as_ref()) {
+        | Ok(re) => re
+            .captures_iter(text.as_ref())
+            .last()
+            .and_then(Result::ok)
+            .map(|captures| {
+                captures
+                    .iter()
+                    .skip(1)
+                    .enumerate()
+                    .filter_map(|(index, data)| {
+                        data.and_then(|results| groups.get(index).cloned().map(|key| (key, results.as_str().to_string())))
+                    })
+                    .collect::<HashMap<S, String>>()
+            })
+            .unwrap_or_default(),
+        | Err(_) => HashMap::new(),
+    }
 }
 /// Combine a list of regex patterns into a single alternation regex string.
 pub fn regex_join(patterns: &[String]) -> Option<String> {
@@ -1222,6 +1221,14 @@ pub fn to_rfc3339(value: Timestamp) -> String {
 /// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
+}
+/// Trim unmatched trailing `)` while preserving balanced parentheses in the string
+pub fn trim_unmatched_trailing_parentheses(value: &str) -> &str {
+    let opening = value.chars().filter(|character| *character == '(').count();
+    let closing = value.chars().filter(|character| *character == ')').count();
+    let trailing = value.chars().rev().take_while(|character| *character == ')').count();
+    let trim = closing.saturating_sub(opening).min(trailing);
+    value.get(..value.len().saturating_sub(trim)).unwrap_or(value)
 }
 
 #[cfg(test)]
