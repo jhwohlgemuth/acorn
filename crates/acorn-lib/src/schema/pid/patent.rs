@@ -9,6 +9,8 @@ use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+const PATENT_COUNTRY_CODES: [&str; 6] = ["US", "CN", "DE", "EP", "JP", "KR"];
+
 /// Country code for identifying country authority
 #[derive(Clone, Debug, Default, Display, Deserialize, Serialize, JsonSchema)]
 pub enum CountryCode {
@@ -299,7 +301,16 @@ impl Patent {
                 where
                     S: Into<String>,
                 {
-                    value.into().replace(" ", "").replace(",", "").replace("-", "").to_uppercase()
+                    let compact = value.into().replace(" ", "").replace(",", "").replace("-", "").to_uppercase();
+                    let with_kind_code = match compact.chars().last() {
+                        | Some(kind @ ('E' | 'H' | 'S')) => format!("{}{kind}1", compact.trim_end_matches(kind)),
+                        | _ => compact,
+                    };
+                    let is_known_country = PATENT_COUNTRY_CODES.into_iter().any(|country| with_kind_code.starts_with(country));
+                    match is_known_country {
+                        | true => with_kind_code,
+                        | false => format!("US{with_kind_code}"),
+                    }
                 }
                 let pattern = format!("^{RE_PATENT_TEXT}$");
                 let s: String = preprocess(value);

@@ -409,6 +409,8 @@ fn test_patent_find_all() {
     let results = Patent::find_all(text);
     assert_eq!(results.len(), 3);
     assert_eq!(results[1].to_string(), expected);
+    assert!(Patent::find_all("US 2 Stanford US 21 Experiments").is_empty());
+    assert!(Patent::parse("US 12345 S").is_some());
 }
 #[test]
 fn test_raid() {
@@ -483,4 +485,12 @@ fn test_ror_struct() {
     assert_eq!(<ROR as PersistentIdentifierParse>::format("invalid ROR value"), "");
     let value = "03ebg0v16-";
     assert!(!ROR::is_valid(value));
+    assert!(ROR::find_all("023064908 0|524|255 x01qz5mb56").is_empty());
+    assert_eq!(
+        ROR::find_all("ROR: https://ror.org/01qz5mb56.")
+            .into_iter()
+            .map(|ror| ror.to_string())
+            .collect::<Vec<_>>(),
+        ["https://ror.org/01qz5mb56"]
+    );
 }

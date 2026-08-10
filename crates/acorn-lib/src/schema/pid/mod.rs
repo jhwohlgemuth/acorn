@@ -1353,6 +1353,7 @@ impl PersistentIdentifierParse for ROR {
         let re = &RE_ROR;
         re.find_iter(&value.to_string())
             .filter_map(Result::ok)
+            .filter(|value| ROR::is_valid(value.as_str()))
             .map(|m| ROR::from_string(m.as_str()))
             .collect()
     }

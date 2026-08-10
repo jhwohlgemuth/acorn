@@ -7,20 +7,39 @@ use crate::prelude::remove_file;
 use crate::schema::discovery::{Person, ProjectOrganization};
 
 #[test]
-fn identifier_hash_is_stable_and_short() {
+fn test_identifier_hash_is_stable_and_short() {
     let identifier = Identifier::new("doi:10.1234/abc").normalized().unwrap();
     assert_eq!(identifier.identifier_hash().len(), 12);
     assert_eq!(identifier.identifier_hash(), identifier.identifier_hash());
 }
 #[test]
-fn discovers_supported_identifiers_without_duplicates() {
+fn test_discovers_supported_identifiers_without_duplicates() {
     let identifiers = discover_identifiers("Results: doi:10.1234/example and https://doi.org/10.1234/example plus https://example.org/artifact");
     assert_eq!(identifiers.len(), 2);
     assert_eq!(identifiers[0].kind, PID::DOI);
     assert_eq!(identifiers[1].kind, PID::URL);
 }
 #[test]
-fn groups_only_proven_equivalent_candidates() {
+fn test_gather_pdf_discovers_only_valid_identifiers() {
+    let document = SourceDocument::from_path("../../tests/fixtures/gather.pdf").unwrap();
+    let identifiers = Identifier::find_all(&document.content)
+        .into_iter()
+        .map(|identifier| (identifier.kind, identifier.value))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        identifiers,
+        vec![
+            (PID::DOI, "10.1145/73560.73576".to_string()),
+            (PID::DOI, "10.1023/A:1023064908962".to_string()),
+            (PID::DOI, "10.1145/3371119".to_string()),
+            (PID::DOI, "10.1007/s10462-022-10228-y".to_string()),
+            (PID::ISBN, "978-0-521-66350-2".to_string()),
+            (PID::ISBN, "978-3-642-00590-9".to_string()),
+        ]
+    );
+}
+#[test]
+fn test_groups_only_proven_equivalent_candidates() {
     let doi = Identifier::new("doi:10.1234/abc").normalized().unwrap();
     let url = Identifier::new("https://example.org/artifact").normalized().unwrap();
     let candidates = vec![

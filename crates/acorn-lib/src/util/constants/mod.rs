@@ -86,13 +86,12 @@ pub const RE_ISBN_TEXT: &str =
 pub const RE_ORCID_TEXT: &str =
     r#"(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))"#;
 /// Pattern text for USPTO patent identifiers
-pub const RE_PATENT_TEXT: &str =
-    r#"(?<country_code>US|CN|DE|EP|JP|KR)?\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{1,11})\s*(?<kind_code>[A-Z]\d?)"#;
+pub const RE_PATENT_TEXT: &str = r#"(?<![A-Za-z0-9])(?<country_code>US|CN|DE|EP|JP|KR)\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{5,11})\s*(?<kind_code>[A-Z]\d)(?![A-Za-z0-9])"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
 pub const RE_RAID_TEXT: &str =
     r#"(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
-pub const RE_ROR_TEXT: &str = r#"(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z|0-9]{6}[0-9]{2})"#;
+pub const RE_ROR_TEXT: &str = r#"(?<![a-z0-9])(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z0-9]{6}[0-9]{2})(?![a-z0-9])"#;
 
 lazy_static! {
     /// Regex that matches HTTP and HTTPS URLs.
