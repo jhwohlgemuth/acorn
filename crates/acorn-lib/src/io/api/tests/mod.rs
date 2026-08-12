@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
     self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle,
@@ -52,12 +53,12 @@ async fn test_citeas() {
     let params = vec![param!(TemplateValue, "doi", doi)];
     let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
     let options = citeas::Options::from_env().with_params(params);
-    if let Some(citeas::Citation { text, .. }) = citeas::search(&options).await.unwrap().match_style("apa") {
+    if let Some(citeas::Citation { text, .. }) = citeas::search(&options).await.unwrap().match_style(CitationFormat::Apa) {
         println!("CiteAs Test Response Received");
         assert_eq!(text, expected);
     };
     let doi = DOI::from_string("10.11578/dc.20250604.1");
-    if let Some(citeas::Citation { text, .. }) = doi.to_citations().await.unwrap().match_style("apa") {
+    if let Some(citeas::Citation { text, .. }) = doi.to_citations().await.unwrap().match_style(CitationFormat::Apa) {
         println!("CiteAs Test Response Received");
         assert_eq!(text, expected);
     };

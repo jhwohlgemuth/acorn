@@ -1094,9 +1094,7 @@ where
                     .iter()
                     .skip(1)
                     .enumerate()
-                    .filter_map(|(index, data)| {
-                        data.and_then(|results| groups.get(index).cloned().map(|key| (key, results.as_str().to_string())))
-                    })
+                    .filter_map(|(index, data)| data.and_then(|results| groups.get(index).cloned().map(|key| (key, results.as_str().to_string()))))
                     .collect::<HashMap<S, String>>()
             })
             .unwrap_or_default(),

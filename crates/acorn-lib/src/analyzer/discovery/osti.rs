@@ -26,96 +26,6 @@ impl From<RemoteSearchRequest> for osti::Options {
         }
     }
 }
-impl RemoteSearchResponse {
-    pub(super) fn from_osti(response: osti::SearchResponse) -> ApiResult<Self> {
-        let matches = match response.results {
-            | SearchResults::Projects(values) => values
-                .into_iter()
-                .map(|value| {
-                    let websites = project_websites(&value);
-                    let sponsors = organization_names(&value.sponsoring_organizations);
-                    let partners = organization_names(
-                        &value
-                            .research_organizations
-                            .iter()
-                            .chain(&value.contributing_organizations)
-                            .chain(&value.developing_organizations)
-                            .cloned()
-                            .collect::<Vec<_>>(),
-                    );
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
-                        RemoteMatch::init()
-                            .entity(RemoteEntity::Project)
-                            .identifier(value.code_id.to_string())
-                            .title(value.software_title)
-                            .maybe_pid(value.doi)
-                            .maybe_url(
-                                value
-                                    .repository_link
-                                    .clone()
-                                    .or(value.landing_page.clone())
-                                    .or_else(|| value.links.iter().find(|link| link.rel == "citation").map(|link| link.href.clone())),
-                            )
-                            .metadata(metadata)
-                            .maybe_description(value.description)
-                            .websites(websites)
-                            .sponsors(sponsors)
-                            .partners(partners)
-                            .build()
-                    })
-                })
-                .collect::<ApiResult<Vec<_>>>(),
-            | SearchResults::People(values) => values
-                .into_iter()
-                .map(|value| {
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
-                        RemoteMatch::init()
-                            .entity(RemoteEntity::Person)
-                            .identifier(value.orcid.clone().or(value.email.clone()).unwrap_or_else(|| value.name.clone()))
-                            .title(value.name)
-                            .maybe_pid(value.orcid)
-                            .metadata(metadata)
-                            .build()
-                    })
-                })
-                .collect::<ApiResult<Vec<_>>>(),
-            | SearchResults::Organizations(values) => values
-                .into_iter()
-                .map(|value| {
-                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
-                        RemoteMatch::init()
-                            .entity(RemoteEntity::Organization)
-                            .identifier(value.aliases.first().cloned().unwrap_or_else(|| value.name.clone()))
-                            .title(value.name)
-                            .metadata(metadata)
-                            .build()
-                    })
-                })
-                .collect::<ApiResult<Vec<_>>>(),
-        };
-        matches.map(|matches| Self {
-            provider: RemoteProvider::Osti,
-            total: response.project_total,
-            offset: response.offset,
-            has_more: response.has_more,
-            matches,
-            resolution_checks: Vec::new(),
-        })
-    }
-    pub(super) async fn resolve(self) -> Self {
-        let matches = join_all(self.matches.into_iter().map(RemoteMatch::resolve)).await;
-        let links = matches
-            .iter()
-            .flat_map(|value| candidate_urls(value.url.as_deref(), &value.websites))
-            .collect::<Vec<_>>();
-        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string())))).await;
-        Self {
-            matches,
-            resolution_checks,
-            ..self
-        }
-    }
-}
 impl RemoteMatch {
     async fn resolve(self) -> Self {
         self.resolve_person().await.resolve_project().await.resolve_repository().await
@@ -205,6 +115,96 @@ impl RemoteMatch {
                 }
             }
             | Err(_) => self,
+        }
+    }
+}
+impl RemoteSearchResponse {
+    pub(super) fn from_osti(response: osti::SearchResponse) -> ApiResult<Self> {
+        let matches = match response.results {
+            | SearchResults::Projects(values) => values
+                .into_iter()
+                .map(|value| {
+                    let websites = project_websites(&value);
+                    let sponsors = organization_names(&value.sponsoring_organizations);
+                    let partners = organization_names(
+                        &value
+                            .research_organizations
+                            .iter()
+                            .chain(&value.contributing_organizations)
+                            .chain(&value.developing_organizations)
+                            .cloned()
+                            .collect::<Vec<_>>(),
+                    );
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Project)
+                            .identifier(value.code_id.to_string())
+                            .title(value.software_title)
+                            .maybe_pid(value.doi)
+                            .maybe_url(
+                                value
+                                    .repository_link
+                                    .clone()
+                                    .or(value.landing_page.clone())
+                                    .or_else(|| value.links.iter().find(|link| link.rel == "citation").map(|link| link.href.clone())),
+                            )
+                            .metadata(metadata)
+                            .maybe_description(value.description)
+                            .websites(websites)
+                            .sponsors(sponsors)
+                            .partners(partners)
+                            .build()
+                    })
+                })
+                .collect::<ApiResult<Vec<_>>>(),
+            | SearchResults::People(values) => values
+                .into_iter()
+                .map(|value| {
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Person)
+                            .identifier(value.orcid.clone().or(value.email.clone()).unwrap_or_else(|| value.name.clone()))
+                            .title(value.name)
+                            .maybe_pid(value.orcid)
+                            .metadata(metadata)
+                            .build()
+                    })
+                })
+                .collect::<ApiResult<Vec<_>>>(),
+            | SearchResults::Organizations(values) => values
+                .into_iter()
+                .map(|value| {
+                    serde_json::to_value(&value).map_err(EyreReport::from).map(|metadata| {
+                        RemoteMatch::init()
+                            .entity(RemoteEntity::Organization)
+                            .identifier(value.aliases.first().cloned().unwrap_or_else(|| value.name.clone()))
+                            .title(value.name)
+                            .metadata(metadata)
+                            .build()
+                    })
+                })
+                .collect::<ApiResult<Vec<_>>>(),
+        };
+        matches.map(|matches| Self {
+            provider: RemoteProvider::Osti,
+            total: response.project_total,
+            offset: response.offset,
+            has_more: response.has_more,
+            matches,
+            resolution_checks: Vec::new(),
+        })
+    }
+    pub(super) async fn resolve(self) -> Self {
+        let matches = join_all(self.matches.into_iter().map(RemoteMatch::resolve)).await;
+        let links = matches
+            .iter()
+            .flat_map(|value| candidate_urls(value.url.as_deref(), &value.websites))
+            .collect::<Vec<_>>();
+        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string())))).await;
+        Self {
+            matches,
+            resolution_checks,
+            ..self
         }
     }
 }

@@ -3,7 +3,6 @@ use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands,
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::discovery;
 use acorn::fail;
-use acorn::util::constants::env::CITATION_FORMAT;
 use acorn::util::Label;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
@@ -352,25 +351,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     .all(*all)
                     .build()
             });
-            let citation_format = match (*raw && *resolve, citation_format) {
-                | (true, Some(format)) => *format,
-                | (true, None) => dotenvy::var(CITATION_FORMAT)
-                    .ok()
-                    .filter(|value| !value.trim().is_empty())
-                    .map(|value| match value.parse::<discovery::CitationFormat>() {
-                        | Ok(format) => format,
-                        | Err(_) => {
-                            eprintln!(
-                                "{} Unsupported citation format '{value}'; expected {}; using ieee",
-                                Label::using(),
-                                discovery::CitationFormat::values().join(", ")
-                            );
-                            discovery::CitationFormat::default()
-                        }
-                    })
-                    .unwrap_or_default(),
-                | (false, _) => discovery::CitationFormat::default(),
-            };
+            let citation_format = discovery::CitationFormat::resolve(*raw, *resolve, *citation_format);
             gather::run(discovery::Options {
                 citation_format,
                 database_path: &config.database_path,

@@ -2,6 +2,7 @@
 //! > CiteAs is a way to get the correct citation for diverse research products including, software, datasets, preprints, and traditional articles. By making it easier to cite software and other "alternative" scholarly products, we aim to help the creators of such products get full credit for their work.
 //!
 //! See <https://citeas.org/api> for more information
+use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::prelude::var;
@@ -286,27 +287,16 @@ impl Citations {
         let options = Options::from_env().with_params(vec![param!(TemplateValue, "doi", &doi)]);
         search(&options).await
     }
-    /// Get citation data with given citation style (ex. "APA")
+    /// Get citation data with the requested citation style.
     ///
-    /// If citation with desired style is not found, will return first citation
-    pub fn match_style(self, value: &str) -> Option<Citation> {
+    /// If the requested style is not found, the first available citation is returned.
+    pub fn match_style(self, value: CitationFormat) -> Option<Citation> {
         let citations = self.citations;
+        let normalized_value = value.to_string();
         let result = citations
             .iter()
-            .find(|&citation| citation.style_shortname.to_lowercase() == value.to_lowercase());
-        match result {
-            | Some(citation) => Some(citation.clone()),
-            | None => {
-                if citations.is_empty() {
-                    None
-                } else {
-                    match citations.first() {
-                        | Some(citation) => Some(citation.clone()),
-                        | None => None,
-                    }
-                }
-            }
-        }
+            .find(|citation| citation.style_shortname.eq_ignore_ascii_case(&normalized_value));
+        result.cloned().or_else(|| citations.first().cloned())
     }
 }
 #[async_trait]

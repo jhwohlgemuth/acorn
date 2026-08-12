@@ -925,7 +925,7 @@ impl PersistentIdentifier for ROR {
         self.identifier.clone()
     }
     fn check_digit(&self) -> Option<Vec<char>> {
-        self.identifier().get(1..).and_then(|value| ror_check_digit(value))
+        self.identifier().get(1..).and_then(ror_check_digit)
     }
 }
 impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T

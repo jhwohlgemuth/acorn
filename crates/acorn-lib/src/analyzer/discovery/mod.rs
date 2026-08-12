@@ -12,7 +12,7 @@ use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR};
 use crate::schema::{ControlledVocabulary, Keyword};
-use crate::util::{merge_unique, values_as_table, StringConversion};
+use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::Repository;
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
@@ -22,8 +22,10 @@ use core::{fmt, iter::once, str::FromStr};
 use futures::future::join_all;
 use itertools::Itertools;
 use jiff::Timestamp;
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use strum::{IntoEnumIterator, VariantNames};
+use tracing::warn;
 
 pub mod osti;
 
@@ -107,68 +109,23 @@ pub enum OutputFormat {
     Yaml,
 }
 /// Citation format used for resolved DOI output.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::Display, strum::EnumIter, VariantNames)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::EnumIter, VariantNames)]
 #[serde(rename_all = "lowercase")]
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum CitationFormat {
+    /// Institute of Electrical and Electronics Engineers.
+    #[default]
+    Ieee,
     /// American Psychological Association.
     Apa,
     /// Chicago Manual of Style.
     Chicago,
     /// Harvard author-date style.
     Harvard,
-    /// Institute of Electrical and Electronics Engineers.
-    #[default]
-    Ieee,
     /// Modern Language Association.
     Mla,
     /// Vancouver numeric style.
     Vancouver,
-}
-impl CitationFormat {
-    fn matches(self, citation: &api::citeas::Citation) -> bool {
-        let values = [&citation.style_shortname, &citation.style_fullname].map(|value| {
-            value
-                .chars()
-                .filter(|character| character.is_ascii_alphanumeric())
-                .flat_map(char::to_lowercase)
-                .collect::<String>()
-        });
-        values.into_iter().any(|value| match self {
-            | Self::Apa => value == "apa" || value.starts_with("americanpsychologicalassociation"),
-            | Self::Chicago => value.starts_with("chicago") || value.contains("chicagomanualofstyle"),
-            | Self::Harvard => value.contains("harvard"),
-            | Self::Ieee => value == "ieee" || value.contains("instituteofelectricalandelectronicsengineers"),
-            | Self::Mla => value == "mla" || value.contains("modernlanguageassociation"),
-            | Self::Vancouver => value.contains("vancouver"),
-        })
-    }
-    fn citation(self, citations: &api::citeas::Citations) -> Option<String> {
-        citations
-            .citations
-            .iter()
-            .find(|citation| self.matches(citation))
-            .map(|citation| citation.text.split_whitespace().join(" "))
-            .filter(|citation| !citation.is_empty())
-    }
-    /// Return every accepted configuration value.
-    pub const fn values() -> &'static [&'static str] {
-        Self::VARIANTS
-    }
-}
-impl From<&str> for CitationFormat {
-    fn from(value: &str) -> Self {
-        value.trim().parse().unwrap_or_default()
-    }
-}
-impl FromStr for CitationFormat {
-    type Err = String;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::iter()
-            .zip(Self::VARIANTS)
-            .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
-            .ok_or_else(|| value.to_string())
-    }
 }
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -176,6 +133,16 @@ impl FromStr for CitationFormat {
 pub enum RemoteProvider {
     /// DOE CODE from the Office of Scientific and Technical Information.
     Osti,
+}
+/// Outcome state for remote identifier resolution.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum ResolutionStatus {
+    /// Identifier resolution failed.
+    Failed,
+    /// Identifier resolution succeeded.
+    Resolved,
 }
 /// Features exposed by a remote gather provider.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -334,16 +301,6 @@ pub struct RemoteResolution {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
-/// Outcome state for remote identifier resolution.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-pub enum ResolutionStatus {
-    /// Identifier resolution failed.
-    Failed,
-    /// Identifier resolution succeeded.
-    Resolved,
-}
 /// Gather command options shared with discovery analysis
 #[derive(Clone, Copy, Debug)]
 pub struct Options<'a> {
@@ -431,29 +388,6 @@ struct PersistenceCounts {
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::orcid::SearchResponse {}
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
-fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value, citation_format: CitationFormat) -> Result<String, String> {
-    match kind {
-        | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
-            .ok()
-            .and_then(|citations| citation_format.citation(&citations))
-            .ok_or_else(|| format!("{citation_format} citation not found for DOI {identifier}")),
-        | PID::ORCID => serde_json::from_value::<api::orcid::SearchResponse>(metadata.clone())
-            .ok()
-            .and_then(|response| {
-                response.results.into_iter().find_map(|profile| {
-                    let name = match (profile.given_names, profile.family_names) {
-                        | (Some(given), Some(family)) if !given.trim().is_empty() && !family.trim().is_empty() => {
-                            Some(format!("{} {}", given.trim(), family.trim()))
-                        }
-                        | _ => profile.credit_name.map(|name| name.trim().to_string()).filter(|name| !name.is_empty()),
-                    };
-                    name.map(|name| format!("{name} ({identifier})"))
-                })
-            })
-            .ok_or_else(|| format!("Public name not found for ORCID {identifier}")),
-        | _ => Ok(identifier.to_string()),
-    }
-}
 impl ArtifactCandidate {
     /// Return sorted exact project identities suitable for persistence
     pub fn identity_keys(&self) -> Vec<String> {
@@ -707,6 +641,89 @@ impl Candidate {
     }
     fn is_populated_contact(&self) -> bool {
         matches!(self, Self::Contact { identifier, email } if identifier.is_some() || email.is_some())
+    }
+}
+impl fmt::Display for CitationFormat {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Ieee => "ieee",
+            | Self::Apa => "apa",
+            | Self::Chicago => "chicago",
+            | Self::Harvard => "harvard",
+            | Self::Mla => "mla",
+            | Self::Vancouver => "vancouver",
+        };
+        formatter.write_str(value)
+    }
+}
+impl From<&str> for CitationFormat {
+    fn from(value: &str) -> Self {
+        value.trim().parse().unwrap_or_default()
+    }
+}
+impl FromStr for CitationFormat {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::iter()
+            .zip(Self::VARIANTS)
+            .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
+            .ok_or_else(|| value.to_string())
+    }
+}
+impl CitationFormat {
+    fn matches(self, citation: &api::citeas::Citation) -> bool {
+        let values = [&citation.style_shortname, &citation.style_fullname].map(|value| {
+            value
+                .chars()
+                .filter(|character| character.is_ascii_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        });
+        values.into_iter().any(|value| match self {
+            | Self::Apa => value == "apa" || value.starts_with("americanpsychologicalassociation"),
+            | Self::Chicago => value.starts_with("chicago") || value.contains("chicagomanualofstyle"),
+            | Self::Harvard => value.contains("harvard"),
+            | Self::Ieee => value == "ieee" || value.contains("instituteofelectricalandelectronicsengineers"),
+            | Self::Mla => value == "mla" || value.contains("modernlanguageassociation"),
+            | Self::Vancouver => value.contains("vancouver"),
+        })
+    }
+    fn citation(self, citations: &api::citeas::Citations) -> Option<String> {
+        citations
+            .citations
+            .iter()
+            .find(|citation| self.matches(citation))
+            .map(|citation| citation.text.split_whitespace().join(" "))
+            .filter(|citation| !citation.is_empty())
+    }
+    /// Resolve the active citation style, applying CLI precedence before the environment override.
+    pub fn resolve(raw: bool, resolve: bool, explicit: Option<Self>) -> Self {
+        match (raw && resolve, explicit) {
+            | (true, Some(format)) => format,
+            | (true, None) => dotenvy::var(crate::util::constants::env::CITATION_FORMAT)
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| match value.parse::<Self>() {
+                    | Ok(format) => format,
+                    | Err(_) => {
+                        let fallback = Self::default();
+                        let reason = format!("('{value}' is unsupported format)");
+                        warn!(
+                            "=> {} {} {}",
+                            Label::using(),
+                            fallback.to_string().to_uppercase().yellow(),
+                            reason.dimmed()
+                        );
+                        fallback
+                    }
+                })
+                .unwrap_or_default(),
+            | (false, _) => Self::default(),
+        }
+    }
+    /// Return every accepted configuration value.
+    pub const fn values() -> &'static [&'static str] {
+        Self::VARIANTS
     }
 }
 impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
@@ -1656,6 +1673,29 @@ fn normalized_authors(values: &[String]) -> Vec<String> {
     let mut values = values.iter().map(|value| value.as_str().normalized()).collect::<Vec<_>>();
     values.sort();
     values
+}
+fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value, citation_format: CitationFormat) -> Result<String, String> {
+    match kind {
+        | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
+            .ok()
+            .and_then(|citations| citation_format.citation(&citations))
+            .ok_or_else(|| format!("{citation_format} citation not found for DOI {identifier}")),
+        | PID::ORCID => serde_json::from_value::<api::orcid::SearchResponse>(metadata.clone())
+            .ok()
+            .and_then(|response| {
+                response.results.into_iter().find_map(|profile| {
+                    let name = match (profile.given_names, profile.family_names) {
+                        | (Some(given), Some(family)) if !given.trim().is_empty() && !family.trim().is_empty() => {
+                            Some(format!("{} {}", given.trim(), family.trim()))
+                        }
+                        | _ => profile.credit_name.map(|name| name.trim().to_string()).filter(|name| !name.is_empty()),
+                    };
+                    name.map(|name| format!("{name} ({identifier})"))
+                })
+            })
+            .ok_or_else(|| format!("Public name not found for ORCID {identifier}")),
+        | _ => Ok(identifier.to_string()),
+    }
 }
 fn same_artifact(left: &ArtifactCandidate, right: &ArtifactCandidate) -> bool {
     let canonical_match = left

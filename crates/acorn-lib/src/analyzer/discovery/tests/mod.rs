@@ -10,6 +10,8 @@ use crate::schema::discovery::{Person, ProjectOrganization};
 fn test_citation_format_parses_supported_values() {
     assert_eq!(CitationFormat::from("APA"), CitationFormat::Apa);
     assert_eq!(CitationFormat::from("unknown"), CitationFormat::Ieee);
+    assert_eq!(CitationFormat::Ieee.to_string(), "ieee");
+    assert_eq!(CitationFormat::Apa.to_string(), "apa");
     assert_eq!("APA".parse(), Ok(CitationFormat::Apa));
     assert_eq!("chicago".parse(), Ok(CitationFormat::Chicago));
     assert_eq!("harvard".parse(), Ok(CitationFormat::Harvard));
@@ -39,7 +41,13 @@ fn test_citation_format_selects_and_flattens_requested_style() {
     assert_eq!(CitationFormat::Apa.citation(&citations).as_deref(), Some("APA citation"));
     assert!(CitationFormat::Mla.citation(&citations).is_none());
 }
-
+#[test]
+fn test_citation_format_resolves_cli_precedence() {
+    assert_eq!(CitationFormat::resolve(true, true, Some(CitationFormat::Apa)), CitationFormat::Apa);
+    assert_eq!(CitationFormat::resolve(true, false, None), CitationFormat::Ieee);
+    assert_eq!(CitationFormat::resolve(false, true, None), CitationFormat::Ieee);
+    assert_eq!(CitationFormat::resolve(false, false, Some(CitationFormat::Chicago)), CitationFormat::Ieee);
+}
 #[test]
 fn test_identifier_hash_is_stable_and_short() {
     let identifier = Identifier::new("doi:10.1234/abc").normalized().unwrap();

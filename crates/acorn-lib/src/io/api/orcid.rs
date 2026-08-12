@@ -41,78 +41,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::debug;
 
-/// ORCiD API options
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    pub token: String,
-    /// Request body payload
-    pub body: Option<String>,
-    /// ORCiD API domain (defaults to pub.orcid.org)
-    #[builder(default = String::from("pub.orcid.org"))]
-    pub domain: String,
-    /// ORCiD identifier
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
-}
-impl Configuration for Options {
-    /// Build options from ORCiD environment variables
-    /// - `ORCID_API_TOKEN` -> `token` (optional — public API)
-    /// - `ORCID_SERVER_HOST` -> `domain` (defaults to pub.orcid.org)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: var("ORCID_API_TOKEN").unwrap_or_default(),
-            body: None,
-            domain: var("ORCID_SERVER_HOST").unwrap_or_else(|_| String::from("pub.orcid.org")),
-            identifier: None,
-            custom_params: vec![],
-        }
-    }
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
-    }
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    fn token(&self) -> &str {
-        &self.token
-    }
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    fn params(&self) -> &[Param] {
-        &self.custom_params
-    }
-}
-
 /// ORCiD allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -171,6 +99,24 @@ pub enum OutputColumn {
     OtherName,
     /// Past institution affiliation name
     PastInstitutionAffiliationName,
+}
+/// ORCiD API options
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = with_token, on(String, into))]
+pub struct Options {
+    /// Bearer token for authentication
+    #[builder(start_fn)]
+    pub token: String,
+    /// Request body payload
+    pub body: Option<String>,
+    /// ORCiD API domain (defaults to pub.orcid.org)
+    #[builder(default = String::from("pub.orcid.org"))]
+    pub domain: String,
+    /// ORCiD identifier
+    pub identifier: Option<String>,
+    /// Custom API parameters to include in every request
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
 }
 /// ORCiD search response
 /// ### Example response
@@ -234,15 +180,6 @@ pub struct SearchResult {
     #[serde(rename = "other-name")]
     pub other_name: Option<Vec<String>>,
 }
-impl From<SearchResult> for SearchResponse {
-    fn from(profile: SearchResult) -> Self {
-        Self {
-            num_found: 1,
-            namespace: ORCID_EXPANDED_SEARCH_SCHEMA_URI.to_string(),
-            results: vec![profile],
-        }
-    }
-}
 /// Describes status of the ORCiD API
 /// ### Caution
 /// > Limit status checks to once every 5 mins ([docs](https://info.orcid.org/ufaqs/how-do-i-check-the-server-status/))
@@ -269,6 +206,91 @@ pub struct StatusResponse {
     /// Overall API status
     #[serde(rename = "overallOk")]
     pub overall: bool,
+}
+impl Configuration for Options {
+    /// Build options from ORCiD environment variables
+    /// - `ORCID_API_TOKEN` -> `token` (optional — public API)
+    /// - `ORCID_SERVER_HOST` -> `domain` (defaults to pub.orcid.org)
+    fn from_env() -> Self {
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
+        Self {
+            token: var("ORCID_API_TOKEN").unwrap_or_default(),
+            body: None,
+            domain: var("ORCID_SERVER_HOST").unwrap_or_else(|_| String::from("pub.orcid.org")),
+            identifier: None,
+            custom_params: vec![],
+        }
+    }
+    fn with_body(self, value: impl Into<String>) -> Self {
+        Self {
+            body: Some(value.into()),
+            ..self
+        }
+    }
+    fn with_domain(self, value: impl Into<String>) -> Self {
+        Self {
+            domain: value.into(),
+            ..self
+        }
+    }
+    fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    fn token(&self) -> &str {
+        &self.token
+    }
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
+}
+impl fmt::Display for OutputColumn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | OutputColumn::CreditName => "credit-name",
+            | OutputColumn::CurrentInstitutionAffiliationName => "current-institution-affiliation-name",
+            | OutputColumn::Email => "email",
+            | OutputColumn::FamilyName => "family-name",
+            | OutputColumn::GivenNames => "given-names",
+            | OutputColumn::Orcid => "orcid",
+            | OutputColumn::OtherName => "other-name",
+            | OutputColumn::PastInstitutionAffiliationName => "past-institution-affiliation-name",
+        };
+        write!(f, "{}", s)
+    }
+}
+impl TryFrom<&str> for OutputColumn {
+    type Error = String;
+
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
+        match value {
+            | "credit-name" => Ok(OutputColumn::CreditName),
+            | "current-institution-affiliation-name" => Ok(OutputColumn::CurrentInstitutionAffiliationName),
+            | "email" => Ok(OutputColumn::Email),
+            | "family-name" => Ok(OutputColumn::FamilyName),
+            | "given-names" => Ok(OutputColumn::GivenNames),
+            | "orcid" => Ok(OutputColumn::Orcid),
+            | "other-name" => Ok(OutputColumn::OtherName),
+            | "past-institution-affiliation-name" => Ok(OutputColumn::PastInstitutionAffiliationName),
+            | _ => Err(format!("Invalid ORCiD output column: {value}")),
+        }
+    }
 }
 impl ValueValidator for SearchField {
     /// Validate certain types of ORCiD search field values
@@ -300,21 +322,6 @@ impl fmt::Display for SearchField {
         write!(f, "{}", s)
     }
 }
-impl fmt::Display for OutputColumn {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            | OutputColumn::CreditName => "credit-name",
-            | OutputColumn::CurrentInstitutionAffiliationName => "current-institution-affiliation-name",
-            | OutputColumn::Email => "email",
-            | OutputColumn::FamilyName => "family-name",
-            | OutputColumn::GivenNames => "given-names",
-            | OutputColumn::Orcid => "orcid",
-            | OutputColumn::OtherName => "other-name",
-            | OutputColumn::PastInstitutionAffiliationName => "past-institution-affiliation-name",
-        };
-        write!(f, "{}", s)
-    }
-}
 impl TryFrom<&str> for SearchField {
     type Error = String;
 
@@ -335,20 +342,12 @@ impl TryFrom<&str> for SearchField {
         }
     }
 }
-impl TryFrom<&str> for OutputColumn {
-    type Error = String;
-
-    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
-        match value {
-            | "credit-name" => Ok(OutputColumn::CreditName),
-            | "current-institution-affiliation-name" => Ok(OutputColumn::CurrentInstitutionAffiliationName),
-            | "email" => Ok(OutputColumn::Email),
-            | "family-name" => Ok(OutputColumn::FamilyName),
-            | "given-names" => Ok(OutputColumn::GivenNames),
-            | "orcid" => Ok(OutputColumn::Orcid),
-            | "other-name" => Ok(OutputColumn::OtherName),
-            | "past-institution-affiliation-name" => Ok(OutputColumn::PastInstitutionAffiliationName),
-            | _ => Err(format!("Invalid ORCiD output column: {value}")),
+impl From<SearchResult> for SearchResponse {
+    fn from(profile: SearchResult) -> Self {
+        Self {
+            num_found: 1,
+            namespace: ORCID_EXPANDED_SEARCH_SCHEMA_URI.to_string(),
+            results: vec![profile],
         }
     }
 }
