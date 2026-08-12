@@ -32,7 +32,7 @@ fn test_cli_citation_format_takes_precedence_over_environment() {
         .unwrap()
         .env("ACORN_CITATION_FORMAT", "invalid")
         .args([
-            "--offline",
+            "-v",
             "--no-local-database",
             "gather",
             "--raw",
@@ -40,12 +40,12 @@ fn test_cli_citation_format_takes_precedence_over_environment() {
             "--citation-format",
             "apa",
             "--text",
-            "doi:10.1234/example",
+            "plain-text-without-identifiers",
         ])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    assert!(!String::from_utf8_lossy(&output.stderr).contains("Unsupported citation format 'invalid'"));
+    assert!(output.status.success());
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("('invalid' is unsupported format)"));
 }
 #[test]
 fn test_invalid_citation_format_warns_and_uses_ieee() {
@@ -53,20 +53,20 @@ fn test_invalid_citation_format_warns_and_uses_ieee() {
         .unwrap()
         .env("ACORN_CITATION_FORMAT", "invalid")
         .args([
-            "--offline",
+            "-v",
             "--no-local-database",
             "gather",
             "--raw",
             "--resolve",
             "--text",
-            "doi:10.1234/example",
+            "plain-text-without-identifiers",
         ])
         .output()
         .unwrap();
-    assert!(!output.status.success());
+    assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unsupported citation format 'invalid'"));
-    assert!(stderr.contains("using ieee"));
+    assert!(stderr.contains("IEEE"));
+    assert!(stderr.contains("('invalid' is unsupported format)"));
 }
 #[test]
 fn test_max_depth_limits_directory_expansion() {
@@ -127,6 +127,23 @@ fn test_raw_format_prints_only_discovered_identifiers() {
         .unwrap();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "10.1234/example\nhttps://ror.org/01qz5mb56\n");
+}
+#[test]
+fn test_raw_format_normalizes_arxiv_urls() {
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--text",
+            "https://arxiv.org/pdf/2106.09685v2.pdf",
+            "--raw",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "arXiv:2106.09685v2\n");
 }
 #[test]
 fn test_raw_format_writes_load_failures_to_stderr() {

@@ -19,11 +19,12 @@ flowchart LR
 
 ## Supported identifiers
 
-The typed Rust API supports ARK, DOI, ISBN, ORCID, RAiD, ROR, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
+The typed Rust API supports ARK, arXiv, DOI, ISBN, ORCID, RAiD, ROR, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
 | Kind | Validation | Normalized | Role |
 |---|---|---|---|
 | ARK | NAAN and assigned-name structure | ARK, retaining a supplied resolver | Project identity |
+| arXiv | Modern or legacy arXiv identifier structure | `arXiv:` identifier with an optional version | Project identity |
 | DOI | DOI prefix and suffix structure | Bare DOI | Project identity |
 | ISBN | ISBN-13 length and check digit | Hyphenated ISBN components | Project identity |
 | ORCID | Length and ISO 7064 check digit | `https://orcid.org/...` | Person evidence |
@@ -111,18 +112,22 @@ assert_eq!(normalized.identity_key(), "doi:10.11578/dc.20250604.1");
 
 This distinction matters: the normalized display is suitable for RAD fields and reports, while the identity key is suitable for exact matching.
 
+arXiv identifiers convert to their work-level DataCite DOI with `DOI::from(arxiv)`, producing the `10.48550/arXiv.*` namespace and omitting any revision suffix. The reverse conversion uses `ARXIV::try_from(doi)` because publisher DOIs and other DOI namespaces do not encode an arXiv identifier.
+
+Research activity metadata stores both DOI and arXiv publication identifiers in `meta.doi`; validation and export classify each value by its format.
+
 ## 5. Classify the evidence
 
 `PID` records what an identifier identifies. ACORN currently divides discoveries into two groups:
 
-- DOI, RAiD, ISBN, patent, and ARK values are project-like identifiers. Each can independently create or match a research activity candidate.
+- arXiv, DOI, RAiD, ISBN, patent, and ARK values are project-like identifiers. Each can independently create or match a research activity candidate. Versioned arXiv identifiers retain their revision in evidence but share the unversioned work identity.
 - ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs are entity or supporting evidence. They remain in reports and discovery history but cannot independently create or merge a candidate.
 
 A provider can explicitly relate person or organization evidence to a project, but ACORN does not infer that relationship merely because the values occur in the same input.
 
 ## 6. Resolve and enrich optional metadata
 
-`acorn gather --resolve` runs after local discovery. DOI evidence is sent to CiteAs, ORCID evidence to ORCID, and RAiD evidence to the RAiD resolver. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved DOIs use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
+`acorn gather --resolve` runs after local discovery. arXiv and DOI evidence is sent to CiteAs, ORCID evidence to ORCID, and RAiD evidence to the RAiD resolver. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
 
 Remote DOE CODE project matches enter the same candidate pipeline with a provider identity such as `osti-project:<code_id>` and a DOI when one is available. DOE CODE supplies project descriptions, websites, and role-separated organization names. A `--lab` filter additionally associates the selected laboratory's known ROR. With `--resolve`, valid ORCIDs enrich person reports, project DOIs and person ORCIDs receive structured resolver outcomes and resolved raw rendering, repository URLs can contribute provider-reported programming languages, and provider-confirmed links are checked for liveness. These optional online operations retain the original DOE CODE result when they fail. DOE CODE people and organization searches remain report-only.
 
@@ -140,7 +145,7 @@ RAiD organization roles are mapped independently from ROR name resolution. `Fund
 
 ## 7. Build exact identities and persist candidates
 
-Before persistence, project identifiers become namespaced identity keys such as `doi:10.11578/dc.20250604.1`. ACORN lowercases the namespace. DOI, RAiD, ISBN, and patent identity values are also compared case-insensitively; ARK and provider-specific values preserve their value case. Keys are sorted and deduplicated.
+Before persistence, project identifiers become namespaced identity keys such as `doi:10.11578/dc.20250604.1` or `arxiv:2106.09685`. ACORN lowercases the namespace. arXiv versions are removed from identity keys, while normalized evidence retains them. DOI, arXiv, RAiD, ISBN, and patent identity values are compared case-insensitively; ARK and provider-specific values preserve their value case. Keys are sorted and deduplicated.
 
 Bucket ingestion also adds a repository-qualified RAD identity, and providers can add their own project identity. These are identity keys rather than new PID types.
 

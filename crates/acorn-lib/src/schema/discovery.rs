@@ -1,4 +1,6 @@
 //! Provider-neutral schema types for remote metadata discovery.
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 

@@ -8,16 +8,17 @@ ACORN seeks to meet scientists where they are in all aspects. This includes the 
 - See the [PyPI page](https://pypi.org/project/acorn-py/) for installation and usage instructions
 - Use `acorn-lib` functions in Python
   ```python
-  from acorn.schema.validate import is_ark, is_doi, is_orcid, is_ror
+  from acorn.schema.validate import is_ark, is_arxiv, is_doi, is_orcid, is_ror
 
   assert is_ark("ark:/1234/w5678")
+  assert is_arxiv("arXiv:2106.09685")
   assert is_doi("10.11578/dc.20250604.1")
   assert is_orcid("https://orcid.org/0000-0002-2057-9115")
   assert is_ror("01qz5mb56")
   ```
 
 ## Working with scientific artifact identifiers
-The `acorn-py` package provides tools to work with common scientific artifact identifiers such as [DOI](https://www.doi.org/)s, [ARK](https://arks.org/)s, [ORCID](https://orcid.org/)s, and [ROR](https://ror.org/)s and other indirectly related identifiers such as patent numbers and books (e.g., [ISBN](https://www.isbn.org/)s). You can validate these identifiers, work with their components, and even extract them from text.
+The `acorn-py` package provides tools to work with common scientific artifact identifiers such as [DOI](https://www.doi.org/)s, arXiv identifiers, [ARK](https://arks.org/)s, [ORCID](https://orcid.org/)s, and [ROR](https://ror.org/)s and other indirectly related identifiers such as patent numbers and books (e.g., [ISBN](https://www.isbn.org/)s). You can validate these identifiers, work with their components, and even extract them from text.
 
 > [!TIP]
 > Start with the [persistent identifier lifecycle](../concepts/persistent-identifiers.md), then see the [acorn-lib PID API](https://docs.rs/acorn-lib/latest/acorn/schema/pid/index.html) for type-level details.

@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError, ValidationErrors};
 
 method_validator!(is_ark, "ARK");
+method_validator!(is_arxiv, "arXiv");
 method_validator!(is_doi, "DOI");
 method_validator!(is_isbn, "ISBN");
 method_validator!(is_orcid, "ORCiD");

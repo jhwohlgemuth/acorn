@@ -29,11 +29,11 @@ acorn gather --text "doi:10.1234/example"
 printf 'https://ror.org/01qz5mb56' | acorn gather
 ```
 
-Non-empty standard input is gathered automatically and can be combined with positional inputs. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
+Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
 
 ## Output formats
 
-Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives the console table and piped or file output uses JSON. An explicit format is always honored. Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. With `--raw --resolve`, DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress stdout output.
+Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives the console table and piped or file output uses JSON. An explicit format is always honored. Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. With `--raw --resolve`, arXiv and DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress stdout output.
 
 ```sh
 acorn gather report.docx --format console
@@ -46,7 +46,7 @@ Resolved raw output remains machine-readable: successful values use one line eac
 
 ## Research activity candidates
 
-Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves.
+Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves.
 
 See the [persistent identifier lifecycle](../../concepts/persistent-identifiers.md) for how ACORN finds, parses, validates, normalizes, classifies, and persists this evidence.
 
@@ -59,6 +59,7 @@ Enrichment is additive and evidence-driven. ACORN starts with the identifiers fo
 | Source and trigger | Candidate mapping | Guardrails |
 |---|---|---|
 | CiteAs for a DOI found with `--resolve` | DOI, title, canonical project URL, and categories to `meta.keywords` | Empty title and URL values are ignored. |
+| CiteAs for an arXiv identifier found with `--resolve` | arXiv ID, any returned DOI, title, canonical project URL, and categories to `meta.keywords` | Resolution uses the canonical arXiv abstract URL; empty title and URL values are ignored. |
 | RAiD metadata found with `--resolve` | Primary title, primary or brief description to `notes`, supported alternate identifiers, alternate URLs to `meta.websites`, organization RORs to `meta.ror`, subject keywords to `meta.keywords`, normalized related RAiDs to `meta.related`, and one explicitly flagged contact to `contact` | A primary title is preferred, with the first non-empty title as fallback. Organization names are added only through the role-aware ROR mapping described below. A contributor is never inferred to be the contact; if zero or multiple distinct contributors are flagged as contacts, no singular contact is selected. |
 | DOE CODE project search | `osti-project:<code_id>` identity, DOI, title, description to `notes`, repository and related links to `meta.websites`, sponsor names to `meta.sponsors`, and research, contributing, and developing organization names to `meta.partners` | DOE CODE people and organization results remain report-only. |
 | `--lab` with a DOE CODE project search | The selected laboratory's canonical ROR to `meta.ror` | The ROR must match the laboratory entry in ACORN's embedded partner or sponsor vocabulary. |

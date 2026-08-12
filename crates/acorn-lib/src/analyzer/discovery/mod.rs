@@ -2,15 +2,15 @@
 use super::readability::ReadabilityType;
 use super::{analyze_paths, link_check, Analysis, Check, CheckCategory, CheckOptions, Standard};
 use crate::check_err;
+use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
 use crate::io::database::{CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate};
 use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
-use crate::param;
 use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, PID, RAID, ROR};
+use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, PID, RAID, ROR};
 use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::Repository;
@@ -410,11 +410,11 @@ impl ArtifactCandidate {
             | None => self,
         }
     }
-    fn identifier_values(&self, kind: PID) -> Option<serde_json::Value> {
+    fn identifier_values(&self, kinds: &[PID]) -> Option<serde_json::Value> {
         let values = self
             .identifiers
             .iter()
-            .filter(|identifier| identifier.kind == kind)
+            .filter(|identifier| kinds.contains(&identifier.kind))
             .map(|identifier| serde_json::Value::String(identifier.value.clone()))
             .collect::<Vec<_>>();
         (!values.is_empty()).then_some(serde_json::Value::Array(values))
@@ -431,12 +431,12 @@ impl ArtifactCandidate {
             .collect::<Vec<_>>();
         let keywords = ControlledVocabulary::normalize("keywords", self.keywords.iter().cloned()).into_values();
         let technology = ControlledVocabulary::normalize("technology", self.technology.iter().cloned()).into_values();
-        let pairs = [
-            ("doi", PID::DOI),
-            ("books", PID::ISBN),
-            ("patents", PID::Patent),
-            ("raid", PID::RAID),
-            ("ror", PID::ROR),
+        let pairs: [(&str, &[PID]); 5] = [
+            ("doi", &[PID::DOI, PID::ARXIV]),
+            ("books", &[PID::ISBN]),
+            ("patents", &[PID::Patent]),
+            ("raid", &[PID::RAID]),
+            ("ror", &[PID::ROR]),
         ];
         let Self {
             sponsors, partners, related, ..
@@ -476,7 +476,7 @@ impl ArtifactCandidate {
     /// Enrich this candidate with losslessly mapped resolver metadata
     pub fn resolved(self, metadata: Option<&str>, identifier_type: &str) -> Self {
         match PID::from(identifier_type) {
-            | PID::DOI => match api::citeas::Citations::deserialize_metadata(metadata) {
+            | PID::ARXIV | PID::DOI => match api::citeas::Citations::deserialize_metadata(metadata) {
                 | Some(value) => self.with_citeas(value),
                 | None => self,
             },
@@ -992,9 +992,8 @@ impl Record {
                 source_format,
             } => {
                 let resolution = match PID::from(identifier_type.as_str()) {
-                    | PID::DOI => Resolution::from(
-                        api::citeas::search(&api::citeas::Options::from_env().with_params(vec![param!(TemplateValue, "doi", &identifier)])).await,
-                    ),
+                    | PID::ARXIV => Resolution::from(ARXIV::from_string(&identifier).to_citations().await),
+                    | PID::DOI => Resolution::from(DOI::from_string(&identifier).to_citations().await),
                     | PID::ORCID => Resolution::from(
                         api::orcid::record(&api::orcid::Options::from_env().with_identifier(identifier.clone()))
                             .await
@@ -1610,6 +1609,7 @@ impl PID {
     fn find_all(&self, content: &str) -> Vec<Identifier> {
         match self {
             | Self::ARK => ARK::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::ARXIV => ARXIV::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
@@ -1676,10 +1676,10 @@ fn normalized_authors(values: &[String]) -> Vec<String> {
 }
 fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value, citation_format: CitationFormat) -> Result<String, String> {
     match kind {
-        | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
+        | PID::ARXIV | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
             .ok()
             .and_then(|citations| citation_format.citation(&citations))
-            .ok_or_else(|| format!("{citation_format} citation not found for DOI {identifier}")),
+            .ok_or_else(|| format!("{citation_format} citation not found for {} {identifier}", kind.as_str())),
         | PID::ORCID => serde_json::from_value::<api::orcid::SearchResponse>(metadata.clone())
             .ok()
             .and_then(|response| {

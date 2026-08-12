@@ -51,9 +51,10 @@ Schema types implement their normal Serde, JSON Schema, and validation traits in
 For example, a Rust component compiled to WASM can use ACORN's identifier validation directly:
 
 ```rust
-use acorn::schema::validate::{is_doi, is_orcid, is_ror};
+use acorn::schema::validate::{is_arxiv, is_doi, is_orcid, is_ror};
 
 assert!(is_doi("10.11578/dc.20250604.1").is_ok());
+assert!(is_arxiv("arXiv:2106.09685").is_ok());
 assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 assert!(is_ror("https://ror.org/01qz5mb56").is_ok());
 ```

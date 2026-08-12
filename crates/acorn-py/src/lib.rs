@@ -1,7 +1,7 @@
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, ROR};
+use acorn::schema::pid::{Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, ROR};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use acorn::util::StringConversion;
@@ -18,6 +18,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     schema.add_class::<PyResearchActivity>()?;
     // Add classes to schema.pid module
     let pid = PyModule::new(python, "pid")?;
+    pid.add_class::<PyARXIV>()?;
     pid.add_class::<PyDOI>()?;
     pid.add_class::<PyISBN>()?;
     pid.add_class::<PyPatent>()?;
@@ -26,11 +27,13 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
     validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(format_arxiv, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_ror, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ark, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_arxiv, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_orcid, &validate)?)?;
@@ -64,6 +67,14 @@ struct PyDOI {
     schema_uri: String,
     prefix: String,
     suffix: String,
+}
+#[pyclass(name = "ARXIV", from_py_object)]
+#[derive(Clone)]
+struct PyARXIV {
+    archive: String,
+    identifier: String,
+    schema_uri: String,
+    version: String,
 }
 #[pyclass(name = "ISBN", from_py_object)]
 #[derive(Clone)]
@@ -182,6 +193,42 @@ impl PyDOI {
     #[getter]
     fn suffix(&self) -> String {
         self.suffix.clone()
+    }
+}
+#[pymethods]
+impl PyARXIV {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PyARXIV> {
+        ARXIV::find_all(&value)
+            .iter()
+            .map(|identifier| PyARXIV::from_string(identifier.to_string()))
+            .collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PyARXIV {
+        let pid = ARXIV::from_string(value);
+        PyARXIV {
+            archive: pid.archive.clone().unwrap_or_default(),
+            identifier: pid.identifier(),
+            schema_uri: pid.schema_uri(),
+            version: pid.version.clone().unwrap_or_default(),
+        }
+    }
+    #[getter]
+    fn archive(&self) -> String {
+        self.archive.clone()
+    }
+    #[getter]
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+    #[getter]
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    #[getter]
+    fn version(&self) -> String {
+        self.version.clone()
     }
 }
 #[pymethods]
@@ -485,6 +532,11 @@ impl PyROR {
 fn format_ark(value: &str) -> String {
     ARK::format(value)
 }
+/// Convert an arXiv identifier into its canonical format.
+#[pyfunction]
+fn format_arxiv(value: &str) -> String {
+    ARXIV::format(value)
+}
 /// Convert a DOI into a standard format
 /// ### Example
 /// ```python
@@ -548,6 +600,11 @@ fn is_ark(value: &str) -> bool {
         | Ok(_) => true,
         | Err(_) => false,
     }
+}
+/// Check if a value is a valid arXiv identifier.
+#[pyfunction]
+fn is_arxiv(value: &str) -> bool {
+    schema::validate::is_arxiv(value).is_ok()
 }
 /// Check if value is a valid DOI
 /// ### Note

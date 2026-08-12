@@ -99,6 +99,17 @@ fn test_discovers_supported_identifiers_without_duplicates() {
     assert_eq!(identifiers[1].kind, PID::URL);
 }
 #[test]
+fn test_arxiv_discovery_preserves_versions_and_uses_work_identity() {
+    let identifiers = Identifier::find_all("arXiv:2106.09685v1 https://arxiv.org/abs/2106.09685v2");
+    assert_eq!(identifiers.len(), 2);
+    assert!(identifiers.iter().all(|identifier| identifier.kind == PID::ARXIV));
+    let candidate = ArtifactCandidate {
+        identifiers,
+        ..ArtifactCandidate::default()
+    };
+    assert_eq!(candidate.identity_keys(), vec!["arxiv:2106.09685"]);
+}
+#[test]
 fn test_gather_pdf_discovers_only_valid_identifiers() {
     let document = SourceDocument::from_path("../../tests/fixtures/gather/gather.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)
@@ -108,6 +119,28 @@ fn test_gather_pdf_discovers_only_valid_identifiers() {
     assert_eq!(
         identifiers,
         vec![
+            (PID::ARXIV, "arXiv:2605.10913v3".to_string()),
+            (PID::ARXIV, "arXiv:2507.19457".to_string()),
+            (PID::ARXIV, "arXiv:2510.02453".to_string()),
+            (PID::ARXIV, "arXiv:2503.13657".to_string()),
+            (PID::ARXIV, "arXiv:2406.16218".to_string()),
+            (PID::ARXIV, "arXiv:2601.16443".to_string()),
+            (PID::ARXIV, "arXiv:2308.00352".to_string()),
+            (PID::ARXIV, "arXiv:2011.03088".to_string()),
+            (PID::ARXIV, "arXiv:2310.03714".to_string()),
+            (PID::ARXIV, "arXiv:2601.13295".to_string()),
+            (PID::ARXIV, "arXiv:2603.28052".to_string()),
+            (PID::ARXIV, "arXiv:2604.04247".to_string()),
+            (PID::ARXIV, "arXiv:2511.00628".to_string()),
+            (PID::ARXIV, "arXiv:2510.26585".to_string()),
+            (PID::ARXIV, "arXiv:2303.11366".to_string()),
+            (PID::ARXIV, "arXiv:2602.08199".to_string()),
+            (PID::ARXIV, "arXiv:2511.03690".to_string()),
+            (PID::ARXIV, "arXiv:2308.08155".to_string()),
+            (PID::ARXIV, "arXiv:2512.24601".to_string()),
+            (PID::ARXIV, "arXiv:2603.19461".to_string()),
+            (PID::ARXIV, "arXiv:2510.01171".to_string()),
+            (PID::ARXIV, "arXiv:2310.04406".to_string()),
             (PID::DOI, "10.1145/73560.73576".to_string()),
             (PID::DOI, "10.1023/A:1023064908962".to_string()),
             (PID::DOI, "10.1145/3371119".to_string()),
@@ -129,6 +162,7 @@ fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
         (PID::ARK, "ark:99166/w66d60p2"),
         (PID::ARK, "https://n2t.net/ark:99166/w66d60p2"),
         (PID::ARK, "ark:99166/W66D60P2"),
+        (PID::ARXIV, "arXiv:2608.01234"),
         (PID::DOI, "10.1234/alpha.2026.001"),
         (PID::DOI, "10.1234/beta(2026"),
         (PID::DOI, "10.1234/beta(2026))7"),
@@ -250,7 +284,7 @@ fn test_exact_grouping_does_not_use_matching_metadata() {
 #[test]
 fn test_partial_rad_mapping_preserves_supported_identifiers() {
     let candidate = ArtifactCandidate {
-        identifiers: ["doi:10.1234/example", "ISBN 978-0-306-40627-0", "US1234567B2"]
+        identifiers: ["arXiv:2106.09685", "doi:10.1234/example", "ISBN 978-0-306-40627-0", "US1234567B2"]
             .into_iter()
             .filter_map(|value| Identifier::new(value).normalized())
             .collect(),
@@ -271,7 +305,7 @@ fn test_partial_rad_mapping_preserves_supported_identifiers() {
     let rad = candidate.to_partial_rad_json();
     assert_eq!(rad["title"], "Example project");
     assert_eq!(rad["notes"], "Full provider description");
-    assert_eq!(rad["meta"]["doi"], serde_json::json!(["10.1234/example"]));
+    assert_eq!(rad["meta"]["doi"], serde_json::json!(["arXiv:2106.09685", "10.1234/example"]));
     assert_eq!(rad["meta"]["websites"][0]["url"], "https://example.org/project");
     assert_eq!(rad["meta"]["websites"][1]["url"], "https://example.org/docs");
     assert_eq!(rad["meta"]["keywords"], serde_json::json!(["artificial-intelligence"]));
@@ -562,13 +596,17 @@ fn test_resolved_raw_report_renders_citations_and_orcid_names() {
     };
     let records = Records(
         vec![
+            discovery("arXiv:2106.09685", "arxiv", serde_json::to_string(&citations).unwrap()),
             discovery("10.1234/example", "doi", serde_json::to_string(&citations).unwrap()),
             discovery("https://orcid.org/0000-0002-2057-9115", "orcid", serde_json::to_string(&profile).unwrap()),
         ],
         Vec::new(),
     );
     let output = Report::new(&[], records, 1).serialize(OutputFormat::Raw).unwrap();
-    assert_eq!(output, "IEEE citation\nJason Wohlgemuth (https://orcid.org/0000-0002-2057-9115)");
+    assert_eq!(
+        output,
+        "IEEE citation\nIEEE citation\nJason Wohlgemuth (https://orcid.org/0000-0002-2057-9115)"
+    );
 }
 #[test]
 fn test_remote_responses_merge_duplicate_provider_identifiers() {

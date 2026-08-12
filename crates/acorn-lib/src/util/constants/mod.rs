@@ -77,6 +77,8 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 pub const MAX_LENGTH_TITLE: u64 = 45;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
 pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;
+/// Pattern text for arXiv regular expression defined by [`RE_ARXIV`]
+pub const RE_ARXIV_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
@@ -100,6 +102,8 @@ lazy_static! {
     ///
     /// See <https://arks.org/> for more information
     pub static ref RE_ARK: Regex = Regex::new(RE_ARK_TEXT).expect("RE_ARK_TEXT should compile as a valid regex");
+    /// Regex that should match an arXiv identifier
+    pub static ref RE_ARXIV: Regex = Regex::new(RE_ARXIV_TEXT).expect("RE_ARXIV_TEXT should compile as a valid regex");
     /// Regex that should match a Digital Object Identifier (DOI)
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information

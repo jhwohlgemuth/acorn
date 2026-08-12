@@ -6,7 +6,7 @@ use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::prelude::var;
-use crate::schema::pid::DOI;
+use crate::schema::pid::{PersistentIdentifier, PublicationIdentifierType, ARXIV, DOI};
 use crate::util::{Label, Searchable};
 use async_trait::async_trait;
 use bon::Builder;
@@ -86,8 +86,31 @@ impl Configuration for Options {
         &self.custom_params
     }
 }
+impl From<DOI> for Options {
+    fn from(value: DOI) -> Self {
+        let value = value.to_string();
+        let identifier = urlencoding::encode(&value);
+        Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
+    }
+}
+impl From<ARXIV> for Options {
+    fn from(value: ARXIV) -> Self {
+        let value = value.url();
+        let identifier = urlencoding::encode(&value);
+        Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
+    }
+}
+impl From<PublicationIdentifierType> for Options {
+    fn from(value: PublicationIdentifierType) -> Self {
+        match value {
+            | PublicationIdentifierType::Doi(doi) => Self::from(doi),
+            | PublicationIdentifierType::Arxiv(arxiv) => Self::from(arxiv),
+            | PublicationIdentifierType::Unknown => Self::from_env(),
+        }
+    }
+}
 
-/// Trait for things that can be converted to citations (e.g., `DOI`)
+/// Trait for things that can be converted to citations.
 #[async_trait]
 pub trait ToCitations {
     /// Convert to `Citations`
@@ -240,7 +263,7 @@ pub async fn is_healthy() -> bool {
 }
 /// Perform search on CiteAs API
 ///
-/// The CiteAs API is simple and only has two endpoints. This accesses the endpoint for retrieving citation data for a [`DOI`]
+/// The CiteAs API is simple and only has two endpoints. This accesses the endpoint for retrieving citation data for a product identifier.
 ///
 /// ### Example
 /// ```ignore
@@ -249,7 +272,7 @@ pub async fn is_healthy() -> bool {
 ///
 /// let doi = "10.11578/dc.20250604.1";
 /// let options = citeas::Options::from_env()
-///     .with_params(vec![param!(TemplateValue, "doi", doi)]);
+///     .with_params(vec![param!(TemplateValue, "identifier", doi)]);
 /// let citations = citeas::search(&options).await;
 /// ```
 pub async fn search(options: &Options) -> ApiResult<Citations> {
@@ -281,12 +304,6 @@ pub async fn status() -> ApiResult<StatusResponse> {
     }
 }
 impl Citations {
-    /// Use CiteAs API to get citation data from a [`DOI`]
-    pub async fn from(value: DOI) -> ApiResult<Citations> {
-        let doi = value.to_string();
-        let options = Options::from_env().with_params(vec![param!(TemplateValue, "doi", &doi)]);
-        search(&options).await
-    }
     /// Get citation data with the requested citation style.
     ///
     /// If the requested style is not found, the first available citation is returned.
@@ -303,6 +320,22 @@ impl Citations {
 impl ToCitations for DOI {
     /// Convert a [`DOI`] to a [`Citations`]
     async fn to_citations(&self) -> ApiResult<Citations> {
-        Citations::from(self.clone()).await
+        search(&Options::from(self.clone())).await
+    }
+}
+#[async_trait]
+impl ToCitations for ARXIV {
+    async fn to_citations(&self) -> ApiResult<Citations> {
+        search(&Options::from(self.clone())).await
+    }
+}
+#[async_trait]
+impl ToCitations for PublicationIdentifierType {
+    async fn to_citations(&self) -> ApiResult<Citations> {
+        match self {
+            | Self::Doi(doi) => doi.to_citations().await,
+            | Self::Arxiv(arxiv) => arxiv.to_citations().await,
+            | Self::Unknown => Err(eyre!("Unsupported publication identifier")),
+        }
     }
 }

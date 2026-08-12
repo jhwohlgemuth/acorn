@@ -50,6 +50,15 @@ fn test_metadata() {
     assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
 }
 #[test]
+fn test_metadata_validates_publication_identifiers() {
+    let valid = ResearchActivityMetadata::init()
+        .doi(vec!["10.1000/xyz123".to_string(), "arXiv:2106.09685v2".to_string()])
+        .build();
+    assert!(validator::Validate::validate(&valid).is_ok());
+    let invalid = ResearchActivityMetadata::init().doi(vec!["2106.09685".to_string()]).build();
+    assert!(validator::Validate::validate(&invalid).is_err());
+}
+#[test]
 fn test_research_activity_default() {
     let expected = r#"---
 classification: UNCLASSIFIED
@@ -179,6 +188,20 @@ fn test_research_activity_into_cff() {
         .collect::<Vec<_>>();
     assert_eq!(identifier_values, vec!["10.1000/xyz123".to_string(), "10.1000/xyz456".to_string()]);
     assert_eq!(identifier_types, vec![IdentifierType::Doi, IdentifierType::Doi]);
+    let rad_with_arxiv = ResearchActivity::init()
+        .meta(
+            ResearchActivityMetadata::init()
+                .doi(vec!["10.1000/xyz123".to_string(), "arXiv:2106.09685".to_string()])
+                .build(),
+        )
+        .build();
+    let cff_with_arxiv: Cff = rad_with_arxiv.into();
+    assert_eq!(cff_with_arxiv.doi, None);
+    let identifiers = cff_with_arxiv.identifiers.expect("identifiers should exist");
+    assert_eq!(identifiers.first().map(|identifier| identifier.kind.clone()), Some(IdentifierType::Doi));
+    let arxiv = identifiers.get(1).cloned();
+    assert_eq!(arxiv.as_ref().map(|identifier| identifier.kind.clone()), Some(IdentifierType::Other));
+    assert_eq!(arxiv.map(|identifier| identifier.value), Some("arXiv:2106.09685".to_string()));
 }
 #[test]
 fn test_research_activity_format() {
@@ -254,11 +277,23 @@ fn test_is_attribute_capabilities() {
     }
 }
 #[test]
-fn test_is_attribute_doi() {
-    let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string()];
-    assert!(is_attribute_doi_list(&valid).is_ok());
+fn test_is_attribute_publication_identifier() {
+    assert!(matches!(
+        PublicationIdentifierType::from("10.1000/182"),
+        PublicationIdentifierType::Doi(_)
+    ));
+    assert!(matches!(
+        PublicationIdentifierType::from("arXiv:2106.09685"),
+        PublicationIdentifierType::Arxiv(_)
+    ));
+    assert!(matches!(
+        PublicationIdentifierType::from("2106.09685"),
+        PublicationIdentifierType::Unknown
+    ));
+    let valid = ["10.1000/182".to_string(), "10.97812345/99990".to_string(), "arXiv:2106.09685".to_string()];
+    assert!(is_attribute_publication_identifier_list(&valid).is_ok());
     let invalid = ["https://not.doi.org/10.1000/182".to_string()];
-    assert!(is_attribute_doi_list(&invalid).is_err());
+    assert!(is_attribute_publication_identifier_list(&invalid).is_err());
 }
 #[test]
 fn test_is_attribute_impact() {

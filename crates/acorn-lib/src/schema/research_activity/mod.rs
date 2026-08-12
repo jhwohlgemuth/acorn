@@ -13,7 +13,7 @@ use crate::prelude::PathBuf;
 use crate::prelude::*;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
-use crate::schema::pid::PersistentIdentifierConvert;
+use crate::schema::pid::{PersistentIdentifierConvert, PublicationIdentifierType};
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 use crate::schema::{
@@ -199,10 +199,10 @@ pub struct ResearchActivityMetadata {
     #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
-    /// Digital Object Identifier(s) related to the associated research activity data
+    /// DOI or arXiv identifier(s) related to the associated research activity data
     ///
     /// See <https://www.doi.org/> for more information
-    #[validate(custom(function = "is_attribute_doi_list"))]
+    #[validate(custom(function = "is_attribute_publication_identifier_list"))]
     #[serde(default)]
     pub doi: Option<Vec<String>>,
     /// ISBN(s) of books related to the associated research activity data
@@ -297,7 +297,7 @@ pub struct ResearchActivityMetadataContext {
     pub status: String,
     /// Local CURIE research activity identifier
     pub identifier: String,
-    /// Associated Digital Object Identifiers
+    /// Associated DOIs (also accepts arXiv identifiers)
     pub doi: String,
     /// Research Activity Identifier
     pub raid: String,
@@ -682,25 +682,29 @@ impl From<&ResearchActivity> for Cff {
             website: None,
         });
         let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
-        let (doi, identifiers) = match meta.doi {
-            | Some(dois) => match dois.as_slice() {
-                | [single] => (Some(single.clone()), None),
-                | [] => (None, None),
-                | _ => (
-                    None,
-                    Some(
-                        dois.into_iter()
-                            .map(|value| Identifier {
-                                description: None,
-                                kind: IdentifierType::Doi,
-                                value,
-                            })
-                            .collect(),
-                    ),
-                ),
-            },
-            | None => (None, None),
+        let publication_identifiers = meta.doi.unwrap_or_default();
+        let doi = match publication_identifiers.as_slice() {
+            | [single] if matches!(PublicationIdentifierType::from(single.as_str()), PublicationIdentifierType::Doi(_)) => Some(single.clone()),
+            | _ => None,
         };
+        let identifiers = doi.is_none().then(|| {
+            publication_identifiers
+                .into_iter()
+                .map(|value| match PublicationIdentifierType::from(value.as_str()) {
+                    | PublicationIdentifierType::Doi(_) => Identifier {
+                        description: None,
+                        kind: IdentifierType::Doi,
+                        value,
+                    },
+                    | _ => Identifier {
+                        description: Some("arXiv identifier".to_string()),
+                        kind: IdentifierType::Other,
+                        value,
+                    },
+                })
+                .collect::<Vec<_>>()
+        });
+        let identifiers = identifiers.filter(|values| !values.is_empty());
         Cff {
             abstract_text: Some(sections.mission),
             authors: vec![person.clone()],
@@ -1067,12 +1071,27 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
         })
         .map_or(Ok(()), Err)
 }
-/// Custom validator function for [`ResearchActivity`] [doi](ResearchActivityMetadata::doi)
-pub(crate) fn is_attribute_doi_list(value: &[String]) -> ValidationResult {
+/// Custom validator for [`ResearchActivity`] publication identifiers in [`ResearchActivityMetadata::doi`]
+pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.doi";
     value
         .iter()
-        .position(|x| is_doi(x).is_err())
+        .position(|identifier| matches!(PublicationIdentifierType::from(identifier.as_str()), PublicationIdentifierType::Unknown))
+        .map(|index| {
+            validation_error_with_index(
+                CODE,
+                "Every publication identifier should be a valid DOI or arXiv identifier".to_string(),
+                index,
+            )
+        })
+        .map_or(Ok(()), Err)
+}
+/// Custom validator function for DOI-only identifier lists
+pub(crate) fn is_attribute_doi_list(value: &[String]) -> ValidationResult {
+    const CODE: &str = "meta.raid";
+    value
+        .iter()
+        .position(|identifier| is_doi(identifier).is_err())
         .map(|index| validation_error_with_index(CODE, "Every DOI should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }

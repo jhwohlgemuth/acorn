@@ -3,11 +3,10 @@
 use super::webhook;
 use super::{current_user, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options, WorkItem};
 use crate::analyzer::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
-use crate::io::api::citeas;
+use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::Configuration;
 use crate::io::ApiResult;
-use crate::param;
-use crate::schema::pid::{Identifier, PID};
+use crate::schema::pid::{Identifier, PersistentIdentifierParse, DOI, PID};
 use crate::schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
 use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
@@ -70,8 +69,7 @@ impl ArtifactCandidate {
         };
         let (candidate, enrichment_error) = match candidate.identifiers.iter().find(|identifier| identifier.kind == PID::DOI) {
             | Some(identifier) if candidate.title.is_none() || candidate.authors.is_empty() => {
-                let options = citeas::Options::from_env().with_params(vec![param!(TemplateValue, "doi", &identifier.value)]);
-                match citeas::search(&options).await {
+                match DOI::from_string(&identifier.value).to_citations().await {
                     | Ok(citations) => (candidate.apply_citeas(citations), repository_error),
                     | Err(why) => (candidate, Some(repository_error.unwrap_or_else(|| why.to_string()))),
                 }

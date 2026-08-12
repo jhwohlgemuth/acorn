@@ -7,7 +7,7 @@
         {
           "name": "record",
           "method": "get",
-          "template": "{{ base }}/product/{{ doi }}?email=research@ornl.gov"
+          "template": "{{ base }}/product/{{ identifier }}?email=research@ornl.gov"
         },
         {
           "name": "status",

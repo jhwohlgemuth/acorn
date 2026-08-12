@@ -13,7 +13,7 @@ use crate::io::api::{
 };
 use crate::io::read_file;
 use crate::param;
-use crate::schema::pid::{PersistentIdentifierParse, DOI};
+use crate::schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, ARXIV, DOI};
 use crate::test::utils::fixture_path;
 use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
@@ -50,7 +50,7 @@ async fn test_citeas() {
         assert_eq!(documentation_url, "https://citeas.org/api");
     }
     let doi = "10.11578/dc.20250604.1";
-    let params = vec![param!(TemplateValue, "doi", doi)];
+    let params = vec![param!(TemplateValue, "identifier", doi)];
     let expected = "Wohlgemuth, J. (2025). Accessible Content Optimization for Research Needs (ACORN). Oak Ridge National Laboratory (ORNL), Oak Ridge, TN (United States). http://doi.org/10.11578/DC.20250604.1";
     let options = citeas::Options::from_env().with_params(params);
     if let Some(citeas::Citation { text, .. }) = citeas::search(&options).await.unwrap().match_style(CitationFormat::Apa) {
@@ -62,6 +62,46 @@ async fn test_citeas() {
         println!("CiteAs Test Response Received");
         assert_eq!(text, expected);
     };
+}
+#[test]
+fn test_citeas_product_template_accepts_encoded_arxiv_url() {
+    let endpoint = Endpoint::from_template("citeas").unwrap();
+    let identifier = urlencoding::encode("https://arxiv.org/abs/2106.09685");
+    let params = vec![param!(TemplateValue, "identifier", identifier.as_ref())];
+    let context = endpoint.context_with::<api::EmptyField, api::EmptyField>(Some(params));
+    let template = endpoint
+        .resources
+        .iter()
+        .find(|resource| resource.name == "record")
+        .unwrap()
+        .template
+        .clone();
+    assert_eq!(
+        render(&template, &context),
+        "https://api.citeas.org/product/https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685?email=research@ornl.gov"
+    );
+}
+#[test]
+fn test_citeas_options_from_persistent_identifiers() {
+    let doi = citeas::Options::from(DOI::from_string("10.11578/dc.20250604.1"));
+    let arxiv = citeas::Options::from(ARXIV::from_string("arXiv:2106.09685v2"));
+    let first_value = |options: &citeas::Options| {
+        options
+            .params()
+            .first()
+            .and_then(|parameter| parameter.values.first())
+            .and_then(|values| values.first())
+            .and_then(Clone::clone)
+    };
+    assert_eq!(first_value(&doi).as_deref(), Some("10.11578%2Fdc.20250604.1"));
+    assert_eq!(first_value(&arxiv).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
+    let publication = citeas::Options::from(PublicationIdentifierType::from("arXiv:2106.09685v2"));
+    assert_eq!(first_value(&publication).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
+}
+#[tokio::test]
+async fn test_unknown_publication_identifier_cannot_resolve_citations() {
+    let result = PublicationIdentifierType::from("not-an-identifier").to_citations().await;
+    assert!(result.is_err());
 }
 #[test]
 fn test_endpoint_from_location() {

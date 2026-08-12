@@ -3,7 +3,7 @@ use super::{
     candidate_repositories, candidate_urls, link_check, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteResolution, RemoteSearchRequest,
     RemoteSearchResponse,
 };
-use crate::io::api::citeas;
+use crate::io::api::citeas::ToCitations;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{gitlab, orcid, osti, Configuration};
 use crate::io::ApiResult;
@@ -52,7 +52,7 @@ impl RemoteMatch {
     async fn resolve_project(self) -> Self {
         match self.normalized_pid() {
             | Some(identifier) if identifier.kind == PID::DOI => {
-                let result = citeas::Citations::from(DOI::from_string(identifier.value)).await;
+                let result = DOI::from_string(identifier.value).to_citations().await;
                 Self {
                     resolution: Some(RemoteResolution::from_result("citeas", result)),
                     ..self

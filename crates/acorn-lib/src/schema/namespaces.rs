@@ -5,6 +5,14 @@ use lazy_static::lazy_static;
 use sophia::api::ns::Namespace;
 /// Default schema URI for ORCiD values
 pub const DEFAULT_ORCID_SCHEMA_URI: &str = "https://orcid.org";
+/// Default arXiv resolver URI
+pub const DEFAULT_ARXIV_SCHEMA_URI: &str = "https://arxiv.org";
+/// Default DOI resolver URI
+pub const DEFAULT_DOI_SCHEMA_URI: &str = "https://doi.org";
+/// DOI directory indicator used by DataCite
+pub const DATACITE_DOI_DIRECTORY_INDICATOR: &str = "10";
+/// DataCite registrant code for arXiv identifiers
+pub const ARXIV_DATACITE_REGISTRANT_CODE: &str = "48550";
 /// ORCiD expanded-search XML namespace URI
 pub const ORCID_EXPANDED_SEARCH_SCHEMA_URI: &str = "http://www.orcid.org/ns/expanded-search";
 /// Default schema URI for RAiD values

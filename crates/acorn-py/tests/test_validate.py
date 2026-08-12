@@ -5,6 +5,7 @@ from acorn.schema.validate import (
     format_phone_number,
     format_ror,
     is_ark,
+    is_arxiv,
     is_doi,
     is_ip6,
     is_orcid,
@@ -63,6 +64,12 @@ def test_is_ark():
     assert is_ark("ark:/1234/w5678")
     # Just plain wrong
     assert not is_ark("totally invalid string")
+
+
+def test_is_arxiv():
+    assert is_arxiv("arXiv:2106.09685")
+    assert is_arxiv("https://arxiv.org/pdf/hep-th/9901001v2.pdf")
+    assert not is_arxiv("2106.09685")
 
 
 def test_is_doi():
