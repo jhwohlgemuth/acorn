@@ -41,13 +41,21 @@ use polars::{
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "std")]
 use schemars::schema_for;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use strum::EnumIter;
+use strum::{EnumIs, EnumIter, VariantNames};
 use tracing::{debug, error, info};
 use validator::ValidationErrorsKind;
 
 /// Utility type alias for a vector of [`ConversionWarning`]
 pub type ConversionWarnings = Vec<ConversionWarning>;
+/// Collection of analyzer checks.
+pub type Checks = Vec<Check>;
+/// Render a collection of checks.
+pub trait Render {
+    /// Render checks in deterministic detailed or compact form.
+    fn render(&self, options: &CheckOptions);
+}
 /// Trait for adding analysis capabilities
 #[cfg(feature = "analysis")]
 #[async_trait]
@@ -73,10 +81,6 @@ pub trait Analysis {
     }
     /// Calculate readability using a given metric
     async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
-    }
-    /// Check whether values were resolved successfully
-    fn check_resolution(&self) -> Vec<Check> {
         Vec::new()
     }
     /// Execute validation checks for a given item
@@ -156,7 +160,9 @@ pub enum Standard {
     Text,
 }
 /// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Default, Display, EnumIter, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum CheckCategory {
     /// Schema validation check
     #[default]
@@ -179,7 +185,8 @@ pub enum CheckCategory {
     Crosswalk,
 }
 /// Severity level of a check result
-#[derive(Clone, Debug, Default, Display, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Display, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum CheckSeverity {
     /// Hard error requiring immediate attention
     #[default]
@@ -194,6 +201,30 @@ pub enum CheckSeverity {
     /// Content issue that should be addressed
     #[display("warning")]
     Warning,
+}
+#[derive(Clone, Copy, Debug, Default, EnumIs, Eq, PartialEq)]
+/// Rendering behavior associated with a check.
+pub enum CheckKind {
+    /// Standard category-specific rendering.
+    #[default]
+    Standard,
+    /// Identifier discovery and persistence lifecycle rendering.
+    Lifecycle,
+}
+/// Output format used when rendering checks and discovery reports.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum OutputFormat {
+    /// JavaScript Object Notation
+    #[default]
+    Json,
+    /// Human-readable console output
+    Console,
+    /// GitHub-Flavored Markdown
+    Markdown,
+    /// Plain-text values, one per line
+    Raw,
+    /// YAML
+    Yaml,
 }
 /// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug)]
@@ -210,6 +241,8 @@ pub struct Check {
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
     data: Option<String>,
+    #[builder(default)]
+    kind: CheckKind,
     /// Whether or not the check was successful
     #[builder(default = false)]
     pub success: bool,
@@ -225,6 +258,34 @@ pub struct Check {
     /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     #[builder(default = "".to_string())]
     pub message: String,
+}
+impl CheckKind {
+    fn link_row(&self, check: &Check) -> (String, String, String) {
+        let Check {
+            severity,
+            context,
+            locator,
+            status_code,
+            message,
+            ..
+        } = check;
+        let details = if self.is_lifecycle() {
+            context
+                .as_ref()
+                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
+        } else {
+            let code = match status_code {
+                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
+                | None | Some(_) => "".to_string(),
+            };
+            let context = context
+                .as_ref()
+                .map(|value| value.to_string().underline().italic().to_string())
+                .unwrap_or_else(|| "Missing".to_string());
+            format!("{context} {}{code}", message.dimmed())
+        };
+        (locator.clone().unwrap_or_default(), severity.colored(), details)
+    }
 }
 /// Data structure for passing options to check processing functions
 #[derive(Builder, Clone, Debug)]
@@ -256,6 +317,7 @@ pub struct CheckOptions {
     #[builder(default)]
     pub standard: Standard,
     /// Readability metric to use for readability checks
+    #[builder(default)]
     pub readability_metric: ReadabilityType,
     /// Whether or not to skip checksum verification for prose analysis
     #[builder(default = false)]
@@ -263,10 +325,21 @@ pub struct CheckOptions {
     /// Use compact output format instead of detailed output
     #[builder(default = false)]
     pub terse: bool,
+    /// Filter rendered checks by the effective verbosity level
+    #[builder(default = false)]
+    pub filter_by_verbosity: bool,
+    /// Output format used by the current command
+    #[builder(default)]
+    pub format: OutputFormat,
+    /// Effective check visibility level
+    pub verbosity: Option<u8>,
     /// Vale configuration options
     pub vale_config: Option<ValeConfig>,
 }
 impl Check {
+    pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
+        Self { kind, ..self }
+    }
     /// Recursively count validation errors from a given ValidationErrorsKind
     pub fn count_validation_errors(kind: &ValidationErrorsKind) -> usize {
         match kind {
@@ -336,6 +409,7 @@ impl Check {
             context,
             data,
             errors,
+            kind,
             severity,
             status_code,
             uri,
@@ -343,32 +417,51 @@ impl Check {
             ..
         } = self.clone();
         match &category {
-            | CheckCategory::Link => {
-                let title = uri.clone().unwrap_or_else(|| "index.json".to_string());
-                let kind: ReportKind<'static> = severity.clone().into();
-                let code = match status_code.as_ref() {
-                    | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                    | None | Some(_) => "".to_string(),
-                };
-                let text = match context.as_ref() {
-                    | Some(value) => value.trim().to_string(),
-                    | None => "No URL".to_string(),
-                };
-                let source_text = if text.is_empty() { " ".to_string() } else { text };
-                let source = Source::from(source_text.clone());
-                let span = 0..=source_text.len().saturating_sub(1);
-                let _ = Report::build(kind, (&title, 1..=1))
-                    .with_code(index)
-                    .with_config(Config::default().with_compact(false))
-                    .with_message(locator.unwrap_or("URL".to_string()))
-                    .with_label(
-                        ariadne::Label::new((&title, span))
-                            .with_message(format!("{}{code}", message.italic()))
-                            .with_color(severity.clone().into()),
-                    )
-                    .finish()
-                    .print((&title, source));
-            }
+            | CheckCategory::Link => match kind {
+                | CheckKind::Lifecycle => {
+                    let title = uri.as_deref().or(locator.as_deref()).unwrap_or("resolution");
+                    let source_text = context.as_deref().unwrap_or(&message).to_string();
+                    let source = Source::from(source_text.clone());
+                    let span = 0..=source_text.len().saturating_sub(1);
+                    let _ = Report::build(severity.clone().into(), (title, 1..=1))
+                        .with_code(index)
+                        .with_config(Config::default().with_compact(false))
+                        .with_message(locator.clone().unwrap_or("Resolution".to_string()))
+                        .with_label(
+                            ariadne::Label::new((title, span))
+                                .with_message(message.italic())
+                                .with_color(severity.clone().into()),
+                        )
+                        .finish()
+                        .print((title, source));
+                }
+                | CheckKind::Standard => {
+                    let title = uri.clone().unwrap_or_else(|| "index.json".to_string());
+                    let kind: ReportKind<'static> = severity.clone().into();
+                    let code = match status_code.as_ref() {
+                        | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
+                        | None | Some(_) => "".to_string(),
+                    };
+                    let text = match context.as_ref() {
+                        | Some(value) => value.trim().to_string(),
+                        | None => "No URL".to_string(),
+                    };
+                    let source_text = if text.is_empty() { " ".to_string() } else { text };
+                    let source = Source::from(source_text.clone());
+                    let span = 0..=source_text.len().saturating_sub(1);
+                    let _ = Report::build(kind, (&title, 1..=1))
+                        .with_code(index)
+                        .with_config(Config::default().with_compact(false))
+                        .with_message(locator.unwrap_or("URL".to_string()))
+                        .with_label(
+                            ariadne::Label::new((&title, span))
+                                .with_message(format!("{}{code}", message.italic()))
+                                .with_color(severity.clone().into()),
+                        )
+                        .finish()
+                        .print((&title, source));
+                }
+            },
             | CheckCategory::Prose => match &errors {
                 | Some(ErrorKind::Vale(values)) => {
                     let title = uri.clone().unwrap_or("index.json".to_string());
@@ -534,25 +627,8 @@ impl fmt::Display for Check {
         let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
         match self.category {
             | CheckCategory::Link => {
-                let Check {
-                    severity,
-                    context,
-                    locator,
-                    status_code,
-                    message,
-                    ..
-                } = self;
-                let code = match status_code.clone() {
-                    | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                    | None | Some(_) => "".to_string(),
-                };
-                let context = context
-                    .as_ref()
-                    .map(|value| value.to_string().underline().italic().to_string())
-                    .unwrap_or_else(|| "Missing".to_string());
-                let severity = severity.colored();
-                let details = format!("{context} {}{code}", message.dimmed());
-                write!(f, "{}", format_row(locator.clone().unwrap_or_default(), severity, details))
+                let (locator, severity, details) = self.kind.link_row(self);
+                f.write_str(&format_row(locator, severity, details))
             }
             | CheckCategory::Prose => match &self.errors {
                 | Some(ErrorKind::Vale(values)) => {
@@ -683,6 +759,37 @@ impl CheckSeverity {
     /// Returns whether this severity should cause check failure.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Error | Self::Warning)
+    }
+}
+impl Render for Checks {
+    fn render(&self, options: &CheckOptions) {
+        let is_visible = Check::is_visible_at(options.verbosity);
+        let mut sorted_checks = self
+            .iter()
+            .filter(|check| !options.filter_by_verbosity || is_visible(check))
+            .cloned()
+            .collect::<Vec<_>>();
+        sorted_checks.sort_by_cached_key(|check| {
+            (
+                u8::from(&check.severity),
+                u8::from(&check.category),
+                check.locator.clone().unwrap_or_default().to_lowercase(),
+            )
+        });
+        match (options.quiet, options.format, options.terse) {
+            | (false, OutputFormat::Console, true) => sorted_checks.iter().for_each(|check| {
+                let uri = check.uri.clone().unwrap_or_default();
+                println!("{check}{}", format!(", path={uri}").dimmed());
+            }),
+            | (false, OutputFormat::Console, false) => sorted_checks
+                .into_iter()
+                .enumerate()
+                .for_each(|(index, check)| check.with_index(index).report()),
+            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
+                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
+            }
+            | _ => {}
+        }
     }
 }
 impl IntoChecks for ConversionWarnings {

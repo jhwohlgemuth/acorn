@@ -6,7 +6,7 @@ difficulty: medium
 impact: medium
 package: [acorn-lib, acorn-cli]
 tags: [refactor, analyzer, links, resolution, offline]
-status: planned
+status: in-progress
 ---
 
 # Goal
@@ -15,10 +15,10 @@ Represent website reachability and persistent-identifier resolution as one link-
 
 # Current evidence
 
-- `crates/acorn-lib/src/analyzer/check.rs` dispatches `CheckCategory::Link` to the path-oriented `Analysis::check_websites` method, while the optional instance method `Analysis::check_resolution` is not reachable through `Analysis::check`.
+- `crates/acorn-lib/src/analyzer/check.rs` dispatches `CheckCategory::Link` to the path-oriented `Analysis::check_websites` method; the former standalone `Analysis::check_resolution` hook has been removed.
 - `crates/acorn-lib/src/analyzer/service.rs` places website results in `AnalysisReport`, but skips the complete link category when either `offline` or `disable_website_checks` is set.
-- `crates/acorn-cli/src/commands/gather/mod.rs` invokes `DiscoveryRecords::check_resolution` directly and chains those checks beside `analyze_paths` output. Resolution checks therefore bypass `AnalysisReport` even though they use the same check category.
-- `Analysis` now supplies empty defaults for every `check_*` method. Resolution-focused implementations override only `check_resolution`, although their `Text` standard and identity output path still do not describe identifier discovery.
+- `DiscoveryRecords::analyze` attaches completed resolution lifecycle checks to `AnalysisReport` as `CheckCategory::Link` results after path analysis, so offline and website-disable policy does not discard already available outcomes. Gather consumes the flattened report without appending a separate resolution-check stream.
+- Remote provider matches still convert completed resolution outcomes directly during report construction, so the shared evidence/evaluator contract and complete remote migration remain unfinished.
 - Gather disables website checks before calling `analyze_paths`. A direct merger of the existing skip conditions would incorrectly suppress checks derived from resolution outcomes that are already available and require no network access.
 - Resolved raw gather output consumes stored DOI and ORCID outcomes for citation and person-name rendering, including remote OSTI matches. Remote search first maps provider and local data, then `--resolve` gates person, project, repository, and link-liveness requests. DOI citation style precedence is `--citation-format`, `ACORN_CITATION_FORMAT`, then IEEE. The unified link contract must preserve configuration and stderr diagnostics rather than treating resolution as reachability alone.
 

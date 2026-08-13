@@ -59,6 +59,8 @@ fn test_cli() {
     assert!(Arguments::try_parse_from(["acorn", "format", "./", "--ignore", "png", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "gather", "./", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "gather", "./", "--ignore", "png", "--filter", "json"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "gather", "--terse", "--text", "doi:10.1234/example"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "gather", "-t", "--text", "doi:10.1234/example"]).is_ok());
     assert!(Arguments::try_parse_from([
         "acorn",
         "import",

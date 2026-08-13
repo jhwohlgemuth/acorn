@@ -50,6 +50,13 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("unsupported"), PID::Unknown);
 }
 #[test]
+fn test_pid_display_and_serialization_use_lowercase_wire_names() {
+    assert_eq!(PID::ARXIV.to_string(), "arxiv");
+    assert_eq!(serde_json::to_string(&PID::DOI).unwrap(), r#""doi""#);
+    assert_eq!(serde_json::from_str::<PID>(r#""doi""#).unwrap(), PID::DOI);
+    assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
+}
+#[test]
 fn test_identifier_normalize_uses_declared_kind() {
     let doi = Identifier {
         kind: PID::DOI,

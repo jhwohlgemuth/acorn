@@ -146,7 +146,7 @@ fn test_raw_format_normalizes_arxiv_urls() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "arXiv:2106.09685v2\n");
 }
 #[test]
-fn test_raw_format_writes_load_failures_to_stderr() {
+fn test_raw_format_silently_returns_nonzero_for_load_failures() {
     let path = acorn::prelude::temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
     write_file(path.clone(), "not a PDF".to_string()).unwrap();
     let output = Command::cargo_bin("acorn")
@@ -156,7 +156,44 @@ fn test_raw_format_writes_load_failures_to_stderr() {
         .unwrap();
     let _ = remove_file(path);
     assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+}
+#[test]
+fn test_verbose_raw_format_writes_load_failures_to_stderr() {
+    let path = acorn::prelude::temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
+    write_file(path.clone(), "not a PDF".to_string()).unwrap();
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args(["-v", "--offline", "--no-local-database", "gather", "--raw", path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let _ = remove_file(path);
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("Failed to convert document"));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("ACORN gather:"));
+}
+#[test]
+fn test_terse_format_suppresses_discovery_table() {
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "-vv",
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--terse",
+            "--text",
+            "doi:10.1234/example",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("found"));
+    assert!(!stdout.contains("ACORN gather:"));
+    assert!(!stdout.trim_start().starts_with('{'));
 }
 #[test]
 fn test_quiet_suppresses_gather_stdout() {
@@ -201,10 +238,20 @@ fn test_gather_persists_project_candidate_and_reports_replay() {
     let report: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
     assert_eq!(report["summary"]["candidates"]["created"], 1);
     assert_eq!(report["candidates"].as_array().unwrap().len(), 1);
+    assert!(report["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|check| check["category"] == "link" && check["message"] == "created"));
     let replayed = run();
     assert!(replayed.status.success(), "{}", String::from_utf8_lossy(&replayed.stderr));
     let report: serde_json::Value = serde_json::from_slice(&replayed.stdout).unwrap();
     assert_eq!(report["summary"]["candidates"]["unchanged"], 1);
+    assert!(report["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|check| check["category"] == "link" && check["message"] == "unchanged"));
 }
 #[test]
 fn test_osti_rejects_offline_mode_before_network_access() {

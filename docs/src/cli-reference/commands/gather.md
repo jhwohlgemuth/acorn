@@ -33,16 +33,19 @@ Non-empty standard input is gathered automatically and can be combined with posi
 
 ## Output formats
 
-Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives the console table and piped or file output uses JSON. An explicit format is always honored. Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. With `--raw --resolve`, arXiv and DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress stdout output.
+Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives a table containing only discoveries and remote provider matches; piped or file output uses JSON. Resolution checks are rendered separately using the same detailed format as `acorn check`. Use `--terse` to render compact checks without the discovery table. Warning and error states are visible by default, while `-vv` also shows informational transitions such as `found`, `resolved`, `created`, `enriched`, and `unchanged`.
+
+Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. Raw stdout remains machine-readable: check diagnostics are suppressed unless `-v` is present, and verbose diagnostics are written to stderr without a table. With `--raw --resolve`, arXiv and DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress output.
 
 ```sh
 acorn gather report.docx --format console
 acorn gather report.docx --format yaml --output discoveries.yaml
+acorn gather report.docx --terse
 acorn gather report.docx --raw | sort -u
 acorn gather report.docx --raw --resolve --citation-format apa
 ```
 
-Resolved raw output remains machine-readable: successful values use one line each, while detailed load or resolution failures are written to stderr and cause a nonzero exit. A DOI without the selected citation style and an ORCID without public given/family or credit-name data falls back to its normalized identifier.
+Resolved raw output remains machine-readable: successful values use one line each. Load or resolution failures retain a nonzero exit status; they are silent by default and are rendered to stderr when verbosity is enabled. A DOI without the selected citation style and an ORCID without public given/family or credit-name data falls back to its normalized identifier.
 
 ## Research activity candidates
 

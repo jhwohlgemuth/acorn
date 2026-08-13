@@ -1,7 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
 use super::DownloadCommands;
-use acorn::analyzer::discovery::{self, CitationFormat};
+use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
@@ -215,7 +215,7 @@ pub enum GatherOutputFormat {
     #[display("yaml")]
     Yaml,
 }
-impl From<&GatherOutputFormat> for discovery::OutputFormat {
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
     fn from(format: &GatherOutputFormat) -> Self {
         match format {
             | GatherOutputFormat::Console => Self::Console,
@@ -757,6 +757,9 @@ pub(crate) struct Gather {
     /// Print discovered identifiers as plain text, one per line.
     #[arg(long, conflicts_with = "format", help_heading = "FLAGS")]
     pub(crate) raw: bool,
+    /// Use compact check output and suppress the discovery table.
+    #[arg(short = 't', long, conflicts_with_all = ["format", "output", "raw"], help_heading = "FLAGS")]
+    pub(crate) terse: bool,
     /// Resolve supported identifiers through their metadata providers.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) resolve: bool,

@@ -21,6 +21,43 @@ fn test_citation_format_parses_supported_values() {
     assert!("unknown".parse::<CitationFormat>().is_err());
 }
 #[test]
+fn test_resolution_outcome_projects_typed_status_and_payload() {
+    assert_eq!(ResolutionOutcome::<String>::NotRequested.status(), ResolutionStatus::NotRequested);
+    assert_eq!(ResolutionOutcome::<String>::Unsupported.status(), ResolutionStatus::Unsupported);
+    assert_eq!(
+        ResolutionOutcome::Resolved("metadata".to_string()).into_parts(),
+        (Some("metadata".to_string()), ResolutionStatus::Resolved)
+    );
+    assert_eq!(
+        ResolutionOutcome::Failed("diagnostic".to_string()).into_parts(),
+        (Some("diagnostic".to_string()), ResolutionStatus::Failed)
+    );
+}
+#[test]
+fn test_typed_gather_record_preserves_lowercase_wire_values() {
+    let report = Report::new(
+        &[LifecycleState::Found.check("10.1234/example".to_string(), None, Some("example.md".to_string()))],
+        Records(
+            vec![Record::Discovery {
+                identifier: "10.1234/example".to_string(),
+                identifier_type: PID::DOI,
+                metadata: None,
+                resolution_status: ResolutionStatus::NotRequested,
+                source: "example.md".to_string(),
+                source_format: "markdown".to_string(),
+            }],
+            Vec::new(),
+        ),
+        1,
+    );
+    let value = serde_json::to_value(report).unwrap();
+    assert_eq!(value["checks"][0]["category"], "link");
+    assert_eq!(value["checks"][0]["severity"], "info");
+    assert_eq!(value["checks"][0]["message"], "found");
+    assert_eq!(value["discoveries"][0]["identifier_type"], "doi");
+    assert_eq!(value["discoveries"][0]["resolution_status"], "not-requested");
+}
+#[test]
 fn test_citation_format_selects_and_flattens_requested_style() {
     let citations = api::citeas::Citations {
         citations: vec![
@@ -388,7 +425,7 @@ fn test_raid_resolution_maps_typed_candidate_metadata() {
         identifiers: vec![Identifier::new("https://raid.org/10.83962/fb5be317").normalized().unwrap()],
         ..ArtifactCandidate::default()
     };
-    let resolved = candidate.resolved(Some(&metadata.to_string()), "raid");
+    let resolved = candidate.resolved(Some(&metadata.to_string()), &PID::RAID);
     let rad = resolved.to_partial_rad_json();
     assert_eq!(rad["title"], "RAiD project");
     assert_eq!(rad["notes"], "RAiD project description");
@@ -460,6 +497,8 @@ async fn test_analysis_materializes_source_content_without_discoveries() {
             standard: &standard,
             text: &text,
             quiet: true,
+            terse: false,
+            verbosity: None,
             remote: None,
         })
         .await;
@@ -474,37 +513,48 @@ fn test_discovery_analysis_checks_failed_resolution() {
     let discoveries = Records(
         vec![Record::Discovery {
             identifier: "10.1234/example".to_string(),
-            identifier_type: "doi".to_string(),
+            identifier_type: PID::DOI,
             metadata: Some("resolution error".to_string()),
-            resolution_status: "failed".to_string(),
+            resolution_status: ResolutionStatus::Failed,
             source: "example.md".to_string(),
             source_format: "markdown".to_string(),
         }],
         Vec::new(),
     );
-    let checks = <Records as Analysis>::check_resolution(&discoveries);
-    assert_eq!(checks.len(), 1);
-    let check = checks.first().expect("failed resolution should produce one check");
-    assert_eq!(check.category, CheckCategory::Link);
-    assert_eq!(check.message, "resolution error");
+    let checks = discoveries.link_checks();
+    assert_eq!(checks.len(), 2);
+    assert_eq!(checks[0].message, "found");
+    assert_eq!(checks[1].category, CheckCategory::Link);
+    assert_eq!(checks[1].message, "failed");
+    assert_eq!(checks[1].context.as_deref(), Some("resolution error"));
+}
+#[test]
+fn test_resolution_state_checks_preserve_nonfatal_warning_states() {
+    for state in [LifecycleState::Unsupported, LifecycleState::Conflict] {
+        let check = state.check("10.1234/example".to_string(), None, None);
+        assert!(check.success);
+        assert_eq!(check.category, CheckCategory::Link);
+        assert_eq!(check.severity, CheckSeverity::Warning);
+        assert_eq!(check.message, state.to_string());
+    }
 }
 #[test]
 fn test_markdown_report_contains_checks_and_summary() {
     let report = Report {
         checks: vec![Record::Check {
-            category: "schema".to_string(),
+            category: CheckCategory::Schema,
             locator: None,
             message: "example".to_string(),
-            severity: "error".to_string(),
+            severity: CheckSeverity::Error,
             success: false,
             uri: None,
         }],
         discoveries: Records(
             vec![Record::Discovery {
                 identifier: "10.1234/example".to_string(),
-                identifier_type: "doi".to_string(),
+                identifier_type: PID::DOI,
                 metadata: None,
-                resolution_status: "not-requested".to_string(),
+                resolution_status: ResolutionStatus::NotRequested,
                 source: "example.md".to_string(),
                 source_format: "markdown".to_string(),
             }],
@@ -528,22 +578,22 @@ fn test_markdown_report_contains_checks_and_summary() {
     assert!(markdown.contains("- **error** schema: example"));
 }
 #[test]
-fn test_report_table_contains_checks_and_discoveries() {
+fn test_report_table_contains_only_discoveries() {
     let report = Report {
         checks: vec![Record::Check {
-            category: "schema".to_string(),
+            category: CheckCategory::Schema,
             locator: None,
             message: "example".to_string(),
-            severity: "error".to_string(),
+            severity: CheckSeverity::Error,
             success: false,
             uri: None,
         }],
         discoveries: Records(
             vec![Record::Discovery {
                 identifier: "10.1234/example".to_string(),
-                identifier_type: "doi".to_string(),
+                identifier_type: PID::DOI,
                 metadata: None,
-                resolution_status: "not-requested".to_string(),
+                resolution_status: ResolutionStatus::NotRequested,
                 source: "example.md".to_string(),
                 source_format: "markdown".to_string(),
             }],
@@ -562,10 +612,10 @@ fn test_report_table_contains_checks_and_discoveries() {
     };
     let (headers, rows) = report.table();
     assert_eq!(headers, vec!["Type", "Value", "Status", "Source"]);
-    assert_eq!(rows.len(), 2);
+    assert_eq!(rows.len(), 1);
     let console = report.serialize(OutputFormat::Console).unwrap_or_default();
     assert!(console.contains("10.1234/example"));
-    assert!(console.contains("schema: example"));
+    assert!(!console.contains("schema: example"));
 }
 #[test]
 fn test_resolved_raw_report_renders_citations_and_orcid_names() {
@@ -586,19 +636,23 @@ fn test_resolved_raw_report_renders_citations_and_orcid_names() {
         institution_names: None,
         other_name: None,
     });
-    let discovery = |identifier: &str, identifier_type: &str, metadata: String| Record::Discovery {
+    let discovery = |identifier: &str, identifier_type: PID, metadata: String| Record::Discovery {
         identifier: identifier.to_string(),
-        identifier_type: identifier_type.to_string(),
+        identifier_type,
         metadata: Some(metadata),
-        resolution_status: "resolved".to_string(),
+        resolution_status: ResolutionStatus::Resolved,
         source: "example.md".to_string(),
         source_format: "markdown".to_string(),
     };
     let records = Records(
         vec![
-            discovery("arXiv:2106.09685", "arxiv", serde_json::to_string(&citations).unwrap()),
-            discovery("10.1234/example", "doi", serde_json::to_string(&citations).unwrap()),
-            discovery("https://orcid.org/0000-0002-2057-9115", "orcid", serde_json::to_string(&profile).unwrap()),
+            discovery("arXiv:2106.09685", PID::ARXIV, serde_json::to_string(&citations).unwrap()),
+            discovery("10.1234/example", PID::DOI, serde_json::to_string(&citations).unwrap()),
+            discovery(
+                "https://orcid.org/0000-0002-2057-9115",
+                PID::ORCID,
+                serde_json::to_string(&profile).unwrap(),
+            ),
         ],
         Vec::new(),
     );
@@ -715,9 +769,11 @@ fn test_remote_match_analysis_checks_failed_resolution() {
                 .build(),
         )
         .build();
-    let checks = <RemoteMatch as Analysis>::check_resolution(&value);
-    assert_eq!(checks.len(), 1);
-    assert_eq!(checks[0].message, "resolution error");
+    let checks = value.link_checks();
+    assert_eq!(checks.len(), 2);
+    assert_eq!(checks[0].message, "found");
+    assert_eq!(checks[1].message, "failed");
+    assert_eq!(checks[1].context.as_deref(), Some("resolution error"));
 }
 #[test]
 fn test_remote_search_request_builder_and_capabilities() {

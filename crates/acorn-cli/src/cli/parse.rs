@@ -11,6 +11,7 @@ use serde_json;
 use serde_json::Value;
 use serde_norway;
 use std::path::Path;
+use strum::VariantNames;
 
 /// Parse a CLI standard name into an `Standard` variant.
 pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
@@ -33,18 +34,16 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
 }
 /// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.
 pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, String> {
-    match s.to_lowercase().as_str() {
-        | "link" => Ok(analyzer::CheckCategory::Link),
-        | "prose" => Ok(analyzer::CheckCategory::Prose),
-        | "quality" => Ok(analyzer::CheckCategory::Quality),
-        | "readability" => Ok(analyzer::CheckCategory::Readability),
-        | "crosswalk" => Ok(analyzer::CheckCategory::Crosswalk),
-        | "schema" => Ok(analyzer::CheckCategory::Schema),
-        | _ => Err(format!(
-            "unknown check category '{s}' — expected one of: \
-             link, prose, quality, readability, crosswalk, schema"
-        )),
-    }
+    analyzer::CheckCategory::VARIANTS
+        .iter()
+        .find(|variant| variant.eq_ignore_ascii_case(s))
+        .map(|_| analyzer::CheckCategory::from(s))
+        .ok_or_else(|| {
+            format!(
+                "unknown check category '{s}' — expected one of: {}",
+                analyzer::CheckCategory::VARIANTS.join(", ")
+            )
+        })
 }
 /// Parse a CLI executor name into an `Executor` variant.
 pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {

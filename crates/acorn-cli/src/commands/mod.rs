@@ -2,8 +2,10 @@ use crate::cli::arguments::OutputFormat;
 use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::discovery;
+use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
 use acorn::util::Label;
+use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
 use core::future::Future;
@@ -318,6 +320,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 merge_request,
                 output,
                 raw,
+                terse,
                 osti,
                 organization,
                 organization_role,
@@ -356,7 +359,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 citation_format,
                 database_path: &config.database_path,
                 filter,
-                format: raw.then_some(discovery::OutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
+                format: raw.then_some(GatherOutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
                 ignore,
                 input,
                 max_depth: *max_depth,
@@ -368,6 +371,15 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 standard,
                 text,
                 quiet: verbose.is_silent(),
+                terse: *terse,
+                verbosity: match verbose.filter() {
+                    | VerbosityFilter::Off => None,
+                    | VerbosityFilter::Error => Some(1),
+                    | VerbosityFilter::Warn => Some(2),
+                    | VerbosityFilter::Info => Some(3),
+                    | VerbosityFilter::Debug => Some(4),
+                    | VerbosityFilter::Trace => Some(5),
+                },
                 remote: remote.as_ref(),
             })
             .await

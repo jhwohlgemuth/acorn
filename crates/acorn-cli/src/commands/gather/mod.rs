@@ -1,6 +1,6 @@
 use crate::io::{is_stdout_piped, read_stdin};
-use acorn::analyzer::discovery::{Options, OutputFormat, Records, Report};
-use acorn::analyzer::{Analysis, Check, CheckCategory};
+use acorn::analyzer::discovery::{Options, OutputFailure, Records, Report};
+use acorn::analyzer::{Check, CheckCategory, CheckOptions, OutputFormat, Render};
 use acorn::check_err;
 use acorn::io::config::FilterSet;
 use acorn::io::document::SourceDocument;
@@ -95,6 +95,8 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
         output,
         quiet,
         resolve,
+        terse,
+        verbosity,
         ..
     } = options;
     let load_checks = values
@@ -123,7 +125,6 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
     let (analysis_checks, temporary_paths) = discoveries.analyze(options).await;
     let checks = load_checks
         .into_iter()
-        .chain(discoveries.check_resolution())
         .chain(analysis_checks)
         .chain(persistence_checks)
         .collect::<Vec<_>>();
@@ -133,26 +134,32 @@ async fn process(values: Vec<ApiResult<SourceDocument>>, options: Options<'_>) -
     let report = Report::new(&checks, discoveries, inputs)
         .with_candidates(candidate_results)
         .with_citation_format(citation_format);
-    let format = format.unwrap_or_else(|| match output.is_none() && !is_stdout_piped() {
-        | true => OutputFormat::Console,
-        | false => OutputFormat::Json,
+    let format = format.unwrap_or_else(|| match (terse, output.is_none() && !is_stdout_piped()) {
+        | (true, _) | (false, true) => OutputFormat::Console,
+        | (false, false) => OutputFormat::Json,
     });
-    let failures = checks.iter().filter(|check| check.is_failure()).collect::<Vec<_>>();
-    match format {
-        | OutputFormat::Raw => failures.iter().for_each(|check| eprintln!("{check}")),
-        | OutputFormat::Console => failures
-            .into_iter()
-            .enumerate()
-            .for_each(|(index, check)| check.clone().with_index(index).report()),
-        | _ => {}
-    }
+    let check_options = CheckOptions::init()
+        .filter_by_verbosity(true)
+        .quiet(quiet)
+        .terse(terse)
+        .format(format)
+        .maybe_verbosity(verbosity)
+        .build();
+    checks.render(&check_options);
     let output_write_result = match output {
+        | _ if terse && format == OutputFormat::Console => Ok(()),
         | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
         | None if quiet => Ok(()),
-        | None => report.serialize(format).map(|serialized| println!("{serialized}")),
+        | None => report.serialize(format).map(|serialized| {
+            if !serialized.is_empty() {
+                println!("{serialized}");
+            }
+        }),
     };
     output_write_result.and_then(|_| match checks.iter().any(Check::is_failure) {
-        | true => Err(eyre!("ACORN gather found one or more failures")),
+        | true => Err(eyre!(OutputFailure::new(
+            format == OutputFormat::Raw && verbosity.is_none_or(|level| level <= 1)
+        ))),
         | false => Ok(()),
     })
 }

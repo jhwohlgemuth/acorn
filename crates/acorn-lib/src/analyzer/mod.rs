@@ -53,7 +53,7 @@ pub mod readability;
 mod service;
 pub mod vale;
 
-pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, Standard};
+pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Checks, IntoChecks, OutputFormat, Render, Standard};
 
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow};

@@ -168,7 +168,7 @@ pub trait PersistentIdentifierParse {
 /// Persistent Identifier (PID) types
 ///
 /// PIDs are globally unique identifiers, resolvable on the Web, and associated with a set of additional descriptive metadata (ex. [`raid::Metadata`])
-#[derive(Clone, Debug, Default, Deserialize, EnumIs, EnumIter, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Debug, Default, EnumIs, EnumIter, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PID {
     /// Unknown PID
     #[default]
@@ -626,6 +626,31 @@ impl PID {
     /// Whether this PID type can independently identify a research project.
     pub fn is_project_identifier(&self) -> bool {
         self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark()
+    }
+}
+impl fmt::Display for PID {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl Serialize for PID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for PID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| {
+            Self::iter()
+                .find(|pid| pid.as_str().eq_ignore_ascii_case(&value))
+                .ok_or_else(|| serde::de::Error::custom(format!("unknown PID type `{value}`")))
+        })
     }
 }
 impl From<&str> for PID {

@@ -2,14 +2,13 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Standard};
+use acorn::analyzer::{analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard};
 use acorn::prelude::PathBuf;
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, suffix, Label};
 use acorn::{fail, skip};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
-use color_eyre::owo_colors::OwoColorize;
 use dotenvy::dotenv;
 use tracing::{debug, error};
 
@@ -54,6 +53,7 @@ pub async fn run(
                 .exit_on_first_error(*exit_on_first_error)
                 .offline(offline)
                 .no_fail(*no_fail)
+                .format(OutputFormat::Console)
                 .quiet(is_silent || *raw)
                 .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
                 .skip_verify_checksum(*skip_verify_checksum)
@@ -73,14 +73,13 @@ fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, option
         all,
         exit_on_first_error,
         quiet,
-        terse,
         ..
     } = options;
     let filtered_results = filter_by_visibility(&results, *all);
     let issue_count = failure_count(&filtered_results);
     if *exit_on_first_error && issue_count > 0 && !*quiet {
         fail!("ACORN found {} {} issues", issue_count, category);
-        render(&filtered_results, *terse);
+        filtered_results.render(options);
     }
     filtered_results
 }
@@ -94,7 +93,7 @@ async fn collect(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
         .flat_map(|category| apply_early_exit_policy(category.checks, &category.category, options))
         .collect()
 }
-fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
+fn handle(issues: &Checks, paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
     let CheckOptions { quiet, no_fail, terse, .. } = options;
     let print_summary = || {
         let file_count = paths.len();
@@ -107,7 +106,7 @@ fn handle(issues: &[Check], paths: &[PathBuf], options: &CheckOptions) -> Result
         print_values_as_table::<String>(headers, rows, None);
     };
     if !(*quiet) {
-        render(issues, *terse);
+        issues.render(options);
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
         }
@@ -138,26 +137,6 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
 }
 fn has_failures(issues: &[Check]) -> bool {
     issues.iter().any(Check::is_failure)
-}
-fn render(issues: &[Check], terse: bool) {
-    let mut sorted_issues = issues.to_vec();
-    sorted_issues.sort_by_cached_key(|issue| {
-        (
-            u8::from(&issue.severity),
-            u8::from(&issue.category),
-            issue.locator.clone().unwrap_or_default().to_lowercase(),
-        )
-    });
-    if terse {
-        sorted_issues.iter().for_each(|issue| {
-            let uri = issue.uri.clone().unwrap_or_default();
-            println!("{issue}{}", format!(", path={uri}").dimmed());
-        });
-    } else {
-        sorted_issues.into_iter().enumerate().for_each(|(index, issue)| {
-            issue.with_index(index).report();
-        });
-    }
 }
 fn resolve_readability_metric(readability_metric: &ReadabilityType) -> ReadabilityType {
     match dotenv() {

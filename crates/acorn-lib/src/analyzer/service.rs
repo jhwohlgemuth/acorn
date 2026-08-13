@@ -52,6 +52,23 @@ impl AnalysisReport {
             .flat_map(|category| category.checks.iter().cloned())
             .collect()
     }
+    pub(crate) fn with_checks(self, checks: Vec<Check>, options: &CheckOptions) -> Self {
+        let categories = CheckCategory::iter()
+            .filter_map(|category| {
+                let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<Vec<_>>();
+                (!checks.is_empty()).then_some(CategoryChecks { category, checks })
+            })
+            .collect();
+        let batch = AnalysisBatch {
+            standard: options.standard,
+            paths: Vec::new(),
+            categories,
+        };
+        Self {
+            batches: self.batches.into_iter().chain(once(batch)).collect(),
+            ..self
+        }
+    }
 }
 async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
     let mut results = Vec::with_capacity(categories.len());

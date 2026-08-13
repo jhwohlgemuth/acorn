@@ -1,4 +1,5 @@
 //! # 🌱 ACORN CLI
+use acorn::analyzer::discovery;
 use acorn::io::{env_var_is_truthy, progress_renderer};
 use acorn::prelude::env;
 use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
@@ -87,7 +88,12 @@ fn main() -> Void {
     match pre_check.and(pool_result).and_then(|_| run(&args, offline, &config, threads)) {
         | Ok(()) => exit(exitcode::OK),
         | Err(report) => {
-            eprintln!("Error: {report:?}");
+            let is_silent = report
+                .downcast_ref::<discovery::OutputFailure>()
+                .is_some_and(|failure| failure.is_silent());
+            if !is_silent {
+                eprintln!("Error: {report:?}");
+            }
             exit(exitcode::SOFTWARE);
         }
     }

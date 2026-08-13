@@ -635,39 +635,39 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 
   Possible values:
   - `ames`:
-    Ames National Laboratory
+    [Ames National Laboratory](https://www.ameslab.gov/)
   - `anl`:
-    Argonne National Laboratory
+    [Argonne National Laboratory](https://www.anl.gov/)
   - `bnl`:
-    Brookhaven National Laboratory
+    [Brookhaven National Laboratory](https://www.bnl.gov/)
   - `fnal`:
-    Fermi National Accelerator Laboratory
+    [Fermi National Accelerator Laboratory](https://www.fnal.gov/)
   - `inl`:
-    Idaho National Laboratory
+    [Idaho National Laboratory](https://inl.gov/)
   - `lbnl`:
-    Lawrence Berkeley National Laboratory
+    [Lawrence Berkeley National Laboratory](https://www.lbl.gov/)
   - `llnl`:
-    Lawrence Livermore National Laboratory
+    [Lawrence Livermore National Laboratory](https://www.llnl.gov/)
   - `lanl`:
-    Los Alamos National Laboratory
+    [Los Alamos National Laboratory](https://www.lanl.gov/)
   - `netl`:
-    National Energy Technology Laboratory
+    [National Energy Technology Laboratory](https://www.netl.doe.gov/)
   - `nrel`:
-    National Renewable Energy Laboratory
+    [National Renewable Energy Laboratory](https://www.nrel.gov/)
   - `ornl`:
-    Oak Ridge National Laboratory
+    [Oak Ridge National Laboratory](https://www.ornl.gov/)
   - `pnnl`:
-    Pacific Northwest National Laboratory
+    [Pacific Northwest National Laboratory](https://www.pnnl.gov/)
   - `pppl`:
-    Princeton Plasma Physics Laboratory
+    [Princeton Plasma Physics Laboratory](https://www.pppl.gov/)
   - `snl`:
-    Sandia National Laboratories
+    [Sandia National Laboratories](https://www.sandia.gov/)
   - `srnl`:
-    Savannah River National Laboratory
+    [Savannah River National Laboratory](https://www.srnl.gov/)
   - `slac`:
-    SLAC National Accelerator Laboratory
+    [SLAC National Accelerator Laboratory](https://www.slac.stanford.edu/)
   - `tjnaf`:
-    Thomas Jefferson National Accelerator Facility
+    [Thomas Jefferson National Accelerator Facility](https://www.jlab.org/)
 
 * `--limit <COUNT>` — Number of upstream projects requested per page
 
@@ -689,6 +689,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
     YAML
 
 * `--raw` — Print discovered identifiers as plain text, one per line
+* `-t`, `--terse` — Use compact check output and suppress the discovery table
 * `--resolve` — Resolve supported identifiers through their metadata providers
 * `--citation-format <FORMAT>` — Citation format used for resolved DOI lines
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
