@@ -80,6 +80,22 @@ This document contains the help content for the `acorn-cli` command-line program
 * `-X`, `--offline` — Prevent communication with the internet - intended for disconnected local environments
 
    Note: Use of --offline may require extra configuration options for certain commands
+* `-w`, `--watch` — Re-run check or gather when input content changes
+* `--watch-mode <MODE>` — Select automatic, native, or polling watch behavior
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Prefer native notifications and use polling when required
+  - `native`:
+    Require native filesystem notifications
+  - `poll`:
+    Poll local and network sources
+
+* `--watch-poll-interval <DURATION>` — Set the polling interval used by watch mode
+
+  Default value: `1s`
 * `-t`, `--threads <N>` — Limit number of threads used by rayon for parallel processing
 
    See Rayon documentation for more information
@@ -118,13 +134,13 @@ Perform static analysis on research activity data and apply standardized best pr
     Check file(s) that were changed in latest Git commit
     $> acorn check --commit HEAD
 
-**Usage:** `acorn-cli check [OPTIONS] [PATH]`
+**Usage:** `acorn-cli check [OPTIONS] [LOCATION]`
 
 **Command Alias:** `lint`
 
 ###### **Arguments:**
 
-* `<PATH>` — Path to check
+* `<LOCATION>` — Local path or HTTP(S) URI to check
 
   Default value: `./`
 

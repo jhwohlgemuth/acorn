@@ -279,8 +279,8 @@ pub enum Target {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub struct Check {
-    /// Path to check
-    #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+    /// Local path or HTTP(S) URI to check
+    #[arg(default_value = "./", required = false, value_name = "LOCATION", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
     /// Check files that were changed in a given Git branch
     #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]

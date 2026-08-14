@@ -11,7 +11,23 @@ acorn check path/to/project/CITATION.cff
 
 # Check all research activity data in a directory
 acorn check path/to/project/
+
+# Check a remote document
+acorn check https://example.org/project.json
 ```
+
+HTTP and HTTPS inputs are downloaded to a temporary file and checked using the file extension in the URL. Remote inputs require network access and are rejected in global `--offline` mode.
+
+## Watch mode
+
+Use the global `--watch` flag to run immediately and repeat the check whenever the effective input changes:
+
+```sh
+acorn --watch check path/to/project/
+acorn check --watch --watch-mode poll https://example.org/project.json
+```
+
+`--watch-mode auto` uses native filesystem notifications for local inputs and polling for remote inputs, with polling as a fallback when native notifications fail. Use `--watch-mode poll` for network-mounted paths, containers, WSL-mounted paths, or other filesystems where native events are unreliable. Configure polling with `--watch-poll-interval`, such as `--watch-poll-interval 5s`.
 
 ## Checking `CITATION.cff`
 

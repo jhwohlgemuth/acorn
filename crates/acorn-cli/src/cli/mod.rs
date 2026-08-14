@@ -11,9 +11,11 @@ use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
     Styles,
 };
-use clap::{Parser, Subcommand, ValueHint};
+use clap::{Parser, Subcommand, ValueEnum, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
+use jiff::SignedDuration;
+use parse::parse_watch_duration;
 
 pub mod arguments;
 pub mod parse;
@@ -21,6 +23,27 @@ use arguments::DatabaseBackend;
 
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
+/// Filesystem notification strategy used by watch mode.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub enum WatchMode {
+    /// Prefer native notifications and use polling when required.
+    #[default]
+    Auto,
+    /// Require native filesystem notifications.
+    Native,
+    /// Poll local and network sources.
+    Poll,
+}
+/// Runtime watch configuration.
+#[derive(Clone, Copy, Debug)]
+pub struct WatchOptions {
+    /// Watcher backend selection.
+    pub mode: WatchMode,
+    /// Filesystem and network polling interval.
+    pub poll_interval: SignedDuration,
+    /// Whether any watched source requires network polling.
+    pub network: bool,
+}
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
     .header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
@@ -152,6 +175,15 @@ pub struct Arguments {
     /// Note: Use of --offline may require extra configuration options for certain commands
     #[arg(short = 'X', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub offline: bool,
+    /// Re-run check or gather when input content changes
+    #[arg(short = 'w', long, global = true, value_name = "BOOL", help_heading = "FLAGS")]
+    pub watch: bool,
+    /// Select automatic, native, or polling watch behavior
+    #[arg(long, global = true, value_enum, default_value_t = WatchMode::Auto, requires = "watch", value_name = "MODE", help_heading = "OPTIONS")]
+    pub watch_mode: WatchMode,
+    /// Set the polling interval used by watch mode
+    #[arg(long, global = true, default_value = "1s", requires = "watch", value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
+    pub watch_poll_interval: SignedDuration,
     /// Limit number of threads used by rayon for parallel processing
     ///
     /// See Rayon documentation for more information

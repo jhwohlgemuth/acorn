@@ -12,8 +12,8 @@ pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, PID, RAID, ROR};
 use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
-use crate::Repository;
 use crate::{check, check_err};
+use crate::{Location, Repository};
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use bon::Builder;
@@ -167,56 +167,6 @@ pub enum LifecycleState {
     Unchanged,
     /// Candidate evidence conflicted with stored data.
     Conflict,
-}
-impl<T> ResolutionOutcome<T> {
-    /// Return the serializable status represented by this outcome.
-    pub const fn status(&self) -> ResolutionStatus {
-        match self {
-            | Self::NotRequested => ResolutionStatus::NotRequested,
-            | Self::Unsupported => ResolutionStatus::Unsupported,
-            | Self::Resolved(_) => ResolutionStatus::Resolved,
-            | Self::Failed(_) => ResolutionStatus::Failed,
-        }
-    }
-}
-impl ResolutionOutcome<String> {
-    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
-        let status = self.status();
-        let metadata = match self {
-            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
-            | Self::NotRequested | Self::Unsupported => None,
-        };
-        (metadata, status)
-    }
-}
-impl From<CandidateAction> for LifecycleState {
-    fn from(value: CandidateAction) -> Self {
-        match value {
-            | CandidateAction::Created => Self::Created,
-            | CandidateAction::Enriched => Self::Enriched,
-            | CandidateAction::Unchanged => Self::Unchanged,
-            | CandidateAction::Conflict => Self::Conflict,
-        }
-    }
-}
-impl LifecycleState {
-    fn check(self, locator: String, context: Option<String>, uri: Option<String>) -> Check {
-        let (success, severity) = match self {
-            | Self::Failed => (false, CheckSeverity::Error),
-            | Self::Conflict | Self::Unsupported => (true, CheckSeverity::Warning),
-            | _ => (true, CheckSeverity::Info),
-        };
-        check!(
-            CheckCategory::Link,
-            success,
-            severity: severity,
-            message: self.to_string(),
-            locator: locator,
-            maybe_context: context,
-            maybe_uri: uri,
-        )
-        .with_kind(CheckKind::Lifecycle)
-    }
 }
 /// Features exposed by a remote gather provider.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -398,6 +348,8 @@ pub struct Options<'a> {
     pub no_local_database: bool,
     /// Whether network access is disabled
     pub offline: bool,
+    /// Whether inputs are being repeatedly observed for changes.
+    pub watching: bool,
     /// Optional report output path
     pub output: &'a Option<PathBuf>,
     /// Whether identifiers should be resolved
@@ -420,22 +372,14 @@ pub struct Options<'a> {
 pub struct OutputFailure {
     silent: bool,
 }
-impl OutputFailure {
-    /// Create a gather failure, optionally suppressing the top-level diagnostic.
-    pub const fn new(silent: bool) -> Self {
-        Self { silent }
-    }
-    /// Return whether the top-level CLI diagnostic should be suppressed.
-    pub const fn is_silent(self) -> bool {
-        self.silent
-    }
+/// Candidate persistence totals included in gather reports.
+#[derive(Clone, Debug, Default, Serialize)]
+struct PersistenceCounts {
+    created: usize,
+    enriched: usize,
+    unchanged: usize,
+    conflicts: usize,
 }
-impl fmt::Display for OutputFailure {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ACORN gather found one or more failures")
-    }
-}
-impl core::error::Error for OutputFailure {}
 /// Gather discoveries and the source documents from which they were derived
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(transparent)]
@@ -470,14 +414,38 @@ pub(crate) struct Summary {
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
 }
-/// Candidate persistence totals included in gather reports.
-#[derive(Clone, Debug, Default, Serialize)]
-struct PersistenceCounts {
-    created: usize,
-    enriched: usize,
-    unchanged: usize,
-    conflicts: usize,
+impl Options<'_> {
+    /// Return whether path or literal text input was supplied.
+    pub fn has_input(&self) -> bool {
+        !(self.input.is_empty() && self.text.is_empty())
+    }
+    /// Return local filesystem roots observed by gather watch mode.
+    pub fn roots(&self) -> Vec<PathBuf> {
+        let default = (!self.has_input() && self.remote.is_none()).then_some(".");
+        self.input
+            .iter()
+            .map(String::as_str)
+            .chain(default)
+            .filter_map(|value| Location::from(value).local_path())
+            .collect()
+    }
 }
+impl OutputFailure {
+    /// Create a gather failure, optionally suppressing the top-level diagnostic.
+    pub const fn new(silent: bool) -> Self {
+        Self { silent }
+    }
+    /// Return whether the top-level CLI diagnostic should be suppressed.
+    pub const fn is_silent(self) -> bool {
+        self.silent
+    }
+}
+impl fmt::Display for OutputFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ACORN gather found one or more failures")
+    }
+}
+impl core::error::Error for OutputFailure {}
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::orcid::SearchResponse {}
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
@@ -817,6 +785,35 @@ impl CitationFormat {
     /// Return every accepted configuration value.
     pub const fn values() -> &'static [&'static str] {
         Self::VARIANTS
+    }
+}
+impl From<CandidateAction> for LifecycleState {
+    fn from(value: CandidateAction) -> Self {
+        match value {
+            | CandidateAction::Created => Self::Created,
+            | CandidateAction::Enriched => Self::Enriched,
+            | CandidateAction::Unchanged => Self::Unchanged,
+            | CandidateAction::Conflict => Self::Conflict,
+        }
+    }
+}
+impl LifecycleState {
+    fn check(self, locator: String, context: Option<String>, uri: Option<String>) -> Check {
+        let (success, severity) = match self {
+            | Self::Failed => (false, CheckSeverity::Error),
+            | Self::Conflict | Self::Unsupported => (true, CheckSeverity::Warning),
+            | _ => (true, CheckSeverity::Info),
+        };
+        check!(
+            CheckCategory::Link,
+            success,
+            severity: severity,
+            message: self.to_string(),
+            locator: locator,
+            maybe_context: context,
+            maybe_uri: uri,
+        )
+        .with_kind(CheckKind::Lifecycle)
     }
 }
 impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
@@ -1284,6 +1281,27 @@ impl RemoteProvider {
         }
     }
 }
+impl<T> ResolutionOutcome<T> {
+    /// Return the serializable status represented by this outcome.
+    pub const fn status(&self) -> ResolutionStatus {
+        match self {
+            | Self::NotRequested => ResolutionStatus::NotRequested,
+            | Self::Unsupported => ResolutionStatus::Unsupported,
+            | Self::Resolved(_) => ResolutionStatus::Resolved,
+            | Self::Failed(_) => ResolutionStatus::Failed,
+        }
+    }
+}
+impl ResolutionOutcome<String> {
+    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
+        let status = self.status();
+        let metadata = match self {
+            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
+            | Self::NotRequested | Self::Unsupported => None,
+        };
+        (metadata, status)
+    }
+}
 impl RemoteSearchResponse {
     /// Merge another response, retaining the first occurrence of each provider identifier.
     pub fn merge(self, other: Self) -> Self {
@@ -1381,6 +1399,24 @@ impl RemoteSearchRequest {
     }
     /// Run the remote search and emit its gather report
     pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
+        match self.fetch(options.resolve, options.offline).await {
+            | Ok(responses) => self.process(responses, options),
+            | Err(why) => Err(why),
+        }
+    }
+    /// Fetch and optionally resolve normalized remote search responses without producing output or persistence side effects.
+    pub async fn fetch(&self, resolve: bool, offline: bool) -> ApiResult<Vec<RemoteSearchResponse>> {
+        match (offline, self.is_empty()) {
+            | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
+            | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
+            | (false, false) => match (resolve, self.search().await) {
+                | (true, Ok(responses)) => Ok(join_all(responses.into_iter().map(RemoteSearchResponse::resolve)).await),
+                | (_, responses) => responses,
+            },
+        }
+    }
+    /// Process previously fetched remote responses using gather output and persistence options.
+    pub fn process(&self, responses: Vec<RemoteSearchResponse>, options: Options<'_>) -> ApiResult<()> {
         let Options {
             citation_format,
             database_path,
@@ -1394,76 +1430,69 @@ impl RemoteSearchRequest {
             verbosity,
             ..
         } = options;
-        match (offline, self.is_empty()) {
-            | (true, _) => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
-            | (_, true) => Err(color_eyre::eyre::eyre!("--{} requires a query or --organization", self.provider)),
-            | (false, false) => {
-                let responses = match (resolve, self.search().await) {
-                    | (true, Ok(responses)) => Ok(join_all(responses.into_iter().map(RemoteSearchResponse::resolve)).await),
-                    | (_, responses) => responses,
-                };
-                responses.and_then(|responses| {
-                    let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
-                    let checks = responses
-                        .iter()
-                        .flat_map(|response| {
-                            resolve
-                                .then_some(response.resolution_checks.iter().cloned())
-                                .into_iter()
-                                .flatten()
-                                .chain(response.matches.iter().flat_map(RemoteMatch::link_checks))
-                        })
-                        .collect::<Vec<_>>();
-                    let candidates = match no_local_database {
-                        | true => Ok(Vec::new()),
-                        | false => {
-                            let database = Database::<Table>::from_path(database_path.clone());
-                            responses
-                                .clone()
-                                .into_iter()
-                                .map(|response| response.persist(&database, self.organization_ror.as_deref()))
-                                .collect::<ApiResult<Vec<_>>>()
-                                .map(|results| results.into_iter().flatten().collect())
-                        }
-                    }?;
-                    let persistence_checks = candidates.iter().map(|result| {
-                        let locator = result.iid.clone().unwrap_or_else(|| "candidate".to_string());
-                        let context = Some(self.provider.to_string());
-                        LifecycleState::from(result.action).check(locator, context, None)
-                    });
-                    let checks = checks.into_iter().chain(persistence_checks).collect::<Vec<_>>();
-                    let report = Report::new(&checks, Records::default(), inputs)
-                        .with_remote(responses)
-                        .with_candidates(candidates)
-                        .with_citation_format(citation_format);
-                    let format = format.unwrap_or_else(|| match (terse, output.is_none() && io::stdout().is_terminal()) {
-                        | (true, _) | (false, true) => OutputFormat::Console,
-                        | (false, false) => OutputFormat::Json,
-                    });
-                    let check_options = CheckOptions::init()
-                        .filter_by_verbosity(true)
-                        .quiet(quiet)
-                        .terse(terse)
-                        .format(format)
-                        .maybe_verbosity(verbosity)
-                        .build();
-                    checks.render(&check_options);
-                    match output {
-                        | _ if terse && format == OutputFormat::Console => Ok(()),
-                        | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-                        | None if quiet => Ok(()),
-                        | None => report.serialize(format).map(|serialized| {
-                            if !serialized.is_empty() {
-                                println!("{serialized}");
-                            }
-                        }),
-                    }
-                    .and_then(|_| match checks.iter().any(Check::is_failure) {
-                        | true => Err(color_eyre::eyre::eyre!(OutputFailure::new(
-                            format == OutputFormat::Raw && verbosity.is_none_or(|level| level <= 1)
-                        ))),
-                        | false => Ok(()),
+        match offline {
+            | true => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
+            | false => {
+                let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
+                let checks = responses
+                    .iter()
+                    .flat_map(|response| {
+                        resolve
+                            .then_some(response.resolution_checks.iter().cloned())
+                            .into_iter()
+                            .flatten()
+                            .chain(response.matches.iter().flat_map(RemoteMatch::link_checks))
                     })
+                    .collect::<Vec<_>>();
+                let candidates = match no_local_database {
+                    | true => Ok(Vec::new()),
+                    | false => {
+                        let database = Database::<Table>::from_path(database_path.clone());
+                        responses
+                            .clone()
+                            .into_iter()
+                            .map(|response| response.persist(&database, self.organization_ror.as_deref()))
+                            .collect::<ApiResult<Vec<_>>>()
+                            .map(|results| results.into_iter().flatten().collect())
+                    }
+                }?;
+                let persistence_checks = candidates.iter().map(|result| {
+                    let locator = result.iid.clone().unwrap_or_else(|| "candidate".to_string());
+                    let context = Some(self.provider.to_string());
+                    LifecycleState::from(result.action).check(locator, context, None)
+                });
+                let checks = checks.into_iter().chain(persistence_checks).collect::<Vec<_>>();
+                let report = Report::new(&checks, Records::default(), inputs)
+                    .with_remote(responses)
+                    .with_candidates(candidates)
+                    .with_citation_format(citation_format);
+                let format = format.unwrap_or_else(|| match (terse, output.is_none() && io::stdout().is_terminal()) {
+                    | (true, _) | (false, true) => OutputFormat::Console,
+                    | (false, false) => OutputFormat::Json,
+                });
+                let check_options = CheckOptions::init()
+                    .filter_by_verbosity(true)
+                    .quiet(quiet)
+                    .terse(terse)
+                    .format(format)
+                    .maybe_verbosity(verbosity)
+                    .build();
+                checks.render(&check_options);
+                let result = match output {
+                    | _ if terse && format == OutputFormat::Console => Ok(()),
+                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+                    | None if quiet => Ok(()),
+                    | None => report.serialize(format).map(|serialized| {
+                        if !serialized.is_empty() {
+                            println!("{serialized}");
+                        }
+                    }),
+                };
+                result.and_then(|_| match checks.iter().any(Check::is_failure) {
+                    | true => Err(color_eyre::eyre::eyre!(OutputFailure::new(
+                        format == OutputFormat::Raw && verbosity.is_none_or(|level| level <= 1)
+                    ))),
+                    | false => Ok(()),
                 })
             }
         }

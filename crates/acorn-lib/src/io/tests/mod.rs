@@ -13,8 +13,8 @@ use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, InputOutput, PathConversion, Remote, Source,
-    SourceAction,
+    read_large_file, remove_fields, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, Fingerprint, InputOutput,
+    PathConversion, PathExt, Remote, Source, SourceAction,
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
@@ -901,6 +901,52 @@ fn test_uri_to_path_normalizes_file_sources() {
     };
     assert_eq!(uri_to_path(&localhost), path);
     assert_eq!(uri_to_path(&file_uri), path);
+}
+#[test]
+fn test_directory_roots_reduces_files_to_unique_parents() {
+    let paths = vec![PathBuf::from("data/one.json"), PathBuf::from("data/two.json")];
+    assert_eq!(crate::io::directory_roots(&paths), vec![PathBuf::from("data")]);
+}
+#[test]
+fn test_path_ext_compares_normalized_paths() {
+    assert!(Path::new("./data/input.json").same_as(Path::new("data/input.json")));
+    assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
+}
+#[test]
+fn test_remove_fields_recurses_without_mutating_input() {
+    let input = serde_json::json!({"keep": 1, "nested": {"remove": 2, "keep": 3}});
+    let output = remove_fields(input.clone(), &["remove"]);
+    assert_eq!(input["nested"]["remove"], 2);
+    assert_eq!(output, serde_json::json!({"keep": 1, "nested": {"keep": 3}}));
+}
+#[test]
+fn test_fingerprint_entries_are_order_independent() {
+    let first = Fingerprint::from_entries([("b", b"two".as_slice()), ("a", b"one".as_slice())]);
+    let second = Fingerprint::from_entries([("a", b"one".as_slice()), ("b", b"two".as_slice())]);
+    assert_eq!(first, second);
+}
+#[test]
+fn test_fingerprint_entry_boundaries_affect_value() {
+    assert_ne!(
+        Fingerprint::from_entries([("a", b"bc".as_slice())]),
+        Fingerprint::from_entries([("ab", b"c".as_slice())])
+    );
+    assert_ne!(Fingerprint::from_bytes(b"content"), Fingerprint::from_bytes(b"contenu"));
+}
+#[test]
+fn test_fingerprint_files_include_paths_and_content() {
+    let path = temp_dir().join("acorn-fingerprint-test.txt");
+    write(&path, "first").expect("write first fingerprint fixture");
+    let first = Fingerprint::from_file(&path).expect("fingerprint first fixture");
+    write(&path, "second").expect("write second fingerprint fixture");
+    let second = Fingerprint::from_file(&path).expect("fingerprint second fixture");
+    let _ = remove_file(path);
+    assert_ne!(first, second);
+    assert_eq!(first.to_string().len(), 64);
+}
+#[test]
+fn test_fingerprint_missing_file_is_an_error() {
+    assert!(Fingerprint::from_file(temp_dir().join("acorn-fingerprint-missing")).is_err());
 }
 #[test]
 fn test_location_is_local_detects_local_paths() {

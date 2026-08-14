@@ -44,6 +44,8 @@ use crate::analyzer::{link_check, Check};
 use crate::io::api::{github, gitlab, Configuration};
 #[cfg(feature = "std")]
 use crate::io::http::get;
+#[cfg(feature = "std")]
+use crate::io::uri_to_path;
 use crate::prelude::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::{Path, PathBuf};
@@ -216,6 +218,17 @@ impl Location {
             }
         };
         is_file_scheme || is_local_path
+    }
+    /// Convert the location URI to a normalized filesystem path.
+    #[cfg(feature = "std")]
+    pub fn uri_as_path(&self) -> PathBuf {
+        uri_to_path(self.uri().unwrap_or_default())
+    }
+    /// Return the normalized path when the location identifies an available local source.
+    #[cfg(feature = "std")]
+    pub fn local_path(&self) -> Option<PathBuf> {
+        let path = self.uri_as_path();
+        (self.is_local() || path.exists()).then_some(path)
     }
     /// Get associated location hash
     /// > Useful for standardizing file path handling across local and remote contexts
@@ -556,6 +569,8 @@ mod tests {
         clippy::unwrap_used
     )]
     use super::{Location, Repository, Scheme};
+    #[cfg(feature = "std")]
+    use crate::prelude::PathBuf;
 
     #[test]
     fn test_scheme_from_str() {
@@ -563,6 +578,20 @@ mod tests {
         assert_eq!(Scheme::from("HTTP"), Scheme::HTTP);
         assert_eq!(Scheme::from("file"), Scheme::File);
         assert_eq!(Scheme::from("ssh"), Scheme::Unsupported);
+    }
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_location_uri_as_path_normalizes_file_uri() {
+        assert_eq!(
+            Location::from("file:./models/qwen.gguf").uri_as_path(),
+            PathBuf::from("./models/qwen.gguf")
+        );
+    }
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_location_local_path_filters_remote_sources() {
+        assert_eq!(Location::from("./Cargo.toml").local_path(), Some(PathBuf::from("./Cargo.toml")));
+        assert_eq!(Location::from("https://example.com/input.json").local_path(), None);
     }
     #[test]
     fn test_repository_default_is_local_git() {

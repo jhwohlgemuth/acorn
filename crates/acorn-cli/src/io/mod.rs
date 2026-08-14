@@ -25,6 +25,10 @@ pub fn chromium_cache_dir() -> Option<PathBuf> {
 pub fn is_stdout_piped() -> bool {
     stdout_piped_status() == InputOutputStreamState::Piped
 }
+/// Check if stdin is piped.
+pub fn is_stdin_piped() -> bool {
+    stdin_piped_status() == InputOutputStreamState::Piped
+}
 /// Read input from stdin (e.g., `echo "hello world" | acorn`)
 /// ### Example
 /// ```ignore

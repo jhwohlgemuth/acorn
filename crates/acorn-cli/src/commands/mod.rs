@@ -1,5 +1,7 @@
 use crate::cli::arguments::OutputFormat;
-use crate::cli::{arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void};
+use crate::cli::{
+    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void, WatchOptions,
+};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
@@ -26,6 +28,7 @@ pub mod serve;
 pub mod skill;
 pub mod sync;
 pub mod tui;
+pub mod watch;
 
 pub use db::{initialize_database, DatabaseConfig};
 use download::model::Whitelist;
@@ -80,6 +83,20 @@ fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> 
     check_path().and_then(|_| check_reference()).and_then(|_| check_offline())
 }
 pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
+    let options = WatchOptions {
+        mode: args.watch_mode,
+        poll_interval: args.watch_poll_interval,
+        network: false,
+    };
+    let watch = args.watch.then_some(options);
+    let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
+    let result = match (watch.is_some(), watch_supported) {
+        | (true, false) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | _ => Ok(()),
+    };
+    result.and_then(|()| run_command(args, offline, config, threads, watch))
+}
+fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize, watch: Option<WatchOptions>) -> Void {
     match &args.command {
         | Some(Commands::Check(arguments)) => with_runtime(async {
             let arguments::Check {
@@ -122,6 +139,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 readability_metric,
                 verbose,
                 offline,
+                watch,
             )
             .await
         }),
@@ -355,7 +373,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     .build()
             });
             let citation_format = discovery::CitationFormat::resolve(*raw, *resolve, *citation_format);
-            gather::run(discovery::Options {
+            let options = discovery::Options {
                 citation_format,
                 database_path: &config.database_path,
                 filter,
@@ -366,6 +384,7 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                 merge_request: *merge_request,
                 no_local_database: config.no_local_database,
                 offline,
+                watching: watch.is_some(),
                 output,
                 resolve: *resolve,
                 standard,
@@ -381,8 +400,8 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
                     | VerbosityFilter::Trace => Some(5),
                 },
                 remote: remote.as_ref(),
-            })
-            .await
+            };
+            gather::run(options, watch).await
         }),
         | Some(Commands::Link(arguments)) => with_runtime(async {
             let arguments::Link {

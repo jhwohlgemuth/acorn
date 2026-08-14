@@ -31,6 +31,18 @@ printf 'https://ror.org/01qz5mb56' | acorn gather
 
 Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
 
+## Watch mode
+
+Use the global `--watch` flag to run immediately and gather again only when effective source content changes:
+
+```sh
+acorn --watch gather path/to/project
+acorn gather --watch --watch-mode poll https://example.org/report.json
+acorn gather --watch --osti projects "ACORN"
+```
+
+`--watch-mode auto` uses native filesystem notifications for local-only inputs and polling for HTTP(S), resolved identifiers, DOE CODE searches, and merge-request selections. Use `--watch-mode poll` for network-mounted paths or environments where native events are unreliable. `--watch-poll-interval` accepts durations such as `500ms` or `5s`. Standard input cannot be replayed and is therefore rejected in watch mode; repeated `--text` values remain static inputs.
+
 ## Output formats
 
 Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives a table containing only discoveries and remote provider matches; piped or file output uses JSON. Resolution checks are rendered separately using the same detailed format as `acorn check`. Use `--terse` to render compact checks without the discovery table. Warning and error states are visible by default, while `-vv` also shows informational transitions such as `found`, `resolved`, `created`, `enriched`, and `unchanged`.

@@ -13,7 +13,7 @@ fn test_explicit_empty_stdin_fails() {
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("No content received from stdin for '-'"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("No content received from standard input"));
 }
 #[test]
 fn test_filter_and_ignore_patterns_compose() {

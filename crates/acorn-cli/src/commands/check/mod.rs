@@ -1,12 +1,14 @@
-use crate::cli::{resolve_paths, CommandOptions};
+use crate::cli::{resolve_paths, CommandOptions, WatchOptions};
 use crate::commands::preflight;
+use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard};
-use acorn::prelude::PathBuf;
+use acorn::io::{standard_project_folder, Fingerprint, Source};
+use acorn::prelude::{remove_file, temp_dir, write, Path, PathBuf};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, suffix, Label};
-use acorn::{fail, skip};
+use acorn::{fail, skip, Location};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
@@ -32,6 +34,7 @@ pub async fn run(
     readability_metric: &ReadabilityType,
     verbose: &Verbosity,
     offline: bool,
+    watch: Option<WatchOptions>,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();
     let command_options = CommandOptions::init()
@@ -45,28 +48,101 @@ pub async fn run(
         .supported(true)
         .build();
     preflight!(&command_options);
-    let result: Result<(), Report> = match resolve_paths(path, &command_options).await {
-        | Ok(paths) => {
-            let options = CheckOptions::init()
-                .all(*all)
-                .disable_website_checks(*disable_website_checks)
-                .exit_on_first_error(*exit_on_first_error)
-                .offline(offline)
-                .no_fail(*no_fail)
-                .format(OutputFormat::Console)
-                .quiet(is_silent || *raw)
-                .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
-                .skip_verify_checksum(*skip_verify_checksum)
-                .standard(*standard)
-                .terse(*terse)
-                .readability_metric(resolve_readability_metric(readability_metric))
-                .build();
-            let issues = filter_by_visibility(&collect(&paths, &options).await, options.all);
-            handle(&issues, &paths, &options)
+    let input = path
+        .as_ref()
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_else(|| "./".to_string());
+    let location = Location::from(input.as_str());
+    let options = CheckOptions::init()
+        .all(*all)
+        .disable_website_checks(*disable_website_checks)
+        .exit_on_first_error(*exit_on_first_error)
+        .offline(offline)
+        .no_fail(*no_fail)
+        .format(OutputFormat::Console)
+        .quiet(is_silent || *raw)
+        .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
+        .skip_verify_checksum(*skip_verify_checksum)
+        .standard(*standard)
+        .terse(*terse)
+        .readability_metric(resolve_readability_metric(readability_metric))
+        .build();
+    match watch {
+        | Some(watch) => watch_run(&location, &command_options, &options, watch).await,
+        | None => match prepare(&location, &command_options).await {
+            | Ok(prepared) => execute(prepared.value, &options).await,
+            | Err(why) => Err(why),
+        },
+    }
+}
+struct Input {
+    paths: Vec<PathBuf>,
+    temporary: Option<PathBuf>,
+}
+impl Drop for Input {
+    fn drop(&mut self) {
+        self.temporary.iter().for_each(|path| {
+            let _ = remove_file(path);
+        });
+    }
+}
+async fn prepare(location: &Location, options: &CommandOptions) -> Result<Prepared<Input>, Report> {
+    let scheme = location.scheme();
+    match location {
+        | _ if scheme.is_http() || scheme.is_https() => {
+            let uri = location.uri().unwrap_or_default();
+            Source::read_bytes(&uri, options.offline).await.and_then(|content| {
+                let fingerprint = Fingerprint::from_entries([(uri, content.clone())]);
+                let location_path = location.path();
+                let extension = location_path
+                    .as_deref()
+                    .and_then(|path| Path::new(path).extension())
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("json");
+                let path = standard_project_folder("check", Some(temp_dir())).with_extension(extension);
+                write(&path, content)
+                    .map(|()| {
+                        Prepared::new(
+                            Input {
+                                paths: vec![path.clone()],
+                                temporary: Some(path.clone()),
+                            },
+                            fingerprint,
+                        )
+                    })
+                    .map_err(|why| eyre!("Materialize remote check source at {} — {why}", path.display()))
+            })
         }
-        | Err(why) => Err(why),
+        | _ if scheme.is_file() => resolve_paths(&Some(location.uri_as_path()), options)
+            .await
+            .and_then(|paths| Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))),
+        | Location::Simple(value) if scheme.is_unsupported() => resolve_paths(&Some(PathBuf::from(value)), options)
+            .await
+            .and_then(|paths| Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))),
+        | Location::Detailed { uri, .. } => Err(eyre!("Unsupported check source URI scheme — {uri}")),
+        | Location::Simple(value) => Err(eyre!("Unsupported check source — {value}")),
+    }
+}
+async fn execute(input: Input, options: &CheckOptions) -> Result<(), Report> {
+    let issues = filter_by_visibility(&collect(&input.paths, options).await, options.all);
+    handle(&issues, &input.paths, options)
+}
+async fn watch_run(location: &Location, command_options: &CommandOptions, options: &CheckOptions, watch: WatchOptions) -> Result<(), Report> {
+    let scheme = location.scheme();
+    let network = scheme.is_http() || scheme.is_https() || command_options.merge_request;
+    let roots = match location {
+        | _ if scheme.is_file() => vec![location.uri_as_path()],
+        | Location::Simple(value) if scheme.is_unsupported() => vec![PathBuf::from(value)],
+        | _ => Vec::new(),
     };
-    result
+    watch::run(
+        "check",
+        &roots,
+        WatchOptions { network, ..watch },
+        || prepare(location, command_options),
+        |input| execute(input, options),
+    )
+    .await
 }
 fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, options: &CheckOptions) -> Vec<Check> {
     let CheckOptions {

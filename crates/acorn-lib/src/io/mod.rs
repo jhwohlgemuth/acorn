@@ -23,8 +23,8 @@ pub use crate::error::ApiResult;
 #[cfg(unix)]
 use crate::prelude;
 use crate::prelude::{
-    canonicalize, consts, create_dir_all, current_dir, io, remove_file, temp_dir, var, var_os, write, BufReader, CommandOutput, Cursor, File,
-    HashSet, OpenOptions, OsString, Path, PathBuf, Read, Write,
+    absolute, canonicalize, consts, create_dir_all, current_dir, io, remove_file, temp_dir, var, var_os, write, BufReader, CommandOutput, Cursor,
+    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read, Write,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -74,6 +74,7 @@ pub mod config;
 pub mod database;
 pub mod document;
 pub mod download;
+pub mod fingerprint;
 pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
@@ -83,47 +84,18 @@ pub mod powerpoint;
 pub mod source;
 pub mod sync;
 
+pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
 pub use model::ModelListFile;
 pub use source::{Source, SourceAction};
 
-impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
-    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
-        if core::ptr::eq(algorithm, &SHA512) {
-            Self::Sha512
-        } else {
-            Self::Sha256
-        }
-    }
+lazy_static! {
+    static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
 }
 /// Utility type alias for I/O operation futures (e.g., read, write, copy, etc.)
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
-/// Convert filesystem paths to portable configuration strings.
-pub trait PathConversion {
-    /// Render a path using native separators without a Windows extended-length prefix.
-    fn cross_platform_display(&self) -> String;
-}
-impl PathConversion for Path {
-    fn cross_platform_display(&self) -> String {
-        let value = self.display().to_string();
-        #[cfg(windows)]
-        let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
-        value
-    }
-}
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
-impl PathConversion for PathBuf {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(self)
-    }
-}
 /// An RSA key pair consisting of a private key and its corresponding public key
 pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
-pub(crate) struct CstValue<'a>(pub(crate) &'a Value);
 /// Add `from_command` trait to `SemanticVersion`
 pub trait FromCommand {
     /// Convert a command name to a `SemanticVersion` value
@@ -173,6 +145,16 @@ pub trait InputOutput: Sized {
     }
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
+}
+/// Convert filesystem paths to portable configuration strings.
+pub trait PathConversion {
+    /// Render a path using native separators without a Windows extended-length prefix.
+    fn cross_platform_display(&self) -> String;
+}
+/// Filesystem path comparison extensions.
+pub trait PathExt {
+    /// Return whether two paths identify the same absolute path.
+    fn same_as(&self, other: &Path) -> bool;
 }
 /// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code
 /// ### Note
@@ -240,9 +222,7 @@ pub enum ProgressType {
     /// No progress output
     Silent,
 }
-lazy_static! {
-    static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
-}
+pub(crate) struct CstValue<'a>(pub(crate) &'a Value);
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]
@@ -296,6 +276,15 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
+    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
+        if core::ptr::eq(algorithm, &SHA512) {
+            Self::Sha512
+        } else {
+            Self::Sha256
+        }
+    }
+}
 impl From<CstValue<'_>> for CstInputValue {
     fn from(value: CstValue<'_>) -> Self {
         match value.0 {
@@ -483,6 +472,35 @@ impl FromPath for MimeType {
         P: AsRef<Path> + ?Sized,
     {
         MimeType::from(value.as_ref().display().to_string())
+    }
+}
+impl PathExt for Path {
+    fn same_as(&self, other: &Path) -> bool {
+        let absolute_paths = absolute(self).and_then(|left| absolute(other).map(|right| (left, right)));
+        self == other || absolute_paths.is_ok_and(|(left, right)| left == right)
+    }
+}
+impl PathExt for &Path {
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
+    }
+}
+impl PathConversion for Path {
+    fn cross_platform_display(&self) -> String {
+        let value = self.display().to_string();
+        #[cfg(windows)]
+        let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
+        value
+    }
+}
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathConversion for PathBuf {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(self)
     }
 }
 impl fmt::Display for Remote {
@@ -795,18 +813,19 @@ pub fn create_rsa_keypair() -> ApiResult<RsaKeyPair> {
 pub fn current_date() -> String {
     Timestamp::now().strftime("%Y-%m-%d").to_string()
 }
-/// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
-///
-/// # Errors
-///
-/// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
-pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
-    let now = Timestamp::now().as_second();
-    if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
-        Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
-    } else {
-        Ok(())
-    }
+/// Reduce paths to the unique directories that contain them.
+pub fn directory_roots(paths: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = paths
+        .iter()
+        .map(|path| match (path.is_dir(), path.parent()) {
+            | (true, _) => path.clone(),
+            | (false, Some(parent)) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+            | (false, _) => Path::new(".").to_path_buf(),
+        })
+        .collect::<Vec<_>>();
+    roots.sort();
+    roots.dedup();
+    roots
 }
 /// Downloads a binary file from the given URL to the destination path.
 ///
@@ -1508,6 +1527,20 @@ where
         | Err(why) => Err(eyre!("Failed to read large file — {why}")),
     }
 }
+/// Recursively remove named fields from a JSON value.
+pub fn remove_fields(value: Value, fields: &[&str]) -> Value {
+    match value {
+        | Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .filter(|(name, _)| !fields.contains(&name.as_str()))
+                .map(|(name, value)| (name, remove_fields(value, fields)))
+                .collect(),
+        ),
+        | Value::Array(values) => Value::Array(values.into_iter().map(|value| remove_fields(value, fields)).collect()),
+        | value => value,
+    }
+}
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.
 ///
@@ -1768,6 +1801,19 @@ pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstR
                     .map(|config| (config, cst))
             })
         })
+}
+/// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
+///
+/// # Errors
+///
+/// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
+pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
+    let now = Timestamp::now().as_second();
+    if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
+        Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
+    } else {
+        Ok(())
+    }
 }
 /// Writes the given content to a file at the given path
 ///

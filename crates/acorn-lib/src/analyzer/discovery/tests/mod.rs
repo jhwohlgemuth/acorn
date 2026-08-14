@@ -480,28 +480,29 @@ async fn test_analysis_materializes_source_content_without_discoveries() {
     let text = Vec::new();
     let retained_sources: &[SourceDocument] = (&discoveries).into();
     assert_eq!(retained_sources.len(), 1);
-    let (_, paths) = discoveries
-        .analyze(Options {
-            citation_format: CitationFormat::default(),
-            database_path: &database_path,
-            filter: &filter,
-            format: Some(OutputFormat::Json),
-            ignore: &ignore,
-            input: &input,
-            max_depth: None,
-            merge_request: false,
-            no_local_database: true,
-            offline: true,
-            output: &output,
-            resolve: false,
-            standard: &standard,
-            text: &text,
-            quiet: true,
-            terse: false,
-            verbosity: None,
-            remote: None,
-        })
-        .await;
+    let options = Options {
+        citation_format: CitationFormat::default(),
+        database_path: &database_path,
+        filter: &filter,
+        format: Some(OutputFormat::Json),
+        ignore: &ignore,
+        input: &input,
+        max_depth: None,
+        merge_request: false,
+        no_local_database: true,
+        offline: true,
+        watching: false,
+        output: &output,
+        resolve: false,
+        standard: &standard,
+        text: &text,
+        quiet: true,
+        terse: false,
+        verbosity: None,
+        remote: None,
+    };
+    assert_eq!(options.roots(), vec![PathBuf::from(".")]);
+    let (_, paths) = discoveries.analyze(options).await;
     assert!(discoveries.is_empty());
     assert_eq!(paths.len(), 1);
     let path = paths.first().expect("one source should produce one materialized path");

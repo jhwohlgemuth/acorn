@@ -16,9 +16,11 @@
     clippy::arithmetic_side_effects
 )]
 use crate::commands::check::run;
+use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{Analysis, Check, CheckCategory, Standard};
+use acorn::prelude::{read, PathBuf};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
@@ -46,6 +48,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}");
@@ -84,9 +87,69 @@ async fn test_check_valid_project() -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Valid project should pass check");
+    Ok(())
+}
+#[tokio::test]
+async fn test_check_remote_project() -> Result<()> {
+    let content = read(fixture_path("data/valid_project/index.json"))?;
+    let (url, server) = spawn_source_server(content);
+    let path = Some(PathBuf::from(url));
+    let result = run(
+        &path,
+        &None,
+        &None,
+        &[],
+        &[],
+        &[],
+        &true,
+        &false,
+        &false,
+        &false,
+        &false,
+        &true,
+        &false,
+        &false,
+        &Standard::default(),
+        &ReadabilityType::FKGL,
+        &Verbosity::new(0, 1),
+        false,
+        None,
+    )
+    .await;
+    server.join().expect("join remote check server");
+    assert!(result.is_ok(), "Remote project should be checked: {result:?}");
+    Ok(())
+}
+#[tokio::test]
+async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
+    let path = Some(PathBuf::from("https://example.invalid/project.json"));
+    let result = run(
+        &path,
+        &None,
+        &None,
+        &[],
+        &[],
+        &[],
+        &true,
+        &false,
+        &false,
+        &false,
+        &false,
+        &true,
+        &false,
+        &false,
+        &Standard::default(),
+        &ReadabilityType::FKGL,
+        &Verbosity::new(0, 1),
+        true,
+        None,
+    )
+    .await;
+    assert!(result.is_err());
     Ok(())
 }
 #[tokio::test]
@@ -111,6 +174,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check");
@@ -138,6 +202,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -165,6 +230,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Check with skip categories should succeed");
@@ -194,6 +260,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &metric,
             &Verbosity::new(0, 1),
             OFFLINE,
+            None,
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -222,6 +289,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
         OFFLINE,
+        None,
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");

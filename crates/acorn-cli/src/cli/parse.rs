@@ -7,29 +7,41 @@ use acorn::io::ApiResult;
 use acorn::io::{Executor, Remote};
 use acorn::util::MimeType;
 use color_eyre::eyre::eyre;
+use jiff::SignedDuration;
 use serde_json;
 use serde_json::Value;
 use serde_norway;
 use std::path::Path;
 use strum::VariantNames;
 
-/// Parse a CLI standard name into an `Standard` variant.
-pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
-    match s.to_lowercase().as_str() {
-        | "rads" => Ok(Standard::ResearchActivityData),
-        | "cff" => Ok(Standard::CitationFileFormat),
-        | "datacite" => Ok(Standard::Datacite),
-        | "dcat" => Ok(Standard::Dcat),
-        | "dcmi" => Ok(Standard::DublinCore),
-        | "docx" => Ok(Standard::Docx),
-        | "invenio" => Ok(Standard::Invenio),
-        | "huwise" => Ok(Standard::Huwise),
-        | "raid" => Ok(Standard::Raid),
-        | "text" => Ok(Standard::Text),
-        | _ => Err(format!(
-            "unknown standard '{s}' — expected one of: \
-             rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text"
+/// Infer the metadata standard from file content (JSON or YAML).
+///
+/// Returns `ApiResult<Standard>` — the inferred standard based on
+/// the JSON/YAML object structure.
+pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
+    let root = match mime {
+        | MimeType::Json => {
+            serde_json::from_str::<Value>(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid JSON ({why})", path.display()))
+        }
+        | MimeType::Yaml => serde_norway::from_str::<Value>(content)
+            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid YAML ({why})", path.display())),
+        | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
+    };
+    match root {
+        | Ok(Value::Object(map)) => Ok(Standard::from(&map)),
+        | Ok(Value::Array(values)) => match values.into_iter().next() {
+            | Some(Value::Object(map)) => Ok(Standard::from(&map)),
+            | Some(_) => Err(eyre!(
+                "Unable to infer source schema for {} — array items must be objects",
+                path.display()
+            )),
+            | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
+        },
+        | Ok(_) => Err(eyre!(
+            "Unable to infer source schema for {} — expected object or array of objects",
+            path.display()
         )),
+        | Err(why) => Err(why),
     }
 }
 /// Parse a CLI check-category name into an `analyzer::CheckCategory` variant.
@@ -84,33 +96,30 @@ pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {
         )),
     }
 }
-/// Infer the metadata standard from file content (JSON or YAML).
-///
-/// Returns `ApiResult<Standard>` — the inferred standard based on
-/// the JSON/YAML object structure.
-pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
-    let root = match mime {
-        | MimeType::Json => {
-            serde_json::from_str::<Value>(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid JSON ({why})", path.display()))
-        }
-        | MimeType::Yaml => serde_norway::from_str::<Value>(content)
-            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid YAML ({why})", path.display())),
-        | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
-    };
-    match root {
-        | Ok(Value::Object(map)) => Ok(Standard::from(&map)),
-        | Ok(Value::Array(values)) => match values.into_iter().next() {
-            | Some(Value::Object(map)) => Ok(Standard::from(&map)),
-            | Some(_) => Err(eyre!(
-                "Unable to infer source schema for {} — array items must be objects",
-                path.display()
-            )),
-            | None => Err(eyre!("Unable to infer source schema for {} — empty array", path.display())),
-        },
-        | Ok(_) => Err(eyre!(
-            "Unable to infer source schema for {} — expected object or array of objects",
-            path.display()
+/// Parse a CLI standard name into an `Standard` variant.
+pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
+    match s.to_lowercase().as_str() {
+        | "rads" => Ok(Standard::ResearchActivityData),
+        | "cff" => Ok(Standard::CitationFileFormat),
+        | "datacite" => Ok(Standard::Datacite),
+        | "dcat" => Ok(Standard::Dcat),
+        | "dcmi" => Ok(Standard::DublinCore),
+        | "docx" => Ok(Standard::Docx),
+        | "invenio" => Ok(Standard::Invenio),
+        | "huwise" => Ok(Standard::Huwise),
+        | "raid" => Ok(Standard::Raid),
+        | "text" => Ok(Standard::Text),
+        | _ => Err(format!(
+            "unknown standard '{s}' — expected one of: \
+             rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text"
         )),
-        | Err(why) => Err(why),
     }
+}
+/// Parse a positive watch interval.
+pub(crate) fn parse_watch_duration(value: &str) -> Result<SignedDuration, String> {
+    value.parse::<SignedDuration>().map_err(|why| why.to_string()).and_then(|duration| {
+        (duration > SignedDuration::ZERO)
+            .then_some(duration)
+            .ok_or_else(|| "duration must be greater than zero".to_string())
+    })
 }

@@ -99,6 +99,18 @@ fn test_cli() {
     .is_err());
 }
 #[test]
+fn test_watch_arguments_are_global() {
+    let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--watch-poll-interval", "2s", "check"])
+        .expect("parse watch arguments before command");
+    assert!(before.watch);
+    assert_eq!(before.watch_mode, crate::cli::WatchMode::Poll);
+    assert_eq!(before.watch_poll_interval, jiff::SignedDuration::from_secs(2));
+    let after = Arguments::try_parse_from(["acorn", "gather", "--watch", "--watch-mode", "native"]).expect("parse watch arguments after command");
+    assert!(after.watch);
+    assert_eq!(after.watch_mode, crate::cli::WatchMode::Native);
+    assert!(Arguments::try_parse_from(["acorn", "--watch-poll-interval", "0s", "check"]).is_err());
+}
+#[test]
 fn test_gather_lab_parses_acronyms_case_insensitively() {
     for (value, expected) in [("ORNL", DoeLab::Ornl), ("lanl", DoeLab::Lanl), ("SNL", DoeLab::Snl)] {
         let arguments = Arguments::try_parse_from(["acorn", "gather", "--osti", "projects", "--lab", value]).unwrap();
