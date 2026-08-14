@@ -8,9 +8,10 @@
 use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate, Standard};
 use crate::analyzer::error::ErrorCode;
 use crate::analyzer::error::ErrorKind;
-use crate::analyzer::vale::{preprocess_vale_output, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
+use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckSeverity, IntoChecks, StaticAnalyzerConfig,
+    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, StaticAnalyzer,
+    StaticAnalyzerConfig,
 };
 use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
@@ -21,6 +22,7 @@ use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;
 use ariadne::Source;
+use jiff::SignedDuration;
 use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
@@ -65,6 +67,23 @@ struct ArrayParamModel {
     tags: Vec<String>,
 }
 
+#[tokio::test]
+async fn test_vale_retry_sync_reports_exhaustion() {
+    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
+    let options = CheckOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
+    let error = vale.retry_sync(&options).await.expect_err("missing Vale binary should exhaust retries");
+    assert!(error.to_string().contains("failed after 3 attempts"));
+}
+#[tokio::test]
+async fn test_vale_retry_sync_can_ignore_exhaustion() {
+    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
+    let options = CheckOptions::init()
+        .ignore_sync_failure(true)
+        .quiet(true)
+        .sync_retry_interval(SignedDuration::ZERO)
+        .build();
+    assert!(vale.retry_sync(&options).await.is_ok());
+}
 #[test]
 fn test_standard_detection_uses_dcat_jsonld_type() {
     let value: Value = serde_json::json!({

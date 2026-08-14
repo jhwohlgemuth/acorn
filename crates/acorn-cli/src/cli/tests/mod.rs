@@ -100,15 +100,35 @@ fn test_cli() {
 }
 #[test]
 fn test_watch_arguments_are_global() {
-    let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--watch-poll-interval", "2s", "check"])
+    let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--poll-interval", "2s", "check"])
         .expect("parse watch arguments before command");
     assert!(before.watch);
     assert_eq!(before.watch_mode, crate::cli::WatchMode::Poll);
-    assert_eq!(before.watch_poll_interval, jiff::SignedDuration::from_secs(2));
+    assert_eq!(crate::commands::resolve_poll_interval(&before), jiff::SignedDuration::from_secs(2));
     let after = Arguments::try_parse_from(["acorn", "gather", "--watch", "--watch-mode", "native"]).expect("parse watch arguments after command");
     assert!(after.watch);
     assert_eq!(after.watch_mode, crate::cli::WatchMode::Native);
-    assert!(Arguments::try_parse_from(["acorn", "--watch-poll-interval", "0s", "check"]).is_err());
+    let one_shot = Arguments::try_parse_from(["acorn", "check", "--poll-interval", "2s"]).expect("parse one-shot Vale retry interval");
+    assert!(!one_shot.watch);
+    assert_eq!(crate::commands::resolve_poll_interval(&one_shot), jiff::SignedDuration::from_secs(2));
+    let short = Arguments::try_parse_from(["acorn", "check", "-p", "3s"]).expect("parse short poll interval");
+    assert_eq!(crate::commands::resolve_poll_interval(&short), jiff::SignedDuration::from_secs(3));
+    assert!(Arguments::try_parse_from(["acorn", "check", "--poll", "4s"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "--poll-interval", "0s", "check"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "--watch-poll-interval", "2s", "check"]).is_err());
+}
+#[test]
+fn test_ignore_sync_failure_requires_check_watch_mode() {
+    let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--ignore-sync-failure"]).expect("parse sync failure override");
+    assert!(crate::commands::validate_watch_arguments(&arguments).is_ok());
+    match arguments.command {
+        | Some(Commands::Check(arguments)) => assert!(arguments.ignore_sync_failure),
+        | _ => panic!("expected check arguments"),
+    }
+    let without_watch = Arguments::try_parse_from(["acorn", "check", "--ignore-sync-failure"]).expect("parse before validation");
+    assert!(crate::commands::validate_watch_arguments(&without_watch).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "--watch", "gather", "--ignore-sync-failure"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "--watch", "check", "--ignore-vale-sync-failure"]).is_err());
 }
 #[test]
 fn test_gather_lab_parses_acronyms_case_insensitively() {

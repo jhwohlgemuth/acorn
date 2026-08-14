@@ -1,11 +1,15 @@
 use crate::cli::{WatchMode, WatchOptions};
 use acorn::io::{directory_roots, Fingerprint};
-use acorn::prelude::{PathBuf, Vec};
-use acorn::util::constants::app::WATCH_DEBOUNCE_INTERVAL;
+use acorn::prelude::{stdin, IsTerminal, PathBuf, Vec};
+use acorn::util::{constants::app::WATCH_DEBOUNCE_INTERVAL, Label};
 use color_eyre::eyre::{eyre, Report, Result};
-use core::future::Future;
+use core::future::{pending, Future};
+use crossterm::event::{Event as TerminalEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use futures::StreamExt;
 use notify::{PollWatcher, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_mini::{new_debouncer_opt, Config, DebounceEventResult, Debouncer};
+use owo_colors::OwoColorize;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::sleep;
 
@@ -39,6 +43,7 @@ where
     Execute: FnMut(T) -> ExecuteFuture,
     ExecuteFuture: Future<Output = Result<()>>,
 {
+    let mut quit = QuitEvents::new();
     let mut previous = None;
     let mut first = true;
     loop {
@@ -46,7 +51,8 @@ where
             | Ok(prepared) if previous.as_ref() == Some(&prepared.fingerprint) => {}
             | Ok(prepared) => {
                 if !first {
-                    eprintln!("--- Re-running {command} at {} ---", jiff::Timestamp::now());
+                    let timestamp = jiff::Timestamp::now().strftime("%H:%M:%S");
+                    eprintln!("{} — re-running {} at {timestamp}", Label::changed(), format!("acorn {command}").cyan());
                 }
                 first = false;
                 previous = Some(prepared.fingerprint);
@@ -58,6 +64,7 @@ where
         }
         match tokio::select! {
             result = trigger.changed() => Event::Changed(result),
+            result = quit.stopped() => Event::Stopped(result),
             signal = tokio::signal::ctrl_c() => Event::Stopped(signal.map_err(Report::from)),
         } {
             | Event::Changed(Ok(next)) => trigger = next,
@@ -75,6 +82,10 @@ enum Event {
     Changed(Result<Trigger>),
     Stopped(Result<()>),
 }
+struct QuitEvents {
+    events: Option<EventStream>,
+}
+struct RawModeGuard;
 /// Prepared command input paired with its stable content fingerprint.
 pub(crate) struct Prepared<T> {
     pub(crate) value: T,
@@ -104,6 +115,39 @@ impl Guard {
 impl<T> Prepared<T> {
     pub(crate) const fn new(value: T, fingerprint: Fingerprint) -> Self {
         Self { value, fingerprint }
+    }
+}
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+    }
+}
+impl QuitEvents {
+    fn new() -> Self {
+        let events = match stdin().is_terminal() {
+            | true => Some(EventStream::new()),
+            | false => None,
+        };
+        Self { events }
+    }
+    async fn stopped(&mut self) -> Result<()> {
+        match self.events.as_mut() {
+            | Some(events) => match enable_raw_mode() {
+                | Ok(()) => {
+                    let _raw_mode = RawModeGuard;
+                    loop {
+                        match events.next().await {
+                            | Some(Ok(TerminalEvent::Key(key))) if is_quit_key(key) => break Ok(()),
+                            | Some(Ok(_)) => {}
+                            | Some(Err(why)) => break Err(Report::from(why)),
+                            | None => break pending().await,
+                        }
+                    }
+                }
+                | Err(_) => pending().await,
+            },
+            | None => pending().await,
+        }
     }
 }
 impl Trigger {
@@ -203,6 +247,16 @@ impl Trigger {
         }
     }
 }
+fn is_quit_key(key: KeyEvent) -> bool {
+    key.kind == KeyEventKind::Press
+        && matches!((key.code, key.modifiers), |(KeyCode::Char('q'), KeyModifiers::NONE)| (
+            KeyCode::Char('Q'),
+            KeyModifiers::SHIFT
+        ) | (
+            KeyCode::Char('c' | 'C'),
+            KeyModifiers::CONTROL
+        ))
+}
 fn watch<T: Watcher>(watcher: &mut Debouncer<T>, roots: &[PathBuf]) -> Result<()> {
     roots.iter().try_for_each(|root| {
         let recursive = match root.is_dir() {
@@ -220,6 +274,13 @@ mod tests {
     use jiff::SignedDuration;
     use tokio::time::timeout;
 
+    #[test]
+    fn q_and_control_c_stop_watch_mode() {
+        assert!(is_quit_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)));
+        assert!(is_quit_key(KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::SHIFT)));
+        assert!(is_quit_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)));
+        assert!(!is_quit_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE)));
+    }
     #[tokio::test]
     async fn remote_timer_waits_for_the_poll_interval() {
         let options = WatchOptions {

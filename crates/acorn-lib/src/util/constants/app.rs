@@ -34,6 +34,8 @@ pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Bat
 pub const APPLICATION: &str = "acorn";
 /// Delay used to coalesce rapid filesystem notifications.
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
+/// Maximum number of online synchronization attempts.
+pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
 /// Maximum file size accepted by merge request analysis
 pub const MAX_ANALYSIS_FILE_BYTES: u64 = 1_048_576;
 /// Maximum number of durable GitLab operation attempts

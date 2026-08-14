@@ -11,6 +11,7 @@ use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
 use core::future::Future;
+use jiff::SignedDuration;
 use tokio::runtime::Runtime;
 use tracing::info;
 
@@ -83,18 +84,31 @@ fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> 
     check_path().and_then(|_| check_reference()).and_then(|_| check_offline())
 }
 pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
+    let poll_interval = resolve_poll_interval(args);
     let options = WatchOptions {
         mode: args.watch_mode,
-        poll_interval: args.watch_poll_interval,
+        poll_interval,
         network: false,
     };
     let watch = args.watch.then_some(options);
-    let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
-    let result = match (watch.is_some(), watch_supported) {
-        | (true, false) => Err(eyre!("--watch is only supported by the check and gather commands")),
-        | _ => Ok(()),
+    validate_watch_arguments(args).and_then(|()| run_command(args, offline, config, threads, watch))
+}
+pub(crate) fn resolve_poll_interval(args: &Arguments) -> SignedDuration {
+    let command_interval = match &args.command {
+        | Some(Commands::Check(arguments)) => arguments.poll_interval,
+        | Some(Commands::Gather(arguments)) => arguments.poll_interval,
+        | _ => None,
     };
-    result.and_then(|()| run_command(args, offline, config, threads, watch))
+    command_interval.or(args.poll_interval).unwrap_or_else(|| SignedDuration::from_secs(1))
+}
+pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
+    let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
+    let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
+    match (args.watch, watch_supported, ignore_sync_failure) {
+        | (true, false, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | (false, _, true) => Err(eyre!("--ignore-sync-failure requires --watch")),
+        | _ => Ok(()),
+    }
 }
 fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize, watch: Option<WatchOptions>) -> Void {
     match &args.command {
@@ -109,6 +123,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 disable_website_checks,
                 all,
                 exit_on_first_error,
+                ignore_sync_failure,
                 merge_request,
                 skip_verify_checksum,
                 no_fail,
@@ -140,6 +155,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 verbose,
                 offline,
                 watch,
+                *ignore_sync_failure,
+                resolve_poll_interval(args),
             )
             .await
         }),

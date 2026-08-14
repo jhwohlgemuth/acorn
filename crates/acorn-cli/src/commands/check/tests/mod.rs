@@ -24,6 +24,7 @@ use acorn::prelude::{read, PathBuf};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
+use jiff::SignedDuration;
 
 const OFFLINE: bool = true;
 
@@ -49,6 +50,8 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}");
@@ -88,6 +91,8 @@ async fn test_check_valid_project() -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Valid project should pass check");
@@ -118,6 +123,8 @@ async fn test_check_remote_project() -> Result<()> {
         &Verbosity::new(0, 1),
         false,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     server.join().expect("join remote check server");
@@ -147,6 +154,8 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         &Verbosity::new(0, 1),
         true,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_err());
@@ -175,6 +184,8 @@ async fn test_check_valid_highlight() -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check");
@@ -203,6 +214,8 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -231,6 +244,8 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Check with skip categories should succeed");
@@ -261,6 +276,8 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &Verbosity::new(0, 1),
             OFFLINE,
             None,
+            false,
+            SignedDuration::from_secs(1),
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -290,6 +307,8 @@ async fn test_check_terse_mode() -> Result<()> {
         &Verbosity::new(0, 1),
         OFFLINE,
         None,
+        false,
+        SignedDuration::from_secs(1),
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");

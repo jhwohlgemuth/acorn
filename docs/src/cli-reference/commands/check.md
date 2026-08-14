@@ -27,7 +27,9 @@ acorn --watch check path/to/project/
 acorn check --watch --watch-mode poll https://example.org/project.json
 ```
 
-`--watch-mode auto` uses native filesystem notifications for local inputs and polling for remote inputs, with polling as a fallback when native notifications fail. Use `--watch-mode poll` for network-mounted paths, containers, WSL-mounted paths, or other filesystems where native events are unreliable. Configure polling with `--watch-poll-interval`, such as `--watch-poll-interval 5s`.
+`--watch-mode auto` uses native filesystem notifications for local inputs and polling for remote inputs, with polling as a fallback when native notifications fail. Use `--watch-mode poll` for network-mounted paths, containers, WSL-mounted paths, or other filesystems where native events are unreliable. Configure polling with `--poll-interval` (`-p`), such as `--poll-interval 5s`. Press `q` or `Ctrl+C` to stop watching.
+
+Before checking, ACORN synchronizes the extensions used by the selected prose analyzer and tries up to three times when synchronization fails. Both one-shot and watch-mode checks use the configured `--poll-interval` between attempts; it defaults to one second. Watch mode does not repeat synchronization on later file changes. If all attempts fail, the check exits; use `--ignore-sync-failure` to let watch mode continue with locally available analyzer extensions instead. Use `--skip prose` to skip prose analyzer synchronization and analysis entirely.
 
 ## Checking `CITATION.cff`
 

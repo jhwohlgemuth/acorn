@@ -3,7 +3,10 @@ use crate::commands::preflight;
 use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdout_piped, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard};
+use acorn::analyzer::vale::Vale;
+use acorn::analyzer::{
+    analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard, StaticAnalyzer,
+};
 use acorn::io::{standard_project_folder, Fingerprint, Source};
 use acorn::prelude::{remove_file, temp_dir, write, Path, PathBuf};
 use acorn::util::constants::env::READABILITY_METRIC;
@@ -12,6 +15,7 @@ use acorn::{fail, skip, Location};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
+use jiff::SignedDuration;
 use tracing::{debug, error};
 
 #[allow(clippy::too_many_arguments)]
@@ -35,6 +39,8 @@ pub async fn run(
     verbose: &Verbosity,
     offline: bool,
     watch: Option<WatchOptions>,
+    ignore_sync_failure: bool,
+    sync_retry_interval: SignedDuration,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();
     let command_options = CommandOptions::init()
@@ -60,17 +66,22 @@ pub async fn run(
         .offline(offline)
         .no_fail(*no_fail)
         .format(OutputFormat::Console)
+        .ignore_sync_failure(ignore_sync_failure)
         .quiet(is_silent || *raw)
         .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
         .skip_verify_checksum(*skip_verify_checksum)
         .standard(*standard)
         .terse(*terse)
+        .sync_retry_interval(sync_retry_interval)
         .readability_metric(resolve_readability_metric(readability_metric))
         .build();
     match watch {
         | Some(watch) => watch_run(&location, &command_options, &options, watch).await,
-        | None => match prepare(&location, &command_options).await {
-            | Ok(prepared) => execute(prepared.value, &options).await,
+        | None => match sync_analyzer_before_check(&options).await {
+            | Ok(run_options) => match prepare(&location, &command_options).await {
+                | Ok(prepared) => execute(prepared.value, &run_options).await,
+                | Err(why) => Err(why),
+            },
             | Err(why) => Err(why),
         },
     }
@@ -135,14 +146,39 @@ async fn watch_run(location: &Location, command_options: &CommandOptions, option
         | Location::Simple(value) if scheme.is_unsupported() => vec![PathBuf::from(value)],
         | _ => Vec::new(),
     };
-    watch::run(
-        "check",
-        &roots,
-        WatchOptions { network, ..watch },
-        || prepare(location, command_options),
-        |input| execute(input, options),
-    )
-    .await
+    match sync_analyzer_before_check(options).await {
+        | Ok(run_options) => {
+            watch::run(
+                "check",
+                &roots,
+                WatchOptions { network, ..watch },
+                || prepare(location, command_options),
+                |input| execute(input, &run_options),
+            )
+            .await
+        }
+        | Err(why) => Err(why),
+    }
+}
+async fn sync_analyzer_before_check(options: &CheckOptions) -> Result<CheckOptions> {
+    let should_sync = !options.skip.iter().any(|category| CheckCategory::from(category) == CheckCategory::Prose);
+    let sync_result = match should_sync {
+        | false => Ok(()),
+        | true => {
+            options
+                .resolve_analyzer::<Vale, _>(options.vale_config.clone().unwrap_or_default())
+                .await
+                .retry_sync(options)
+                .await
+        }
+    };
+    match sync_result {
+        | Ok(()) => Ok(CheckOptions {
+            skip_sync: true,
+            ..options.clone()
+        }),
+        | Err(why) => Err(why),
+    }
 }
 fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, options: &CheckOptions) -> Vec<Check> {
     let CheckOptions {

@@ -41,7 +41,7 @@ acorn gather --watch --watch-mode poll https://example.org/report.json
 acorn gather --watch --osti projects "ACORN"
 ```
 
-`--watch-mode auto` uses native filesystem notifications for local-only inputs and polling for HTTP(S), resolved identifiers, DOE CODE searches, and merge-request selections. Use `--watch-mode poll` for network-mounted paths or environments where native events are unreliable. `--watch-poll-interval` accepts durations such as `500ms` or `5s`. Standard input cannot be replayed and is therefore rejected in watch mode; repeated `--text` values remain static inputs.
+`--watch-mode auto` uses native filesystem notifications for local-only inputs and polling for HTTP(S), resolved identifiers, DOE CODE searches, and merge-request selections. Use `--watch-mode poll` for network-mounted paths or environments where native events are unreliable. `--poll-interval` (`-p`) accepts durations such as `500ms` or `5s`. Press `q` or `Ctrl+C` to stop watching. Standard input cannot be replayed and is therefore rejected in watch mode; repeated `--text` values remain static inputs.
 
 ## Output formats
 

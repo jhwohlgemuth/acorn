@@ -32,6 +32,7 @@ use core::future::Future;
 use core::ops::RangeInclusive;
 use derive_more::Display;
 use futures::future::join_all;
+use jiff::SignedDuration;
 #[cfg(feature = "analysis")]
 use polars::{
     frame::row::Row,
@@ -310,6 +311,9 @@ pub struct CheckOptions {
     /// Prevent non-zero exit behavior when failures are present
     #[builder(default = false)]
     pub no_fail: bool,
+    /// Continue checking when analyzer synchronization retries are exhausted
+    #[builder(default = false)]
+    pub ignore_sync_failure: bool,
     /// Categories of checks to skip during processing
     #[builder(default)]
     pub skip: Vec<String>,
@@ -322,6 +326,12 @@ pub struct CheckOptions {
     /// Whether or not to skip checksum verification for prose analysis
     #[builder(default = false)]
     pub skip_verify_checksum: bool,
+    /// Skip analyzer synchronization before prose analysis
+    #[builder(default = false)]
+    pub skip_sync: bool,
+    /// Delay between analyzer synchronization attempts
+    #[builder(default = SignedDuration::from_secs(1))]
+    pub sync_retry_interval: SignedDuration,
     /// Use compact output format instead of detailed output
     #[builder(default = false)]
     pub terse: bool,
@@ -335,6 +345,17 @@ pub struct CheckOptions {
     pub verbosity: Option<u8>,
     /// Vale configuration options
     pub vale_config: Option<ValeConfig>,
+}
+impl CheckOptions {
+    /// Resolve the configured static analyzer.
+    #[cfg(feature = "analysis")]
+    pub async fn resolve_analyzer<Analyzer, Config>(&self, config: Config) -> Analyzer
+    where
+        Analyzer: StaticAnalyzer<Config>,
+        Config: StaticAnalyzerConfig,
+    {
+        Analyzer::resolve(config.save().await, self.offline, self.skip_verify_checksum).await
+    }
 }
 impl Check {
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
@@ -1041,27 +1062,26 @@ pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&Check
 where
     T: Analysis + InputOutput + ToProse,
 {
-    let CheckOptions {
-        offline,
-        quiet,
-        skip_verify_checksum,
-        vale_config,
-        ..
-    } = options.cloned().unwrap_or_default();
-    let config = vale_config.unwrap_or_default().save().await;
-    let vale = Vale::resolve(config, offline, skip_verify_checksum).await;
-    match vale.clone().sync(offline, quiet).await {
+    let resolved_options = options.cloned().unwrap_or_default();
+    let analyzer = resolved_options
+        .resolve_analyzer::<Vale, _>(resolved_options.vale_config.clone().unwrap_or_default())
+        .await;
+    let sync = match resolved_options.skip_sync {
+        | true => Ok(()),
+        | false => analyzer.clone().sync(resolved_options.offline, resolved_options.quiet).await,
+    };
+    match sync {
         | Ok(_) => {
-            let vale = Arc::new(vale);
+            let analyzer = Arc::new(analyzer);
             let results = paths.iter().map(|path| {
-                let vale = Arc::clone(&vale);
+                let analyzer = Arc::clone(&analyzer);
                 let path = path.clone();
                 async move {
                     match T::read(&path) {
                         | Ok(data) => {
                             let output = T::output_path(&path, &data);
                             let content = data.to_prose();
-                            vale.run(output, content, Some("JSON".into())).await
+                            analyzer.run(output, content, Some("JSON".into())).await
                         }
                         | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string())],
                     }

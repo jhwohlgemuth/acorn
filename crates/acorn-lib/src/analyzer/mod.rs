@@ -17,7 +17,7 @@ use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
 use crate::schema::standard::text::{Docx, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
-use crate::util::constants::app::APPLICATION;
+use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
 use crate::util::constants::vale::{CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
 use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
 use crate::{check, check_err, check_ok};
@@ -39,7 +39,9 @@ use polars::datatypes::PlSmallStr;
 use polars::prelude::{DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tar::Archive;
-use tracing::{debug, error, info};
+#[cfg(feature = "std")]
+use tokio::time::sleep;
+use tracing::{debug, error, info, warn};
 use validator::Validate;
 use validator::ValidationErrorsKind;
 use which::which;
@@ -80,8 +82,16 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
     async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Vec<Check>;
-    /// Perform sync operation (only applies to Vale)
+    /// Perform synchronization when supported by the analyzer
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()>;
+    /// Retry synchronization when supported by the analyzer.
+    #[cfg(feature = "std")]
+    async fn retry_sync(self, options: &CheckOptions) -> ApiResult<()>
+    where
+        Self: Sized,
+    {
+        self.sync(options.offline, options.quiet).await
+    }
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
     where
@@ -1097,6 +1107,34 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Err(why) => {
                 error!(config = config_path.to_absolute_path(), "=> {} Vale sync — {why}", Label::fail());
                 Err(why)
+            }
+        }
+    }
+    #[cfg(feature = "std")]
+    async fn retry_sync(self, options: &CheckOptions) -> ApiResult<()> {
+        let command = self.command();
+        let mut attempt = 1;
+        loop {
+            match self.clone().sync(options.offline, options.quiet).await {
+                | Ok(()) => break Ok(()),
+                | Err(why) if attempt < ONLINE_SYNC_ATTEMPTS => {
+                    warn!(
+                        attempt,
+                        attempts = ONLINE_SYNC_ATTEMPTS,
+                        interval = %options.sync_retry_interval,
+                        "{command} sync failed — {why}; retrying..."
+                    );
+                    sleep(options.sync_retry_interval.unsigned_abs()).await;
+                    attempt = attempt.saturating_add(1);
+                }
+                | Err(why) if options.ignore_sync_failure => {
+                    warn!(
+                        attempts = ONLINE_SYNC_ATTEMPTS,
+                        "{command} sync failed — {why}; continuing because --ignore-sync-failure is set"
+                    );
+                    break Ok(());
+                }
+                | Err(why) => break Err(eyre!("{command} sync failed after {ONLINE_SYNC_ATTEMPTS} attempts — {why}")),
             }
         }
     }

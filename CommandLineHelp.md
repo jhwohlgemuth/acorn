@@ -93,9 +93,7 @@ This document contains the help content for the `acorn-cli` command-line program
   - `poll`:
     Poll local and network sources
 
-* `--watch-poll-interval <DURATION>` — Set the polling interval used by watch mode
-
-  Default value: `1s`
+* `-p`, `--poll-interval <DURATION>` — Set the interval used by watch polling and Vale sync retries
 * `-t`, `--threads <N>` — Limit number of threads used by rayon for parallel processing
 
    See Rayon documentation for more information
@@ -155,6 +153,10 @@ Perform static analysis on research activity data and apply standardized best pr
 * `-d`, `--disable-website-checks` — Disable website checks that require internet connection
 * `--all` — Include all check results, including suggestions and info messages
 * `-e`, `--exit-on-first-error` — Exit on first error
+* `--ignore-sync-failure` — Continue watch mode when the prose analyzer cannot be synchronized
+
+   Use `--skip prose` to skip prose analyzer synchronization and analysis entirely
+* `-p`, `--poll-interval <DURATION>` — Set the interval used by watch polling and analyzer sync retries
 * `--filter <LIST>` — Regular expression pattern(s) applied to absolute paths of files to include during checks
 
    Only files matching at least one pattern will be processed
@@ -607,6 +609,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 
 ###### **Options:**
 
+* `-p`, `--poll-interval <DURATION>` — Set the interval used by watch polling
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in processing
 
    Only files matching the pattern will be processed

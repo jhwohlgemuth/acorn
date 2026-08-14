@@ -33,6 +33,12 @@ impl Label {
     /// Prefix for use when logging a success, pass, etc.
     #[cfg(feature = "unicode")]
     pub const CHECKMARK: Emoji<'_, '_> = Emoji("✅ ", "☑ ");
+    /// Prefix for use when re-running a watched command.
+    #[cfg(not(feature = "unicode"))]
+    pub const RERUN: &str = "RE-RUN ";
+    /// Prefix for use when re-running a watched command.
+    #[cfg(feature = "unicode")]
+    pub const RERUN: Emoji<'_, '_> = Emoji("🔄 ", "RE-RUN ");
     /// Template string to customize the progress bar
     pub const PROGRESS_BAR_TEMPLATE: &str = "  {spinner:.green}{pos:>5} of{len:^5}[{bar:40.green}] {msg}";
     /// Template string for progress spinner (indeterminate)
@@ -41,6 +47,23 @@ impl Label {
     pub const PROGRESS_COUNTER_TEMPLATE: &str = "{pos:>5} of{len:^5} {msg}";
     /// Dry-run label text
     pub const DRY_RUN: &str = " DRY_RUN ■ ";
+    /// Changed label
+    pub fn changed() -> String {
+        Self::fmt_changed("Change Detected")
+    }
+    /// Format a changed label
+    pub fn fmt_changed(value: &str) -> String {
+        #[cfg(feature = "std")]
+        {
+            format!("{}{value}", Self::RERUN)
+                .style(Style::new().yellow().bold().on_default_color())
+                .to_string()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            format!("{}{value}", Self::RERUN)
+        }
+    }
     /// Styled dry-run label
     #[cfg(feature = "std")]
     pub fn dry_run() -> Styled<&'static &'static str> {

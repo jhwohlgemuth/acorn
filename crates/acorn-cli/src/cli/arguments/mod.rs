@@ -1,5 +1,5 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
-use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard};
+use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration};
 use super::DownloadCommands;
 use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
@@ -14,6 +14,7 @@ use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
+use jiff::SignedDuration;
 use strum::EnumIs;
 pub(crate) mod osti;
 /// Remote Docker target arguments shared by container-producing create commands.
@@ -302,6 +303,14 @@ pub struct Check {
     /// Exit on first error
     #[arg(short, long = "exit-on-first-error", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) exit_on_first_error: bool,
+    /// Continue watch mode when the prose analyzer cannot be synchronized
+    ///
+    /// Use `--skip prose` to skip prose analyzer synchronization and analysis entirely
+    #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) ignore_sync_failure: bool,
+    /// Set the interval used by watch polling and analyzer sync retries
+    #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
+    pub(crate) poll_interval: Option<SignedDuration>,
     /// Regular expression pattern(s) applied to absolute paths of files to include during checks
     ///
     /// Only files matching at least one pattern will be processed
@@ -707,6 +716,9 @@ pub(crate) struct Gather {
     /// Files, directories, URLs, or PID values; piped standard input is included automatically.
     #[arg(value_name = "INPUT", value_hint = ValueHint::AnyPath)]
     pub(crate) input: Vec<String>,
+    /// Set the interval used by watch polling
+    #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
+    pub(crate) poll_interval: Option<SignedDuration>,
     /// Regex pattern applied to absolute paths of files to include in processing
     ///
     /// Only files matching the pattern will be processed

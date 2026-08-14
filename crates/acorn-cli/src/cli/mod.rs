@@ -181,9 +181,9 @@ pub struct Arguments {
     /// Select automatic, native, or polling watch behavior
     #[arg(long, global = true, value_enum, default_value_t = WatchMode::Auto, requires = "watch", value_name = "MODE", help_heading = "OPTIONS")]
     pub watch_mode: WatchMode,
-    /// Set the polling interval used by watch mode
-    #[arg(long, global = true, default_value = "1s", requires = "watch", value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
-    pub watch_poll_interval: SignedDuration,
+    /// Set the interval used by watch polling and Vale sync retries
+    #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
+    pub poll_interval: Option<SignedDuration>,
     /// Limit number of threads used by rayon for parallel processing
     ///
     /// See Rayon documentation for more information
