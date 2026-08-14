@@ -637,6 +637,11 @@ impl StringConversion for &str {
         to_absolute_string(*self)
     }
 }
+/// Applies a new style template to an existing progress bar
+pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
+    #[allow(clippy::unwrap_used)]
+    progress.set_style(ProgressStyle::with_template(template).unwrap());
+}
 /// Creates zip archive from directory
 pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -783,6 +788,28 @@ where
             warn!("=> {} Command {}", Label::not_found(), command);
             false
         }
+    }
+}
+/// Creates a new progress bar with the specified count and progress type
+pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
+    create_progress_bar_with_renderer(count, progress_type, &PROGRESS_RENDERER)
+}
+fn create_progress_bar_with_renderer(count: usize, progress_type: ProgressType, renderer: &MultiProgress) -> ProgressBar {
+    if matches!(progress_type, ProgressType::Silent) {
+        ProgressBar::hidden()
+    } else {
+        let progress = if progress_type.is_indeterminate() {
+            let spinner = ProgressBar::new_spinner();
+            spinner.enable_steady_tick(Duration::from_millis(120));
+            spinner
+        } else {
+            ProgressBar::new(count as u64)
+        };
+        if let Some(template) = progress_type.template() {
+            #[allow(clippy::unwrap_used)]
+            progress.set_style(ProgressStyle::with_template(template).unwrap());
+        }
+        renderer.add(progress)
     }
 }
 /// Create an RSA public/private key pair with 2048 bits of entropy using the `rsa` crate
@@ -988,6 +1015,27 @@ where
         | Err(err) => {
             error!(error = err.to_string(), path = value.to_absolute_path(), "=> {} Read file", Label::fail());
             None
+        }
+    }
+}
+/// Returns a string containing the file name with its parent directory.
+///
+/// If the `PathBuf` is a directory, only the file name is returned.
+pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
+    let path = value.into();
+    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
+    if path.is_dir() {
+        name
+    } else {
+        let parent_name = path
+            .parent()
+            .and_then(|value| value.file_name())
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if parent_name.is_empty() {
+            name
+        } else {
+            format!("{parent_name}/{name}")
         }
     }
 }
@@ -1253,6 +1301,12 @@ pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, roo
         | None => Ok(paths),
     }
 }
+/// Finishes a progress bar with a message, applying appropriate final style
+pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
+    #[allow(clippy::unwrap_used)]
+    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
+    progress.finish_with_message(message);
+}
 /// Returns the value of the first environment variable in the list that is set
 ///
 /// ### Example
@@ -1346,6 +1400,21 @@ where
     files.sort();
     files
 }
+/// Parse JSONC content to a [`serde_json::Value`]
+/// ### Note
+/// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
+pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
+    let options = ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
+}
 /// Makes the given file executable.
 ///
 /// # Parameters
@@ -1401,27 +1470,6 @@ where
     debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
 }
-/// Returns a string containing the file name with its parent directory.
-///
-/// If the `PathBuf` is a directory, only the file name is returned.
-pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
-    let path = value.into();
-    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
-    if path.is_dir() {
-        name
-    } else {
-        let parent_name = path
-            .parent()
-            .and_then(|value| value.file_name())
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
-        if parent_name.is_empty() {
-            name
-        } else {
-            format!("{parent_name}/{name}")
-        }
-    }
-}
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf
 where
@@ -1447,6 +1495,34 @@ where
             }
         }
     }
+}
+/// Parse JSONC content into a typed config with a CST root for comment-preserving round-trips
+/// ### Note
+/// Returns the deserialized config and the CST root. The caller should store the CST
+/// in the config's `cst` field for write-back.
+pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstRootNode)> {
+    let options = ParseOptions {
+        allow_comments: true,
+        allow_trailing_commas: true,
+        allow_loose_object_property_names: false,
+        allow_missing_commas: false,
+        allow_single_quoted_strings: false,
+        allow_hexadecimal_numbers: false,
+        allow_unary_plus_numbers: false,
+    };
+    CstRootNode::parse(content, &options)
+        .map_err(|why| eyre!("JSONC parse error — {why}"))
+        .and_then(|cst| {
+            cst.to_serde_value().ok_or_else(|| eyre!("JSONC conversion error")).and_then(|value| {
+                serde_json::from_value::<T>(value)
+                    .map_err(|why| eyre!("JSONC deserialize error — {why}"))
+                    .map(|config| (config, cst))
+            })
+        })
+}
+/// Returns the shared progress renderer used by ACORN I/O operations.
+pub fn progress_renderer() -> MultiProgress {
+    PROGRESS_RENDERER.clone()
 }
 /// Reads the given file and returns its contents as a string.
 ///
@@ -1570,6 +1646,31 @@ pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> Pat
     };
     root.join(generate_guid())
 }
+/// Creates a symbolic link from `target` to `source`.
+///
+/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
+#[cfg(unix)]
+pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
+    match prelude::symlink(source, target) {
+        | Ok(_) => Ok(()),
+        | Err(why) => Err(why.into()),
+    }
+}
+/// Creates a symbolic link from `target` to `source`
+/// ### Note
+/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
+#[cfg(windows)]
+pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
+    let result = if source.is_dir() {
+        symlink_dir(source, target)
+    } else {
+        symlink_file(source, target)
+    };
+    match result {
+        | Ok(_) => Ok(()),
+        | Err(why) => Err(why.into()),
+    }
+}
 /// Converts a `PathBuf` into a `String` representation of the **absolute** path.
 /// <div class="warning">Uses <code>fs::canonicalize</code>, which might cause problems on Windows</div>
 ///
@@ -1636,67 +1737,18 @@ where
         | _ => path,
     }
 }
-/// Creates a symbolic link from `target` to `source`.
+/// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
 ///
-/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
-#[cfg(unix)]
-pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
-    match prelude::symlink(source, target) {
-        | Ok(_) => Ok(()),
-        | Err(why) => Err(why.into()),
-    }
-}
-/// Creates a symbolic link from `target` to `source`
-/// ### Note
-/// On Windows, directory sources use directory symlinks and other sources use file symlinks.
-#[cfg(windows)]
-pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
-    let result = if source.is_dir() {
-        symlink_dir(source, target)
+/// # Errors
+///
+/// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
+pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
+    let now = Timestamp::now().as_second();
+    if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
+        Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
     } else {
-        symlink_file(source, target)
-    };
-    match result {
-        | Ok(_) => Ok(()),
-        | Err(why) => Err(why.into()),
+        Ok(())
     }
-}
-/// Creates a new progress bar with the specified count and progress type
-pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
-    create_progress_bar_with_renderer(count, progress_type, &PROGRESS_RENDERER)
-}
-fn create_progress_bar_with_renderer(count: usize, progress_type: ProgressType, renderer: &MultiProgress) -> ProgressBar {
-    if matches!(progress_type, ProgressType::Silent) {
-        ProgressBar::hidden()
-    } else {
-        let progress = if progress_type.is_indeterminate() {
-            let spinner = ProgressBar::new_spinner();
-            spinner.enable_steady_tick(Duration::from_millis(120));
-            spinner
-        } else {
-            ProgressBar::new(count as u64)
-        };
-        if let Some(template) = progress_type.template() {
-            #[allow(clippy::unwrap_used)]
-            progress.set_style(ProgressStyle::with_template(template).unwrap());
-        }
-        renderer.add(progress)
-    }
-}
-/// Returns the shared progress renderer used by ACORN I/O operations.
-pub fn progress_renderer() -> MultiProgress {
-    PROGRESS_RENDERER.clone()
-}
-/// Applies a new style template to an existing progress bar
-pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
-    #[allow(clippy::unwrap_used)]
-    progress.set_style(ProgressStyle::with_template(template).unwrap());
-}
-/// Finishes a progress bar with a message, applying appropriate final style
-pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
-    #[allow(clippy::unwrap_used)]
-    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
-    progress.finish_with_message(message);
 }
 /// Process a collection of data items with progress indication.
 ///
@@ -1762,58 +1814,6 @@ where
         finish_progress_bar(&progress, finish_message(count));
     }
     output
-}
-/// Parse JSONC content to a [`serde_json::Value`]
-/// ### Note
-/// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
-pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-    };
-    parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
-}
-/// Parse JSONC content into a typed config with a CST root for comment-preserving round-trips
-/// ### Note
-/// Returns the deserialized config and the CST root. The caller should store the CST
-/// in the config's `cst` field for write-back.
-pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstRootNode)> {
-    let options = ParseOptions {
-        allow_comments: true,
-        allow_trailing_commas: true,
-        allow_loose_object_property_names: false,
-        allow_missing_commas: false,
-        allow_single_quoted_strings: false,
-        allow_hexadecimal_numbers: false,
-        allow_unary_plus_numbers: false,
-    };
-    CstRootNode::parse(content, &options)
-        .map_err(|why| eyre!("JSONC parse error — {why}"))
-        .and_then(|cst| {
-            cst.to_serde_value().ok_or_else(|| eyre!("JSONC conversion error")).and_then(|value| {
-                serde_json::from_value::<T>(value)
-                    .map_err(|why| eyre!("JSONC deserialize error — {why}"))
-                    .map(|config| (config, cst))
-            })
-        })
-}
-/// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
-///
-/// # Errors
-///
-/// Returns an error when `unix_seconds` is more than `window_secs` seconds away from now.
-pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> ApiResult<()> {
-    let now = Timestamp::now().as_second();
-    if u64::try_from(window_secs).map_or(true, |window| now.abs_diff(unix_seconds) > window) {
-        Err(eyre!("Timestamp {unix_seconds} is outside the {window_secs}-second window"))
-    } else {
-        Ok(())
-    }
 }
 /// Writes the given content to a file at the given path
 ///

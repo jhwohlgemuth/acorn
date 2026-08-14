@@ -21,13 +21,13 @@ pub enum InputOutputStreamState {
 pub fn chromium_cache_dir() -> Option<PathBuf> {
     BaseDirs::new().map(|dirs| dirs.cache_dir().join(APPLICATION).join("chromiumoxide"))
 }
-/// Check if stdout is piped (e.g., `acorn | process`)
-pub fn is_stdout_piped() -> bool {
-    stdout_piped_status() == InputOutputStreamState::Piped
-}
 /// Check if stdin is piped.
 pub fn is_stdin_piped() -> bool {
     stdin_piped_status() == InputOutputStreamState::Piped
+}
+/// Check if stdout is piped (e.g., `acorn | process`)
+pub fn is_stdout_piped() -> bool {
+    stdout_piped_status() == InputOutputStreamState::Piped
 }
 /// Read input from stdin (e.g., `echo "hello world" | acorn`)
 /// ### Example
@@ -50,6 +50,20 @@ pub fn read_stdin() -> Option<String> {
         | InputOutputStreamState::NotPiped => None,
     }
 }
+fn stdin_piped_status() -> InputOutputStreamState {
+    if io::stdin().is_terminal() {
+        InputOutputStreamState::NotPiped
+    } else {
+        InputOutputStreamState::Piped
+    }
+}
+fn stdout_piped_status() -> InputOutputStreamState {
+    if io::stdout().is_terminal() {
+        InputOutputStreamState::NotPiped
+    } else {
+        InputOutputStreamState::Piped
+    }
+}
 /// Write value to stdout (e.g., `acorn | process`)
 /// ### Example
 /// ```ignore
@@ -64,18 +78,4 @@ where
     let _ = stdout.write_all(value.into().as_bytes());
     let _ = stdout.flush();
     drop(stdout);
-}
-fn stdin_piped_status() -> InputOutputStreamState {
-    if io::stdin().is_terminal() {
-        InputOutputStreamState::NotPiped
-    } else {
-        InputOutputStreamState::Piped
-    }
-}
-fn stdout_piped_status() -> InputOutputStreamState {
-    if io::stdout().is_terminal() {
-        InputOutputStreamState::NotPiped
-    } else {
-        InputOutputStreamState::Piped
-    }
 }
