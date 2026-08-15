@@ -13,6 +13,10 @@ status: in-progress
 
 Establish systematic CLI test coverage across all commands, starting with high-impact gaps and progressing toward comprehensive coverage. Each phase produces testable, reviewable increments.
 
+## Persistent benchmark evidence
+
+Criterion results from every semantic version tag and relevant default-branch pipeline are saved as version-named baselines and retained in immutable `acorn-benchmarks` GitLab generic packages. Each package includes raw Criterion output, normalized JSON and CSV history, and a self-contained trend report. Comparisons are limited to matching runner and hardware fingerprints; the workflow is informational rather than a regression gate. Local commands and package contents are documented in `CONTRIBUTING.md`.
+
 # Current state
 
 | Command | Tests | Coverage | Priority |

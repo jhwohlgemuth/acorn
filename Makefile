@@ -39,6 +39,9 @@ bench-baseline:
 bench-compare:
 	@$(MAKE) bench BENCH_ARGS="-- --baseline $(BENCH_BASELINE)"
 
+bench-report:
+	@cargo xtask benchmark-history build "$(ARTIFACT_TARGET_DIR)/criterion" "$(BENCH_OUTPUT)" $(if $(BENCH_HISTORY),"$(BENCH_HISTORY)")
+
 book:
 	@mdbook clean docs
 	@mdbook build docs
@@ -275,6 +278,8 @@ TARGETS = \
 FUZZ_TARGET = research_activity
 FUZZ_ARGS =
 BENCH_BASELINE = $(VERSION)
+BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
+BENCH_HISTORY =
 TASKS = \
 	audit \
 	book \
@@ -287,6 +292,7 @@ TASKS = \
 	bench \
 	bench-baseline \
 	bench-compare \
+	bench-report \
 	lint \
 	fuzz \
 	fuzz-repro \

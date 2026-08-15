@@ -11,6 +11,7 @@ variables:
 stages:
   - prepare
   - test
+  - performance
   - build
   - release
   - docs
@@ -99,6 +100,44 @@ fuzz-smoke:
     - rustup toolchain install nightly --profile minimal
     - cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
     - cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+
+benchmark:
+  stage: performance
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  tags:
+    - cpu
+  inherit:
+    variables: true
+  resource_group: benchmarks
+  needs:
+    - job: test
+      optional: true
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - crates/acorn-lib/**/*
+        - xtask/**/*
+        - scripts/benchmarks/**/*
+        - Cargo.toml
+        - Cargo.lock
+        - Makefile
+        - .gitlab-ci.yml
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  script:
+    - make bench-baseline
+    - bash scripts/benchmarks/persist.sh
+  artifacts:
+    name: "benchmarks-${CI_PIPELINE_ID}-${CI_JOB_ID}"
+    expose_as: "Benchmark report"
+    paths:
+      - target/benchmark-results/
+    expire_in: 30 days
+    when: always
 
 build-release:
   stage: build

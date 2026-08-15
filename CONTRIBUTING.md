@@ -40,6 +40,7 @@ If you would like to generously provide a pull request to correct a verified iss
 | Run benchmarks                           | `make bench`       |
 | Save benchmark baseline                  | `make bench-baseline` |
 | Compare to saved baseline                | `make bench-compare` |
+| Generate a benchmark history report      | `make bench-report` |
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
@@ -87,6 +88,22 @@ make bench-compare BENCH_BASELINE=release-0.1.56
 ```
 
 Criterion stores benchmark history and comparisons under `target/criterion/`, including HTML reports and baseline deltas.
+
+Generate normalized JSON, CSV, and a self-contained HTML report from the current Criterion results:
+
+```shell
+make bench-report
+```
+
+To append the current results to a previously downloaded history, provide its path explicitly:
+
+```shell
+make bench-report BENCH_HISTORY=previous-history.json
+```
+
+The report is written to `target/benchmark-results/`. GitLab CI runs `make bench-baseline` for every semantic version tag and after relevant default-branch library or benchmark changes, saving the raw Criterion baseline under the workspace version. It uploads an immutable `acorn-benchmarks` generic package containing `run.json`, cumulative `history.json`, `history.csv`, `report.html`, and the raw Criterion results. Release package versions are prefixed with the ACORN tag, and each normalized run records the project version. Pipeline artifacts expire after 30 days; the package registry is the persistent source of record and must be excluded from package cleanup policies.
+
+Timing comparisons are grouped by runner ID, architecture, CPU model, and logical core count. Results from different environment fingerprints remain visible but are never used to calculate performance deltas. Toolchain versions are recorded with every run. The report is informational and does not fail CI for regressions.
 
 ### PDF Visual Regression Tests
 

@@ -1,3 +1,4 @@
+mod benchmark_history;
 use std::process::Command;
 use toml_edit::{value, DocumentMut};
 
@@ -34,11 +35,13 @@ fn main() {
         eprintln!("Usage: cargo xtask <command>");
         eprintln!();
         eprintln!("Commands:");
+        eprintln!("  benchmark-history <command>  Build or inspect persistent benchmark history");
         eprintln!("  release-version <version>  Update workspace version and sync internal deps");
         eprintln!("  check-version              Verify all internal dep pins match workspace version");
         std::process::exit(1);
     }
     let result = match args[1].as_str() {
+        | "benchmark-history" => benchmark_history::run(&args[2..]),
         | "release-version" => {
             if args.len() < 3 {
                 eprintln!("Error: missing version argument");
@@ -50,7 +53,7 @@ fn main() {
         | "check-version" => cmd_check_version(),
         | _ => {
             eprintln!("Error: unknown command '{}'", args[1]);
-            eprintln!("Available commands: release-version, check-version");
+            eprintln!("Available commands: benchmark-history, release-version, check-version");
             std::process::exit(1);
         }
     };
