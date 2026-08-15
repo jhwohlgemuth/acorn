@@ -140,15 +140,6 @@ impl TryFrom<&MimeType> for DocumentFormat {
         }
     }
 }
-/// Convert a supported document file to GitHub-Flavored Markdown.
-pub fn to_markdown(path: impl Into<PathBuf>) -> ApiResult<String> {
-    let path = path.into();
-    anydoc::to_markdown(&path).map_err(|why| eyre!("Failed to convert document {} - {why}", path.display()))
-}
-/// Convert supported document bytes to GitHub-Flavored Markdown.
-pub fn to_markdown_bytes(bytes: &[u8], format: Option<DocumentFormat>) -> ApiResult<String> {
-    anydoc::to_markdown_bytes(bytes, format.map(Format::from)).map_err(|why| eyre!("Failed to convert document - {why}"))
-}
 impl SourceDocument {
     fn is_yaml(&self) -> bool {
         let mime = MimeType::from(self.source.as_str());
@@ -209,6 +200,15 @@ impl SourceDocument {
             | false => Ok(self.content.clone()),
         }
     }
+}
+/// Convert a supported document file to GitHub-Flavored Markdown.
+pub fn to_markdown(path: impl Into<PathBuf>) -> ApiResult<String> {
+    let path = path.into();
+    anydoc::to_markdown(&path).map_err(|why| eyre!("Failed to convert document {} - {why}", path.display()))
+}
+/// Convert supported document bytes to GitHub-Flavored Markdown.
+pub fn to_markdown_bytes(bytes: &[u8], format: Option<DocumentFormat>) -> ApiResult<String> {
+    anydoc::to_markdown_bytes(bytes, format.map(Format::from)).map_err(|why| eyre!("Failed to convert document - {why}"))
 }
 
 #[cfg(test)]

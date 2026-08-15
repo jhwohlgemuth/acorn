@@ -14,7 +14,7 @@ use crate::analyzer::{
 };
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::io::License;
-use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
+use crate::prelude::{create_dir_all, remove_file, write, Arc, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::crosswalk::ConversionWarning;
 use crate::test::utils::unique_path;
@@ -513,6 +513,20 @@ fn test_with_context_and_with_uri_preserve_severity() {
     let with_uri = check.with_uri(Some("https://example.org".to_string()));
     assert_eq!(with_context.severity, CheckSeverity::Warning);
     assert_eq!(with_uri.severity, CheckSeverity::Warning);
+}
+#[test]
+fn test_terse_output_includes_resolved_line_and_column() {
+    let content = "{\n  \"url\": \"target\"\n}";
+    let document = SourceDocument::init().content(content).format("json").source("index.json").build();
+    let check = Check::init()
+        .category(CheckCategory::Link)
+        .locator("url")
+        .context("target")
+        .message("Unreachable")
+        .uri("index.json")
+        .build()
+        .with_document(Arc::new(DocumentIndex::new(document)));
+    assert!(check.terse().contains("path=index.json:2:11"));
 }
 #[test]
 fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {

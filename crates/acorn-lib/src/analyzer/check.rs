@@ -594,6 +594,55 @@ impl Check {
             }
         }
     }
+    pub(crate) fn attach_document(self, documents: &HashMap<String, Arc<DocumentIndex>>) -> Self {
+        let document = self.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
+        match document {
+            | Some(document) => self.with_document(document),
+            | None => self,
+        }
+    }
+    pub(crate) fn terse(&self) -> String {
+        let uri = self.uri.as_deref().unwrap_or_default();
+        let positions = self
+            .document
+            .as_ref()
+            .map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
+                | (CheckCategory::Link, CheckKind::Standard, _) => {
+                    let context = self.context.as_deref().map(str::trim).unwrap_or("No URL");
+                    let text = if context.is_empty() { " " } else { context };
+                    let query = match self.locator.as_deref() {
+                        | Some(locator) => {
+                            let alias = locator_alias(locator);
+                            let query = DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text);
+                            match alias == locator {
+                                | true => query,
+                                | false => query.with_path(DocumentPath::parse(&alias)),
+                            }
+                        }
+                        | None => DocumentQuery::new().with_needle(text),
+                    };
+                    vec![document.locate(&query)]
+                }
+                | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| document.locate(&item.query())).collect(),
+                | (CheckCategory::Schema, _, Some(ErrorKind::Validator(kind))) => {
+                    let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
+                    process(prefix, kind).iter().map(|issue| document.locate(&issue.query())).collect()
+                }
+                | _ => Vec::new(),
+            });
+        self.to_string()
+            .split('\n')
+            .enumerate()
+            .map(|(index, row)| {
+                let path = positions
+                    .get(index)
+                    .and_then(|position| *position)
+                    .map_or_else(|| format!(", path={uri}"), |position| format!(", path={uri}:{position}"));
+                format!("{row}{}", path.dimmed())
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
     /// Returns a new LinkCheckResult with the given context
     pub fn with_context(self, value: String) -> Self {
         Self {
@@ -609,13 +658,6 @@ impl Check {
         Self {
             document: Some(value),
             ..self
-        }
-    }
-    pub(crate) fn attach_document(self, documents: &HashMap<String, Arc<DocumentIndex>>) -> Self {
-        let document = self.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
-        match document {
-            | Some(document) => self.with_document(document),
-            | None => self,
         }
     }
     /// Returns a new LinkCheckResult with the given index
@@ -807,10 +849,7 @@ impl Render for Checks {
             )
         });
         match (options.quiet, options.format, options.terse) {
-            | (false, OutputFormat::Console, true) => sorted_checks.iter().for_each(|check| {
-                let uri = check.uri.clone().unwrap_or_default();
-                println!("{check}{}", format!(", path={uri}").dimmed());
-            }),
+            | (false, OutputFormat::Console, true) => sorted_checks.iter().for_each(|check| println!("{}", check.terse())),
             | (false, OutputFormat::Console, false) => sorted_checks
                 .into_iter()
                 .enumerate()

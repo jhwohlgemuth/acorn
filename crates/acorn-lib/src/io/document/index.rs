@@ -2,12 +2,23 @@
 use super::SourceDocument;
 use crate::prelude::{String, ToString, Vec};
 use crate::util::MimeType;
+use core::fmt;
 use core::ops::Range;
 use jsonc_parser::ast::Value as JsonValue;
 use jsonc_parser::{parse_to_ast, CollectOptions, ParseOptions};
 use serde_json::Value;
 
-/// One component of a structured path within a document.
+/// Result of resolving a [`DocumentQuery`]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DocumentMatch {
+    /// Exactly one source span matched.
+    Unique(DocumentSpan),
+    /// No source span matched safely.
+    Missing,
+    /// More than one source span matched.
+    Ambiguous,
+}
+/// One component of a structured path within a document
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum DocumentPathSegment {
     /// Object or mapping key.
@@ -15,10 +26,10 @@ pub enum DocumentPathSegment {
     /// Array or sequence index.
     Index(usize),
 }
-/// Structured path to a value within a document.
+/// Structured path to a value within a document
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct DocumentPath(Vec<DocumentPathSegment>);
-/// Byte position and corresponding display coordinates within a document.
+/// Byte position and corresponding display coordinates within a document
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DocumentPosition {
     /// Zero-based UTF-8 byte offset.
@@ -28,15 +39,15 @@ pub struct DocumentPosition {
     /// One-based character column.
     pub column: usize,
 }
-/// Half-open UTF-8 byte range within a document.
+/// Half-open UTF-8 byte range within a document
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DocumentSpan(pub Range<usize>);
-/// Display-ready excerpt retaining its original physical line numbering.
+/// Display-ready excerpt retaining its original physical line numbering
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DocumentExcerpt {
-    /// Source content with blank placeholders for omitted physical lines.
+    /// Source content with blank placeholders for omitted physical lines
     pub content: String,
-    /// Highlight span relative to [`Self::content`].
+    /// Highlight span relative to [`Self::content`]
     pub span: DocumentSpan,
 }
 /// Format-neutral criteria for finding a value in a document.
@@ -45,16 +56,6 @@ pub struct DocumentQuery {
     paths: Vec<DocumentPath>,
     value: Option<String>,
     needle: Option<String>,
-}
-/// Result of resolving a [`DocumentQuery`].
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DocumentMatch {
-    /// Exactly one source span matched.
-    Unique(DocumentSpan),
-    /// No source span matched safely.
-    Missing,
-    /// More than one source span matched.
-    Ambiguous,
 }
 #[derive(Clone, Debug)]
 struct DocumentEntry {
@@ -173,6 +174,13 @@ impl DocumentIndex {
             }
         })
     }
+    /// Resolve a query to its one-based physical line and character column
+    pub fn locate(&self, query: &DocumentQuery) -> Option<DocumentPosition> {
+        match self.resolve(query) {
+            | DocumentMatch::Unique(span) => self.position(span.0.start),
+            | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
+        }
+    }
     /// Create an excerpt whose highlighted span has at most `max_prefix` bytes of leading context.
     pub fn excerpt(&self, span: &DocumentSpan, max_prefix: usize) -> Option<DocumentExcerpt> {
         let DocumentSpan(range) = span;
@@ -247,6 +255,11 @@ impl DocumentIndex {
                     .collect(),
             )
         })
+    }
+}
+impl fmt::Display for DocumentPosition {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}:{}", self.line, self.column)
     }
 }
 impl SourceDocument {

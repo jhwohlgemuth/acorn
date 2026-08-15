@@ -35,6 +35,21 @@ fn test_counts_unicode_columns_from_byte_offsets() {
     assert_eq!(index.position(6), Some(DocumentPosition { byte: 6, line: 2, column: 2 }));
 }
 #[test]
+fn test_document_position_display_renders_line_and_column() {
+    let position = DocumentPosition {
+        byte: 42,
+        line: 3,
+        column: 7,
+    };
+    assert_eq!(position.to_string(), "3:7");
+}
+#[test]
+fn test_locates_resolved_query() {
+    let index = DocumentIndex::new(document("first\nvalue", "input.txt"));
+    let query = DocumentQuery::new().with_value("value");
+    assert_eq!(index.locate(&query), Some(DocumentPosition { byte: 6, line: 2, column: 1 }));
+}
+#[test]
 fn test_docx_converts_to_markdown() {
     let converted = to_markdown("../../tests/fixtures/acorn.docx");
     assert!(converted.is_ok());
