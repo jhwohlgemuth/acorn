@@ -157,7 +157,6 @@ impl DocumentTarget for ValidatorIssue {
     }
     fn query(&self) -> DocumentQuery {
         let locator = self.locator();
-        let alias = locator_alias(&locator);
         let query = DocumentQuery::new().with_path(DocumentPath::parse(&locator));
         let value = match self.params.get("value") {
             | Some(Value::Array(values)) => self
@@ -167,24 +166,13 @@ impl DocumentTarget for ValidatorIssue {
                 .and_then(|index| values.get(index as usize)),
             | value => value,
         };
-        let query = match value {
+
+        match value {
             | Some(Value::String(value)) => query.with_value(value),
             | Some(value) if !value.is_array() && !value.is_object() => query.with_value(value.to_string()),
             | None | Some(_) => query,
-        };
-        match alias == locator {
-            | true => query,
-            | false => query.with_path(DocumentPath::parse(&alias)),
         }
     }
-}
-/// Return locator aliases used to bridge schema validator paths and source-document paths.
-pub(crate) fn locator_alias(locator: &str) -> String {
-    locator
-        .replace("meta.identifier", "meta.id")
-        .replace("contact.telephone", "contact.phone")
-        .replace(".media[", ".graphics[")
-        .replace(".content_url", ".href")
 }
 /// Process validator errors into a more manageable form
 pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {

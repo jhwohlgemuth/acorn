@@ -1,5 +1,5 @@
 //! Check result types and helpers for analyzer output.
-use super::error::{locator_alias, process, DocumentTarget, ErrorKind};
+use super::error::{process, DocumentTarget, ErrorKind};
 use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
@@ -482,16 +482,9 @@ impl Check {
                     };
                     let source_text = if text.is_empty() { " ".to_string() } else { text };
                     let query = match locator.as_deref() {
-                        | Some(locator) => {
-                            let alias = locator_alias(locator);
-                            let query = DocumentQuery::new()
-                                .with_path(DocumentPath::parse(locator))
-                                .with_needle(source_text.clone());
-                            match alias == locator {
-                                | true => query,
-                                | false => query.with_path(DocumentPath::parse(&alias)),
-                            }
-                        }
+                        | Some(locator) => DocumentQuery::new()
+                            .with_path(DocumentPath::parse(locator))
+                            .with_needle(source_text.clone()),
                         | None => DocumentQuery::new().with_needle(source_text.clone()),
                     };
                     let heading = locator.as_deref().unwrap_or(category.message());
@@ -611,14 +604,7 @@ impl Check {
                     let context = self.context.as_deref().map(str::trim).unwrap_or("No URL");
                     let text = if context.is_empty() { " " } else { context };
                     let query = match self.locator.as_deref() {
-                        | Some(locator) => {
-                            let alias = locator_alias(locator);
-                            let query = DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text);
-                            match alias == locator {
-                                | true => query,
-                                | false => query.with_path(DocumentPath::parse(&alias)),
-                            }
-                        }
+                        | Some(locator) => DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text),
                         | None => DocumentQuery::new().with_needle(text),
                     };
                     vec![document.locate(&query)]

@@ -17,4 +17,3 @@ These plans prepare the pure analysis boundary defined by the [crate boundary ar
 - [Check options context](check-options-context.md) - Stop repeatedly threading derived options.
 - [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.
 - [Typed scoring model](typed-scoring-model.md) - Make score combination and severity interpretation explicit.
-- [Source-aware check location resolution](source-aware-check-location-resolution.md) - Resolve canonical check paths against actual source structure without generated serde alias maps.

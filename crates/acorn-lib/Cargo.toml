@@ -121,6 +121,10 @@ harness = false
 name = "readability"
 harness = false
 
+[[bench]]
+name = "document"
+harness = false
+
 [features]
 core = []
 alloc = ["core", "serde/alloc", "jiff/alloc"]

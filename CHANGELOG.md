@@ -11,6 +11,7 @@
 ### Changed
 
 - Replace direct Chrono usage with Jiff; public database timestamp fields now use `jiff::Timestamp`, and queue and cache intervals use `jiff::SignedDuration`.
+- Resolve analyzer locations from source structure instead of a hand-maintained alias table. Research activity media must now use `contentUrl` instead of `href` or `url`, sections must use `impact` instead of `outcomes`, and contacts must use `url` instead of `profile`.
 ## [0.1.49](https://code.ornl.gov/research-enablement/acorn/compare/v0.1.48..v0.1.49) - 2025-12-24
 
 ### 🐛 Bug Fixes

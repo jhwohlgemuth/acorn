@@ -1,9 +1,10 @@
 //! Immutable indexing of positions within loaded documents.
+use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::SourceDocument;
 use crate::prelude::{String, ToString, Vec};
 use crate::util::MimeType;
 use core::fmt;
-use core::ops::Range;
+use core::ops::{Add, Range};
 use jsonc_parser::ast::Value as JsonValue;
 use jsonc_parser::{parse_to_ast, CollectOptions, ParseOptions};
 use serde_json::Value;
@@ -63,6 +64,19 @@ struct DocumentEntry {
     value: Option<String>,
     span: DocumentSpan,
 }
+#[derive(Clone, Debug)]
+struct SemanticEntry {
+    path: DocumentPath,
+    value: Option<String>,
+}
+/// Lexicographic confidence, ordered from hard index agreement through ancestral key evidence.
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+struct Confidence {
+    exact_indices: usize,
+    exact_keys: usize,
+    normalized_keys: usize,
+    matching_ancestry: usize,
+}
 /// Immutable lookup index over a loaded [`SourceDocument`].
 #[derive(Clone, Debug)]
 pub struct DocumentIndex {
@@ -70,7 +84,7 @@ pub struct DocumentIndex {
     entries: Vec<DocumentEntry>,
     line_starts: Vec<usize>,
     physical: bool,
-    semantic: Option<Value>,
+    semantic: Vec<SemanticEntry>,
 }
 impl DocumentPath {
     /// Parse dotted keys and bracketed array indexes into a structured path.
@@ -110,11 +124,97 @@ impl DocumentPath {
     fn with(&self, segment: DocumentPathSegment) -> Self {
         Self(self.0.iter().cloned().chain(core::iter::once(segment)).collect())
     }
-    fn value<'a>(&self, root: &'a Value) -> Option<&'a Value> {
-        self.0.iter().try_fold(root, |value, segment| match segment {
-            | DocumentPathSegment::Key(key) => value.get(key),
-            | DocumentPathSegment::Index(index) => value.get(index),
-        })
+    fn confidence(&self, actual: &Self) -> Option<(Confidence, bool, bool)> {
+        let depth = self.0.len();
+        let confidence = aligned_score(&self.0, &actual.0, |index, expected, actual| match (expected, actual) {
+            | (DocumentPathSegment::Index(expected), DocumentPathSegment::Index(actual)) if expected == actual => {
+                let confidence = Confidence {
+                    exact_indices: 1,
+                    ..Confidence::default()
+                };
+                Some(confidence)
+            }
+            | (DocumentPathSegment::Key(expected), DocumentPathSegment::Key(actual)) if expected == actual => {
+                let confidence = Confidence {
+                    exact_keys: 1,
+                    matching_ancestry: usize::from(index.saturating_add(1) < depth),
+                    ..Confidence::default()
+                };
+                Some(confidence)
+            }
+            | (DocumentPathSegment::Key(expected), DocumentPathSegment::Key(actual)) if field_names_match(expected, actual) => {
+                let confidence = Confidence {
+                    normalized_keys: 1,
+                    matching_ancestry: usize::from(index.saturating_add(1) < depth),
+                    ..Confidence::default()
+                };
+                Some(confidence)
+            }
+            | (DocumentPathSegment::Key(_), DocumentPathSegment::Key(_)) => Some(Confidence::default()),
+            | _ => None,
+        })?;
+        let mechanical = self.0.iter().zip(&actual.0).all(|(expected, actual)| match (expected, actual) {
+            | (DocumentPathSegment::Key(expected), DocumentPathSegment::Key(actual)) => field_names_match(expected, actual),
+            | (DocumentPathSegment::Index(expected), DocumentPathSegment::Index(actual)) => expected == actual,
+            | _ => false,
+        });
+        let anchored = confidence.exact_keys.saturating_add(confidence.normalized_keys) > 0;
+        Some((confidence, mechanical, anchored))
+    }
+    fn semantic_entries(&self, value: &Value) -> Vec<SemanticEntry> {
+        match value {
+            | Value::Object(object) => object
+                .iter()
+                .flat_map(|(key, value)| self.with(DocumentPathSegment::Key(key.clone())).semantic_entries(value))
+                .collect(),
+            | Value::Array(array) => array
+                .iter()
+                .enumerate()
+                .flat_map(|(index, value)| self.with(DocumentPathSegment::Index(index)).semantic_entries(value))
+                .collect(),
+            | value => vec![SemanticEntry {
+                path: self.clone(),
+                value: Some(scalar(value)),
+            }],
+        }
+    }
+    fn collect_entries(&self, value: &JsonValue<'_>) -> Vec<DocumentEntry> {
+        match value {
+            | JsonValue::Object(object) => object
+                .properties
+                .iter()
+                .flat_map(|property| {
+                    self.with(DocumentPathSegment::Key(property.name.as_str().to_string()))
+                        .collect_entries(&property.value)
+                })
+                .collect(),
+            | JsonValue::Array(array) => array
+                .elements
+                .iter()
+                .enumerate()
+                .flat_map(|(index, value)| self.with(DocumentPathSegment::Index(index)).collect_entries(value))
+                .collect(),
+            | JsonValue::StringLit(value) => vec![DocumentEntry {
+                path: self.clone(),
+                value: Some(value.value.to_string()),
+                span: DocumentSpan(value.range.start..value.range.end),
+            }],
+            | JsonValue::NumberLit(value) => vec![DocumentEntry {
+                path: self.clone(),
+                value: Some(value.value.to_string()),
+                span: DocumentSpan(value.range.start..value.range.end),
+            }],
+            | JsonValue::BooleanLit(value) => vec![DocumentEntry {
+                path: self.clone(),
+                value: Some(value.value.to_string()),
+                span: DocumentSpan(value.range.start..value.range.end),
+            }],
+            | JsonValue::NullKeyword(value) => vec![DocumentEntry {
+                path: self.clone(),
+                value: None,
+                span: DocumentSpan(value.range.start..value.range.end),
+            }],
+        }
     }
 }
 impl DocumentQuery {
@@ -137,6 +237,14 @@ impl DocumentQuery {
         self.needle = Some(needle.into());
         self
     }
+    fn matches(&self, value: Option<&str>) -> bool {
+        let value_matches = self.value.as_deref().is_none_or(|expected| value == Some(expected));
+        let needle_matches = self
+            .needle
+            .as_deref()
+            .is_none_or(|needle| value.is_some_and(|value| value.contains(needle)));
+        value_matches && needle_matches
+    }
 }
 impl DocumentIndex {
     /// Index a loaded document without changing its content.
@@ -145,10 +253,11 @@ impl DocumentIndex {
         let line_starts = core::iter::once(0)
             .chain(document.content.match_indices('\n').map(|(index, _)| index.saturating_add(1)))
             .collect();
-        let semantic = document
-            .is_yaml()
-            .then(|| serde_norway::from_str::<Value>(&document.content).ok())
-            .flatten();
+        let content = &document.content;
+        let parsed_yaml = document.is_yaml().then(|| serde_norway::from_str::<Value>(content).ok()).flatten();
+        let semantic = parsed_yaml
+            .map(|value| DocumentPath::default().semantic_entries(&value))
+            .unwrap_or_default();
         Self {
             physical: document.is_physical_text(),
             document,
@@ -184,67 +293,66 @@ impl DocumentIndex {
     /// Create an excerpt whose highlighted span has at most `max_prefix` bytes of leading context.
     pub fn excerpt(&self, span: &DocumentSpan, max_prefix: usize) -> Option<DocumentExcerpt> {
         let DocumentSpan(range) = span;
-        if range.start > range.end
-            || range.end > self.document.content.len()
-            || !self.document.content.is_char_boundary(range.start)
-            || !self.document.content.is_char_boundary(range.end)
-        {
-            return None;
-        }
-        let position = self.position(range.start)?;
-        let line_offset = position.line.saturating_sub(1);
-        let line_start = self.line_starts.get(line_offset).copied()?;
-        let should_truncate = range.start.saturating_sub(line_start) > max_prefix;
-        let (excerpt_start, ellipsis) = if should_truncate {
-            (
-                prefix_boundary(&self.document.content, range.start.saturating_sub(max_prefix), range.start),
-                "...",
-            )
-        } else {
-            (line_start, "")
-        };
-        let suffix = self.document.content.get(excerpt_start..)?;
-        let line_padding = "\n".repeat(line_offset);
-        let mut content = line_padding;
-        content.push_str(ellipsis);
-        content.push_str(suffix);
-        let adjustment = line_offset.saturating_add(ellipsis.len());
-        let adjusted_start = range.start.saturating_sub(excerpt_start).saturating_add(adjustment);
-        let adjusted_end = range.end.saturating_sub(excerpt_start).saturating_add(adjustment);
-        Some(DocumentExcerpt {
-            content,
-            span: DocumentSpan(adjusted_start..adjusted_end),
+        let content = &self.document.content;
+        let ordered = range.start <= range.end;
+        let in_bounds = range.end <= content.len();
+        let boundaries = content.is_char_boundary(range.start) && content.is_char_boundary(range.end);
+        let valid = ordered && in_bounds && boundaries;
+        valid.then(|| self.position(range.start)).flatten().and_then(|position| {
+            let line_offset = position.line.saturating_sub(1);
+            self.line_starts.get(line_offset).copied().and_then(|line_start| {
+                let should_truncate = range.start.saturating_sub(line_start) > max_prefix;
+                let (excerpt_start, ellipsis) = if should_truncate {
+                    (
+                        prefix_boundary(&self.document.content, range.start.saturating_sub(max_prefix), range.start),
+                        "...",
+                    )
+                } else {
+                    (line_start, "")
+                };
+                self.document.content.get(excerpt_start..).map(|suffix| {
+                    let content = format!("{}{ellipsis}{suffix}", "\n".repeat(line_offset));
+                    let adjustment = line_offset.saturating_add(ellipsis.len());
+                    let adjusted_start = range.start.saturating_sub(excerpt_start).saturating_add(adjustment);
+                    let adjusted_end = range.end.saturating_sub(excerpt_start).saturating_add(adjustment);
+                    let span = DocumentSpan(adjusted_start..adjusted_end);
+                    DocumentExcerpt { content, span }
+                })
+            })
         })
     }
     /// Resolve a query only when its physical span can be determined safely.
     pub fn resolve(&self, query: &DocumentQuery) -> DocumentMatch {
-        if !self.physical {
-            return DocumentMatch::Missing;
-        }
-        let path_matches = query
-            .paths
-            .iter()
-            .flat_map(|path| self.entries.iter().filter(move |entry| &entry.path == path))
-            .filter(|entry| query.value.as_ref().is_none_or(|value| entry.value.as_ref() == Some(value)))
-            .map(|entry| narrow_span(&self.document.content, &entry.span, query.needle.as_deref()))
-            .collect::<Vec<_>>();
-        match unique_span(path_matches) {
-            | DocumentMatch::Missing => self.resolve_text(query),
-            | result => result,
+        match (self.physical, query.paths.is_empty()) {
+            | (false, _) => DocumentMatch::Missing,
+            | (true, true) => self.resolve_text(query),
+            | (true, false) => match resolve_candidate(
+                &self.entries,
+                query,
+                |entry| &entry.path,
+                |entry| entry.value.as_deref(),
+                |entry| {
+                    query.needle.as_deref().is_none_or(|needle| {
+                        self.document
+                            .content
+                            .get(entry.span.0.clone())
+                            .is_some_and(|value| value.contains(needle))
+                    })
+                },
+            ) {
+                | UniqueMatch::Unique(entry) => DocumentMatch::Unique(narrow_span(&self.document.content, &entry.span, query.needle.as_deref())),
+                | UniqueMatch::Ambiguous => DocumentMatch::Ambiguous,
+                | UniqueMatch::Missing => {
+                    match resolve_candidate(&self.semantic, query, |entry| &entry.path, |entry| entry.value.as_deref(), |_| true) {
+                        | UniqueMatch::Unique(_) => self.resolve_text(query),
+                        | UniqueMatch::Ambiguous => DocumentMatch::Ambiguous,
+                        | UniqueMatch::Missing => DocumentMatch::Missing,
+                    }
+                }
+            },
         }
     }
     fn resolve_text(&self, query: &DocumentQuery) -> DocumentMatch {
-        let semantic_matches = query.paths.is_empty()
-            || self.semantic.as_ref().is_some_and(|root| {
-                query
-                    .paths
-                    .iter()
-                    .filter_map(|path| path.value(root))
-                    .any(|value| query.value.as_ref().is_none_or(|expected| scalar(value) == *expected))
-            });
-        if !semantic_matches {
-            return DocumentMatch::Missing;
-        }
         let sought = query.needle.as_ref().or(query.value.as_ref());
         sought.map_or(DocumentMatch::Missing, |sought| {
             unique_span(
@@ -255,6 +363,17 @@ impl DocumentIndex {
                     .collect(),
             )
         })
+    }
+}
+impl Add for Confidence {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self {
+            exact_indices: self.exact_indices.saturating_add(other.exact_indices),
+            exact_keys: self.exact_keys.saturating_add(other.exact_keys),
+            normalized_keys: self.normalized_keys.saturating_add(other.normalized_keys),
+            matching_ancestry: self.matching_ancestry.saturating_add(other.matching_ancestry),
+        }
     }
 }
 impl fmt::Display for DocumentPosition {
@@ -270,7 +389,7 @@ impl SourceDocument {
                 parse_to_ast(&self.content, &CollectOptions::default(), &ParseOptions::default())
                     .ok()
                     .and_then(|result| result.value)
-                    .map(|value| collect_json_entries(&value, &DocumentPath::default()))
+                    .map(|value| DocumentPath::default().collect_entries(&value))
                     .unwrap_or_default()
             }
         } else {
@@ -291,6 +410,15 @@ impl SourceDocument {
             || mime.is_rtf())
     }
 }
+fn field_names_match(left: &str, right: &str) -> bool {
+    normalized_bytes(left).eq(normalized_bytes(right))
+}
+fn normalized_bytes(value: &str) -> impl Iterator<Item = u8> + '_ {
+    value
+        .bytes()
+        .filter(|byte| !matches!(byte, b'_' | b'-'))
+        .map(|byte| byte.to_ascii_lowercase())
+}
 fn prefix_boundary(content: &str, candidate: usize, span_start: usize) -> usize {
     let candidate = (0..=candidate.min(content.len()))
         .rev()
@@ -306,39 +434,50 @@ fn prefix_boundary(content: &str, candidate: usize, span_start: usize) -> usize 
         })
         .unwrap_or(candidate)
 }
-fn collect_json_entries(value: &JsonValue<'_>, path: &DocumentPath) -> Vec<DocumentEntry> {
-    match value {
-        | JsonValue::Object(object) => object
-            .properties
+fn resolve_candidate<'a, T>(
+    candidates: &'a [T],
+    query: &DocumentQuery,
+    path: impl Copy + Fn(&T) -> &DocumentPath,
+    value: impl Copy + Fn(&T) -> Option<&str>,
+    additional_constraint: impl Copy + Fn(&T) -> bool,
+) -> UniqueMatch<&'a T> {
+    let matches = |candidate: &T| query.matches(value(candidate)) && additional_constraint(candidate);
+    let exact = unique_candidate(query.paths.iter().flat_map(|expected| {
+        candidates
             .iter()
-            .flat_map(|property| collect_json_entries(&property.value, &path.with(DocumentPathSegment::Key(property.name.as_str().to_string()))))
-            .collect(),
-        | JsonValue::Array(array) => array
-            .elements
-            .iter()
-            .enumerate()
-            .flat_map(|(index, value)| collect_json_entries(value, &path.with(DocumentPathSegment::Index(index))))
-            .collect(),
-        | JsonValue::StringLit(value) => vec![DocumentEntry {
-            path: path.clone(),
-            value: Some(value.value.to_string()),
-            span: DocumentSpan(value.range.start..value.range.end),
-        }],
-        | JsonValue::NumberLit(value) => vec![DocumentEntry {
-            path: path.clone(),
-            value: Some(value.value.to_string()),
-            span: DocumentSpan(value.range.start..value.range.end),
-        }],
-        | JsonValue::BooleanLit(value) => vec![DocumentEntry {
-            path: path.clone(),
-            value: Some(value.value.to_string()),
-            span: DocumentSpan(value.range.start..value.range.end),
-        }],
-        | JsonValue::NullKeyword(value) => vec![DocumentEntry {
-            path: path.clone(),
-            value: None,
-            span: DocumentSpan(value.range.start..value.range.end),
-        }],
+            .filter(move |candidate| path(candidate) == expected && matches(candidate))
+    }));
+    match exact {
+        | UniqueMatch::Missing => {
+            let matching_values = candidates.iter().filter(|candidate| matches(candidate)).count();
+            let scored = |mechanical_only: bool| {
+                query.paths.iter().flat_map(move |expected| {
+                    candidates.iter().filter_map(move |candidate| {
+                        matches(candidate)
+                            .then(|| expected.confidence(path(candidate)))
+                            .flatten()
+                            .filter(|(_, mechanical, anchored)| {
+                                let convention_matches = !mechanical_only || *mechanical;
+                                let anchor_matches = *anchored || matching_values == 1;
+                                convention_matches && anchor_matches
+                            })
+                            .map(|(confidence, _, _)| (confidence, candidate))
+                    })
+                })
+            };
+            match unique_max(scored(true)) {
+                | UniqueMatch::Missing => unique_max(scored(false)),
+                | result => result,
+            }
+        }
+        | result => result,
+    }
+}
+fn unique_candidate<T>(mut candidates: impl Iterator<Item = T>) -> UniqueMatch<T> {
+    match (candidates.next(), candidates.next()) {
+        | (None, _) => UniqueMatch::Missing,
+        | (Some(candidate), None) => UniqueMatch::Unique(candidate),
+        | (Some(_), Some(_)) => UniqueMatch::Ambiguous,
     }
 }
 fn scalar(value: &Value) -> String {

@@ -21,6 +21,100 @@ fn fixtures_dir() -> PathBuf {
 }
 
 #[test]
+fn test_alias_migration_accepts_canonical_fields() {
+    let image: ImageObject = serde_json::from_value(serde_json::json!({
+        "caption": "Caption",
+        "contentUrl": "image.png"
+    }))
+    .expect("canonical image contentUrl should deserialize");
+    let video: VideoObject = serde_json::from_value(serde_json::json!({
+        "contentSize": null,
+        "contentUrl": "https://example.com/video.mp4",
+        "description": "Description",
+        "duration": null,
+        "height": null,
+        "width": null
+    }))
+    .expect("canonical video contentUrl should deserialize");
+    let contact: ContactPoint = serde_json::from_value(serde_json::json!({
+        "@context": null,
+        "@type": null,
+        "jobTitle": "Researcher",
+        "givenName": "First",
+        "familyName": "Last",
+        "identifier": null,
+        "email": "first_last@example.com",
+        "telephone": "123-456-7890",
+        "url": "https://example.com",
+        "organization": "Example",
+        "affiliation": null
+    }))
+    .expect("canonical contact url should deserialize");
+    let sections = Sections::init().build();
+    let serialized = serde_json::to_value(&sections).expect("sections should serialize");
+    let parsed: Sections = serde_json::from_value(serialized).expect("canonical impact should deserialize");
+    assert!(image.validate().is_ok());
+    assert!(video.validate().is_ok());
+    assert!(contact.validate().is_ok());
+    assert!(parsed.validate().is_ok());
+}
+#[test]
+fn test_alias_migration_rejects_removed_fields() {
+    ["href", "url"].into_iter().for_each(|field| {
+        let mut value = serde_json::json!({"caption": "Caption"});
+        value[field] = serde_json::json!("image.png");
+        assert!(serde_json::from_value::<ImageObject>(value).is_err());
+    });
+    ["href", "url"].into_iter().for_each(|field| {
+        let mut value = serde_json::json!({
+            "contentSize": null,
+            "description": "Description",
+            "duration": null,
+            "height": null,
+            "width": null
+        });
+        value[field] = serde_json::json!("https://example.com/video.mp4");
+        assert!(serde_json::from_value::<VideoObject>(value).is_err());
+    });
+    let mut contact = serde_json::to_value(ContactPoint::init().build()).expect("contact should serialize");
+    contact.as_object_mut().expect("contact is an object").remove("url");
+    contact["profile"] = serde_json::json!("https://example.com");
+    assert!(serde_json::from_value::<ContactPoint>(contact).is_err());
+    let mut sections = serde_json::to_value(Sections::init().build()).expect("sections should serialize");
+    let impact = sections.as_object_mut().expect("sections is an object").remove("impact");
+    sections["outcomes"] = impact.expect("serialized sections contain impact");
+    assert!(serde_json::from_value::<Sections>(sections).is_err());
+}
+#[test]
+fn test_alias_migration_retains_established_compatibility_fields() {
+    let mut contact = serde_json::to_value(
+        ContactPoint::init()
+            .identifier("https://orcid.org/0000-0002-2057-9115".to_string())
+            .build(),
+    )
+    .expect("contact should serialize");
+    let contact = contact.as_object_mut().expect("contact is an object");
+    let identifier = contact.remove("identifier").expect("serialized contact contains identifier");
+    let telephone = contact.remove("telephone").expect("serialized contact contains telephone");
+    contact.insert("orcid".to_string(), identifier);
+    contact.insert("phone".to_string(), telephone);
+    assert!(serde_json::from_value::<ContactPoint>(serde_json::Value::Object(contact.clone())).is_ok());
+    let media = vec![MediaObject::Image(
+        ImageObject::init()
+            .caption("Caption".to_string())
+            .content_url("image.png".to_string())
+            .build(),
+    )];
+    let mut metadata = serde_json::to_value(ResearchActivityMetadata::init().identifier("identifier".to_string()).media(media).build())
+        .expect("metadata should serialize");
+    let metadata = metadata.as_object_mut().expect("metadata is an object");
+    let identifier = metadata.remove("identifier").expect("serialized metadata contains identifier");
+    let media = metadata.remove("media").expect("serialized metadata contains media");
+    metadata.insert("id".to_string(), identifier);
+    metadata.insert("graphics".to_string(), media);
+    assert!(serde_json::from_value::<ResearchActivityMetadata>(serde_json::Value::Object(metadata.clone())).is_ok());
+}
+#[test]
 fn test_metadata() {
     const DEFAULT_HREF: &str = "00.png";
     const DEFAULT_CAPTION: &str = "";

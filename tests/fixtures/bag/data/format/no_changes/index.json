@@ -12,7 +12,7 @@
         "graphics": [
             {
                 "caption": "This is a caption.",
-                "href": "00.png"
+                "contentUrl": "00.png"
             }
         ],
         "keywords": [

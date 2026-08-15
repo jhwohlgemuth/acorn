@@ -12,6 +12,7 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
 mod index;
+mod matching;
 
 pub use index::{DocumentExcerpt, DocumentIndex, DocumentMatch, DocumentPath, DocumentPathSegment, DocumentPosition, DocumentQuery, DocumentSpan};
 

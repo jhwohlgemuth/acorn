@@ -25,7 +25,7 @@
     "graphics": [
       {
         "caption": "The ACORN workflow helps teams validate and generate research content.",
-        "href": "00.invalid"
+        "contentUrl": "00.invalid"
       }
     ],
     "keywords": [
@@ -73,7 +73,7 @@
     "last": "Wohlson",
     "email": "Not an email",
     "phone": "42",
-    "profile": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
+    "url": "https://www.ornl.gov/staff-profile/jason-h-wohlgemuth",
     "organization": "GSHS"
   }
 }

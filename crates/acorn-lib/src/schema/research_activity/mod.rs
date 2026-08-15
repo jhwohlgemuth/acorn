@@ -369,7 +369,7 @@ pub struct Sections {
     /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "is_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
-    #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
+    #[serde(deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
     /// Notable recognition or awards given to the research team, organization, or research products
     /// ### Examples
