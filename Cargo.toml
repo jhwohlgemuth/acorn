@@ -120,3 +120,7 @@ lto = true
 [profile.dev.package]
 insta.opt-level = 3
 similar.opt-level = 3
+
+[profile.coverage]
+inherits = "test"
+debug = 1

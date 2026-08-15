@@ -88,8 +88,8 @@ check:
 wasm:
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 
-cover: clean lint
-	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm
+cover:
+	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
 
 doc:
 	@cargo clean --doc
@@ -99,7 +99,7 @@ doctest:
 	@cargo test --doc
 
 lint:
-	@cargo fmt --verbose
+	@cargo fmt --check
 	@cargo clippy --workspace --no-deps --all-features --all-targets --fix --allow-dirty
 
 publish-book: book
