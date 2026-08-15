@@ -1,9 +1,10 @@
 //! Check result types and helpers for analyzer output.
-use super::error::{process, ErrorCode, ErrorKind, Location};
+use super::error::{locator_alias, process, DocumentTarget, ErrorKind};
 use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
 use super::{to_dataframe, StaticAnalyzer, StaticAnalyzerConfig};
+use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentQuery, DocumentSpan};
 use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
@@ -21,7 +22,7 @@ use crate::schema::OneOrMany;
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::{Label, MimeType, StringConversion, ToProse};
 use crate::{check, check_err, check_ok};
-use ariadne::{Color, Config, Report, ReportKind, Source};
+use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
@@ -29,7 +30,6 @@ use convert_case::{Case, Casing};
 use core::fmt;
 #[cfg(feature = "std")]
 use core::future::Future;
-use core::ops::RangeInclusive;
 use derive_more::Display;
 use futures::future::join_all;
 use jiff::SignedDuration;
@@ -242,6 +242,8 @@ pub struct Check {
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
     data: Option<String>,
+    /// Original document index used only by detailed renderers
+    document: Option<Arc<DocumentIndex>>,
     #[builder(default)]
     kind: CheckKind,
     /// Whether or not the check was successful
@@ -259,34 +261,6 @@ pub struct Check {
     /// Message related to or description of validation issue (e.g., key name of invalid value, result of validation, etc.)
     #[builder(default = "".to_string())]
     pub message: String,
-}
-impl CheckKind {
-    fn link_row(&self, check: &Check) -> (String, String, String) {
-        let Check {
-            severity,
-            context,
-            locator,
-            status_code,
-            message,
-            ..
-        } = check;
-        let details = if self.is_lifecycle() {
-            context
-                .as_ref()
-                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
-        } else {
-            let code = match status_code {
-                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                | None | Some(_) => "".to_string(),
-            };
-            let context = context
-                .as_ref()
-                .map(|value| value.to_string().underline().italic().to_string())
-                .unwrap_or_else(|| "Missing".to_string());
-            format!("{context} {}{code}", message.dimmed())
-        };
-        (locator.clone().unwrap_or_default(), severity.colored(), details)
-    }
 }
 /// Data structure for passing options to check processing functions
 #[derive(Builder, Clone, Debug)]
@@ -345,6 +319,44 @@ pub struct CheckOptions {
     pub verbosity: Option<u8>,
     /// Vale configuration options
     pub vale_config: Option<ValeConfig>,
+}
+#[derive(Builder)]
+#[builder(start_fn = init)]
+struct DocumentReport<'a> {
+    title: &'a str,
+    index: usize,
+    kind: ReportKind<'static>,
+    heading: &'a str,
+    message: String,
+    color: Color,
+}
+impl CheckKind {
+    fn link_row(&self, check: &Check) -> (String, String, String) {
+        let Check {
+            severity,
+            context,
+            locator,
+            status_code,
+            message,
+            ..
+        } = check;
+        let details = if self.is_lifecycle() {
+            context
+                .as_ref()
+                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
+        } else {
+            let code = match status_code {
+                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
+                | None | Some(_) => "".to_string(),
+            };
+            let context = context
+                .as_ref()
+                .map(|value| value.to_string().underline().italic().to_string())
+                .unwrap_or_else(|| "Missing".to_string());
+            format!("{context} {}{code}", message.dimmed())
+        };
+        (locator.clone().unwrap_or_default(), severity.colored(), details)
+    }
 }
 impl CheckOptions {
     /// Resolve the configured static analyzer.
@@ -429,6 +441,7 @@ impl Check {
             locator,
             context,
             data,
+            document,
             errors,
             kind,
             severity,
@@ -468,72 +481,68 @@ impl Check {
                         | None => "No URL".to_string(),
                     };
                     let source_text = if text.is_empty() { " ".to_string() } else { text };
-                    let source = Source::from(source_text.clone());
-                    let span = 0..=source_text.len().saturating_sub(1);
-                    let _ = Report::build(kind, (&title, 1..=1))
-                        .with_code(index)
-                        .with_config(Config::default().with_compact(false))
-                        .with_message(locator.unwrap_or("URL".to_string()))
-                        .with_label(
-                            ariadne::Label::new((&title, span))
-                                .with_message(format!("{}{code}", message.italic()))
-                                .with_color(severity.clone().into()),
-                        )
-                        .finish()
-                        .print((&title, source));
+                    let query = match locator.as_deref() {
+                        | Some(locator) => {
+                            let alias = locator_alias(locator);
+                            let query = DocumentQuery::new()
+                                .with_path(DocumentPath::parse(locator))
+                                .with_needle(source_text.clone());
+                            match alias == locator {
+                                | true => query,
+                                | false => query.with_path(DocumentPath::parse(&alias)),
+                            }
+                        }
+                        | None => DocumentQuery::new().with_needle(source_text.clone()),
+                    };
+                    let heading = locator.as_deref().unwrap_or(category.message());
+                    let report = DocumentReport::init()
+                        .title(&title)
+                        .index(index)
+                        .kind(kind)
+                        .heading(heading)
+                        .message(format!("{}{code}", message.italic()))
+                        .color(severity.clone().into())
+                        .build();
+                    let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                    if !rendered {
+                        print_unlocated(index, &severity, heading, format!("{message}{code}"));
+                    }
                 }
             },
             | CheckCategory::Prose => match &errors {
                 | Some(ErrorKind::Vale(values)) => {
                     let title = uri.clone().unwrap_or("index.json".to_string());
-                    if let Some(text) = &data {
-                        values.iter().enumerate().for_each(|(i, item)| {
-                            let ValeOutputItem {
-                                check,
-                                line,
-                                message,
-                                severity,
-                                span,
-                                ..
-                            } = item;
-                            let (source, span) = truncate(highlighted(text, span, *line), text, MAX_LENGTH_REPORT_SPAN_PREFIX);
-                            let _ = Report::build(severity.into(), (&title, 1..=1))
-                                .with_code(index.saturating_add(i))
-                                .with_config(Config::default().with_compact(false))
-                                .with_message(check)
-                                .with_label(
-                                    ariadne::Label::new((&title, span))
-                                        .with_message(message.italic())
-                                        .with_color(severity.into()),
-                                )
-                                .finish()
-                                .print((&title, source));
-                        });
-                    }
+                    values.iter().enumerate().for_each(|(i, item)| {
+                        let ValeOutputItem {
+                            check, message, severity, ..
+                        } = item;
+                        let query = item.query();
+                        let report = DocumentReport::init()
+                            .title(&title)
+                            .index(index.saturating_add(i))
+                            .kind(severity.into())
+                            .heading(check)
+                            .message(message.italic().to_string())
+                            .color(severity.into())
+                            .build();
+                        let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                        if !rendered {
+                            print_unlocated(index.saturating_add(i), &CheckSeverity::from(severity.clone()), check, message.clone());
+                        }
+                    });
                 }
                 | None | Some(_) => {}
             },
             | CheckCategory::Quality => {}
             | CheckCategory::Readability => match &errors {
-                | Some(ErrorKind::Readability((_readability_index, readability_type))) => {
-                    let kind: ReportKind<'static> = severity.clone().into();
-                    let title = uri.as_deref().unwrap_or_default();
-                    let metric = readability_type.to_string().to_uppercase();
-                    let source_text = format!("Prose was analyzed for readability using the {metric} metric ({message})");
-                    let source = Source::from(source_text.clone());
-                    let start = source_text.find(&message).unwrap_or_default();
-                    let end = start.saturating_add(message.len().saturating_sub(1));
-                    let _ = Report::build(kind, (&title, 1..=1))
-                        .with_code(index)
-                        .with_config(Config::default().with_compact(false))
-                        .with_message("Readability")
-                        .with_label(
-                            ariadne::Label::new((&title, start..=end))
-                                .with_message("Simplify language for a general audience".to_string().italic())
-                                .with_color(severity.clone().into()),
-                        )
-                        .finish()
-                        .print((&title, source));
+                | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
+                    let score = severity.colorize(&message);
+                    let heading = uri.as_deref().map_or_else(
+                        || category.message().to_string(),
+                        |uri| format!("{} — {}", category.message(), uri.cyan().underline()),
+                    );
+                    let details = format!("Simplify language for a general audience — {score}\n");
+                    print_unlocated(index, &severity, &heading, details);
                 }
                 | None | Some(_) => {
                     let title = uri.as_deref().unwrap_or_default();
@@ -556,41 +565,24 @@ impl Check {
                         let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(&message);
                         process(prefix, validator_kind).iter().enumerate().for_each(|(issue_index, issue)| {
                             let locator = issue.locator();
-                            let source_text = issue.source_text();
-                            let full_source = Source::from(source_text.clone());
-                            let full_span = match highlighted_from_params(&full_source, &issue.code, &issue.params) {
-                                | Some(span) => span,
-                                | None => 0..=source_text.len().saturating_sub(1),
-                            };
-                            let (source, span) = truncate(full_span, &source_text, MAX_LENGTH_REPORT_SPAN_PREFIX);
-                            let _ = Report::build(severity.clone().into(), (&title, 1..=1))
-                                .with_code(index.saturating_add(issue_index))
-                                .with_config(Config::default().with_compact(false))
-                                .with_message(locator)
-                                .with_label(
-                                    ariadne::Label::new((&title, span))
-                                        .with_message(issue.message.italic())
-                                        .with_color(severity.clone().into()),
-                                )
-                                .finish()
-                                .print((&title, source));
+                            let query = issue.query();
+                            let report = DocumentReport::init()
+                                .title(&title)
+                                .index(index.saturating_add(issue_index))
+                                .kind(severity.clone().into())
+                                .heading(&locator)
+                                .message(issue.message.italic().to_string())
+                                .color(severity.clone().into())
+                                .build();
+                            let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                            if !rendered {
+                                print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
+                            }
                         });
                     }
                     | None if !self.success => {
                         let error_text = context.as_deref().unwrap_or(&message);
-                        let source = Source::from(error_text.to_string());
-                        let span = 0..=error_text.len().saturating_sub(1);
-                        let _ = Report::build(severity.clone().into(), (&title, 1..=1))
-                            .with_code(index)
-                            .with_config(Config::default().with_compact(false))
-                            .with_message("Deserialization error")
-                            .with_label(
-                                ariadne::Label::new((&title, span))
-                                    .with_message(error_text.italic())
-                                    .with_color(severity.clone().into()),
-                            )
-                            .finish()
-                            .print((&title, source));
+                        print_unlocated(index, &severity, category.message(), error_text.to_string());
                     }
                     | None | Some(_) => {
                         info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
@@ -598,21 +590,7 @@ impl Check {
                 }
             }
             | CheckCategory::Crosswalk => {
-                let title = uri.as_deref().unwrap_or("crosswalk");
-                let source_text = context.as_deref().unwrap_or(&message).to_string();
-                let source = Source::from(source_text.clone());
-                let span = 0..=source_text.len().saturating_sub(1);
-                let _ = Report::build(severity.clone().into(), (title, 1..=1))
-                    .with_code(index)
-                    .with_config(Config::default().with_compact(false))
-                    .with_message(locator.unwrap_or("Crosswalk warning".to_string()))
-                    .with_label(
-                        ariadne::Label::new((title, span))
-                            .with_message(message.italic())
-                            .with_color(severity.clone().into()),
-                    )
-                    .finish()
-                    .print((title, source));
+                print_unlocated(index, &severity, locator.as_deref().unwrap_or(category.message()), message);
             }
         }
     }
@@ -626,6 +604,19 @@ impl Check {
     /// Returns a new check with renderer data attached.
     pub fn with_data(self, value: String) -> Self {
         Self { data: Some(value), ..self }
+    }
+    pub(crate) fn with_document(self, value: Arc<DocumentIndex>) -> Self {
+        Self {
+            document: Some(value),
+            ..self
+        }
+    }
+    pub(crate) fn attach_document(self, documents: &HashMap<String, Arc<DocumentIndex>>) -> Self {
+        let document = self.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
+        match document {
+            | Some(document) => self.with_document(document),
+            | None => self,
+        }
     }
     /// Returns a new LinkCheckResult with the given index
     pub fn with_index(self, value: usize) -> Self {
@@ -732,6 +723,16 @@ impl CheckCategory {
     pub fn is_in(&self, items: &[String]) -> bool {
         items.iter().any(|value| Self::from(value.as_str()) == *self)
     }
+    fn message(&self) -> &'static str {
+        match self {
+            | Self::Link => "URL",
+            | Self::Prose => "Prose",
+            | Self::Quality => "Quality",
+            | Self::Readability => "Readability",
+            | Self::Schema => "Deserialization error",
+            | Self::Crosswalk => "Crosswalk warning",
+        }
+    }
 }
 impl From<String> for CheckCategory {
     fn from(value: String) -> Self {
@@ -768,6 +769,14 @@ impl From<&CheckCategory> for u8 {
     }
 }
 impl CheckSeverity {
+    fn colorize(&self, value: impl fmt::Display) -> String {
+        match self {
+            | Self::Error => value.red().to_string(),
+            | Self::Info => value.cyan().to_string(),
+            | Self::Suggestion => value.blue().to_string(),
+            | Self::Warning => value.yellow().to_string(),
+        }
+    }
     /// Returns a colored string representation of the severity level
     pub fn colored(&self) -> String {
         match self {
@@ -1047,16 +1056,6 @@ impl Standard {
         }
     }
 }
-/// Print JSON or YAML schema for type `T` to stdout
-#[cfg(feature = "std")]
-fn print_schema<T: schemars::JsonSchema>(format: &str) {
-    let schema = schema_for!(T);
-    let output = match format.to_lowercase().as_str() {
-        | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
-        | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
-    };
-    println!("{output}");
-}
 #[cfg(feature = "analysis")]
 pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
 where
@@ -1077,13 +1076,19 @@ where
                 let analyzer = Arc::clone(&analyzer);
                 let path = path.clone();
                 async move {
+                    let uri = Some(path.file_name_with_parent());
                     match T::read(&path) {
                         | Ok(data) => {
                             let output = T::output_path(&path, &data);
                             let content = data.to_prose();
-                            analyzer.run(output, content, Some("JSON".into())).await
+                            analyzer
+                                .run(output, content, Some("JSON".into()))
+                                .await
+                                .into_iter()
+                                .map(|check| check.with_uri(uri.clone()))
+                                .collect()
                         }
-                        | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string())],
+                        | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)],
                     }
                 }
             });
@@ -1166,6 +1171,45 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
         | Err(why) => Err(why),
     }
 }
+fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
+    match document.resolve(query) {
+        | DocumentMatch::Unique(span) => document.excerpt(&span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
+            let DocumentSpan(span) = excerpt.span;
+            let source = Source::from(excerpt.content);
+            let _ = Report::build(report.kind, (report.title, span.clone()))
+                .with_code(report.index)
+                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
+                .with_message(report.heading)
+                .with_label(
+                    ariadne::Label::new((report.title, span))
+                        .with_message(report.message)
+                        .with_color(report.color),
+                )
+                .finish()
+                .print((report.title, source));
+            true
+        }),
+        | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
+    }
+}
+fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, message: String) {
+    let name = severity.to_string().to_case(Case::Title);
+    let code = format!("[{index:02}]");
+    let colorized_code = severity.colorize(code);
+    let colorized_name = severity.colorize(name);
+    println!("{colorized_code} {colorized_name}: {heading}");
+    println!("    {}", message.italic());
+}
+/// Print JSON or YAML schema for type `T` to stdout
+#[cfg(feature = "std")]
+fn print_schema<T: schemars::JsonSchema>(format: &str) {
+    let schema = schema_for!(T);
+    let output = match format.to_lowercase().as_str() {
+        | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
+        | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
+    };
+    println!("{output}");
+}
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
 fn process_crosswalk_warnings<T>(
     content: &str,
@@ -1212,70 +1256,6 @@ where
         }
     })
 }
-/// Calculate a highlighted byte span for a single line in a source report.
-pub(crate) fn highlighted(text: &str, span: &[u32], line_number: u32) -> RangeInclusive<usize> {
-    let selected = (line_number as usize).saturating_sub(1);
-    let source = Source::from(text);
-    let begin = source
-        .lines()
-        .take(selected)
-        .fold((span.first().copied().unwrap_or(1).saturating_sub(1)) as usize, |acc, line| {
-            acc.saturating_add(line.len())
-        });
-    let character_count = (span.get(1).copied().unwrap_or(0) as usize).saturating_sub(span.first().copied().unwrap_or(0) as usize);
-    let end = begin.saturating_add(character_count);
-    begin..=end
-}
-/// Calculate a highlighted span for an indexed value in an array-like source.
-pub(crate) fn highlighted_array(source: &Source, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
-    match params.get("index") {
-        | Some(Value::Number(index)) => match index.as_u64() {
-            | Some(index) => match params.get("value") {
-                | Some(Value::Array(value)) => {
-                    const PADDING: u64 = 2;
-                    let end = (value.get(index as usize).map(|v| v.to_string().len().saturating_add(1)).unwrap_or(0)) as u32;
-                    let span = &[4, end];
-                    let line = (index.saturating_add(PADDING)) as u32;
-                    Some(highlighted(source.text(), span, line))
-                }
-                | Some(_) | None => None,
-            },
-            | None => None,
-        },
-        | None | Some(_) => None,
-    }
-}
-/// Select a highlighted span based on validator error code and parameters.
-pub(crate) fn highlighted_from_params(source: &Source, code: &ErrorCode, params: &HashMap<String, Value>) -> Option<RangeInclusive<usize>> {
-    match code {
-        | ErrorCode::Latitude => {
-            // TODO: Implement highlighting for latitude errors
-            None
-        }
-        | ErrorCode::Length => match params.get("max") {
-            | Some(Value::Number(max)) => match max.as_u64() {
-                | Some(max) => Some(max as usize..=source.text().len().saturating_sub(2)),
-                | None => None,
-            },
-            | None | Some(_) => None,
-        },
-        | ErrorCode::Longitude => {
-            // TODO: Implement highlighting for longitude errors
-            None
-        }
-        | ErrorCode::Section => highlighted_array(source, params),
-        | _ if params.get("index").is_some() => highlighted_array(source, params),
-        | _ => None,
-    }
-}
-pub(crate) fn nearest_space_boundary(value: &str, index: usize) -> Option<usize> {
-    let index = index.min(value.len());
-    let boundary = value
-        .char_indices()
-        .find(|(i, ch)| *i >= index && ch.is_whitespace())
-        .map(|(i, ch)| i.saturating_add(ch.len_utf8()));
-    boundary
-}
 /// Create summary data table from given issues
 pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
     [
@@ -1296,25 +1276,4 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
         vec![format!("{} items found", category.to_string().to_case(Case::Title)), count]
     })
     .collect::<Vec<_>>()
-}
-/// Truncate source text with ellipsis when prefix before span exceeds maximum length.
-pub(crate) fn truncate(span: RangeInclusive<usize>, source_text: &str, max_prefix: usize) -> (Source, RangeInclusive<usize>) {
-    fn floor_char_boundary(value: &str, index: usize) -> usize {
-        (0..=index.min(value.len())).rev().find(|&i| value.is_char_boundary(i)).unwrap_or(0)
-    }
-    let start = *span.start();
-    let end = *span.end();
-    if start <= max_prefix {
-        let text = source_text.to_string();
-        (Source::from(text), start..=end)
-    } else {
-        let nearest = floor_char_boundary(source_text, start.saturating_sub(max_prefix));
-        let prefix_start = nearest_space_boundary(source_text, nearest).unwrap_or(nearest);
-        let sliced = source_text.get(prefix_start..).unwrap_or_default();
-        let ellipsis = "...";
-        let adjusted_start = start.saturating_sub(prefix_start).saturating_add(ellipsis.len());
-        let adjusted_end = end.saturating_sub(prefix_start).saturating_add(ellipsis.len());
-        let text = format!("{ellipsis}{sliced}");
-        (Source::from(text), adjusted_start..=adjusted_end)
-    }
 }

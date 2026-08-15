@@ -24,8 +24,6 @@ use crate::util::{Constant, LinkedData, MimeType, ToMarkdown};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
-#[cfg(test)]
-use core::fmt;
 use core::hash::Hash;
 use core::iter::once;
 use core::num::NonZeroU64;
@@ -41,8 +39,6 @@ use nucleo_matcher::{
 use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
-#[cfg(test)]
-use serde::de::value::SeqAccessDeserializer;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -84,27 +80,6 @@ use validate::{has_image_extension, is_date, is_orcid, is_phone_number};
 ///
 /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
-/// Canonical values resolved against one of ACORN's controlled-vocabulary assets.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct ControlledVocabulary(Vec<Keyword>);
-impl ControlledVocabulary {
-    /// Normalize candidate values against the named controlled-vocabulary asset.
-    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
-        Self(
-            values
-                .into_iter()
-                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-        )
-    }
-    /// Consume the vocabulary and return its canonical values.
-    pub fn into_values(self) -> Vec<Keyword> {
-        self.0
-    }
-}
 /// Generic wrapper for a single value or multiple values.
 ///
 /// Supports schema fields and metadata entry points that accept either one item
@@ -440,6 +415,10 @@ pub struct ContactPointContext {
     /// Affiliation
     pub affiliation: String,
 }
+/// Canonical values resolved against one of ACORN's controlled-vocabulary assets.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct ControlledVocabulary(Vec<Keyword>);
 /// Shared start/end date interval used across schema standards.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -684,6 +663,23 @@ impl ContactPoint {
     pub fn format_with(self, _context: Option<PathBuf>) -> Self {
         // TODO: Resolve ORCiD identifier from first, last, and email
         self.format()
+    }
+}
+impl ControlledVocabulary {
+    /// Normalize candidate values against the named controlled-vocabulary asset.
+    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
+        Self(
+            values
+                .into_iter()
+                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+        )
+    }
+    /// Consume the vocabulary and return its canonical values.
+    pub fn into_values(self) -> Vec<Keyword> {
+        self.0
     }
 }
 impl Default for ContactPoint {
@@ -1066,7 +1062,6 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
     Some(value)
 }
-
 #[cfg(feature = "std")]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = Organization::load().into_iter().next()?;
@@ -1089,34 +1084,6 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
         .collect::<Vec<Vec<String>>>();
     resolve_from_list_of_lists(value, data, "organization".to_string())
 }
-/// Deserialize a field that may be null, a single string, or an array of strings
-#[cfg(test)]
-pub(crate) fn optional_string_or_seq<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct OptStringOrSeq;
-    impl<'de> serde::de::Visitor<'de> for OptStringOrSeq {
-        type Value = Option<Vec<String>>;
-        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("string, list of strings, or null")
-        }
-        fn visit_none<E: serde::de::Error>(self) -> Result<Option<Vec<String>>, E> {
-            Ok(None)
-        }
-        fn visit_unit<E: serde::de::Error>(self) -> Result<Option<Vec<String>>, E> {
-            Ok(None)
-        }
-        fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Option<Vec<String>>, E> {
-            Ok(Some(vec![value.to_owned()]))
-        }
-        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, seq: A) -> Result<Option<Vec<String>>, A::Error> {
-            Deserialize::deserialize(SeqAccessDeserializer::new(seq)).map(Some)
-        }
-    }
-    deserializer.deserialize_any(OptStringOrSeq)
-}
-
 #[cfg(not(feature = "std"))]
 #[allow(dead_code)]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {

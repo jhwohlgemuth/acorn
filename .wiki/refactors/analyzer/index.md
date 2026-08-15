@@ -17,3 +17,4 @@ These plans prepare the pure analysis boundary defined by the [crate boundary ar
 - [Check options context](check-options-context.md) - Stop repeatedly threading derived options.
 - [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.
 - [Typed scoring model](typed-scoring-model.md) - Make score combination and severity interpretation explicit.
+- [Generated query aliases from serde metadata](serde-alias-generated-query-aliases.md) - Remove manual locator alias updates by generating resolver mappings.

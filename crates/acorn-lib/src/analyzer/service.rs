@@ -1,11 +1,13 @@
 //! Structured, reusable file analysis service.
 use super::{Analysis, Check, CheckCategory, CheckOptions, Standard};
-use crate::prelude::PathBuf;
+use crate::io::document::{DocumentIndex, SourceDocument};
+use crate::prelude::{Arc, HashMap, PathBuf};
 use crate::schema::pid::raid;
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::text::{Docx, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
+use crate::util::{MimeType, StringConversion};
 use core::iter::once;
 use strum::IntoEnumIterator;
 
@@ -71,11 +73,17 @@ impl AnalysisReport {
     }
 }
 async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
+    let documents = document_indexes(paths);
     let mut results = Vec::with_capacity(categories.len());
     for category in categories {
+        let checks = T::check(category.clone(), paths, Some(options))
+            .await
+            .into_iter()
+            .map(|check| check.attach_document(&documents))
+            .collect();
         results.push(CategoryChecks {
             category: category.clone(),
-            checks: T::check(category.clone(), paths, Some(options)).await,
+            checks,
         });
     }
     results
@@ -110,10 +118,10 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &CheckOptions) -> Analysi
 pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {
     paths.iter().cloned().fold(Vec::<StandardPaths>::new(), |mut groups, path| {
         let selected = if standard == Standard::ResearchActivityData {
-            match path.extension().and_then(|value| value.to_str()).map(str::to_ascii_lowercase).as_deref() {
-                | Some("cff") => Standard::CitationFileFormat,
-                | Some("docx") => Standard::Docx,
-                | Some("txt" | "md" | "markdown") => Standard::Text,
+            match MimeType::from(path.display().to_string()) {
+                | MimeType::Cff => Standard::CitationFileFormat,
+                | MimeType::Docx => Standard::Docx,
+                | MimeType::Text | MimeType::Markdown => Standard::Text,
                 | _ => Standard::ResearchActivityData,
             }
         } else {
@@ -129,6 +137,20 @@ pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPath
         groups
     })
 }
+fn document_indexes(paths: &[PathBuf]) -> HashMap<String, Arc<DocumentIndex>> {
+    paths
+        .iter()
+        .filter_map(|path| {
+            SourceDocument::from_path(path)
+                .ok()
+                .map(|document| (path.file_name_with_parent(), Arc::new(DocumentIndex::new(document))))
+        })
+        .fold(HashMap::<String, Arc<DocumentIndex>>::new(), |mut documents, (name, document)| {
+            // Keep first seen document for duplicate display keys instead of dropping all candidates, which removes highlighting entirely.
+            documents.entry(name).or_insert(document);
+            documents
+        })
+}
 fn skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
     options
         .skip
@@ -142,6 +164,8 @@ fn skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::{create_dir_all, remove_dir_all, write};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn classifies_mixed_supported_paths_without_mutating_order() {
@@ -193,5 +217,25 @@ mod tests {
                 paths: vec![PathBuf::from("one.json"), PathBuf::from("two.yaml")],
             }]
         );
+    }
+    #[test]
+    fn document_indexes_keeps_a_candidate_when_display_keys_collide() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        let root = std::env::temp_dir().join(format!("acorn-doc-index-collision-{nanos}"));
+        let left = root.join("left").join("shared").join("index.yaml");
+        let right = root.join("right").join("shared").join("index.yaml");
+        let _ = create_dir_all(left.parent().unwrap_or(&root));
+        let _ = create_dir_all(right.parent().unwrap_or(&root));
+        let _ = write(&left, "title: left\n");
+        let _ = write(&right, "title: right\n");
+        let key = left.file_name_with_parent();
+        assert_eq!(key, right.file_name_with_parent());
+        let indexes = document_indexes(&[left, right]);
+        assert_eq!(indexes.len(), 1);
+        assert!(indexes.contains_key(&key));
+        let _ = remove_dir_all(root);
     }
 }

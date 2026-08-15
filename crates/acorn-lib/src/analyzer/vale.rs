@@ -2,7 +2,8 @@
 //!
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
-use crate::analyzer::error::Location;
+use crate::analyzer::error::DocumentTarget;
+use crate::io::document::DocumentQuery;
 use crate::prelude::PathBuf;
 use crate::util::constants::app::{APPLICATION, ORGANIZATION};
 use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
@@ -174,7 +175,7 @@ impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
         }
     }
 }
-impl Location for ValeOutputItem {
+impl DocumentTarget for ValeOutputItem {
     fn locator(&self) -> String {
         let character = self.span.first().copied().unwrap_or_default();
         format!("Line {}, Character {}", self.line, character)
@@ -183,6 +184,12 @@ impl Location for ValeOutputItem {
         match self.word_match.is_empty() {
             | true => " ".to_string(),
             | false => self.word_match.clone(),
+        }
+    }
+    fn query(&self) -> DocumentQuery {
+        match self.word_match.is_empty() {
+            | true => DocumentQuery::new(),
+            | false => DocumentQuery::new().with_needle(self.word_match.clone()),
         }
     }
 }

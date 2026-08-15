@@ -5,14 +5,14 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::analyzer::check::{highlighted, highlighted_array, highlighted_from_params, nearest_space_boundary, truncate, Standard};
-use crate::analyzer::error::ErrorCode;
-use crate::analyzer::error::ErrorKind;
-use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemSeverity};
+use crate::analyzer::check::Standard;
+use crate::analyzer::error::{process, DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue};
+use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::analyzer::{
     checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, StaticAnalyzer,
     StaticAnalyzerConfig,
 };
+use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
@@ -21,7 +21,6 @@ use crate::test::utils::unique_path;
 use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;
-use ariadne::Source;
 use jiff::SignedDuration;
 use serde_json::Value;
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
@@ -170,70 +169,6 @@ fn test_summary_includes_crosswalk_warnings() {
     ];
     let rows = summary(warnings.to_checks(None));
     assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
-}
-#[test]
-fn test_highlighted_span() {
-    let span = &[1, 5];
-    let line_number = 2;
-    let result = highlighted("line one\nline two\nline three", span, line_number);
-    assert_eq!(result, 9..=13);
-}
-#[test]
-fn test_highlighted_span_for_array() {
-    let source = Source::from(String::from("{\n  \"key\": [\n    \"a\",\n    \"b\",\n    \"c\"\n  ]\n}"));
-    let index = 1;
-    let value = serde_json::json!(["a", "b", "c"]);
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("index".to_string(), Value::Number(index.into()));
-    params.insert("value".to_string(), value);
-    let result = highlighted_array(&source, &params);
-    assert!(result.is_some());
-    let span = result.unwrap();
-    assert!(*span.start() < source.text().len());
-    assert!(*span.end() <= source.text().len());
-}
-#[test]
-fn test_highlighted_span_from_params_length() {
-    let source = Source::from(String::from("{\"key\": \"value\"}"));
-    let code = ErrorCode::Length;
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("max".to_string(), Value::Number(10.into()));
-    let result = highlighted_from_params(&source, &code, &params);
-    assert!(result.is_some());
-    let span = result.unwrap();
-    assert!(span.contains(&(source.text().len() - 2)));
-}
-#[test]
-fn test_highlighted_span_from_params_section() {
-    let source = Source::from(String::from("{\n  \"sections\": [\n    \"intro\",\n    \"methods\"\n  ]\n}"));
-    let code = ErrorCode::Section;
-    let index = 1;
-    let value = serde_json::json!(["intro", "methods"]);
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("index".to_string(), Value::Number(index.into()));
-    params.insert("value".to_string(), value);
-    let result = highlighted_from_params(&source, &code, &params);
-    assert!(result.is_some());
-}
-#[test]
-fn test_highlighted_span_from_params_with_index() {
-    let source = Source::from(String::from("{\n  \"items\": [\n    \"first\",\n    \"second\"\n  ]\n}"));
-    let code = ErrorCode::Other;
-    let index = 0;
-    let value = serde_json::json!(["first", "second"]);
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("index".to_string(), Value::Number(index.into()));
-    params.insert("value".to_string(), value);
-    let result = highlighted_from_params(&source, &code, &params);
-    assert!(result.is_some());
-}
-#[test]
-fn test_highlighted_span_from_params_no_match() {
-    let source = Source::from(String::from("{\"key\": \"value\"}"));
-    let code = ErrorCode::Date;
-    let params: HashMap<String, Value> = HashMap::new();
-    let result = highlighted_from_params(&source, &code, &params);
-    assert!(result.is_none());
 }
 #[test]
 fn test_parse_vale_output() {
@@ -632,21 +567,7 @@ fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_displa
     );
 }
 #[test]
-fn test_nearest_space_boundary_returns_first_boundary_at_or_after_index() {
-    let value = "Alpha Bravo Charlie";
-    let result = nearest_space_boundary(value, 8);
-    assert_eq!(result, Some(12));
-}
-
-#[test]
-fn test_nearest_space_boundary_returns_none_without_boundary_at_or_after_index() {
-    let value = "Alpha Bravo Charlie";
-    let result = nearest_space_boundary(value, 12);
-    assert_eq!(result, None);
-}
-#[test]
 fn test_process_returns_field_issue_tuple() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
     let value = FieldModel { name: "x".to_string() };
     let errors = value.validate().expect_err("expected validation failure");
     let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
@@ -661,7 +582,6 @@ fn test_process_returns_field_issue_tuple() {
 }
 #[test]
 fn test_process_returns_nested_struct_path() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
     let value = ParentModel {
         child: ChildModel {
             email: "not-an-email".to_string(),
@@ -677,7 +597,6 @@ fn test_process_returns_nested_struct_path() {
 }
 #[test]
 fn test_process_returns_nested_list_index_path() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
     let value = ParentListModel {
         children: vec![
             ChildModel {
@@ -698,8 +617,6 @@ fn test_process_returns_nested_list_index_path() {
 }
 #[test]
 fn test_process_returns_none_path_for_root_field_errors() {
-    use crate::analyzer::error::process;
-    use crate::analyzer::error::ErrorCode;
     let value = FieldModel { name: "x".to_string() };
     let errors = value.validate().expect_err("expected validation failure");
     let field_errors = errors
@@ -722,7 +639,6 @@ fn test_process_returns_none_path_for_root_field_errors() {
 }
 #[test]
 fn test_process_serializes_array_param_values() {
-    use crate::analyzer::error::{ErrorCode, ErrorKind};
     let value = ArrayParamModel {
         tags: vec!["one".to_string(), "two".to_string()],
     };
@@ -747,7 +663,6 @@ fn test_process_serializes_array_param_values() {
 }
 #[test]
 fn test_process_preserves_non_wrapper_repeated_segment_paths() {
-    use crate::analyzer::error::ErrorKind;
     let value = RepeatedNameParentModel {
         child: RepeatedNameModel {
             child: RepeatedChildModel {
@@ -783,7 +698,6 @@ fn test_resolve_vale_package_source() {
 }
 #[test]
 fn test_source_text_formats_array_values_as_markdown_list() {
-    use crate::analyzer::error::{ErrorCode, Location, ValidatorIssue};
     let mut params: HashMap<String, Value> = HashMap::new();
     params.insert("value".to_string(), serde_json::json!(["alpha", "beta"]));
     let issue = ValidatorIssue::init()
@@ -797,41 +711,24 @@ fn test_source_text_formats_array_values_as_markdown_list() {
     assert!(source.contains("- \"beta\""));
 }
 #[test]
-fn test_truncate_keeps_prefix_at_or_below_maximum() {
-    let source_text = "Alpha Bravo Charlie Delta Echo";
-    let span = 20..=24;
-    let (result_source, result_span) = truncate(span, source_text, 5);
-    let retained_prefix_length = result_span.start().saturating_sub(3);
-    assert_eq!(result_source.text(), "...Delta Echo");
-    assert!(retained_prefix_length <= 5);
-}
-#[test]
-fn test_truncate_source_before_span_no_truncation() {
-    let source_text = "short line";
-    let span = 2..=5;
-    let (result_source, result_span) = truncate(span, source_text, 10);
-    assert_eq!(result_source.text(), source_text);
-    assert_eq!(result_span, 2..=5);
-}
-#[test]
-fn test_truncate_source_before_span_with_ellipsis() {
-    let source_text = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let span = 20..=24;
-    let (result_source, result_span) = truncate(span, source_text, 5);
-    let result_text = result_source.text();
-    assert!(result_text.starts_with("..."));
-    assert_eq!(result_span, 8..=12);
-    assert_eq!(&result_text[8..=12], "KLMNO");
-}
-
-#[test]
-fn test_truncate_source_before_span_uses_nearest_space() {
-    let source_text = "Alpha Bravo Charlie Delta Echo";
-    let span = 20..=24;
-    let (result_source, result_span) = truncate(span, source_text, 5);
-    let result_text = result_source.text();
-    assert_eq!(result_text, "...Delta Echo");
-    assert_eq!(result_span, 3..=7);
+fn test_validator_query_selects_indexed_array_value() {
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("index".to_string(), serde_json::json!(1));
+    params.insert("value".to_string(), serde_json::json!(["first phrase", "second phrase"]));
+    let issue = ValidatorIssue::init()
+        .code(ErrorCode::Section)
+        .maybe_path(Some("sections.impact".to_string()))
+        .message("section")
+        .params(params)
+        .build();
+    let content = "sections:\n  impact:\n    - first phrase\n    - second phrase\n";
+    let document = SourceDocument::init().content(content).format("yaml").source("index.yaml").build();
+    let index = DocumentIndex::new(document);
+    let matched = index.resolve(&issue.query());
+    let DocumentMatch::Unique(span) = matched else {
+        panic!("expected indexed YAML value to resolve uniquely");
+    };
+    assert_eq!(&content[span.0], "second phrase");
 }
 #[test]
 fn test_vale_config_unwrap_or_default_uses_default_values() {
@@ -844,8 +741,6 @@ fn test_vale_config_unwrap_or_default_uses_default_values() {
 }
 #[test]
 fn test_vale_output_item_location_matches_prose_display_format() {
-    use crate::analyzer::error::Location;
-    use crate::analyzer::vale::{ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
     let item = ValeOutputItem {
         action: ValeOutputItemAction {
             name: "replace".to_string(),
@@ -864,8 +759,6 @@ fn test_vale_output_item_location_matches_prose_display_format() {
 }
 #[test]
 fn test_vale_output_item_source_text_uses_word_match() {
-    use crate::analyzer::error::Location;
-    use crate::analyzer::vale::{ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
     let item = ValeOutputItem {
         action: ValeOutputItemAction {
             name: "replace".to_string(),
@@ -881,6 +774,24 @@ fn test_vale_output_item_source_text_uses_word_match() {
         word_match: "geo-spatial".to_string(),
     };
     assert_eq!(item.source_text(), "geo-spatial");
+}
+#[test]
+fn test_vale_output_item_query_uses_word_match_without_renderer_data() {
+    let item = ValeOutputItem {
+        action: ValeOutputItemAction {
+            name: "replace".to_string(),
+            params: None,
+        },
+        check: "Science.use-instead".to_string(),
+        description: "".to_string(),
+        line: 19,
+        link: "".to_string(),
+        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
+        severity: ValeOutputItemSeverity::Error,
+        span: vec![36, 46],
+        word_match: "geo-spatial".to_string(),
+    };
+    assert_eq!(item.query(), DocumentQuery::new().with_needle("geo-spatial"));
 }
 #[test]
 fn test_standard_to_schema_does_not_panic() {

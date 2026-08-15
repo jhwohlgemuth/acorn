@@ -3,7 +3,7 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 //!
-use crate::analyzer::error::Location as ErrorLocation;
+use crate::analyzer::error::DocumentTarget;
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::http::get;

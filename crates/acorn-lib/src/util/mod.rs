@@ -36,6 +36,7 @@ use nanoid::nanoid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use strum::EnumIs;
 use validator::Validate;
 pub mod assets;
 #[cfg(feature = "std")]
@@ -264,7 +265,7 @@ pub enum License {
 /// Supports an incomplete list of common <span title="Multipurpose Internet Mail Extension">MIME</span> types
 ///
 /// See listing of [common HTTP MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types) and <https://mimetype.io/all-types> for more information
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, EnumIs, PartialEq)]
 pub enum MimeType {
     /// Citation File Format (CFF)
     /// ### Note

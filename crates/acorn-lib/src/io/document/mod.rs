@@ -11,6 +11,10 @@ use color_eyre::eyre::eyre;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 
+mod index;
+
+pub use index::{DocumentExcerpt, DocumentIndex, DocumentMatch, DocumentPath, DocumentPathSegment, DocumentPosition, DocumentQuery, DocumentSpan};
+
 /// Document formats supported by Anydoc.
 #[derive(Clone, Copy, Debug, Deserialize, Display, Eq, PartialEq, Serialize)]
 pub enum DocumentFormat {
@@ -146,6 +150,10 @@ pub fn to_markdown_bytes(bytes: &[u8], format: Option<DocumentFormat>) -> ApiRes
     anydoc::to_markdown_bytes(bytes, format.map(Format::from)).map_err(|why| eyre!("Failed to convert document - {why}"))
 }
 impl SourceDocument {
+    fn is_yaml(&self) -> bool {
+        let mime = MimeType::from(self.source.as_str());
+        mime.is_yaml() || mime.is_cff()
+    }
     /// Create an unloaded document source at a local location.
     pub fn at(location: impl Into<PathBuf>) -> Self {
         let source = location.into().display().to_string();
@@ -204,59 +212,4 @@ impl SourceDocument {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_anydoc_format_round_trip() {
-        let formats = [
-            DocumentFormat::Csv,
-            DocumentFormat::Doc,
-            DocumentFormat::Docx,
-            DocumentFormat::Epub,
-            DocumentFormat::Excel,
-            DocumentFormat::Odp,
-            DocumentFormat::Ods,
-            DocumentFormat::Odt,
-            DocumentFormat::Pdf,
-            DocumentFormat::Ppt,
-            DocumentFormat::Pptx,
-            DocumentFormat::Rtf,
-        ];
-        formats
-            .into_iter()
-            .for_each(|format| assert_eq!(DocumentFormat::from(Format::from(format)), format));
-    }
-    #[test]
-    fn test_document_format_mime_round_trip() {
-        let formats = [
-            DocumentFormat::Csv,
-            DocumentFormat::Doc,
-            DocumentFormat::Docx,
-            DocumentFormat::Epub,
-            DocumentFormat::Excel,
-            DocumentFormat::Odp,
-            DocumentFormat::Ods,
-            DocumentFormat::Odt,
-            DocumentFormat::Pdf,
-            DocumentFormat::Ppt,
-            DocumentFormat::Pptx,
-            DocumentFormat::Rtf,
-        ];
-        formats.into_iter().for_each(|format| {
-            let mime = MimeType::from(format);
-            assert_eq!(DocumentFormat::try_from(&mime).ok(), Some(format));
-        });
-    }
-    #[test]
-    fn test_docx_converts_to_markdown() {
-        let converted = to_markdown("../../tests/fixtures/acorn.docx");
-        assert!(converted.is_ok());
-        assert!(!converted.unwrap_or_default().is_empty());
-    }
-    #[test]
-    fn test_source_document_extracts_docx() {
-        let converted = SourceDocument::at("../../tests/fixtures/acorn.docx").extract();
-        assert!(converted.is_ok());
-        assert!(!converted.unwrap_or_default().is_empty());
-    }
-}
+mod tests;

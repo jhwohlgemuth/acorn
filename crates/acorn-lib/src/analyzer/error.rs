@@ -2,6 +2,7 @@
 //!
 use super::readability::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
+use crate::io::document::{DocumentPath, DocumentQuery};
 use crate::prelude::HashMap;
 use crate::util::ToMarkdown;
 use bon::Builder;
@@ -10,12 +11,14 @@ use derive_more::Display;
 use serde_json::Value;
 use validator::{ValidationError, ValidationErrorsKind};
 
-/// Trait for types that can provide a locator string indicating where an issue is located
-pub trait Location {
+/// Trait for findings that can identify their target within a source document.
+pub trait DocumentTarget {
     /// Return a string indicating where the issue is located, for use in check titles, summaries, etc.
     fn locator(&self) -> String;
     /// Return source text
     fn source_text(&self) -> String;
+    /// Return format-neutral criteria for resolving the finding in its original document.
+    fn query(&self) -> DocumentQuery;
 }
 /// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
 #[derive(Clone, Debug, Display)]
@@ -132,7 +135,7 @@ impl ErrorKind {
         }
     }
 }
-impl Location for ValidatorIssue {
+impl DocumentTarget for ValidatorIssue {
     /// Return title-friendly locator — "where to find the issue"
     fn locator(&self) -> String {
         let value = match self.path.as_deref() {
@@ -152,6 +155,36 @@ impl Location for ValidatorIssue {
             | None => " ".to_string(),
         }
     }
+    fn query(&self) -> DocumentQuery {
+        let locator = self.locator();
+        let alias = locator_alias(&locator);
+        let query = DocumentQuery::new().with_path(DocumentPath::parse(&locator));
+        let value = match self.params.get("value") {
+            | Some(Value::Array(values)) => self
+                .params
+                .get("index")
+                .and_then(Value::as_u64)
+                .and_then(|index| values.get(index as usize)),
+            | value => value,
+        };
+        let query = match value {
+            | Some(Value::String(value)) => query.with_value(value),
+            | Some(value) if !value.is_array() && !value.is_object() => query.with_value(value.to_string()),
+            | None | Some(_) => query,
+        };
+        match alias == locator {
+            | true => query,
+            | false => query.with_path(DocumentPath::parse(&alias)),
+        }
+    }
+}
+/// Return locator aliases used to bridge schema validator paths and source-document paths.
+pub(crate) fn locator_alias(locator: &str) -> String {
+    locator
+        .replace("meta.identifier", "meta.id")
+        .replace("contact.telephone", "contact.phone")
+        .replace(".media[", ".graphics[")
+        .replace(".content_url", ".href")
 }
 /// Process validator errors into a more manageable form
 pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
