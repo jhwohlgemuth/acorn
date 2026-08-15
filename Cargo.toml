@@ -63,7 +63,7 @@ derive_more = { version = "2.1.1", features = [
 ], default-features = false }
 directories = { version = "6.0.0", default-features = false }
 dotenvy = { version = "0.15.0", default-features = false }
-duckdb = { version = "1.10502.0", default-features = false }
+duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
