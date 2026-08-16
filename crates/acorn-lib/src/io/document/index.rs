@@ -2,13 +2,29 @@
 use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::SourceDocument;
 use crate::prelude::{String, ToString, Vec};
-use crate::util::MimeType;
+use crate::util::{frontmatter_and_body, MimeType};
 use core::fmt;
 use core::ops::{Add, Range};
 use jsonc_parser::ast::Value as JsonValue;
 use jsonc_parser::{parse_to_ast, CollectOptions, ParseOptions};
 use serde_json::Value;
 
+pub(crate) trait DocumentParser {
+    fn try_entries(&self, document: &SourceDocument) -> Option<Vec<DocumentEntry>>;
+    fn entries(&self, document: &SourceDocument) -> Vec<DocumentEntry>;
+    fn line(path: &str, start: usize, line: &str, prefix: &str) -> Option<DocumentEntry>
+    where
+        Self: Sized;
+    fn lists(path: &str, lines: &[(usize, &str)]) -> Vec<DocumentEntry>
+    where
+        Self: Sized;
+    fn scalar(content: &str, path: &str, lines: &[(usize, &str)]) -> Option<DocumentEntry>
+    where
+        Self: Sized;
+    fn sections(content: &str, name: &str, lines: &[(usize, &str)]) -> Vec<DocumentEntry>
+    where
+        Self: Sized;
+}
 /// Result of resolving a [`DocumentQuery`]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DocumentMatch {
@@ -59,7 +75,7 @@ pub struct DocumentQuery {
     needle: Option<String>,
 }
 #[derive(Clone, Debug)]
-struct DocumentEntry {
+pub(crate) struct DocumentEntry {
     path: DocumentPath,
     value: Option<String>,
     span: DocumentSpan,
@@ -249,15 +265,15 @@ impl DocumentQuery {
 impl DocumentIndex {
     /// Index a loaded document without changing its content.
     pub fn new(document: SourceDocument) -> Self {
-        let entries = document.json_entries();
+        Self::with_parsers(document, &[])
+    }
+    pub(crate) fn with_parsers(document: SourceDocument, parsers: &[&dyn DocumentParser]) -> Self {
+        let markdown_entries = parsers.iter().find_map(|parser| parser.try_entries(&document)).unwrap_or_default();
+        let entries = document.json_entries().into_iter().chain(markdown_entries).collect();
         let line_starts = core::iter::once(0)
             .chain(document.content.match_indices('\n').map(|(index, _)| index.saturating_add(1)))
             .collect();
-        let content = &document.content;
-        let parsed_yaml = document.is_yaml().then(|| serde_norway::from_str::<Value>(content).ok()).flatten();
-        let semantic = parsed_yaml
-            .map(|value| DocumentPath::default().semantic_entries(&value))
-            .unwrap_or_default();
+        let semantic = document.semantic_entries();
         Self {
             physical: document.is_physical_text(),
             document,
@@ -381,7 +397,25 @@ impl fmt::Display for DocumentPosition {
         write!(formatter, "{}:{}", self.line, self.column)
     }
 }
+impl DocumentEntry {
+    pub(crate) fn markdown(path: &str, value: String, span: Range<usize>) -> Self {
+        DocumentEntry {
+            path: DocumentPath::parse(path),
+            value: Some(value),
+            span: DocumentSpan(span),
+        }
+    }
+}
 impl SourceDocument {
+    fn frontmatter(&self) -> Option<String> {
+        self.is_markdown().then(|| frontmatter_and_body(&self.content).0).flatten()
+    }
+    fn semantic_entries(&self) -> Vec<SemanticEntry> {
+        let yaml = self.is_yaml().then(|| self.content.clone()).or_else(|| self.frontmatter());
+        yaml.and_then(|content| serde_norway::from_str::<Value>(&content).ok())
+            .map(|value| DocumentPath::default().semantic_entries(&value))
+            .unwrap_or_default()
+    }
     fn json_entries(&self) -> Vec<DocumentEntry> {
         let mime = MimeType::from(self.source.as_str());
         if mime.is_json() || mime.is_jsonc() {

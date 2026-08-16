@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 mod index;
 mod matching;
 
+pub(crate) use index::{DocumentEntry, DocumentParser};
 pub use index::{DocumentExcerpt, DocumentIndex, DocumentMatch, DocumentPath, DocumentPathSegment, DocumentPosition, DocumentQuery, DocumentSpan};
 
 /// Document formats supported by Anydoc.
@@ -142,6 +143,9 @@ impl TryFrom<&MimeType> for DocumentFormat {
     }
 }
 impl SourceDocument {
+    pub(crate) fn is_markdown(&self) -> bool {
+        MimeType::from(self.source.as_str()) == MimeType::Markdown || MimeType::from(self.format.as_str()) == MimeType::Markdown
+    }
     fn is_yaml(&self) -> bool {
         let mime = MimeType::from(self.source.as_str());
         mime.is_yaml() || mime.is_cff()

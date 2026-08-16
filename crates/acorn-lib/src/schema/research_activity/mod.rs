@@ -57,6 +57,7 @@ mod markdown;
 pub mod s3a;
 use aspect::AspectFramework;
 use markdown::Document;
+pub(crate) use markdown::MarkdownParser;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
 #[derive(Debug, Display)]
@@ -441,29 +442,89 @@ impl Default for ResearchActivityMetadataContext {
             .build()
     }
 }
+impl Default for Sections {
+    fn default() -> Self {
+        Sections::init().build()
+    }
+}
+impl From<&ResearchActivity> for Cff {
+    fn from(rad: &ResearchActivity) -> Self {
+        let sections = rad.sections.clone();
+        let contact = rad.contact.clone();
+        let meta = rad.meta.clone();
+        let title = rad.title.clone();
+        let ContactPoint {
+            given_name,
+            family_name,
+            identifier: orcid,
+            email,
+            organization,
+            affiliation,
+            ..
+        } = contact;
+        let person_affiliation = affiliation.or(if organization.is_empty() { None } else { Some(organization) });
+        let person = Agent::Person(Person {
+            given_names: Some(given_name),
+            family_names: Some(family_name),
+            orcid,
+            email: Some(email),
+            affiliation: person_affiliation,
+            address: None,
+            alias: None,
+            city: None,
+            country: None,
+            fax: None,
+            name_particle: None,
+            name_suffix: None,
+            postal_code: None,
+            region: None,
+            tel: None,
+            website: None,
+        });
+        let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
+        let publication_identifiers = meta.doi.unwrap_or_default();
+        let doi = match publication_identifiers.as_slice() {
+            | [single] if matches!(PublicationIdentifierType::from(single.as_str()), PublicationIdentifierType::Doi(_)) => Some(single.clone()),
+            | _ => None,
+        };
+        let identifiers = doi.is_none().then(|| {
+            publication_identifiers
+                .into_iter()
+                .map(|value| match PublicationIdentifierType::from(value.as_str()) {
+                    | PublicationIdentifierType::Doi(_) => Identifier {
+                        description: None,
+                        kind: IdentifierType::Doi,
+                        value,
+                    },
+                    | _ => Identifier {
+                        description: Some("arXiv identifier".to_string()),
+                        kind: IdentifierType::Other,
+                        value,
+                    },
+                })
+                .collect::<Vec<_>>()
+        });
+        let identifiers = identifiers.filter(|values| !values.is_empty());
+        Cff {
+            abstract_text: Some(sections.mission),
+            authors: vec![person.clone()],
+            contact: Some(vec![person]),
+            keywords,
+            doi,
+            identifiers,
+            title,
+            ..Cff::default()
+        }
+    }
+}
+impl From<ResearchActivity> for Cff {
+    fn from(rad: ResearchActivity) -> Self {
+        Cff::from(&rad)
+    }
+}
 impl Hash for ResearchActivity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.meta.identifier.hash(state);
-    }
-}
-impl LinkedData for ResearchActivity {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityContext::default()),
-            research_activity_type: None,
-            meta: self.meta.with_context(),
-            contact: self.contact.with_context(),
-            ..self.clone().copy()
-        }
-    }
-}
-impl LinkedData for ResearchActivityMetadata {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityMetadataContext::default()),
-            metadata_type: None,
-            ..self.clone()
-        }
     }
 }
 #[cfg(feature = "std")]
@@ -554,6 +615,101 @@ impl InputOutput for ResearchActivity {
             .and_then(|content| write_file(output, content))
     }
 }
+impl LinkedData for ResearchActivity {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityContext::default()),
+            research_activity_type: None,
+            meta: self.meta.with_context(),
+            contact: self.contact.with_context(),
+            ..self.clone().copy()
+        }
+    }
+}
+impl LinkedData for ResearchActivityMetadata {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityMetadataContext::default()),
+            metadata_type: None,
+            ..self.clone()
+        }
+    }
+}
+impl MarkdownSupport for Research {
+    fn to_markdown(&self) -> String {
+        let Research { focus, areas } = self;
+        let focus = focus.to_markdown_text();
+        let areas = areas.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        format!(
+            r#"
+## Focus
+{focus}
+
+## Areas{}"#,
+            areas.to_markdown(),
+        )
+    }
+}
+impl MarkdownSupport for ResearchActivity {
+    fn to_markdown(&self) -> String {
+        Document::from(self).to_markdown()
+    }
+    #[cfg(feature = "std")]
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
+    }
+    #[cfg(not(feature = "std"))]
+    fn from_markdown(_content: &str) -> Result<Self, String> {
+        Err("Markdown parsing requires the std feature".to_string())
+    }
+}
+impl MarkdownSupport for Sections {
+    fn to_markdown(&self) -> String {
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            achievement,
+            capabilities,
+            research,
+        } = self;
+        let mission = mission.to_markdown_text();
+        let challenge = challenge.to_markdown_text();
+        let approach = approach.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let impact = impact.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let achievement = achievement
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Achievement{}", values.to_markdown()))
+            .unwrap_or_default();
+        let capabilities = capabilities
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Capabilities{}", values.to_markdown()))
+            .unwrap_or_default();
+        format!(
+            r#"
+## Mission
+{}
+
+## Challenge
+{}
+
+## Approach{}
+
+## Impact{}{}{}
+{}"#,
+            mission,
+            challenge,
+            approach.to_markdown(),
+            impact.to_markdown(),
+            achievement,
+            capabilities,
+            research.to_markdown(),
+        )
+    }
+}
 impl ResearchActivity {
     /// Creates a new `ResearchActivity`
     pub fn new() -> Self {
@@ -633,123 +789,6 @@ impl ResearchActivity {
             ..self
         }
         .format()
-    }
-}
-impl From<&ResearchActivity> for Cff {
-    fn from(rad: &ResearchActivity) -> Self {
-        let sections = rad.sections.clone();
-        let contact = rad.contact.clone();
-        let meta = rad.meta.clone();
-        let title = rad.title.clone();
-        let ContactPoint {
-            given_name,
-            family_name,
-            identifier: orcid,
-            email,
-            organization,
-            affiliation,
-            ..
-        } = contact;
-        let person_affiliation = affiliation.or(if organization.is_empty() { None } else { Some(organization) });
-        let person = Agent::Person(Person {
-            given_names: Some(given_name),
-            family_names: Some(family_name),
-            orcid,
-            email: Some(email),
-            affiliation: person_affiliation,
-            address: None,
-            alias: None,
-            city: None,
-            country: None,
-            fax: None,
-            name_particle: None,
-            name_suffix: None,
-            postal_code: None,
-            region: None,
-            tel: None,
-            website: None,
-        });
-        let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
-        let publication_identifiers = meta.doi.unwrap_or_default();
-        let doi = match publication_identifiers.as_slice() {
-            | [single] if matches!(PublicationIdentifierType::from(single.as_str()), PublicationIdentifierType::Doi(_)) => Some(single.clone()),
-            | _ => None,
-        };
-        let identifiers = doi.is_none().then(|| {
-            publication_identifiers
-                .into_iter()
-                .map(|value| match PublicationIdentifierType::from(value.as_str()) {
-                    | PublicationIdentifierType::Doi(_) => Identifier {
-                        description: None,
-                        kind: IdentifierType::Doi,
-                        value,
-                    },
-                    | _ => Identifier {
-                        description: Some("arXiv identifier".to_string()),
-                        kind: IdentifierType::Other,
-                        value,
-                    },
-                })
-                .collect::<Vec<_>>()
-        });
-        let identifiers = identifiers.filter(|values| !values.is_empty());
-        Cff {
-            abstract_text: Some(sections.mission),
-            authors: vec![person.clone()],
-            contact: Some(vec![person]),
-            keywords,
-            doi,
-            identifiers,
-            title,
-            ..Cff::default()
-        }
-    }
-}
-impl From<ResearchActivity> for Cff {
-    fn from(rad: ResearchActivity) -> Self {
-        Cff::from(&rad)
-    }
-}
-impl MarkdownSupport for ResearchActivity {
-    fn to_markdown(&self) -> String {
-        Document::from(self).to_markdown()
-    }
-    #[cfg(feature = "std")]
-    fn from_markdown(content: &str) -> Result<Self, String> {
-        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
-    }
-    #[cfg(not(feature = "std"))]
-    fn from_markdown(_content: &str) -> Result<Self, String> {
-        Err("Markdown parsing requires the std feature".to_string())
-    }
-}
-impl ToProse for ResearchActivity {
-    fn to_prose(&self) -> String {
-        let websites = self
-            .meta
-            .websites
-            .clone()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|website| website.to_markdown())
-            .collect::<Vec<String>>()
-            .join("\n");
-        let sections = self.sections.to_markdown();
-        match &self.subtitle {
-            | Some(subtitle) => format!(
-                r#"{title}
-{subtitle}
-{sections}
-{websites}"#,
-                title = self.title
-            ),
-            | None => format!(
-                r#"{title}
-{sections}
-{websites}"#,
-                title = self.title
-            ),
-        }
     }
 }
 impl ResearchActivityMetadata {
@@ -839,77 +878,39 @@ impl ResearchActivityMetadata {
         Self { media, ..self }.format()
     }
 }
+impl ToProse for ResearchActivity {
+    fn to_prose(&self) -> String {
+        let websites = self
+            .meta
+            .websites
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|website| website.to_markdown())
+            .collect::<Vec<String>>()
+            .join("\n");
+        let sections = self.sections.to_markdown();
+        match &self.subtitle {
+            | Some(subtitle) => format!(
+                r#"{title}
+{subtitle}
+{sections}
+{websites}"#,
+                title = self.title
+            ),
+            | None => format!(
+                r#"{title}
+{sections}
+{websites}"#,
+                title = self.title
+            ),
+        }
+    }
+}
 impl Vocabulary {
     /// Resolve values to intended values according to associated controlled vocabulary
     fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
         ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
-    }
-}
-impl Default for Sections {
-    fn default() -> Self {
-        Sections::init().build()
-    }
-}
-impl MarkdownSupport for Research {
-    fn to_markdown(&self) -> String {
-        let Research { focus, areas } = self;
-        let focus = focus.to_markdown_text();
-        let areas = areas.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        format!(
-            r#"
-## Focus
-{focus}
-
-## Areas{}"#,
-            areas.to_markdown(),
-        )
-    }
-}
-impl MarkdownSupport for Sections {
-    fn to_markdown(&self) -> String {
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            achievement,
-            capabilities,
-            research,
-        } = self;
-        let mission = mission.to_markdown_text();
-        let challenge = challenge.to_markdown_text();
-        let approach = approach.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        let impact = impact.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        let achievement = achievement
-            .as_ref()
-            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
-            .map(|values| format!("\n\n## Achievement{}", values.to_markdown()))
-            .unwrap_or_default();
-        let capabilities = capabilities
-            .as_ref()
-            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
-            .map(|values| format!("\n\n## Capabilities{}", values.to_markdown()))
-            .unwrap_or_default();
-        format!(
-            r#"
-## Mission
-{}
-
-## Challenge
-{}
-
-## Approach{}
-
-## Impact{}{}{}
-{}"#,
-            mission,
-            challenge,
-            approach.to_markdown(),
-            impact.to_markdown(),
-            achievement,
-            capabilities,
-            research.to_markdown(),
-        )
     }
 }
 #[cfg(feature = "std")]

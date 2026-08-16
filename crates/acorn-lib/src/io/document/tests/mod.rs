@@ -1,8 +1,13 @@
 use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::*;
+use crate::schema::research_activity::MarkdownParser;
 
 fn document(content: &str, source: &str) -> SourceDocument {
     SourceDocument::init().content(content).format("text").source(source).build()
+}
+fn rad_document(content: &str) -> DocumentIndex {
+    let parser = MarkdownParser;
+    DocumentIndex::with_parsers(document(content, "index.md"), &[&parser])
 }
 
 #[test]
@@ -332,6 +337,110 @@ fn test_resolves_unique_nested_yaml_scalar_conservatively() {
     };
     assert_eq!(&content[span.0.clone()], "Alice");
     assert_eq!(index.position(span.0.start).map(|position| position.line), Some(2));
+}
+#[test]
+fn test_resolves_markdown_frontmatter_alias_to_original_value() {
+    let content = "---\nmeta:\n  graphics:\n    - contentUrl: 00.invalid\n---\n# Example\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("meta.media[0].content_url"))
+        .with_value("00.invalid");
+    let span = match index.resolve(&query) {
+        | DocumentMatch::Unique(span) => span,
+        | result => {
+            assert!(matches!(result, DocumentMatch::Unique(_)), "expected a unique Markdown frontmatter span");
+            return;
+        }
+    };
+    assert_eq!(&content[span.0.clone()], "00.invalid");
+    assert_eq!(index.position(span.0.start).map(|position| position.line), Some(4));
+}
+#[test]
+fn test_resolves_markdown_list_item_to_original_value() {
+    let content = "---\nschema: acorn/research-activity\n---\n# Example\n\n## Impact\n- First phrase\n- Second phrase.\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("sections.impact[1]"))
+        .with_value("Second phrase.");
+    let span = match index.resolve(&query) {
+        | DocumentMatch::Unique(span) => span,
+        | result => {
+            assert!(matches!(result, DocumentMatch::Unique(_)), "expected a unique Markdown list span");
+            return;
+        }
+    };
+    assert_eq!(&content[span.0.clone()], "Second phrase.");
+    assert_eq!(index.position(span.0.start).map(|position| position.line), Some(8));
+}
+#[test]
+fn test_resolves_markdown_email_to_visible_link_text() {
+    let content = "---\nschema: acorn/research-activity\n---\n# Example\n\n## Contact\n- email: [Not an email](mailto:Not an email)\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("contact.email"))
+        .with_value("Not an email");
+    let span = match index.resolve(&query) {
+        | DocumentMatch::Unique(span) => span,
+        | result => {
+            assert!(matches!(result, DocumentMatch::Unique(_)), "expected the visible Markdown email span");
+            return;
+        }
+    };
+    assert_eq!(&content[span.0.clone()], "Not an email");
+    assert_eq!(index.position(span.0.start).map(|position| position.column), Some(11));
+}
+#[test]
+fn test_resolves_markdown_contact_label_as_snake_case_path() {
+    let content = "---\nschema: acorn/research-activity\n---\n# Example\n\n## Contact\n- Job Title: Research Engineer\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("contact.job_title"))
+        .with_value("Research Engineer");
+    let span = match index.resolve(&query) {
+        | DocumentMatch::Unique(span) => span,
+        | result => {
+            assert!(matches!(result, DocumentMatch::Unique(_)), "expected the snake-case contact path");
+            return;
+        }
+    };
+    assert_eq!(&content[span.0.clone()], "Research Engineer");
+}
+#[test]
+fn test_does_not_assign_rad_paths_to_unrecognized_markdown() {
+    let content = "# Example\n\n## Mission\nGeneric content\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("sections.mission"))
+        .with_value("Generic content");
+    assert_eq!(index.resolve(&query), DocumentMatch::Missing);
+}
+#[test]
+fn test_default_index_does_not_include_rad_markdown_parser() {
+    let content = "---\nschema: acorn/research-activity\n---\n# Example\n\n## Mission\nMapped only by the RAD parser\n";
+    let index = DocumentIndex::new(document(content, "index.md"));
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("sections.mission"))
+        .with_value("Mapped only by the RAD parser");
+    assert_eq!(index.resolve(&query), DocumentMatch::Missing);
+}
+#[test]
+fn test_resolves_incomplete_rad_markdown_body() {
+    let content = "---\nschema: acorn/research-activity\n---\n# Example\n\n## Mission\nToo brief\n";
+    let index = rad_document(content);
+    let query = DocumentQuery::new()
+        .with_path(DocumentPath::parse("sections.mission"))
+        .with_value("Too brief");
+    let span = match index.resolve(&query) {
+        | DocumentMatch::Unique(span) => span,
+        | result => {
+            assert!(
+                matches!(result, DocumentMatch::Unique(_)),
+                "expected the incomplete RAD body to remain indexable"
+            );
+            return;
+        }
+    };
+    assert_eq!(&content[span.0.clone()], "Too brief");
 }
 #[test]
 fn test_source_document_extracts_docx() {

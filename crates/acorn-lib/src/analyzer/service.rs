@@ -3,7 +3,7 @@ use super::{Analysis, Check, CheckCategory, CheckOptions, Standard};
 use crate::io::document::{DocumentIndex, SourceDocument};
 use crate::prelude::{Arc, HashMap, PathBuf};
 use crate::schema::pid::raid;
-use crate::schema::research_activity::ResearchActivity;
+use crate::schema::research_activity::{MarkdownParser, ResearchActivity};
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::text::{Docx, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
@@ -139,12 +139,13 @@ pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPath
     })
 }
 fn document_indexes(paths: &[PathBuf]) -> HashMap<String, Arc<DocumentIndex>> {
+    let parser = MarkdownParser;
     paths
         .iter()
         .filter_map(|path| {
             SourceDocument::from_path(path)
                 .ok()
-                .map(|document| (path.file_name_with_parent(), Arc::new(DocumentIndex::new(document))))
+                .map(|document| (path.file_name_with_parent(), Arc::new(DocumentIndex::with_parsers(document, &[&parser]))))
         })
         .fold(HashMap::<String, Arc<DocumentIndex>>::new(), |mut documents, (name, document)| {
             // Keep first seen document for duplicate display keys instead of dropping all candidates, which removes highlighting entirely.

@@ -23,7 +23,6 @@ use crate::prelude::*;
 use aho_corasick::AhoCorasick;
 use alloc::collections::BTreeSet;
 use bon::Builder;
-use convert_case::{Case, Casing};
 use core::fmt;
 use core::iter::successors;
 use derive_more::Display;
@@ -1244,20 +1243,6 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
     } else {
         None
     }
-}
-/// Converts the given string to snake case.
-/// ### Example
-/// ```rust
-/// use acorn::util::snake_case;
-///
-/// let snake = snake_case("CamelCase");
-/// assert_eq!(snake, "camel_case");
-/// ```
-pub fn snake_case<S>(value: S) -> String
-where
-    S: Into<String>,
-{
-    value.into().to_case(Case::Snake)
 }
 /// Remove the first matching suffix from a string slice.
 pub fn strip_suffixes<'a>(values: &[&str], name: &'a str) -> &'a str {

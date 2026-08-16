@@ -526,14 +526,6 @@ fn test_semantic_version() {
     assert!(SemanticVersion::from_command("not-a-real-command").is_none());
 }
 #[test]
-fn test_snake_case() {
-    assert_eq!(snake_case("FooBar"), "foo_bar");
-    assert_eq!(snake_case("fooBar"), "foo_bar");
-    assert_eq!(snake_case("fooBarBaz"), "foo_bar_baz");
-    assert_eq!(snake_case("fooBarBaz".to_string()), "foo_bar_baz");
-    assert_eq!(snake_case("A1B2"), "a_1_b_2");
-}
-#[test]
 fn test_strip_suffixes() {
     let suffixes = &["-fp8", "-maas"];
     assert_eq!(strip_suffixes(suffixes, "model-fp8"), "model");
