@@ -6,6 +6,9 @@
 # Format a specific research activity index
 acorn format path/to/project/index.json
 
+# Format canonical or legacy Markdown RAD
+acorn format path/to/project/index.md
+
 # Format all research activity data in a directory
 acorn format path/to/project/
 
@@ -46,6 +49,8 @@ acorn format path/to/project/index.json --dry-run
 ```
 
 ## Features
+
+Markdown formatting rewrites the document into ACORN's canonical representation. YAML frontmatter retains lossless structured metadata and ASPECT data, while the body contains the title, prose sections, research fields, contact details, and a generated ASPECT summary. This also upgrades Markdown produced by older ACORN releases.
 - 🛠️ **Auto-fixing**: Automatically fix common inconsistencies in RAD structure and prose
 - 🎨 **Consistent Formatting**: Ensure consistent JSON formatting across all data files
 - 🩹 **Resolve Values**: Resolve certain values against controlled vocabularies to ensure correct meaning 

@@ -19,7 +19,7 @@ use crate::schema::{
     agent::{ModelDetails, Quantization},
     hardware::memory::Memory,
 };
-use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE};
+use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE, SUPPORTED_RAD_FILETYPES};
 use crate::util::{detect_json, is_filetype, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
@@ -335,7 +335,6 @@ pub struct TransferManifest {
     /// Relative paths written beneath the output directory.
     pub files: Vec<PathBuf>,
 }
-const SUPPORTED_RAD_FILETYPES: [&str; 4] = ["index.json", "jsonc", "yaml", "yml"];
 /// Struct for filtering files based on regex patterns
 #[derive(Clone, Debug)]
 pub struct FilterSet {
@@ -741,7 +740,7 @@ impl Bucket {
                             }
                         };
                         let items = filter_paths(
-                            files_all(PathBuf::from(&bucket_root), None)
+                            files_all(PathBuf::from(&bucket_root), None::<Vec<String>>)
                                 .into_iter()
                                 .map(|x| x.display().to_string())
                                 .collect::<Vec<String>>(),
@@ -833,7 +832,10 @@ impl Bucket {
                     | Some(value) => PathBuf::from(value),
                     | None => return Err(eyre!("Git repository has no local path — cannot list files")),
                 };
-                Ok(files_all(path, None).into_iter().map(|x| x.display().to_string()).collect())
+                Ok(files_all(path, None::<Vec<String>>)
+                    .into_iter()
+                    .map(|x| x.display().to_string())
+                    .collect())
             }
             | Repository::GitHub { location } => match location.path() {
                 | Some(path) => {
@@ -1093,6 +1095,10 @@ impl TransferManifest {
                 self.files
                     .iter()
                     .filter(is_filetype(SUPPORTED_RAD_FILETYPES))
+                    .filter(|relative| {
+                        let path = output.join(relative);
+                        MimeType::from_path(&path) != MimeType::Markdown || ResearchActivity::is_markdown(path.as_path())
+                    })
                     .try_fold((), |(), relative| {
                         let path = output.join(relative);
                         ResearchActivity::read(path.clone())

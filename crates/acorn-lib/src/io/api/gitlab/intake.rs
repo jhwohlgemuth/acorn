@@ -10,7 +10,7 @@ use crate::schema::pid::{Identifier, PersistentIdentifierParse, DOI, PID};
 use crate::schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
 use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
-use crate::util::ToMarkdown;
+use crate::util::MarkdownSupport;
 use crate::Repository;
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;

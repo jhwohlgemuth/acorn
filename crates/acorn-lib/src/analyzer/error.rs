@@ -4,7 +4,7 @@ use super::readability::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
 use crate::io::document::{DocumentPath, DocumentQuery};
 use crate::prelude::HashMap;
-use crate::util::ToMarkdown;
+use crate::util::MarkdownSupport;
 use bon::Builder;
 use core::fmt;
 use derive_more::Display;

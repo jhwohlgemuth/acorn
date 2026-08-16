@@ -545,6 +545,10 @@ fn test_to_ascii_alphanumeric() {
     assert_eq!(to_ascii_alphanumeric("NVIDIA-Nemotron_3 Super"), "nvidianemotron3super");
 }
 #[test]
+fn test_markdown_input_output_normalize() {
+    assert_eq!("  geo-spatial & data, v1.0_2  ".normalize(), "geospatial and data v102");
+}
+#[test]
 fn test_to_strings() {
     let list: Vec<PathBuf> = vec![];
     assert!(list.to_strings().is_empty());

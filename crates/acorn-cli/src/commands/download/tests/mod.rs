@@ -29,7 +29,7 @@ use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, W
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::env::MODEL_WHITELIST;
-use acorn::util::merge;
+use acorn::util::{merge, MarkdownSupport};
 use alloc::sync::Arc;
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
@@ -56,6 +56,7 @@ fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
     rad.title = format!("Project {identifier}");
     let content = match path.extension().and_then(|value| value.to_str()) {
         | Some("yaml" | "yml") => serde_norway::to_string(&rad)?,
+        | Some("md" | "markdown") => rad.to_markdown(),
         | _ => serde_json::to_string_pretty(&rad)?,
     };
     write(path, content)?;
@@ -579,6 +580,8 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
     let database_path = Some(temp_dir.join("acorn.db"));
     write_rad(&bucket_dir.join("keep/index.json"), "kept-json")?;
     write_rad(&bucket_dir.join("keep/project.yaml"), "kept-yaml")?;
+    write_rad(&bucket_dir.join("keep/project.md"), "kept-markdown")?;
+    write(bucket_dir.join("keep/README.md"), "# Documentation\n")?;
     write_rad(&bucket_dir.join("skip/index.json"), "filtered-out")?;
     run(
         &None,
@@ -594,9 +597,11 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
     )
     .await?;
     let database = Database::<Table>::from_path(database_path);
-    assert_eq!(database.row_count(Table::ResearchActivities)?, 2);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 3);
     assert!(output_dir.join("keep/index.json").exists());
     assert!(output_dir.join("keep/project.yaml").exists());
+    assert!(output_dir.join("keep/project.md").exists());
+    assert!(!output_dir.join("keep/README.md").exists());
     assert!(!output_dir.join("skip/index.json").exists());
     Ok(())
 }

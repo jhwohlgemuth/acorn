@@ -111,6 +111,11 @@ pub trait FromPath {
     where
         P: AsRef<Path> + ?Sized;
 }
+/// Convert an extension filter value into a normalized file extension.
+pub trait FileExtension {
+    /// Return the file extension represented by this value.
+    fn extension(&self) -> String;
+}
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
     /// Read data from specified file path
@@ -126,8 +131,8 @@ pub trait InputOutput: Sized {
         Err(eyre!("JSONC read not implemented for this type"))
     }
     /// Read data as Markdown from specified path
-    fn read_markdown(_path: PathBuf) -> Option<Self> {
-        None
+    fn read_markdown(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("Markdown read not implemented for this type"))
     }
     /// Read data from specified YAML file path
     fn read_yaml(path: PathBuf) -> ApiResult<Self>;
@@ -331,6 +336,16 @@ impl From<&str> for Executor {
             | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
             | other => Executor::Other(other.to_string()),
         }
+    }
+}
+impl<T: AsRef<str>> FileExtension for T {
+    fn extension(&self) -> String {
+        self.as_ref().to_ascii_lowercase()
+    }
+}
+impl FileExtension for MimeType {
+    fn extension(&self) -> String {
+        self.clone().file_type()
     }
 }
 impl From<Executor> for std::ffi::OsString {
@@ -691,7 +706,7 @@ pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf
     };
     if let Some(mut zip) = zip_file {
         let archive_root = path.canonicalize();
-        let files = files_all(path.clone(), None).into_iter().filter(|x| x.is_file());
+        let files = files_all(path.clone(), None::<Vec<String>>).into_iter().filter(|x| x.is_file());
         for file_path in files {
             if let Ok(file) = File::open(file_path.clone()) {
                 let name = archive_root.as_ref().ok().and_then(|root| {
@@ -1043,18 +1058,19 @@ pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
 ///
 /// # Arguments
 /// * `path` - A `PathBuf` to the directory to search — also accepts URI format paths (e.g., `"file:///path/to/directory"`).
-/// * `extensions` - An `Option` containing a list of string slice(s) representing the file extension(s) to search for.
+/// * `extensions` - An `Option` containing values implementing [`FileExtension`], including [`MimeType`] variants and string-like values.
 ///
 /// # Returns
 /// A `Vec` containing `PathBuf` values of all files in the given directory that match at least one of the given extensions.
-pub fn files_all(path: PathBuf, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+pub fn files_all<T: FileExtension>(path: PathBuf, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
     files_all_with_max_depth(path, extensions, None)
 }
 /// Returns matching directory entries up to an optional descendant depth.
 ///
 /// Direct children have depth 1. A depth of 0 returns no descendants. A single-file input is returned regardless of depth.
-pub fn files_all_with_max_depth(path: PathBuf, extensions: Option<Vec<&str>>, max_depth: Option<usize>) -> Vec<PathBuf> {
+pub fn files_all_with_max_depth<T: FileExtension>(path: PathBuf, extensions: Option<Vec<T>>, max_depth: Option<usize>) -> Vec<PathBuf> {
     let path = uri_to_path(path);
+    let extensions = extensions.map(|values| values.into_iter().map(|value| value.extension()).collect::<Vec<_>>());
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
@@ -1081,7 +1097,7 @@ pub fn files_all_with_max_depth(path: PathBuf, extensions: Option<Vec<&str>>, ma
                 |values| {
                     values
                         .into_iter()
-                        .flat_map(|extension| patterns(&path, Some(extension), max_depth))
+                        .flat_map(|extension| patterns(&path, Some(extension.as_str()), max_depth))
                         .collect()
                 },
             )
@@ -1116,8 +1132,8 @@ pub fn files_all_with_max_depth(path: PathBuf, extensions: Option<Vec<&str>>, ma
 /// # Arguments
 ///
 /// * `value` - A string slice representing the name of the Git branch to check.
-/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+/// * `extensions` - An `Option` containing values implementing [`FileExtension`], including [`MimeType`] variants and string-like values.
+pub fn files_from_git_branch<T: FileExtension>(value: &str, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
     if command_exists("git".to_owned()) {
         let default_branch = match git_default_branch_name() {
             | Some(value) => value,
@@ -1150,8 +1166,8 @@ pub fn files_from_git_branch(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 /// # Arguments
 ///
 /// * `value` - A string slice representing the Git commit hash to check.
-/// * `extension` - An `Option` containing a string slice representing the file extension to filter results by.
-pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+/// * `extensions` - An `Option` containing values convertible to extension strings, including [`MimeType`] variants.
+pub fn files_from_git_commit<T: FileExtension>(value: &str, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
     if command_exists("git".to_owned()) {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd!("git", args);
@@ -1189,7 +1205,7 @@ pub fn files_from_git_commit(value: &str, extensions: Option<Vec<&str>>) -> Vec<
 /// See <https://docs.gitlab.com/api/merge_requests/#list-merge-request-diffs> for more information
 ///
 /// [^env]: See <https://docs.gitlab.com/ci/variables/predefined_variables/> for more information about GitLab CI environment variables
-pub async fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+pub async fn files_from_gitlab_merge_request<T: FileExtension>(extensions: Option<Vec<T>>) -> Vec<PathBuf> {
     let root = var("CI_API_V4_URL").unwrap_or_default();
     let project_id = var("CI_MERGE_REQUEST_PROJECT_ID").unwrap_or_default();
     let merge_request_iid = var("CI_MERGE_REQUEST_IID").unwrap_or_default();
@@ -1205,10 +1221,11 @@ pub async fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> V
                 | Ok(data) => {
                     debug!("=> {} GitLab API merge request diff response - {data:#?}", Label::using());
                     let results = data.into_iter().map(|x| PathBuf::from(x.new_path)).collect::<Vec<PathBuf>>();
+                    let extensions = extensions.map(|values| values.into_iter().map(|value| value.extension()).collect::<Vec<_>>());
                     match extensions {
                         | Some(values) => results
                             .into_iter()
-                            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
+                            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext))
                             .collect::<Vec<_>>(),
                         | None => results,
                     }
@@ -1226,13 +1243,14 @@ pub async fn files_from_gitlab_merge_request(extensions: Option<Vec<&str>>) -> V
     }
 }
 /// Filter Git command result by file extension
-pub fn filter_git_command_result(value: String, extensions: Option<Vec<&str>>) -> Vec<PathBuf> {
+pub fn filter_git_command_result<T: FileExtension>(value: String, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
+    let extensions = extensions.map(|values| values.into_iter().map(|value| value.extension()).collect::<Vec<_>>());
     match extensions {
         | Some(values) => value
             .to_lowercase()
             .split("\n")
             .map(PathBuf::from)
-            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext.to_lowercase()))
+            .filter(|path| values.iter().any(|ext| MimeType::from_path(path).file_type() == *ext))
             .collect::<Vec<_>>(),
         | None => value.to_lowercase().split("\n").map(PathBuf::from).collect::<Vec<_>>(),
     }
@@ -1327,7 +1345,7 @@ pub fn first_env_var(names: &[&str]) -> Option<String> {
 }
 /// Returns the size of a folder in bytes
 pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {
-    files_all(path.into(), None)
+    files_all(path.into(), None::<Vec<String>>)
         .into_iter()
         .filter_map(|p| p.metadata().ok())
         .filter(|m| m.is_file())

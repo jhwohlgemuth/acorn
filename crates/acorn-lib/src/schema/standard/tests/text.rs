@@ -10,7 +10,7 @@ use crate::io::InputOutput;
 use crate::schema::standard::text::{Docx, Text};
 #[cfg(feature = "std")]
 use crate::test::utils::{fixture_path, unique_path};
-use crate::util::{ToMarkdown, ToProse, Unstructured};
+use crate::util::{MarkdownSupport, ToProse, Unstructured};
 use validator::Validate;
 
 #[test]
@@ -28,6 +28,21 @@ fn test_text_validate_is_noop() {
         content: "any content should validate".to_string(),
     };
     assert!(data.validate().is_ok());
+}
+#[test]
+fn test_text_converts_from_string_values() {
+    assert_eq!(
+        Text::from("borrowed"),
+        Text {
+            content: "borrowed".to_string()
+        }
+    );
+    assert_eq!(
+        Text::from("owned".to_string()),
+        Text {
+            content: "owned".to_string()
+        }
+    );
 }
 #[cfg(feature = "std")]
 #[test]
@@ -51,7 +66,17 @@ fn test_text_input_output_rejects_unsupported_extension() {
     let result = Text::read(output);
     assert!(result.is_err());
 }
+#[cfg(feature = "std")]
+#[test]
+fn test_text_try_from_path_uses_supported_extensions() {
+    let markdown = fixture_path("gather/depth/direct.md");
+    let result = Text::try_from(markdown.as_path()).expect("supported Markdown path should load");
+    assert!(!result.content.is_empty());
 
+    let unsupported = unique_path("text-io", "pptx");
+    let result = Text::try_from(unsupported.as_path());
+    assert!(result.is_err());
+}
 #[test]
 fn test_docx_to_prose_and_markdown_passthrough() {
     let data = Docx {

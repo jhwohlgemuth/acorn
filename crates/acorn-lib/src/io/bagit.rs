@@ -94,7 +94,7 @@ impl Bag {
         P: Into<PathBuf>,
     {
         let base_directory = path.into();
-        let files = files_all(base_directory.clone(), None)
+        let files = files_all(base_directory.clone(), None::<Vec<String>>)
             .into_iter()
             .filter(|x| x.is_file())
             .collect::<Vec<_>>();
@@ -152,7 +152,7 @@ impl Bag {
     /// Populate payload file listing from files present in self.base_directory "data" directory
     pub fn with_payload(&self) -> Self {
         let base_directory = PathBuf::from(self.base_directory.clone());
-        let payload = files_all(base_directory.clone(), None)
+        let payload = files_all(base_directory.clone(), None::<Vec<String>>)
             .into_iter()
             .filter(|x| x.is_file())
             .flat_map(|x| x.strip_prefix(base_directory.to_absolute_path()).ok().map(|p| p.to_path_buf()))

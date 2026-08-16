@@ -13,6 +13,9 @@ ACORN helps prepare RAD for programmatic expansion. The `link` command makes inp
 # Link a specific research activity index
 acorn link path/to/project/index.json
 
+# Create JSON-LD from Markdown RAD
+acorn link path/to/project/index.md
+
 # Link all research activity data in a directory
 acorn link path/to/project/
 ```

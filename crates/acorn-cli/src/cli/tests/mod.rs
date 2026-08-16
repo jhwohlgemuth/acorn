@@ -11,11 +11,15 @@
 use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::SyncTarget;
 use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands};
+use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::env::CHROME_PATH;
+use acorn::util::MarkdownSupport;
 use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
+use std::fs::{create_dir_all, write};
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -752,4 +756,17 @@ fn test_resolve_paths_discovers_jsonc_files() {
         resolved.iter().any(|path| has_suffix(path, "jsonc/index.jsonc")),
         "resolve_paths should discover .jsonc files, got: {resolved:?}"
     );
+}
+#[test]
+fn test_resolve_paths_discovers_rad_markdown_and_ignores_readme() {
+    let root = temp_test_dir("resolve-markdown");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let rad = root.join("index.md");
+    let readme = root.join("README.md");
+    write(&rad, ResearchActivity::default().to_markdown()).unwrap();
+    write(&readme, "# Documentation\n").unwrap();
+    let resolved = block_on(resolve_paths(&Some(root), &CommandOptions::init().build())).unwrap();
+    assert!(resolved.contains(&rad));
+    assert!(!resolved.contains(&readme));
 }

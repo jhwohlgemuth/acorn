@@ -3,13 +3,15 @@
 
 This command allows you to export research activity data from ACORN into formats such as CFF, PDF, Markdown, YAML, or PPTX. With `export`, you can easily share your research with sponsors, collaborators, or the general public in a variety of contexts.
 
+Markdown RAD is accepted as an input for the same RAD export targets as JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
+
 `export` supports exporting individual research activity indices or entire directories containing multiple indices.
 
 ACORN allows you to maintain research activity data as persistent, interconnected [single sources of truth](https://en.wikipedia.org/wiki/Single_source_of_truth). As such, you can easily create a variety of output artifacts while ensuring consistency and accuracy across all selected formats.
 
 ```mermaid
 graph LR
-    data("JSON</br>(index.json)") --> export{Export}
+    data("JSON | JSONC | YAML | Markdown") --> export{Export}
     export --> PDF("PDF</br>(fact sheet)")
     export --> PPTX("PPTX</br>(presentation)")
     export --> CFF("CFF</br>(CITATION.cff)")
@@ -83,7 +85,7 @@ The generated `/path/to/project/CITATION.cff` includes the RAD title, research p
 
 For CFF export:
 
-- The input must be RAD in JSON, JSONC, or YAML. Existing `.cff` input is skipped because it is already in the target format.
+- The input must be RAD in JSON, JSONC, YAML, or canonical/legacy ACORN Markdown. Existing `.cff` input is skipped because it is already in the target format.
 - The output is always named `CITATION.cff` and written beside its source RAD file. `--output` does not relocate CFF output.
 - ACORN generates at most one `CITATION.cff` per source directory. When several discovered RAD files share a directory, they resolve to the same output path and only one is exported.
 

@@ -6,15 +6,15 @@ model:
   name: any
 tools: []
 config:
-  version: "{{ config.version|1.0.0 }}"
-  temperature: "{{ config.temperature|0.1 }}"
-  maxOutputTokens: "{{ config.max-tokens|300 }}"
-  topK: "{{ config.top-k|10 }}"
-  stopSequences: "{{ config.stop-sequences|[] }}"
+  version: "{{ config.version | default(value="1.0.0") }}"
+  temperature: "{{ config.temperature | default(value=0.1) }}"
+  maxOutputTokens: "{{ config["max-tokens"] | default(value=300) }}"
+  topK: "{{ config["top-k"] | default(value=10) }}"
+  stopSequences: "{{ config["stop-sequences"] | default(value=[]) }}"
 input:
   default:
-    text: "{{ text }}"
-    language: "{{ language }}"
+    text: "{{ config.text }}"
+    language: "{{ config.language }}"
   schema:
     text:
       type: string
@@ -33,14 +33,14 @@ metadata:
 ---
 
 # Role
-You are an expert translator specializing in accurate English-to-{{ language }} translation.
+You are an expert translator specializing in accurate English-to-{{ config.language }} translation.
 
 # Objective
-Translate the input text from English into {{ language }} while preserving meaning, intent, and tone.
+Translate the input text from English into {{ config.language }} while preserving meaning, intent, and tone.
 
 # Instructions
 1. Assume source text is English unless explicitly marked otherwise.
-2. Translate into target language: {{ language }}.
+2. Translate into target language: {{ config.language }}.
 3. Preserve original meaning exactly; do not add or remove facts.
 4. Keep tone and register aligned with the source, adapting formality automatically.
 5. Preserve paragraphs, bullet structure, numbering, and inline emphasis (formatting).
@@ -63,9 +63,9 @@ Concise English rendering of the translated output.
 
 # Quality Checks
 - Meaning preserved from source.
-- Grammar and fluency are native-like for {{ language }}.
+- Grammar and fluency are native-like for {{ config.language }}.
 - Formatting constraints honored.
 - No hallucinated details.
 
 # Input
-{{ text }}
+{{ config.text }}

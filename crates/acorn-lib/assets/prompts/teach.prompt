@@ -6,16 +6,16 @@ model:
   name: any
 tools: []
 config:
-  version: "{{ config.version|1.0.0 }}"
-  temperature: "{{ config.temperature|0.5 }}"
-  maxOutputTokens: "{{ config.max-tokens|500 }}"
-  topK: "{{ config.top-k|10 }}"
-  stopSequences: "{{ config.stop-sequences|[] }}"
+  version: "{{ config.version | default(value="1.0.0") }}"
+  temperature: "{{ config.temperature | default(value=0.5) }}"
+  maxOutputTokens: "{{ config["max-tokens"] | default(value=500) }}"
+  topK: "{{ config["top-k"] | default(value=10) }}"
+  stopSequences: "{{ config["stop-sequences"] | default(value=[]) }}"
 input:
   default:
-    text: "{{ text }}"
-    include-examples: "{{ include_examples|true }}"
-    include-practice: "{{ include_practice|true }}"
+    text: "{{ config.text }}"
+    include-examples: "{{ config["include-examples"] | default(value=true) }}"
+    include-practice: "{{ config["include-practice"] | default(value=true) }}"
   schema:
     text:
       type: string
@@ -53,8 +53,8 @@ Transform the input text into a structured teaching lesson that builds understan
 4. Create a clear progression from simple to more complex ideas.
 5. Use analogies and real-world examples that anyone can relate to.
 6. Explain at beginner level with very foundational content, lots of context, and simple language.
-7. If {{ include_examples }}, provide 2-3 concrete, relatable examples throughout.
-8. If {{ include_practice }}, create 3-5 self-check questions at the end.
+7. If {{ config["include-examples"] }}, provide 2-3 concrete, relatable examples throughout.
+8. If {{ config["include-practice"] }}, create 3-5 self-check questions at the end.
 9. Use clear headers and bullet points for easy scanning.
 10. Be accurate but accessible—never oversimplify to the point of being wrong.
 11. Highlight the "aha!" moments and connections to everyday life.
@@ -89,11 +89,11 @@ Explain the main idea in 2-3 clear paragraphs. Build from simple to complex. Use
 # Quality Checks
 - Content is accurate to the source material
 - Content is explained at beginner level (very foundational, lots of context)
-- Includes relatable examples if {{ include_examples }} is true
+- Includes relatable examples if {{ config["include-examples"] }} is true
 - Clear progression from simple to complex
 - Practice questions test true understanding
 - No jargon without explanation
 - Engaging and encouraging tone
 
 # Input
-{{ text }}
+{{ config.text }}

@@ -6,6 +6,9 @@
 # Check a specific research activity index
 acorn check path/to/project/index.json
 
+# Check Markdown research activity data
+acorn check path/to/project/index.md
+
 # Check a Citation File Format file
 acorn check path/to/project/CITATION.cff
 
@@ -17,6 +20,8 @@ acorn check https://example.org/project.json
 ```
 
 HTTP and HTTPS inputs are downloaded to a temporary file and checked using the file extension in the URL. Remote inputs require network access and are rejected in global `--offline` mode.
+
+ACORN recognizes `.md` and `.markdown` research activity files by their `schema: acorn/research-activity` YAML frontmatter discriminator. Legacy Markdown previously exported by ACORN is also accepted. Ordinary Markdown remains plain text and is not selected by RAD directory discovery.
 
 ## Watch mode
 

@@ -1,8 +1,9 @@
+use crate::impl_to_markdown;
 use crate::prelude::*;
 #[cfg(feature = "std")]
 use crate::schema::agent::Model;
 use crate::schema::namespaces::{codemeta, schema_org};
-use crate::util::{LinkedData, StringInterpolation, ToMarkdown};
+use crate::util::{LinkedData, MarkdownSupport, StringInterpolation};
 use bon::Builder;
 use core::str::FromStr;
 use derive_more::Display;
@@ -218,7 +219,7 @@ impl Default for DataDescriptionContext {
             .build()
     }
 }
-impl ToMarkdown for Data {
+impl MarkdownSupport for Data {
     fn to_markdown(&self) -> String {
         match self {
             | Self::Real(description) => format!("- Real{}", description.to_markdown()),
@@ -231,7 +232,7 @@ impl ToMarkdown for Data {
         }
     }
 }
-impl ToMarkdown for DataDescription {
+impl MarkdownSupport for DataDescription {
     fn to_markdown(&self) -> String {
         let lines = [
             self.availability.as_ref().map(|value| format!("Availability: {value}")),
@@ -247,6 +248,18 @@ impl ToMarkdown for DataDescription {
         } else {
             format!("\n{}", lines.to_markdown().trim_start().with_indent(2))
         }
+    }
+}
+impl_to_markdown!(Availability, DataReadinessLevel, GeospatialDataProcessingLevel, Modality, Quality);
+impl MarkdownSupport for DataDescriptionContext {
+    fn to_markdown(&self) -> String {
+        [
+            format!("- Availability: {}", self.availability),
+            format!("- License: {}", self.license),
+            format!("- Modality: {}", self.modality),
+            format!("- Quality: {}", self.quality),
+        ]
+        .join("\n")
     }
 }
 impl LinkedData for DataDescription {

@@ -18,7 +18,7 @@ use crate::io::{
 };
 use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
-use crate::util::StringConversion;
+use crate::util::{MimeType, StringConversion};
 use crate::{args, Location, Repository, Scheme};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
@@ -461,7 +461,7 @@ fn test_bagit() {
         .info(info)
         .build()
         .with_payload();
-    assert_eq!(bag.payload.len(), 28);
+    assert_eq!(bag.payload.len(), 30);
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
     let save_path = temp_dir.join("bag");
     match bag.save(save_path.to_str().unwrap()) {
@@ -705,7 +705,9 @@ fn test_files_all() {
     let files = files_all(fixtures_dir().join("glob"), Some(vec!["jpg"]));
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "c.jpg");
-    let files = files_all(fixtures_dir().join("glob"), None);
+    let files = files_all(fixtures_dir().join("glob"), Some(vec![MimeType::Json]));
+    assert_eq!(files.len(), 3);
+    let files = files_all(fixtures_dir().join("glob"), None::<Vec<String>>);
     assert_eq!(files.len(), 8);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.json");
 }
@@ -791,7 +793,7 @@ fn test_filter_ignored() {
         let files = files_all(fixtures_dir().join("glob"), extensions);
         let filtered = filter_ignored(files, Some("[/](a|b).json$".to_string())).unwrap();
         assert_eq!(filtered.len(), 1);
-        let files = files_all(fixtures_dir().join("glob/a.txt"), None);
+        let files = files_all(fixtures_dir().join("glob/a.txt"), None::<Vec<String>>);
         let filtered = filter_ignored(files, None).unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].file_name().unwrap().to_str().unwrap(), "a.txt");

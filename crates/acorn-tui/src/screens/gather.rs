@@ -437,7 +437,11 @@ fn load_value(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocu
     let persistent = !Identifier::find_all(input).is_empty();
     match (input.is_empty(), path.exists(), remote, persistent, offline) {
         | (true, _, _, _, _) => vec![Err(Box::new(failure("Input cannot be empty", "<input>")))],
-        | (false, true, _, _, _) => files_all(path, None).into_iter().filter(|path| path.is_file()).map(load_path).collect(),
+        | (false, true, _, _, _) => files_all(path, None::<Vec<String>>)
+            .into_iter()
+            .filter(|path| path.is_file())
+            .map(load_path)
+            .collect(),
         | (false, false, _, true, _) => vec![Ok(text_source(input, "pid"))],
         | (false, false, true, false, true) => vec![Err(Box::new(failure("Remote input is unavailable in offline mode", input)))],
         | (false, false, true, false, false) => vec![load_remote(input)],

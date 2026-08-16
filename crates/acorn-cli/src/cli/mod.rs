@@ -1,11 +1,12 @@
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
-    Source, SourceAction,
+    FromPath, Source, SourceAction,
 };
 use acorn::prelude::PathBuf;
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
-use acorn::util::{regex_inverse, regex_join};
+use acorn::util::{regex_inverse, regex_join, MimeType};
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
@@ -450,7 +451,7 @@ pub enum ServeCommands {
 /// If the options include a filter regex, only matching files are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
 pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
-    let extensions = Some(vec!["JSON", "YAML", "JSONC"]);
+    let extensions = Some(vec![MimeType::Json, MimeType::Yaml, MimeType::Jsonc, MimeType::Markdown]);
     let CommandOptions {
         branch,
         commit,
@@ -460,12 +461,12 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
         ..
     } = options;
     let (files, local_base) = if *merge_request {
-        (files_from_gitlab_merge_request(extensions).await, None)
+        (files_from_gitlab_merge_request(extensions.clone()).await, None)
     } else {
         match commit {
-            | Some(hash) => (files_from_git_commit(hash, extensions), None),
+            | Some(hash) => (files_from_git_commit(hash, extensions.clone()), None),
             | None => match branch {
-                | Some(name) => (files_from_git_branch(name, extensions), None),
+                | Some(name) => (files_from_git_branch(name, extensions.clone()), None),
                 | None => {
                     let value = match path {
                         | Some(x) => x.clone(),
@@ -480,7 +481,11 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
-
+    let is_exact = path.as_ref().is_some_and(|value| value.is_file());
+    let files = files
+        .into_iter()
+        .filter(|candidate| MimeType::from_path(candidate) != MimeType::Markdown || is_exact || ResearchActivity::is_markdown(candidate.as_path()))
+        .collect::<Vec<_>>();
     match regex_join(&patterns) {
         | Some(pattern) => match local_base {
             | Some(root) => filter_ignored_with_root(files, Some(pattern), root),

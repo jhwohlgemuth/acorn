@@ -32,6 +32,14 @@ pub const BASE_URL: &str = "https://research.ornl.gov";
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Application name.
 pub const APPLICATION: &str = "acorn";
+/// Supported research activity data filenames and extensions.
+pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
+/// Canonical schema discriminator for Markdown research activity data.
+pub const RAD_MARKDOWN_SCHEMA: &str = "acorn/research-activity";
+/// Required second-level headings in Markdown research activity data.
+pub const RAD_MARKDOWN_REQUIRED_SECTIONS: [&str; 7] = ["Mission", "Challenge", "Approach", "Impact", "Focus", "Areas", "Contact"];
+/// Optional second-level headings in Markdown research activity data.
+pub const RAD_MARKDOWN_OPTIONAL_SECTIONS: [&str; 3] = ["Achievement", "Capabilities", "ASPECT"];
 /// Delay used to coalesce rapid filesystem notifications.
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
 /// Maximum number of online synchronization attempts.

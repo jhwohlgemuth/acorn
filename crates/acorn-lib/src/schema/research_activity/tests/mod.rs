@@ -7,7 +7,7 @@
 )]
 use crate::io::InputOutput;
 use crate::prelude::PathBuf;
-use crate::schema::agent::{Model, ModelDetails};
+use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
 use crate::schema::research_activity::*;
@@ -154,44 +154,105 @@ fn test_metadata_validates_publication_identifiers() {
 }
 #[test]
 fn test_research_activity_default() {
-    let expected = r#"---
-classification: UNCLASSIFIED
-archive: false
-draft: true
-status: active
-identifier: some-research-project
-keywords: []
-technology: []
----
-# Research Activity Title
-
-## Mission
-Purpose of the research
-
-## Challenge
-Reason for the research
-
-## Approach
-- List of actions taken to perform the research
-
-## Impact
-- List of tangible proof that validates the research approach
-
-## Focus
-Focus of the research
-
-## Areas
-- Areas of research
-
-## Contact
-- Role: Researcher
-- Name: First Last
-- email: [first_last@example.com](mailto:first_last@example.com)
-- Telephone: 123-456-7890
-"#;
     let data = ResearchActivity::default();
     let actual = data.to_markdown().replace("\r\n", "\n");
-    assert_eq!(actual, expected);
+    assert!(actual.starts_with("---\n"));
+    assert!(actual.contains("schema: acorn/research-activity"));
+    assert!(actual.contains("meta:\n  archive: false"));
+    assert!(actual.contains("# Research Activity Title"));
+    assert!(actual.contains("- Given Name: First"));
+    assert!(actual.contains("- Family Name: Last"));
+    assert!(actual.contains("- URL: https://example.com"));
+    let parsed = ResearchActivity::from_markdown(&actual).expect("canonical Markdown should parse");
+    assert_eq!(
+        serde_json::to_value(parsed).expect("parsed RAD should serialize"),
+        serde_json::to_value(data).expect("source RAD should serialize")
+    );
+}
+#[test]
+fn test_markdown_rejects_unknown_section() {
+    let markdown = ResearchActivity::default()
+        .to_markdown()
+        .replace("## Contact", "## Unknown\nvalue\n\n## Contact");
+    let error = ResearchActivity::from_markdown(&markdown).expect_err("unknown section should fail");
+    assert!(error.to_string().contains("Unknown Markdown RAD section '## Unknown'"));
+}
+#[test]
+fn test_markdown_recognizes_quoted_schema_discriminator() {
+    let markdown = ResearchActivity::default()
+        .to_markdown()
+        .replace("schema: acorn/research-activity", "schema: 'acorn/research-activity'");
+    assert!(ResearchActivity::is_markdown(markdown.as_str()));
+    assert!(ResearchActivity::from_markdown(&markdown).is_ok());
+}
+#[test]
+fn test_markdown_rejects_malformed_optional_section() {
+    let markdown = ResearchActivity::default()
+        .to_markdown()
+        .replace("## Contact", "## Achievement\nnot a list\n\n## Contact");
+    let error = ResearchActivity::from_markdown(&markdown).expect_err("malformed optional section should fail");
+    assert!(error.to_string().contains("section 'Achievement' must contain only '- ' list items"));
+}
+#[test]
+fn test_markdown_body_values_round_trip_structural_text() {
+    let data = ResearchActivity {
+        title: "Title with\n## Contact".to_string(),
+        subtitle: Some("Subtitle &amp;\n## Areas".to_string()),
+        sections: Sections {
+            mission: "Purpose with\n## Contact".to_string(),
+            approach: vec!["Approach with\n## Areas &amp;".to_string()],
+            ..Sections::default()
+        },
+        contact: ContactPoint {
+            organization: "Organization with\n## Mission".to_string(),
+            ..ContactPoint::default()
+        },
+        ..ResearchActivity::default()
+    };
+    let markdown = data.to_markdown();
+    assert!(markdown.contains("&#10;## Contact"));
+    let parsed = ResearchActivity::from_markdown(&markdown).expect("encoded structural text should parse");
+    assert_eq!(
+        serde_json::to_value(parsed).expect("parsed RAD should serialize"),
+        serde_json::to_value(data).expect("source RAD should serialize")
+    );
+}
+#[test]
+fn test_canonical_markdown_rejects_invalid_contact_shape() {
+    let canonical = ResearchActivity::default().to_markdown();
+    let cases = [
+        (canonical.replace("- URL: https://example.com\n", ""), "contact is missing 'url'"),
+        (
+            canonical.replace("- Organization:", "- Unknown:\n- Organization:"),
+            "Unknown Markdown RAD contact field 'unknown'",
+        ),
+        (
+            canonical.replace("- URL: https://example.com", "- URL: https://example.com\n- URL: https://example.org"),
+            "Duplicate Markdown RAD contact field 'url'",
+        ),
+    ];
+    for (markdown, expected) in cases {
+        let error = ResearchActivity::from_markdown(&markdown).expect_err("invalid canonical contact should fail");
+        assert!(error.to_string().contains(expected), "missing '{expected}' in: {error}");
+    }
+}
+#[test]
+fn test_markdown_rejects_undiscriminated_format() {
+    let canonical = ResearchActivity::default().to_markdown();
+    let body = &canonical[canonical.find("# ").expect("canonical Markdown should contain a title")..];
+    let body = body
+        .replace(
+            "- Job Title: Researcher\n- Given Name: First\n- Family Name: Last",
+            "- Role: Researcher\n- Name: First Last",
+        )
+        .replace("- Email:", "- email:")
+        .replace("\n- URL: https://example.com\n- Organization: Some Organization", "");
+    let markdown = format!(
+        "---\nclassification: UNCLASSIFIED\narchive: false\ndraft: true\nstatus: active\nidentifier: some-research-project\nkeywords: []\ntechnology: []\n---\n{body}"
+    );
+    assert!(!ResearchActivity::is_markdown(markdown.as_str()));
+    let error = ResearchActivity::from_markdown(&markdown).expect_err("Markdown without a schema discriminator should fail");
+    assert!(error.to_string().contains("Failed to decode Markdown RAD frontmatter"));
 }
 #[test]
 fn test_aspect_to_markdown() {
@@ -238,6 +299,50 @@ fn test_aspect_to_markdown() {
   - Parameters: 8B
   - Version: 2.1.0"#;
     assert_eq!(aspect.to_markdown().replace("\r\n", "\n").trim_end(), expected);
+    let rad = ResearchActivity::init().aspect(aspect).build();
+    let parsed = ResearchActivity::from_markdown(&rad.to_markdown()).expect("ASPECT Markdown should parse");
+    assert_eq!(
+        serde_json::to_value(parsed).expect("parsed RAD should serialize"),
+        serde_json::to_value(rad).expect("source RAD should serialize")
+    );
+}
+#[test]
+fn test_aspect_model_markdown_includes_nested_fields() {
+    let details = ModelDetails::init()
+        .name("model".to_string())
+        .limit(LimitDetails {
+            context: 128_000,
+            input: Some(120_000),
+            output: Some(8_000),
+        })
+        .cost(CostDetails {
+            cache_write: Some(1.5),
+            reasoning: Some(2.5),
+            ..CostDetails::default()
+        })
+        .weights(Weights(vec![Weight {
+            label: "Q4".to_string(),
+            url: "https://example.com/model.gguf".to_string(),
+            is_open: Some(true),
+            quantization: None,
+            size: Some(42),
+        }]))
+        .build();
+    let markdown = Data::Model(Box::new(Model::LLM(details))).to_markdown();
+    for expected in [
+        "- Limits",
+        "- Context: 128000",
+        "- Input: 120000",
+        "- Output: 8000",
+        "- Cache Write: 1.5",
+        "- Reasoning: 2.5",
+        "- Weights",
+        "- Label: Q4",
+        "- Open: true",
+        "- Size: 42",
+    ] {
+        assert!(markdown.contains(expected), "missing '{expected}' in:\n{markdown}");
+    }
 }
 #[test]
 fn test_research_activity_into_cff() {

@@ -5,8 +5,6 @@
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
-use crate::fail;
-#[cfg(feature = "std")]
 use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::PathBuf;
@@ -15,6 +13,7 @@ use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::{PersistentIdentifierConvert, PublicationIdentifierType};
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
+use crate::schema::standard::text::Text;
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 use crate::schema::{
     ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
@@ -26,10 +25,8 @@ use crate::util::constants::{
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 #[cfg(feature = "std")]
-use crate::util::frontmatter_and_body;
-#[cfg(feature = "std")]
 use crate::util::{Constant, Label};
-use crate::util::{LinkedData, ToMarkdown, ToProse};
+use crate::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, StringConversion};
 use bon::Builder;
@@ -38,8 +35,6 @@ use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
 use derive_more::Display;
-#[cfg(feature = "std")]
-use fancy_regex::Regex;
 #[cfg(feature = "std")]
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
@@ -54,12 +49,14 @@ use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
-use tracing::{debug, error, trace};
+use tracing::{debug, trace};
 use validator::{Validate, ValidationError};
 
 pub mod aspect;
+mod markdown;
 pub mod s3a;
 use aspect::AspectFramework;
+use markdown::Document;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
 #[derive(Debug, Display)]
@@ -476,6 +473,7 @@ impl InputOutput for ResearchActivity {
         let result = match MimeType::from_path(&source) {
             | MimeType::Json => Self::read_json(source.clone()),
             | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | MimeType::Markdown => Self::read_markdown(source.clone()),
             | MimeType::Yaml => Self::read_yaml(source.clone()),
             | _ => Err(eyre!("Unsupported research activity data file extension")),
         };
@@ -513,26 +511,8 @@ impl InputOutput for ResearchActivity {
             })
         })
     }
-    fn read_markdown(path: PathBuf) -> Option<Self> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(path = path.to_string_lossy().to_string(), "=> {} RAD content is not valid", Label::fail());
-                "{}".to_owned()
-            }
-        };
-        let (frontmatter, _body) = frontmatter_and_body(&content);
-        let _meta: ResearchActivityMetadata = match frontmatter {
-            | Some(value) => match serde_norway::from_str(&value) {
-                | Ok(data) => data,
-                | Err(why) => {
-                    fail!("Parse RAD frontmatter - {}", why.red());
-                    ResearchActivityMetadata::default()
-                }
-            },
-            | None => ResearchActivityMetadata::default(),
-        };
-        None
+    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("{why}")))
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
@@ -584,11 +564,19 @@ impl ResearchActivity {
     pub fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         match mime {
             | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON RAD — {why}")),
+            | MimeType::Markdown => Ok(self.to_markdown()),
             | MimeType::Yaml => serde_json::to_value(self)
                 .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
                 .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))),
             | _ => Err(eyre!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
+    }
+    /// Return whether Markdown content has an ACORN research activity shape.
+    pub fn is_markdown<T>(source: T) -> bool
+    where
+        Text: TryFrom<T>,
+    {
+        Text::try_from(source).ok().is_some_and(|text| Document::recognizes(text.content()))
     }
     /// Print research activity schema as JSON or YAML schema
     #[cfg(feature = "std")]
@@ -722,40 +710,17 @@ impl From<ResearchActivity> for Cff {
         Cff::from(&rad)
     }
 }
-impl ToMarkdown for ResearchActivity {
+impl MarkdownSupport for ResearchActivity {
     fn to_markdown(&self) -> String {
-        let Self {
-            meta,
-            title,
-            subtitle,
-            sections,
-            ..
-        } = self;
-        let classification = meta.clone().classification.unwrap_or_default();
-        let frontmatter = serde_norway::to_string(&meta).unwrap_or_default();
-        let sections = sections.to_markdown();
-        let contact = self.contact.to_markdown();
-        match &subtitle {
-            | Some(subtitle) => format!(
-                r#"---
-classification: {classification}
-{frontmatter}---
-# {title}
-> {subtitle}
-{sections}
-
-{contact}"#
-            ),
-            | None => format!(
-                r#"---
-classification: {classification}
-{frontmatter}---
-# {title}
-{sections}
-
-{contact}"#
-            ),
-        }
+        Document::from(self).to_markdown()
+    }
+    #[cfg(feature = "std")]
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
+    }
+    #[cfg(not(feature = "std"))]
+    fn from_markdown(_content: &str) -> Result<Self, String> {
+        Err("Markdown parsing requires the std feature".to_string())
     }
 }
 impl ToProse for ResearchActivity {
@@ -885,9 +850,11 @@ impl Default for Sections {
         Sections::init().build()
     }
 }
-impl ToMarkdown for Research {
+impl MarkdownSupport for Research {
     fn to_markdown(&self) -> String {
         let Research { focus, areas } = self;
+        let focus = focus.to_markdown_text();
+        let areas = areas.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
         format!(
             r#"
 ## Focus
@@ -898,16 +865,31 @@ impl ToMarkdown for Research {
         )
     }
 }
-impl ToMarkdown for Sections {
+impl MarkdownSupport for Sections {
     fn to_markdown(&self) -> String {
         let Sections {
             mission,
             challenge,
             approach,
             impact,
+            achievement,
+            capabilities,
             research,
-            ..
         } = self;
+        let mission = mission.to_markdown_text();
+        let challenge = challenge.to_markdown_text();
+        let approach = approach.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let impact = impact.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let achievement = achievement
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Achievement{}", values.to_markdown()))
+            .unwrap_or_default();
+        let capabilities = capabilities
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Capabilities{}", values.to_markdown()))
+            .unwrap_or_default();
         format!(
             r#"
 ## Mission
@@ -918,12 +900,14 @@ impl ToMarkdown for Sections {
 
 ## Approach{}
 
-## Impact{}
+## Impact{}{}{}
 {}"#,
             mission,
             challenge,
             approach.to_markdown(),
             impact.to_markdown(),
+            achievement,
+            capabilities,
             research.to_markdown(),
         )
     }
@@ -959,16 +943,10 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
             }
         };
     }
-    fn sanitize(value: String) -> String {
-        match Regex::new(r"[-_.,]") {
-            | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
-            | Err(err) => err.to_string(),
-        }
-    }
     let output = data
         .into_iter()
         .flat_map(|values| {
-            let sanitized = sanitize(value.clone());
+            let sanitized = value.normalize();
             let matched = match_list(sanitized, values.clone().into_iter().take(4));
             trace!("{} => {:?}", value.clone(), matched.clone());
             if matched.clone().is_empty() {

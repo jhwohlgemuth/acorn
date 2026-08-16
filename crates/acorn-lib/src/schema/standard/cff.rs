@@ -16,7 +16,7 @@ use crate::schema::validate::{
 use crate::util::License;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
-use crate::util::{ToMarkdown, ToProse};
+use crate::util::{MarkdownSupport, ToProse};
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
@@ -586,7 +586,7 @@ impl Default for Cff {
         }
     }
 }
-impl ToMarkdown for Cff {
+impl MarkdownSupport for Cff {
     fn to_markdown(&self) -> String {
         serde_norway::to_string(self).unwrap_or_default()
     }

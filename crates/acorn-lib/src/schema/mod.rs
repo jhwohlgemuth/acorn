@@ -20,7 +20,7 @@ use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::{Constant, LinkedData, MimeType, ToMarkdown};
+use crate::util::{Constant, LinkedData, MarkdownSupport, MimeType};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
@@ -28,8 +28,6 @@ use core::hash::Hash;
 use core::iter::once;
 use core::num::NonZeroU64;
 use derive_more::Display;
-#[cfg(feature = "std")]
-use fancy_regex::Regex;
 #[cfg(feature = "std")]
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
@@ -935,27 +933,48 @@ impl OrganizationType {
         }
     }
 }
-impl ToMarkdown for ContactPoint {
+impl MarkdownSupport for ContactPoint {
     fn to_markdown(&self) -> String {
         let ContactPoint {
             given_name,
             family_name,
-            job_title: role,
+            job_title,
+            identifier,
             email,
             telephone,
+            url,
+            organization,
+            affiliation,
             ..
         } = self;
-        format!(
-            r#"## Contact
-- Role: {role}
-- Name: {given_name} {family_name}
-- email: [{email}](mailto:{email})
-- Telephone: {telephone}
-"#
-        )
+        let job_title = job_title.to_markdown_text();
+        let given_name = given_name.to_markdown_text();
+        let family_name = family_name.to_markdown_text();
+        let identifier = identifier.as_ref().map(MarkdownSupport::to_markdown_text);
+        let email = email.to_markdown_text();
+        let telephone = telephone.to_markdown_text();
+        let url = url.to_markdown_text();
+        let organization = organization.to_markdown_text();
+        let affiliation = affiliation.as_ref().map(MarkdownSupport::to_markdown_text);
+        [
+            Some("## Contact".to_string()),
+            Some(format!("- Job Title: {job_title}")),
+            Some(format!("- Given Name: {given_name}")),
+            Some(format!("- Family Name: {family_name}")),
+            identifier.as_ref().map(|value| format!("- Identifier: {value}")),
+            Some(format!("- Email: [{email}](mailto:{email})")),
+            Some(format!("- Telephone: {telephone}")),
+            Some(format!("- URL: {url}")),
+            Some(format!("- Organization: {organization}")),
+            affiliation.as_ref().map(|value| format!("- Affiliation: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n")
     }
 }
-impl ToMarkdown for Website {
+impl MarkdownSupport for Website {
     fn to_markdown(&self) -> String {
         let Website { description, url } = self;
         format!("[{}]({})", description, url)
@@ -1019,16 +1038,10 @@ pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(va
             }
         };
     }
-    fn sanitize(value: String) -> String {
-        match Regex::new(r"[-_.,]") {
-            | Ok(re) => re.replace_all(&value, "").replace("&", "and").trim().to_string(),
-            | Err(err) => err.to_string(),
-        }
-    }
     let output = data
         .into_iter()
         .flat_map(|values| {
-            let sanitized = sanitize(value.clone());
+            let sanitized = value.normalize();
             let matched = match_list(sanitized, values.clone().into_iter().take(4));
             trace!("{} => {:?}", value.clone(), matched.clone());
             if matched.clone().is_empty() {

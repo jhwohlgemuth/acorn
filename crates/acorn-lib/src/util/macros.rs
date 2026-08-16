@@ -1070,3 +1070,14 @@ macro_rules! list_validator {
         }
     };
 }
+/// Implement [`MarkdownSupport`](crate::util::MarkdownSupport) through [`Display`](core::fmt::Display).
+#[macro_export]
+macro_rules! impl_to_markdown {
+    ($($type:ty),+ $(,)?) => {
+        $(impl $crate::util::MarkdownSupport for $type {
+            fn to_markdown(&self) -> String {
+                self.to_string()
+            }
+        })+
+    };
+}

@@ -8,9 +8,12 @@
 use crate::io::InputOutput;
 use crate::prelude::{env, remove_file, PathBuf};
 use crate::schema::agent::{
-    opencode, ModelDetails, ModelResolutionReason, ModelSelector, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, Weight,
-    Weights,
+    opencode, Benchmark, CostDetails, CostTier, FrontMatter, Harness, LimitDetails, Metric, Modalities, ModelDetails, ModelResolutionReason,
+    ModelSelector, ModelSelectors, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, TierInfo, Weight, Weights,
 };
+use crate::schema::research_activity::aspect::data::Modality;
+use crate::schema::OneOrMany;
+use crate::util::MarkdownSupport;
 
 fn all_known_assets() -> [PromptFileAsset; 6] {
     [
@@ -136,6 +139,20 @@ fn test_model_selector_normalizes_values_and_fallback_search_names() {
     assert_eq!(ModelSelector::new(" "), None);
 }
 #[test]
+fn test_model_selectors_reject_malformed_structured_input() {
+    assert!(ModelSelectors::parse("models:\n  - missing required fields".to_string()).is_err());
+    assert!(ModelSelectors::parse("[invalid".to_string()).is_err());
+    assert_eq!(
+        ModelSelectors::parse("https://example.com/model".to_string())
+            .unwrap()
+            .iter()
+            .next()
+            .unwrap()
+            .as_str(),
+        "https://example.com/model"
+    );
+}
+#[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {
     [
         ("Q2K", Quantization::Q2k),
@@ -219,18 +236,93 @@ fn test_from_asset_returns_some_for_all_known_assets() {
 }
 #[test]
 fn test_render_accepts_prompt_asset_str_and_string_inputs() {
-    let config = PromptTemplateConfiguration::init().build();
-    let from_enum = PromptTemplate::render(PromptFileAsset::Summarize, &config);
-    let from_str = PromptTemplate::render("summarize", &config);
-    let from_string = PromptTemplate::render("summarize.prompt".to_string(), &config);
-    assert_eq!(from_enum.is_ok(), from_str.is_ok());
-    assert_eq!(from_str.is_ok(), from_string.is_ok());
+    let config = PromptTemplateConfiguration::init()
+        .text("source text".to_string())
+        .max_items(3)
+        .max_words(42)
+        .build();
+    let from_enum = PromptTemplate::render(PromptFileAsset::Summarize, &config).unwrap();
+    let from_str = PromptTemplate::render("summarize", &config).unwrap();
+    let from_string = PromptTemplate::render("summarize.prompt".to_string(), &config).unwrap();
+    assert_eq!(from_enum, from_str);
+    assert_eq!(from_str, from_string);
+    assert!(from_enum.contains("under 42 words"));
+    assert!(from_enum.contains("Limit key points to 3 bullets"));
+    assert!(from_enum.contains("source text"));
+    all_known_assets().iter().for_each(|asset| {
+        assert!(PromptTemplate::render(asset.clone(), &config).is_ok(), "prompt should render: {asset}");
+    });
 }
 #[test]
 fn test_render_unknown_asset_returns_error() {
     let config = PromptTemplateConfiguration::init().build();
-    let result = PromptTemplate::render("unknown.prompt", &config);
-    assert!(result.is_err());
+    let error = PromptTemplate::render("unknown.prompt", &config).expect_err("unknown prompt should fail");
+    assert!(error.to_string().contains("unknown.prompt"));
+}
+#[test]
+fn test_front_matter_to_markdown_includes_delimiters() {
+    let frontmatter = FrontMatter::init()
+        .name("summarize".to_string())
+        .description("A prompt".to_string())
+        .build();
+    let markdown = frontmatter.to_markdown();
+    assert!(markdown.starts_with("---\n"));
+    assert!(markdown.contains("name: summarize"));
+    assert!(markdown.ends_with("---"));
+}
+#[test]
+fn test_model_details_to_markdown_includes_nested_capabilities() {
+    let benchmark = Benchmark {
+        name: "MMLU".to_string(),
+        score: 0.91,
+        metric: Some(Metric::Score),
+        source: "https://example.com/benchmark".to_string(),
+        date: None,
+        dataset: Some("test-set".to_string()),
+        harness: Some(Harness::OpenCode),
+        variant: None,
+        version: Some("1".to_string()),
+    };
+    let model = ModelDetails {
+        benchmarks: Some(OneOrMany::One(benchmark)),
+        limit: Some(LimitDetails {
+            context: 128_000,
+            input: None,
+            output: Some(4_096),
+        }),
+        modalities: Some(Modalities {
+            input: vec![Modality::Text, Modality::Image],
+            output: vec![Modality::Text],
+        }),
+        cost: Some(CostDetails {
+            input: Some(1.0),
+            tiers: Some(vec![CostTier {
+                input: 0.5,
+                output: 1.0,
+                cache_read: None,
+                tier: TierInfo {
+                    kind: "context".to_string(),
+                    size: 200_000,
+                },
+            }]),
+            ..CostDetails::default()
+        }),
+        weights: Some(Weights(vec![Weight {
+            label: "Q4_K_M".to_string(),
+            url: "https://example.com/model.gguf".to_string(),
+            is_open: Some(true),
+            quantization: Some(Quantization::Q4kM),
+            size: Some(42),
+        }])),
+        ..ModelDetails::default()
+    };
+    let markdown = model.to_markdown();
+    assert!(markdown.contains("- Benchmarks\n  - Benchmark\n    - Name: MMLU"), "{markdown}");
+    assert!(markdown.contains("- Limits\n  - Context: 128000"));
+    assert!(markdown.contains("- Modalities\n  - Input: text, image"));
+    assert!(markdown.contains("- Cost\n  - Input: 1"));
+    assert!(markdown.contains("- Tiers\n    - Tier\n      - Input: 0.5"));
+    assert!(markdown.contains("- Weights\n  - Weight\n    - Label: Q4_K_M"));
 }
 #[test]
 fn test_snapshot_prompt_asset_file_names() {

@@ -10,7 +10,7 @@ use crate::io::License;
 use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
 use crate::schema::validate::{PostalCode, YearValue};
 use crate::test::utils::unique_path;
-use crate::util::{ToMarkdown, ToProse};
+use crate::util::{MarkdownSupport, ToProse};
 
 const MINIMAL_YAML: &str = r#"
 authors:

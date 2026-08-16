@@ -6,16 +6,16 @@ model:
   name: any
 tools: []
 config:
-  version: "{{ config.version|1.0.0 }}"
-  temperature: "{{ config.temperature|0.1 }}"
-  maxOutputTokens: "{{ config.max-tokens|300 }}"
-  topK: "{{ config.top-k|10 }}"
-  stopSequences: "{{ config.stop-sequences|[] }}"
+  version: "{{ config.version | default(value="1.0.0") }}"
+  temperature: "{{ config.temperature | default(value=0.1) }}"
+  maxOutputTokens: "{{ config["max-tokens"] | default(value=300) }}"
+  topK: "{{ config["top-k"] | default(value=10) }}"
+  stopSequences: "{{ config["stop-sequences"] | default(value=[]) }}"
 input:
   default:
-    text: "{{ text }}"
-    max-items: "{{ max_items|5 }}"
-    min-confidence: "{{ min_confidence|0.50 }}"
+    text: "{{ config.text }}"
+    max-items: "{{ config["max-items"] | default(value=5) }}"
+    min-confidence: "{{ config["min-confidence"] | default(value=0.50) }}"
   schema:
     text:
       type: string
@@ -55,13 +55,13 @@ Extract high-value claims from the input text and ground each claim in direct te
 
 # Instructions
 1. Read the entire text before extracting claims.
-2. Extract at most {{ max_items }} distinct claims.
+2. Extract at most {{ config["max-items"] }} distinct claims.
 3. Include both explicit claims (directly stated) and implicit claims (reasonably inferred from the text).
 4. Do not merge unrelated claims into one.
 5. For each claim, provide one concise supporting evidence quote.
 6. Keep evidence quotes short and exact; do not paraphrase in the quote field.
 7. Set claim_type to one of: factual, causal, predictive, normative, comparative, other.
-8. Keep only claims with confidence >= {{ min_confidence }}.
+8. Keep only claims with confidence >= {{ config["min-confidence"] }}.
 9. If a candidate is rejected, record it with a brief reason in discarded_candidates.
 10. Do not invent claims, entities, numbers, or citations not present in the text.
 11. Extract only from the text provided; use general domain context.
@@ -94,4 +94,4 @@ Return valid JSON only, no markdown and no prose outside JSON.
 - JSON is syntactically valid.
 
 # Input
-{{ text }}
+{{ config.text }}

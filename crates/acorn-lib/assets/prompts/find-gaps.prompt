@@ -6,14 +6,14 @@ model:
   name: any
 tools: []
 config:
-  version: "{{ config.version|1.0.0 }}"
-  temperature: "{{ config.temperature|0.6 }}"
-  maxOutputTokens: "{{ config.max-tokens|600 }}"
-  topK: "{{ config.top-k|10 }}"
-  stopSequences: "{{ config.stop-sequences|[] }}"
+  version: "{{ config.version | default(value="1.0.0") }}"
+  temperature: "{{ config.temperature | default(value=0.6) }}"
+  maxOutputTokens: "{{ config["max-tokens"] | default(value=600) }}"
+  topK: "{{ config["top-k"] | default(value=10) }}"
+  stopSequences: "{{ config["stop-sequences"] | default(value=[]) }}"
 input:
   default:
-    text: "{{ text }}"
+    text: "{{ config.text }}"
   schema:
     text:
       type: string
@@ -104,4 +104,4 @@ Return only the following Markdown structure:
 - Appropriate depth for the content's complexity
 
 # Input
-{{ text }}
+{{ config.text }}

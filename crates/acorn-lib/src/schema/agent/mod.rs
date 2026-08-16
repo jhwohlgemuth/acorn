@@ -18,7 +18,7 @@ use crate::schema::validate::is_partial_date;
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::constants::HTTP_URL;
-use crate::util::{strip_suffixes, Label, SemanticVersion, ToMarkdown};
+use crate::util::{strip_suffixes, Label, MarkdownSupport, SemanticVersion, StringInterpolation};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
@@ -830,6 +830,13 @@ impl Default for FrontMatter {
         FrontMatter::init().build()
     }
 }
+impl MarkdownSupport for FrontMatter {
+    fn to_markdown(&self) -> String {
+        self.to_front_matter()
+            .map(|frontmatter| format!("---\n{frontmatter}---"))
+            .unwrap_or_default()
+    }
+}
 impl From<&str> for Harness {
     fn from(value: &str) -> Self {
         match value {
@@ -887,28 +894,186 @@ impl From<String> for Metric {
         Self::Other(value)
     }
 }
-impl ToMarkdown for ModelDetails {
+impl MarkdownSupport for Benchmark {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Name: {}", self.name)),
+                Some(format!("- Score: {}", self.score)),
+                self.metric.as_ref().map(|value| format!("- Metric: {value}")),
+                Some(format!("- Source: {}", self.source)),
+                self.date.as_ref().map(|value| format!("- Date: {value}")),
+                self.dataset.as_ref().map(|value| format!("- Dataset: {value}")),
+                self.harness.as_ref().map(|value| format!("- Harness: {value}")),
+                self.variant.as_ref().map(|value| format!("- Variant: {value}")),
+                self.version.as_ref().map(|value| format!("- Version: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for OneOrMany<Benchmark> {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
+            | Self::Many(values) => values
+                .iter()
+                .map(|value| format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+}
+impl MarkdownSupport for CostDetails {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                self.input.map(|value| format!("- Input: {value}")),
+                self.output.map(|value| format!("- Output: {value}")),
+                self.cache_read.map(|value| format!("- Cache Read: {value}")),
+                self.cache_write.map(|value| format!("- Cache Write: {value}")),
+                self.reasoning.map(|value| format!("- Reasoning: {value}")),
+                self.input_audio.map(|value| format!("- Input Audio: {value}")),
+                self.output_audio.map(|value| format!("- Output Audio: {value}")),
+                self.context_over_200k
+                    .as_ref()
+                    .map(|value| format!("- Context Over 200K\n{}", value.to_markdown().with_additional_indent(2))),
+                self.tiers.as_ref().map(|values| {
+                    format!(
+                        "- Tiers\n{}",
+                        values
+                            .iter()
+                            .map(|value| format!("- Tier\n{}", value.to_markdown().with_additional_indent(2)))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                            .with_additional_indent(2)
+                    )
+                }),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for CostTier {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                format!("- Input: {}", self.input),
+                format!("- Output: {}", self.output),
+                self.cache_read.map(|value| format!("- Cache Read: {value}")).unwrap_or_default(),
+                format!("- Type: {}", self.tier.kind),
+                format!("- Size: {}", self.tier.size),
+            ]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for LimitDetails {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Context: {}", self.context)),
+                self.input.map(|value| format!("- Input: {value}")),
+                self.output.map(|value| format!("- Output: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for Modalities {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                (!self.input.is_empty()).then(|| format!("- Input: {}", self.input.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
+                (!self.output.is_empty())
+                    .then(|| format!("- Output: {}", self.output.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for Weight {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Label: {}", self.label)),
+                Some(format!("- URL: {}", self.url)),
+                self.is_open.map(|value| format!("- Open: {value}")),
+                self.quantization.as_ref().map(|value| format!("- Quantization: {value}")),
+                self.size.map(|value| format!("- Size: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for Weights {
+    fn to_markdown(&self) -> String {
+        self.0
+            .iter()
+            .map(|value| format!("- Weight\n{}", value.to_markdown().with_additional_indent(2)))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+impl MarkdownSupport for ModelDetails {
     fn to_markdown(&self) -> String {
         let lines = [
             self.attachment.map(|value| format!("- Attachment: {value}")),
+            self.benchmarks
+                .as_ref()
+                .map(|value| format!("- Benchmarks\n{}", value.to_markdown().with_additional_indent(2))),
             self.family.as_ref().map(|value| format!("- Family: {value}")),
             self.id.as_ref().map(|value| format!("- ID: {value}")),
             self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),
             self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
+            self.limit
+                .as_ref()
+                .map(|value| format!("- Limits\n{}", value.to_markdown().with_additional_indent(2))),
+            self.modalities
+                .as_ref()
+                .map(|value| format!("- Modalities\n{}", value.to_markdown().with_additional_indent(2))),
             self.name.as_ref().map(|value| format!("- Name: {value}")),
             self.open_weights.map(|value| format!("- Open Weights: {value}")),
             self.path.as_ref().map(|value| format!("- Path: {value}")),
-            self.cost.as_ref().map(|c| {
-                let parts = [
-                    c.input.map(|v| format!("input=${v}")),
-                    c.output.map(|v| format!("output=${v}")),
-                    c.cache_read.map(|v| format!("cache_read=${v}")),
-                ]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>();
-                format!("- Cost: {}", parts.join(", "))
-            }),
+            self.cost
+                .as_ref()
+                .map(|value| format!("- Cost\n{}", value.to_markdown().with_additional_indent(2))),
             self.parameters.map(|value| format!("- Parameters: {value}B")),
             self.reasoning.map(|value| format!("- Reasoning: {value}")),
             self.release_date.as_ref().map(|value| format!("- Release Date: {value}")),
@@ -918,6 +1083,9 @@ impl ToMarkdown for ModelDetails {
             self.fallback.as_ref().map(|value| format!("- Fallback: {value}")),
             self.variant.as_ref().map(|value| format!("- Variant: {value}")),
             self.version.as_ref().map(|value| format!("- Version: {value}")),
+            self.weights
+                .as_ref()
+                .map(|value| format!("- Weights\n{}", value.to_markdown().with_additional_indent(2))),
         ]
         .into_iter()
         .flatten()
@@ -1022,16 +1190,24 @@ impl From<Vec<String>> for ModelSelectors {
 }
 impl TryFrom<String> for ModelSelectors {
     type Error = Report;
+
     fn try_from(content: String) -> Result<Self, Self::Error> {
         let trimmed = content.trim();
         if trimmed.is_empty() {
             Err(eyre!("Model list file cannot be empty"))
         } else {
+            let starts_with_collection = trimmed.starts_with(['[', '{']);
+            let has_structured_line = trimmed.lines().any(|line| {
+                let line = line.trim_start();
+                let is_list_item = line.starts_with("- ");
+                let is_mapping_key = line.ends_with(':');
+                let is_key_value = !line.contains("://") && line.split_once(':').is_some_and(|(key, _)| !key.trim().is_empty());
+                is_list_item || is_mapping_key || is_key_value
+            });
+            let structured = starts_with_collection || has_structured_line;
             match serde_norway::from_str::<ModelListFile>(trimmed) {
                 | Ok(file) => file.selectors().require_non_empty(),
-                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
-                    Err(eyre!("Failed to parse model list file as JSON or YAML — {why}"))
-                }
+                | Err(why) if structured => Err(eyre!("Failed to parse model list file as JSON or YAML — {why}")),
                 | Err(_) => Self::from(trimmed.lines().map(str::to_string).collect::<Vec<_>>()).require_non_empty(),
             }
         }
@@ -1131,9 +1307,9 @@ impl PromptTemplate {
             .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("Prompt template not found — {name}")))
             .map_err(Report::from)
             .and_then(|template| {
-                Context::from_serialize(config)
-                    .map_err(Report::from)
-                    .and_then(|context| Tera::one_off(&template, &context, false).map_err(Report::from))
+                let mut context = Context::new();
+                context.insert("config", config);
+                Tera::one_off(&template, &context, false).map_err(Report::from)
             })
     }
 }
@@ -1239,7 +1415,7 @@ impl Quantization {
         })
     }
 }
-impl ToMarkdown for ProviderDetails {
+impl MarkdownSupport for ProviderDetails {
     fn to_markdown(&self) -> String {
         let lines = [
             self.endpoint.as_ref().map(|value| format!("- API Endpoint: {value}")),

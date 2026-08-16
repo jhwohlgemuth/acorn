@@ -121,6 +121,7 @@ pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPath
             match MimeType::from(path.display().to_string()) {
                 | MimeType::Cff => Standard::CitationFileFormat,
                 | MimeType::Docx => Standard::Docx,
+                | MimeType::Markdown if ResearchActivity::is_markdown(path.as_path()) => Standard::ResearchActivityData,
                 | MimeType::Text | MimeType::Markdown => Standard::Text,
                 | _ => Standard::ResearchActivityData,
             }

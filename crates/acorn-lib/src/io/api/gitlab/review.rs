@@ -10,7 +10,7 @@ use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, env, remove_dir_all, write, PathBuf};
 use crate::schema::pid::Identifier;
 use crate::util::constants::app::{APPLICATION, MAX_ANALYSIS_FILE_BYTES, MERGE_REQUEST_REPORT_MARKER};
-use crate::util::{generate_guid, MimeType, ToMarkdown};
+use crate::util::{generate_guid, MarkdownSupport, MimeType};
 use color_eyre::eyre::{eyre, Report};
 use core::iter::once;
 use futures::stream::{self, StreamExt};

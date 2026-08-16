@@ -14,10 +14,11 @@
 //!
 //! In the context of technology, AI/ML and automation are the same.
 //!
+use crate::impl_to_markdown;
 use crate::prelude::*;
 use crate::schema::namespaces::schema_org;
 use crate::schema::TechnologyReadinessLevel;
-use crate::util::{LinkedData, ToMarkdown};
+use crate::util::{LinkedData, MarkdownSupport};
 use bon::Builder;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -234,7 +235,7 @@ impl Default for AspectFrameworkContext {
             .build()
     }
 }
-impl ToMarkdown for AspectFramework {
+impl MarkdownSupport for AspectFramework {
     fn to_markdown(&self) -> String {
         let summary = [
             self.portability.as_ref().map(|value| format!("- Portability: {value}")),
@@ -248,7 +249,7 @@ impl ToMarkdown for AspectFramework {
         let data = self
             .data
             .as_ref()
-            .map(|values| values.iter().map(ToMarkdown::to_markdown).collect::<Vec<_>>())
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>())
             .filter(|values| !values.is_empty())
             .map(|values| format!("\n\n### Data\n{}", values.join("\n")))
             .unwrap_or_default();
@@ -258,6 +259,19 @@ impl ToMarkdown for AspectFramework {
         } else {
             format!("## ASPECT\n{}{}", summary.join("\n"), data)
         }
+    }
+}
+impl_to_markdown!(Autonomy, Maturity, Motivity, SoftwarePortability, VisidataMachineAssistanceLevel);
+impl MarkdownSupport for AspectFrameworkContext {
+    fn to_markdown(&self) -> String {
+        [
+            format!("- Data: {}", self.data),
+            format!("- Portability: {}", self.portability),
+            format!("- Motivity: {}", self.motivity),
+            format!("- Autonomy: {}", self.autonomy),
+            format!("- Maturity: {}", self.maturity),
+        ]
+        .join("\n")
     }
 }
 impl From<VisidataMachineAssistanceLevel> for Autonomy {

@@ -34,6 +34,7 @@ use jsonc_parser::{parse_to_serde_value, ParseOptions};
 #[cfg(feature = "std")]
 use nanoid::nanoid;
 use schemars::JsonSchema;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIs;
@@ -56,6 +57,64 @@ pub use terminal::{
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
     fn with_context(&self) -> Self;
+}
+/// Read and write Markdown data, including YAML front matter and escaped text
+pub trait MarkdownSupport {
+    /// Convert `self` to Markdown format string
+    fn to_markdown(&self) -> String;
+    /// Parse Markdown content into a value.
+    fn from_markdown(content: &str) -> Result<Self, String>
+    where
+        Self: Sized,
+    {
+        let _ = content;
+        Err("Markdown parsing is not implemented for this type".to_string())
+    }
+    /// Deserialize YAML front matter while preserving nested enum representations.
+    fn from_front_matter(value: &str) -> Result<Self, String>
+    where
+        Self: DeserializeOwned + Sized,
+    {
+        serde_norway::from_str::<Value>(value)
+            .map_err(|why| why.to_string())
+            .and_then(|value| serde_json::from_value(value).map_err(|why| why.to_string()))
+    }
+    /// Serialize YAML front matter while preserving nested enum representations.
+    fn to_front_matter(&self) -> Result<String, String>
+    where
+        Self: Serialize,
+    {
+        serde_json::to_value(self)
+            .map_err(|why| why.to_string())
+            .and_then(|value| serde_norway::to_string(&value).map_err(|why| why.to_string()))
+    }
+    /// Encode a scalar value so Markdown structure cannot reinterpret its contents.
+    fn to_markdown_text(&self) -> String
+    where
+        Self: AsRef<str>,
+    {
+        self.as_ref().replace('&', "&amp;").replace('\r', "&#13;").replace('\n', "&#10;")
+    }
+    /// Decode an encoded Markdown scalar value.
+    fn decode_markdown_text(&self) -> String
+    where
+        Self: AsRef<str>,
+    {
+        self.as_ref().replace("&#13;", "\r").replace("&#10;", "\n").replace("&amp;", "&")
+    }
+    /// Normalize a vocabulary value for fuzzy matching.
+    fn normalize(&self) -> String
+    where
+        Self: AsRef<str>,
+    {
+        self.as_ref()
+            .chars()
+            .filter(|character| !matches!(character, '-' | '_' | '.' | ','))
+            .collect::<String>()
+            .replace('&', "and")
+            .trim()
+            .to_string()
+    }
 }
 /// Helper trait for searching lists of named elements
 pub trait Searchable<T> {
@@ -94,11 +153,8 @@ where
     fn replace_placeholder_with_string(&self, placeholder: &str, value: &str) -> String;
     /// Prepend indentation of a given number of spaces to each line of a text
     fn with_indent(&self, spaces: usize) -> String;
-}
-/// Format data structures as Markdown
-pub trait ToMarkdown {
-    /// Convert `self` to Markdown format string
-    fn to_markdown(&self) -> String;
+    /// Prepend indentation while preserving indentation already present on each line
+    fn with_additional_indent(&self, spaces: usize) -> String;
 }
 /// Format data structures as prose suitable for static analysis
 pub trait ToProse {
@@ -725,8 +781,26 @@ where
             .collect::<Vec<_>>()
             .join(LINE_SEPARATOR)
     }
+    fn with_additional_indent(&self, spaces: usize) -> String {
+        let prefix = " ".repeat(spaces);
+        self.to_string()
+            .lines()
+            .map(|line| prefix.clone() + line)
+            .collect::<Vec<_>>()
+            .join(LINE_SEPARATOR)
+    }
 }
-impl<P: AsRef<str>> ToMarkdown for Vec<P> {
+impl MarkdownSupport for str {
+    fn to_markdown(&self) -> String {
+        self.to_string()
+    }
+}
+impl MarkdownSupport for String {
+    fn to_markdown(&self) -> String {
+        self.clone()
+    }
+}
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
     fn to_markdown(&self) -> String {
         if self.is_empty() {
             "[]".to_string()
@@ -738,10 +812,10 @@ impl<P: AsRef<str>> ToMarkdown for Vec<P> {
         }
     }
 }
-impl<P: AsRef<str> + ToMarkdown> ToMarkdown for Option<Vec<P>> {
+impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
     fn to_markdown(&self) -> String {
         match &self {
-            | Some(values) => format!("{LINE_SEPARATOR}{}", values.to_markdown()),
+            | Some(values) => values.to_markdown(),
             | None => "[]".to_string(),
         }
     }

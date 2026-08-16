@@ -92,7 +92,7 @@ async fn prepare_documents(options: Options<'_>) -> ApiResult<Prepared<Input>> {
                 | (_, stdin) => {
                     let has_content = !text.is_empty() || stdin.is_some();
                     let inputs = match (merge_request, input.is_empty(), has_content) {
-                        | (true, _, _) => files_from_gitlab_merge_request(None)
+                        | (true, _, _) => files_from_gitlab_merge_request(None::<Vec<String>>)
                             .await
                             .into_iter()
                             .map(|path| path.display().to_string())
@@ -178,7 +178,7 @@ fn expand(inputs: &[String], filters: &FilterSet, max_depth: Option<usize>) -> V
         .flat_map(|value| {
             let path = uri_to_path(value);
             match path.exists() {
-                | true => files_all_with_max_depth(path, None, max_depth)
+                | true => files_all_with_max_depth(path, None::<Vec<String>>, max_depth)
                     .into_iter()
                     .filter(|path| path.is_file())
                     .map(|path| path.display().to_string())

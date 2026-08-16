@@ -8,14 +8,14 @@ use crate::error::ApiResult;
 use crate::io::document::{DocumentFormat, SourceDocument};
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-#[cfg(feature = "std")]
-use crate::prelude::PathBuf;
 use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::{Path, PathBuf};
 #[cfg(feature = "std")]
 use crate::util::file_extension;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
-use crate::util::{ToMarkdown, ToProse, Unstructured};
+use crate::util::{MarkdownSupport, ToProse, Unstructured};
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
@@ -36,6 +36,26 @@ pub struct Text {
     /// Raw text content
     pub content: String,
 }
+impl From<&str> for Text {
+    fn from(content: &str) -> Self {
+        Self {
+            content: content.to_string(),
+        }
+    }
+}
+impl From<String> for Text {
+    fn from(content: String) -> Self {
+        Self { content }
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<&Path> for Text {
+    type Error = color_eyre::Report;
+
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        Self::read(path.to_path_buf())
+    }
+}
 #[cfg(feature = "std")]
 impl InputOutput for Text {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
@@ -50,8 +70,8 @@ impl InputOutput for Text {
     fn read_json(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
     }
-    fn read_markdown(path: PathBuf) -> Option<Self> {
-        Self::read_text(path).ok()
+    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+        Self::read_text(path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
@@ -90,8 +110,8 @@ impl InputOutput for Docx {
     fn read_json(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
     }
-    fn read_markdown(path: PathBuf) -> Option<Self> {
-        Self::read_text(path).ok()
+    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+        Self::read_text(path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
@@ -114,12 +134,12 @@ impl InputOutput for Docx {
         self.write_text(path)
     }
 }
-impl ToMarkdown for Docx {
+impl MarkdownSupport for Docx {
     fn to_markdown(&self) -> String {
         self.content().to_string()
     }
 }
-impl ToMarkdown for Text {
+impl MarkdownSupport for Text {
     fn to_markdown(&self) -> String {
         self.content().to_string()
     }
