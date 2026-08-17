@@ -43,7 +43,7 @@ If you would like to generously provide a pull request to correct a verified iss
 | Generate a benchmark history report      | `make bench-report` |
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
-| Build and validate the documentation book | `make book-check`  |
+| Build the documentation book              | `make book`        |
 | Regenerate command-line help              | `make help`        |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
 
@@ -215,7 +215,7 @@ When `Commands`, a subcommand enum, or an argument struct changes:
 1. Run `make help` to regenerate `CommandLineHelp.md`.
 2. Update the matching page under `docs/src/cli-reference/commands/`.
 3. Add or remove its entry in `docs/src/SUMMARY.md` and the command index.
-4. Run `make book-check`.
+4. Run `make book`.
 5. Include the generated-help and documentation diff in the same merge request as the CLI change.
 
 Ownership follows the code that implements each workflow:

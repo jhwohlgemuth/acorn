@@ -1,12 +1,34 @@
 variables:
   BINARY_NAME: acorn
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
+  CARGO_TARGET_DIR: $CI_PROJECT_DIR/target/$CI_JOB_ID
+  CARGO_NET_RETRY: "3"
+  CARGO_HTTP_TIMEOUT: "120"
+  NIGHTLY_TOOLCHAIN: nightly-2026-08-01
   CHANGELOG: https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md
   USER: ACORN CI
   EMAIL: $GITLAB_USER_EMAIL
   HOMEBREW_TAP_REPO_URL: https://code.ornl.gov/research-enablement/homebrew-acorn.git
   HOMEBREW_TAP_FORMULA_PATH: Formula/acorn-cli.rb
-  CI_DEBUG_SERVICES: true
   IS_VERSION_TAGGED: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - when: never
+
+default:
+  interruptible: true
+  retry:
+    max: 2
+    when:
+      - api_failure
+      - runner_system_failure
+      - stuck_or_timeout_failure
 
 stages:
   - prepare
@@ -18,11 +40,9 @@ stages:
 
 prepare-environment:
   stage: prepare
-  image: ubuntu
+  image: ubuntu@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
   tags:
     - cpu
-  inherit:
-    variables: false
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -47,17 +67,14 @@ test:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - crates/${BINARY_NAME}-cli/**/*
-        - crates/${BINARY_NAME}-lib/**/*
-        - Cargo.toml
   script:
     - make test-ci
 
 test-python:
   stage: test
-  image: ghcr.io/prefix-dev/pixi:latest
+  image: ghcr.io/prefix-dev/pixi@sha256:e059bf6b10fca60158d8cfd81a150a81318f23a427212ac782210c46149af90b
   tags:
     - cpu
   inherit:
@@ -65,12 +82,19 @@ test-python:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - crates/${BINARY_NAME}-py/**/*
+        - Cargo.toml
+        - Cargo.lock
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - crates/${BINARY_NAME}-py/**/*
+        - Cargo.toml
+        - Cargo.lock
   script:
     - apt-get update && apt-get install -y build-essential curl
-    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - curl -LsSf https://astral.sh/uv/0.12.2/install.sh | sh
     - source $HOME/.local/bin/env && cd crates/${BINARY_NAME}-py && pixi run test
 
 test-docs:
@@ -81,17 +105,26 @@ test-docs:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - changes:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
         - CommandLineHelp.md
         - Makefile
         - crates/acorn-cli/src/cli/**/*
         - docs/**/*
-        - scripts/book-check.sh
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - CommandLineHelp.md
+        - Makefile
+        - crates/acorn-cli/src/cli/**/*
+        - docs/**/*
   script:
-    - cargo install mdbook mdbook-mermaid mdbook-pikchr
+    - command -v mdbook >/dev/null && command -v mdbook-mermaid >/dev/null && command -v mdbook-pikchr >/dev/null || cargo install --locked mdbook@0.5.2 mdbook-mermaid@0.17.0 mdbook-pikchr@0.2.0
+    - rustc --version
+    - cargo --version
+    - mdbook --version
     - make help
     - git diff --exit-code -- CommandLineHelp.md
-    - make book-check
+    - make book
 
 fuzz-smoke:
   stage: test
@@ -103,23 +136,32 @@ fuzz-smoke:
   needs:
     - job: test
       optional: true
-    - job: test-python
-      optional: true
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - crates/acorn-lib/**/*
+        - fuzz/**/*
+        - Cargo.toml
+        - Cargo.lock
+        - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - crates/acorn-lib/**/*
         - fuzz/**/*
         - Cargo.toml
+        - Cargo.lock
         - .gitlab-ci.yml
   script:
+    - rustup run "${NIGHTLY_TOOLCHAIN}" cargo --version >/dev/null 2>&1 || rustup toolchain install "${NIGHTLY_TOOLCHAIN}" --profile minimal
+    - command -v cargo-fuzz >/dev/null || cargo install --locked cargo-fuzz@0.13.1
+    - rustc --version
+    - cargo --version
+    - cargo "+${NIGHTLY_TOOLCHAIN}" --version
     - cargo check --manifest-path fuzz/Cargo.toml
-    - cargo install cargo-fuzz --locked
-    - rustup toolchain install nightly --profile minimal
-    - cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
-    - cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+    - cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
+    - cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
 
 benchmark:
   stage: performance
@@ -128,7 +170,9 @@ benchmark:
     - cpu
   inherit:
     variables: true
+  interruptible: false
   resource_group: benchmarks
+  timeout: 30 minutes
   needs:
     - job: test
       optional: true
@@ -149,13 +193,21 @@ benchmark:
       when: manual
       allow_failure: true
   script:
+    - mkdir -p "${CARGO_TARGET_DIR}/benchmark-results"
+    - rustc --version
+    - cargo --version
     - make bench-baseline
     - bash scripts/benchmarks/persist.sh
+  after_script:
+    - mkdir -p "${CARGO_TARGET_DIR}/benchmark-results"
+    - echo "job_status=${CI_JOB_STATUS}" > "${CARGO_TARGET_DIR}/benchmark-results/job-status.txt"
+    - rustc --version >> "${CARGO_TARGET_DIR}/benchmark-results/job-status.txt" 2>&1 || true
+    - cargo --version >> "${CARGO_TARGET_DIR}/benchmark-results/job-status.txt" 2>&1 || true
   artifacts:
     name: "benchmarks-${CI_PIPELINE_ID}-${CI_JOB_ID}"
     expose_as: "Benchmark report"
     paths:
-      - target/benchmark-results/
+      - target/${CI_JOB_ID}/benchmark-results/
     expire_in: 30 days
     when: always
 
@@ -166,6 +218,7 @@ build-release:
     - cpu
   inherit:
     variables: true
+  timeout: 45 minutes
   needs:
     - job: test
   script:
@@ -184,11 +237,14 @@ build-release:
 
 publish-release:
   stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  image: registry.gitlab.com/gitlab-org/release-cli@sha256:c6dd712bec70f693ef9435f3c74d7321c03a9d9137834705aeaced70632ea386
   tags:
     - cpu
   inherit:
     variables: true
+  interruptible: false
+  resource_group: gitlab-releases
+  retry: 0
   needs:
     - job: prepare-environment
       artifacts: true
@@ -214,11 +270,14 @@ publish-release:
 
 upload-binaries:
   stage: release
-  image: curlimages/curl:latest
+  image: curlimages/curl@sha256:b375ea94488a70540f48df7a7029bcce50e650915816e6497774db9451b4f877
   tags:
     - cpu
   inherit:
     variables: true
+  interruptible: false
+  resource_group: gitlab-package-uploads
+  retry: 0
   needs:
     - job: prepare-environment
       artifacts: true
@@ -233,8 +292,7 @@ upload-binaries:
         - Cargo.toml
   script:
     - ls -la bin/
-    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION} ${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}'
-    - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${BINARY_NAME}-v${PKG_VERSION}.exe ${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.exe'
+    - sh scripts/upload-binaries.sh
 
 publish-crates:
   stage: release
@@ -243,21 +301,24 @@ publish-crates:
     - cpu
   inherit:
     variables: true
+  interruptible: false
+  resource_group: crates-io
+  retry: 0
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
   script:
-    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-macros"
-    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-lib"
-    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-tui"
-    - cargo publish --token "${CARGO_REGISTRY_TOKEN}" --package "${BINARY_NAME}-cli"
+    - bash scripts/publish-crates.sh
 
 publish-homebrew-formula:
   stage: release
-  image: alpine:latest
+  image: alpine@sha256:79ff19e9084a00eece421b2523fb93e22d730e2c0e525905de047e848e56d95f
   tags:
     - cpu
   inherit:
     variables: true
+  interruptible: false
+  resource_group: homebrew-tap
+  retry: 0
   needs:
     - job: publish-crates
   rules:
@@ -287,13 +348,19 @@ publish-book:
     - cpu
   inherit:
     variables: true
+  interruptible: false
+  resource_group: documentation-site
+  retry: 0
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - docs/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
   script:
-    - cargo install mdbook mdbook-mermaid mdbook-pikchr
+    - command -v mdbook >/dev/null && command -v mdbook-mermaid >/dev/null && command -v mdbook-pikchr >/dev/null || cargo install --locked mdbook@0.5.2 mdbook-mermaid@0.17.0 mdbook-pikchr@0.2.0
+    - mdbook --version
     - git config --global user.name "${USER}"
     - git config --global user.email "${EMAIL}"
     - make publish-book

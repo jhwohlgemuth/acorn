@@ -46,19 +46,17 @@ book:
 	@mdbook clean docs
 	@mdbook build docs
 
-book-check:
-	@bash scripts/book-check.sh
-	@mdbook build docs
-
 book-write:
 	@mdbook serve --open docs
 
-build: clean
+build:
 ifeq ($(OS),Windows_NT)
+	@$(CLEAN_BIN_CMD)
 	@pwsh -Command New-Item -ItemType Directory -Path ".\bin" -Force
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
 	@pwsh -Command Move-Item -Path "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe" -Destination "./bin/acorn-v${VERSION}.exe" -Force
 else
+	@$(CLEAN_BIN_CMD)
 	@mkdir -p ./bin
 	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
@@ -107,13 +105,13 @@ doctest:
 
 lint:
 	@cargo fmt --check
-	@cargo clippy --workspace --no-deps --all-features --all-targets --fix --allow-dirty
+	@cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
 	@rm -rf ./site/html
 	@mv docs/book ./site/html
-	@cd ./site && git add html && git commit -m "Publish ACORN Book" && git push
+	@cd ./site && git add html && (git diff --cached --quiet || (git commit -m "Publish ACORN Book" && git push))
 
 test:
 	@cargo nextest run
@@ -121,7 +119,7 @@ test:
 test-all:
 	@cargo nextest run --run-ignored all
 
-test-ci: clean lint
+test-ci: lint
 	@cargo test --lib --bins --tests
 	@cargo test --lib --bins --tests --no-default-features
 

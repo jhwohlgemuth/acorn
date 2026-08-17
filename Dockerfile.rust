@@ -1,5 +1,7 @@
 ARG RUST_VERSION=1.95.0
+ARG NIGHTLY_TOOLCHAIN=nightly-2026-08-01
 FROM rust:${RUST_VERSION}-slim
+ARG NIGHTLY_TOOLCHAIN
 #
 # %labels
 #
@@ -37,6 +39,11 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && rm -f /tmp/powershell.tar.gz \
     && rustup component add clippy \
     && rustup component add rustfmt \
+    && rustup toolchain install "${NIGHTLY_TOOLCHAIN}" --profile minimal \
+    && cargo install --locked cargo-fuzz --version 0.13.1 \
+    && cargo install --locked mdbook --version 0.5.2 \
+    && cargo install --locked mdbook-mermaid --version 0.17.0 \
+    && cargo install --locked mdbook-pikchr --version 0.2.0 \
     && apt-get clean \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \

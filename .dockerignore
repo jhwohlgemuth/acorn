@@ -1,10 +1,12 @@
 .DS_store
 .env
+/.git
 /.vale
 /.vscode
 /.vale
+**/.pixi
 /bin
 /content
 /export
 /extract
-/target
+**/target
