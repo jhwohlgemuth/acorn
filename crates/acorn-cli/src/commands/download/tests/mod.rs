@@ -63,6 +63,27 @@ fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_download_zero_items_prints_warning() {
+    let temp_dir = temp_test_dir("download_zero_items_warning");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket = format!("file:{}/", fixture_path("data/bucket").display());
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .args(["--no-local-database", "download"])
+        .arg(bucket)
+        .args(["--filter", "^does-not-match$"])
+        .arg("--output")
+        .arg(temp_dir.join("output"))
+        .output()
+        .expect("run zero-item bucket download");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("WARNING"));
+    assert!(!stdout.contains("SUCCESS"));
+    assert!(stdout.contains("Processed"));
+}
+
 fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
     let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
     let result = with_var("HF_ENDPOINT", Some(endpoint), test);

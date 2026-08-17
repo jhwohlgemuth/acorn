@@ -970,6 +970,7 @@ pub struct RunnerScope {
 pub struct TreeResponse {
     /// Blob file paths extracted from the tree response payload
     pub paths: Vec<String>,
+    pub(crate) entry_count: usize,
     /// Embedded GitLab error response when the API returns an error object
     #[serde(skip_serializing)]
     pub(crate) error: Option<ErrorResponse>,
@@ -1650,12 +1651,17 @@ impl<'de> serde::Deserialize<'de> for TreeResponse {
         }
 
         match TreeResponseValue::deserialize(deserializer)? {
-            | TreeResponseValue::Entries(entries) => Ok(Self {
-                paths: entries.into_iter().filter(TreeEntry::is_file).map(TreeEntry::path).collect(),
-                error: None,
-            }),
+            | TreeResponseValue::Entries(entries) => {
+                let entry_count = entries.len();
+                Ok(Self {
+                    paths: entries.into_iter().filter(TreeEntry::is_file).map(TreeEntry::path).collect(),
+                    entry_count,
+                    error: None,
+                })
+            }
             | TreeResponseValue::Error(why) => Ok(Self {
                 paths: vec![],
+                entry_count: 0,
                 error: Some(why),
             }),
         }

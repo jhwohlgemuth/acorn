@@ -86,7 +86,7 @@ pub async fn run(
                         }
                     }
                     if !quiet {
-                        println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+                        print_result(total);
                     }
                 }
                 branch_result
@@ -134,7 +134,7 @@ pub async fn run(
                     log_activity("download", path.to_absolute_path(), database_path, true);
                 }
                 if !quiet {
-                    println!("\n\n   => {} Processed {} item{}\n", Label::pass(), total.green(), suffix(total));
+                    print_result(total);
                 }
             }
         }
@@ -152,7 +152,6 @@ pub async fn run(
     };
     result
 }
-
 fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<PathBuf>, success: bool) {
     let database = Database::<Table>::from_path(database_path.clone());
     let activity = ActivityRow::init()
@@ -164,6 +163,13 @@ fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<P
     if let Err(why) = database.insert(activity) {
         error!("=> {} Save {command} activity — {why}", Label::fail());
     }
+}
+fn print_result(total: usize) {
+    let (label, count) = match total {
+        | 0 => (Label::warning(), total.yellow().to_string()),
+        | _ => (Label::pass(), total.green().to_string()),
+    };
+    println!("\n\n   => {label} Processed {count} item{}\n", suffix(total));
 }
 
 #[cfg(test)]

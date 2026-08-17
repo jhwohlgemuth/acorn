@@ -917,7 +917,7 @@ impl Bucket {
                         loop {
                             let page_options = options.clone().with_page(page);
                             match gitlab::tree_paths(&page_options).await {
-                                | Ok(response) if response.paths.is_empty() => {
+                                | Ok(response) if response.entry_count == 0 => {
                                     break Ok(all_paths.clone());
                                 }
                                 | Ok(response) => {

@@ -242,6 +242,10 @@ impl Label {
     pub fn using() -> String {
         Self::fmt_using("USING")
     }
+    /// Warning label
+    pub fn warning() -> String {
+        Self::fmt_skip("WARNING")
+    }
     /// Format a using label.
     pub fn fmt_using(value: &str) -> String {
         #[cfg(feature = "std")]

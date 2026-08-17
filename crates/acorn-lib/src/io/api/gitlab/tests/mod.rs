@@ -115,6 +115,17 @@ fn test_parse_tree_paths_response_filters_blob_entries() {
     ]"#;
     let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
     assert_eq!(response.paths, vec!["README.md".to_string()]);
+    assert_eq!(response.entry_count, 2);
+}
+#[test]
+fn test_parse_tree_paths_response_retains_directory_only_page_count() {
+    let json = r#"[
+        {"id":"1","name":"content","type":"tree","path":"content","mode":"040000"},
+        {"id":"2","name":"docs","type":"tree","path":"docs","mode":"040000"}
+    ]"#;
+    let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
+    assert!(response.paths.is_empty());
+    assert_eq!(response.entry_count, 2);
 }
 #[test]
 fn test_parse_tree_paths_response_treats_later_page_403_as_terminal() {
