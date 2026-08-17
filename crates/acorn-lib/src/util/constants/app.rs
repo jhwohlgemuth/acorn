@@ -44,6 +44,12 @@ pub const RAD_MARKDOWN_OPTIONAL_SECTIONS: [&str; 3] = ["Achievement", "Capabilit
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
 /// Maximum number of online synchronization attempts.
 pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
+/// Initial exponential backoff delay for retryable HTTP requests, in milliseconds.
+pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
+/// Maximum backoff delay for retryable HTTP requests, in seconds.
+pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
+/// Header used to authenticate GitLab API requests with a private token.
+pub const GITLAB_PRIVATE_TOKEN_HEADER: &str = "PRIVATE-TOKEN";
 /// Maximum file size accepted by merge request analysis
 pub const MAX_ANALYSIS_FILE_BYTES: u64 = 1_048_576;
 /// Maximum number of durable GitLab operation attempts

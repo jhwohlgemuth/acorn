@@ -678,16 +678,16 @@ impl Params {
     pub fn build(self) -> Vec<Param> {
         self.0
     }
-    /// Add any pre-built `Param` value
-    pub fn with(self, param: Param) -> Self {
-        Self(self.0.into_iter().chain(once(param)).collect())
-    }
     /// Populate with Bearer auth header and identifier template value from a
     /// [`Configuration`] provider.
     pub fn from_config(config: &impl Configuration) -> Self {
         Self::new()
             .with_auth(config.token(), None)
             .with_template("identifier", config.identifier())
+    }
+    /// Add any pre-built `Param` value
+    pub fn with(self, param: Param) -> Self {
+        Self(self.0.into_iter().chain(once(param)).collect())
     }
     /// Add an authentication header if `token` is non-empty.
     ///
@@ -705,6 +705,15 @@ impl Params {
             self.with(param!(Header, header_name, header_value.as_str()))
         } else {
             self
+        }
+    }
+    /// Add an authentication header when an optional token is present and non-empty
+    /// ### Note
+    /// Uses the same header semantics as [`Params::with_auth`]
+    pub fn with_auth_maybe(self, token: Option<&str>, name: Option<&str>) -> Self {
+        match token.map(str::trim).filter(|value| !value.is_empty()) {
+            | Some(value) => self.with_auth(value, name),
+            | None => self,
         }
     }
     /// Add a template-value parameter, skipping if the value is `None` or empty

@@ -8,6 +8,7 @@ use super::{
     ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
     WebhookRegistration, WorkItem, GITLAB_TOKEN_VARIABLE_NAMES, INCLUDED_ENDPOINTS,
 };
+use crate::util::constants::app::GITLAB_PRIVATE_TOKEN_HEADER;
 use serde::Deserialize;
 
 pub(crate) fn handle_tree_paths_response(response: ApiResult<TreeResponse>, page: u32) -> ApiResult<TreeResponse> {
@@ -44,7 +45,7 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_body("description", description)
                     .with_body(&format!("{runner_type}_id"), options.identifier.as_deref().unwrap_or_default())
                     .with_body("runner_type", &format!("{runner_type}_type"))
@@ -105,7 +106,7 @@ pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -125,7 +126,7 @@ pub async fn version(options: &Options) -> ApiResult<InstanceVersion> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = Params::new().with_auth(&token, Some("PRIVATE-TOKEN")).build();
+                let params = Params::new().with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER)).build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle::<InstanceVersion>(response)
             }
@@ -148,7 +149,7 @@ fn project_webhooks_page(options: &Options) -> BoxFuture<'_, ApiResult<ProjectWe
             | Ok(token) => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
                 | Ok(endpoint) => {
                     let params = Params::new()
-                        .with_auth(&token, Some("PRIVATE-TOKEN"))
+                        .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                         .with_template("identifier", options.identifier())
                         .with_keyvalue("page", Some(&page.to_string()))
                         .with_keyvalue("per_page", Some("100"))
@@ -215,7 +216,7 @@ async fn write_project_webhook(options: &Options, action: &str, hook_id: Option<
                     | Ok(body) => {
                         let hook_id = hook_id.map(|value| value.to_string());
                         let params = Params::new()
-                            .with_auth(&token, Some("PRIVATE-TOKEN"))
+                            .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                             .with_template("identifier", options.identifier())
                             .with_template("hook_id", hook_id.as_deref())
                             .with(crate::param!(Body, &body))
@@ -242,7 +243,7 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_keyvalue("page", Some("1"))
                     .with_keyvalue("per_page", Some("100"))
@@ -267,7 +268,7 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -325,7 +326,7 @@ pub async fn merge_request(options: &Options) -> ApiResult<MergeRequestDetails> 
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .build();
@@ -343,7 +344,7 @@ pub fn merge_request_diffs(options: &Options) -> BoxFuture<'_, ApiResult<MergeRe
             | Ok((endpoint, token)) => {
                 let page_value = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page_value))
@@ -368,19 +369,23 @@ pub fn merge_request_diffs(options: &Options) -> BoxFuture<'_, ApiResult<MergeRe
 /// Fetch the configured repository file at an exact commit SHA
 pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
     let action = "repository-file";
-    let endpoint = authenticated_endpoint(action, options);
+    let endpoint = Endpoint::from_template("gitlab::api").map(|endpoint| endpoint.with_domain(options.domain()));
     let identifier = options.identifier();
     let path = options.path();
     let sha = options.sha();
     match (endpoint, identifier, path, sha) {
-        | (Ok((endpoint, token)), Some(project_identifier), Ok(file_path), Ok(sha)) => {
+        | (Ok(endpoint), Some(project_identifier), Ok(file_path), Ok(sha)) => {
             let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_path = urlencoding::encode(file_path);
+            let fallback = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES);
+            let token = (!options.token.trim().is_empty())
+                .then_some(options.token.as_str())
+                .or(fallback.as_deref());
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
                 .with_template("identifier", Some(encoded_identifier.as_ref()))
                 .with_template("file_path", Some(encoded_path.as_ref()))
                 .with_keyvalue("ref", Some(sha))
+                .with_auth_maybe(token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .build();
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<RepositoryFile, Fallback<ErrorResponse>>(response)
@@ -404,7 +409,7 @@ pub async fn publish_commit_status(
             let state = state.to_string();
             let project_id = project_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", project_id.as_deref().or(options.identifier()))
                 .with_template("sha", Some(sha))
                 .with_body("state", &state)
@@ -429,7 +434,7 @@ fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<NotesR
             | Ok((endpoint, token)) => {
                 let page_value = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page_value))
@@ -456,7 +461,7 @@ pub async fn current_user(options: &Options) -> ApiResult<GitLabIdentity> {
     let action = "current-user";
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
-            let params = Params::new().with_auth(&token, Some("PRIVATE-TOKEN")).build();
+            let params = Params::new().with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER)).build();
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<GitLabIdentity, Fallback<ErrorResponse>>(response)
         }
@@ -469,7 +474,7 @@ pub async fn work_item(options: &Options) -> ApiResult<WorkItem> {
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .build();
@@ -486,7 +491,7 @@ pub async fn project_member(options: &Options, user_id: u64) -> ApiResult<Projec
         | Ok((endpoint, token)) => {
             let user_id = user_id.to_string();
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", options.identifier())
                 .with_template("user_id", Some(&user_id))
                 .build();
@@ -504,7 +509,7 @@ pub fn work_item_notes(options: &Options) -> BoxFuture<'_, ApiResult<NotesRespon
             | Ok((endpoint, token)) => {
                 let page = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page))
@@ -546,7 +551,7 @@ async fn write_work_item_note(options: &Options, note_id: Option<u64>, body: &st
         | Ok((endpoint, token)) => {
             let note_id = note_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .with_template("note_id", note_id.as_deref())
@@ -583,7 +588,7 @@ async fn write_merge_request_note(options: &Options, note_id: Option<u64>, body:
         | Ok((endpoint, token)) => {
             let note_id = note_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some("PRIVATE-TOKEN"))
+                .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .with_template("note_id", note_id.as_deref())
@@ -610,7 +615,7 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
             | Ok(endpoint) => {
                 let body = options.body.as_deref().unwrap_or_default();
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_body("body", body)
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
@@ -633,7 +638,7 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -654,7 +659,7 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some("PRIVATE-TOKEN"))
+                    .with_auth(&token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
                     .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
@@ -671,23 +676,20 @@ pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
     let action = "tree";
     match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
         | Ok(endpoint) => {
+            let fallback = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES);
+            let token = (!options.token.trim().is_empty())
+                .then_some(options.token.as_str())
+                .or(fallback.as_deref());
             let params = Params::new()
                 .with_template("identifier", options.identifier())
                 .with_keyvalue("per_page", Some("100"))
                 .with_keyvalue("page", Some(&options.page.to_string()))
                 .with_keyvalue("recursive", Some("true"))
                 .with_keyvalue("path", options.path.as_deref())
-                .with_custom(options.params());
-            let token = if options.token.trim().is_empty() {
-                first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
-            } else {
-                Some(options.token.clone())
-            };
-            let params = match token.as_ref().filter(|v| !v.trim().is_empty()) {
-                | Some(token) => params.with_auth(token, Some("PRIVATE-TOKEN")),
-                | None => params,
-            };
-            let response = endpoint.invoke(action, Some(params.build())).await;
+                .with_custom(options.params())
+                .with_auth_maybe(token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
             handle_tree_paths_response(endpoint.handle_or::<TreeResponse, Fallback<ErrorResponse>>(response), options.page)
         }
         | Err(why) => Err(why),

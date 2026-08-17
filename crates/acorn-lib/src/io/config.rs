@@ -859,13 +859,25 @@ impl Bucket {
                                     let output = Arc::clone(&output);
                                     let repository = Arc::clone(&code_repository);
                                     async move {
-                                        match repository.raw_url(item.source.display().to_string()) {
-                                            | Some(url) => {
-                                                let output_filepath = output.join(item.destination);
-                                                write_file_bytes(output_filepath, || async move { Source::read_bytes(&url, false).await }).await
-                                            }
-                                            | None => Err(eyre!("Failed to build raw URL for repository path")),
-                                        }
+                                        let source = item.source.display().to_string();
+                                        let bytes = match repository.as_ref() {
+                                            | Repository::GitLab { .. } => match (repository.domain(), repository.project_path()) {
+                                                | (Some(domain), Some(identifier)) => {
+                                                    let options = gitlab::Options::from_env()
+                                                        .with_domain(domain)
+                                                        .with_identifier(identifier)
+                                                        .with_path(source)
+                                                        .with_sha("HEAD");
+                                                    gitlab::repository_file(&options).await.and_then(|file| file.decoded_content())
+                                                }
+                                                | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
+                                            },
+                                            | _ => match repository.raw_url(source) {
+                                                | Some(url) => Source::read_bytes(&url, false).await,
+                                                | None => Err(eyre!("Failed to build raw URL for repository path")),
+                                            },
+                                        };
+                                        write_file_bytes(output.join(item.destination), || async { bytes }).await
                                     }
                                 }
                             };

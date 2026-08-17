@@ -8,7 +8,7 @@
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
-use crate::io::http::policy::{http_timeout_layer, shared_http_policy};
+use crate::io::http::policy::{http_timeout_layer, retry_delay, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
@@ -20,9 +20,12 @@ use crate::prelude::OsString;
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::{MimeType, StringConversion};
 use crate::{args, Location, Repository, Scheme};
+use axum::http::header::RETRY_AFTER;
+use axum::http::{HeaderMap, HeaderValue};
 use color_eyre::Report;
 use fluent_uri::Uri as UriParse;
 use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, TermLike};
+use jiff::{SignedDuration, Timestamp};
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
@@ -1002,6 +1005,26 @@ fn test_shared_http_policy_defaults() {
     assert_eq!(policy.timeout.as_secs(), 30);
     assert_eq!(policy.max_retries, 2);
     assert_eq!(policy.max_attempts(), 3);
+}
+#[test]
+fn test_retry_delay_honors_retry_after_header() {
+    let mut headers = HeaderMap::new();
+    headers.insert(RETRY_AFTER, HeaderValue::from_static("12"));
+    assert_eq!(retry_delay(Some(&headers), 1, Timestamp::UNIX_EPOCH), SignedDuration::from_secs(12));
+}
+#[test]
+fn test_retry_delay_honors_http_date_header() {
+    let now = "1994-11-06T08:49:25Z".parse::<Timestamp>().unwrap();
+    let value = "Sun, 06 Nov 1994 08:49:37 GMT";
+    let mut headers = HeaderMap::new();
+    headers.insert(RETRY_AFTER, HeaderValue::from_bytes(value.as_bytes()).unwrap());
+    assert_eq!(retry_delay(Some(&headers), 1, now), SignedDuration::from_secs(12));
+}
+#[test]
+fn test_retry_delay_uses_bounded_exponential_fallback() {
+    assert_eq!(retry_delay(None, 1, Timestamp::UNIX_EPOCH), SignedDuration::from_millis(250));
+    assert_eq!(retry_delay(None, 2, Timestamp::UNIX_EPOCH), SignedDuration::from_millis(500));
+    assert_eq!(retry_delay(None, usize::MAX, Timestamp::UNIX_EPOCH), SignedDuration::from_secs(60));
 }
 #[test]
 fn test_shared_http_timeout_layer_constructs() {

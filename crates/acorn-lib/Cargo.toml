@@ -49,6 +49,7 @@ futures = { workspace = true }
 glob = { workspace = true }
 hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
 hf-hub = { workspace = true, optional = true }
+httpdate = { workspace = true, optional = true }
 human-units = { version = "0.5.3", default-features = false }
 indicatif = { workspace = true, optional = true }
 is_executable = { version = "1.0.5", default-features = false, optional = true }
@@ -149,6 +150,7 @@ std = [
   "dep:directories",
   "dep:dotenvy",
   "dep:hf-hub",
+  "dep:httpdate",
   "dep:indicatif",
   "dep:is_executable",
   "dep:lychee-lib",

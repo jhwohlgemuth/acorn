@@ -6,17 +6,22 @@ use crate::util::Label;
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, RANGE, USER_AGENT};
 use axum::http::HeaderMap;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
 
 pub mod policy;
 
+#[derive(Builder)]
+#[builder(start_fn = init)]
 struct DownloadError {
     status_code: Option<u16>,
+    retry_headers: Option<HeaderMap>,
     report: color_eyre::Report,
 }
 /// Async HTTP service abstraction for ACORN I/O.
@@ -78,8 +83,8 @@ impl Default for ReqwestHttpService {
     fn default() -> Self {
         let policy = policy::shared_http_policy();
         let client = reqwest::Client::builder()
-            .timeout(policy.timeout)
-            .connect_timeout(policy.connect_timeout)
+            .timeout(policy.timeout.unsigned_abs())
+            .connect_timeout(policy.connect_timeout.unsigned_abs())
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
         Self { client }
@@ -172,7 +177,7 @@ impl ReqwestHttpService {
     fn streaming() -> Self {
         let policy = policy::shared_http_policy();
         let client = reqwest::Client::builder()
-            .connect_timeout(policy.connect_timeout)
+            .connect_timeout(policy.connect_timeout.unsigned_abs())
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
         Self { client }
@@ -260,10 +265,23 @@ async fn stream_request_with_policy(
                 outcome = Some(Ok(()));
                 break;
             }
-            | Err(DownloadError { status_code, report }) => {
+            | Err(DownloadError {
+                status_code,
+                retry_headers,
+                report,
+            }) => {
                 let retry = should_retry(&method, status_code);
                 if retry && attempt < max_attempts {
-                    warn!(attempt, elapsed_ms, url, "=> {} Retrying HTTP download — {report}", Label::using());
+                    let delay = policy::retry_delay(retry_headers.as_ref(), attempt, Timestamp::now());
+                    warn!(
+                        attempt,
+                        elapsed_ms,
+                        retry_after_ms = delay.as_millis(),
+                        url,
+                        "=> {} Retrying HTTP download — {report}",
+                        Label::using()
+                    );
+                    sleep(delay.unsigned_abs()).await;
                 } else {
                     warn!(attempt, elapsed_ms, url, "=> {} HTTP download failed — {report}", Label::fail());
                     outcome = Some(Err(report));
@@ -295,10 +313,14 @@ async fn stream_request_once(
     match request.send().await {
         | Ok(response) if matches!(response.status().as_u16(), 401 | 403) => {
             let status_code = response.status().as_u16();
-            Err(DownloadError {
-                status_code: Some(status_code),
-                report: eyre!("{}", auth_error_message.unwrap_or("Failed to download file — authentication required")),
-            })
+            Err(DownloadError::init()
+                .status_code(status_code)
+                .retry_headers(response.headers().clone())
+                .report(eyre!(
+                    "{}",
+                    auth_error_message.unwrap_or("Failed to download file — authentication required")
+                ))
+                .build())
         }
         | Ok(mut response) if response.status().is_success() => {
             let append = response.status().as_u16() == 206 && resume_from.is_some();
@@ -329,16 +351,17 @@ async fn stream_request_once(
                 }
                 | Err(why) => Err(eyre!("{error_message} — failed to create output file {} — {why}", output.display())),
             }
-            .map_err(|report| DownloadError { status_code: None, report })
+            .map_err(|report| DownloadError::init().report(report).build())
         }
-        | Ok(response) => Err(DownloadError {
-            status_code: Some(response.status().as_u16()),
-            report: eyre!("{error_message} — HTTP {}", response.status()),
-        }),
-        | Err(why) => Err(DownloadError {
-            status_code: None,
-            report: eyre!("{error_message} — {why}"),
-        }),
+        | Ok(response) => {
+            let status = response.status();
+            Err(DownloadError::init()
+                .status_code(status.as_u16())
+                .retry_headers(response.headers().clone())
+                .report(eyre!("{error_message} — HTTP {status}"))
+                .build())
+        }
+        | Err(why) => Err(DownloadError::init().report(eyre!("{error_message} — {why}")).build()),
     }
 }
 async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
@@ -354,14 +377,17 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
             | Ok(response) => {
                 let retry = should_retry(&method, Some(response.status_code));
                 if retry && attempt < max_attempts {
+                    let delay = policy::retry_delay(Some(&response.headers), attempt, Timestamp::now());
                     warn!(
                         attempt,
                         status_code = response.status_code,
                         elapsed_ms,
+                        retry_after_ms = delay.as_millis(),
                         url,
                         "=> {} Retrying HTTP request",
                         Label::using()
                     );
+                    sleep(delay.unsigned_abs()).await;
                 } else {
                     debug!(
                         attempt,
@@ -377,7 +403,16 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
             | Err(why) => {
                 let retry = should_retry(&method, None);
                 if retry && attempt < max_attempts {
-                    warn!(attempt, elapsed_ms, url, "=> {} Retrying HTTP request — {why}", Label::using());
+                    let delay = policy::retry_delay(None, attempt, Timestamp::now());
+                    warn!(
+                        attempt,
+                        elapsed_ms,
+                        retry_after_ms = delay.as_millis(),
+                        url,
+                        "=> {} Retrying HTTP request — {why}",
+                        Label::using()
+                    );
+                    sleep(delay.unsigned_abs()).await;
                 } else {
                     warn!(attempt, elapsed_ms, url, "=> {} HTTP request failed — {why}", Label::fail());
                     return Err(why);
