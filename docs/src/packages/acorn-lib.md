@@ -7,6 +7,16 @@
 
 The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `acorn-lib` library provides core functionalities for working with ACORN [schemas](../concepts/acorn.md), processing [persistent identifiers through their lifecycle](../concepts/persistent-identifiers.md), and generating artifacts.
 
+## AI And Agent APIs
+
+The library also provides building blocks for optional AI-enabled applications:
+
+- `acorn::schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
+- Embedded prompt templates support summarization, translation, teaching, claim extraction, and gap finding.
+- `acorn::io::api::openai` provides an OpenAI-compatible client surface for completions, chat completions, responses, embeddings, model discovery, and related endpoints.
+
+These APIs complement ACORN's deterministic schema and artifact workflows; applications decide when and how a model is invoked.
+
 > [!IMPORTANT]
 > When ACORN validates a PID, it does not rely only on recognition patterns. It also validates parsed structure and, for ISBNs[^isbn], ORCIDs[^orcid], and RORs[^ror], the check digits implemented for that identifier. Validation is local and does not confirm registration with an external authority.
 

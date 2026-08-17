@@ -1,5 +1,8 @@
 # 🤖 Format
-> Auto-fix and format research activity data (RAD) files to maintain consistency, resolve values, and improve prose quality
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Normalize RAD fields and controlled vocabulary values with <code>acorn format &lt;PATH&gt;</code>.</p>
+</blockquote>
 
 ## Example Usage
 ```sh
@@ -69,3 +72,5 @@ Markdown formatting rewrites the document into ACORN's canonical representation.
 - **Partners**: `"NREL"` → *resolves* to `"National Renewable Energy Laboratory"`
 - **Technologies**: `"rs"` → *resolves* to `"rust"`
 - **Sponsors**: `"Dept. of Energy"` → *resolves* to `"Department of Energy"`
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Create a shareable artifact with <a href="export.md">Export</a>.</p>

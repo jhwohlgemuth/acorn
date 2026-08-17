@@ -43,6 +43,8 @@ If you would like to generously provide a pull request to correct a verified iss
 | Generate a benchmark history report      | `make bench-report` |
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
+| Build and validate the documentation book | `make book-check`  |
+| Regenerate command-line help              | `make help`        |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
 
 ### Benchmarking
@@ -203,6 +205,30 @@ make fuzz-repro FUZZ_CRASH='fuzz/artifacts/research_activity/crash-...'
 - Running `make test` should not have any failures
 - Running `make cover` should not decrease coverage
 - Exceptions to any of these standards should be supported by strong reasoning and sufficient effort
+
+### Keeping CLI documentation in sync
+
+The CLI definitions and generated help are the option-level source of truth. Curated command pages explain intent, workflows, and troubleshooting without duplicating every flag.
+
+When `Commands`, a subcommand enum, or an argument struct changes:
+
+1. Run `make help` to regenerate `CommandLineHelp.md`.
+2. Update the matching page under `docs/src/cli-reference/commands/`.
+3. Add or remove its entry in `docs/src/SUMMARY.md` and the command index.
+4. Run `make book-check`.
+5. Include the generated-help and documentation diff in the same merge request as the CLI change.
+
+Ownership follows the code that implements each workflow:
+
+| Commands | Code owner | Documentation |
+|---|---|---|
+| `check`, `format`, `link`, `export` | RAD workflow module maintainers | Matching command page |
+| `gather` | Identifier workflow module maintainers | Gather and persistent identifier lifecycle |
+| `download`, `import`, `sync` | Model and I/O workflow module maintainers | Matching command page and model workflows |
+| `create`, `serve` | Service and infrastructure module maintainers | Matching command page |
+| `doctor`, `skill`, `tui` | CLI experience module maintainers | Matching command page |
+
+The docs check builds the mdBook, verifies relative Markdown targets, requires one page and navigation entry per generated top-level command, and rejects WIP markers in command pages.
 
 ## Good First Issues
 > See [GOOD_FIRST_ISSUES.md](./GOOD_FIRST_ISSUES.md) for a curated list of beginner-friendly tasks that apply functional programming principles to improve the codebase.

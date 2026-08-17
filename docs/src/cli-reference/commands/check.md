@@ -1,5 +1,8 @@
 # ✅ Check
-> Perform checks on associated research activity data to ensure consistency, readability, and easy analysis.
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Validate RAD structure, links, and prose with <code>acorn check &lt;PATH&gt;</code>.</p>
+</blockquote>
 
 ## Example Use
 ```sh
@@ -102,3 +105,5 @@ MAX_ALLOWED_CLI=14.0
 [^metrics]: See the [readability module documentation](https://docs.rs/acorn-lib/latest/acorn_lib/analyzer/readability/enum.ReadabilityType.html) for a full list of available readability metrics.
 
 [^warn]: ⚠️ Skipping checksum verification may expose you to security risks. Use this option with caution.
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Normalize a checked record with <a href="format.md">Format</a>.</p>

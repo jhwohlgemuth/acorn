@@ -73,6 +73,26 @@ test-python:
     - curl -LsSf https://astral.sh/uv/install.sh | sh
     - source $HOME/.local/bin/env && cd crates/${BINARY_NAME}-py && pixi run test
 
+test-docs:
+  stage: test
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  tags:
+    - cpu
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - changes:
+        - CommandLineHelp.md
+        - Makefile
+        - crates/acorn-cli/src/cli/**/*
+        - docs/**/*
+        - scripts/book-check.sh
+  script:
+    - cargo install mdbook mdbook-mermaid mdbook-pikchr
+    - make help
+    - git diff --exit-code -- CommandLineHelp.md
+    - make book-check
+
 fuzz-smoke:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest

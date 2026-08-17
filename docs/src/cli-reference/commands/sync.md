@@ -1,8 +1,46 @@
 # 🔄 Sync
 
-> Synchronize downloaded GGUF models with llama-swap, OpenCode, VS Code, and Goose configuration
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Route downloaded GGUF models into supported applications with <code>acorn sync --dry-run</code>.</p>
+</blockquote>
 
 `acorn sync` resolves model entries to GGUF files in the local models directory. With no target flags, it includes every application whose command is available: `llama-swap`, `opencode`, `code`, and `goose`. App-specific flags form an inclusion set, so `--opencode --vscode` includes both OpenCode and VS Code. Every included target must have its command available unless it was explicitly included alongside `--force`; `--force` without app-specific flags does not bypass command detection. Use `--assume-models` separately to skip model filesystem verification.
+
+<div style="height: 3rem" aria-hidden="true"></div>
+
+```pikchr
+scale = 0.72
+Start: circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.45in thick color 0x00662C
+Sources: box "ACORN config +" "model file" wid 1.2in ht 0.52in rad 0.08in fill 0xF3F0FF thickness 0
+arrow right 0.45in thick color 0x00662C
+Resolve: box "Resolve local" "GGUF files" wid 1.05in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0
+arrow right 0.45in thick color 0x00662C
+Select: box wid 0.9in ht 0.52in rad 0.08in fill 0x00662C color 0x00662C
+text "Select targets" color white at Select
+arrow right 0.75in thick color 0x00662C
+Llama: box "llama-swap" "YAML" wid 1.2in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0
+arrow right 0.55in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+OpenCode: box "OpenCode" "JSON / JSONC" wid 1.2in ht 0.52in rad 0.08in fill 0xFCE8E6 thickness 0 at Llama+(0,-0.72in)
+VSCode: box "VS Code" "model JSON" wid 1.2in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0 at Llama+(0,-1.44in)
+Goose: box "Goose" "YAML" wid 1.2in ht 0.52in rad 0.08in fill 0xFFF4D6 thickness 0 at Llama+(0,-2.16in)
+Skip: box "Report and skip" wid 1.15in ht 0.52in rad 0.08in fill 0xF2F2F2 thickness 0 at Resolve+(0,-1.08in)
+arrow from Select.e right 0.375in then down until even with OpenCode then to OpenCode.w thick color 0x00662C
+arrow from OpenCode.e right 0.275in then up until even with End then to End.w thick color 0x00662C
+arrow from Select.e right 0.375in then down until even with VSCode then to VSCode.w thick color 0x00662C
+arrow from VSCode.e right 0.275in then up until even with End then to End.w thick color 0x00662C
+arrow from Select.e right 0.375in then down until even with Goose then to Goose.w thick color 0x00662C
+arrow from Goose.e right 0.275in then up until even with End then to End.w thick color 0x00662C
+arrow dashed from Resolve.s to Skip.n thick color 0x00662C
+text "unresolved" color 0x00662C at Resolve+(0.38in,-0.56in)
+```
+
+<div id="sync-workflow" data-pikchr-fit hidden></div>
+
+<div style="height: 3rem" aria-hidden="true"></div>
 
 Unless overridden, llama-swap configuration is written to `~/.config/llama-swap/config.yaml`. OpenCode uses an existing project or user `opencode.jsonc`/`opencode.json` configuration when available and otherwise writes `~/.config/opencode/opencode.jsonc`. VS Code writes `Code/User/chatLanguageModels.json` beneath the platform configuration directory. Goose writes `~/.config/goose/config.yaml` on macOS/Linux or `%APPDATA%\Block\goose\config\config.yaml` on Windows. Override those paths with `--vscode-config` and `--goose-config`.
 
@@ -54,3 +92,5 @@ acorn sync --model-file ./models.txt --dry-run
 ```
 
 Use `--prune` to remove stale ACORN-managed models from the selected target configurations.
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;See how every model stage connects in <a href="../model-workflows.md">Model workflows</a>.</p>

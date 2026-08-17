@@ -2,11 +2,33 @@
 
 ACORN separates model metadata, model files, and inference configuration into three operations. Choose the command based on the state you want to change:
 
+<div style="height: 3rem" aria-hidden="true"></div>
+
+```pikchr
+scale = 0.72
+circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.35in thick color 0x00662C
+box "Model catalog" wid 1.05in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
+box "import model" wid 1.0in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
+box "download model" wid 1.15in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
+box "sync" wid 0.68in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
+box "Local apps" wid 0.88in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.35in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+```
+
+<div style="height: 4.5rem" aria-hidden="true"></div>
+
 | Command | Changes | Use it when |
 | --- | --- | --- |
 | `acorn import model` | Resolves and stores Hugging Face GGUF metadata | You want to inspect repositories, discover GGUF fallbacks, or populate ACORN's model catalog without downloading weights |
 | `acorn download model` | Resolves metadata and downloads selected GGUF files | You need model weights on the local machine |
-| `acorn sync` | Updates OpenCode and llama-swap configuration | Model files already exist and you want to reconcile inference configuration |
+| `acorn sync` | Updates OpenCode, VS Code, Goose, and llama-swap configuration | Model files already exist and you want to reconcile agent or inference configuration |
 
 Import and download accept positional model entries. All three commands can use configured entries and accept `--model-file` for a local path, `file://` URI, or HTTP(S) document containing model IDs or model details.
 
@@ -36,12 +58,14 @@ The command resolves metadata as part of the download, so a separate import is o
 
 ## Synchronize inference configuration
 
-Use `sync` when model files are already present and OpenCode or llama-swap configuration needs to reflect ACORN's model list:
+Use `sync` when model files are already present and OpenCode, VS Code, Goose, or llama-swap configuration needs to reflect ACORN's model list:
 
 ```sh
 acorn sync
 acorn sync --model-file ./models.json --opencode
 acorn sync --model-file ./models.json --llama-swap
+acorn sync --model-file ./models.json --vscode
+acorn sync --model-file ./models.json --goose
 ```
 
 Standalone sync performs full reconciliation and supports target-path and models-directory overrides. Add `--prune` when stale ACORN-managed entries should be removed. Use `--dry-run` to preview configuration diffs without writing files:
@@ -58,7 +82,7 @@ By default, synchronization includes only models whose local GGUF files can be r
 Both model commands offer inline synchronization for the models resolved by that invocation. Inline sync also adds their identifiers to the ACORN configuration's `models` list, preserving existing entries and omitting duplicate identifiers:
 
 ```sh
-# Download weights, then add the downloaded models to both configurations
+# Download weights, then add the downloaded models to supported configurations
 acorn download model openai/gpt-oss-20b --sync
 
 # Import metadata, then configure a model that will exist at the assumed path
@@ -78,4 +102,4 @@ Inline `--sync` is additive and limited to the current import or download. `--dr
 - To download and configure selected models in one invocation, use `download model --sync`.
 - To prepare configuration before model paths exist, add `--force`, preferably with `--dry-run` first.
 
-See [Import](import.md#model-metadata), [Download](download.md#models), and [Sync](sync.md) for all command-specific options.
+See [Import](commands/import.md#model-metadata), [Download](commands/download.md#models), and [Sync](commands/sync.md) for all command-specific options.

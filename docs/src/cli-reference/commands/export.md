@@ -1,5 +1,8 @@
 # 📤 Export
-> Export research activity data to various formats for analysis and sharing
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Turn one RAD source into a shareable artifact with <code>acorn export &lt;PATH&gt; --format &lt;FORMAT&gt;</code>.</p>
+</blockquote>
 
 This command allows you to export research activity data from ACORN into formats such as CFF, PDF, Markdown, YAML, or PPTX. With `export`, you can easily share your research with sponsors, collaborators, or the general public in a variety of contexts.
 
@@ -9,16 +12,40 @@ Markdown RAD is accepted as an input for the same RAD export targets as JSON and
 
 ACORN allows you to maintain research activity data as persistent, interconnected [single sources of truth](https://en.wikipedia.org/wiki/Single_source_of_truth). As such, you can easily create a variety of output artifacts while ensuring consistency and accuracy across all selected formats.
 
-```mermaid
-graph LR
-    data("JSON | JSONC | YAML | Markdown") --> export{Export}
-    export --> PDF("PDF</br>(fact sheet)")
-    export --> PPTX("PPTX</br>(presentation)")
-    export --> CFF("CFF</br>(CITATION.cff)")
-    export --> Convert("JSON | YAML | Markdown</br>(add to project)")
-    export --> BAG("BagIt</br>(archive)")
-    export --> more("More to come...</br>(Markdown, YAML, etc.)")
+```pikchr
+scale = 0.8
+Start: circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.653in thick color 0x00662C
+JSON: box wid 1.5in ht 0.52in rad 0.08in fill 0xF3F0FF thickness 0
+arrow right 0.653in thick color 0x00662C
+Export: box wid 0.8in ht 0.52in rad 0.08in fill 0x00662C color 0x00662C
+text "Export" color white at Export
+arrow right 0.85in thick color 0x00662C
+PDF: box wid 1.5in ht 0.52in rad 0.08in fill 0xFCE8E6 thickness 0
+arrow right 0.653in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+PPTX: box wid 1.5in ht 0.52in rad 0.08in fill 0xFBE9E2 thickness 0 at PDF+(0,-0.72in)
+CFF: box wid 1.5in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0 at PDF+(0,-1.44in)
+Project: box wid 1.5in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0 at PDF+(0,-2.16in)
+Bag: box wid 1.5in ht 0.52in rad 0.08in fill 0xFFF4D6 thickness 0 at PDF+(0,-2.88in)
+YAML: box wid 1.5in ht 0.52in rad 0.08in fill 0xFFF0F0 thickness 0 at JSON+(0,-0.72in)
+Markdown: box wid 1.5in ht 0.52in rad 0.08in fill 0xF2F2F2 thickness 0 at JSON+(0,-1.44in)
+arrow from Start.e right 0.3265in then down until even with YAML then to YAML.w thick color 0x00662C
+arrow from YAML.e right 0.3265in then up until even with Export then to Export.w thick color 0x00662C
+arrow from Start.e right 0.3265in then down until even with Markdown then to Markdown.w thick color 0x00662C
+arrow from Markdown.e right 0.3265in then up until even with Export then to Export.w thick color 0x00662C
+arrow from Export.e right 0.3265in then down until even with PPTX then to PPTX.w thick color 0x00662C
+arrow from PPTX.e right 0.3265in then up until even with End then to End.w thick color 0x00662C
+arrow from Export.e right 0.3265in then down until even with CFF then to CFF.w thick color 0x00662C
+arrow from CFF.e right 0.3265in then up until even with End then to End.w thick color 0x00662C
+arrow from Export.e right 0.3265in then down until even with Project then to Project.w thick color 0x00662C
+arrow from Project.e right 0.3265in then up until even with End then to End.w thick color 0x00662C
+arrow from Export.e right 0.3265in then down until even with Bag then to Bag.w thick color 0x00662C
+arrow from Bag.e right 0.3265in then up until even with End then to End.w thick color 0x00662C
 ```
+
+<div id="export-workflow-logos" data-logo-base="../../_assets/artifact-logos" data-pikchr-fit hidden></div>
 
 > [!TIP]
 > You can see some export command results by visiting the [ORNL Research Activity Index](https://research.ornl.gov), which features a variety of research activity data presented in different formats.
@@ -149,3 +176,5 @@ The following placeholders can be used in your PowerPoint reference template:
 - `areas` - Research areas
 - `impact`
 - `technical` - Technical approach
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Practice the complete loop in the <a href="../../learn/quick-quest.md">Quick Quest</a>.</p>

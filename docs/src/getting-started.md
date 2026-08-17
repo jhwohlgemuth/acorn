@@ -98,8 +98,8 @@
             ```sh
             acorn help
             ```
-    - 🍎 MacOS
-        > 🚧 Under construction
+    - 🍎 macOS
+        - Standalone macOS binaries are not currently published. Use the [Homebrew](#install-with-homebrew-linux-and-macos), [Cargo](#install-with-cargo), or [source](#install-from-source) installation above.
 
 ### Install from source
 - Clone the ACORN repository
@@ -109,7 +109,7 @@
     ```
 - Install `acorn` command
     ```sh
-    cargo install --locked --path ./acorn-cli
+    cargo install --locked --path ./crates/acorn-cli
     ```
 - After installation, you can verify the installation by running:
     ```sh

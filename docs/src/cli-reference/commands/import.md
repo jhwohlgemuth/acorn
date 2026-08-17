@@ -1,6 +1,9 @@
 # 📥 Import
 
-> Import external metadata into ACORN
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Populate ACORN's model catalog or inspect model metadata with <code>acorn import model</code>.</p>
+</blockquote>
 
 ## Model metadata
 
@@ -157,3 +160,5 @@ acorn download model openai/gpt-oss-20b \
 ```
 
 See [Download](download.md#models) for download selection, filtering, split-shard sizing, and configuration details.
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Select model weights with <a href="download.md#models">Download</a>.</p>

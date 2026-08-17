@@ -11,8 +11,9 @@ create-missing = false
 
 [output.html]
 default-theme = "rust"
-preferred-dark-theme = "navy"
-additional-js = ["mermaid.min.js", "mermaid-init.js"]
+preferred-dark-theme = "rust"
+additional-css = ["acorn-docs.css"]
+additional-js = ["mermaid.min.js", "mermaid-init.js", "artifact-logos.js", "schema-tree.js"]
 mathjax-support = true
 
 [output.html.fold]

@@ -13,10 +13,13 @@
 [<img alt="unsafe forbidden" src="https://img.shields.io/badge/unsafe-forbidden-00662C?style=for-the-badge&logo=rust" height="20">](https://github.com/rust-secure-code/safety-dance/)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/acorn-cli.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/acorn-cli)
 [![Latest Release](https://code.ornl.gov/research-enablement/acorn/-/badges/release.svg?style=flat-square)](https://code.ornl.gov/research-enablement/acorn/-/releases)
+[<img alt="AI Assisted" src="https://www.aihonestybadge.com/badges/ai-assisted.svg" height="20">](https://www.aihonestybadge.com)
 > Accessible Content Optimization for Research Needs
 
 :seedling: ACORN is a metascience multi-tool and research assistant that provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDF, PPTX, etc.)
 
+> [!NOTE]
+> **AI assistance disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-lib/src/schema/research_activity/aspect/mod.rs): humans author the majority of project code and retain review and decision authority, while AI tools may directly create or edit auxiliary files such as documentation and tests. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
 
 [[_TOC_]]
 

@@ -1,5 +1,44 @@
 # 🌾 Gather
 
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Discover identifiers and candidate records from documents, URLs, or text with <code>acorn gather &lt;INPUT&gt;</code>.</p>
+</blockquote>
+
+<div style="height: 3rem" aria-hidden="true"></div>
+
+```pikchr
+scale = 0.72
+Start: circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.4in thick color 0x00662C
+Input: box "Documents, URLs," "or text" wid 1.25in ht 0.52in rad 0.08in fill 0xF3F0FF thickness 0
+arrow right 0.4in thick color 0x00662C
+Discover: box "Discover" "identifiers" wid 1.05in ht 0.52in rad 0.08in fill 0xE8F1FB thickness 0
+arrow right 0.4in thick color 0x00662C
+Normalize: box "Normalize and" "deduplicate" wid 1.15in ht 0.52in rad 0.08in fill 0xE7F3E9 thickness 0
+arrow right 0.4in thick color 0x00662C
+Resolve: box "--resolve?" wid 0.9in ht 0.52in rad 0.08in fill 0x00662C color 0x00662C
+text "--resolve?" color white at Resolve
+arrow right 0.65in thick color 0x00662C
+Report: box "Render" "report" wid 0.95in ht 0.52in rad 0.08in fill 0xFFF4D6 thickness 0
+arrow right 0.4in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+History: box "Discovery" "history" wid 1.05in ht 0.52in rad 0.08in fill 0xF2F2F2 thickness 0 at Normalize+(0,-0.82in)
+Providers: box "Query supported" "providers" wid 1.15in ht 0.52in rad 0.08in fill 0xFCE8E6 thickness 0 at Resolve+(0,-0.82in)
+Candidates: box "Create or enrich" "candidates" wid 1.15in ht 0.52in rad 0.08in fill 0xFBE9E2 thickness 0 at Report+(0,-0.82in)
+arrow from Normalize.s to History.n thick color 0x00662C
+arrow from Resolve.s to Providers.n thick color 0x00662C
+arrow from Providers.e to Candidates.w thick color 0x00662C
+arrow from Candidates.n to Report.s thick color 0x00662C
+text "no" color 0x00662C at Resolve+(0.775in,0.13in)
+text "yes" color 0x00662C at Resolve+(0.2in,-0.41in)
+```
+
+<div id="gather-workflow" data-pikchr-fit hidden></div>
+
+<div style="height: 3rem" aria-hidden="true"></div>
+
 > Discover persistent identifiers in files, documents, URLs, standard input, and literal text.
 
 ## Directory traversal
@@ -117,3 +156,5 @@ Project matches create or enrich candidates using the DOE CODE project ID and DO
 With `--resolve`, people searches enrich valid ORCID matches with the preferred name, public email, and institution data returned by the ORCID API; project repository links are checked and enriched with provider-reported languages when available. Canonical and additional provider links are also checked for liveness during this optional online stage. A failed lookup retains the original provider data. People and organization searches are report-only. Global `--no-local-database` keeps all DOE CODE results report-only.
 
 OSTI mode treats positional inputs and `--text` values as direct queries rather than files or URLs. It requires network access and is incompatible with file filtering, merge-request gathering, and schema analysis options. With `--resolve`, project DOIs and person ORCIDs use the same raw rendering and structured resolution metadata as local discoveries.
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Validate a gathered candidate with <a href="check.md">Check</a>.</p>

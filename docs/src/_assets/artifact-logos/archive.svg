@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Archive</title>
+  <path fill="#00662c" d="M8 8h48v12H8zM12 24h40v32H12z"/>
+  <path fill="#fff" d="M25 30h14v5H25zM29 18h6v6h-6z"/>
+  <path fill="#8dc63f" d="m32 39 8 8h-5v6h-6v-6h-5z"/>
+</svg>

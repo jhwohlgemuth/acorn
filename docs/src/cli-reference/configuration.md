@@ -14,24 +14,33 @@ ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format f
                 "provider": "gitlab",
                 "id": 17603,
                 "uri": "https://code.ornl.gov/research-enablement/buckets/bessd"
-
             }
-        },
+        }
+    ],
+    "models": [
         {
-            "name": "ccsd",
+            "name": "qwen-0.5b",
+            "source": {
+                "provider": "huggingface",
+                "location": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+            },
+            "quantization": [
+                "Q4_K_M"
+            ],
+            "gpuMemory": "4GB"
+        }
+    ],
+    "runners": [
+        {
+            "name": "ACORN Research Runner",
             "repository": {
                 "provider": "gitlab",
-                "id": 17602,
-                "uri": "https://code.ornl.gov/research-enablement/buckets/ccsd"
-            }
-        },
-        {
-            "name": "nssd",
-            "repository": {
-                "provider": "gitlab",
-                "id": 17410,
-                "uri": "https://code.ornl.gov/research-enablement/buckets/nssd"
-            }
+                "id": 24758,
+                "uri": "https://code.ornl.gov/research-enablement"
+            },
+            "type": "group",
+            "tags": ["acorn", "research"],
+            "runUntagged": false
         }
     ]
 }

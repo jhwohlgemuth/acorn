@@ -1,5 +1,8 @@
 # 📥 Download
-> Obtain files from an ACORN bucket or download model weights for local inference
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Fetch bucket content or local-model weights with <code>acorn download &lt;SOURCE&gt;</code>.</p>
+</blockquote>
 
 - See the [configuration](../configuration.md) documentation for details on configuring ACORN commands.
 - By default, `download` will save files to `./content` in the working directory unless an output path is specified via the `--output` flag.
@@ -245,3 +248,5 @@ An array of model-details objects is also accepted:
 For model-details objects, ACORN accepts both `name` and `id` as whitelist entries when both are present. At least one of these fields is required. YAML arrays and newline-separated plain-text entries are also supported.
 
 Remote whitelist documents cannot be loaded with `--offline`. Use `--whitelist-file <URI_OR_PATH>` when the whitelist document is a local path or `file://` URI. An explicitly supplied configuration path must exist; otherwise, ACORN reports `Configuration file does not exist`.
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Follow downloaded weights through the <a href="../model-workflows.md">model workflow</a>.</p>

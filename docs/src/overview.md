@@ -28,6 +28,9 @@
     <a href="https://code.ornl.gov/research-enablement/acorn/-/releases">
         <img alt="Releases" src="https://code.ornl.gov/research-enablement/acorn/-/badges/release.svg?style=flat-square" height="20">
     </a>
+    <a href="https://www.aihonestybadge.com">
+        <img alt="AI Assisted" src="https://www.aihonestybadge.com/badges/ai-assisted.svg" height="20">
+    </a>
   </div>
 </div>
 <br/>
@@ -36,8 +39,84 @@
 
 ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
 
+**AI-enabled, without making AI mandatory.** ACORN's core validation, formatting, linking, and export workflows are deterministic. Optional tooling can discover and download local GGUF models, configure them for OpenCode, VS Code, Goose, and llama-swap, and provide compatible AI agents with ACORN-specific operating instructions through [`acorn skill`](cli-reference/commands/skill.md).
+
+> [!NOTE]
+> **AI-Assisted Development Disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/src/schema/research_activity/aspect/mod.rs#L154): humans author the majority of project code and retain review and decision authority over all changes; AI tools may directly create or edit code which is reviewed and refactored before being merged.
+
 [^acronym]: ACORN stands for "Accessible Content Optimization for Research Needs
 
 <br/>
 
-![ACORN Input/Output](_assets/acorn_io.png)
+![ACORN turns structured research data into reusable outputs](_assets/acorn_io.png)
+
+## Choose your trail
+
+Start with the outcome closest to your work:
+
+| I am a… | Start here | You will learn to… |
+|---|---|---|
+| Researcher | [Validate your first RAD](learn/quick-quest.md) | check, improve, link, and export a project record |
+| Developer | [Build with ACORN](learn/developer.md) | use schemas, prompt and model APIs, agent skills, Python, and WebAssembly |
+| Platform engineer | [Operate ACORN](learn/platform-engineer.md) | operate local models, agent tools, runners, and automation services |
+
+Not sure yet? The [role guide](learn/README.md) shows every trail at a glance.
+
+## Explore ACORN
+
+Choose a route to explore its concepts and commands.
+
+### Research activity data
+
+```pikchr
+scale = 0.8
+circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.635in thick color 0x00662C
+box "Research activity data" wid 1.35in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.635in thick color 0x00662C
+Check: box "Check and format" wid 1.25in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.635in thick color 0x00662C
+Linked: box "Linked data" wid 1.0in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.635in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+Artifacts: box "Shareable artifacts" wid 1.25in ht 0.42in rad 0.08in fill white thickness 0 at Linked+(0,-0.65in)
+arrow from Check.e right 0.317in then down until even with Artifacts then to Artifacts.w thick color 0x00662C
+arrow from Artifacts.e right 0.317in then up until even with End then to End.w thick color 0x00662C
+```
+
+[Explore: research activity data](concepts/acorn.md) · [check and format](cli-reference/commands/check.md) · [linked data](cli-reference/commands/link.md) · [shareable artifacts](cli-reference/commands/export.md)
+
+### Persistent identifier lifecycle
+
+```pikchr
+scale = 0.8
+circle radius 0.07in fill 0x00662C thickness 0
+arrow right 1.129in thick color 0x00662C
+box "Research activity data" wid 1.35in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 1.129in thick color 0x00662C
+box "Persistent identifiers" wid 1.4in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 1.129in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+```
+
+[Explore the persistent identifier lifecycle →](concepts/persistent-identifiers.md)
+
+### Local AI And Agent Tooling
+
+```pikchr
+scale = 0.8
+circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.72in thick color 0x00662C
+box "Model Catalog" wid 1.05in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.72in thick color 0x00662C
+box "Local GGUF Models" wid 1.25in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.72in thick color 0x00662C
+box "Agent And Inference Apps" wid 1.55in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.72in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+```
+
+[Explore: local models](cli-reference/model-workflows.md) · [application sync](cli-reference/commands/sync.md) · [agent skill](cli-reference/commands/skill.md) · […but is it agentic?](concepts/agentic.md)

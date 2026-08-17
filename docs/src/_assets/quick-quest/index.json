@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "id": "quick-quest",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "media": [
+      {
+        "caption": "A lazer kitten turns one research record into polished outputs with a safe optical workflow.",
+        "contentUrl": "lazer-kitten.png"
+      }
+    ],
+    "keywords": ["automation"],
+    "technology": ["rust"]
+  },
+  "title": "Lazer Kitten Research Lab",
+  "subtitle": "A tiny experiment in reusable research storytelling",
+  "aspect": {
+    "portability": "Source",
+    "motivity": "Reactive",
+    "autonomy": "MachineAssisted",
+    "maturity": 4
+  },
+  "sections": {
+    "mission": "Make research activity data easy to validate, delightful to explore, and ready to reuse across many communication formats.",
+    "challenge": "Research teams often maintain separate descriptions, citations, graphics, and fact sheets. Those copies drift apart and make even a tiny update surprisingly difficult to publish consistently.",
+    "approach": [
+      "Maintain one structured project record beside its supporting visual asset.",
+      "Check and format the record before generating downstream artifacts.",
+      "Produce citation metadata and a polished PDF from one source."
+    ],
+    "impact": [
+      "Project metadata stays consistent across human-readable and machine-readable outputs.",
+      "Repeatable commands shorten the path from an edit to a shareable artifact.",
+      "A playful example makes the complete workflow safe to learn and easy to remember."
+    ],
+    "research": {
+      "focus": "Reusable research metadata and automated content production",
+      "areas": ["Research data management", "Science communication", "Workflow automation"]
+    }
+  },
+  "contact": {
+    "title": "Primary Investigator",
+    "first": "Avery",
+    "last": "Researcher",
+    "email": "avery@example.com",
+    "phone": "123-456-7890",
+    "url": "https://example.com/avery",
+    "organization": "GSHS"
+  }
+}

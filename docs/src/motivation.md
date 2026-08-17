@@ -40,4 +40,4 @@ You should use ACORN if you want your project to be part of the research convers
 [^orcid]: e.g., [ORCiD](https://orcid.org)s
 [^fail]: Realistically, the only mode of failure is complete lack of adoption...
 [^oss]: [https://www.osti.gov/doecode/biblio/156286](https://www.osti.gov/doecode/biblio/156286)
-[^bucket]: We call these repositories, "buckets" (see the page on [buckets]() for details)
+[^bucket]: We call these repositories "buckets"; see [Buckets](concepts/README.md#-buckets) for details.

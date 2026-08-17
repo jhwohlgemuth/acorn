@@ -1,5 +1,8 @@
 # 🕸️ Link
-> Add linked data context to research activity data (RAD) and create `JSON-LD` documents
+<blockquote class="blockquote-tag acorn-nutshell">
+<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p>Add linked-data context and create JSON-LD with <code>acorn link &lt;PATH&gt;</code>.</p>
+</blockquote>
 
 The `link` command augments user-input RAD with linked data context and outputs `JSON-LD` documents. This process involves mapping the input data to established ontologies and vocabularies, thereby enhancing its interoperability and depth of meaning.
 
@@ -48,3 +51,5 @@ acorn link path/to/project/
       "affiliation": "National Security Sciences Directorate"
     }
 ```
+
+<p class="acorn-next"><strong>Next stop:</strong>&nbsp;Turn linked RAD into an artifact with <a href="export.md">Export</a>.</p>

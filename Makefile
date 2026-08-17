@@ -46,6 +46,10 @@ book:
 	@mdbook clean docs
 	@mdbook build docs
 
+book-check:
+	@bash scripts/book-check.sh
+	@mdbook build docs
+
 book-write:
 	@mdbook serve --open docs
 
@@ -133,7 +137,7 @@ fuzz-smoke:
 	@cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
 
 help:
-	@cargo run --bin acorn -- --markdown-help > CommandLineHelp.md
+	@cargo run --bin acorn -- --markdown-help | awk 'length($$0) > 0 { while (blank > 0) { print ""; blank-- } print; next } { blank++ }' > CommandLineHelp.md
 
 homebrew-formula:
 	@./scripts/homebrew/generate-formula.sh $(VERSION) ./Formula/acorn-cli.rb

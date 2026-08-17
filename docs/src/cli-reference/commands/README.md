@@ -1,7 +1,7 @@
 # Commands
-- [Model workflows](./model-workflows.md)
-- [🕵️‍♂️ Audit](./audit.md)
+
 - [✅ Check](./check.md)
+- [🏗️ Create](./create.md)
 - [👨‍⚕️ Doctor](./doctor.md)
 - [📥 Download](./download.md)
 - [📤 Export](./export.md)
@@ -9,16 +9,55 @@
 - [🌾 Gather](./gather.md)
 - [📥 Import](./import.md)
 - [🕸️ Link](./link.md)
+- [📡 Serve](./serve.md)
+- [🧩 Skill](./skill.md)
 - [🔄 Sync](./sync.md)
+- [🖥️ TUI](./tui.md)
 
-## Command Workflow
-```mermaid
-stateDiagram
-    direction LR
-    [*] --> RAD: create
-    RAD --> check
-    check --> RAD
-    check --> format
-    format --> link
-    format --> export
+## Command workflows
+
+### Research activity data
+
+```pikchr
+scale = 0.8
+Start: circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.532in thick color 0x00662C
+box "Draft RAD" wid 0.9in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.532in thick color 0x00662C
+box "check" wid 0.72in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.532in thick color 0x00662C
+Format: box "format" wid 0.78in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.732in thick color 0x00662C
+Link: box "link" wid 0.68in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.732in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+Export: box "export" wid 0.78in ht 0.42in rad 0.08in fill white thickness 0 at Link+(0,-0.65in)
+arrow from Format.e right 0.266in then down until even with Export then to Export.w thick color 0x00662C
+arrow from Export.e right 0.266in then up until even with End then to End.w thick color 0x00662C
 ```
+
+### Persistent identifiers
+
+```pikchr
+scale = 0.8
+Start: circle radius 0.07in fill 0x00662C thickness 0
+arrow right 0.802in thick color 0x00662C
+box "Documents | URLs" wid 1.25in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.802in thick color 0x00662C
+box "gather" wid 0.78in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.802in thick color 0x00662C
+box "Draft RAD" wid 0.9in ht 0.42in rad 0.08in fill white thickness 0
+arrow right 0.802in thick color 0x00662C
+End: circle radius 0.1in fill white thickness 0
+circle radius 0.05in fill 0x00662C thickness 0 at End
+```
+
+### Local AI And Agents
+
+ACORN keeps its core research-data commands deterministic while offering optional tools for local AI and agent workflows:
+
+- [`import model`](./import.md#model-metadata) catalogs GGUF metadata without downloading weights.
+- [`download model`](./download.md#models) selects and downloads local GGUF weights.
+- [`sync`](./sync.md) configures supported agent and inference applications to use those models.
+- [`skill`](./skill.md) gives compatible AI agents ACORN-specific operating instructions.
