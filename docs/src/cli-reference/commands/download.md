@@ -18,6 +18,9 @@ acorn download --config /path/to/.acorn.json
 # Download research activity data to a specific output directory
 acorn download --config /path/to/.acorn.yml --output /path/to/output
 
+# Download selected files directly beneath the output directory
+acorn download https://github.com/example/project --filter '^examples/quest/' --flatten --output ./quest
+
 # Download using JSONC configuration (supports comments and trailing commas)
 acorn download --config /path/to/.acorn.jsonc
 ```
@@ -27,6 +30,8 @@ acorn download --config /path/to/.acorn.jsonc
 After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, and recognized Markdown research activity files into the local `research_activities` table. Unrelated Markdown documentation is ignored. Each row has a portable NanoID and retains the typed RAD JSON plus provenance for the bucket, repository, relative path, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a repository-qualified RAD identifier always identifies the transferred activity.
 
 Repeated transfers are idempotent. A matching candidate gains missing fields and unique array values, while conflicting populated fields remain unchanged and are recorded as provenance. Filters and ignore rules apply before transfer, so only transferred RAD files are ingested.
+
+Use `--flatten` to discard repository directory components and save every selected file as a direct child of the output directory. Filters and ignore rules continue to match the original repository-relative paths. If multiple selected paths have the same filename, or a destination file already exists, the command fails without overwriting it.
 
 If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence.
 

@@ -378,6 +378,7 @@ Download research activity data from buckets or model weights for local inferenc
 * `-o`, `--output <PATH>` — Path to output directory where the downloaded content should be saved
 
   Default value: `./content`
+* `--flatten` — Save downloaded files directly beneath the output directory
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

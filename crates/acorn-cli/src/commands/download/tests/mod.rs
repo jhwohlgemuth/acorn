@@ -475,6 +475,7 @@ async fn test_download_local_config_silent() -> Result<()> {
         &filter,
         &ignore,
         &Some(output_dir.clone()),
+        false,
         &None,
         TEST_THREADS,
         &verbose,
@@ -502,6 +503,7 @@ async fn test_download_local_url_silent() -> Result<()> {
         &filter,
         &ignore,
         &Some(output_dir.clone()),
+        false,
         &None,
         TEST_THREADS,
         &verbose,
@@ -512,6 +514,50 @@ async fn test_download_local_url_silent() -> Result<()> {
     assert!(result.is_ok(), "download from local URL should succeed");
     assert!(output_dir.exists(), "output directory should exist");
     Ok(())
+}
+#[tokio::test]
+async fn test_download_local_url_flattens_and_ingests_rad() -> Result<()> {
+    let temp_dir = temp_test_dir("download_local_url_flatten");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    let database_path = Some(temp_dir.join("acorn.db"));
+    write_rad(&bucket_dir.join("nested/index.json"), "flattened-project")?;
+    run(
+        &None,
+        &[format!("file:{}/", bucket_dir.display())],
+        &[],
+        &[],
+        &Some(output_dir.clone()),
+        true,
+        &database_path,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        false,
+    )
+    .await?;
+    let database = Database::<Table>::from_path(database_path);
+    assert_eq!(database.row_count(Table::ResearchActivities)?, 1);
+    assert!(output_dir.join("index.json").is_file());
+    assert!(!output_dir.join("nested").exists());
+    Ok(())
+}
+#[test]
+fn test_download_flatten_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_flatten_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let database_path = temp_dir.join("acorn.db");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--flatten", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--flatten is only supported for bucket downloads"));
+    assert!(!database_path.exists());
 }
 #[tokio::test]
 async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
@@ -532,6 +578,7 @@ async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
             &[],
             &[],
             &Some(run_output),
+            false,
             &database_path,
             TEST_THREADS,
             &verbose,
@@ -560,6 +607,7 @@ async fn test_download_preserves_malformed_rad_and_fails_ingestion() -> Result<(
         &[],
         &[],
         &Some(output_dir.clone()),
+        false,
         &Some(temp_dir.join("acorn.db")),
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -589,6 +637,7 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
         &["keep".to_string()],
         &[],
         &Some(output_dir.clone()),
+        false,
         &database_path,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -618,6 +667,7 @@ async fn test_download_no_local_database_disables_candidate_persistence() -> Res
         &[],
         &[],
         &Some(temp_dir.join("output")),
+        false,
         &Some(database_path.clone()),
         TEST_THREADS,
         &Verbosity::new(0, 1),

@@ -11,7 +11,7 @@ use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
-use crate::prelude::{self, env, exit, Arc, HashSet, Path, PathBuf};
+use crate::prelude::{self, env, exit, Arc, HashMap, HashSet, Path, PathBuf};
 use crate::schema::pid::{Identifier, PID};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::OneOrMany;
@@ -324,6 +324,58 @@ pub struct BucketOptions {
     /// Regex pattern(s) of files to include
     #[builder(default)]
     pub filter: Vec<String>,
+    /// Save transferred files directly beneath the output directory
+    #[builder(default)]
+    pub flatten: bool,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TransferItem {
+    source: PathBuf,
+    destination: PathBuf,
+}
+impl From<&Path> for TransferItem {
+    fn from(source: &Path) -> Self {
+        Self {
+            source: source.to_path_buf(),
+            destination: source.to_path_buf(),
+        }
+    }
+}
+impl TransferItem {
+    fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
+        let items = paths
+            .into_iter()
+            .map(PathBuf::from)
+            .map(|path| Self::from(path.as_path()))
+            .map(|item| match flatten {
+                | true => item.flatten(),
+                | false => Ok(item),
+            })
+            .collect::<ApiResult<Vec<_>>>();
+        match items {
+            | Ok(items) => items
+                .iter()
+                .try_fold(HashMap::<PathBuf, PathBuf>::new(), |mut destinations, item| {
+                    match destinations.insert(item.destination.clone(), item.source.clone()) {
+                        | Some(source) => Err(eyre!(
+                            "Output path collision for '{}' — '{}' and '{}'",
+                            item.destination.display(),
+                            source.display(),
+                            item.source.display()
+                        )),
+                        | None => Ok(destinations),
+                    }
+                })
+                .map(|_| items),
+            | Err(why) => Err(why),
+        }
+    }
+    fn flatten(self) -> ApiResult<Self> {
+        match self.source.file_name().map(PathBuf::from) {
+            | Some(destination) => Ok(Self { destination, ..self }),
+            | None => Err(eyre!("Cannot flatten repository path without a filename — {}", self.source.display())),
+        }
+    }
 }
 /// Files successfully transferred from one configured bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -755,20 +807,25 @@ impl Bucket {
                                 .map(|relative| relative.display().to_string())
                         })
                         .collect::<Vec<String>>();
-                        let bucket_root = Arc::new(bucket_root);
-                        let operation = {
-                            let bucket_root = Arc::clone(&bucket_root);
-                            let output = Arc::clone(&output);
-                            move |path: String| {
-                                let bucket_root = Arc::clone(&bucket_root);
-                                let output = Arc::clone(&output);
-                                async move {
-                                    let source = PathBuf::from(bucket_root.as_str()).join(&path);
-                                    write_file_bytes(output.join(&path), || async { prelude::read(source) }).await
-                                }
+                        match TransferItem::collect(items, options.flatten) {
+                            | Ok(items) => {
+                                let bucket_root = Arc::new(bucket_root);
+                                let operation = {
+                                    let bucket_root = Arc::clone(&bucket_root);
+                                    let output = Arc::clone(&output);
+                                    move |item: TransferItem| {
+                                        let bucket_root = Arc::clone(&bucket_root);
+                                        let output = Arc::clone(&output);
+                                        async move {
+                                            let source = PathBuf::from(bucket_root.as_str()).join(item.source);
+                                            write_file_bytes(output.join(item.destination), || async { prelude::read(source) }).await
+                                        }
+                                    }
+                                };
+                                transfer_bucket_files(name, code_repository.location().to_string(), items, options, "Copying", operation).await
                             }
-                        };
-                        transfer_bucket_files(name, code_repository.location().to_string(), items, options, "Copying", operation).await
+                            | Err(why) => Err(why),
+                        }
                     }
                     | false => Ok(TransferManifest {
                         bucket: name,
@@ -792,28 +849,30 @@ impl Bucket {
                 let name = self.name.clone();
                 let code_repository = self.code_repository.clone();
                 match self.file_paths("").await {
-                    | Ok(paths) => {
-                        let items = filter_paths(paths, &filters);
-                        let repository = code_repository.location().to_string();
-                        let operation = {
-                            let code_repository = Arc::new(code_repository);
-                            let output = Arc::new(options.output.clone().unwrap_or_default());
-                            move |path: String| {
-                                let output = Arc::clone(&output);
-                                let repository = Arc::clone(&code_repository);
-                                async move {
-                                    match repository.raw_url(path.clone()) {
-                                        | Some(url) => {
-                                            let output_filepath = output.join(path);
-                                            write_file_bytes(output_filepath, || async move { Source::read_bytes(&url, false).await }).await
+                    | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), options.flatten) {
+                        | Ok(items) => {
+                            let repository = code_repository.location().to_string();
+                            let operation = {
+                                let code_repository = Arc::new(code_repository);
+                                let output = Arc::new(options.output.clone().unwrap_or_default());
+                                move |item: TransferItem| {
+                                    let output = Arc::clone(&output);
+                                    let repository = Arc::clone(&code_repository);
+                                    async move {
+                                        match repository.raw_url(item.source.display().to_string()) {
+                                            | Some(url) => {
+                                                let output_filepath = output.join(item.destination);
+                                                write_file_bytes(output_filepath, || async move { Source::read_bytes(&url, false).await }).await
+                                            }
+                                            | None => Err(eyre!("Failed to build raw URL for repository path")),
                                         }
-                                        | None => Err(eyre!("Failed to build raw URL for repository path")),
                                     }
                                 }
-                            }
-                        };
-                        transfer_bucket_files(name, repository, items, options, "Downloading", operation).await
-                    }
+                            };
+                            transfer_bucket_files(name, repository, items, options, "Downloading", operation).await
+                        }
+                        | Err(why) => Err(why),
+                    },
                     | Err(why) => {
                         error!("=> {} Get file paths for download — {why}", Label::fail());
                         Err(why)
@@ -914,6 +973,7 @@ impl Default for BucketOptions {
             quiet: false,
             ignore: Vec::new(),
             filter: Vec::new(),
+            flatten: false,
         }
     }
 }
@@ -1211,26 +1271,27 @@ fn operations_complete_message(name: Option<String>, json_count: usize, image_co
 async fn transfer_bucket_files<F, Fut>(
     name: Option<String>,
     repository: String,
-    items: Vec<String>,
+    items: Vec<TransferItem>,
     options: &BucketOptions,
     verb: &'static str,
     operation: F,
 ) -> ApiResult<TransferManifest>
 where
-    F: Fn(String) -> Fut,
+    F: Fn(TransferItem) -> Fut,
     Fut: Future<Output = ApiResult<()>>,
 {
     let BucketOptions { threads, quiet, .. } = options;
-    let total_data = count_json_files(&items);
-    let total_images = count_image_files(&items);
-    let message = move |path: &String| format!("{verb} {path}");
+    let source_paths = items.iter().map(|item| item.source.display().to_string()).collect::<Vec<_>>();
+    let total_data = count_json_files(&source_paths);
+    let total_images = count_image_files(&source_paths);
+    let message = move |item: &TransferItem| format!("{verb} {}", item.source.display());
     let finish_name = name.clone();
     let finish_message = |_| operations_complete_message(finish_name, total_data, total_images);
     let progress_type = match quiet {
         | true => ProgressType::Silent,
         | false => ProgressType::Bar,
     };
-    let files = items.iter().map(PathBuf::from).collect::<Vec<_>>();
+    let files = items.iter().map(|item| item.destination.clone()).collect::<Vec<_>>();
     with_progress(items, message, operation, finish_message, Some(*threads), progress_type)
         .await
         .map(|_| TransferManifest {
@@ -1411,6 +1472,51 @@ mod tests {
         assert!(invalid.is_err());
         let filter: Vec<Regex> = vec![];
         assert!(is_filtered_path("/tmp/README.md", &filter));
+    }
+    #[test]
+    fn test_transfer_item_collect_preserves_or_flattens_paths() {
+        let paths = vec!["docs/quest/index.json".to_string(), "docs/quest/image.png".to_string()];
+        let preserved = TransferItem::collect(paths.clone(), false).unwrap();
+        let flattened = TransferItem::collect(paths, true).unwrap();
+        assert_eq!(
+            preserved.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+            vec![PathBuf::from("docs/quest/index.json"), PathBuf::from("docs/quest/image.png")]
+        );
+        assert_eq!(
+            flattened.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+            vec![PathBuf::from("index.json"), PathBuf::from("image.png")]
+        );
+    }
+    #[test]
+    fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
+        let result = TransferItem::collect(vec!["one/index.json".to_string(), "two/index.json".to_string()], true);
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("index.json"));
+        assert!(message.contains("one/index.json"));
+        assert!(message.contains("two/index.json"));
+    }
+    #[tokio::test]
+    async fn test_copy_files_flattens_destinations_and_manifest() {
+        let source = temp_resolve_dir("flatten-source");
+        let output = temp_resolve_dir("flatten-output");
+        create_dir_all(source.join("docs/quest")).unwrap();
+        write(source.join("docs/quest/index.json"), "{}").unwrap();
+        write(source.join("docs/quest/image.png"), "image").unwrap();
+        let bucket = Bucket::init()
+            .code_repository(Repository::Git {
+                location: Location::Simple(format!("file:{}", source.display())),
+            })
+            .build();
+        let options = BucketOptions::init().output(output.clone()).quiet(true).flatten(true).build();
+        let manifest = bucket.copy_files(&options).await.unwrap();
+        assert_eq!(manifest.files.len(), 2);
+        assert!(manifest.files.contains(&PathBuf::from("index.json")));
+        assert!(manifest.files.contains(&PathBuf::from("image.png")));
+        assert!(output.join("index.json").is_file());
+        assert!(output.join("image.png").is_file());
+        assert!(!output.join("docs").exists());
+        let _ = remove_dir_all(source);
+        let _ = remove_dir_all(output);
     }
     #[test]
     fn test_operations_complete_message_includes_bucket_name_and_guidance() {

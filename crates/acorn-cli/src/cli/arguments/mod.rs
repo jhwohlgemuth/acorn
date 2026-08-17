@@ -401,6 +401,9 @@ pub(crate) struct Download {
     /// Path to output directory where the downloaded content should be saved
     #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
+    /// Save downloaded files directly beneath the output directory
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) flatten: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

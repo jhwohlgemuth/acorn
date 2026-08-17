@@ -39,8 +39,9 @@ arrow from PDF.e right 0.225in then up until even with End then to End.w thick c
 ```sh
 acorn download https://code.ornl.gov/research-enablement/acorn \
   --filter '^docs/src/_assets/quick-quest/' \
+  --flatten \
   --output acorn-quick-quest
-cd acorn-quick-quest/docs/src/_assets/quick-quest
+cd acorn-quick-quest
 ```
 
 Your tiny project contains one RAD record and its fact-sheet graphic:

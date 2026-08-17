@@ -103,6 +103,14 @@ fn test_cli() {
     .is_err());
 }
 #[test]
+fn test_download_flatten_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", "--flatten"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => assert!(arguments.flatten),
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_watch_arguments_are_global() {
     let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--poll-interval", "2s", "check"])
         .expect("parse watch arguments before command");

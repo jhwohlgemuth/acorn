@@ -22,6 +22,7 @@ pub async fn run(
     filter: &[String],
     ignore: &[String],
     output: &Option<PathBuf>,
+    flatten: bool,
     database_path: &Option<PathBuf>,
     threads: usize,
     verbose: &Verbosity,
@@ -38,6 +39,7 @@ pub async fn run(
     let options = BucketOptions::init()
         .filter(filter.to_vec())
         .ignore(ignore.to_vec())
+        .flatten(flatten)
         .quiet(quiet)
         .threads(threads)
         .build();
