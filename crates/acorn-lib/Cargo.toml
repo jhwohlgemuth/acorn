@@ -19,6 +19,7 @@ license.workspace = true
 
 [lib]
 name = "acorn"
+bench = false
 
 [badges]
 maintenance = { status = "actively-developed" }

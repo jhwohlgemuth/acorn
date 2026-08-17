@@ -31,7 +31,7 @@ audit:
 # 	@cargo deny check
 
 bench: lint
-	@cargo bench --package acorn-lib $(BENCH_ARGS)
+	@cargo bench --package acorn-lib --benches $(BENCH_ARGS)
 
 bench-baseline:
 	@$(MAKE) bench BENCH_ARGS="-- --save-baseline $(BENCH_BASELINE)"
