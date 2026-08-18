@@ -1,7 +1,8 @@
 variables:
   BINARY_NAME: acorn
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
-  CARGO_TARGET_DIR: $CI_PROJECT_DIR/target/$CI_JOB_ID
+  GIT_CLEAN_FLAGS: -ffdx -e crates/acorn-py/.pixi/ -e target/
+  CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
   CARGO_NET_RETRY: "3"
   CARGO_HTTP_TIMEOUT: "120"
   NIGHTLY_TOOLCHAIN: nightly-2026-08-01
@@ -207,7 +208,7 @@ benchmark:
     name: "benchmarks-${CI_PIPELINE_ID}-${CI_JOB_ID}"
     expose_as: "Benchmark report"
     paths:
-      - target/${CI_JOB_ID}/benchmark-results/
+      - target/benchmark-results/
     expire_in: 30 days
     when: always
 
@@ -237,7 +238,7 @@ build-release:
 
 publish-release:
   stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli@sha256:c6dd712bec70f693ef9435f3c74d7321c03a9d9137834705aeaced70632ea386
+  image: registry.gitlab.com/gitlab-org/cli@sha256:a1bc1b35decb0ceededbb22bb9a8c07eddc1279ab6e9342b32bc42e20333aa7a
   tags:
     - cpu
   inherit:
