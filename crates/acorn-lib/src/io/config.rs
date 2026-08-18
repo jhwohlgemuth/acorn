@@ -11,7 +11,7 @@ use crate::io::{
     files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
     InputOutput, ProgressType, Source,
 };
-use crate::prelude::{self, env, exit, Arc, HashMap, HashSet, Path, PathBuf};
+use crate::prelude::{self, env, exit, Arc, ErrorKind, HashMap, HashSet, Mutex, Path, PathBuf};
 use crate::schema::pid::{Identifier, PID};
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::OneOrMany;
@@ -34,6 +34,7 @@ use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::path::Component;
 use tracing::{error, info, warn};
 
 /// Authentication requirement for a configured model download source
@@ -327,6 +328,9 @@ pub struct BucketOptions {
     /// Save transferred files directly beneath the output directory
     #[builder(default)]
     pub flatten: bool,
+    /// Replace existing files or directories at selected output paths
+    #[builder(default)]
+    pub clobber: bool,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct TransferItem {
@@ -356,14 +360,19 @@ impl TransferItem {
             | Ok(items) => items
                 .iter()
                 .try_fold(HashMap::<PathBuf, PathBuf>::new(), |mut destinations, item| {
-                    match destinations.insert(item.destination.clone(), item.source.clone()) {
-                        | Some(source) => Err(eyre!(
-                            "Output path collision for '{}' — '{}' and '{}'",
-                            item.destination.display(),
-                            source.display(),
-                            item.source.display()
-                        )),
-                        | None => Ok(destinations),
+                    let destination = &item.destination;
+                    let safe = !destination.as_os_str().is_empty() && destination.components().all(|part| matches!(part, Component::Normal(_)));
+                    match safe {
+                        | false => Err(eyre!("Output path is unsafe — '{}'", item.destination.display())),
+                        | true => match destinations.insert(item.destination.clone(), item.source.clone()) {
+                            | Some(source) => Err(eyre!(
+                                "Output path collision for '{}' — '{}' and '{}'",
+                                item.destination.display(),
+                                source.display(),
+                                item.source.display()
+                            )),
+                            | None => Ok(destinations),
+                        },
                     }
                 })
                 .map(|_| items),
@@ -770,6 +779,60 @@ impl Bucket {
             | _ => Err(eyre!("Unsupported repository URI scheme")),
         }
     }
+    fn remove_destination(path: &Path) -> ApiResult<()> {
+        match path.symlink_metadata() {
+            | Ok(metadata) if metadata.file_type().is_symlink() || metadata.is_file() => {
+                prelude::remove_file(path).map_err(|why| eyre!("Failed to remove existing output path {} — {why}", path.display()))
+            }
+            | Ok(_) => prelude::remove_dir_all(path).map_err(|why| eyre!("Failed to remove existing output directory {} — {why}", path.display())),
+            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
+            | Err(why) => Err(eyre!("Failed to inspect existing output path {} — {why}", path.display())),
+        }
+    }
+    fn prepare_destination(output: &Path, destination: &Path) -> ApiResult<PathBuf> {
+        let target = output.join(destination);
+        destination
+            .parent()
+            .into_iter()
+            .flat_map(Path::ancestors)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .map(|parent| output.join(parent))
+            .try_for_each(|parent| match parent.symlink_metadata() {
+                | Ok(metadata) if metadata.is_dir() => Ok(()),
+                | Ok(_) => Self::remove_destination(&parent).and_then(|()| {
+                    prelude::create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))
+                }),
+                | Err(why) if why.kind() == ErrorKind::NotFound => {
+                    prelude::create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))
+                }
+                | Err(why) => Err(eyre!("Failed to inspect output directory {} — {why}", parent.display())),
+            })
+            .and_then(|()| Self::remove_destination(&target))
+            .map(|()| target)
+    }
+    async fn write_file<F, Fut, E>(output: &Path, destination: &Path, clobber: bool, write_lock: &Mutex<()>, get_bytes: F) -> ApiResult<()>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<Vec<u8>, E>>,
+        E: Into<Report>,
+    {
+        match clobber {
+            | false => write_file_bytes(output.join(destination), get_bytes).await,
+            | true => match get_bytes().await.map_err(Into::into) {
+                | Ok(bytes) => match write_lock.lock() {
+                    | Ok(_guard) => Self::prepare_destination(output, destination).and_then(|target| {
+                        prelude::write(&target, bytes)
+                            .map(|_| ())
+                            .map_err(|why| eyre!("Failed to write output file {} — {why}", target.display()))
+                    }),
+                    | Err(why) => Err(eyre!("Failed to lock bucket output — {why}")),
+                },
+                | Err(why) => Err(why),
+            },
+        }
+    }
     /// Copy files from (local) bucket to local directory
     /// ### Notes
     /// - Ignores files listed in [`IGNORE`]
@@ -810,15 +873,22 @@ impl Bucket {
                         match TransferItem::collect(items, options.flatten) {
                             | Ok(items) => {
                                 let bucket_root = Arc::new(bucket_root);
+                                let clobber = options.clobber;
+                                let write_lock = Arc::new(Mutex::new(()));
                                 let operation = {
                                     let bucket_root = Arc::clone(&bucket_root);
                                     let output = Arc::clone(&output);
+                                    let write_lock = Arc::clone(&write_lock);
                                     move |item: TransferItem| {
                                         let bucket_root = Arc::clone(&bucket_root);
                                         let output = Arc::clone(&output);
+                                        let write_lock = Arc::clone(&write_lock);
                                         async move {
                                             let source = PathBuf::from(bucket_root.as_str()).join(item.source);
-                                            write_file_bytes(output.join(item.destination), || async { prelude::read(source) }).await
+                                            Self::write_file(output.as_path(), &item.destination, clobber, write_lock.as_ref(), || async {
+                                                prelude::read(source)
+                                            })
+                                            .await
                                         }
                                     }
                                 };
@@ -852,12 +922,16 @@ impl Bucket {
                     | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), options.flatten) {
                         | Ok(items) => {
                             let repository = code_repository.location().to_string();
+                            let clobber = options.clobber;
+                            let write_lock = Arc::new(Mutex::new(()));
                             let operation = {
                                 let code_repository = Arc::new(code_repository);
                                 let output = Arc::new(options.output.clone().unwrap_or_default());
+                                let write_lock = Arc::clone(&write_lock);
                                 move |item: TransferItem| {
                                     let output = Arc::clone(&output);
                                     let repository = Arc::clone(&code_repository);
+                                    let write_lock = Arc::clone(&write_lock);
                                     async move {
                                         let source = item.source.display().to_string();
                                         let bytes = match repository.as_ref() {
@@ -877,7 +951,7 @@ impl Bucket {
                                                 | None => Err(eyre!("Failed to build raw URL for repository path")),
                                             },
                                         };
-                                        write_file_bytes(output.join(item.destination), || async { bytes }).await
+                                        Self::write_file(output.as_path(), &item.destination, clobber, write_lock.as_ref(), || async { bytes }).await
                                     }
                                 }
                             };
@@ -986,6 +1060,7 @@ impl Default for BucketOptions {
             ignore: Vec::new(),
             filter: Vec::new(),
             flatten: false,
+            clobber: false,
         }
     }
 }
@@ -1312,7 +1387,6 @@ where
             files,
         })
 }
-
 #[cfg(test)]
 mod tests {
     #![allow(
@@ -1323,7 +1397,7 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::*;
-    use crate::prelude::{create_dir_all, remove_dir_all, write};
+    use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write};
 
     #[test]
     fn test_resolution_failure_reason_reports_fallback_lookup_status() {
@@ -1507,6 +1581,11 @@ mod tests {
         assert!(message.contains("one/index.json"));
         assert!(message.contains("two/index.json"));
     }
+    #[test]
+    fn test_transfer_item_collect_rejects_unsafe_destination() {
+        let result = TransferItem::collect(vec!["../outside.json".to_string()], false);
+        assert!(result.unwrap_err().to_string().contains("unsafe"));
+    }
     #[tokio::test]
     async fn test_copy_files_flattens_destinations_and_manifest() {
         let source = temp_resolve_dir("flatten-source");
@@ -1529,6 +1608,86 @@ mod tests {
         assert!(!output.join("docs").exists());
         let _ = remove_dir_all(source);
         let _ = remove_dir_all(output);
+    }
+    #[tokio::test]
+    async fn test_copy_files_preserves_existing_destination_without_clobber() {
+        let source = temp_resolve_dir("clobber-disabled-source");
+        let output = temp_resolve_dir("clobber-disabled-output");
+        create_dir_all(&source).unwrap();
+        create_dir_all(&output).unwrap();
+        write(source.join("index.json"), "new").unwrap();
+        write(output.join("index.json"), "old").unwrap();
+        let bucket = Bucket::init()
+            .code_repository(Repository::Git {
+                location: Location::Simple(format!("file:{}", source.display())),
+            })
+            .build();
+        let options = BucketOptions::init().output(output.clone()).quiet(true).build();
+        assert!(bucket.copy_files(&options).await.is_err());
+        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
+        let _ = remove_dir_all(source);
+        let _ = remove_dir_all(output);
+    }
+    #[tokio::test]
+    async fn test_copy_files_clobbers_selected_path_conflicts_only() {
+        let source = temp_resolve_dir("clobber-enabled-source");
+        let output = temp_resolve_dir("clobber-enabled-output");
+        create_dir_all(source.join("nested")).unwrap();
+        create_dir_all(output.join("directory.json")).unwrap();
+        write(source.join("existing.json"), "new file").unwrap();
+        write(source.join("directory.json"), "new directory replacement").unwrap();
+        write(source.join("nested/index.json"), "new nested file").unwrap();
+        write(source.join("nested/other.json"), "new sibling file").unwrap();
+        write(output.join("existing.json"), "old file").unwrap();
+        write(output.join("directory.json/old.json"), "old directory content").unwrap();
+        write(output.join("nested"), "old parent file").unwrap();
+        write(output.join("unrelated.json"), "keep").unwrap();
+        let bucket = Bucket::init()
+            .code_repository(Repository::Git {
+                location: Location::Simple(format!("file:{}", source.display())),
+            })
+            .build();
+        let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
+        let result = bucket.copy_files(&options).await;
+        assert!(result.is_ok());
+        assert_eq!(read_to_string(output.join("existing.json")).unwrap(), "new file");
+        assert_eq!(read_to_string(output.join("directory.json")).unwrap(), "new directory replacement");
+        assert_eq!(read_to_string(output.join("nested/index.json")).unwrap(), "new nested file");
+        assert_eq!(read_to_string(output.join("nested/other.json")).unwrap(), "new sibling file");
+        assert_eq!(read_to_string(output.join("unrelated.json")).unwrap(), "keep");
+        let _ = remove_dir_all(source);
+        let _ = remove_dir_all(output);
+    }
+    #[tokio::test]
+    async fn test_clobber_preserves_destination_when_source_read_fails() {
+        let output = temp_resolve_dir("clobber-source-failure-output");
+        create_dir_all(&output).unwrap();
+        write(output.join("index.json"), "old").unwrap();
+        let write_lock = Mutex::new(());
+        let result = Bucket::write_file(&output, Path::new("index.json"), true, &write_lock, || async {
+            Err::<Vec<u8>, Report>(eyre!("source failure"))
+        })
+        .await;
+        assert!(result.is_err());
+        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
+        let _ = remove_dir_all(output);
+    }
+    #[cfg(unix)]
+    #[test]
+    fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
+        let output = temp_resolve_dir("clobber-symlink-output");
+        let external = temp_resolve_dir("clobber-symlink-external");
+        create_dir_all(&output).unwrap();
+        create_dir_all(&external).unwrap();
+        write(external.join("index.json"), "outside").unwrap();
+        crate::prelude::symlink(&external, output.join("linked")).unwrap();
+        let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
+        assert_eq!(target, output.join("linked/index.json"));
+        assert!(output.join("linked").is_dir());
+        assert!(!output.join("linked").symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(read_to_string(external.join("index.json")).unwrap(), "outside");
+        let _ = remove_dir_all(output);
+        let _ = remove_dir_all(external);
     }
     #[test]
     fn test_operations_complete_message_includes_bucket_name_and_guidance() {

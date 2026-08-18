@@ -402,8 +402,11 @@ pub(crate) struct Download {
     #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) output: Option<PathBuf>,
     /// Save downloaded files directly beneath the output directory
-    #[arg(long, help_heading = "FLAGS")]
+    #[arg(short = 'f', long, help_heading = "FLAGS")]
     pub(crate) flatten: bool,
+    /// Replace existing files or directories at selected output paths
+    #[arg(short = 'C', long, help_heading = "FLAGS")]
+    pub(crate) clobber: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

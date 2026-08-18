@@ -337,6 +337,9 @@ Download research activity data from buckets or model weights for local inferenc
 
     Download research activity data to a specific output directory
     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
+
+    Replace selected files that already exist in the output directory
+    $> acorn download https://github.com/user/repo --output ./content --clobber
     
     Download using default configuration in current directory (first match):
     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
@@ -378,7 +381,8 @@ Download research activity data from buckets or model weights for local inferenc
 * `-o`, `--output <PATH>` — Path to output directory where the downloaded content should be saved
 
   Default value: `./content`
-* `--flatten` — Save downloaded files directly beneath the output directory
+* `-f`, `--flatten` — Save downloaded files directly beneath the output directory
+* `-C`, `--clobber` — Replace existing files or directories at selected output paths
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

@@ -216,6 +216,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Download(arguments)) if arguments.flatten && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
             Err(eyre::eyre!("--flatten is only supported for bucket downloads"))
         }
+        | Some(Commands::Download(arguments)) if arguments.clobber && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+            Err(eyre::eyre!("--clobber is only supported for bucket downloads"))
+        }
         | Some(Commands::Download(arguments)) => with_runtime(async {
             match initialize_database(config).await {
                 | Ok(()) => match &arguments.command {
@@ -262,6 +265,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                             &arguments.ignore,
                             &arguments.output,
                             arguments.flatten,
+                            arguments.clobber,
                             &config.database_path,
                             threads,
                             &arguments.verbose,

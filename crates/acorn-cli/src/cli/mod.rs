@@ -274,6 +274,9 @@ pub enum Commands {
     ///
     ///     Download research activity data to a specific output directory
     ///     $> acorn download --config /path/to/.acorn.yml --output /path/to/output
+    ///
+    ///     Replace selected files that already exist in the output directory
+    ///     $> acorn download https://github.com/user/repo --output ./content --clobber
     ///     
     ///     Download using default configuration in current directory (first match):
     ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn

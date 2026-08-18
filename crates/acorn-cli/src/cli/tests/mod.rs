@@ -104,11 +104,23 @@ fn test_cli() {
 }
 #[test]
 fn test_download_flatten_argument() {
-    let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", "--flatten"]).unwrap();
-    match arguments.command {
-        | Some(Commands::Download(arguments)) => assert!(arguments.flatten),
-        | other => panic!("unexpected command: {other:?}"),
-    }
+    ["--flatten", "-f"].into_iter().for_each(|flag| {
+        let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", flag]).unwrap();
+        match arguments.command {
+            | Some(Commands::Download(arguments)) => assert!(arguments.flatten),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
+}
+#[test]
+fn test_download_clobber_argument() {
+    ["--clobber", "-C"].into_iter().for_each(|flag| {
+        let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", flag]).unwrap();
+        match arguments.command {
+            | Some(Commands::Download(arguments)) => assert!(arguments.clobber),
+            | other => panic!("unexpected command: {other:?}"),
+        }
+    });
 }
 #[test]
 fn test_watch_arguments_are_global() {

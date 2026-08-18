@@ -23,6 +23,7 @@ pub async fn run(
     ignore: &[String],
     output: &Option<PathBuf>,
     flatten: bool,
+    clobber: bool,
     database_path: &Option<PathBuf>,
     threads: usize,
     verbose: &Verbosity,
@@ -40,6 +41,7 @@ pub async fn run(
         .filter(filter.to_vec())
         .ignore(ignore.to_vec())
         .flatten(flatten)
+        .clobber(clobber)
         .quiet(quiet)
         .threads(threads)
         .build();

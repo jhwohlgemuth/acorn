@@ -21,6 +21,9 @@ acorn download --config /path/to/.acorn.yml --output /path/to/output
 # Download selected files directly beneath the output directory
 acorn download https://github.com/example/project --filter '^examples/quest/' --flatten --output ./quest
 
+# Replace selected paths that already exist in the output directory
+acorn download https://github.com/example/project --output ./content --clobber
+
 # Download using JSONC configuration (supports comments and trailing commas)
 acorn download --config /path/to/.acorn.jsonc
 ```
@@ -31,7 +34,9 @@ After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, and r
 
 Repeated transfers are idempotent. A matching candidate gains missing fields and unique array values, while conflicting populated fields remain unchanged and are recorded as provenance. Filters and ignore rules apply before transfer, so only transferred RAD files are ingested.
 
-Use `--flatten` to discard repository directory components and save every selected file as a direct child of the output directory. Filters and ignore rules continue to match the original repository-relative paths. If multiple selected paths have the same filename, or a destination file already exists, the command fails without overwriting it.
+Use `--flatten` to discard repository directory components and save every selected file as a direct child of the output directory. Filters and ignore rules continue to match the original repository-relative paths. If multiple selected paths have the same filename, the command fails.
+
+By default, a bucket transfer also fails rather than overwrite an existing destination. Add `--clobber` to replace files, symlinks, or directories that conflict with selected output paths. ACORN obtains the replacement content before removing an existing destination, preserves unrelated contents beneath the output directory, and does not clear the output directory itself. This flag applies only to bucket downloads; the model subcommand's existing `--force` flag retains its synchronization-specific meaning.
 
 If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence.
 

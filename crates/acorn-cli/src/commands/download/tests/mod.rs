@@ -497,6 +497,7 @@ async fn test_download_local_config_silent() -> Result<()> {
         &ignore,
         &Some(output_dir.clone()),
         false,
+        false,
         &None,
         TEST_THREADS,
         &verbose,
@@ -525,6 +526,7 @@ async fn test_download_local_url_silent() -> Result<()> {
         &ignore,
         &Some(output_dir.clone()),
         false,
+        false,
         &None,
         TEST_THREADS,
         &verbose,
@@ -551,6 +553,7 @@ async fn test_download_local_url_flattens_and_ingests_rad() -> Result<()> {
         &[],
         &Some(output_dir.clone()),
         true,
+        false,
         &database_path,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -580,6 +583,51 @@ fn test_download_flatten_rejects_model_subcommand() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("--flatten is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
+#[test]
+fn test_download_clobber_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_clobber_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let database_path = temp_dir.join("acorn.db");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--clobber", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--clobber is only supported for bucket downloads"));
+    assert!(!database_path.exists());
+}
+#[test]
+fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
+    let temp_dir = temp_test_dir("download_clobber_bucket");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let bucket_dir = temp_dir.join("bucket");
+    let output_dir = temp_dir.join("output");
+    write_rad(&bucket_dir.join("index.json"), "replacement").expect("write replacement RAD");
+    create_dir_all(&output_dir).expect("create output directory");
+    write(output_dir.join("index.json"), "old").expect("write existing destination");
+    write(output_dir.join("unrelated.txt"), "keep").expect("write unrelated destination");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .args(["--no-local-database", "download"])
+        .arg(format!("file:{}/", bucket_dir.display()))
+        .arg("--output")
+        .arg(&output_dir)
+        .arg("--clobber")
+        .output()
+        .expect("run clobbering bucket download");
+    assert!(
+        output.status.success(),
+        "bucket download failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(read_to_string(output_dir.join("index.json"))
+        .expect("read replacement")
+        .contains("replacement"));
+    assert_eq!(read_to_string(output_dir.join("unrelated.txt")).expect("read unrelated file"), "keep");
+}
 #[tokio::test]
 async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
     let temp_dir = temp_test_dir("download_ingests_valid_rad");
@@ -599,6 +647,7 @@ async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
             &[],
             &[],
             &Some(run_output),
+            false,
             false,
             &database_path,
             TEST_THREADS,
@@ -628,6 +677,7 @@ async fn test_download_preserves_malformed_rad_and_fails_ingestion() -> Result<(
         &[],
         &[],
         &Some(output_dir.clone()),
+        false,
         false,
         &Some(temp_dir.join("acorn.db")),
         TEST_THREADS,
@@ -659,6 +709,7 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
         &[],
         &Some(output_dir.clone()),
         false,
+        false,
         &database_path,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -688,6 +739,7 @@ async fn test_download_no_local_database_disables_candidate_persistence() -> Res
         &[],
         &[],
         &Some(temp_dir.join("output")),
+        false,
         false,
         &Some(database_path.clone()),
         TEST_THREADS,
