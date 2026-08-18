@@ -39,7 +39,7 @@ The WASM build exposes Rust APIs that operate on supplied in-memory values. It c
 |---|---|
 | Research metadata | `ResearchActivity` and its supporting metadata, section, linked-data, and media types |
 | Metadata standards | Serde-compatible CFF, DataCite, DCAT, Dublin Core, Huwise, Invenio, and text models; in-memory schema crosswalk contracts and conversions |
-| Persistent identifiers | ARK, DOI, ISBN, ORCID, RAiD, ROR, and patent parsing, recognition, normalization, component access, and checksum validation where the identifier defines one |
+| Persistent identifiers | ARK, DOI, ISBN, ISNI, ORCID, RAiD, ROR, and patent parsing, recognition, normalization, component access, and checksum validation where the identifier defines one |
 | Validation | Research schema validation plus helpers for identifiers, dates and timestamps, URLs, semantic versions, geographic coordinates and polygons, language and country codes, phone numbers, and media extensions |
 | Hardware metadata | Architecture, accelerator, processor, memory, sensor, topology, vendor, and computing-resource models |
 | Portable domain APIs | `Location`, `Repository`, `Scheme`, `Release`, `AcornError`, and `AcornResult` |
@@ -51,10 +51,11 @@ Schema types implement their normal Serde, JSON Schema, and validation traits in
 For example, a Rust component compiled to WASM can use ACORN's identifier validation directly:
 
 ```rust
-use acorn::schema::validate::{is_arxiv, is_doi, is_orcid, is_ror};
+use acorn::schema::validate::{is_arxiv, is_doi, is_isni, is_orcid, is_ror};
 
 assert!(is_doi("10.11578/dc.20250604.1").is_ok());
 assert!(is_arxiv("arXiv:2106.09685").is_ok());
+assert!(is_isni("https://isni.org/isni/0000000492299539").is_ok());
 assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 assert!(is_ror("https://ror.org/01qz5mb56").is_ok());
 ```

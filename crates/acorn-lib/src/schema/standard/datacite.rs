@@ -13,6 +13,10 @@ use crate::prelude::*;
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
 use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
+use crate::schema::standard::validate::{
+    validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_name_identifier,
+    validate_publisher_identifier,
+};
 use crate::schema::standard::{dcat, huwise, invenio};
 use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
 #[cfg(not(feature = "std"))]
@@ -462,6 +466,7 @@ pub enum TitleType {
 /// Creator or contributor affiliation per DataCite 4.6 property 2.5
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_affiliation_identifier", skip_on_field_errors = false))]
 pub struct Affiliation {
     /// Affiliation name
     pub name: String,
@@ -505,8 +510,10 @@ pub struct Attributes {
     /// Dataset titles (property 3)
     pub titles: Option<Vec<Title>>,
     /// Dataset creators (property 2)
+    #[validate(nested)]
     pub creators: Option<Vec<Creator>>,
     /// Publisher information (property 4)
+    #[validate(nested)]
     pub publisher: Option<Publisher>,
     /// Publication year per DataCite 4.6 property 5
     ///
@@ -633,6 +640,7 @@ pub struct Creator {
     #[serde(rename = "familyName")]
     pub family_name: Option<String>,
     /// Name identifiers
+    #[validate(nested)]
     #[serde(rename = "nameIdentifiers", alias = "nameIdentifier")]
     pub name_identifiers: Option<Vec<NameIdentifier>>,
     /// Creator affiliations
@@ -709,6 +717,7 @@ pub struct Formats {
 /// In kernel-4 XML, the funder identifier type is an attribute of the
 /// `<funderIdentifier>` element rather than a sibling field.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_funder_identifier", skip_on_field_errors = false))]
 pub struct FunderIdentifier {
     /// Funder identifier type
     #[serde(rename = "@funderIdentifierType")]
@@ -724,6 +733,7 @@ pub struct FunderIdentifier {
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/fundingreference/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_funding_reference_identifier", skip_on_field_errors = false))]
 pub struct FundingReference {
     /// Funder name
     #[serde(rename = "funderName")]
@@ -860,6 +870,7 @@ pub struct KernelFundingReference {
     #[serde(rename = "funderName")]
     pub funder_name: String,
     /// Funder identifier with type attribute
+    #[validate(nested)]
     #[serde(rename = "funderIdentifier")]
     pub funder_identifier: Option<FunderIdentifier>,
     /// Award number with URI attribute
@@ -873,6 +884,7 @@ pub struct KernelFundingReference {
 /// Persistent identifier for a creator or contributor
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_name_identifier", skip_on_field_errors = false))]
 pub struct NameIdentifier {
     /// Identifier value
     #[serde(rename = "nameIdentifier", alias = "$text")]
@@ -890,6 +902,7 @@ pub struct NameIdentifier {
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publisher/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_publisher_identifier", skip_on_field_errors = false))]
 pub struct Publisher {
     /// Publisher name
     pub name: String,

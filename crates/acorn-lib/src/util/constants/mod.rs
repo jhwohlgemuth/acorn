@@ -81,12 +81,15 @@ pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(
 pub const RE_ARXIV_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
 pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+/// Pattern text for Gemeinsame Normdatei identifiers
+pub const RE_GND_TEXT: &str = r#"(?<![A-Za-z0-9])(?i:gnd:)?(?:(?:1|10)\d{7}[0-9X]|[47]\d{6}-\d|[1-9]\d{0,7}-[0-9X]|3\d{7}[0-9X])(?![A-Za-z0-9])"#;
 /// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
 pub const RE_ISBN_TEXT: &str =
     r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
+/// Pattern text for International Standard Name Identifier regular expression defined by [`RE_ISNI`]
+pub const RE_ISNI_TEXT: &str = r#"(?<![A-Za-z0-9])(?<schema_uri>https?[:]//isni\.org/isni/)?(?<identifier>[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
-pub const RE_ORCID_TEXT: &str =
-    r#"(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))"#;
+pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str = r#"(?<![A-Za-z0-9])(?<country_code>US|CN|DE|EP|JP|KR)\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{5,11})\s*(?<kind_code>[A-Z]\d)(?![A-Za-z0-9])"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
@@ -108,8 +111,12 @@ lazy_static! {
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
     pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).expect("RE_DOI_TEXT should compile as a valid regex");
+    /// Regex that should match a Gemeinsame Normdatei identifier
+    pub static ref RE_GND: Regex = Regex::new(RE_GND_TEXT).expect("RE_GND_TEXT should compile as a valid regex");
     /// Regex that should match an International Standard Book Number (ISBN)
     pub static ref RE_ISBN: Regex = Regex::new(RE_ISBN_TEXT).expect("RE_ISBN_TEXT should compile as a valid regex");
+    /// Regex that should match an International Standard Name Identifier (ISNI)
+    pub static ref RE_ISNI: Regex = Regex::new(RE_ISNI_TEXT).expect("RE_ISNI_TEXT should compile as a valid regex");
     /// Regex that should match a USPTO patent identifier (granted patent, application, or publication)
     pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).expect("RE_PATENT_TEXT should compile as a valid regex");
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value

@@ -9,7 +9,7 @@ use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, PID, RAID, ROR};
+use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR};
 use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::{check, check_err};
@@ -914,6 +914,7 @@ impl PID {
             | Self::ARXIV => ARXIV::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::ISNI => ISNI::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),

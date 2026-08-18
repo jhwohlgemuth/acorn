@@ -10,12 +10,12 @@
 //! [RAiDs]: https://www.raid.org/
 use crate::prelude::*;
 use crate::schema::namespaces::{
-    ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_ARXIV_SCHEMA_URI, DEFAULT_DOI_SCHEMA_URI, DEFAULT_ORCID_SCHEMA_URI,
-    DEFAULT_ROR_SCHEMA_URI,
+    ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_ARXIV_SCHEMA_URI, DEFAULT_DOI_SCHEMA_URI, DEFAULT_ISNI_SCHEMA_URI,
+    DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI,
 };
 use crate::util::constants::{
-    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT,
-    RE_ROR, RE_ROR_TEXT,
+    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ISNI, RE_ISNI_TEXT, RE_ORCID,
+    RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, trim_unmatched_trailing_parentheses, ToStringChunks};
 use bon::Builder;
@@ -128,6 +128,8 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     fn is_isbn(&self) -> bool {
         false
     }
+    /// Determines if `self` is an ISNI
+    fn is_isni(&self) -> bool;
     /// Determines if `self` is a ORCID
     /// ```ignore
     /// use acorn::schema::pid::{PID, PersistentIdentifier};
@@ -191,6 +193,10 @@ pub enum PID {
     ///
     /// See [`ISBN`]
     ISBN,
+    /// International Standard Name Identifier (ISNI)
+    ///
+    /// See [`ISNI`]
+    ISNI,
     /// Open Researcher and Contributor ID (ORCiD)
     ///
     /// See [`ORCID`]
@@ -400,6 +406,19 @@ pub struct ORCID {
     /// Check digit should be verified IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
 }
+/// International Standard Name Identifier (ISNI)
+///
+/// ISNIs identify public identities of people and organizations using a 16-character ISO 7064 MOD 11-2 identifier.
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct ISNI {
+    /// Resolver URI (i.e., <https://isni.org/isni/>)
+    pub schema_uri: Option<String>,
+    /// The 16-character ISNI value
+    pub identifier: Option<String>,
+    /// The final ISNI check character
+    pub check_digit: Option<String>,
+}
 /// Research Activity Identifier (RAiD)[^raid]
 ///
 /// RAiDs are expressed in the form of `https://raid.org/prefix/suffix`, resolvable through the RAiD portal operated by the ARDC[^ardc] at <https://raid.org/> —though they may still be resolved through any DOI or handle resolver.
@@ -457,6 +476,10 @@ impl Identifier {
             | PID::DOI => Self::parsed::<DOI>(PID::DOI, trimmed),
             | PID::ARXIV => Self::parsed::<ARXIV>(PID::ARXIV, trimmed),
             | PID::ISBN => Self::parsed::<ISBN>(PID::ISBN, trimmed),
+            | PID::ISNI => {
+                let value = ISNI::format(trimmed);
+                ISNI::is_valid(&value).then_some(Self { kind: PID::ISNI, value })
+            }
             | PID::ORCID => Self::parsed::<ORCID>(PID::ORCID, trimmed),
             | PID::ARK => Self::parsed::<ARK>(PID::ARK, trimmed),
             | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
@@ -473,15 +496,25 @@ impl Identifier {
                 } else {
                     PID::DOI
                 };
-                [PID::ARXIV, primary, PID::ARK, PID::ISBN, PID::ORCID, PID::Patent, PID::ROR, PID::URL]
-                    .into_iter()
-                    .find_map(|kind| {
-                        Self {
-                            kind,
-                            value: self.value.clone(),
-                        }
-                        .normalized()
-                    })
+                [
+                    PID::ARXIV,
+                    primary,
+                    PID::ARK,
+                    PID::ISBN,
+                    PID::ORCID,
+                    PID::ISNI,
+                    PID::Patent,
+                    PID::ROR,
+                    PID::URL,
+                ]
+                .into_iter()
+                .find_map(|kind| {
+                    Self {
+                        kind,
+                        value: self.value.clone(),
+                    }
+                    .normalized()
+                })
             }
             | _ => None,
         }
@@ -562,6 +595,14 @@ impl From<ISBN> for Identifier {
         }
     }
 }
+impl From<ISNI> for Identifier {
+    fn from(value: ISNI) -> Self {
+        Self {
+            kind: PID::ISNI,
+            value: value.to_string(),
+        }
+    }
+}
 impl From<ORCID> for Identifier {
     fn from(value: ORCID) -> Self {
         Self {
@@ -601,6 +642,7 @@ impl PID {
             || self.is_arxiv()
             || self.is_doi()
             || self.is_isbn()
+            || self.is_isni()
             || self.is_orcid()
             || self.is_patent()
             || self.is_raid()
@@ -613,6 +655,7 @@ impl PID {
             | Self::DOI => "doi",
             | Self::ARXIV => "arxiv",
             | Self::ISBN => "isbn",
+            | Self::ISNI => "isni",
             | Self::ORCID => "orcid",
             | Self::Patent => "patent",
             | Self::PIDINST => "pidinst",
@@ -688,6 +731,11 @@ impl Default for ORCID {
         Self::new()
     }
 }
+impl Default for ISNI {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Default for RAID {
     fn default() -> Self {
         Self::new()
@@ -743,6 +791,15 @@ impl fmt::Display for ORCID {
             .collect::<Vec<String>>()
             .join("/");
         write!(f, "{result}")
+    }
+}
+impl fmt::Display for ISNI {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let identifier = self.identifier();
+        match identifier.is_empty() {
+            | true => write!(f, ""),
+            | false => write!(f, "{}/{}", self.schema_uri(), identifier),
+        }
     }
 }
 impl fmt::Display for RAID {
@@ -1058,6 +1115,26 @@ impl PersistentIdentifier for ORCID {
         orcid_check_digit(self.identifier())
     }
 }
+impl PersistentIdentifier for ISNI {
+    fn new() -> Self {
+        ISNI::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        DEFAULT_ISNI_SCHEMA_URI.to_string()
+    }
+    fn identifier(&self) -> String {
+        self.identifier
+            .as_ref()
+            .map(|value| value.replace([' ', '-'], "").to_ascii_uppercase())
+            .unwrap_or_default()
+    }
+    fn suffix(&self) -> Option<String> {
+        Some(self.identifier())
+    }
+    fn check_digit(&self) -> Option<Vec<char>> {
+        isni_check_digit(self.identifier())
+    }
+}
 impl PersistentIdentifier for RAID {
     fn new() -> Self {
         RAID::init().build()
@@ -1116,6 +1193,7 @@ where
             | PID::ARK => ARK::format(self.as_ref()),
             | PID::ARXIV => ARXIV::format(self.as_ref()),
             | PID::DOI => DOI::format(self.as_ref()),
+            | PID::ISNI => ISNI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
             | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
@@ -1128,6 +1206,7 @@ where
             | PID::ARK => PersistentIdentifierInternal { value, pid_type: PID::ARK },
             | PID::ARXIV => PersistentIdentifierInternal { value, pid_type: PID::ARXIV },
             | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
+            | PID::ISNI => PersistentIdentifierInternal { value, pid_type: PID::ISNI },
             | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
             | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
             | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
@@ -1139,6 +1218,7 @@ where
             | PID::ARK => self.is_ark(),
             | PID::ARXIV => self.is_arxiv(),
             | PID::DOI => self.is_doi(),
+            | PID::ISNI => self.is_isni(),
             | PID::ORCID => self.is_orcid(),
             | PID::RAID => self.is_raid(),
             | PID::ROR => self.is_ror(),
@@ -1156,6 +1236,9 @@ where
     }
     fn is_isbn(&self) -> bool {
         ISBN::is_valid(self.as_ref())
+    }
+    fn is_isni(&self) -> bool {
+        ISNI::is_valid(self.as_ref())
     }
     fn is_orcid(&self) -> bool {
         ORCID::is_valid(self.as_ref())
@@ -1198,6 +1281,14 @@ impl PersistentIdentifierInternal {
         match pid_type {
             | PID::ORCID => ORCID::from_string(value),
             | _ => ORCID::default(),
+        }
+    }
+    /// Convert a `PersistentIdentifierInternal` to an `ISNI`
+    pub fn to_isni(&self) -> ISNI {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::ISNI => ISNI::from_string(value),
+            | _ => ISNI::default(),
         }
     }
     /// Convert a `PersistentIdentifierInternal` to a `RAID`
@@ -1487,6 +1578,40 @@ impl PersistentIdentifierParse for ISBN {
         has_valid_check_digit && is_valid_length
     }
 }
+impl PersistentIdentifierParse for ISNI {
+    /// Find all [`ISNI`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        RE_ISNI
+            .find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .filter(|matched| ISNI::is_valid(matched.as_str()) && !ORCID::is_valid(matched.as_str()))
+            .map(|matched| ISNI::from_string(matched.as_str()))
+            .collect()
+    }
+    /// Parse and format an [`ISNI`] as its canonical resolver URL
+    fn format(value: impl ToString) -> String {
+        ISNI::from_string(value).to_string()
+    }
+    /// Create an [`ISNI`] by parsing a resolver URL or bare identifier
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "identifier", "check_digit"];
+        let pattern = format!("^{RE_ISNI_TEXT}$");
+        let text = value.to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        ISNI::init()
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_check_digit(lookup.get("check_digit").cloned())
+            .build()
+    }
+    /// Check whether a value is a valid ISNI with a MOD 11-2 check character
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = ISNI::from_string(value);
+        let identifier = pid.identifier();
+        let last = identifier.chars().last().unwrap_or_default();
+        identifier.len() == 16 && isni_check_digit(&identifier).is_some_and(|digits| digits.contains(&last))
+    }
+}
 impl PersistentIdentifierParse for ORCID {
     /// Find all [`ORCID`] values present in a string
     fn find_all(value: impl ToString) -> Vec<Self> {
@@ -1744,6 +1869,28 @@ where
 /// ```
 #[allow(clippy::arithmetic_side_effects)]
 pub fn orcid_check_digit<S>(value: S) -> Option<Vec<char>>
+where
+    S: AsRef<str>,
+{
+    mod_11_2_check_digit(value)
+}
+/// Calculate an ISNI check character using ISO 7064 MOD 11-2.
+///
+/// # Examples
+///
+/// ```rust
+/// use acorn::schema::pid::isni_check_digit;
+///
+/// assert_eq!(isni_check_digit("0000000492299539"), Some(vec!['9']));
+/// ```
+pub fn isni_check_digit<S>(value: S) -> Option<Vec<char>>
+where
+    S: AsRef<str>,
+{
+    mod_11_2_check_digit(value)
+}
+#[allow(clippy::arithmetic_side_effects)]
+fn mod_11_2_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {

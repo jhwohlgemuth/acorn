@@ -8,8 +8,8 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    isbn_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Betanumeric, Identifier, Patent, PersistentIdentifier,
-    PersistentIdentifierConvert, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, PID, RAID, ROR,
+    isbn_check_digit, isni_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Betanumeric, Identifier, Patent,
+    PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR,
 };
 use crate::schema::Validate;
 
@@ -363,6 +363,41 @@ fn test_orcid() {
     assert_eq!("0000000220579115".format_as(PID::ORCID), valid);
 }
 #[test]
+fn test_isni() {
+    let canonical = "https://isni.org/isni/0000000492299539";
+    assert_eq!(PID::from("ISNI"), PID::ISNI);
+    assert_eq!(serde_json::to_string(&PID::ISNI).unwrap(), r#""isni""#);
+    assert!(canonical.is_pid(PID::ISNI));
+    assert!(canonical.is_isni());
+    assert_eq!(canonical.to_pid(PID::ISNI).to_isni().to_string(), canonical);
+    assert_eq!("0000 0004 9229 9539".format_as(PID::ISNI), canonical);
+    assert_eq!("0000-0004-9229-9539".format_as(PID::ISNI), canonical);
+    assert_eq!(ISNI::format("http://isni.org/isni/0000000492299539"), canonical);
+    assert_eq!(
+        Identifier {
+            kind: PID::ISNI,
+            value: "0000-0004-9229-9539".to_string(),
+        }
+        .normalized()
+        .expect("explicit ISNI should normalize")
+        .value,
+        canonical
+    );
+    assert_eq!(isni_check_digit("0000000492299539"), Some(vec!['9']));
+    assert!(!ISNI::is_valid("0000000492299538"));
+}
+#[test]
+fn test_isni_find_all_and_orcid_precedence() {
+    let isni = "https://isni.org/isni/0000000492299539";
+    let orcid = "https://orcid.org/0000-0002-2057-9115";
+    let values = ISNI::find_all(format!("ISNI {isni}; ORCID {orcid}"));
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0].to_string(), isni);
+    assert!(ORCID::find_all(isni).is_empty());
+    let normalized = Identifier::new(orcid).normalized().expect("ORCID should normalize");
+    assert_eq!(normalized.kind, PID::ORCID);
+}
+#[test]
 fn test_orcid_find_all() {
     let valid = "https://orcid.org/0000-0002-2057-9115";
     let text = format!("I made a thing with a person with ORCiD {valid}.");
@@ -499,6 +534,36 @@ fn test_raid() {
     assert_eq!(valid.format_as(PID::RAID), "10.83962/fb5be317");
     assert_eq!(RAID::format("10.1000/182"), "10.1000/182");
     assert_eq!(RAID::format("https://raid.org/10.1000/182"), "10.1000/182");
+}
+#[test]
+fn test_raid_contributor_accepts_orcid_and_isni() {
+    let contributor = |id: &str, schema_uri: &str| raid::Contributor {
+        id: Some(id.to_string()),
+        schema_uri: Some(schema_uri.to_string()),
+        status: None,
+        status_message: None,
+        position: Vec::new(),
+        leader: false,
+        contact: false,
+        email: None,
+        role: None,
+        uuid: None,
+    };
+    assert!(contributor("https://orcid.org/0000-0002-2057-9115", "https://orcid.org/")
+        .validate()
+        .is_ok());
+    assert!(contributor("https://isni.org/isni/0000000492299539", "https://isni.org/")
+        .validate()
+        .is_ok());
+    assert!(contributor("https://isni.org/isni/0000000492299538", "https://isni.org/")
+        .validate()
+        .is_err());
+    assert!(contributor("https://isni.org/isni/0000000492299539", "https://orcid.org/")
+        .validate()
+        .is_err());
+    assert!(contributor("https://isni.org/isni/0000000492299539", "https://example.org/")
+        .validate()
+        .is_err());
 }
 #[test]
 fn test_raid_read() {

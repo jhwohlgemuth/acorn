@@ -57,6 +57,7 @@ mod markdown;
 pub mod s3a;
 use aspect::AspectFramework;
 use markdown::Document;
+#[cfg(feature = "std")]
 pub(crate) use markdown::MarkdownParser;
 
 type ValidationResult = core::result::Result<(), ValidationError>;

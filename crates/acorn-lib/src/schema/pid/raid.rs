@@ -14,7 +14,7 @@ use crate::prelude::{Error, PathBuf};
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{has_at_least_one_truthy, is_date, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::schema::validate::{has_at_least_one_truthy, is_date, is_isni, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 use crate::schema::Date;
 use crate::util::Constant;
 #[cfg(feature = "std")]
@@ -562,14 +562,16 @@ impl AlternateUrl {
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
+#[validate(schema(function = "validate_contributor_identifier", skip_on_field_errors = false))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Contributor {
     /// Contributor (person) associated with a project or activity identified by a persistent identifier (PID)
     ///
-    /// Should be a valid *full* ORCiD
+    /// Should be a valid full ORCID or ISNI resolver URL.
     /// ### Example
     /// > "<https://orcid.org/0000-0000-0000-0000>"
-    #[validate(required, custom(function = "is_orcid"))]
+    /// > "<https://isni.org/isni/0000000492299539>"
+    #[validate(required)]
     pub id: Option<String>,
     /// URI of the contributor identifier schema
     ///
@@ -577,7 +579,7 @@ pub struct Contributor {
     ///
     /// [ISNI]: https://isni.org/
     /// [ORCID]: https://orcid.org/
-    #[validate(url)]
+    #[validate(required, url)]
     pub schema_uri: Option<String>,
     /// Contibutor status
     // TODO: Not in schema docs
@@ -1250,6 +1252,15 @@ fn has_contact(value: &Vec<Contributor>) -> Result<(), ValidationError> {
         "contributors",
         "Mark at least one contributor as contact",
     )
+}
+fn validate_contributor_identifier(value: &Contributor) -> Result<(), ValidationError> {
+    match (value.id.as_deref(), value.schema_uri.as_deref().map(|uri| uri.trim_end_matches('/'))) {
+        | (Some(identifier), Some("https://orcid.org")) => is_orcid(identifier),
+        | (Some(identifier), Some("https://isni.org")) => is_isni(identifier),
+        | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
+            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())),
+        | _ => Ok(()),
+    }
 }
 fn has_leader(value: &Vec<Contributor>) -> Result<(), ValidationError> {
     has_at_least_one_truthy(

@@ -8,7 +8,10 @@
 //! Shared test utilities for `acorn-lib` unit tests.
 use crate::cmd;
 use crate::io::command_exists;
-use crate::io::database::{schema::Table, Database, Operations};
+use crate::io::database::{
+    schema::{ProgrammingLanguageRow, Table},
+    Database, Operations,
+};
 use crate::io::ApiResult;
 use crate::prelude::{create_dir_all, CommandOutput, PathBuf};
 use core::time::Duration;
@@ -63,6 +66,15 @@ pub(crate) async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
     database.migrate()?;
     let _ = database.populate(Table::Licenses).await?;
     Ok(path)
+}
+/// Create a temporary database containing representative programming languages.
+pub(crate) fn temp_database_with_programming_languages() -> ApiResult<PathBuf> {
+    let path = unique_path("programming-languages", "db");
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database
+        .migrate()
+        .and_then(|_| database.insert(ProgrammingLanguageRow::init().name("Rust").language_type("programming").build()))
+        .map(|_| path)
 }
 /// Build a unique temporary directory path under `target/test_artifacts`.
 pub(crate) fn temp_dir(name: &str) -> PathBuf {

@@ -6,10 +6,11 @@
     clippy::unwrap_used
 )]
 use crate::schema::standard::datacite::{
-    Catalog, DateType, DescriptionType, FunderIdentifierType, GeoLocationPoint, NameType, RelatedIdentifierType, RelationType, Resource,
-    ResourceTypeGeneral, TitleType,
+    Affiliation, Catalog, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier,
+    NameType, Publisher, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
 };
 use serde_json::Value;
+use validator::Validate;
 
 const FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.json";
 const XML_FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.xml";
@@ -272,4 +273,85 @@ fn test_datacite_xml_fixture_parsing() {
         .as_ref()
         .expect("should have award title")
         .contains("BIOdiversity"));
+}
+#[test]
+fn test_datacite_isni_identifier_validation() {
+    let isni = "https://isni.org/isni/0000000492299539";
+    let name = NameIdentifier {
+        name_identifier: isni.to_string(),
+        name_identifier_scheme: Some("ISNI".to_string()),
+        scheme_uri: Some("https://isni.org/".to_string()),
+    };
+    let blank_name = NameIdentifier {
+        name_identifier_scheme: None,
+        ..name.clone()
+    };
+    let identifier = NameIdentifier {
+        name_identifier: "0000000492299538".to_string(),
+        ..name.clone()
+    };
+    let affiliation = Affiliation {
+        name: "Example".to_string(),
+        affiliation_identifier: Some(isni.to_string()),
+        affiliation_identifier_scheme: Some("ISNI".to_string()),
+        scheme_uri: Some("https://isni.org/".to_string()),
+    };
+    let publisher = Publisher {
+        name: "Example".to_string(),
+        publisher_identifier: Some(isni.to_string()),
+        publisher_identifier_scheme: Some("ISNI".to_string()),
+        scheme_uri: Some("https://isni.org/".to_string()),
+    };
+    let funder_id = FunderIdentifier {
+        funder_identifier_type: Some(FunderIdentifierType::Isni),
+        value: isni.to_string(),
+    };
+    let funding_ref = FundingReference {
+        funder_name: "Example".to_string(),
+        funder_identifier: Some("0000000492299538".to_string()),
+        funder_identifier_type: Some(FunderIdentifierType::Isni),
+        scheme_uri: Some("https://isni.org/".to_string()),
+        award_number: None,
+        award_uri: None,
+        award_title: None,
+    };
+    assert!(name.validate().is_ok());
+    assert!(blank_name.validate().is_err());
+    assert!(identifier.validate().is_err());
+    assert!(affiliation.validate().is_ok());
+    assert!(publisher.validate().is_ok());
+    assert!(funder_id.validate().is_ok());
+    assert!(funding_ref.validate().is_err());
+}
+#[test]
+fn test_datacite_record_propagates_identifier_validation() {
+    let text = load_fixture_text();
+    let mut catalog: Catalog = serde_json::from_str(&text).expect("failed to parse datacite.json fixture");
+    let record = &mut catalog[0];
+    {
+        let name_identifier = &mut record.attributes.creators.as_mut().expect("creators should exist")[0]
+            .name_identifiers
+            .as_mut()
+            .expect("name identifiers should exist")[0];
+        name_identifier.name_identifier = "https://isni.org/isni/0000000492299539".to_string();
+        name_identifier.name_identifier_scheme = Some("ISNI".to_string());
+        name_identifier.scheme_uri = Some("https://isni.org/".to_string());
+    }
+    assert!(record.validate().is_ok());
+    record.attributes.creators.as_mut().expect("creators should exist")[0]
+        .name_identifiers
+        .as_mut()
+        .expect("name identifiers should exist")[0]
+        .name_identifier = "0000000492299538".to_string();
+    assert!(record.validate().is_err());
+
+    let mut catalog: Catalog = serde_json::from_str(&text).expect("failed to parse datacite.json fixture");
+    let record = &mut catalog[0];
+    record.attributes.publisher = Some(Publisher {
+        name: "Example".to_string(),
+        publisher_identifier: Some("0000000492299538".to_string()),
+        publisher_identifier_scheme: Some("ISNI".to_string()),
+        scheme_uri: Some("https://isni.org/".to_string()),
+    });
+    assert!(record.validate().is_err());
 }

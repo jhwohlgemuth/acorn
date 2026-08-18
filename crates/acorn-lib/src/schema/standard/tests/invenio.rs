@@ -5,8 +5,10 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::schema::standard::invenio::Metadata;
+use crate::schema::standard::invenio::{CodeMeta, Metadata, PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::test::utils::fixture_path;
+use crate::util::constants::env::DATABASE_PATH;
+use validator::Validate;
 
 fn load_fixture_text() -> String {
     std::fs::read_to_string(fixture_path("schema/invenio.json")).expect("failed to read invenio.json fixture")
@@ -69,4 +71,47 @@ fn test_invenio_metadata_types() {
         assert!(metadata.resource_type.is_some(), "record {} should have a resource_type", i + 1);
         assert!(metadata.creators.is_some(), "record {} should have creators", i + 1);
     }
+}
+#[test]
+fn test_person_or_org_identifier_schemes() {
+    let valid = [
+        (PersonOrOrgIdentifierScheme::Orcid, "https://orcid.org/0000-0002-2057-9115"),
+        (PersonOrOrgIdentifierScheme::Isni, "https://isni.org/isni/0000000492299539"),
+        (PersonOrOrgIdentifierScheme::Gnd, "118540238"),
+        (PersonOrOrgIdentifierScheme::Ror, "https://ror.org/01qz5mb56"),
+    ];
+    valid.into_iter().for_each(|(scheme, identifier)| {
+        assert!(PersonOrOrgIdentifier {
+            scheme,
+            identifier: identifier.to_string(),
+        }
+        .validate()
+        .is_ok());
+    });
+    assert!(PersonOrOrgIdentifier {
+        scheme: PersonOrOrgIdentifierScheme::Isni,
+        identifier: "https://orcid.org/0000-0002-2057-9115".to_string(),
+    }
+    .validate()
+    .is_err());
+    assert!(serde_json::from_str::<PersonOrOrgIdentifier>(r#"{"scheme":"custom","identifier":"123"}"#).is_err());
+}
+#[test]
+fn test_codemeta_programming_language_validation() {
+    let path = crate::test::utils::temp_database_with_programming_languages().expect("failed to initialize temporary programming-language database");
+    let path_string = path.to_string_lossy().to_string();
+    temp_env::with_vars([(DATABASE_PATH, Some(path_string.as_str()))], || {
+        let valid = CodeMeta {
+            code_repository: None,
+            programming_language: Some("Rust".to_string()),
+            development_status: None,
+        };
+        assert!(valid.validate().is_ok());
+        assert!(CodeMeta {
+            programming_language: Some("Not A Language".to_string()),
+            ..valid
+        }
+        .validate()
+        .is_err());
+    });
 }

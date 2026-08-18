@@ -3,6 +3,7 @@ use super::Research;
 use super::{ResearchActivity, ResearchActivityContext, ResearchActivityMetadata, Sections as ResearchSections};
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
+#[cfg(feature = "std")]
 use crate::io::document::{DocumentEntry, DocumentParser, SourceDocument};
 use crate::prelude::*;
 use crate::schema::research_activity::aspect::AspectFramework;
@@ -13,9 +14,11 @@ use crate::util::constants::app::{RAD_MARKDOWN_OPTIONAL_SECTIONS, RAD_MARKDOWN_R
 use crate::util::{frontmatter_and_body, MarkdownSupport};
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
+#[cfg(feature = "std")]
 use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "std")]
 pub(crate) struct MarkdownParser;
 #[derive(Clone, Debug)]
 struct Body {
@@ -426,6 +429,7 @@ impl MarkdownSupport for Header {
         self.to_front_matter().unwrap_or_default()
     }
 }
+#[cfg(feature = "std")]
 impl DocumentParser for MarkdownParser {
     fn try_entries(&self, document: &SourceDocument) -> Option<Vec<DocumentEntry>> {
         (document.is_markdown() && Document::recognizes(&document.content)).then(|| self.entries(document))
@@ -535,6 +539,7 @@ impl DocumentParser for MarkdownParser {
         }
     }
 }
+#[cfg(feature = "std")]
 impl MarkdownParser {
     fn contact_entries(lines: &[(usize, &str)]) -> Vec<DocumentEntry> {
         lines

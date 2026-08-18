@@ -18,7 +18,7 @@ The library also provides building blocks for optional AI-enabled applications:
 These APIs complement ACORN's deterministic schema and artifact workflows; applications decide when and how a model is invoked.
 
 > [!IMPORTANT]
-> When ACORN validates a PID, it does not rely only on recognition patterns. It also validates parsed structure and, for ISBNs[^isbn], ORCIDs[^orcid], and RORs[^ror], the check digits implemented for that identifier. Validation is local and does not confirm registration with an external authority.
+> When ACORN validates a PID, it does not rely only on recognition patterns. It also validates parsed structure and, for ISBNs[^isbn], ISNIs[^isni], ORCIDs[^orcid], and RORs[^ror], the check digits implemented for that identifier. Validation is local and does not confirm registration with an external authority.
 
 ## Installation
 - Add `acorn-lib` as a dependency[^version]
@@ -27,11 +27,12 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
   ```  
 - Use `acorn-lib` functions in your Rust code
   ```rust
-  use acorn::schema::validate::{is_ark, is_arxiv, is_doi, is_orcid, is_ror};
+  use acorn::schema::validate::{is_ark, is_arxiv, is_doi, is_isni, is_orcid, is_ror};
 
   assert!(is_ark("ark:/1234/w5678").is_ok());
   assert!(is_arxiv("arXiv:2106.09685").is_ok());
   assert!(is_doi("10.11578/dc.20250604.1").is_ok());
+  assert!(is_isni("https://isni.org/isni/0000000492299539").is_ok());
   assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
   assert!(is_ror("01qz5mb56").is_ok());
   ```
@@ -44,5 +45,6 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
 [^version]: Check [crates.io](https://crates.io/crates/acorn-lib) for the latest version
 [^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.
 [^isbn]: [`isbn_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.isbn_check_digit.html)
+[^isni]: [`isni_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.isni_check_digit.html)
 [^orcid]: [`orcid_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.orcid_check_digit.html)
 [^ror]: [`ror_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.ror_check_digit.html)

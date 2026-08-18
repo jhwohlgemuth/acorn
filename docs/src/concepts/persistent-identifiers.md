@@ -19,7 +19,7 @@ flowchart LR
 
 ## Supported identifiers
 
-The typed Rust API supports ARK, arXiv, DOI, ISBN, ORCID, RAiD, ROR, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
+The typed Rust API supports ARK, arXiv, DOI, ISBN, ISNI, ORCID, RAiD, ROR, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
 | Kind | Validation | Normalized | Role |
 |---|---|---|---|
@@ -27,6 +27,7 @@ The typed Rust API supports ARK, arXiv, DOI, ISBN, ORCID, RAiD, ROR, and US pate
 | arXiv | Modern or legacy arXiv identifier structure | `arXiv:` identifier with an optional version | Project identity |
 | DOI | DOI prefix and suffix structure | Bare DOI | Project identity |
 | ISBN | ISBN-13 length and check digit | Hyphenated ISBN components | Project identity |
+| ISNI | Length and ISO 7064 check digit | `https://isni.org/isni/...` | Person or organization evidence |
 | ORCID | Length and ISO 7064 check digit | `https://orcid.org/...` | Person evidence |
 | RAiD | DOI-like prefix and suffix structure | Bare RAiD DOI | Project identity |
 | ROR | Crockford Base32 length and check digits | `https://ror.org/...` | Organization evidence |
@@ -34,6 +35,8 @@ The typed Rust API supports ARK, arXiv, DOI, ISBN, ORCID, RAiD, ROR, and US pate
 | URL | HTTP(S) syntax | URL without a trailing slash | Supporting evidence |
 
 Validation is local. It checks syntax, components, and a checksum where the implemented identifier specification defines one; it does not resolve the identifier or confirm that a registration record exists.
+
+Schema validation recognizes ISNI in DataCite name, affiliation, publisher, and funder identifiers; InvenioRDM person or organization identifiers; and RAiD contributors whose `schemaUri` is `https://isni.org`.
 
 ## 1. Find candidates
 
@@ -87,9 +90,10 @@ The local checks do not make a network request. Identifier resolution is a later
 `format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result:
 
 ```rust
-use acorn::schema::pid::{DOI, ORCID, PersistentIdentifierParse};
+use acorn::schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
 
 assert_eq!(DOI::format("https://doi.org/10.11578/dc.20250604.1"), "10.11578/dc.20250604.1");
+assert_eq!(ISNI::format("0000 0004 9229 9539"), "https://isni.org/isni/0000000492299539");
 assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-2057-9115");
 ```
 
@@ -121,13 +125,13 @@ Research activity metadata stores both DOI and arXiv publication identifiers in 
 `PID` records what an identifier identifies. ACORN currently divides discoveries into two groups:
 
 - arXiv, DOI, RAiD, ISBN, patent, and ARK values are project-like identifiers. Each can independently create or match a research activity candidate. Versioned arXiv identifiers retain their revision in evidence but share the unversioned work identity.
-- ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs are entity or supporting evidence. They remain in reports and discovery history but cannot independently create or merge a candidate.
+- ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs are entity or supporting evidence. They remain in reports and discovery history but cannot independently create or merge a candidate.
 
 A provider can explicitly relate person or organization evidence to a project, but ACORN does not infer that relationship merely because the values occur in the same input.
 
 ## 6. Resolve and enrich optional metadata
 
-`acorn gather --resolve` runs after local discovery. arXiv and DOI evidence is sent to CiteAs, ORCID evidence to ORCID, and RAiD evidence to the RAiD resolver. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
+`acorn gather --resolve` runs after local discovery. arXiv and DOI evidence is sent to CiteAs, ORCID evidence to ORCID, and RAiD evidence to the RAiD resolver. ISNI is normalized and retained as local evidence but does not currently have a remote resolver integration. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
 
 Remote DOE CODE project matches enter the same candidate pipeline with a provider identity such as `osti-project:<code_id>` and a DOI when one is available. DOE CODE supplies project descriptions, websites, and role-separated organization names. A `--lab` filter additionally associates the selected laboratory's known ROR. With `--resolve`, valid ORCIDs enrich person reports, project DOIs and person ORCIDs receive structured resolver outcomes and resolved raw rendering, repository URLs can contribute provider-reported programming languages, and provider-confirmed links are checked for liveness. These optional online operations retain the original DOE CODE result when they fail. DOE CODE people and organization searches remain report-only.
 

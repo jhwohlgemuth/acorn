@@ -15,6 +15,7 @@ pub mod dublin_core;
 pub mod huwise;
 pub mod invenio;
 pub mod text;
+pub(crate) mod validate;
 
 #[cfg(test)]
 mod tests;

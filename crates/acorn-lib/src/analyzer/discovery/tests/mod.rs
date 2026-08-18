@@ -444,7 +444,7 @@ fn test_raid_resolution_maps_typed_candidate_metadata() {
 }
 #[test]
 fn test_discovers_all_persistent_identifier_types() {
-    let content = "ark:/12345/abc doi:10.1234/example ISBN 978-0-306-40627-0 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56";
+    let content = "ark:/12345/abc doi:10.1234/example ISBN 978-0-306-40627-0 https://isni.org/isni/0000000492299539 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56";
     let kinds = Identifier::find_all(content)
         .into_iter()
         .map(|identifier| identifier.kind)
@@ -452,10 +452,17 @@ fn test_discovers_all_persistent_identifier_types() {
     assert!(kinds.contains(&PID::ARK));
     assert!(kinds.contains(&PID::DOI));
     assert!(kinds.contains(&PID::ISBN));
+    assert!(kinds.contains(&PID::ISNI));
     assert!(kinds.contains(&PID::ORCID));
     assert!(kinds.contains(&PID::Patent));
     assert!(kinds.contains(&PID::RAID));
     assert!(kinds.contains(&PID::ROR));
+}
+#[test]
+fn test_isni_url_is_not_discovered_as_orcid() {
+    let identifiers = Identifier::find_all("https://isni.org/isni/0000000492299539");
+    assert_eq!(identifiers.iter().filter(|identifier| identifier.kind == PID::ISNI).count(), 1);
+    assert_eq!(identifiers.iter().filter(|identifier| identifier.kind == PID::ORCID).count(), 0);
 }
 #[test]
 fn test_explicit_raid_suppresses_duplicate_doi() {

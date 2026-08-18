@@ -100,7 +100,7 @@ Resolved raw output remains machine-readable: successful values use one line eac
 
 ## Research activity candidates
 
-Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves.
+Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves.
 
 See the [persistent identifier lifecycle](../../concepts/persistent-identifiers.md) for how ACORN finds, parses, validates, normalizes, classifies, and persists this evidence.
 

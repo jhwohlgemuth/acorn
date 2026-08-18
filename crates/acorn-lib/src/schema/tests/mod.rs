@@ -788,6 +788,32 @@ fn test_is_orcid() {
     }
 }
 #[test]
+fn test_isni_and_gnd_validation() {
+    assert!(is_isni("https://isni.org/isni/0000000492299539").is_ok());
+    assert!(is_isni("0000 0004 9229 9539").is_ok());
+    assert!(is_isni("0000000492299538").is_err());
+    assert!(is_gnd("118540238").is_ok());
+    assert!(is_gnd("gnd:118540238").is_ok());
+    assert!(is_gnd("not-a-gnd").is_err());
+}
+#[test]
+fn test_is_programming_language() {
+    let path = crate::test::utils::temp_database_with_programming_languages().expect("failed to initialize temporary programming-language database");
+    let path_string = path.to_string_lossy().to_string();
+    temp_env::with_vars([(DATABASE_PATH, Some(path_string.as_str()))], || {
+        assert!(is_programming_language("Rust").is_ok());
+        assert!(is_programming_language("rust").is_ok());
+        assert!(is_programming_language("Not A Language").is_err());
+        assert!(is_programming_language("").is_err());
+    });
+}
+#[test]
+fn test_is_programming_language_missing_database_path_env() {
+    temp_env::with_vars([(DATABASE_PATH, None::<&str>)], || {
+        assert!(is_programming_language("Rust").is_err());
+    });
+}
+#[test]
 fn test_is_phone_number() {
     let valid = [
         "555-123-4567",

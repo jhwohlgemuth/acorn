@@ -5,6 +5,8 @@ use lazy_static::lazy_static;
 use sophia::api::ns::Namespace;
 /// Default schema URI for ORCiD values
 pub const DEFAULT_ORCID_SCHEMA_URI: &str = "https://orcid.org";
+/// Default resolver URI for ISNI values
+pub const DEFAULT_ISNI_SCHEMA_URI: &str = "https://isni.org/isni";
 /// Default arXiv resolver URI
 pub const DEFAULT_ARXIV_SCHEMA_URI: &str = "https://arxiv.org";
 /// Default DOI resolver URI

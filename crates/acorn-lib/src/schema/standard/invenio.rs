@@ -19,7 +19,8 @@ use crate::prelude::*;
 use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
-use crate::schema::validate::{is_doi, is_iso_639_language_code};
+use crate::schema::standard::validate::validate_person_or_org_identifier;
+use crate::schema::validate::{is_doi, is_iso_639_language_code, is_programming_language};
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;
@@ -117,7 +118,7 @@ pub struct CodeMeta {
     #[validate(url)]
     pub code_repository: Option<String>,
     /// Programming language from controlled vocabulary
-    // TODO: Validate against database
+    #[validate(custom(function = "is_programming_language"))]
     pub programming_language: Option<String>,
     /// Development status (e.g., "Active", from repostatus vocabulary)
     pub development_status: Option<Status>,
@@ -515,13 +516,25 @@ pub struct PersonOrOrganization {
 /// Person or organization identifier (ORCID, GND, ISNI, ROR)
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-// TODO: Validate with struct-level validator
+#[validate(schema(function = "validate_person_or_org_identifier", skip_on_field_errors = false))]
 pub struct PersonOrOrgIdentifier {
     /// Identifier scheme (orcid, gnd, isni, ror)
-    // TODO: Create enum for PID scheme
-    pub scheme: String,
+    pub scheme: PersonOrOrgIdentifierScheme,
     /// Identifier value
     pub identifier: String,
+}
+/// Supported identifier schemes for Invenio people and organizations
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PersonOrOrgIdentifierScheme {
+    /// Gemeinsame Normdatei identifier
+    Gnd,
+    /// International Standard Name Identifier
+    Isni,
+    /// Open Researcher and Contributor ID
+    Orcid,
+    /// Research Organization Registry identifier
+    Ror,
 }
 /// Top-level InvenioRDM record structure
 ///

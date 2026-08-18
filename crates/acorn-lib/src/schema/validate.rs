@@ -3,7 +3,10 @@
 //! Generic validation functions and custom [validator](https://docs.rs/validator/latest/validator/) functions for validating schema data
 //!
 #[cfg(feature = "std")]
-use crate::io::database::{schema::LicenseRow, Row};
+use crate::io::database::{
+    schema::{LicenseRow, ProgrammingLanguageRow},
+    Row,
+};
 #[cfg(feature = "std")]
 use crate::io::License;
 #[cfg(feature = "std")]
@@ -14,7 +17,9 @@ use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;
 #[cfg(feature = "std")]
 use crate::util::constants::env::DATABASE_PATH;
-use crate::util::constants::{RE_FAKE_PHONE, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PARTIAL_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH};
+use crate::util::constants::{
+    RE_FAKE_PHONE, RE_GND, RE_IMAGE_EXTENSION, RE_IP6, RE_ISO_8601_DATE, RE_PARTIAL_DATE, RE_PHONE, RE_RAID, RE_UNIX_EPOCH,
+};
 use crate::util::Constant;
 #[cfg(not(feature = "std"))]
 use crate::util::License;
@@ -32,8 +37,10 @@ method_validator!(is_ark, "ARK");
 method_validator!(is_arxiv, "arXiv");
 method_validator!(is_doi, "DOI");
 method_validator!(is_isbn, "ISBN");
+method_validator!(is_isni, "ISNI");
 method_validator!(is_orcid, "ORCiD");
 method_validator!(is_ror, "ROR");
+regex_validator!(is_gnd, RE_GND, "GND");
 regex_validator!(is_ip6, RE_IP6, "IP6");
 regex_validator!(is_raid, RE_RAID, "RAiD");
 regex_validator!(
@@ -331,6 +338,45 @@ pub fn is_license(value: &str) -> Result<(), ValidationError> {
         Err(ValidationError::new(CODE).with_message(format!("{MESSAGE} (cannot be empty)").into()))
     } else {
         Ok(())
+    }
+}
+/// Check whether a value exists in the local programming-language catalog
+#[cfg(feature = "std")]
+pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
+    const CODE: &str = "programming_language";
+    const MESSAGE: &str = "Provide valid programming language";
+    let candidate = value.trim().to_string();
+    let validation_error = |message: String| {
+        let mut why = ValidationError::new(CODE).with_message(message.into());
+        why.add_param("value".into(), &candidate);
+        why
+    };
+    let predicate = |row: &ProgrammingLanguageRow| row.name.as_ref().is_some_and(|name| name.eq_ignore_ascii_case(&candidate));
+    match candidate.is_empty() {
+        | true => Err(validation_error(format!("{MESSAGE} (cannot be empty)"))),
+        | false => match env::var(DATABASE_PATH) {
+            | Ok(path) => match ProgrammingLanguageRow::default()
+                .select(Some(path.into()), predicate)
+                .map(|row| row.is_some())
+            {
+                | Ok(true) => Ok(()),
+                | Ok(false) => Err(validation_error(MESSAGE.to_string())),
+                | Err(_) => Err(validation_error(
+                    "Failed to access local database for programming language validation".to_string(),
+                )),
+            },
+            | Err(_) => Err(validation_error(
+                "Failed to access local database for programming language validation".to_string(),
+            )),
+        },
+    }
+}
+#[cfg(not(feature = "std"))]
+/// Check whether a programming-language value is non-empty without database access
+pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
+    match value.trim().is_empty() {
+        | true => Err(ValidationError::new("programming_language").with_message("Provide valid programming language (cannot be empty)".into())),
+        | false => Ok(()),
     }
 }
 /// Check if value is a valid longitude
