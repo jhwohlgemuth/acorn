@@ -2,6 +2,7 @@
 
 ## Next
 
+- [GitLab CI runner pools](ci-runner-pools.md) - Isolate Rust, fuzz, and Python tests on dedicated runner registrations and build storage.
 - [Hugging Face request readiness](api/huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
 - [OOXML interpolation and slide-copy hardening](core/ooxml-interpolation-and-slide-copy.md) - Finish parser-backed and structured OOXML mutations.
 - [OOXML slide-list fuzzing](core/ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.

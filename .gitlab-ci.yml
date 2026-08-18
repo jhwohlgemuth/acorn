@@ -61,8 +61,12 @@ prepare-environment:
 test:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  resource_group: tests
   tags:
     - cpu
+  hooks:
+    pre_get_sources_script:
+      - rm -f "${CI_PROJECT_DIR}/.git/index.lock"
   inherit:
     variables: true
   rules:
@@ -76,8 +80,12 @@ test:
 test-python:
   stage: test
   image: ghcr.io/prefix-dev/pixi@sha256:e059bf6b10fca60158d8cfd81a150a81318f23a427212ac782210c46149af90b
+  resource_group: tests
   tags:
     - cpu
+  hooks:
+    pre_get_sources_script:
+      - rm -f "${CI_PROJECT_DIR}/.git/index.lock"
   inherit:
     variables: true
   rules:
@@ -130,8 +138,12 @@ test-docs:
 fuzz-smoke:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  resource_group: tests
   tags:
     - cpu
+  hooks:
+    pre_get_sources_script:
+      - rm -f "${CI_PROJECT_DIR}/.git/index.lock"
   inherit:
     variables: true
   needs:
@@ -171,6 +183,7 @@ benchmark:
     - cpu
   inherit:
     variables: true
+  allow_failure: true
   interruptible: false
   resource_group: benchmarks
   timeout: 30 minutes
