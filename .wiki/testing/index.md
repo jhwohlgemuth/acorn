@@ -141,6 +141,10 @@ Never use `#[ignore]` for broken or unknown failures — fix or delete instead.
 - Phase 2 — Medium priority: remaining flag coverage, binary tests for all commands
 - Phase 3 — Low priority: edge cases, verbose modes, platform-gated tests
 
+# Related testing plans
+
+- [Informational Miri quality checks](miri-quality.md) — Run a curated undefined-behavior check for portable `acorn-lib` behavior.
+
 # Acceptance criteria
 
 Each phase is complete when:
