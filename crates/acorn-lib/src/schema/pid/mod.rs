@@ -236,32 +236,6 @@ pub enum PublicationIdentifierType {
     /// Unsupported publication identifier
     Unknown,
 }
-impl From<&str> for PublicationIdentifierType {
-    fn from(value: &str) -> Self {
-        match (DOI::is_valid(value), ARXIV::is_valid(value)) {
-            | (true, _) => Self::Doi(DOI::from_string(value)),
-            | (_, true) => Self::Arxiv(ARXIV::from_string(value)),
-            | _ => Self::Unknown,
-        }
-    }
-}
-/// Internal representation of a persistent identifier
-#[derive(Default)]
-pub struct PersistentIdentifierInternal {
-    /// Raw string content of the (possible) PID
-    value: String,
-    /// Type of PID
-    pid_type: PID,
-}
-/// A persistent identifier type paired with its value.
-#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[builder(start_fn = init, on(String, into))]
-pub struct Identifier {
-    /// Persistent identifier type.
-    pub kind: PID,
-    /// Identifier value, either raw or normalized.
-    pub value: String,
-}
 /// Archival Resource Key (ARK)
 /// ### Notes
 /// - ARKs are the only mainstream, non-siloed, non-paywalled identifiers that you can register to use in about 48 hours
@@ -314,13 +288,28 @@ pub struct ARK {
     #[builder(default = Vec::new())]
     pub variants: Vec<String>,
 }
+/// arXiv identifier for an e-print
+///
+/// See <https://info.arxiv.org/help/arxiv_identifier.html> for more information
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct ARXIV {
+    /// arXiv resolver URI
+    pub schema_uri: Option<String>,
+    /// Legacy archive component, such as `hep-th`
+    pub archive: Option<String>,
+    /// Modern numeric identifier or legacy seven-digit identifier
+    pub identifier: Option<String>,
+    /// Optional revision such as `v2`
+    pub version: Option<String>,
+}
 /// Digital Object Identifier (DOI)
 ///
 /// DOIs consist of a DOI name which is resolved at <https://doi.org>, with the full URI formulated according to the pattern `https://doi.org/{DOI_name}`. DOI names in turn consist of a prefix and a suffix, separated by a forward slash. The prefix is a code indicating the registrant who issues the DOI, e.g., Harvard University Dataverse - 10.7910; Dryad Digital Repository - 10.5061. The suffix is the identifier, in any form, assigned by the registrant.[^doi]
 ///
 /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
 ///
-/// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, "Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR," Data Intellegence, vol. 2, no. 1-2, pp. 30-39, Jan. 2020, doi: 10.1162/dint_a_00025.`
+/// [^doi]: `N. Juty, S. M. Wimalaratne, S. Soiland-Reyes, J. Kunze, C. A. Goble, and T. Clark, "Unique, Persistent, Resolvable: Identifiers as the Foundation of FAIR," Data Intelligence, vol. 2, no. 1-2, pp. 30-39, Jan. 2020, doi: 10.1162/dint_a_00025.`
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
 pub struct DOI {
@@ -344,20 +333,14 @@ pub struct DOI {
     /// - No length limit is set to the suffix by the DOI System
     pub suffix: Option<String>,
 }
-/// arXiv identifier for an e-print
-///
-/// See <https://info.arxiv.org/help/arxiv_identifier.html> for more information
-#[derive(Builder, Clone, Debug)]
+/// A persistent identifier type paired with its value.
+#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[builder(start_fn = init, on(String, into))]
-pub struct ARXIV {
-    /// arXiv resolver URI
-    pub schema_uri: Option<String>,
-    /// Legacy archive component, such as `hep-th`
-    pub archive: Option<String>,
-    /// Modern numeric identifier or legacy seven-digit identifier
-    pub identifier: Option<String>,
-    /// Optional revision such as `v2`
-    pub version: Option<String>,
+pub struct Identifier {
+    /// Persistent identifier type.
+    pub kind: PID,
+    /// Identifier value, either raw or normalized.
+    pub value: String,
 }
 /// International Standard Book Number (ISBN)
 ///
@@ -386,6 +369,19 @@ pub struct ISBN {
     /// See [`isbn_check_digit`]
     pub check_digit: Option<String>,
 }
+/// International Standard Name Identifier (ISNI)
+///
+/// ISNIs identify public identities of people and organizations using a 16-character ISO 7064 MOD 11-2 identifier.
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct ISNI {
+    /// Resolver URI (i.e., <https://isni.org/isni/>)
+    pub schema_uri: Option<String>,
+    /// The 16-character ISNI value
+    pub identifier: Option<String>,
+    /// The final ISNI check character
+    pub check_digit: Option<String>,
+}
 /// Open Researcher and Contributor ID (ORCiD)[^orcid]
 ///
 /// Disambiguates researchers, and connects people with their research activities. This includes employment affiliations, research outputs, funding, peer review activity, research resources, society membership, distinctions and other scholarly infrastructure.
@@ -406,18 +402,13 @@ pub struct ORCID {
     /// Check digit should be verified IAW [ISO 7064, MOD 11-2](https://www.iso.org/standard/31531.html) (see [`iso7064_check_digit`])
     pub check_digit: Option<String>,
 }
-/// International Standard Name Identifier (ISNI)
-///
-/// ISNIs identify public identities of people and organizations using a 16-character ISO 7064 MOD 11-2 identifier.
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init, on(String, into))]
-pub struct ISNI {
-    /// Resolver URI (i.e., <https://isni.org/isni/>)
-    pub schema_uri: Option<String>,
-    /// The 16-character ISNI value
-    pub identifier: Option<String>,
-    /// The final ISNI check character
-    pub check_digit: Option<String>,
+/// Internal representation of a persistent identifier
+#[derive(Default)]
+pub struct PersistentIdentifierInternal {
+    /// Raw string content of the (possible) PID
+    value: String,
+    /// Type of PID
+    pid_type: PID,
 }
 /// Research Activity Identifier (RAiD)[^raid]
 ///
@@ -716,22 +707,22 @@ impl Default for ARK {
         Self::new()
     }
 }
-impl Default for DOI {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl Default for ARXIV {
     fn default() -> Self {
         Self::new()
     }
 }
-impl Default for ORCID {
+impl Default for DOI {
     fn default() -> Self {
         Self::new()
     }
 }
 impl Default for ISNI {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Default for ORCID {
     fn default() -> Self {
         Self::new()
     }
@@ -755,6 +746,11 @@ impl fmt::Display for ARK {
         write!(f, "{result}")
     }
 }
+impl fmt::Display for ARXIV {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.identifier())
+    }
+}
 impl fmt::Display for DOI {
     /// Format a DOI into a standard format of `"{prefix}/{suffix}"`
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -762,16 +758,20 @@ impl fmt::Display for DOI {
         write!(f, "{result}")
     }
 }
-impl fmt::Display for ARXIV {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.identifier())
-    }
-}
 impl fmt::Display for ISBN {
     /// Format a ISBN into a standard format
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let result = self.identifier();
         write!(f, "{result}")
+    }
+}
+impl fmt::Display for ISNI {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let identifier = self.identifier();
+        match identifier.is_empty() {
+            | true => write!(f, ""),
+            | false => write!(f, "{}/{}", self.schema_uri(), identifier),
+        }
     }
 }
 impl fmt::Display for ORCID {
@@ -791,15 +791,6 @@ impl fmt::Display for ORCID {
             .collect::<Vec<String>>()
             .join("/");
         write!(f, "{result}")
-    }
-}
-impl fmt::Display for ISNI {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let identifier = self.identifier();
-        match identifier.is_empty() {
-            | true => write!(f, ""),
-            | false => write!(f, "{}/{}", self.schema_uri(), identifier),
-        }
     }
 }
 impl fmt::Display for RAID {
@@ -880,6 +871,50 @@ impl PersistentIdentifier for ARK {
         }
     }
 }
+impl PersistentIdentifier for ARXIV {
+    fn new() -> Self {
+        ARXIV::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        self.schema_uri
+            .as_ref()
+            .map(|value| value.trim_end_matches('/').to_string())
+            .unwrap_or_else(|| DEFAULT_ARXIV_SCHEMA_URI.to_string())
+    }
+    fn identifier(&self) -> String {
+        let work = self.work_identifier();
+        match (work.is_empty(), self.version.as_ref()) {
+            | (false, Some(version)) => format!("{work}{version}"),
+            | _ => work,
+        }
+    }
+    fn prefix(&self) -> Option<String> {
+        self.archive.clone().or_else(|| {
+            self.identifier
+                .as_ref()
+                .and_then(|value| value.split_once('.').map(|(prefix, _)| prefix.to_string()))
+        })
+    }
+    fn suffix(&self) -> Option<String> {
+        self.identifier.clone()
+    }
+    fn url(&self) -> String {
+        self.identifier()
+            .strip_prefix("arXiv:")
+            .map(|identifier| format!("{}/abs/{identifier}", self.schema_uri()))
+            .unwrap_or_default()
+    }
+}
+impl ARXIV {
+    /// Return the canonical arXiv work identifier without a revision suffix.
+    pub fn work_identifier(&self) -> String {
+        self.identifier.as_ref().map_or_else(String::new, |identifier| {
+            self.archive
+                .as_ref()
+                .map_or_else(|| format!("arXiv:{identifier}"), |archive| format!("arXiv:{archive}/{identifier}"))
+        })
+    }
+}
 impl PersistentIdentifier for DOI {
     fn new() -> Self {
         DOI::init().build()
@@ -937,103 +972,6 @@ impl PersistentIdentifier for DOI {
         }
     }
 }
-impl PersistentIdentifier for ARXIV {
-    fn new() -> Self {
-        ARXIV::init().build()
-    }
-    fn schema_uri(&self) -> String {
-        self.schema_uri
-            .as_ref()
-            .map(|value| value.trim_end_matches('/').to_string())
-            .unwrap_or_else(|| DEFAULT_ARXIV_SCHEMA_URI.to_string())
-    }
-    fn identifier(&self) -> String {
-        let work = self.work_identifier();
-        match (work.is_empty(), self.version.as_ref()) {
-            | (false, Some(version)) => format!("{work}{version}"),
-            | _ => work,
-        }
-    }
-    fn prefix(&self) -> Option<String> {
-        self.archive.clone().or_else(|| {
-            self.identifier
-                .as_ref()
-                .and_then(|value| value.split_once('.').map(|(prefix, _)| prefix.to_string()))
-        })
-    }
-    fn suffix(&self) -> Option<String> {
-        self.identifier.clone()
-    }
-    fn url(&self) -> String {
-        self.identifier()
-            .strip_prefix("arXiv:")
-            .map(|identifier| format!("{}/abs/{identifier}", self.schema_uri()))
-            .unwrap_or_default()
-    }
-}
-impl ARXIV {
-    /// Return the canonical arXiv work identifier without a revision suffix.
-    pub fn work_identifier(&self) -> String {
-        self.identifier.as_ref().map_or_else(String::new, |identifier| {
-            self.archive
-                .as_ref()
-                .map_or_else(|| format!("arXiv:{identifier}"), |archive| format!("arXiv:{archive}/{identifier}"))
-        })
-    }
-}
-impl PersistentIdentifier for ISBN {
-    fn new() -> Self {
-        ISBN::init().build()
-    }
-    fn schema_uri(&self) -> String {
-        "".to_string()
-    }
-    fn identifier(&self) -> String {
-        let ISBN {
-            prefix_element,
-            registration_group,
-            publisher,
-            title,
-            check_digit,
-        } = self;
-        [prefix_element, registration_group, publisher, title, check_digit]
-            .into_iter()
-            .map(|x| x.clone().unwrap_or_default())
-            .collect::<Vec<String>>()
-            .join("-")
-    }
-    /// Used to convert to ISBN-A DOI compatible value
-    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
-    fn prefix(&self) -> Option<String> {
-        let ISBN {
-            prefix_element,
-            registration_group,
-            publisher,
-            ..
-        } = self;
-        let result = format!(
-            "{}.{}{}",
-            prefix_element.clone().unwrap_or_default(),
-            registration_group.clone().unwrap_or_default(),
-            publisher.clone().unwrap_or_default()
-        );
-        Some(result)
-    }
-    /// Used to convert to ISBN-A DOI compatible value
-    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
-    fn suffix(&self) -> Option<String> {
-        let ISBN { title, check_digit, .. } = self;
-        let result = [title, check_digit]
-            .into_iter()
-            .map(|x| x.clone().unwrap_or_default())
-            .collect::<Vec<String>>()
-            .join("");
-        Some(result)
-    }
-    fn check_digit(&self) -> Option<Vec<char>> {
-        isbn_check_digit(self.identifier())
-    }
-}
 impl From<ISBN> for DOI {
     fn from(isbn: ISBN) -> Self {
         DOI::init()
@@ -1088,6 +1026,59 @@ impl From<DOI> for ISBN {
         };
         let result = format!("{}-{suffix}", prefix.trim_start_matches("10-"));
         ISBN::from_string(result)
+    }
+}
+impl PersistentIdentifier for ISBN {
+    fn new() -> Self {
+        ISBN::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        "".to_string()
+    }
+    fn identifier(&self) -> String {
+        let ISBN {
+            prefix_element,
+            registration_group,
+            publisher,
+            title,
+            check_digit,
+        } = self;
+        [prefix_element, registration_group, publisher, title, check_digit]
+            .into_iter()
+            .map(|x| x.clone().unwrap_or_default())
+            .collect::<Vec<String>>()
+            .join("-")
+    }
+    /// Used to convert to ISBN-A DOI compatible value
+    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
+    fn prefix(&self) -> Option<String> {
+        let ISBN {
+            prefix_element,
+            registration_group,
+            publisher,
+            ..
+        } = self;
+        let result = format!(
+            "{}.{}{}",
+            prefix_element.clone().unwrap_or_default(),
+            registration_group.clone().unwrap_or_default(),
+            publisher.clone().unwrap_or_default()
+        );
+        Some(result)
+    }
+    /// Used to convert to ISBN-A DOI compatible value
+    /// See <https://www.doi.org/the-identifier/resources/factsheets/doi-system-and-the-isbn-system>
+    fn suffix(&self) -> Option<String> {
+        let ISBN { title, check_digit, .. } = self;
+        let result = [title, check_digit]
+            .into_iter()
+            .map(|x| x.clone().unwrap_or_default())
+            .collect::<Vec<String>>()
+            .join("");
+        Some(result)
+    }
+    fn check_digit(&self) -> Option<Vec<char>> {
+        isbn_check_digit(self.identifier())
     }
 }
 impl PersistentIdentifier for ORCID {
@@ -1811,6 +1802,15 @@ impl PersistentIdentifierParse for ROR {
         }
     }
 }
+impl From<&str> for PublicationIdentifierType {
+    fn from(value: &str) -> Self {
+        match (DOI::is_valid(value), ARXIV::is_valid(value)) {
+            | (true, _) => Self::Doi(DOI::from_string(value)),
+            | (_, true) => Self::Arxiv(ARXIV::from_string(value)),
+            | _ => Self::Unknown,
+        }
+    }
+}
 /// ISBN check digit
 /// ### Notes
 /// - The check digit is the last (13th) digit of the identifier
@@ -1830,6 +1830,44 @@ where
     let remainder = sum % MODULUS;
     let result = if remainder == 0 { 0 } else { MODULUS - remainder };
     char::from_digit(result, 10).map(|c| vec![c])
+}
+/// Calculate an ISNI check character using ISO 7064 MOD 11-2.
+///
+/// # Examples
+///
+/// ```rust
+/// use acorn::schema::pid::isni_check_digit;
+///
+/// assert_eq!(isni_check_digit("0000000492299539"), Some(vec!['9']));
+/// ```
+pub fn isni_check_digit<S>(value: S) -> Option<Vec<char>>
+where
+    S: AsRef<str>,
+{
+    mod_11_2_check_digit(value)
+}
+fn is_numeric(value: &str) -> bool {
+    value.chars().all(|x| x.is_numeric())
+}
+#[allow(clippy::arithmetic_side_effects)]
+fn mod_11_2_check_digit<S>(value: S) -> Option<Vec<char>>
+where
+    S: AsRef<str>,
+{
+    const MODULUS: u32 = 11;
+    const RADIX: u32 = 2;
+    let working = value.as_ref().replace("-", "").replace(" ", "");
+    let sum = working.chars().take(15).fold(0, |acc, x| {
+        let digit = x.to_digit(10).unwrap_or_default();
+        (acc + digit) * RADIX
+    });
+    let remainder = sum % MODULUS;
+    let result = (MODULUS + 1 - remainder) % MODULUS;
+    if result == 10 {
+        Some(vec!['X'])
+    } else {
+        char::from_digit(result, 10).map(|c| vec![c])
+    }
 }
 /// Calculate check xdigit ("extended digit") IAW [NOID check digit algorithm (NCDA)](https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM)
 /// ### Notes
@@ -1873,41 +1911,6 @@ where
     S: AsRef<str>,
 {
     mod_11_2_check_digit(value)
-}
-/// Calculate an ISNI check character using ISO 7064 MOD 11-2.
-///
-/// # Examples
-///
-/// ```rust
-/// use acorn::schema::pid::isni_check_digit;
-///
-/// assert_eq!(isni_check_digit("0000000492299539"), Some(vec!['9']));
-/// ```
-pub fn isni_check_digit<S>(value: S) -> Option<Vec<char>>
-where
-    S: AsRef<str>,
-{
-    mod_11_2_check_digit(value)
-}
-#[allow(clippy::arithmetic_side_effects)]
-fn mod_11_2_check_digit<S>(value: S) -> Option<Vec<char>>
-where
-    S: AsRef<str>,
-{
-    const MODULUS: u32 = 11;
-    const RADIX: u32 = 2;
-    let working = value.as_ref().replace("-", "").replace(" ", "");
-    let sum = working.chars().take(15).fold(0, |acc, x| {
-        let digit = x.to_digit(10).unwrap_or_default();
-        (acc + digit) * RADIX
-    });
-    let remainder = sum % MODULUS;
-    let result = (MODULUS + 1 - remainder) % MODULUS;
-    if result == 10 {
-        Some(vec!['X'])
-    } else {
-        char::from_digit(result, 10).map(|c| vec![c])
-    }
 }
 /// Calculate check digit IAW [ISO 7064, MOD 97-10](https://www.iso.org/standard/31531.html)
 ///
@@ -1956,9 +1959,6 @@ fn to_betanumeric(value: u8) -> Option<char> {
         | Some((_, x)) => Some(x),
         | None => None,
     }
-}
-fn is_numeric(value: &str) -> bool {
-    value.chars().all(|x| x.is_numeric())
 }
 
 #[cfg(test)]
