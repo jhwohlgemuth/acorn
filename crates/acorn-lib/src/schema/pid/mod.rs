@@ -14,8 +14,8 @@ use crate::schema::namespaces::{
     DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI,
 };
 use crate::util::constants::{
-    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_TEXT, RE_ISNI, RE_ISNI_TEXT, RE_ORCID,
-    RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
+    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_10_COMPACT_TEXT, RE_ISBN_10_TEXT, RE_ISBN_13_TEXT,
+    RE_ISNI, RE_ISNI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, trim_unmatched_trailing_parentheses, ToStringChunks};
 use bon::Builder;
@@ -344,7 +344,7 @@ pub struct Identifier {
 }
 /// International Standard Book Number (ISBN)
 ///
-/// A 13-digit identification number and system, widely used in the international book trade for over 35 years and assigned through a network of [international ISBN Registration Agencies](https://www.isbn-international.org/).
+/// A 10- or 13-digit identification number and system, widely used in the international book trade and assigned through a network of [international ISBN Registration Agencies](https://www.isbn-international.org/).
 /// ISBNs are used to identify each unique publication whether in the form of a physical book or related materials such as eBooks, software, mixed media etc.
 /// ### Notes
 /// - ISBNs are governed by the ISO 2108 standard.
@@ -1046,6 +1046,7 @@ impl PersistentIdentifier for ISBN {
         [prefix_element, registration_group, publisher, title, check_digit]
             .into_iter()
             .map(|x| x.clone().unwrap_or_default())
+            .filter(|x| !x.is_empty())
             .collect::<Vec<String>>()
             .join("-")
     }
@@ -1478,7 +1479,7 @@ impl PersistentIdentifierParse for DOI {
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "directory_indicator", "prefix_element", "registrant_code", "suffix"];
         let pattern = format!("^{RE_DOI_TEXT}$");
-        let text = value.to_string();
+        let text = value.to_string().trim().to_string();
         let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
         DOI::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
@@ -1519,6 +1520,7 @@ impl PersistentIdentifierParse for ISBN {
         re.find_iter(&value.to_string())
             .filter_map(Result::ok)
             .map(|m| ISBN::from_string(m.as_str()))
+            .filter(|isbn| !isbn.identifier().is_empty())
             .collect()
     }
     /// Convenience method for easily parsing and formatting a [`ISBN`] from a string value
@@ -1535,9 +1537,14 @@ impl PersistentIdentifierParse for ISBN {
     /// ```
     fn from_string(value: impl ToString) -> Self {
         let groups = ["prefix_element", "registration_group", "publisher", "title", "check_digit"];
-        let pattern = format!("^{RE_ISBN_TEXT}$");
         let text = value.to_string();
-        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let compact = text.chars().filter(is_not_isbn_separator).collect::<String>();
+        let (pattern, candidate) = match (compact.len(), compact.len() == text.len()) {
+            | (10, true) => (format!("^{RE_ISBN_10_COMPACT_TEXT}$"), compact.as_str()),
+            | (10, false) => (format!("^{RE_ISBN_10_TEXT}$"), text.as_str()),
+            | _ => (format!("^{RE_ISBN_13_TEXT}$"), text.as_str()),
+        };
+        let lookup = regex_capture_lookup(pattern.as_ref(), candidate, groups.to_vec());
         ISBN::init()
             .maybe_prefix_element(lookup.get("prefix_element").cloned())
             .maybe_registration_group(lookup.get("registration_group").cloned())
@@ -1548,7 +1555,7 @@ impl PersistentIdentifierParse for ISBN {
     }
     /// Check if value is a valid [`ISBN`]
     /// ### Conditions
-    /// - Must be exactly 13 digits long (not including hyphens)
+    /// - Must be exactly 10 or 13 characters long (not including separators)
     /// - Must have a valid check digit (see [`isbn_check_digit`])
     /// ### Example
     /// ```rust
@@ -1559,13 +1566,19 @@ impl PersistentIdentifierParse for ISBN {
     /// assert!(ISBN::is_valid("9780306406270"));
     /// ```
     fn is_valid(value: impl ToString) -> bool {
-        let pid = ISBN::from_string(value.to_string());
-        let last = value.to_string().chars().last().unwrap_or_default();
+        let value = value.to_string();
+        let compact = value
+            .chars()
+            .filter(is_not_isbn_separator)
+            .map(|character| character.to_ascii_uppercase())
+            .collect::<String>();
+        let pid = ISBN::from_string(&value);
+        let last = compact.chars().last().unwrap_or_default();
         let has_valid_check_digit = match pid.check_digit() {
             | Some(chars) => chars.contains(&last),
             | _ => false,
         };
-        let is_valid_length = value.to_string().replace("-", "").len() == 13;
+        let is_valid_length = matches!(compact.len(), 10 | 13);
         has_valid_check_digit && is_valid_length
     }
 }
@@ -1699,7 +1712,7 @@ impl PersistentIdentifierParse for RAID {
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
         let pattern = format!("^{RE_RAID_TEXT}$");
-        let text = value.to_string();
+        let text = value.to_string().trim().to_string();
         let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
         let directory_indicator = lookup.get("directory_indicator").cloned();
         let registrant_code = lookup.get("registrant_code").cloned();
@@ -1813,23 +1826,37 @@ impl From<&str> for PublicationIdentifierType {
 }
 /// ISBN check digit
 /// ### Notes
-/// - The check digit is the last (13th) digit of the identifier
-/// - Each digit, from left to right, is alternately multiplied by 1 or 3, then those products are summed modulo 10
+/// - ISBN-10 uses a modulo 11 checksum and may use `X` as its check character
+/// - ISBN-13 alternately weights digits by 1 and 3 and uses a modulo 10 checksum
 #[allow(clippy::arithmetic_side_effects)]
-pub fn isbn_check_digit<S>(_value: S) -> Option<Vec<char>>
+pub fn isbn_check_digit<S>(value: S) -> Option<Vec<char>>
 where
     S: AsRef<str>,
 {
-    const MODULUS: u32 = 10;
-    let working = _value.as_ref().replace("-", "");
-    let sum = working.chars().take(12).enumerate().fold(0, |acc, (index, x)| {
-        let digit = x.to_digit(10).unwrap_or_default();
-        let multiplier = if index % 2 == 0 { 1 } else { 3 };
-        acc + (digit * multiplier)
-    });
-    let remainder = sum % MODULUS;
-    let result = if remainder == 0 { 0 } else { MODULUS - remainder };
-    char::from_digit(result, 10).map(|c| vec![c])
+    let working = value.as_ref().chars().filter(is_not_isbn_separator).collect::<String>();
+    match working.len() {
+        | 10 => working
+            .chars()
+            .take(9)
+            .enumerate()
+            .try_fold(0, |sum, (index, character)| {
+                character.to_digit(10).map(|digit| sum + digit * (10 - index as u32))
+            })
+            .and_then(|sum| match (11 - sum % 11) % 11 {
+                | 10 => Some(vec!['X']),
+                | check_digit => char::from_digit(check_digit, 10).map(|character| vec![character]),
+            }),
+        | 13 => working
+            .chars()
+            .take(12)
+            .enumerate()
+            .try_fold(0, |sum, (index, character)| {
+                let multiplier = if index % 2 == 0 { 1 } else { 3 };
+                character.to_digit(10).map(|digit| sum + digit * multiplier)
+            })
+            .and_then(|sum| char::from_digit((10 - sum % 10) % 10, 10).map(|character| vec![character])),
+        | _ => None,
+    }
 }
 /// Calculate an ISNI check character using ISO 7064 MOD 11-2.
 ///
@@ -1959,6 +1986,9 @@ fn to_betanumeric(value: u8) -> Option<char> {
         | Some((_, x)) => Some(x),
         | None => None,
     }
+}
+fn is_not_isbn_separator(character: &char) -> bool {
+    !matches!(character, '-' | ' ')
 }
 
 #[cfg(test)]

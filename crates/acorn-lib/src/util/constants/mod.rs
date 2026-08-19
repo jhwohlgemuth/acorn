@@ -80,12 +80,18 @@ pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(
 /// Pattern text for arXiv regular expression defined by [`RE_ARXIV`]
 pub const RE_ARXIV_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
 /// Pattern text for DOI regular expression defined by [`RE_DOI`]
-pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>https[:]\/\/doi\.org\/)?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>(?i:https[:]\/\/doi\.org\/))?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for Gemeinsame Normdatei identifiers
 pub const RE_GND_TEXT: &str = r#"(?<![A-Za-z0-9])(?i:gnd:)?(?:(?:1|10)\d{7}[0-9X]|[47]\d{6}-\d|[1-9]\d{0,7}-[0-9X]|3\d{7}[0-9X])(?![A-Za-z0-9])"#;
-/// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
-pub const RE_ISBN_TEXT: &str =
+/// Pattern text for ISBN-10 parsing without separators
+pub const RE_ISBN_10_COMPACT_TEXT: &str = r#"(?<registration_group>\d)(?<publisher>\d{3})(?<title>\d{5})(?<check_digit>[0-9Xx])"#;
+/// Pattern text for ISBN-10 parsing
+pub const RE_ISBN_10_TEXT: &str = r#"(?<registration_group>999\d{2}|99[0-8]\d|9[5-8]\d|8\d|9[0-4]|[0-5]|7)[ -](?<publisher>\d{1,7})[ -](?<title>\d{1,6})[ -](?<check_digit>[0-9Xx])"#;
+/// Pattern text for ISBN-13 parsing
+pub const RE_ISBN_13_TEXT: &str =
     r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
+/// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
+pub const RE_ISBN_TEXT: &str = r#"(?<![A-Za-z0-9])(?:97[89][ -]?\d{1,5}[ -]?\d{1,7}[ -]?\d{1,6}[ -]?\d|(?:999\d{2}|99[0-8]\d|9[5-8]\d|8\d|9[0-4]|[0-5]|7)[ -]\d{1,7}[ -]\d{1,6}[ -][0-9Xx]|\d{9}[0-9Xx])(?![A-Za-z0-9])"#;
 /// Pattern text for International Standard Name Identifier regular expression defined by [`RE_ISNI`]
 pub const RE_ISNI_TEXT: &str = r#"(?<![A-Za-z0-9])(?<schema_uri>https?[:]//isni\.org/isni/)?(?<identifier>[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
@@ -94,7 +100,7 @@ pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?<schema_uri>https[:]\/\/or
 pub const RE_PATENT_TEXT: &str = r#"(?<![A-Za-z0-9])(?<country_code>US|CN|DE|EP|JP|KR)\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{5,11})\s*(?<kind_code>[A-Z]\d)(?![A-Za-z0-9])"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
 pub const RE_RAID_TEXT: &str =
-    r#"(?<schema_uri>https[:]\/\/raid\.org\/)?(?<directory_indicator>10).(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+    r#"(?<schema_uri>(?i:https[:]\/\/raid\.org\/))?(?<directory_indicator>10)[.](?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
 pub const RE_ROR_TEXT: &str = r#"(?<![a-z0-9])(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z0-9]{6}[0-9]{2})(?![a-z0-9])"#;
 
