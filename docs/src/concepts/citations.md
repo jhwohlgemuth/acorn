@@ -39,4 +39,7 @@
 
 [19] M. R. Endsley, "Toward a Theory of Situation Awareness in Dynamic Systems. Human Factors Journal 37(1), 32-64," ResearchGate, Aug. 2025, doi: 10.1518/001872095779049543.
 
+[20] M. Kleppmann, A. Wiggins, P. van Hardenberg, and M. McGranaghan, "Local-First Software: You Own Your Data, in spite of the Cloud," in *Proceedings of the 2019 ACM SIGPLAN International Symposium on New Ideas, New Paradigms, and Reflections on Programming and Software*, Oct. 2019, pp. 154-178. doi: [10.1145/3359591.3359737](https://doi.org/10.1145/3359591.3359737). [Online]. Available: [inkandswitch.com/essay/local-first](https://www.inkandswitch.com/essay/local-first/)
+
+[21] S. Ango, "File over app," July 01, 2023. Accessed: Aug. 18, 2026. [Online]. Available: [stephango.com/file-over-app](https://stephango.com/file-over-app)
 

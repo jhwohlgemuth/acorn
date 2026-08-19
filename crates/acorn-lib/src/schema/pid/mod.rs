@@ -226,23 +226,6 @@ pub enum PID {
     /// Public HTTP or HTTPS artifact URL
     URL,
 }
-/// Internal representation of a persistent identifier
-#[derive(Default)]
-pub struct PersistentIdentifierInternal {
-    /// Raw string content of the (possible) PID
-    value: String,
-    /// Type of PID
-    pid_type: PID,
-}
-/// A persistent identifier type paired with its value.
-#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[builder(start_fn = init, on(String, into))]
-pub struct Identifier {
-    /// Persistent identifier type.
-    pub kind: PID,
-    /// Identifier value, either raw or normalized.
-    pub value: String,
-}
 /// DOI or arXiv publication identifier type.
 #[derive(Clone, Debug)]
 pub enum PublicationIdentifierType {
@@ -261,6 +244,23 @@ impl From<&str> for PublicationIdentifierType {
             | _ => Self::Unknown,
         }
     }
+}
+/// Internal representation of a persistent identifier
+#[derive(Default)]
+pub struct PersistentIdentifierInternal {
+    /// Raw string content of the (possible) PID
+    value: String,
+    /// Type of PID
+    pid_type: PID,
+}
+/// A persistent identifier type paired with its value.
+#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+pub struct Identifier {
+    /// Persistent identifier type.
+    pub kind: PID,
+    /// Identifier value, either raw or normalized.
+    pub value: String,
 }
 /// Archival Resource Key (ARK)
 /// ### Notes
