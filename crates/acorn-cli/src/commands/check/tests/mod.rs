@@ -109,7 +109,7 @@ async fn test_check_remote_project() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        &[CheckCategory::Prose],
         &true,
         &false,
         &false,
@@ -127,8 +127,8 @@ async fn test_check_remote_project() -> Result<()> {
         SignedDuration::from_secs(1),
     )
     .await;
-    server.join().expect("join remote check server");
     assert!(result.is_ok(), "Remote project should be checked: {result:?}");
+    server.join().expect("join remote check server");
     Ok(())
 }
 #[tokio::test]

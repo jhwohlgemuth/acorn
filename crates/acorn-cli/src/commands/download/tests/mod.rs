@@ -1722,8 +1722,8 @@ async fn test_download_items_with_progress_are_concurrent() {
                 let maximum_active = server_maximum_active.clone();
                 thread::spawn(move || {
                     let mut stream = stream.expect("accept model download request");
-                    let mut request = [0_u8; 1];
-                    stream.read_exact(&mut request).expect("read model download request");
+                    let mut request = [0_u8; 4096];
+                    let _ = stream.read(&mut request).expect("read model download request");
                     let active_count = active.fetch_add(1, Ordering::SeqCst) + 1;
                     maximum_active.fetch_max(active_count, Ordering::SeqCst);
                     thread::sleep(Duration::from_millis(150));
