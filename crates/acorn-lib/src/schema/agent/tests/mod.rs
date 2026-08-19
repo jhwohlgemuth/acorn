@@ -153,6 +153,12 @@ fn test_model_selectors_reject_malformed_structured_input() {
     );
 }
 #[test]
+fn test_model_selectors_parse_windows_path_as_plain_text() {
+    let path = r"C:\models\tiny.gguf";
+    let selectors = ModelSelectors::parse(path.to_string()).unwrap();
+    assert_eq!(selectors.iter().next().unwrap().as_str(), path);
+}
+#[test]
 fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {
     [
         ("Q2K", Quantization::Q2k),
@@ -316,7 +322,7 @@ fn test_model_details_to_markdown_includes_nested_capabilities() {
         }])),
         ..ModelDetails::default()
     };
-    let markdown = model.to_markdown();
+    let markdown = model.to_markdown().replace("\r\n", "\n");
     assert!(markdown.contains("- Benchmarks\n  - Benchmark\n    - Name: MMLU"), "{markdown}");
     assert!(markdown.contains("- Limits\n  - Context: 128000"));
     assert!(markdown.contains("- Modalities\n  - Input: text, image"));

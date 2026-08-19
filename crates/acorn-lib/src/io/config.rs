@@ -845,8 +845,8 @@ impl Bucket {
                 let Bucket { name, code_repository, .. } = self.clone();
                 match code_repository.is_local() {
                     | true => {
-                        let bucket_root = match code_repository.location().path() {
-                            | Some(value) => PathBuf::from(value).to_absolute_path(),
+                        let bucket_root = match code_repository.location().local_path() {
+                            | Some(value) => value.to_absolute_path(),
                             | None => {
                                 return Err(eyre!(
                                     "Bucket {} has no local path — cannot copy files",
@@ -973,8 +973,8 @@ impl Bucket {
         let bucket_name = self.name.clone().unwrap_or_else(|| "Bucket".to_string()).to_uppercase();
         match &code_repository {
             | Repository::Git { .. } => {
-                let path = match code_repository.location().path() {
-                    | Some(value) => PathBuf::from(value),
+                let path = match code_repository.location().local_path() {
+                    | Some(value) => value,
                     | None => return Err(eyre!("Git repository has no local path — cannot list files")),
                 };
                 Ok(files_all(path, None::<Vec<String>>)
@@ -1030,9 +1030,9 @@ impl From<&str> for Bucket {
         if location.uri().is_none() {
             exit(exitcode::DATAERR);
         }
-        let repository = match location.scheme() {
-            | Scheme::File => Repository::Git { location },
-            | _ => {
+        let repository = match location.is_local() {
+            | true => Repository::Git { location },
+            | false => {
                 let host = match location.host() {
                     | Some(value) => value.to_lowercase(),
                     | None => {

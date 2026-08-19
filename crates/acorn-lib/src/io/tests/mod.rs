@@ -918,6 +918,13 @@ fn test_path_ext_compares_normalized_paths() {
     assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
 }
 #[test]
+fn test_path_ext_detects_windows_paths() {
+    assert!(Path::new("C:/Users/acorn/project.json").is_windows());
+    assert!(Path::new("C:\\Users\\acorn\\project.json").is_windows());
+    assert!(!Path::new("./data/input.json").is_windows());
+    assert!(!Path::new("/home/acorn/project.json").is_windows());
+}
+#[test]
 fn test_remove_fields_recurses_without_mutating_input() {
     let input = serde_json::json!({"keep": 1, "nested": {"remove": 2, "keep": 3}});
     let output = remove_fields(input.clone(), &["remove"]);

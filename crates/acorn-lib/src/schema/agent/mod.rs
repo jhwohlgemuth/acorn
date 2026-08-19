@@ -9,7 +9,7 @@ use crate::io::database::{Database, Operations, Row};
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::License;
-use crate::io::{ModelListFile, Source};
+use crate::io::{ModelListFile, PathExt, Source};
 use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::hardware::memory::Memory;
@@ -1199,9 +1199,11 @@ impl TryFrom<String> for ModelSelectors {
             let starts_with_collection = trimmed.starts_with(['[', '{']);
             let has_structured_line = trimmed.lines().any(|line| {
                 let line = line.trim_start();
+                let is_windows_path = Path::new(line).is_windows();
+                let has_url_scheme = line.contains("://");
+                let is_key_value = !(is_windows_path || has_url_scheme) && line.split_once(':').is_some_and(|(key, _)| !key.trim().is_empty());
                 let is_list_item = line.starts_with("- ");
                 let is_mapping_key = line.ends_with(':');
-                let is_key_value = !line.contains("://") && line.split_once(':').is_some_and(|(key, _)| !key.trim().is_empty());
                 is_list_item || is_mapping_key || is_key_value
             });
             let structured = starts_with_collection || has_structured_line;

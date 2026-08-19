@@ -158,6 +158,8 @@ pub trait PathConversion {
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
+    /// Return whether this path is a Windows drive path such as `C:/...` or `C:\...`.
+    fn is_windows(&self) -> bool;
     /// Return whether two paths identify the same absolute path.
     fn same_as(&self, other: &Path) -> bool;
 }
@@ -490,12 +492,18 @@ impl FromPath for MimeType {
     }
 }
 impl PathExt for Path {
+    fn is_windows(&self) -> bool {
+        matches!(self.as_os_str().as_encoded_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic())
+    }
     fn same_as(&self, other: &Path) -> bool {
         let absolute_paths = absolute(self).and_then(|left| absolute(other).map(|right| (left, right)));
         self == other || absolute_paths.is_ok_and(|(left, right)| left == right)
     }
 }
 impl PathExt for &Path {
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
     fn same_as(&self, other: &Path) -> bool {
         <Path as PathExt>::same_as(self, other)
     }
