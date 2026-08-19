@@ -1,5 +1,6 @@
 .DS_store
 .env
+/Dockerfile
 /.git
 /.vale
 /.vscode
