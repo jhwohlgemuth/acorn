@@ -60,7 +60,7 @@ Start with the outcome closest to your work:
 | Developer | [Build with ACORN](learn/developer.md) | use schemas, prompt and model APIs, agent skills, Python, and WebAssembly |
 | Platform engineer | [Operate ACORN](learn/platform-engineer.md) | operate local models, agent tools, runners, and automation services |
 
-Not sure yet? The [role guide](learn/README.md) shows every trail at a glance.
+Not sure yet? The [role guide](learn/index.html) shows every trail at a glance.
 
 ## Explore ACORN
 

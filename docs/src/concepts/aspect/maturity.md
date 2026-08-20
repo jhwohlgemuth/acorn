@@ -11,7 +11,7 @@
 | Proven | 9 | System is proven through successful real-world operation. |
 
 > [!TIP]
-> [Read docs.rs documentation for maturity levels](https://docs.rs/acorn-lib/latest/acorn_lib/schema/enum.TechnologyReadinessLevel.html)
+> [Read docs.rs documentation for maturity levels](https://docs.rs/acorn-lib/latest/acorn/schema/enum.TechnologyReadinessLevel.html)
 
 ## Discussion
 ASPECT leverages a simplified mapping from augmented technology readiness levels (TRL). Wikipedia[^wikipedia] defines TRLs as "a method for estimating the maturity of technologies during the acquisition phase of a program. TRLs enable consistent and uniform discussions of technical maturity across different types of technology." The U.S. federal acquisitions community widely uses TRLs to assess the maturity of a particular technology. Additionally, ASPECT incorporates work[^lavin] that adapted TRLs to directly address the particular nuances of machine learning systems. Additionally, ASPECT maturity levels work well with the capability maturity model but go beyond maintenance processes and efficiency to characterize a technology's maturity in practice. Specifically, ASPECT's openness and portability attributes create a well-defined understanding of a given technology.

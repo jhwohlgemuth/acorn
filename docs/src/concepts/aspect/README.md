@@ -12,7 +12,7 @@ The **ASPECT** framework is a standardized methodology for classifying and descr
 In the context of technology, AI/ML and automation are the same.
 
 > [!TIP]
-> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-lib/latest/acorn_lib/schema/research_activity/aspect/index.html)
+> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-lib/latest/acorn/schema/research_activity/aspect/index.html)
 
 ## Key Components
 
