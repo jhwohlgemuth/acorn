@@ -401,6 +401,17 @@ fn test_research_activity_into_cff() {
     let arxiv = identifiers.get(1).cloned();
     assert_eq!(arxiv.as_ref().map(|identifier| identifier.kind.clone()), Some(IdentifierType::Other));
     assert_eq!(arxiv.map(|identifier| identifier.value), Some("arXiv:2106.09685".to_string()));
+    let swhid = "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a";
+    let rad_with_swhid = ResearchActivity::init()
+        .meta(ResearchActivityMetadata::init().swhid(vec![swhid.to_string()]).build())
+        .build();
+    let cff_with_swhid: Cff = rad_with_swhid.into();
+    let identifier = cff_with_swhid
+        .identifiers
+        .and_then(|identifiers| identifiers.into_iter().next())
+        .expect("SWHID should be exported as a CFF identifier");
+    assert_eq!(identifier.kind, IdentifierType::Swh);
+    assert_eq!(identifier.value, swhid);
 }
 #[test]
 fn test_research_activity_format() {

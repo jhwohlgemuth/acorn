@@ -90,6 +90,7 @@ serde_with = { version = "3.15.1", features = ["macros"], default-features = fal
 serde_norway = { workspace = true }
 similar = { version = "3.1.0", features = ["text"], default-features = false, optional = true }
 sophia = { workspace = true }
+swhid = { workspace = true, features = ["git"], optional = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
@@ -113,6 +114,7 @@ pretty_assertions = "1.4.1"
 proptest = "1.9.0"
 similar-asserts = "2.0.0"
 temp-env = "0.3.6"
+tempfile = "3"
 zench = "0.2.0"
 
 [[bench]]
@@ -173,6 +175,7 @@ std = [
 ]
 cmd = ["std"]
 shell-lint = ["std", "dep:shuck-linter", "dep:shuck-parser"]
+swhid-compute = ["std", "dep:swhid"]
 
 [lints]
 workspace = true

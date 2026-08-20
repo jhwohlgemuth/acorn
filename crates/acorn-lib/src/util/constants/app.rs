@@ -48,6 +48,16 @@ pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
 pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 /// Maximum backoff delay for retryable HTTP requests, in seconds.
 pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
+/// Software Heritage archive browse URI.
+pub const SOFTWARE_HERITAGE_ARCHIVE_URI: &str = "https://archive.softwareheritage.org";
+/// Software Heritage SWHID resolver URI.
+pub const SOFTWARE_HERITAGE_RESOLVER_URI: &str = "https://archive.softwareheritage.org/api/1/resolve";
+/// Canonical SWHID specification URI.
+pub const SWHID_SCHEMA_URI: &str = "https://www.swhid.org/specification/v1.2";
+/// identifiers.org resolver URI.
+pub const IDENTIFIERS_ORG_URI: &str = "https://identifiers.org";
+/// Name-to-Thing resolver URI.
+pub const N2T_URI: &str = "https://n2t.net";
 /// Header used to authenticate GitLab API requests with a private token.
 pub const GITLAB_PRIVATE_TOKEN_HEADER: &str = "PRIVATE-TOKEN";
 /// Maximum file size accepted by merge request analysis

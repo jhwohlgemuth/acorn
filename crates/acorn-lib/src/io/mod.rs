@@ -82,6 +82,8 @@ pub mod model;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod source;
+#[cfg(feature = "swhid-compute")]
+pub mod swhid;
 pub mod sync;
 
 pub use fingerprint::Fingerprint;

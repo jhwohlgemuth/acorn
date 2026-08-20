@@ -19,7 +19,7 @@ path = "src/main.rs"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-acorn-lib = { version = "0.1.59", path = "../acorn-lib", features = ["doctor", "powerpoint"] }
+acorn-lib = { version = "0.1.59", path = "../acorn-lib", features = ["doctor", "powerpoint", "swhid-compute"] }
 acorn-tui = { version = "0.1.59", path = "../acorn-tui", optional = true }
 arboard = { workspace = true }
 bon = "3.3.2"

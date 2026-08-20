@@ -27,6 +27,7 @@ pub mod import;
 pub mod link;
 pub mod serve;
 pub mod skill;
+pub mod swhid;
 pub mod sync;
 pub mod tui;
 pub mod watch;
@@ -511,6 +512,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run().await }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
+        | Some(Commands::Swhid(arguments)) => swhid::run(arguments),
         | Some(Commands::Tui) => {
             with_runtime(async { initialize_database(config).await }).and_then(|_| tui::run(&config.database_path, config.no_local_database, offline))
         }

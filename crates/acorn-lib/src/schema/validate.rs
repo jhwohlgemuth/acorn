@@ -40,6 +40,7 @@ method_validator!(is_isbn, "ISBN");
 method_validator!(is_isni, "ISNI");
 method_validator!(is_orcid, "ORCiD");
 method_validator!(is_ror, "ROR");
+method_validator!(is_swhid, "SWHID");
 regex_validator!(is_gnd, RE_GND, "GND");
 regex_validator!(is_ip6, RE_IP6, "IP6");
 regex_validator!(is_raid, RE_RAID, "RAiD");

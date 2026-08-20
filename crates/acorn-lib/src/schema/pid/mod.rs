@@ -31,8 +31,10 @@ use validator::ValidationError;
 
 pub mod patent;
 pub mod raid;
+pub mod swhid;
 
 pub use patent::Patent;
+pub use swhid::SWHID;
 
 const BETANUMERIC_DIGITS: &str = "0123456789bcdfghjkmnpqrstvwxz";
 
@@ -151,6 +153,8 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// assert!("https://ror.org/01qz5mb56".is_ror());
     /// ```
     fn is_ror(&self) -> bool;
+    /// Determines if `self` is a Software Hash Identifier.
+    fn is_swhid(&self) -> bool;
 }
 /// Trait for working with persistent identifiers (PID) as and within string values
 pub trait PersistentIdentifierParse {
@@ -223,6 +227,10 @@ pub enum PID {
     ///
     /// See <https://www.ror.org/> for more information
     ROR,
+    /// Software Hash Identifier (SWHID)
+    ///
+    /// Intrinsic identifier for software content, directories, revisions, releases, and snapshots.
+    SWHID,
     /// Public HTTP or HTTPS artifact URL
     URL,
 }
@@ -476,6 +484,7 @@ impl Identifier {
             | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
             | PID::Patent => Self::parsed::<Patent>(PID::Patent, trimmed),
             | PID::ROR => Self::parsed::<ROR>(PID::ROR, trimmed),
+            | PID::SWHID => Self::parsed::<SWHID>(PID::SWHID, trimmed),
             | PID::URL if HTTP_URL.is_match(trimmed).unwrap_or(false) => Some(Self {
                 kind: PID::URL,
                 value: trimmed.trim_end_matches('/').to_string(),
@@ -496,6 +505,7 @@ impl Identifier {
                     PID::ISNI,
                     PID::Patent,
                     PID::ROR,
+                    PID::SWHID,
                     PID::URL,
                 ]
                 .into_iter()
@@ -514,10 +524,16 @@ impl Identifier {
     pub fn normalize(value: &str) -> String {
         let value = value.trim();
         match value.split_once(':') {
-            | Some((prefix, identifier)) if matches!(prefix.to_ascii_lowercase().as_str(), "arxiv" | "doi" | "raid" | "isbn" | "patent") => {
-                format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim().to_ascii_lowercase())
+            | Some((prefix, identifier)) => {
+                let prefix = prefix.to_ascii_lowercase();
+                let kind = PID::from(prefix.as_str());
+                let lowercase = kind.is_arxiv() || kind.is_doi() || kind.is_raid() || kind.is_isbn() || kind.is_patent() || kind.is_swhid();
+                if lowercase {
+                    format!("{prefix}:{}", identifier.trim().to_ascii_lowercase())
+                } else {
+                    format!("{prefix}:{}", identifier.trim())
+                }
             }
-            | Some((prefix, identifier)) => format!("{}:{}", prefix.to_ascii_lowercase(), identifier.trim()),
             | None => value.to_string(),
         }
     }
@@ -528,6 +544,7 @@ impl Identifier {
                 let identifier = ARXIV::from_string(&self.value).work_identifier();
                 Self::normalize(&format!("arxiv:{}", identifier.trim_start_matches("arXiv:")))
             }
+            | PID::SWHID => Self::normalize(&format!("swhid:{}", SWHID::from_string(&self.value).core_identifier())),
             | _ => Self::normalize(&format!("{}:{}", self.kind.as_str(), self.value)),
         }
     }
@@ -626,6 +643,14 @@ impl From<ROR> for Identifier {
         }
     }
 }
+impl From<SWHID> for Identifier {
+    fn from(value: SWHID) -> Self {
+        Self {
+            kind: PID::SWHID,
+            value: value.to_string(),
+        }
+    }
+}
 impl PID {
     /// Whether this PID type participates in artifact discovery
     pub fn is_discoverable(&self) -> bool {
@@ -638,6 +663,7 @@ impl PID {
             || self.is_patent()
             || self.is_raid()
             || self.is_ror()
+            || self.is_swhid()
             || self.is_url()
     }
     /// Return the stable lowercase path component
@@ -653,13 +679,14 @@ impl PID {
             | Self::ARK => "ark",
             | Self::RAID => "raid",
             | Self::ROR => "ror",
+            | Self::SWHID => "swhid",
             | Self::URL => "url",
             | _ => "unknown",
         }
     }
     /// Whether this PID type can independently identify a research project.
     pub fn is_project_identifier(&self) -> bool {
-        self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark()
+        self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark() || self.is_swhid()
     }
 }
 impl fmt::Display for PID {
@@ -1189,6 +1216,7 @@ where
             | PID::ORCID => ORCID::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
             | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
+            | PID::SWHID => SWHID::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
         }
     }
@@ -1202,6 +1230,7 @@ where
             | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
             | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
             | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
+            | PID::SWHID => PersistentIdentifierInternal { value, pid_type: PID::SWHID },
             | _ => PersistentIdentifierInternal::default(),
         }
     }
@@ -1214,6 +1243,7 @@ where
             | PID::ORCID => self.is_orcid(),
             | PID::RAID => self.is_raid(),
             | PID::ROR => self.is_ror(),
+            | PID::SWHID => self.is_swhid(),
             | _ => false,
         }
     }
@@ -1240,6 +1270,9 @@ where
     }
     fn is_ror(&self) -> bool {
         ROR::is_valid(self.as_ref())
+    }
+    fn is_swhid(&self) -> bool {
+        SWHID::is_valid(self.as_ref())
     }
 }
 impl PersistentIdentifierInternal {
@@ -1297,6 +1330,14 @@ impl PersistentIdentifierInternal {
         match pid_type {
             | PID::ROR => ROR::from_string(value),
             | _ => ROR::default(),
+        }
+    }
+    /// Convert a `PersistentIdentifierInternal` to a `SWHID`.
+    pub fn to_swhid(&self) -> SWHID {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::SWHID => SWHID::from_string(value),
+            | _ => SWHID::default(),
         }
     }
 }

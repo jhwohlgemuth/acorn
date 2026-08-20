@@ -11,7 +11,7 @@ use crate::prelude::PathBuf;
 use crate::prelude::*;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
-use crate::schema::pid::{PersistentIdentifierConvert, PublicationIdentifierType};
+use crate::schema::pid::{PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::standard::text::Text;
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
@@ -219,6 +219,12 @@ pub struct ResearchActivityMetadata {
     #[validate(custom(function = "is_attribute_doi_list"))]
     #[serde(default)]
     pub raid: Option<Vec<String>>,
+    /// Software Hash Identifier(s) for software objects related to the research activity data
+    ///
+    /// See <https://www.swhid.org/> for more information
+    #[validate(custom(function = "is_attribute_swhid_list"))]
+    #[serde(default)]
+    pub swhid: Option<Vec<String>>,
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
@@ -300,6 +306,9 @@ pub struct ResearchActivityMetadataContext {
     pub doi: String,
     /// Research Activity Identifier
     pub raid: String,
+    /// Software Hash Identifier
+    #[serde(default = "default_swhid_context")]
+    pub swhid: String,
     /// Research Organization Registry
     pub ror: String,
     /// Additional type (for organizations)
@@ -430,6 +439,7 @@ impl Default for ResearchActivityMetadataContext {
             .identifier(codemeta("identifier"))
             .doi(bibo("doi"))
             .raid(DEFAULT_RAID_SCHEMA_URI)
+            .swhid(codemeta("identifier"))
             .ror(DEFAULT_ROR_SCHEMA_URI)
             .additional_type(schema_org("additionalType"))
             .media(schema_org("MediaObject"))
@@ -488,24 +498,28 @@ impl From<&ResearchActivity> for Cff {
             | [single] if matches!(PublicationIdentifierType::from(single.as_str()), PublicationIdentifierType::Doi(_)) => Some(single.clone()),
             | _ => None,
         };
-        let identifiers = doi.is_none().then(|| {
-            publication_identifiers
-                .into_iter()
-                .map(|value| match PublicationIdentifierType::from(value.as_str()) {
-                    | PublicationIdentifierType::Doi(_) => Identifier {
-                        description: None,
-                        kind: IdentifierType::Doi,
-                        value,
-                    },
-                    | _ => Identifier {
-                        description: Some("arXiv identifier".to_string()),
-                        kind: IdentifierType::Other,
-                        value,
-                    },
-                })
-                .collect::<Vec<_>>()
-        });
-        let identifiers = identifiers.filter(|values| !values.is_empty());
+        let identifiers = publication_identifiers
+            .into_iter()
+            .filter(|_| doi.is_none())
+            .map(|value| match PublicationIdentifierType::from(value.as_str()) {
+                | PublicationIdentifierType::Doi(_) => Identifier {
+                    description: None,
+                    kind: IdentifierType::Doi,
+                    value,
+                },
+                | _ => Identifier {
+                    description: Some("arXiv identifier".to_string()),
+                    kind: IdentifierType::Other,
+                    value,
+                },
+            })
+            .chain(meta.swhid.unwrap_or_default().into_iter().map(|value| Identifier {
+                description: None,
+                kind: IdentifierType::Swh,
+                value: SWHID::format(value),
+            }))
+            .collect::<Vec<_>>();
+        let identifiers = (!identifiers.is_empty()).then_some(identifiers);
         Cff {
             abstract_text: Some(sections.mission),
             authors: vec![person.clone()],
@@ -914,6 +928,9 @@ impl Vocabulary {
         ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
     }
 }
+fn default_swhid_context() -> String {
+    codemeta("identifier")
+}
 #[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
@@ -1073,6 +1090,15 @@ pub(crate) fn is_attribute_doi_list(value: &[String]) -> ValidationResult {
         .iter()
         .position(|identifier| is_doi(identifier).is_err())
         .map(|index| validation_error_with_index(CODE, "Every DOI should be valid".to_string(), index))
+        .map_or(Ok(()), Err)
+}
+/// Custom validator for [`ResearchActivity`] software hash identifiers
+pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
+    const CODE: &str = "meta.swhid";
+    value
+        .iter()
+        .position(|identifier| !SWHID::is_valid(identifier))
+        .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)

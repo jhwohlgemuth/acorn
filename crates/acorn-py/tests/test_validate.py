@@ -4,6 +4,7 @@ from acorn.schema.validate import (
     format_orcid,
     format_phone_number,
     format_ror,
+    format_swhid,
     is_ark,
     is_arxiv,
     is_doi,
@@ -11,6 +12,7 @@ from acorn.schema.validate import (
     is_orcid,
     is_patent_identifier,
     is_ror,
+    is_swhid,
 )
 from pytest import raises
 
@@ -57,6 +59,12 @@ def test_format_ror():
     assert format_ror("01qz5mb56") == "https://ror.org/01qz5mb56"
     assert not format_ror("03ebg0v16-")
     assert not format_ror("10.1000/182")
+
+
+def test_format_swhid():
+    identifier = "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a"
+    assert format_swhid(identifier) == identifier
+    assert not format_swhid("swh:1:cnt:invalid")
 
 
 def test_is_ark():
@@ -114,3 +122,9 @@ def test_is_ror():
     assert not is_ror("https://ror.org/01qz5mb57")
     # Not a ROR ID at all
     assert not is_ror("10.1000/182")
+
+
+def test_is_swhid():
+    identifier = "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a"
+    assert is_swhid(identifier)
+    assert not is_swhid("swh:1:cnt:invalid")

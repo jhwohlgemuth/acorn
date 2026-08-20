@@ -320,11 +320,18 @@ fn test_exact_grouping_does_not_use_matching_metadata() {
 }
 #[test]
 fn test_partial_rad_mapping_preserves_supported_identifiers() {
+    let identifiers = [
+        "arXiv:2106.09685",
+        "doi:10.1234/example",
+        "ISBN 978-0-306-40627-0",
+        "US1234567B2",
+        "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a",
+    ]
+    .into_iter()
+    .filter_map(|value| Identifier::new(value).normalized())
+    .collect();
     let candidate = ArtifactCandidate {
-        identifiers: ["arXiv:2106.09685", "doi:10.1234/example", "ISBN 978-0-306-40627-0", "US1234567B2"]
-            .into_iter()
-            .filter_map(|value| Identifier::new(value).normalized())
-            .collect(),
+        identifiers,
         canonical_url: Some("https://example.org/project".to_string()),
         title: Some("Example project".to_string()),
         description: Some("Full provider description".to_string()),
@@ -343,6 +350,10 @@ fn test_partial_rad_mapping_preserves_supported_identifiers() {
     assert_eq!(rad["title"], "Example project");
     assert_eq!(rad["notes"], "Full provider description");
     assert_eq!(rad["meta"]["doi"], serde_json::json!(["arXiv:2106.09685", "10.1234/example"]));
+    assert_eq!(
+        rad["meta"]["swhid"],
+        serde_json::json!(["swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a"])
+    );
     assert_eq!(rad["meta"]["websites"][0]["url"], "https://example.org/project");
     assert_eq!(rad["meta"]["websites"][1]["url"], "https://example.org/docs");
     assert_eq!(rad["meta"]["keywords"], serde_json::json!(["artificial-intelligence"]));

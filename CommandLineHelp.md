@@ -20,6 +20,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli link`↴](#acorn-cli-link)
+* [`acorn-cli swhid`↴](#acorn-cli-swhid)
 * [`acorn-cli skill`↴](#acorn-cli-skill)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
@@ -59,6 +60,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
+* `swhid` — Calculate or verify a Software Hash Identifier (SWHID)
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
 * `serve` — Start a server (bot, MCP, etc.)
 * `sync` — Synchronize local inference configuration from ACORN model entries
@@ -842,6 +844,57 @@ Add linked data context to research activity data
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli swhid`
+
+Calculate or verify a Software Hash Identifier (SWHID)
+
+    Hash a local file or directory
+    $> acorn swhid ./src
+
+    Calculate the current Git revision
+    $> acorn swhid . --kind revision --reference HEAD
+
+    Verify a local object
+    $> acorn swhid ./src --verify swh:1:dir:0123456789abcdef0123456789abcdef01234567
+
+**Usage:** `acorn-cli swhid [OPTIONS] [PATH]`
+
+###### **Arguments:**
+
+* `<PATH>` — Local file, directory, or Git repository
+
+  Default value: `.`
+
+###### **Options:**
+
+* `--kind <KIND>` — Object source to calculate
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Infer a local file or directory
+  - `content`:
+    Local file content
+  - `directory`:
+    Local directory traversal
+  - `git-blob`:
+    Git blob selected by REFERENCE
+  - `git-tree`:
+    Git tree selected by REFERENCE
+  - `revision`:
+    Git commit selected by REFERENCE
+  - `release`:
+    Annotated Git tag named by REFERENCE
+  - `snapshot`:
+    Local Git branches and tags
+
+* `-r`, `--reference <REFERENCE>` — Git revision expression or annotated tag name
+* `--verify <SWHID>` — Verify the calculated core object against this SWHID
+* `--raw` — Print only the calculated identifier
 
 
 

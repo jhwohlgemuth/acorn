@@ -103,6 +103,8 @@ pub const RE_RAID_TEXT: &str =
     r#"(?<schema_uri>(?i:https[:]\/\/raid\.org\/))?(?<directory_indicator>10)[.](?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
 pub const RE_ROR_TEXT: &str = r#"(?<![a-z0-9])(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z0-9]{6}[0-9]{2})(?![a-z0-9])"#;
+/// Pattern text for Software Hash Identifiers.
+pub const RE_SWHID_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?:https://(?:archive\.softwareheritage\.org/(?:api/1/resolve/)?|identifiers\.org/|n2t\.net/))?swh:1:(?:cnt|dir|rel|rev|snp):[0-9a-f]{40}(?:;(?:origin|visit|anchor|path|lines|bytes)=[^\s<>\"'\[\]{}]+)*)"#;
 
 lazy_static! {
     /// Regex that matches HTTP and HTTPS URLs.
@@ -133,6 +135,8 @@ lazy_static! {
     ///
     /// See <https://raid.org/> for more information
     pub static ref RE_RAID: Regex = Regex::new(RE_RAID_TEXT).expect("RE_RAID_TEXT should compile as a valid regex");
+    /// Regex that matches Software Hash Identifiers.
+    pub static ref RE_SWHID: Regex = Regex::new(RE_SWHID_TEXT).expect("RE_SWHID_TEXT should compile as a valid regex");
     /// Regex that should match a Research Organization Registry (ROR)
     ///
     /// See <https://www.ror.org/> for more information

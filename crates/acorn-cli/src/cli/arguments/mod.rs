@@ -3,6 +3,7 @@ use super::parse::{parse_check_category, parse_executor, parse_readability, pars
 use super::DownloadCommands;
 use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
+use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
 use acorn::schema::agent::Quantization;
@@ -825,6 +826,61 @@ pub(crate) struct Link {
     pub(crate) standard: Standard,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// SWHID object source.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum SwhidKind {
+    /// Infer a local file or directory.
+    #[default]
+    Auto,
+    /// Local file content.
+    Content,
+    /// Local directory traversal.
+    Directory,
+    /// Git blob selected by REFERENCE.
+    GitBlob,
+    /// Git tree selected by REFERENCE.
+    GitTree,
+    /// Git commit selected by REFERENCE.
+    Revision,
+    /// Annotated Git tag named by REFERENCE.
+    Release,
+    /// Local Git branches and tags.
+    Snapshot,
+}
+impl From<SwhidKind> for CalculationKind {
+    fn from(value: SwhidKind) -> Self {
+        match value {
+            | SwhidKind::Auto => Self::Auto,
+            | SwhidKind::Content => Self::Content,
+            | SwhidKind::Directory => Self::Directory,
+            | SwhidKind::GitBlob => Self::GitBlob,
+            | SwhidKind::GitTree => Self::GitTree,
+            | SwhidKind::Revision => Self::Revision,
+            | SwhidKind::Release => Self::Release,
+            | SwhidKind::Snapshot => Self::Snapshot,
+        }
+    }
+}
+/// Calculate or verify a Software Hash Identifier.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Swhid {
+    /// Local file, directory, or Git repository
+    #[arg(default_value = ".", value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) path: PathBuf,
+    /// Object source to calculate
+    #[arg(long, value_enum, default_value_t, help_heading = "OPTIONS")]
+    pub(crate) kind: SwhidKind,
+    /// Git revision expression or annotated tag name
+    #[arg(short, long, value_name = "REFERENCE", help_heading = "OPTIONS")]
+    pub(crate) reference: Option<String>,
+    /// Verify the calculated core object against this SWHID
+    #[arg(long, value_name = "SWHID", help_heading = "OPTIONS")]
+    pub(crate) verify: Option<String>,
+    /// Print only the calculated identifier
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) raw: bool,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]

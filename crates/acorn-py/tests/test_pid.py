@@ -1,4 +1,4 @@
-from acorn.schema.pid import DOI, ISBN, ORCID, ROR, Patent
+from acorn.schema.pid import DOI, ISBN, ORCID, ROR, SWHID, Patent
 
 
 def test_doi():
@@ -64,3 +64,18 @@ def test_ror():
     assert values[0].identifier == identifier
     assert values[1].identifier == identifier
     assert values[2].identifier == identifier
+
+
+def test_swhid():
+    identifier = "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a"
+    pid = SWHID.from_string(identifier)
+    assert str(pid) == identifier
+    assert pid.identifier == identifier
+    assert pid.core_identifier == identifier
+    assert pid.object_type == "cnt"
+    assert pid.schema_uri == "https://www.swhid.org/specification/v1.2"
+    assert pid.url == f"https://archive.softwareheritage.org/{identifier}"
+    values = SWHID.find_all(f"first {identifier};lines=1-2 and second {identifier}")
+    assert len(values) == 2
+    assert values[0].identifier == f"{identifier};lines=1-2"
+    assert values[1].identifier == identifier

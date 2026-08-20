@@ -9,7 +9,7 @@ use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR};
+use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR, SWHID};
 use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::{check, check_err};
@@ -457,12 +457,13 @@ impl ArtifactCandidate {
             .collect::<Vec<_>>();
         let keywords = ControlledVocabulary::normalize("keywords", self.keywords.iter().cloned()).into_values();
         let technology = ControlledVocabulary::normalize("technology", self.technology.iter().cloned()).into_values();
-        let pairs: [(&str, &[PID]); 5] = [
+        let pairs: [(&str, &[PID]); 6] = [
             ("doi", &[PID::DOI, PID::ARXIV]),
             ("books", &[PID::ISBN]),
             ("patents", &[PID::Patent]),
             ("raid", &[PID::RAID]),
             ("ror", &[PID::ROR]),
+            ("swhid", &[PID::SWHID]),
         ];
         let Self {
             sponsors, partners, related, ..
@@ -919,6 +920,7 @@ impl PID {
             | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
             | _ => Vec::new(),
         }
     }
@@ -945,6 +947,7 @@ impl Record {
                         ResolutionOutcome::from(api::raid::record(&api::raid::Options::from_env().with_identifier(identifier.clone())).await)
                     }
                     | PID::ROR => ResolutionOutcome::from(api::ror::record(&api::ror::Options::from_env().with_identifier(identifier.clone())).await),
+                    | PID::SWHID => ResolutionOutcome::from(api::swhid::resolve(&SWHID::from_string(&identifier)).await),
                     | _ => ResolutionOutcome::Unsupported,
                 };
                 let (metadata, resolution_status) = resolution.into_parts();

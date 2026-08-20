@@ -1,7 +1,7 @@
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, ROR};
+use acorn::schema::pid::{Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, ROR, SWHID};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use acorn::util::StringConversion;
@@ -24,6 +24,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     pid.add_class::<PyPatent>()?;
     pid.add_class::<PyORCID>()?;
     pid.add_class::<PyROR>()?;
+    pid.add_class::<PySWHID>()?;
     // Add functions to schema.validate module
     let validate = PyModule::new(python, "validate")?;
     validate.add_function(wrap_pyfunction!(format_ark, &validate)?)?;
@@ -32,6 +33,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     validate.add_function(wrap_pyfunction!(format_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_phone_number, &validate)?)?;
     validate.add_function(wrap_pyfunction!(format_ror, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(format_swhid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_arxiv, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
@@ -40,6 +42,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     validate.add_function(wrap_pyfunction!(is_patent_identifier, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_raid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_ror, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_swhid, &validate)?)?;
     // Configure submodules
     // Without this, `import acorn.schema.validate` will fail
     let sys = python.import("sys")?;
@@ -120,6 +123,15 @@ struct PyROR {
     identifier: String,
     schema_uri: String,
     check_digit: String,
+}
+#[pyclass(name = "SWHID", from_py_object)]
+#[derive(Clone)]
+struct PySWHID {
+    identifier: String,
+    core_identifier: String,
+    object_type: String,
+    schema_uri: String,
+    url: String,
 }
 #[pyclass(name = "Sections", from_py_object)]
 #[derive(Clone)]
@@ -519,6 +531,50 @@ impl PyROR {
         self.check_digit.clone()
     }
 }
+#[pymethods]
+impl PySWHID {
+    #[staticmethod]
+    fn find_all(value: String) -> Vec<PySWHID> {
+        SWHID::find_all(value)
+            .iter()
+            .map(|identifier| PySWHID::from_string(identifier.to_string()))
+            .collect()
+    }
+    #[staticmethod]
+    fn from_string(value: String) -> PySWHID {
+        let pid = SWHID::from_string(value);
+        PySWHID {
+            core_identifier: pid.core_identifier(),
+            identifier: pid.identifier(),
+            object_type: pid.object_type.as_str().to_string(),
+            schema_uri: pid.schema_uri(),
+            url: pid.url(),
+        }
+    }
+    #[getter]
+    fn core_identifier(&self) -> String {
+        self.core_identifier.clone()
+    }
+    #[getter]
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+    #[getter]
+    fn object_type(&self) -> String {
+        self.object_type.clone()
+    }
+    #[getter]
+    fn schema_uri(&self) -> String {
+        self.schema_uri.clone()
+    }
+    #[getter]
+    fn url(&self) -> String {
+        self.url.clone()
+    }
+    fn __str__(&self) -> String {
+        self.identifier.clone()
+    }
+}
 /// Convert a ARK into a standard format
 /// ### Example
 /// ```python
@@ -583,6 +639,11 @@ fn format_phone_number(value: &str) -> PyResult<String> {
 #[pyfunction]
 fn format_ror(value: &str) -> String {
     ROR::format(value)
+}
+/// Convert a Software Hash Identifier into its canonical format.
+#[pyfunction]
+fn format_swhid(value: &str) -> String {
+    SWHID::format(value)
 }
 /// Check if value is a valid ARK
 ///
@@ -687,4 +748,9 @@ fn is_ror(value: &str) -> bool {
         | Ok(_) => true,
         | Err(_) => false,
     }
+}
+/// Check if a value is a valid Software Hash Identifier.
+#[pyfunction]
+fn is_swhid(value: &str) -> bool {
+    schema::validate::is_swhid(value).is_ok()
 }

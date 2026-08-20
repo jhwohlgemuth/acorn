@@ -1265,6 +1265,7 @@ impl TransferManifest {
             (PID::ISBN, rad.meta.books.as_ref()),
             (PID::Patent, rad.meta.patents.as_ref()),
             (PID::RAID, rad.meta.raid.as_ref()),
+            (PID::SWHID, rad.meta.swhid.as_ref()),
         ];
         let pid_keys = pairs.into_iter().flat_map(|(kind, values)| {
             values.into_iter().flatten().filter_map(move |value| {

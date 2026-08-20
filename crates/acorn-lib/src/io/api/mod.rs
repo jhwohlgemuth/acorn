@@ -44,38 +44,11 @@ pub mod osti;
 pub mod raid;
 pub mod ror;
 pub mod spdx;
+pub mod swhid;
 
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
-}
-/// Returns the value of the first header in `names` that is present and valid UTF-8.
-pub fn first_header<'a>(headers: &'a HeaderMap, names: &[&str]) -> Option<&'a str> {
-    names.iter().filter_map(|name| headers.get(*name)).find_map(|value| value.to_str().ok())
-}
-/// Normalize an external username into a stable path component
-pub fn sluggify(username: &str, user_id: u64) -> String {
-    let (slug, _) = username
-        .trim()
-        .to_ascii_lowercase()
-        .chars()
-        .fold((String::new(), false), |(mut value, separator), character| {
-            if character.is_ascii_alphanumeric() {
-                value.push(character);
-                (value, false)
-            } else if !value.is_empty() && !separator {
-                value.push('-');
-                (value, true)
-            } else {
-                (value, separator)
-            }
-        });
-    let slug = slug.trim_matches('-');
-    if slug.is_empty() {
-        format!("user-{user_id}")
-    } else {
-        slug.to_string()
-    }
 }
 /// Trait to standardize configuration loading from environment variables and modification with new values
 pub trait Configuration {
@@ -998,6 +971,10 @@ pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
         .unique()
         .collect()
 }
+/// Returns the value of the first header in `names` that is present and valid UTF-8.
+pub fn first_header<'a>(headers: &'a HeaderMap, names: &[&str]) -> Option<&'a str> {
+    names.iter().filter_map(|name| headers.get(*name)).find_map(|value| value.to_str().ok())
+}
 /// Create a query string component from a key-value pair with key and value validation
 pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &str, value: &str) -> Option<String> {
     match T::try_from(key) {
@@ -1158,6 +1135,30 @@ pub(crate) fn require_non_empty_secret(secret: &str, path: &str, names: &[&str])
         Err(eyre!("Missing required token for {path} request. Set one of: {env_list}"))
     } else {
         Ok(value.to_string())
+    }
+}
+/// Normalize an external username into a stable path component
+pub fn sluggify(username: &str, user_id: u64) -> String {
+    let (slug, _) = username
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .fold((String::new(), false), |(mut value, separator), character| {
+            if character.is_ascii_alphanumeric() {
+                value.push(character);
+                (value, false)
+            } else if !value.is_empty() && !separator {
+                value.push('-');
+                (value, true)
+            } else {
+                (value, separator)
+            }
+        });
+    let slug = slug.trim_matches('-');
+    if slug.is_empty() {
+        format!("user-{user_id}")
+    } else {
+        slug.to_string()
     }
 }
 

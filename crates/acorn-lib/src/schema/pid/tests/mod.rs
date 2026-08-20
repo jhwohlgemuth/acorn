@@ -35,6 +35,13 @@ fn test_normalize_discovery_identifiers() {
     assert_eq!(Identifier::new("ark:/12345/abc").normalized().unwrap().kind, PID::ARK);
     assert_eq!(Identifier::new("RAID:10.12345/xyz").normalized().unwrap().kind, PID::RAID);
     assert_eq!(Identifier::new("US-123456-A1").normalized().unwrap().kind, PID::Patent);
+    assert_eq!(
+        Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")
+            .normalized()
+            .unwrap()
+            .kind,
+        PID::SWHID
+    );
 }
 #[test]
 fn test_normalize_discovery_url_preserves_case_sensitive_components() {
@@ -47,7 +54,18 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("doi"), PID::DOI);
     assert_eq!(PID::from("ORCID"), PID::ORCID);
     assert_eq!(PID::from(" pidinst "), PID::PIDINST);
+    assert_eq!(PID::from("SWHID"), PID::SWHID);
     assert_eq!(PID::from("unsupported"), PID::Unknown);
+}
+#[test]
+fn test_swhid_identity_ignores_qualifiers() {
+    let core = Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")
+        .normalized()
+        .unwrap();
+    let qualified = Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a;origin=https://example.org/source;lines=1-2")
+        .normalized()
+        .unwrap();
+    assert_eq!(core.identity_key(), qualified.identity_key());
 }
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {

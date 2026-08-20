@@ -11,6 +11,7 @@
 - [🕸️ Link](./link.md)
 - [📡 Serve](./serve.md)
 - [🧩 Skill](./skill.md)
+- [🧬 SWHID](./swhid.md)
 - [🔄 Sync](./sync.md)
 - [🖥️ TUI](./tui.md)
 

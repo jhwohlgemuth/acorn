@@ -33,6 +33,7 @@
     - [link](./cli-reference/commands/link.md)
     - [serve](./cli-reference/commands/serve.md)
     - [skill](./cli-reference/commands/skill.md)
+    - [swhid](./cli-reference/commands/swhid.md)
     - [sync](./cli-reference/commands/sync.md)
     - [tui](./cli-reference/commands/tui.md)
   - [Model workflows](./cli-reference/model-workflows.md)

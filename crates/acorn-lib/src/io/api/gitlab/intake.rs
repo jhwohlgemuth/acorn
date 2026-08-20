@@ -258,34 +258,6 @@ impl From<Cff> for ArtifactCandidate {
         }
     }
 }
-fn cff_contact(values: &[Agent]) -> Option<Candidate> {
-    values
-        .iter()
-        .map(|agent| match agent {
-            | Agent::Entity(entity) => Candidate::Contact {
-                identifier: entity
-                    .orcid
-                    .as_deref()
-                    .and_then(|value| Identifier::new(value).normalized())
-                    .filter(|identifier| identifier.kind == PID::ORCID)
-                    .map(|identifier| identifier.value),
-                email: entity.email.clone(),
-            },
-            | Agent::Person(person) => Candidate::Contact {
-                identifier: person
-                    .orcid
-                    .as_deref()
-                    .and_then(|value| Identifier::new(value).normalized())
-                    .filter(|identifier| identifier.kind == PID::ORCID)
-                    .map(|identifier| identifier.value),
-                email: person.email.clone(),
-            },
-        })
-        .filter(|candidate| matches!(candidate, Candidate::Contact { identifier, email } if identifier.is_some() || email.is_some()))
-        .unique()
-        .exactly_one()
-        .ok()
-}
 impl From<ArtifactCandidate> for Cff {
     fn from(candidate: ArtifactCandidate) -> Self {
         let doi = candidate
@@ -306,11 +278,7 @@ impl From<ArtifactCandidate> for Cff {
             .filter(|identifier| identifier.kind != PID::DOI)
             .map(|identifier| cff::Identifier {
                 description: None,
-                kind: if identifier.kind == PID::URL {
-                    IdentifierType::Url
-                } else {
-                    IdentifierType::Other
-                },
+                kind: identifier.cff_type(),
                 value: identifier.value.clone(),
             })
             .collect::<Vec<_>>();
@@ -325,6 +293,15 @@ impl From<ArtifactCandidate> for Cff {
             title: candidate.title.clone().unwrap_or_default(),
             url,
             ..Cff::default()
+        }
+    }
+}
+impl Identifier {
+    fn cff_type(&self) -> IdentifierType {
+        match self.kind {
+            | PID::URL => IdentifierType::Url,
+            | PID::SWHID => IdentifierType::Swh,
+            | _ => IdentifierType::Other,
         }
     }
 }
@@ -473,6 +450,34 @@ pub async fn analyze_work_item(options: &Options, actor: &HookActor, command_not
         },
         | None => Err(eyre!("GitLab work-item IID is required")),
     }
+}
+fn cff_contact(values: &[Agent]) -> Option<Candidate> {
+    values
+        .iter()
+        .map(|agent| match agent {
+            | Agent::Entity(entity) => Candidate::Contact {
+                identifier: entity
+                    .orcid
+                    .as_deref()
+                    .and_then(|value| Identifier::new(value).normalized())
+                    .filter(|identifier| identifier.kind == PID::ORCID)
+                    .map(|identifier| identifier.value),
+                email: entity.email.clone(),
+            },
+            | Agent::Person(person) => Candidate::Contact {
+                identifier: person
+                    .orcid
+                    .as_deref()
+                    .and_then(|value| Identifier::new(value).normalized())
+                    .filter(|identifier| identifier.kind == PID::ORCID)
+                    .map(|identifier| identifier.value),
+                email: person.email.clone(),
+            },
+        })
+        .filter(|candidate| matches!(candidate, Candidate::Contact { identifier, email } if identifier.is_some() || email.is_some()))
+        .unique()
+        .exactly_one()
+        .ok()
 }
 pub(crate) async fn classify_content(content: &str, options: &Options) -> Vec<ArtifactReport> {
     let candidates = discover_identifiers(content)

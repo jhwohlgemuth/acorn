@@ -364,6 +364,18 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
+    /// Calculate or verify a Software Hash Identifier (SWHID)
+    ///
+    ///     Hash a local file or directory
+    ///     $> acorn swhid ./src
+    ///
+    ///     Calculate the current Git revision
+    ///     $> acorn swhid . --kind revision --reference HEAD
+    ///
+    ///     Verify a local object
+    ///     $> acorn swhid ./src --verify swh:1:dir:0123456789abcdef0123456789abcdef01234567
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Swhid(Box<arguments::Swhid>),
     /// Print the embedded ACORN skill path and copy agent instructions to clipboard
     ///
     ///     $> acorn skill
