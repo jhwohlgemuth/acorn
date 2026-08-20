@@ -29,10 +29,12 @@ use serde::{Deserialize, Serialize};
 use strum::{EnumIs, EnumIter, IntoEnumIterator};
 use validator::ValidationError;
 
+pub mod handle;
 pub mod patent;
 pub mod raid;
 pub mod swhid;
 
+pub use handle::Handle;
 pub use patent::Patent;
 pub use swhid::SWHID;
 
@@ -126,6 +128,8 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// assert!("https://doi.org/10.1234/5678".is_doi());
     /// ```
     fn is_doi(&self) -> bool;
+    /// Determines if `self` is a Handle identifier.
+    fn is_handle(&self) -> bool;
     /// Determines if `self` is an ISBN
     fn is_isbn(&self) -> bool {
         false
@@ -187,12 +191,16 @@ pub enum PID {
     ARK,
     /// arXiv identifier
     ///
-    /// See [`ARXIV`]
-    ARXIV,
+    /// See [`Arxiv`]
+    Arxiv,
     /// Digital Object Identifier (DOI)
     ///
     /// See [`DOI`]
     DOI,
+    /// Handle System identifier
+    ///
+    /// See [`Handle`]
+    Handle,
     /// International Standard Book Number (ISBN)
     ///
     /// See [`ISBN`]
@@ -240,7 +248,7 @@ pub enum PublicationIdentifierType {
     /// Digital Object Identifier
     Doi(DOI),
     /// arXiv identifier
-    Arxiv(ARXIV),
+    Arxiv(Arxiv),
     /// Unsupported publication identifier
     Unknown,
 }
@@ -301,7 +309,7 @@ pub struct ARK {
 /// See <https://info.arxiv.org/help/arxiv_identifier.html> for more information
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
-pub struct ARXIV {
+pub struct Arxiv {
     /// arXiv resolver URI
     pub schema_uri: Option<String>,
     /// Legacy archive component, such as `hep-th`
@@ -473,12 +481,10 @@ impl Identifier {
         let trimmed = trim_unmatched_trailing_parentheses(trimmed);
         match self.kind {
             | PID::DOI => Self::parsed::<DOI>(PID::DOI, trimmed),
-            | PID::ARXIV => Self::parsed::<ARXIV>(PID::ARXIV, trimmed),
+            | PID::Handle => Self::parsed::<Handle>(PID::Handle, trimmed),
+            | PID::Arxiv => Self::parsed::<Arxiv>(PID::Arxiv, trimmed),
             | PID::ISBN => Self::parsed::<ISBN>(PID::ISBN, trimmed),
-            | PID::ISNI => {
-                let value = ISNI::format(trimmed);
-                ISNI::is_valid(&value).then_some(Self { kind: PID::ISNI, value })
-            }
+            | PID::ISNI => Self::parsed::<ISNI>(PID::ISNI, trimmed),
             | PID::ORCID => Self::parsed::<ORCID>(PID::ORCID, trimmed),
             | PID::ARK => Self::parsed::<ARK>(PID::ARK, trimmed),
             | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
@@ -497,9 +503,10 @@ impl Identifier {
                     PID::DOI
                 };
                 [
-                    PID::ARXIV,
+                    PID::Arxiv,
                     primary,
                     PID::ARK,
+                    PID::Handle,
                     PID::ISBN,
                     PID::ORCID,
                     PID::ISNI,
@@ -540,8 +547,8 @@ impl Identifier {
     /// Return this identifier as a normalized exact project identity key.
     pub fn identity_key(&self) -> String {
         match self.kind {
-            | PID::ARXIV => {
-                let identifier = ARXIV::from_string(&self.value).work_identifier();
+            | PID::Arxiv => {
+                let identifier = Arxiv::from_string(&self.value).work_identifier();
                 Self::normalize(&format!("arxiv:{}", identifier.trim_start_matches("arXiv:")))
             }
             | PID::SWHID => Self::normalize(&format!("swhid:{}", SWHID::from_string(&self.value).core_identifier())),
@@ -549,11 +556,15 @@ impl Identifier {
         }
     }
     fn parsed<T: PersistentIdentifierParse + fmt::Display>(kind: PID, value: &str) -> Option<Self> {
-        T::find_all(value)
-            .first()
-            .map(T::format)
-            .filter(|value| T::is_valid(value))
-            .map(|value| Self { kind, value })
+        let formatted = T::format(value);
+        match T::is_valid(&formatted) {
+            | true => Some(Self { kind, value: formatted }),
+            | false => T::find_all(value)
+                .first()
+                .map(T::format)
+                .filter(|value| T::is_valid(value))
+                .map(|value| Self { kind, value }),
+        }
     }
     /// Return the deterministic identifier hash used in artifact paths
     #[cfg(feature = "std")]
@@ -579,10 +590,10 @@ impl From<ARK> for Identifier {
         }
     }
 }
-impl From<ARXIV> for Identifier {
-    fn from(value: ARXIV) -> Self {
+impl From<Arxiv> for Identifier {
+    fn from(value: Arxiv) -> Self {
         Self {
-            kind: PID::ARXIV,
+            kind: PID::Arxiv,
             value: value.to_string(),
         }
     }
@@ -591,6 +602,14 @@ impl From<DOI> for Identifier {
     fn from(value: DOI) -> Self {
         Self {
             kind: PID::DOI,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<Handle> for Identifier {
+    fn from(value: Handle) -> Self {
+        Self {
+            kind: PID::Handle,
             value: value.to_string(),
         }
     }
@@ -657,6 +676,7 @@ impl PID {
         self.is_ark()
             || self.is_arxiv()
             || self.is_doi()
+            || self.is_handle()
             || self.is_isbn()
             || self.is_isni()
             || self.is_orcid()
@@ -670,7 +690,8 @@ impl PID {
     pub fn as_str(&self) -> &'static str {
         match self {
             | Self::DOI => "doi",
-            | Self::ARXIV => "arxiv",
+            | Self::Handle => "handle",
+            | Self::Arxiv => "arxiv",
             | Self::ISBN => "isbn",
             | Self::ISNI => "isni",
             | Self::ORCID => "orcid",
@@ -734,7 +755,7 @@ impl Default for ARK {
         Self::new()
     }
 }
-impl Default for ARXIV {
+impl Default for Arxiv {
     fn default() -> Self {
         Self::new()
     }
@@ -773,7 +794,7 @@ impl fmt::Display for ARK {
         write!(f, "{result}")
     }
 }
-impl fmt::Display for ARXIV {
+impl fmt::Display for Arxiv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.identifier())
     }
@@ -898,9 +919,9 @@ impl PersistentIdentifier for ARK {
         }
     }
 }
-impl PersistentIdentifier for ARXIV {
+impl PersistentIdentifier for Arxiv {
     fn new() -> Self {
-        ARXIV::init().build()
+        Arxiv::init().build()
     }
     fn schema_uri(&self) -> String {
         self.schema_uri
@@ -932,7 +953,7 @@ impl PersistentIdentifier for ARXIV {
             .unwrap_or_default()
     }
 }
-impl ARXIV {
+impl Arxiv {
     /// Return the canonical arXiv work identifier without a revision suffix.
     pub fn work_identifier(&self) -> String {
         self.identifier.as_ref().map_or_else(String::new, |identifier| {
@@ -1009,8 +1030,8 @@ impl From<ISBN> for DOI {
             .build()
     }
 }
-impl From<ARXIV> for DOI {
-    fn from(arxiv: ARXIV) -> Self {
+impl From<Arxiv> for DOI {
+    fn from(arxiv: Arxiv) -> Self {
         let suffix = arxiv.work_identifier().trim_start_matches("arXiv:").to_string();
         DOI::init()
             .schema_uri(DEFAULT_DOI_SCHEMA_URI)
@@ -1020,7 +1041,7 @@ impl From<ARXIV> for DOI {
             .build()
     }
 }
-impl TryFrom<DOI> for ARXIV {
+impl TryFrom<DOI> for Arxiv {
     type Error = ValidationError;
     fn try_from(doi: DOI) -> Result<Self, Self::Error> {
         let suffix = doi.suffix().unwrap_or_default();
@@ -1030,8 +1051,8 @@ impl TryFrom<DOI> for ARXIV {
             .and_then(|_| suffix.get(6..));
         match (doi.directory_indicator.as_deref(), doi.registrant_code.as_deref(), arxiv_suffix) {
             | (Some(DATACITE_DOI_DIRECTORY_INDICATOR), Some(ARXIV_DATACITE_REGISTRANT_CODE), Some(identifier)) => {
-                let arxiv = ARXIV::from_string(format!("arXiv:{identifier}"));
-                match ARXIV::is_valid(arxiv.to_string()) {
+                let arxiv = Arxiv::from_string(format!("arXiv:{identifier}"));
+                match Arxiv::is_valid(arxiv.to_string()) {
                     | true => Ok(arxiv),
                     | false => Err(ValidationError::new("arxiv_doi")),
                 }
@@ -1210,8 +1231,9 @@ where
     fn format_as(&self, pid_type: PID) -> String {
         match pid_type {
             | PID::ARK => ARK::format(self.as_ref()),
-            | PID::ARXIV => ARXIV::format(self.as_ref()),
+            | PID::Arxiv => Arxiv::format(self.as_ref()),
             | PID::DOI => DOI::format(self.as_ref()),
+            | PID::Handle => Handle::format(self.as_ref()),
             | PID::ISNI => ISNI::format(self.as_ref()),
             | PID::ORCID => ORCID::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
@@ -1224,8 +1246,12 @@ where
         let value = self.as_ref().to_string();
         match pid_type {
             | PID::ARK => PersistentIdentifierInternal { value, pid_type: PID::ARK },
-            | PID::ARXIV => PersistentIdentifierInternal { value, pid_type: PID::ARXIV },
+            | PID::Arxiv => PersistentIdentifierInternal { value, pid_type: PID::Arxiv },
             | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
+            | PID::Handle => PersistentIdentifierInternal {
+                value,
+                pid_type: PID::Handle,
+            },
             | PID::ISNI => PersistentIdentifierInternal { value, pid_type: PID::ISNI },
             | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
             | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
@@ -1237,8 +1263,9 @@ where
     fn is_pid(&self, pid_type: PID) -> bool {
         match pid_type {
             | PID::ARK => self.is_ark(),
-            | PID::ARXIV => self.is_arxiv(),
+            | PID::Arxiv => self.is_arxiv(),
             | PID::DOI => self.is_doi(),
+            | PID::Handle => self.is_handle(),
             | PID::ISNI => self.is_isni(),
             | PID::ORCID => self.is_orcid(),
             | PID::RAID => self.is_raid(),
@@ -1251,10 +1278,13 @@ where
         ARK::is_valid(self.as_ref())
     }
     fn is_arxiv(&self) -> bool {
-        ARXIV::is_valid(self.as_ref())
+        Arxiv::is_valid(self.as_ref())
     }
     fn is_doi(&self) -> bool {
         DOI::is_valid(self.as_ref())
+    }
+    fn is_handle(&self) -> bool {
+        Handle::is_valid(self.as_ref())
     }
     fn is_isbn(&self) -> bool {
         ISBN::is_valid(self.as_ref())
@@ -1284,12 +1314,12 @@ impl PersistentIdentifierInternal {
             | _ => ARK::default(),
         }
     }
-    /// Convert a `PersistentIdentifierInternal` to an `ARXIV`.
-    pub fn to_arxiv(&self) -> ARXIV {
+    /// Convert a `PersistentIdentifierInternal` to an [`Arxiv`].
+    pub fn to_arxiv(&self) -> Arxiv {
         let PersistentIdentifierInternal { value, pid_type } = self;
         match pid_type {
-            | PID::ARXIV => ARXIV::from_string(value),
-            | _ => ARXIV::default(),
+            | PID::Arxiv => Arxiv::from_string(value),
+            | _ => Arxiv::default(),
         }
     }
     /// Convert a `PersistentIdentifierInternal` to a `DOI`
@@ -1298,6 +1328,14 @@ impl PersistentIdentifierInternal {
         match pid_type {
             | PID::DOI => DOI::from_string(value),
             | _ => DOI::default(),
+        }
+    }
+    /// Convert a `PersistentIdentifierInternal` to a [`Handle`].
+    pub fn to_handle(&self) -> Handle {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::Handle => Handle::from_string(value),
+            | _ => Handle::default(),
         }
     }
     /// Convert a `PersistentIdentifierInternal` to a `ORCID`
@@ -1421,7 +1459,7 @@ impl PersistentIdentifierParse for ARK {
         !naan.is_empty() && naan_is_betanumeric && shoulder_starts_with_lowercase_letter
     }
 }
-impl PersistentIdentifierParse for ARXIV {
+impl PersistentIdentifierParse for Arxiv {
     fn find_all(value: impl ToString) -> Vec<Self> {
         RE_ARXIV
             .find_iter(&value.to_string())
@@ -1858,9 +1896,9 @@ impl PersistentIdentifierParse for ROR {
 }
 impl From<&str> for PublicationIdentifierType {
     fn from(value: &str) -> Self {
-        match (DOI::is_valid(value), ARXIV::is_valid(value)) {
+        match (DOI::is_valid(value), Arxiv::is_valid(value)) {
             | (true, _) => Self::Doi(DOI::from_string(value)),
-            | (_, true) => Self::Arxiv(ARXIV::from_string(value)),
+            | (_, true) => Self::Arxiv(Arxiv::from_string(value)),
             | _ => Self::Unknown,
         }
     }

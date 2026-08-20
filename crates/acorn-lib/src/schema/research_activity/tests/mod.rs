@@ -153,6 +153,19 @@ fn test_metadata_validates_publication_identifiers() {
     assert!(validator::Validate::validate(&invalid).is_err());
 }
 #[test]
+fn test_metadata_validates_handles() {
+    let valid = ResearchActivityMetadata::init()
+        .handle(vec!["10013/epic.10033".to_string(), "https://hdl.handle.net/20.5000/example".to_string()])
+        .build();
+    assert!(validator::Validate::validate(&valid).is_ok());
+    let invalid = ResearchActivityMetadata::init().handle(vec!["not-a-handle".to_string()]).build();
+    assert!(validator::Validate::validate(&invalid).is_err());
+    assert_eq!(
+        ResearchActivityMetadataContext::default().handle,
+        "https://codemeta.github.io/terms/identifier"
+    );
+}
+#[test]
 fn test_research_activity_default() {
     let data = ResearchActivity::default();
     let actual = data.to_markdown().replace("\r\n", "\n");
@@ -412,6 +425,17 @@ fn test_research_activity_into_cff() {
         .expect("SWHID should be exported as a CFF identifier");
     assert_eq!(identifier.kind, IdentifierType::Swh);
     assert_eq!(identifier.value, swhid);
+    let rad_with_handle = ResearchActivity::init()
+        .meta(ResearchActivityMetadata::init().handle(vec!["hdl:10013/epic.10033".to_string()]).build())
+        .build();
+    let cff_with_handle: Cff = rad_with_handle.into();
+    let identifier = cff_with_handle
+        .identifiers
+        .and_then(|identifiers| identifiers.into_iter().next())
+        .expect("Handle should be exported as a CFF identifier");
+    assert_eq!(identifier.kind, IdentifierType::Other);
+    assert_eq!(identifier.value, "10013/epic.10033");
+    assert_eq!(identifier.description.as_deref(), Some("Handle identifier"));
 }
 #[test]
 fn test_research_activity_format() {

@@ -1262,6 +1262,7 @@ impl TransferManifest {
     fn candidate(&self, rad: &ResearchActivity, rad_json: serde_json::Value, relative: &Path) -> ResearchActivityCandidate {
         let pairs = [
             (PID::DOI, rad.meta.doi.as_ref()),
+            (PID::Handle, rad.meta.handle.as_ref()),
             (PID::ISBN, rad.meta.books.as_ref()),
             (PID::Patent, rad.meta.patents.as_ref()),
             (PID::RAID, rad.meta.raid.as_ref()),

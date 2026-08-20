@@ -28,6 +28,17 @@
       ]
     },
     {
+      "name": "handle",
+      "domain": "hdl.handle.net",
+      "resources": [
+        {
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/api/handles/{{ identifier }}"
+        }
+      ]
+    },
+    {
       "name": "github::api",
       "domain": "api.github.com",
       "resources": [

@@ -1,6 +1,7 @@
 use super::backend::{self, BackendRow, Connection};
 use super::schema::{ResearchActivityRow, Table};
 use super::{Database, Row};
+use crate::io::api::handle::Record;
 use crate::io::ApiResult;
 use crate::schema::discovery::RemoteEntity;
 use crate::schema::pid;
@@ -32,6 +33,9 @@ pub(crate) enum Provenance {
         identifier: String,
         resolution_status: String,
         observed_at: String,
+    },
+    Handle {
+        record: Record,
     },
     Osti {
         provider_identifier: String,

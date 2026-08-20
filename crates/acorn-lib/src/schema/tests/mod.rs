@@ -501,6 +501,15 @@ fn test_is_doi() {
     }
 }
 #[test]
+fn test_is_handle() {
+    ["10013/epic.10033", "hdl:20.5000/example", "https://hdl.handle.net/10013/example"]
+        .into_iter()
+        .for_each(|value| assert!(is_handle(value).is_ok(), "expected valid Handle: {value}"));
+    ["", "docs/index.md", "https://example.org/10013/example"]
+        .into_iter()
+        .for_each(|value| assert!(is_handle(value).is_err(), "expected invalid Handle: {value}"));
+}
+#[test]
 fn test_is_ip6() {
     let valid = [
         "2001:0db8:85a3:0000:0000:8a2e:0370:7334",

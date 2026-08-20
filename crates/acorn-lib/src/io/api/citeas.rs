@@ -6,7 +6,7 @@ use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::prelude::var;
-use crate::schema::pid::{PersistentIdentifier, PublicationIdentifierType, ARXIV, DOI};
+use crate::schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
 use crate::util::{Label, Searchable};
 use async_trait::async_trait;
 use bon::Builder;
@@ -93,8 +93,8 @@ impl From<DOI> for Options {
         Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
     }
 }
-impl From<ARXIV> for Options {
-    fn from(value: ARXIV) -> Self {
+impl From<Arxiv> for Options {
+    fn from(value: Arxiv) -> Self {
         let value = value.url();
         let identifier = urlencoding::encode(&value);
         Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
@@ -324,7 +324,7 @@ impl ToCitations for DOI {
     }
 }
 #[async_trait]
-impl ToCitations for ARXIV {
+impl ToCitations for Arxiv {
     async fn to_citations(&self) -> ApiResult<Citations> {
         search(&Options::from(self.clone())).await
     }

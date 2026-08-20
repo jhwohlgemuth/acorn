@@ -13,14 +13,14 @@ use crate::io::api::{
 };
 use crate::io::read_file;
 use crate::param;
-use crate::schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, ARXIV, DOI};
+use crate::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use crate::test::utils::fixture_path;
 use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 14);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 15);
 }
 #[test]
 fn test_tree_entry_type_deserializes_provider_aliases() {
@@ -84,7 +84,7 @@ fn test_citeas_product_template_accepts_encoded_arxiv_url() {
 #[test]
 fn test_citeas_options_from_persistent_identifiers() {
     let doi = citeas::Options::from(DOI::from_string("10.11578/dc.20250604.1"));
-    let arxiv = citeas::Options::from(ARXIV::from_string("arXiv:2106.09685v2"));
+    let arxiv = citeas::Options::from(Arxiv::from_string("arXiv:2106.09685v2"));
     let first_value = |options: &citeas::Options| {
         options
             .params()
@@ -384,6 +384,78 @@ mod gguf {
             .to_string(),
             "failed to search Hugging Face models: request failed"
         );
+    }
+}
+#[cfg(test)]
+mod handle_api {
+    use crate::io::api::handle::{resolve_with, Record};
+    use crate::io::api::Endpoint;
+    use crate::schema::pid::{Handle, PersistentIdentifierParse};
+    use crate::test::server::TestServer;
+    use axum::extract::Path;
+    use axum::http::StatusCode;
+    use axum::routing::get;
+    use axum::{Json, Router};
+
+    fn endpoint(domain: &str) -> Endpoint {
+        Endpoint::from_template("handle")
+            .expect("Handle endpoint should be configured")
+            .with_domain(domain)
+    }
+    #[tokio::test]
+    async fn test_resolve_retains_record_and_extracts_direct_urls() {
+        let router = Router::new().route(
+            "/api/handles/{*identifier}",
+            get(|Path(identifier): Path<String>| async move {
+                Json(serde_json::json!({
+                    "responseCode": 1,
+                    "handle": identifier,
+                    "values": [
+                        {"index": 1, "type": "URL", "data": {"format": "string", "value": "https://example.org/item"}},
+                        {"index": 2, "type": "URL", "data": {"format": "base64", "value": "aHR0cHM6Ly9leGFtcGxlLm9yZw=="}},
+                        {"index": 3, "type": "10320/loc", "data": {"format": "string", "value": "<locations/>"}}
+                    ]
+                }))
+            }),
+        );
+        let server = TestServer::start(router).await.expect("test server should start");
+        let record = resolve_with(&endpoint(&server.base_url), &Handle::from_string("20.5000/Case/üникóδé"))
+            .await
+            .expect("Handle should resolve");
+        assert_eq!(record.handle, "20.5000/Case/üникóδé");
+        assert_eq!(record.public_urls(), vec!["https://example.org/item"]);
+        assert_eq!(record.values.len(), 3);
+        server.stop().await.expect("test server should stop");
+    }
+    #[tokio::test]
+    async fn test_resolve_rejects_http_protocol_and_json_failures() {
+        let router = Router::new()
+            .route("/api/handles/10013/missing", get(|| async { StatusCode::NOT_FOUND }))
+            .route("/api/handles/10013/malformed", get(|| async { "not-json" }));
+        let server = TestServer::start(router).await.expect("test server should start");
+        let endpoint = endpoint(&server.base_url);
+        let http = resolve_with(&endpoint, &Handle::from_string("10013/missing")).await;
+        let malformed = resolve_with(&endpoint, &Handle::from_string("10013/malformed")).await;
+        assert!(http.is_err());
+        assert!(malformed.unwrap_err().to_string().contains("invalid resolver metadata"));
+        for code in [2, 100, 102, 200, 301] {
+            let result = Record {
+                response_code: code,
+                handle: "10013/missing".to_string(),
+                values: Vec::new(),
+            }
+            .validate();
+            assert!(
+                result.unwrap_err().to_string().contains(&format!("response code {code}")),
+                "response code {code}"
+            );
+        }
+        server.stop().await.expect("test server should stop");
+    }
+    #[tokio::test]
+    async fn test_resolve_rejects_empty_identifier() {
+        let result = resolve_with(&endpoint("https://resolver.example"), &Handle::default()).await;
+        assert!(result.unwrap_err().to_string().contains("valid Handle"));
     }
 }
 #[cfg(test)]

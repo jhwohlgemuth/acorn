@@ -1,7 +1,7 @@
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ORCID, ROR, SWHID};
+use acorn::schema::pid::{Arxiv, Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, ROR, SWHID};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use acorn::util::StringConversion;
@@ -18,7 +18,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     schema.add_class::<PyResearchActivity>()?;
     // Add classes to schema.pid module
     let pid = PyModule::new(python, "pid")?;
-    pid.add_class::<PyARXIV>()?;
+    pid.add_class::<PyArxiv>()?;
     pid.add_class::<PyDOI>()?;
     pid.add_class::<PyISBN>()?;
     pid.add_class::<PyPatent>()?;
@@ -71,9 +71,9 @@ struct PyDOI {
     prefix: String,
     suffix: String,
 }
-#[pyclass(name = "ARXIV", from_py_object)]
+#[pyclass(name = "Arxiv", from_py_object)]
 #[derive(Clone)]
-struct PyARXIV {
+struct PyArxiv {
     archive: String,
     identifier: String,
     schema_uri: String,
@@ -208,18 +208,18 @@ impl PyDOI {
     }
 }
 #[pymethods]
-impl PyARXIV {
+impl PyArxiv {
     #[staticmethod]
-    fn find_all(value: String) -> Vec<PyARXIV> {
-        ARXIV::find_all(&value)
+    fn find_all(value: String) -> Vec<PyArxiv> {
+        Arxiv::find_all(&value)
             .iter()
-            .map(|identifier| PyARXIV::from_string(identifier.to_string()))
+            .map(|identifier| PyArxiv::from_string(identifier.to_string()))
             .collect()
     }
     #[staticmethod]
-    fn from_string(value: String) -> PyARXIV {
-        let pid = ARXIV::from_string(value);
-        PyARXIV {
+    fn from_string(value: String) -> PyArxiv {
+        let pid = Arxiv::from_string(value);
+        PyArxiv {
             archive: pid.archive.clone().unwrap_or_default(),
             identifier: pid.identifier(),
             schema_uri: pid.schema_uri(),
@@ -591,7 +591,7 @@ fn format_ark(value: &str) -> String {
 /// Convert an arXiv identifier into its canonical format.
 #[pyfunction]
 fn format_arxiv(value: &str) -> String {
-    ARXIV::format(value)
+    Arxiv::format(value)
 }
 /// Convert a DOI into a standard format
 /// ### Example

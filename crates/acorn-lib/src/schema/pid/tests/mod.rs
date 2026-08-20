@@ -8,8 +8,8 @@
 use crate::prelude::PathBuf;
 use crate::schema::pid::patent::KindCode;
 use crate::schema::pid::{
-    isbn_check_digit, isni_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Betanumeric, Identifier, Patent,
-    PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR,
+    isbn_check_digit, isni_check_digit, noid_check_digit, orcid_check_digit, raid, ror_check_digit, Arxiv, Betanumeric, Handle, Identifier, Patent,
+    PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ARK, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR,
 };
 use crate::schema::Validate;
 
@@ -34,6 +34,8 @@ fn test_normalize_discovery_identifiers() {
     assert_eq!(Identifier::new("ISBN 978-0-306-40627-0").normalized().unwrap().kind, PID::ISBN);
     assert_eq!(Identifier::new("ark:/12345/abc").normalized().unwrap().kind, PID::ARK);
     assert_eq!(Identifier::new("RAID:10.12345/xyz").normalized().unwrap().kind, PID::RAID);
+    assert_eq!(Identifier::new("hdl:10013/epic.10033").normalized().unwrap().kind, PID::Handle);
+    assert_eq!(Identifier::new("10013/epic.10033").normalized().unwrap().kind, PID::Handle);
     assert_eq!(Identifier::new("US-123456-A1").normalized().unwrap().kind, PID::Patent);
     assert_eq!(
         Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")
@@ -42,6 +44,20 @@ fn test_normalize_discovery_identifiers() {
             .kind,
         PID::SWHID
     );
+}
+#[test]
+fn test_handle_pid_integration_and_doi_precedence() {
+    let handle = Handle::from_string("https://hdl.handle.net/10013/epic.10033");
+    let identifier: Identifier = handle.clone().into();
+    assert_eq!(identifier.kind, PID::Handle);
+    assert_eq!(identifier.value, "10013/epic.10033");
+    assert!(identifier.value.is_handle());
+    assert_eq!(identifier.value.to_pid(PID::Handle).to_handle(), handle);
+    assert_eq!(serde_json::to_string(&PID::Handle).unwrap(), r#""handle""#);
+    assert_eq!(serde_json::from_str::<PID>(r#""HANDLE""#).unwrap(), PID::Handle);
+    assert!(PID::Handle.is_discoverable());
+    assert!(!PID::Handle.is_project_identifier());
+    assert_eq!(Identifier::new("10.1234/ABC").normalized().unwrap().kind, PID::DOI);
 }
 #[test]
 fn test_normalize_discovery_url_preserves_case_sensitive_components() {
@@ -69,7 +85,7 @@ fn test_swhid_identity_ignores_qualifiers() {
 }
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {
-    assert_eq!(PID::ARXIV.to_string(), "arxiv");
+    assert_eq!(PID::Arxiv.to_string(), "arxiv");
     assert_eq!(serde_json::to_string(&PID::DOI).unwrap(), r#""doi""#);
     assert_eq!(serde_json::from_str::<PID>(r#""doi""#).unwrap(), PID::DOI);
     assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
@@ -154,12 +170,12 @@ fn test_ark_struct() {
 }
 #[test]
 fn test_arxiv_modern_and_legacy_formats() {
-    let modern = ARXIV::from_string("https://arxiv.org/pdf/1501.00001v2.pdf");
+    let modern = Arxiv::from_string("https://arxiv.org/pdf/1501.00001v2.pdf");
     assert_eq!(modern.to_string(), "arXiv:1501.00001v2");
     assert_eq!(modern.work_identifier(), "arXiv:1501.00001");
     assert_eq!(modern.url(), "https://arxiv.org/abs/1501.00001v2");
     assert_eq!(modern.version.as_deref(), Some("v2"));
-    let legacy = ARXIV::from_string("arXiv:math.CA/0611800v2");
+    let legacy = Arxiv::from_string("arXiv:math.CA/0611800v2");
     assert_eq!(legacy.to_string(), "arXiv:math/0611800v2");
     assert_eq!(legacy.archive.as_deref(), Some("math"));
     assert_eq!(legacy.work_identifier(), "arXiv:math/0611800");
@@ -177,7 +193,7 @@ fn test_arxiv_validation_and_discovery() {
     .into_iter()
     .for_each(|value| {
         assert!(
-            ARXIV::is_valid(value),
+            Arxiv::is_valid(value),
             "expected valid arXiv identifier: {value}; match: {:?}",
             crate::util::constants::RE_ARXIV.find(value)
         )
@@ -194,32 +210,32 @@ fn test_arxiv_validation_and_discovery() {
         "https://arxiv.org/abs/2106.09685?download=1",
     ]
     .into_iter()
-    .for_each(|value| assert!(!ARXIV::is_valid(value), "expected invalid arXiv identifier: {value}"));
-    let found = ARXIV::find_all("See arXiv:2106.09685 and https://arxiv.org/abs/2106.09685.");
+    .for_each(|value| assert!(!Arxiv::is_valid(value), "expected invalid arXiv identifier: {value}"));
+    let found = Arxiv::find_all("See arXiv:2106.09685 and https://arxiv.org/abs/2106.09685.");
     assert_eq!(found.len(), 2);
     assert!("arXiv:2106.09685".is_arxiv());
-    assert!("arXiv:2106.09685".is_pid(PID::ARXIV));
-    assert_eq!("https://arxiv.org/abs/2106.09685".format_as(PID::ARXIV), "arXiv:2106.09685");
-    assert_eq!("arXiv:2106.09685".to_pid(PID::ARXIV).to_arxiv().to_string(), "arXiv:2106.09685");
+    assert!("arXiv:2106.09685".is_pid(PID::Arxiv));
+    assert_eq!("https://arxiv.org/abs/2106.09685".format_as(PID::Arxiv), "arXiv:2106.09685");
+    assert_eq!("arXiv:2106.09685".to_pid(PID::Arxiv).to_arxiv().to_string(), "arXiv:2106.09685");
 }
 #[test]
 fn test_arxiv_metadatatools_cases() {
     ["arXiv:2412.03631", "arXiv:2412.03649", "arXiv:2412.04386"]
         .into_iter()
-        .for_each(|value| assert!(ARXIV::is_valid(value), "expected valid arXiv identifier: {value}"));
+        .for_each(|value| assert!(Arxiv::is_valid(value), "expected valid arXiv identifier: {value}"));
 }
 #[test]
 fn test_arxiv_datacite_doi_conversions() {
-    let versioned = ARXIV::from_string("arXiv:2106.09685v2");
+    let versioned = Arxiv::from_string("arXiv:2106.09685v2");
     let doi = DOI::from(versioned);
     assert_eq!(doi.to_string(), "10.48550/arXiv.2106.09685");
-    assert_eq!(ARXIV::try_from(doi).unwrap().to_string(), "arXiv:2106.09685");
-    let legacy = ARXIV::from_string("arXiv:hep-th/9901001v3");
+    assert_eq!(Arxiv::try_from(doi).unwrap().to_string(), "arXiv:2106.09685");
+    let legacy = Arxiv::from_string("arXiv:hep-th/9901001v3");
     let doi = DOI::from(legacy);
     assert_eq!(doi.to_string(), "10.48550/arXiv.hep-th/9901001");
-    assert_eq!(ARXIV::try_from(doi).unwrap().to_string(), "arXiv:hep-th/9901001");
-    assert!(ARXIV::try_from(DOI::from_string("10.1000/182")).is_err());
-    assert!(ARXIV::try_from(DOI::from_string("10.48550/arXiv.invalid")).is_err());
+    assert_eq!(Arxiv::try_from(doi).unwrap().to_string(), "arXiv:hep-th/9901001");
+    assert!(Arxiv::try_from(DOI::from_string("10.1000/182")).is_err());
+    assert!(Arxiv::try_from(DOI::from_string("10.48550/arXiv.invalid")).is_err());
 }
 #[test]
 fn test_betanumeric() {

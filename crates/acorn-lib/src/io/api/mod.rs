@@ -35,6 +35,7 @@ pub mod citeas;
 pub mod geonames;
 pub mod github;
 pub mod gitlab;
+pub mod handle;
 pub mod huggingface;
 pub mod models_dev;
 pub mod openai;

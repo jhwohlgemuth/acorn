@@ -11,7 +11,7 @@ use crate::prelude::PathBuf;
 use crate::prelude::*;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
-use crate::schema::pid::{PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
+use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::standard::text::Text;
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
@@ -204,6 +204,10 @@ pub struct ResearchActivityMetadata {
     #[validate(custom(function = "is_attribute_publication_identifier_list"))]
     #[serde(default)]
     pub doi: Option<Vec<String>>,
+    /// Handle identifier(s) related to the associated research activity data.
+    #[validate(custom(function = "is_attribute_handle_list"))]
+    #[serde(default)]
+    pub handle: Option<Vec<String>>,
     /// ISBN(s) of books related to the associated research activity data
     #[validate(custom(function = "is_attribute_books"))]
     #[serde(default)]
@@ -304,6 +308,9 @@ pub struct ResearchActivityMetadataContext {
     pub identifier: String,
     /// Associated DOIs (also accepts arXiv identifiers)
     pub doi: String,
+    /// Handle System identifier.
+    #[serde(default = "default_handle_context")]
+    pub handle: String,
     /// Research Activity Identifier
     pub raid: String,
     /// Software Hash Identifier
@@ -438,6 +445,7 @@ impl Default for ResearchActivityMetadataContext {
             .status(schema_org("DefinedTerm"))
             .identifier(codemeta("identifier"))
             .doi(bibo("doi"))
+            .handle(codemeta("identifier"))
             .raid(DEFAULT_RAID_SCHEMA_URI)
             .swhid(codemeta("identifier"))
             .ror(DEFAULT_ROR_SCHEMA_URI)
@@ -513,6 +521,11 @@ impl From<&ResearchActivity> for Cff {
                     value,
                 },
             })
+            .chain(meta.handle.unwrap_or_default().into_iter().map(|value| Identifier {
+                description: Some("Handle identifier".to_string()),
+                kind: IdentifierType::Other,
+                value: Handle::format(value),
+            }))
             .chain(meta.swhid.unwrap_or_default().into_iter().map(|value| Identifier {
                 description: None,
                 kind: IdentifierType::Swh,
@@ -931,6 +944,9 @@ impl Vocabulary {
 fn default_swhid_context() -> String {
     codemeta("identifier")
 }
+fn default_handle_context() -> String {
+    codemeta("identifier")
+}
 #[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = Constant::csv(&name);
@@ -1081,6 +1097,15 @@ pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> Vali
                 index,
             )
         })
+        .map_or(Ok(()), Err)
+}
+/// Custom validator for [`ResearchActivity`] Handle identifiers.
+pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
+    const CODE: &str = "meta.handle";
+    value
+        .iter()
+        .position(|identifier| !Handle::is_valid(identifier))
+        .map(|index| validation_error_with_index(CODE, "Every Handle should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for DOI-only identifier lists

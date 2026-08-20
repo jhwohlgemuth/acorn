@@ -9,7 +9,7 @@ use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{self, Identifier, Patent, PersistentIdentifierParse, ARK, ARXIV, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR, SWHID};
+use crate::schema::pid::{self, Arxiv, Handle, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR, SWHID};
 use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::{check, check_err};
@@ -415,6 +415,18 @@ pub(crate) struct Summary {
     candidates: PersistenceCounts,
 }
 impl ArtifactCandidate {
+    fn new(identifiers: Vec<Identifier>, provenance: Vec<serde_json::Value>) -> Self {
+        Self {
+            identifiers,
+            provenance,
+            ..Default::default()
+        }
+    }
+    fn has_source(&self, source: &str) -> bool {
+        self.provenance
+            .iter()
+            .any(|value| value.get("source").and_then(serde_json::Value::as_str) == Some(source))
+    }
     /// Return sorted exact project identities suitable for persistence
     pub fn identity_keys(&self) -> Vec<String> {
         self.identifiers
@@ -457,8 +469,9 @@ impl ArtifactCandidate {
             .collect::<Vec<_>>();
         let keywords = ControlledVocabulary::normalize("keywords", self.keywords.iter().cloned()).into_values();
         let technology = ControlledVocabulary::normalize("technology", self.technology.iter().cloned()).into_values();
-        let pairs: [(&str, &[PID]); 6] = [
-            ("doi", &[PID::DOI, PID::ARXIV]),
+        let pairs: [(&str, &[PID]); 7] = [
+            ("doi", &[PID::DOI, PID::Arxiv]),
+            ("handle", &[PID::Handle]),
             ("books", &[PID::ISBN]),
             ("patents", &[PID::Patent]),
             ("raid", &[PID::RAID]),
@@ -503,8 +516,12 @@ impl ArtifactCandidate {
     /// Enrich this candidate with losslessly mapped resolver metadata
     pub fn resolved(self, metadata: Option<&str>, identifier_type: &PID) -> Self {
         match identifier_type {
-            | PID::ARXIV | PID::DOI => match api::citeas::Citations::deserialize_metadata(metadata) {
+            | PID::Arxiv | PID::DOI => match api::citeas::Citations::deserialize_metadata(metadata) {
                 | Some(value) => self.with_citeas(value),
+                | None => self,
+            },
+            | PID::Handle => match api::handle::Record::deserialize_metadata(metadata) {
+                | Some(value) => self.with_handle(value),
                 | None => self,
             },
             | PID::RAID => match Vec::<pid::raid::Metadata>::deserialize_metadata(metadata) {
@@ -512,6 +529,25 @@ impl ArtifactCandidate {
                 | None => self,
             },
             | _ => self,
+        }
+    }
+    fn with_handle(self, record: api::handle::Record) -> Self {
+        let websites = merge_websites(
+            self.websites,
+            record.public_urls().into_iter().map(|url| Candidate::Website {
+                description: "Handle URL".to_string(),
+                url,
+            }),
+        );
+        let provenance = self
+            .provenance
+            .into_iter()
+            .chain(once(serde_json::to_value(Provenance::Handle { record }).unwrap_or_default()))
+            .collect();
+        Self {
+            provenance,
+            websites,
+            ..self
         }
     }
     fn with_citeas(self, citations: api::citeas::Citations) -> Self {
@@ -649,6 +685,41 @@ impl ArtifactCandidate {
             related,
             technology,
             contact: self.contact.or(candidate.contact),
+        }
+    }
+}
+impl Record {
+    fn supporting_handle(&self) -> Option<(String, ArtifactCandidate)> {
+        match self {
+            | Self::Discovery {
+                identifier,
+                identifier_type: PID::Handle,
+                metadata,
+                resolution_status,
+                source,
+                source_format,
+            } => {
+                let handle = Identifier {
+                    kind: PID::Handle,
+                    value: identifier.clone(),
+                };
+                handle.normalized().map(|identifier| {
+                    let prov = Provenance::Discovery {
+                        source: source.clone(),
+                        source_format: source_format.clone(),
+                        identifier: identifier.value.clone(),
+                        resolution_status: resolution_status.to_string(),
+                        observed_at: Timestamp::now().to_string(),
+                    };
+                    let provenance = serde_json::to_value(prov).unwrap_or_default();
+                    let identifiers = vec![identifier];
+                    let provenance = vec![provenance];
+                    let artifact_candidate = ArtifactCandidate::new(identifiers, provenance);
+                    let handle_candidate = artifact_candidate.resolved(metadata.as_deref(), &PID::Handle);
+                    (source.clone(), handle_candidate)
+                })
+            }
+            | _ => None,
         }
     }
 }
@@ -795,6 +866,7 @@ impl CitationFormat {
     }
 }
 impl DeserializeMetadata for api::citeas::Citations {}
+impl DeserializeMetadata for api::handle::Record {}
 impl Identifier {
     /// Discover every supported persistent identifier
     pub fn find_all(content: &str) -> Vec<Self> {
@@ -912,8 +984,9 @@ impl PID {
     fn find_all(&self, content: &str) -> Vec<Identifier> {
         match self {
             | Self::ARK => ARK::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ARXIV => ARXIV::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::Arxiv => Arxiv::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::Handle => Handle::find_explicit(content).into_iter().map(Identifier::from).collect(),
             | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ISNI => ISNI::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
@@ -936,8 +1009,9 @@ impl Record {
                 ..
             } => {
                 let resolution = match identifier_type {
-                    | PID::ARXIV => ResolutionOutcome::from(ARXIV::from_string(&identifier).to_citations().await),
+                    | PID::Arxiv => ResolutionOutcome::from(Arxiv::from_string(&identifier).to_citations().await),
                     | PID::DOI => ResolutionOutcome::from(DOI::from_string(&identifier).to_citations().await),
+                    | PID::Handle => ResolutionOutcome::from(api::handle::resolve(&Handle::from_string(&identifier)).await),
                     | PID::ORCID => ResolutionOutcome::from(
                         api::orcid::record(&api::orcid::Options::from_env().with_identifier(identifier.clone()))
                             .await
@@ -1106,7 +1180,8 @@ impl Records {
     }
     /// Convert project-like discoveries into exact-identity artifact candidates.
     pub fn candidates(&self) -> Vec<ArtifactCandidate> {
-        self.0
+        let candidates = self
+            .0
             .iter()
             .filter_map(|record| ArtifactCandidate::try_from(record).ok())
             .fold(Vec::new(), |grouped, candidate| {
@@ -1116,7 +1191,25 @@ impl Records {
                     .partition(|existing: &ArtifactCandidate| existing.identity_keys().iter().any(|key| keys.contains(key)));
                 let merged = matching.into_iter().fold(candidate, |merged, existing| existing.merge(merged));
                 remaining.into_iter().chain(once(merged)).collect()
+            });
+        let handles = self.0.iter().filter_map(Record::supporting_handle).collect::<Vec<_>>();
+        let unambiguous_sources = handles
+            .iter()
+            .map(|(source, _)| source)
+            .filter(|source| candidates.iter().filter(|candidate| candidate.has_source(source)).take(2).count() == 1)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        candidates
+            .into_iter()
+            .map(|candidate| {
+                let supporting = handles
+                    .iter()
+                    .filter(|(source, _)| unambiguous_sources.contains(source) && candidate.has_source(source))
+                    .map(|(_, handle)| handle.clone())
+                    .collect::<Vec<_>>();
+                supporting.into_iter().fold(candidate, ArtifactCandidate::merge)
             })
+            .collect()
     }
     /// Return the number of discovered records
     pub fn len(&self) -> usize {
@@ -1803,7 +1896,7 @@ fn normalized_authors(values: &[String]) -> Vec<String> {
 }
 fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value, citation_format: CitationFormat) -> Result<String, String> {
     match kind {
-        | PID::ARXIV | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
+        | PID::Arxiv | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
             .ok()
             .and_then(|citations| citation_format.citation(&citations))
             .ok_or_else(|| format!("{citation_format} citation not found for {} {identifier}", kind.as_str())),

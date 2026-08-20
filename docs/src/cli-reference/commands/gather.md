@@ -64,7 +64,7 @@ acorn gather path/to/project --max-depth 2
 
 ```sh
 acorn gather report.docx
-acorn gather --text "doi:10.1234/example"
+acorn gather --text "doi:10.1234/example hdl:10013/epic.10033"
 printf 'https://ror.org/01qz5mb56' | acorn gather
 ```
 
@@ -100,7 +100,7 @@ Resolved raw output remains machine-readable: successful values use one line eac
 
 ## Research activity candidates
 
-Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves.
+Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. Handle, ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves. Unstructured Handle discovery requires an explicit `hdl:` label or `hdl.handle.net` URL.
 
 See the [persistent identifier lifecycle](../../concepts/persistent-identifiers.md) for how ACORN finds, parses, validates, normalizes, classifies, and persists this evidence.
 
@@ -114,6 +114,7 @@ Enrichment is additive and evidence-driven. ACORN starts with the identifiers fo
 |---|---|---|
 | CiteAs for a DOI found with `--resolve` | DOI, title, canonical project URL, and categories to `meta.keywords` | Empty title and URL values are ignored. |
 | CiteAs for an arXiv identifier found with `--resolve` | arXiv ID, any returned DOI, title, canonical project URL, and categories to `meta.keywords` | Resolution uses the canonical arXiv abstract URL; empty title and URL values are ignored. |
+| Handle proxy record found with `--resolve` | Normalized Handle to `meta.handle`; direct HTTP(S) `URL` string values to `meta.websites` | The Handle is supporting evidence for a project identifier found in the same source and never creates or merges a candidate independently. The complete record remains provenance; `10320/loc` and non-string values are not interpreted. |
 | RAiD metadata found with `--resolve` | Primary title, primary or brief description to `notes`, supported alternate identifiers, alternate URLs to `meta.websites`, organization RORs to `meta.ror`, subject keywords to `meta.keywords`, normalized related RAiDs to `meta.related`, and one explicitly flagged contact to `contact` | A primary title is preferred, with the first non-empty title as fallback. Organization names are added only through the role-aware ROR mapping described below. A contributor is never inferred to be the contact; if zero or multiple distinct contributors are flagged as contacts, no singular contact is selected. |
 | DOE CODE project search | `osti-project:<code_id>` identity, DOI, title, description to `notes`, repository and related links to `meta.websites`, sponsor names to `meta.sponsors`, and research, contributing, and developing organization names to `meta.partners` | DOE CODE people and organization results remain report-only. |
 | `--lab` with a DOE CODE project search | The selected laboratory's canonical ROR to `meta.ror` | The ROR must match the laboratory entry in ACORN's embedded partner or sponsor vocabulary. |

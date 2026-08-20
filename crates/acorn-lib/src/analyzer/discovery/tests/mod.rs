@@ -139,7 +139,7 @@ fn test_discovers_supported_identifiers_without_duplicates() {
 fn test_arxiv_discovery_preserves_versions_and_uses_work_identity() {
     let identifiers = Identifier::find_all("arXiv:2106.09685v1 https://arxiv.org/abs/2106.09685v2");
     assert_eq!(identifiers.len(), 2);
-    assert!(identifiers.iter().all(|identifier| identifier.kind == PID::ARXIV));
+    assert!(identifiers.iter().all(|identifier| identifier.kind == PID::Arxiv));
     let candidate = ArtifactCandidate {
         identifiers,
         ..ArtifactCandidate::default()
@@ -156,28 +156,28 @@ fn test_gather_pdf_discovers_only_valid_identifiers() {
     assert_eq!(
         identifiers,
         vec![
-            (PID::ARXIV, "arXiv:2605.10913v3".to_string()),
-            (PID::ARXIV, "arXiv:2507.19457".to_string()),
-            (PID::ARXIV, "arXiv:2510.02453".to_string()),
-            (PID::ARXIV, "arXiv:2503.13657".to_string()),
-            (PID::ARXIV, "arXiv:2406.16218".to_string()),
-            (PID::ARXIV, "arXiv:2601.16443".to_string()),
-            (PID::ARXIV, "arXiv:2308.00352".to_string()),
-            (PID::ARXIV, "arXiv:2011.03088".to_string()),
-            (PID::ARXIV, "arXiv:2310.03714".to_string()),
-            (PID::ARXIV, "arXiv:2601.13295".to_string()),
-            (PID::ARXIV, "arXiv:2603.28052".to_string()),
-            (PID::ARXIV, "arXiv:2604.04247".to_string()),
-            (PID::ARXIV, "arXiv:2511.00628".to_string()),
-            (PID::ARXIV, "arXiv:2510.26585".to_string()),
-            (PID::ARXIV, "arXiv:2303.11366".to_string()),
-            (PID::ARXIV, "arXiv:2602.08199".to_string()),
-            (PID::ARXIV, "arXiv:2511.03690".to_string()),
-            (PID::ARXIV, "arXiv:2308.08155".to_string()),
-            (PID::ARXIV, "arXiv:2512.24601".to_string()),
-            (PID::ARXIV, "arXiv:2603.19461".to_string()),
-            (PID::ARXIV, "arXiv:2510.01171".to_string()),
-            (PID::ARXIV, "arXiv:2310.04406".to_string()),
+            (PID::Arxiv, "arXiv:2605.10913v3".to_string()),
+            (PID::Arxiv, "arXiv:2507.19457".to_string()),
+            (PID::Arxiv, "arXiv:2510.02453".to_string()),
+            (PID::Arxiv, "arXiv:2503.13657".to_string()),
+            (PID::Arxiv, "arXiv:2406.16218".to_string()),
+            (PID::Arxiv, "arXiv:2601.16443".to_string()),
+            (PID::Arxiv, "arXiv:2308.00352".to_string()),
+            (PID::Arxiv, "arXiv:2011.03088".to_string()),
+            (PID::Arxiv, "arXiv:2310.03714".to_string()),
+            (PID::Arxiv, "arXiv:2601.13295".to_string()),
+            (PID::Arxiv, "arXiv:2603.28052".to_string()),
+            (PID::Arxiv, "arXiv:2604.04247".to_string()),
+            (PID::Arxiv, "arXiv:2511.00628".to_string()),
+            (PID::Arxiv, "arXiv:2510.26585".to_string()),
+            (PID::Arxiv, "arXiv:2303.11366".to_string()),
+            (PID::Arxiv, "arXiv:2602.08199".to_string()),
+            (PID::Arxiv, "arXiv:2511.03690".to_string()),
+            (PID::Arxiv, "arXiv:2308.08155".to_string()),
+            (PID::Arxiv, "arXiv:2512.24601".to_string()),
+            (PID::Arxiv, "arXiv:2603.19461".to_string()),
+            (PID::Arxiv, "arXiv:2510.01171".to_string()),
+            (PID::Arxiv, "arXiv:2310.04406".to_string()),
             (PID::DOI, "10.1145/73560.73576".to_string()),
             (PID::DOI, "10.1023/A:1023064908962".to_string()),
             (PID::DOI, "10.1145/3371119".to_string()),
@@ -199,7 +199,7 @@ fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
         (PID::ARK, "ark:99166/w66d60p2"),
         (PID::ARK, "https://n2t.net/ark:99166/w66d60p2"),
         (PID::ARK, "ark:99166/W66D60P2"),
-        (PID::ARXIV, "arXiv:2608.01234"),
+        (PID::Arxiv, "arXiv:2608.01234"),
         (PID::DOI, "10.1234/alpha.2026.001"),
         (PID::DOI, "10.1234/beta(2026"),
         (PID::DOI, "10.1234/beta(2026))7"),
@@ -455,19 +455,90 @@ fn test_raid_resolution_maps_typed_candidate_metadata() {
 }
 #[test]
 fn test_discovers_all_persistent_identifier_types() {
-    let content = "ark:/12345/abc doi:10.1234/example ISBN 978-0-306-40627-0 https://isni.org/isni/0000000492299539 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56";
+    let content = "ark:/12345/abc doi:10.1234/example hdl:10013/epic.10033 ISBN 978-0-306-40627-0 https://isni.org/isni/0000000492299539 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56";
     let kinds = Identifier::find_all(content)
         .into_iter()
         .map(|identifier| identifier.kind)
         .collect::<Vec<_>>();
     assert!(kinds.contains(&PID::ARK));
     assert!(kinds.contains(&PID::DOI));
+    assert!(kinds.contains(&PID::Handle));
     assert!(kinds.contains(&PID::ISBN));
     assert!(kinds.contains(&PID::ISNI));
     assert!(kinds.contains(&PID::ORCID));
     assert!(kinds.contains(&PID::Patent));
     assert!(kinds.contains(&PID::RAID));
     assert!(kinds.contains(&PID::ROR));
+}
+#[test]
+fn test_handle_discovery_is_conservative_and_supports_same_source_candidate() {
+    assert!(Identifier::find_all("Read docs/index.md and output/report.json").is_empty());
+    let metadata = serde_json::json!({
+        "responseCode": 1,
+        "handle": "10013/epic.10033",
+        "values": [{"index": 1, "type": "URL", "data": {"format": "string", "value": "https://example.org/project"}}]
+    });
+    let records = Records(
+        vec![
+            Record::Discovery {
+                identifier: "10.1234/example".to_string(),
+                identifier_type: PID::DOI,
+                metadata: None,
+                resolution_status: ResolutionStatus::NotRequested,
+                source: "same.md".to_string(),
+                source_format: "markdown".to_string(),
+            },
+            Record::Discovery {
+                identifier: "10013/epic.10033".to_string(),
+                identifier_type: PID::Handle,
+                metadata: Some(metadata.to_string()),
+                resolution_status: ResolutionStatus::Resolved,
+                source: "same.md".to_string(),
+                source_format: "markdown".to_string(),
+            },
+            Record::Discovery {
+                identifier: "20.5000/unrelated".to_string(),
+                identifier_type: PID::Handle,
+                metadata: None,
+                resolution_status: ResolutionStatus::NotRequested,
+                source: "other.md".to_string(),
+                source_format: "markdown".to_string(),
+            },
+        ],
+        Vec::new(),
+    );
+    let candidates = records.candidates();
+    assert_eq!(candidates.len(), 1, "Handles must not independently create project candidates");
+    let candidate = candidates.first().expect("DOI should create a project candidate");
+    assert!(candidate.identifiers.iter().any(|identifier| identifier.kind == PID::Handle));
+    assert!(!candidate.identifiers.iter().any(|identifier| identifier.value == "20.5000/unrelated"));
+    assert!(candidate
+        .websites
+        .iter()
+        .any(|website| website.url() == Some("https://example.org/project")));
+    assert_eq!(candidate.to_partial_rad_json()["meta"]["handle"], serde_json::json!(["10013/epic.10033"]));
+}
+#[test]
+fn test_handle_is_not_associated_with_ambiguous_same_source_candidates() {
+    let records = Records(
+        vec![("10.1234/one", PID::DOI), ("10.1234/two", PID::DOI), ("10013/epic.10033", PID::Handle)]
+            .into_iter()
+            .map(|(identifier, identifier_type)| Record::Discovery {
+                identifier: identifier.to_string(),
+                identifier_type,
+                metadata: None,
+                resolution_status: ResolutionStatus::NotRequested,
+                source: "same.md".to_string(),
+                source_format: "markdown".to_string(),
+            })
+            .collect(),
+        Vec::new(),
+    );
+    let candidates = records.candidates();
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates
+        .iter()
+        .all(|candidate| candidate.identifiers.iter().all(|identifier| identifier.kind != PID::Handle)));
 }
 #[test]
 fn test_isni_url_is_not_discovered_as_orcid() {
@@ -665,7 +736,7 @@ fn test_resolved_raw_report_renders_citations_and_orcid_names() {
     };
     let records = Records(
         vec![
-            discovery("arXiv:2106.09685", PID::ARXIV, serde_json::to_string(&citations).unwrap()),
+            discovery("arXiv:2106.09685", PID::Arxiv, serde_json::to_string(&citations).unwrap()),
             discovery("10.1234/example", PID::DOI, serde_json::to_string(&citations).unwrap()),
             discovery(
                 "https://orcid.org/0000-0002-2057-9115",

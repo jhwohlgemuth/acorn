@@ -52,6 +52,8 @@ pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
 pub const SOFTWARE_HERITAGE_ARCHIVE_URI: &str = "https://archive.softwareheritage.org";
 /// Software Heritage SWHID resolver URI.
 pub const SOFTWARE_HERITAGE_RESOLVER_URI: &str = "https://archive.softwareheritage.org/api/1/resolve";
+/// Public Handle proxy resolver URI.
+pub const HANDLE_RESOLVER_URI: &str = "https://hdl.handle.net";
 /// Canonical SWHID specification URI.
 pub const SWHID_SCHEMA_URI: &str = "https://www.swhid.org/specification/v1.2";
 /// identifiers.org resolver URI.
