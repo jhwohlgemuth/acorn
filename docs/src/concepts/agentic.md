@@ -52,6 +52,8 @@ Together they produce a third rule: **protocols are adapters, not dependencies**
 
    *Example:* An application sends one research narrative to `acorn-lib`'s OpenAI-compatible chat-completion API with the instruction "Summarize this activity," then returns the model's response.
 
+   **OpenAI-compatible** describes the connection format, not who provides the model. A compatible server accepts supported OpenAI-style HTTP endpoints and JSON requests and responses. That server may be OpenAI's service or another implementation, including a local server such as llama-swap; the term does not mean OpenAI created, hosts, or endorses the server or model.
+
 2. **Prompt templates** turn instructions into reusable, version-controlled `.prompt` files with defined inputs, configuration, and expected outputs. Templates make model behavior easier to share, test, and improve. Google's Dotprompt specification documents this executable `.prompt` file pattern.[^dotprompt]
 
    *Example:* ACORN renders its embedded `summarize.prompt` template with a source narrative, maximum word count, and output structure so different callers reuse the same instructions.
@@ -92,7 +94,7 @@ MCP and ACP are optional, complementary extension points rather than requirement
 | --- | --- | --- |
 | **MCP** | Server, planned | Let external agents discover and call deterministic ACORN resources and tools. |
 | **ACP** | Client, planned | Let ACORN invoke and supervise interchangeable agents, beginning with OpenCode. |
-| **OpenAI-compatible API** | Client, available | Let ACORN applications invoke a model endpoint directly without requiring a full agent. |
+| **OpenAI-compatible API** | Client, available | Let ACORN applications call a model server through supported OpenAI-style HTTP endpoints and JSON formats, without requiring a full agent. |
 
 ## Current ACORN Support
 
@@ -100,7 +102,7 @@ The table reports ACORN's implementation coverage for each IID layer. It does no
 
 | Layer | Status | ACORN support |
 | --- | --- | --- |
-| **1. One-time prompting** | Available as a library API | [`acorn-lib`](../packages/acorn-lib.md#ai-and-agent-apis) exposes OpenAI-compatible completion, chat-completion, response, embedding, image, and audio operations. Applications supply the model request and decide when to invoke it; ACORN does not yet provide a general-purpose interactive prompt command. |
+| **1. One-time prompting** | Available as a library API | [`acorn-lib`](../packages/acorn-lib.md#ai-and-agent-apis) exposes completion, chat-completion, response, embedding, image, and audio operations through supported OpenAI-style HTTP endpoints and JSON formats. Applications supply the model request and decide when to invoke it; ACORN does not yet provide a general-purpose interactive prompt command. |
 | **2. Prompt templates** | Implemented | `acorn-lib` embeds and renders versionable `.prompt` templates for summarization, translation, teaching, simple explanation, claim extraction, and gap finding. Templates accept structured configuration such as source text, output limits, sampling parameters, and stop sequences. |
 | **3. Workflow composition and iteration** | Not yet implemented | ACORN does not yet provide a general model workflow executor with explicit control flow, exit criteria, evolving state, progress checks, and resource budgets. Existing operational loops, such as file watching or service polling, are not IID model workflows. |
 | **4. Skills, context, and capability engineering** | Partially implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes ACORN's bundled, task-oriented skill to compatible agents. ACORN also models agent, permission, reference, and MCP configuration for OpenCode. MCP is an optional extension at this layer; the CLI advertises a server path, but [`acorn serve mcp`](../cli-reference/commands/serve.md) currently returns a not-implemented error. |
