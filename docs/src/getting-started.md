@@ -5,6 +5,18 @@
 
 ## Installation
 
+### Choose an installation method
+
+| User or environment | Recommended option | Best when… |
+| --- | --- | --- |
+| CI pipeline | [CI template](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml) | You only need automated validation or publishing; no local installation is required. |
+| Windows workstation | [Scoop](#install-with-scoop-windows-only) | You want straightforward installation and upgrades. |
+| macOS workstation | [Homebrew](#install-with-homebrew-linux-and-macos) | You want a managed installation; standalone macOS binaries are not available. |
+| Linux workstation | [Homebrew](#install-with-homebrew-linux-and-macos) or a [pre-compiled binary](#download-pre-compiled-binary) | Use Homebrew for managed upgrades or the binary for minimal dependencies. |
+| Rust developer | [Cargo](#install-with-cargo) | Rust is already installed or you want a source-built executable. |
+| Containerized environment | [Docker or Podman](#run-inside-a-container) | You want isolation, reproducibility, or a pinned ACORN version. |
+| ACORN contributor | [Install from source](#install-from-source) | You plan to modify, test, or debug ACORN itself. |
+
 ### Install with Scoop (Windows only)
 - Ensure you have [Scoop](https://scoop.sh/) installed.
 - Open your terminal and add the extras bucket to Scoop
