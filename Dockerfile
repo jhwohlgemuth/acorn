@@ -32,7 +32,9 @@ RUN rustup target add x86_64-unknown-linux-musl \
 
 FROM gcr.io/distroless/base-debian13:nonroot
 COPY --from=browser-runtime /etc/fonts /etc/fonts
-COPY --from=browser-runtime /browser-libs /
+COPY --from=browser-runtime /browser-libs/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu
+COPY --from=browser-runtime /browser-libs/lib64 /usr/lib64
+COPY --from=browser-runtime /browser-libs/usr/lib /usr/lib
 COPY --from=browser-runtime /usr/share/fontconfig /usr/share/fontconfig
 COPY --from=browser-runtime /usr/share/fonts /usr/share/fonts
 COPY --from=build-env /app/target/x86_64-unknown-linux-musl/release/acorn /acorn
