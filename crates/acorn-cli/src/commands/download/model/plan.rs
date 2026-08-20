@@ -280,7 +280,40 @@ impl ModelDownloadPlan {
                                 | result => result.map(|downloaded| downloaded.into_resolution(&identifier)),
                             }
                         }
-                        | Err(why) => Err(why),
+                        | Err(why) if options.no_fallback => Err(why),
+                        | Err(_) => {
+                            let CommandOptions {
+                                filter,
+                                ignore,
+                                offline,
+                                no_fallback,
+                                search_limit,
+                                minimum_download_count,
+                                interactive,
+                                quiet,
+                                skip_verify_checksum,
+                                ..
+                            } = options;
+                            let options = huggingface::Options::init()
+                                .identifier(&identifier)
+                                .maybe_filter(filter)
+                                .maybe_ignore(ignore)
+                                .output(destination.to_absolute_path())
+                                .quiet(quiet)
+                                .offline(offline)
+                                .no_fallback(no_fallback)
+                                .search_limit(search_limit)
+                                .minimum_download_count(minimum_download_count)
+                                .interactive(interactive)
+                                .skip_verify_checksum(skip_verify_checksum)
+                                .build();
+                            #[cfg(feature = "tui")]
+                            let options = huggingface::Options {
+                                selector: run_gguf_picker,
+                                ..options
+                            };
+                            Self::download_gguf_fallback(&root, options).await
+                        }
                     },
                     | Err(why) => {
                         error!("=> {} Create output directory for '{identifier}' — {why}", Label::fail());
