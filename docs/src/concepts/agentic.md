@@ -4,8 +4,10 @@
 
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
-<p>IID layers prompting, templates, workflows, skills and context, memory, and agent harnesses. Each layer adds capability and control while staying local-first and file-oriented; MCP and ACP are optional extensions.</p>
+<p>IID layers prompting, templates, workflows, skills and context, memory, and agent harnesses. Each layer adds capability and control while staying local-first and file-oriented.</p>
 </blockquote>
+
+Two protocols are optional extensions: the Model Context Protocol (MCP)[^mcp] can connect agents to context and tools, while the Agent Client Protocol (ACP)[^acp] lets clients communicate with and supervise agents.
 
 IID adapts the idea of defense in depth: an information security strategy that integrates people, technology, and operations across multiple layers.[^defense-in-depth] Instead of expecting one prompt or one model to carry an entire workflow, IID distributes intelligence across reusable prompts, controlled workflows, skills and connected capabilities, memory, and an interoperable agent harness. The layers reinforce one another, but each remains useful on its own:
 
@@ -39,14 +41,7 @@ Two principles constrain every IID layer:
 
 Together they produce a third rule: **protocols are adapters, not dependencies**. MCP, ACP, and model APIs can connect IID to external capabilities without becoming the source of truth.
 
-| IID layer | Local-first and file-over-app application |
-| --- | --- |
-| **One-time prompting** | Prefer a local model when it satisfies the task; make remote transmission explicit and allow the prompt and result to be saved. |
-| **Prompt templates** | Keep reusable instructions in portable, version-controlled `.prompt` files rather than an application-only prompt library. |
-| **Workflow composition and iteration** | Persist inputs, control flow, exit criteria, budgets, checkpoints, and results so a workflow is inspectable and resumable outside one application session. |
-| **Skills, context, and capabilities** | Package instructions and references in `SKILL.md`-based directories; use MCP only when live resources or tools add value. |
-| **Connected memory** | Preserve selected facts, decisions, and provenance in inspectable records; databases may index them without becoming an opaque source of truth. |
-| **Agent harness and interoperability** | Configure workflows through files and CLI options; treat applications and ACP agents as replaceable interfaces. |
+### IID Layers
 
 1. **One-time prompting** sends a direct instruction to a model through a library or API. It is appropriate for a single transformation or answer whose inputs and outputs are already well defined.
 
@@ -73,6 +68,17 @@ Together they produce a third rule: **protocols are adapters, not dependencies**
 6. **Agent harness and interoperability** orchestrates models, skills, tools, workflows, context, memory, permissions, validation, recovery, observability, and human approval. The harness turns the lower layers into a controlled workflow and owns its budgets and stopping conditions. Its permissions and approval policy shape [autonomy](aspect/autonomy.md), while its perception, state, actions, and feedback shape [motivity](aspect/motivity.md). As an optional extension, the Agent Client Protocol (ACP) can standardize communication between the harness and external agents, including sessions, streamed updates, and permission requests.[^acp]
 
    *Example (planned):* ACORN launches OpenCode through ACP, sends a hydrated prompt, streams progress, mediates tool permissions, validates the returned suggestion, and asks for human approval before any change is applied.
+
+### Applying the Guiding Principles
+
+| IID layer | Local-first and file-over-app application |
+| --- | --- |
+| **One-time prompting** | Prefer a local model when it satisfies the task; make remote transmission explicit and allow the prompt and result to be saved. |
+| **Prompt templates** | Keep reusable instructions in portable, version-controlled `.prompt` files rather than an application-only prompt library. |
+| **Workflow composition and iteration** | Persist inputs, control flow, exit criteria, budgets, checkpoints, and results so a workflow is inspectable and resumable outside one application session. |
+| **Skills, context, and capabilities** | Package instructions and references in `SKILL.md`-based directories; use MCP only when live resources or tools add value. |
+| **Connected memory** | Preserve selected facts, decisions, and provenance in inspectable records; databases may index them without becoming an opaque source of truth. |
+| **Agent harness and interoperability** | Configure workflows through files and CLI options; treat applications and ACP agents as replaceable interfaces. |
 
 ## How IID Shapes ACORN
 

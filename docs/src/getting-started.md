@@ -1,7 +1,7 @@
 # 🚀 Getting Started
 
 > [!IMPORTANT]
-> The most popular way to use **ACORN** is to not install it at all --- simply leverage the power and promise of **ACORN** within a <span title="Continuous Integration">CI</span> job (see this [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml))
+> You do not need to install **ACORN** on your computer to use it in a <span title="Continuous Integration">CI</span> job. If you only need to validate or publish a repository automatically, configure ACORN in CI using this [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml). Use one of the options below when you want to run ACORN directly on your computer or in a container.
 
 ## Installation
 
