@@ -77,7 +77,8 @@ def test_is_ark():
 def test_is_arxiv():
     assert is_arxiv("arXiv:2106.09685")
     assert is_arxiv("https://arxiv.org/pdf/hep-th/9901001v2.pdf")
-    assert not is_arxiv("2106.09685")
+    assert is_arxiv("2106.09685")
+    assert not is_arxiv("2100.00000")
 
 
 def test_is_doi():

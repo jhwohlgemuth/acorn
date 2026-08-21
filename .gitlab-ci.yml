@@ -1,7 +1,7 @@
 variables:
   BINARY_NAME: acorn
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
-  GIT_CLEAN_FLAGS: -ffdx -e crates/acorn-py/.pixi/ -e target/
+  GIT_CLEAN_FLAGS: -ffdx
   CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
   CARGO_NET_RETRY: "3"
   CARGO_HTTP_TIMEOUT: "120"
@@ -102,9 +102,7 @@ test-python:
         - Cargo.toml
         - Cargo.lock
   script:
-    - apt-get update && apt-get install -y build-essential curl
-    - curl -LsSf https://astral.sh/uv/0.12.2/install.sh | sh
-    - source $HOME/.local/bin/env && cd crates/${BINARY_NAME}-py && pixi run test
+    - cd crates/${BINARY_NAME}-py && pixi run test
 
 test-docs:
   stage: test
