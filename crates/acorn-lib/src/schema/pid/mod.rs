@@ -14,8 +14,8 @@ use crate::schema::namespaces::{
     DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI,
 };
 use crate::util::constants::{
-    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_10_COMPACT_TEXT, RE_ISBN_10_TEXT, RE_ISBN_13_TEXT,
-    RE_ISNI, RE_ISNI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
+    HTTP_URL, RE_ARK, RE_ARK_TEXT, RE_ARXIV, RE_ARXIV_TEXT, RE_ARXIV_VALIDATION, RE_DOI, RE_DOI_TEXT, RE_ISBN, RE_ISBN_10_COMPACT_TEXT,
+    RE_ISBN_10_TEXT, RE_ISBN_13_TEXT, RE_ISNI, RE_ISNI_TEXT, RE_ORCID, RE_ORCID_TEXT, RE_RAID_TEXT, RE_ROR, RE_ROR_TEXT,
 };
 use crate::util::{base32_crockford_decode, regex_capture_lookup, trim_unmatched_trailing_parentheses, ToStringChunks};
 use bon::Builder;
@@ -1433,7 +1433,7 @@ impl PersistentIdentifierParse for ARK {
     /// Check if value is a valid [`ARK`]
     /// ### Conditions
     /// - ARKs are preferred to be "actionable" with the inclusion of a NMA URL, but are not required to be so (NMA is optional)
-    /// - If ARK is to contain a URL, "https" is the only allowed scheme
+    /// - If an ARK contains a URL, the scheme must be HTTPS
     /// - Should have only one instance of "ark:" label
     /// - NAAN should be an integer
     /// - [Assigned name](`ARK::assigned_name`) should start with a valid [shoulder](https://arks.org/about/shoulders/)
@@ -1447,6 +1447,10 @@ impl PersistentIdentifierParse for ARK {
     /// ```
     fn is_valid(value: impl ToString) -> bool {
         let pid = ARK::from_string(value);
+        let has_supported_scheme = pid
+            .name_mapping_authority
+            .as_ref()
+            .is_none_or(|authority| authority.starts_with("https://"));
         let naan = pid.name_assigning_authority_number.unwrap_or_default();
         let naan_is_betanumeric = naan.chars().all(|x| x.is_betanumeric());
         let shoulder_starts_with_lowercase_letter = match pid.assigned_name {
@@ -1456,7 +1460,7 @@ impl PersistentIdentifierParse for ARK {
             },
             | None => false,
         };
-        !naan.is_empty() && naan_is_betanumeric && shoulder_starts_with_lowercase_letter
+        has_supported_scheme && !naan.is_empty() && naan_is_betanumeric && shoulder_starts_with_lowercase_letter
     }
 }
 impl PersistentIdentifierParse for Arxiv {
@@ -1477,10 +1481,16 @@ impl PersistentIdentifierParse for Arxiv {
         let pattern = format!("^{RE_ARXIV_TEXT}$");
         let text = value.to_string();
         let lookup = regex_capture_lookup(pattern.as_str(), text.as_str(), groups.to_vec());
+        let identifier = lookup.get("identifier").cloned();
         Self::init()
             .maybe_schema_uri(lookup.get("schema_uri").map(|_| DEFAULT_ARXIV_SCHEMA_URI.to_string()))
-            .maybe_archive(lookup.get("archive").map(|value| value.to_ascii_lowercase()))
-            .maybe_identifier(lookup.get("identifier").cloned())
+            .maybe_archive(
+                lookup
+                    .get("archive")
+                    .filter(|_| identifier.as_deref().is_some_and(|value| !value.contains('.')))
+                    .map(|value| value.to_ascii_lowercase()),
+            )
+            .maybe_identifier(identifier)
             .maybe_version(lookup.get("version").map(|value| value.to_ascii_lowercase()))
             .build()
     }
@@ -1490,7 +1500,7 @@ impl PersistentIdentifierParse for Arxiv {
     fn is_valid(value: impl ToString) -> bool {
         let value = value.to_string();
         // Require the recognized identifier to consume the complete input.
-        let complete_match = RE_ARXIV
+        let complete_match = RE_ARXIV_VALIDATION
             .find(&value)
             .ok()
             .flatten()
@@ -1617,6 +1627,7 @@ impl PersistentIdentifierParse for ISBN {
     fn from_string(value: impl ToString) -> Self {
         let groups = ["prefix_element", "registration_group", "publisher", "title", "check_digit"];
         let text = value.to_string();
+        let text = text.strip_prefix("urn:isbn:").unwrap_or(&text).replace("- ", "-");
         let compact = text.chars().filter(is_not_isbn_separator).collect::<String>();
         let (pattern, candidate) = match (compact.len(), compact.len() == text.len()) {
             | (10, true) => (format!("^{RE_ISBN_10_COMPACT_TEXT}$"), compact.as_str()),
@@ -1646,6 +1657,7 @@ impl PersistentIdentifierParse for ISBN {
     /// ```
     fn is_valid(value: impl ToString) -> bool {
         let value = value.to_string();
+        let value = value.strip_prefix("urn:isbn:").unwrap_or(&value).replace("- ", "-");
         let compact = value
             .chars()
             .filter(is_not_isbn_separator)
@@ -1896,7 +1908,13 @@ impl PersistentIdentifierParse for ROR {
 }
 impl From<&str> for PublicationIdentifierType {
     fn from(value: &str) -> Self {
-        match (DOI::is_valid(value), Arxiv::is_valid(value)) {
+        let match_covers_value = RE_ARXIV
+            .find(value)
+            .ok()
+            .flatten()
+            .is_some_and(|matched| matched.start() == 0 && matched.end() == value.len());
+        let explicitly_labeled_arxiv = match_covers_value && Arxiv::is_valid(value);
+        match (DOI::is_valid(value), explicitly_labeled_arxiv) {
             | (true, _) => Self::Doi(DOI::from_string(value)),
             | (_, true) => Self::Arxiv(Arxiv::from_string(value)),
             | _ => Self::Unknown,

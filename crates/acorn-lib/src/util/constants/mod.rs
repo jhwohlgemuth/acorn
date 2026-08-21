@@ -76,11 +76,15 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 /// [`title`]: ../schema/struct.ResearchActivity.html#structfield.title
 pub const MAX_LENGTH_TITLE: u64 = 45;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
-pub const RE_ARK_TEXT: &str = r#"(?<nma>https\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>\d{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;
-/// Pattern text for arXiv regular expression defined by [`RE_ARXIV`]
-pub const RE_ARXIV_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
-/// Pattern text for DOI regular expression defined by [`RE_DOI`]
-pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>(?i:https[:]\/\/doi\.org\/))?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
+pub const RE_ARK_TEXT: &str = r#"(?<nma>https?\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>[a-zA-Z0-9]{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;
+/// Pattern text for exact arXiv validation, including bare identifiers
+pub const RE_ARXIV_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))?(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
+/// Conservative arXiv pattern used to discover identifiers in prose and documents
+pub const RE_ARXIV_DISCOVERY_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?<schema_uri>https?://(?:www\.)?arxiv\.org/)(?<resource>abs|pdf)/|(?i:arxiv:))(?:(?<archive>[A-Za-z-]+)(?:\.[A-Za-z-]+)?/)?(?<identifier>(?:\d{4}\.\d{4,5}|\d{7}))(?<version>v[1-9]\d*)?(?<pdf>\.pdf)?(?![A-Za-z0-9])"#;
+/// Pattern text for exact DOI parsing and validation
+pub const RE_DOI_TEXT: &str = r#"(?<schema_uri>(?i:(?:https?[:]\/\/(?:dx\.)?doi\.org\/|doi\.org\/|doi:\s*)))?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9}(?:\.\d+)*)\/(?<suffix>[^\s\"',]+)"#;
+/// Conservative DOI pattern used to discover identifiers in prose and markup
+pub const RE_DOI_DISCOVERY_TEXT: &str = r#"(?<schema_uri>(?i:(?:https?[:]\/\/(?:dx\.)?doi\.org\/|doi\.org\/|doi:\s*)))?(?<directory_indicator>10)[.](?<prefix_element>97[89][.])?(?<registrant_code>\d{4,9}(?:\.\d+)*)\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for explicitly labeled Handle identifiers.
 pub const RE_HANDLE_TEXT: &str = r#"(?i:(?:hdl:\s*|(?:https?://)?hdl\.handle\.net/))[^\s<>\"'\[\]{}]+"#;
 /// Pattern text for Gemeinsame Normdatei identifiers
@@ -93,18 +97,19 @@ pub const RE_ISBN_10_TEXT: &str = r#"(?<registration_group>999\d{2}|99[0-8]\d|9[
 pub const RE_ISBN_13_TEXT: &str =
     r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
 /// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
-pub const RE_ISBN_TEXT: &str = r#"(?<![A-Za-z0-9])(?:97[89][ -]?\d{1,5}[ -]?\d{1,7}[ -]?\d{1,6}[ -]?\d|(?:999\d{2}|99[0-8]\d|9[5-8]\d|8\d|9[0-4]|[0-5]|7)[ -]\d{1,7}[ -]\d{1,6}[ -][0-9Xx]|\d{9}[0-9Xx])(?![A-Za-z0-9])"#;
+pub const RE_ISBN_TEXT: &str = r#"(?<![A-Za-z0-9])(?i:urn:isbn:)?(?:97[89][ -]?\d{1,5}[ -]?\d{1,7}[ -]?\d{1,6}[ -]?\d|(?:999\d{2}|99[0-8]\d|9[5-8]\d|8\d|9[0-4]|[0-5]|7)[ -]\d{1,7}[ -]\d{1,6}[ -][0-9Xx]|\d{9}[0-9Xx])(?![A-Za-z0-9])"#;
 /// Pattern text for International Standard Name Identifier regular expression defined by [`RE_ISNI`]
 pub const RE_ISNI_TEXT: &str = r#"(?<![A-Za-z0-9])(?<schema_uri>https?[:]//isni\.org/isni/)?(?<identifier>[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
-pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?<schema_uri>https[:]\/\/orcid\.org\/)?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
+pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?<schema_uri>(?i:https?[:]\/\/orcid\.org\/))?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str = r#"(?<![A-Za-z0-9])(?<country_code>US|CN|DE|EP|JP|KR)\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{5,11})\s*(?<kind_code>[A-Z]\d)(?![A-Za-z0-9])"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
 pub const RE_RAID_TEXT: &str =
     r#"(?<schema_uri>(?i:https[:]\/\/raid\.org\/))?(?<directory_indicator>10)[.](?<registrant_code>\d{4,9})\/(?<suffix>[-._;()/:a-zA-Z0-9]+)"#;
 /// Pattern text for ROR regular expression defined by [`RE_ROR`]
-pub const RE_ROR_TEXT: &str = r#"(?<![a-z0-9])(?<schema_uri>https[:]\/\/ror\.org\/)?(?<identifier>0[a-hj-km-np-tv-z0-9]{6}[0-9]{2})(?![a-z0-9])"#;
+pub const RE_ROR_TEXT: &str =
+    r#"(?<![a-z0-9])(?<schema_uri>(?i:https?[:]\/\/ror\.org\/))?(?<identifier>0[a-hj-km-np-tv-z0-9]{6}[0-9]{2})(?![a-z0-9])"#;
 /// Pattern text for Software Hash Identifiers.
 pub const RE_SWHID_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?:https://(?:archive\.softwareheritage\.org/(?:api/1/resolve/)?|identifiers\.org/|n2t\.net/))?swh:1:(?:cnt|dir|rel|rev|snp):[0-9a-f]{40}(?:;(?:origin|visit|anchor|path|lines|bytes)=[^\s<>\"'\[\]{}]+)*)"#;
 
@@ -116,11 +121,13 @@ lazy_static! {
     /// See <https://arks.org/> for more information
     pub static ref RE_ARK: Regex = Regex::new(RE_ARK_TEXT).expect("RE_ARK_TEXT should compile as a valid regex");
     /// Regex that should match an arXiv identifier
-    pub static ref RE_ARXIV: Regex = Regex::new(RE_ARXIV_TEXT).expect("RE_ARXIV_TEXT should compile as a valid regex");
+    pub static ref RE_ARXIV: Regex = Regex::new(RE_ARXIV_DISCOVERY_TEXT).expect("RE_ARXIV_DISCOVERY_TEXT should compile as a valid regex");
+    /// Regex that validates exact arXiv identifier values, including bare forms
+    pub static ref RE_ARXIV_VALIDATION: Regex = Regex::new(RE_ARXIV_TEXT).expect("RE_ARXIV_TEXT should compile as a valid regex");
     /// Regex that should match a Digital Object Identifier (DOI)
     ///
     /// See <https://www.doi.org/doi-handbook/HTML/index.html> for more information
-    pub static ref RE_DOI: Regex = Regex::new(RE_DOI_TEXT).expect("RE_DOI_TEXT should compile as a valid regex");
+    pub static ref RE_DOI: Regex = Regex::new(RE_DOI_DISCOVERY_TEXT).expect("RE_DOI_DISCOVERY_TEXT should compile as a valid regex");
     /// Regex that matches explicitly labeled Handle identifiers.
     pub static ref RE_HANDLE: Regex = Regex::new(RE_HANDLE_TEXT).expect("RE_HANDLE_TEXT should compile as a valid regex");
     /// Regex that should match a Gemeinsame Normdatei identifier

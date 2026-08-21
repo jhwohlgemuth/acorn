@@ -66,6 +66,23 @@ fn test_normalize_discovery_url_preserves_case_sensitive_components() {
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
 }
 #[test]
+fn test_idutils_url_cases() {
+    [
+        (
+            "http://nbn-resolving.org/urn:nbn:de:bvb:19-146642",
+            "http://nbn-resolving.org/urn:nbn:de:bvb:19-146642",
+        ),
+        ("http://pubmed.ncbi.nlm.nih.gov/12082125/", "http://pubmed.ncbi.nlm.nih.gov/12082125"),
+        ("https://viaf.org/viaf/75121530", "https://viaf.org/viaf/75121530"),
+    ]
+    .into_iter()
+    .for_each(|(value, expected)| {
+        let normalized = Identifier::new(value).normalized().expect("expected valid URL");
+        assert_eq!(normalized.kind, PID::URL, "{value}");
+        assert_eq!(normalized.value, expected, "{value}");
+    });
+}
+#[test]
 fn test_pid_from_str() {
     assert_eq!(PID::from("doi"), PID::DOI);
     assert_eq!(PID::from("ORCID"), PID::ORCID);
@@ -169,6 +186,16 @@ fn test_ark_struct() {
     assert_eq!(ARK::from_string("invalid ARK value").to_string(), "");
 }
 #[test]
+fn test_idutils_ark_cases() {
+    // Adapted from idutils's BSD-3-Clause test suite: https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py
+    ["ark:/13030/tqb3kh97gh8w", "ark:/c8131/g3js3v", "ark:c8131/g3js3v.1"]
+        .into_iter()
+        .for_each(|value| assert!(ARK::is_valid(value), "expected valid ARK: {value}"));
+    let http_value = "http://www.example.org/ark:/13030/tqb3kh97gh8w";
+    assert_eq!(ARK::from_string(http_value).to_string(), "http://www.example.org/ark:13030/tqb3kh97gh8w");
+    assert!(!ARK::is_valid(http_value));
+}
+#[test]
 fn test_arxiv_modern_and_legacy_formats() {
     let modern = Arxiv::from_string("https://arxiv.org/pdf/1501.00001v2.pdf");
     assert_eq!(modern.to_string(), "arXiv:1501.00001v2");
@@ -199,7 +226,6 @@ fn test_arxiv_validation_and_discovery() {
         )
     });
     [
-        "2106.09685",
         "arXiv:0703.0001",
         "arXiv:1412.07878",
         "arXiv:1501.0001",
@@ -223,6 +249,23 @@ fn test_arxiv_metadatatools_cases() {
     ["arXiv:2412.03631", "arXiv:2412.03649", "arXiv:2412.04386"]
         .into_iter()
         .for_each(|value| assert!(Arxiv::is_valid(value), "expected valid arXiv identifier: {value}"));
+}
+#[test]
+fn test_idutils_arxiv_cases() {
+    [
+        "arXiv:1310.2590",
+        "arxiv:1310.2590",
+        "1310.2590",
+        "math.GT/0309136",
+        "hep-th/9901001v27",
+        "arxiv:math.GT/0309136v2",
+        "arXiv:hep-th/9901001v27",
+        "9912.12345v2",
+        "arXiv:hep-th/1601.07616",
+        "hep-th/1601.07616",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(Arxiv::is_valid(value), "expected valid arXiv identifier: {value}"));
 }
 #[test]
 fn test_arxiv_datacite_doi_conversions() {
@@ -331,6 +374,29 @@ fn test_doi_metadatatools_cases() {
     assert_eq!(DOI::format("  HTTPS://DOI.ORG/10.22002/BV2PV-2B295  "), "10.22002/BV2PV-2B295");
 }
 #[test]
+fn test_idutils_doi_cases() {
+    [
+        "10.1016/j.epsl.2011.11.037",
+        "doi:10.1016/j.epsl.2011.11.037",
+        "doi: 10.1016/j.epsl.2011.11.037",
+        "DOI:10.1016/j.epsl.2011.11.037",
+        "http://dx.doi.org/10.1016/j.epsl.2011.11.037",
+        "https://doi.org/10.1016/j.epsl.2011.11.037",
+        "doi.org/10.1016/j.epsl.2011.11.037",
+        "10.1016/üникóδé-дôΐ",
+        "10.1016/སྦ་བཞེད་",
+        "10.1002/(SICI)1521-3978(199806)46:4/5<493::AID-PROP493>3.0.CO;2-P",
+        "10.1000/123456",
+        "10.1038/issn.1476-4687",
+        "10.1000.10/123456",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(DOI::is_valid(value), "expected valid DOI: {value}"));
+    ["10.1000/", "10.10O0/123456", "10.1.NOTGOOD.0/123456"]
+        .into_iter()
+        .for_each(|value| assert!(!DOI::is_valid(value), "expected invalid DOI: {value}"));
+}
+#[test]
 fn test_isbn() {
     const VALID_ISBN: [&str; 10] = [
         "978-0-306-40627-0",
@@ -383,6 +449,22 @@ fn test_isbn_metadatatools_cases() {
         discovered.into_iter().map(|isbn| isbn.to_string()).collect::<Vec<_>>(),
         ["0-8044-2957-X", "1-606-06942-X"]
     );
+}
+#[test]
+fn test_idutils_isbn_cases() {
+    [
+        "urn:isbn:0451450523",
+        "9783468111242",
+        "9798847781275",
+        "9798991050005",
+        "9791370064242",
+        "978-65-87773-12-4",
+        "978-3-905673-82- 1",
+        "978-3-905673-82-1",
+        "0-9752298-0-X",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(ISBN::is_valid(value), "expected valid ISBN: {value}"));
 }
 #[test]
 fn test_kindcode() {
@@ -466,6 +548,10 @@ fn test_isni_metadatatools_cases() {
         .for_each(|value| assert!(ISNI::is_valid(value), "expected valid ISNI: {value}"));
 }
 #[test]
+fn test_idutils_isni_cases() {
+    assert!(ISNI::is_valid("1422-4586-3573-0476"));
+}
+#[test]
 fn test_isni_find_all_and_orcid_precedence() {
     let isni = "https://isni.org/isni/0000000492299539";
     let orcid = "https://orcid.org/0000-0002-2057-9115";
@@ -545,6 +631,19 @@ fn test_orcid_metadatatools_cases() {
         "0000-0002-6539-638X",
         "0000-0001-9266-5146",
         "0000-0002-0026-2516",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(ORCID::is_valid(value), "expected valid ORCID: {value}"));
+}
+#[test]
+fn test_idutils_orcid_cases() {
+    [
+        "0000000218250097",
+        "http://orcid.org/0000-0002-1825-0097",
+        "https://orcid.org/0000-0002-1825-0097",
+        "0000-0002-1694-233X",
+        "0009-0005-6000-7479",
+        "https://orcid.org/0009-0002-4767-9017",
     ]
     .into_iter()
     .for_each(|value| assert!(ORCID::is_valid(value), "expected valid ORCID: {value}"));
@@ -642,6 +741,21 @@ fn test_raid_metadatatools_cases() {
     assert_eq!(RAID::format("  HTTPS://RAID.ORG/10.26259/0E59E9A5  "), "10.26259/0E59E9A5");
 }
 #[test]
+fn test_idutils_raid_cases() {
+    [
+        "10.26259/0e59e9a5",
+        "10.83962/fb5be317",
+        "https://raid.org/10.26259/0e59e9a5",
+        "https://raid.org/10.83962/f2a7645d",
+        "HTTPS://RAID.ORG/10.26259/0E59E9A5",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(RAID::is_valid(value), "expected valid RAiD: {value}"));
+    ["", "not-a-raid", "11.26259/0e59e9a5", "102.26259/0e59e9a5"]
+        .into_iter()
+        .for_each(|value| assert!(!RAID::is_valid(value), "expected invalid RAiD: {value}"));
+}
+#[test]
 fn test_raid_contributor_accepts_orcid_and_isni() {
     let contributor = |id: &str, schema_uri: &str| raid::Contributor {
         id: Some(id.to_string()),
@@ -703,6 +817,12 @@ fn test_ror_metadatatools_cases() {
     ]
     .into_iter()
     .for_each(|value| assert!(ROR::is_valid(value), "expected valid ROR: {value}"));
+}
+#[test]
+fn test_idutils_ror_cases() {
+    ["03yrm5c26", "http://ror.org/03yrm5c26"]
+        .into_iter()
+        .for_each(|value| assert!(ROR::is_valid(value), "expected valid ROR: {value}"));
 }
 #[test]
 fn test_ror_check_digit() {

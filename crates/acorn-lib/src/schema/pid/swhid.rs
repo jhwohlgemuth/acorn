@@ -409,4 +409,85 @@ mod tests {
         let value = format!("https://archive.softwareheritage.org/{CONTENT}");
         assert_eq!(SWHID::format(value), CONTENT);
     }
+    #[test]
+    fn test_idutils_swhid_cases() {
+        // Adapted from idutils's BSD-3-Clause test suite: https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py
+        [
+            "swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2",
+            "swh:1:dir:d198bc9d7a6bcf6db04f476d29314f157507d505",
+            "swh:1:rev:309cf2674ee7a0749978cf8265ab91a60aea0f7d",
+            "swh:1:rel:22ece559cc7cc2364edc5e5593d63ae8bd229f9f",
+            "swh:1:snp:c7c108084bc0bf3d81436bf980b46e98bd338453",
+            "swh:1:dir:d198bc9d7a6bcf6db04f476d29314f157507d505;origin=https://github.com/user/repo",
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines=12-16"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";path=/Programs/python.c;lines=12-16",
+                ";origin=https://github.com/python/cpython"
+            ),
+        ]
+        .into_iter()
+        .for_each(|value| assert!(SWHID::is_valid(value), "expected valid SWHID: {value}"));
+        [
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=Programs/python.c;lines=12-16"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/py%thon/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines=12-16"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=https://github.com/python/cpython",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines=1-2"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=https://github.com/python/cpython",
+                ";path=/Programs/python.c;lines=1-2"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines=12--16"
+            ),
+            concat!(
+                "swh:1:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines="
+            ),
+            concat!(
+                "swh:2:cnt:78e48f800c950530e36d3712d9e2e89673f23562",
+                ";origin=https://github.com/python/cpython",
+                ";visit=swh:1:snp:cd510e99a42139ed36f15a5774301c113c3e494b",
+                ";anchor=swh:1:rel:ae1f6af15f3e4110616801e235873e47fd7d1977",
+                ";path=/Programs/python.c;lines=1-2"
+            ),
+        ]
+        .into_iter()
+        .for_each(|value| assert!(!SWHID::is_valid(value), "expected invalid SWHID: {value}"));
+    }
 }

@@ -19,6 +19,8 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
 
 > [!IMPORTANT]
 > When ACORN validates a PID, it does not rely only on recognition patterns. It also validates parsed structure and, for ISBNs[^isbn], ISNIs[^isni], ORCIDs[^orcid], and RORs[^ror], the check digits implemented for that identifier. Validation is local and does not confirm registration with an external authority.
+>
+> The PID regression tests maintain shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, and SWHID. This parity applies to the listed overlapping cases, not every behavior or identifier family supported by those projects.
 
 ## Installation
 - Add `acorn-lib` as a dependency[^version]
