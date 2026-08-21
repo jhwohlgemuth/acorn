@@ -135,6 +135,14 @@ The snapshots are stored in `crates/acorn-cli/src/commands/export/tests/snapshot
 cargo insta review
 ```
 
+### SSL / TLS Support
+
+ACORN uses `git2` (via `swhid`) for software heritage identifier computation, which requires OpenSSL for network operations.
+
+- **Windows**: run `./scripts/setup.bat` before building to install and configure OpenSSL.
+- **macOS / glibc Linux**: OpenSSL is resolved from the system at link time; no extra steps required.
+- **musl Linux** (Alpine, static Docker images): OpenSSL is vendored and statically linked into the binary automatically when building for `target_env = "musl"`. This adds ~2–4 MB to the binary but removes all runtime shared-library dependencies, producing a fully portable static executable.
+
 ### Visual Studio Code Configuration
 **General Development**
 - Install [VSCode](https://code.visualstudio.com/)

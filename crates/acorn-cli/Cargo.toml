@@ -73,6 +73,9 @@ urlencoding = { version = "2.1.3", default-features = false }
 validator = { workspace = true }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false }
 
+[target.'cfg(target_env = "musl")'.dependencies]
+openssl-sys = { version = "0.9.117", features = ["vendored"] }
+
 [features]
 default = ["pdf", "tui"]
 chart = ["acorn-lib/chart"]
