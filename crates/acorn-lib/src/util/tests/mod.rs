@@ -9,8 +9,8 @@ use std::env::temp_dir;
 
 use crate::io::api::{IntoBody, ParamStyle};
 use crate::io::{
-    command_exists, extract_zip, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, FromCommand,
-    FromPath,
+    command_exists, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, ArchiveCandidate,
+    ArchiveExtraction, FromCommand, FromPath,
 };
 use crate::param;
 use crate::prelude::{Path, PathBuf};
@@ -157,7 +157,7 @@ fn test_detect_xml() {
 #[test]
 fn test_extract_zip() {
     let path = PathBuf::from(FIXTURES).join("data/highlight/reference.pptx");
-    let result = extract_zip(path, None);
+    let result = ArchiveCandidate::from(path).extract_zip(None);
     println!("{result:?}");
     assert!(result.is_ok());
 }
@@ -264,6 +264,18 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Jsonc);
     let mime = MimeType::from("config.jsonc");
     assert_eq!(mime, MimeType::Jsonc);
+    assert_eq!(MimeType::from("archive.tar"), MimeType::Tar);
+    assert_eq!(MimeType::from("archive.tar.gz"), MimeType::Gzip);
+    assert_eq!(MimeType::from("archive.7z"), MimeType::SevenZip);
+    assert_eq!(MimeType::SevenZip.file_type(), "7z");
+}
+#[test]
+fn test_mimetype_content_inference_prefers_semantic_documents() {
+    let docx = std::fs::read(PathBuf::from(FIXTURES).join("acorn.docx")).unwrap();
+    assert_eq!(MimeType::infer(&docx), Some(MimeType::Docx));
+    assert_eq!(MimeType::infer(b"PK\x03\x04generic zip payload"), Some(MimeType::Zip));
+    assert_eq!(MimeType::infer(b"\x1f\x8b\x08\x00gzip payload"), Some(MimeType::Gzip));
+    assert_eq!(MimeType::infer(b"not a known binary format"), None);
 }
 #[test]
 fn test_merge_chain_positional_only() {

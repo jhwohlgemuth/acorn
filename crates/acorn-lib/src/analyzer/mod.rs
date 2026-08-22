@@ -8,7 +8,7 @@ use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::http::get;
 use crate::io::InputOutput;
-use crate::io::{command_exists, download_binary, extract_zip, file_checksum, make_executable, standard_project_folder, ApiResult};
+use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Arc, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
 use crate::schema::pid::raid;
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
@@ -989,7 +989,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string();
         match extension.as_str() {
-            | "zip" => match extract_zip(path, Some(parent.into())) {
+            | "7z" | "zip" | "gz" => match extract(path, Some(parent.into()), None) {
                 | Ok(value) => {
                     let path = value.join(command);
                     if cfg!(windows) {
@@ -1008,7 +1008,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     }
                 }
             },
-            | "gz" => match File::open(path) {
+            | "tgz" => match File::open(path) {
                 | Ok(tar_gz) => {
                     let tar = GzDecoder::new(tar_gz);
                     let mut archive = Archive::new(tar);

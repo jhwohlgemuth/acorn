@@ -18,14 +18,14 @@ mod std {
     };
     #[cfg(unix)]
     pub use std::fs::{set_permissions, Permissions};
-    pub use std::io::{self, stdin, BufRead, BufReader, Cursor, Error, ErrorKind, IsTerminal, Read, Write};
+    pub use std::io::{self, stdin, BufRead, BufReader, Cursor, Error, ErrorKind, IsTerminal, Read, Seek, Write};
     #[cfg(unix)]
     pub use std::os::unix::fs::symlink;
     #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
     pub use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     #[cfg(windows)]
     pub use std::os::windows::fs::{symlink_dir, symlink_file};
-    pub use std::path::{absolute, Path, PathBuf};
+    pub use std::path::{absolute, Component, Path, PathBuf};
     pub use std::process::{exit, Command, ExitStatus, Output, Stdio};
     pub use std::sync::{Mutex, OnceLock};
     pub use triomphe::Arc;

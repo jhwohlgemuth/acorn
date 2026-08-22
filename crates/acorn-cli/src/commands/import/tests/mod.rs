@@ -1,14 +1,16 @@
 extern crate alloc;
 use super::model::collect_imported;
 use super::spec::endpoint_from_import;
+use crate::cli::arguments::{ImportModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, SyncTarget};
 use crate::test::server::spawn_source_server;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles};
 use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
-use acorn::prelude::write;
+use acorn::prelude::{write, PathBuf, String};
 use acorn::schema::agent::{ModelSelector, ModelSelectors, Weights};
 use alloc::sync::Arc;
+use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use std::io::Write;
 use std::sync::Mutex;
@@ -44,6 +46,47 @@ paths:
     get:
       operationId: listWidgets
 "#;
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_model(
+    model: &[String],
+    model_file: &Option<String>,
+    config: &Option<PathBuf>,
+    force: bool,
+    dry_run: bool,
+    sync: &Option<SyncTarget>,
+    database_path: &Option<PathBuf>,
+    no_local_database: bool,
+    offline: bool,
+    no_fallback: bool,
+    search_limit: usize,
+    minimum_download_count: u64,
+    interactive: bool,
+    verbose: &Verbosity,
+) -> crate::cli::Void {
+    let arguments = ImportModel {
+        source: ModelSourceArgs {
+            model: model.to_vec(),
+            model_file: model_file.clone(),
+            config: config.clone(),
+        },
+        resolution: ModelResolutionArgs {
+            no_fallback,
+            interactive,
+            search_limit,
+            minimum_download_count,
+        },
+        synchronization: ModelSyncArgs { sync: *sync, force, dry_run },
+        verbose: *verbose,
+    };
+    super::model::execute(super::model::Request {
+        arguments: &arguments,
+        database_path,
+        no_local_database,
+        offline,
+    })
+    .await
+}
 
 #[test]
 fn test_endpoint_from_import_applies_metadata() {
@@ -143,7 +186,7 @@ fn test_model_metadata_inserts_minimal_row_and_refreshes_weights() {
 }
 #[tokio::test]
 async fn test_model_catalog_import_skips_database_when_disabled() {
-    let result = super::model::run(
+    let result = execute_model(
         &[],
         &None,
         &None,
@@ -167,7 +210,7 @@ async fn test_model_catalog_import_dry_run_skips_database() {
     let directory = temp_test_dir("import-model-dry-run");
     let _cleanup = TestCleanup::new(directory.clone());
     let database_path = directory.join("models.duckdb");
-    let result = super::model::run(
+    let result = execute_model(
         &[],
         &None,
         &None,

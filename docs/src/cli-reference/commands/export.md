@@ -65,6 +65,16 @@ acorn export /path/to/project/index.json --format cff
 > [!NOTE]
 > Most export formats use the `--output` option to specify the output file or directory path. If not provided, ACORN will generate a default output path based on the input path and selected format. For example, `--format pdf` and `--format powerpoint` will generate files in the default export location (`./export/`) with names based on the project parent folder(s), `--format bag` will add `.zip` to the output path (i.e., `--output ./export` will create `./export.zip` and `--output /path/to/bag` will create `/path/to/bag.zip`). CFF output is the exception described below.
 
+BagIt export supports 7z, ZIP, TAR, and TAR.GZ containers. A recognized `--output` suffix selects the format, while an output without an archive suffix defaults to ZIP. Use `--archive-format 7z|zip|tar|tar.gz` as an explicit override:
+
+```sh
+acorn export ./research --format bag --output ./deposit.tar.gz
+acorn export ./research --format bag --output ./deposit.7z
+acorn export ./research --format bag --archive-format tar --output ./deposit
+```
+
+An explicit format that conflicts with an output suffix is rejected. `--archive-format` is not accepted for non-BagIt exports.
+
 ## Standard crosswalks
 
 Use `--to` with JSON or YAML export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.

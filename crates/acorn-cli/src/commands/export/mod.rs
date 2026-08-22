@@ -1,4 +1,4 @@
-use crate::cli::arguments::FileFormat;
+use crate::cli::arguments::{ArchiveType, FileFormat};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
@@ -19,6 +19,7 @@ use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::iter::once;
+use nanoid::nanoid;
 use owo_colors::OwoColorize;
 use tracing::{debug, info};
 
@@ -26,6 +27,81 @@ use tracing::{debug, info};
 mod pdf;
 mod powerpoint;
 
+#[allow(clippy::too_many_arguments)]
+pub async fn run(
+    output: &Option<PathBuf>,
+    path: &Option<PathBuf>,
+    branch: &Option<String>,
+    chrome_path: &Option<PathBuf>,
+    commit: &Option<String>,
+    filter: &[String],
+    ignore: &[String],
+    show_aspect_labels: bool,
+    show_aspect_scores: bool,
+    format: &FileFormat,
+    archive_format: Option<ArchiveType>,
+    reference: &Option<PathBuf>,
+    from: &Option<Standard>,
+    to: &Option<Standard>,
+    combine: &bool,
+    merge_request: &bool,
+    raw: &bool,
+    skip: &[CheckCategory],
+    dry_run: bool,
+    strict: bool,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+) -> ApiResult<()> {
+    match archive_format.is_some() && !matches!(format, FileFormat::Bag) {
+        | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
+        | false => {
+            let is_silent = verbose.is_silent();
+            let progress_type = match is_silent || *raw {
+                | true => ProgressType::Silent,
+                | false => ProgressType::Bar,
+            };
+            let options = CommandOptions::init()
+                .maybe_branch(branch.clone())
+                .maybe_commit(commit.clone())
+                .maybe_filter(regex_join(filter))
+                .maybe_ignore(regex_join(ignore))
+                .merge_request(*merge_request)
+                .offline(offline)
+                .quiet(is_silent)
+                .supported(true)
+                .threads(threads)
+                .build();
+            preflight!(&options);
+            match offline && *merge_request {
+                | true => Err(eyre!("Export cannot resolve a remote merge request in offline mode")),
+                | false => {
+                    let request = ExportRequest::init()
+                        .maybe_output(output.clone())
+                        .maybe_path(path.clone())
+                        .maybe_chrome_path(chrome_path.clone())
+                        .format(format.clone())
+                        .maybe_archive_format(archive_format)
+                        .show_aspect_labels(show_aspect_labels)
+                        .show_aspect_scores(show_aspect_scores)
+                        .maybe_reference(reference.clone())
+                        .combine(*combine)
+                        .dry_run(dry_run)
+                        .strict(strict)
+                        .skip(skip.to_vec())
+                        .progress_type(progress_type)
+                        .options(options)
+                        .build();
+                    let exporter = exporter_for(&request.format);
+                    match (from.is_some() || to.is_some()) && format.is_structured() {
+                        | true => exporter.crosswalk(request, *from, *to).await,
+                        | false => exporter.export(request).await,
+                    }
+                }
+            }
+        }
+    }
+}
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
@@ -46,6 +122,7 @@ struct ExportRequest {
     chrome_path: Option<PathBuf>,
     #[builder(default)]
     format: FileFormat,
+    archive_format: Option<ArchiveType>,
     #[builder(default)]
     #[cfg_attr(not(feature = "chart"), allow(dead_code))]
     show_aspect_labels: bool,
@@ -65,11 +142,56 @@ struct ExportRequest {
     #[builder(default)]
     options: CommandOptions,
 }
-struct CffExportHandler;
-struct StructuredExportHandler;
 struct BagExportHandler;
+struct CffExportHandler;
 struct PdfExportHandler;
 struct PowerPointExportHandler;
+struct StructuredExportHandler;
+impl ExportHandler for BagExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
+        Box::pin(async move {
+            match (request.path, request.output) {
+                | (Some(path), Some(destination)) => {
+                    let inferred = match MimeType::from(destination.to_string_lossy().as_ref()) {
+                        | format @ (MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => Some(format),
+                        | _ => None,
+                    };
+                    let explicit = request.archive_format.map(MimeType::from);
+                    match explicit.is_some() && inferred.is_some() && explicit != inferred {
+                        | true => Err(eyre!("--archive-format conflicts with the output archive suffix")),
+                        | false => {
+                            let archive_format = explicit.or(inferred.clone()).unwrap_or(MimeType::Zip);
+                            let archive_destination = match inferred.is_some() {
+                                | true => destination,
+                                | false => destination.with_extension(archive_format.clone().file_type()),
+                            };
+                            let staging = archive_destination
+                                .parent()
+                                .unwrap_or_else(|| Path::new("."))
+                                .join(format!(".acorn-bag-{}", nanoid!()));
+                            let base = path.display().to_string();
+                            let date = current_date();
+                            let size = format_bytes(folder_size(base.clone()));
+                            let info = BagInfo::init().date(date).size(size).build();
+                            debug!("=> {} {:#?}", Label::using(), info);
+                            let bag = Bag::init().base_directory(base).info(info).build();
+                            let result = bag
+                                .save_as(staging.clone(), archive_format, Some(archive_destination))
+                                .and_then(|_| Bag::verify(staging.clone()));
+                            let cleanup = match staging.exists() {
+                                | true => remove_dir_all(staging).map_err(Into::into),
+                                | false => Ok(()),
+                            };
+                            result.and(cleanup)
+                        }
+                    }
+                }
+                | (None, _) => Err(eyre!("Missing input path for bag export")),
+                | (_, None) => Err(eyre!("Missing output directory for bag export")),
+            }
+        })
+    }
+}
 impl ExportHandler for CffExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
@@ -82,63 +204,6 @@ impl ExportHandler for CffExportHandler {
                 request.progress_type,
             )
             .await
-        })
-    }
-}
-impl ExportHandler for StructuredExportHandler {
-    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
-        Box::pin(async move {
-            let extension = request.format.to_string().to_lowercase();
-            export_as_format(
-                &request.path,
-                request.options,
-                &request.format,
-                &extension,
-                |p, ext| p.with_extension(ext),
-                request.progress_type,
-            )
-            .await
-        })
-    }
-    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
-        Box::pin(async move {
-            let extension = request.format.to_string().to_lowercase();
-            export_as_format_crosswalk(
-                &request.path,
-                request.options,
-                &request.format,
-                &extension,
-                |p, ext| p.with_extension(ext),
-                request.progress_type,
-                from,
-                to,
-                request.dry_run,
-                request.strict,
-                request.skip,
-                &request.output,
-            )
-            .await
-        })
-    }
-}
-impl ExportHandler for BagExportHandler {
-    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
-        Box::pin(async move {
-            match (request.path, request.output) {
-                | (Some(path), Some(destination)) => {
-                    let base = path.display().to_string();
-                    let date = current_date();
-                    let size = format_bytes(folder_size(base.clone()));
-                    let info = BagInfo::init().date(date).size(size).build();
-                    debug!("=> {} {:#?}", Label::using(), info);
-                    let bag = Bag::init().base_directory(base).info(info).build();
-                    bag.save(destination.clone())
-                        .and_then(|_| Bag::verify(destination.clone()))
-                        .and_then(|_| remove_dir_all(destination).map_err(|why| why.into()))
-                }
-                | (None, _) => Err(eyre!("Missing input path for bag export")),
-                | (_, None) => Err(eyre!("Missing output directory for bag export")),
-            }
         })
     }
 }
@@ -274,72 +339,40 @@ impl ExportHandler for PowerPointExportHandler {
         })
     }
 }
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    output: &Option<PathBuf>,
-    path: &Option<PathBuf>,
-    branch: &Option<String>,
-    chrome_path: &Option<PathBuf>,
-    commit: &Option<String>,
-    filter: &[String],
-    ignore: &[String],
-    show_aspect_labels: bool,
-    show_aspect_scores: bool,
-    format: &FileFormat,
-    reference: &Option<PathBuf>,
-    from: &Option<Standard>,
-    to: &Option<Standard>,
-    combine: &bool,
-    merge_request: &bool,
-    raw: &bool,
-    skip: &[CheckCategory],
-    dry_run: bool,
-    strict: bool,
-    threads: usize,
-    verbose: &Verbosity,
-    offline: bool,
-) -> ApiResult<()> {
-    let is_silent = verbose.is_silent();
-    let progress_type = match is_silent || *raw {
-        | true => ProgressType::Silent,
-        | false => ProgressType::Bar,
-    };
-    let options = CommandOptions::init()
-        .maybe_branch(branch.clone())
-        .maybe_commit(commit.clone())
-        .maybe_filter(regex_join(filter))
-        .maybe_ignore(regex_join(ignore))
-        .merge_request(*merge_request)
-        .offline(offline)
-        .quiet(is_silent)
-        .supported(true)
-        .threads(threads)
-        .build();
-    preflight!(&options);
-    if offline && *merge_request {
-        Err(eyre!("Export cannot resolve a remote merge request in offline mode"))
-    } else {
-        let request = ExportRequest::init()
-            .maybe_output(output.clone())
-            .maybe_path(path.clone())
-            .maybe_chrome_path(chrome_path.clone())
-            .format(format.clone())
-            .show_aspect_labels(show_aspect_labels)
-            .show_aspect_scores(show_aspect_scores)
-            .maybe_reference(reference.clone())
-            .combine(*combine)
-            .dry_run(dry_run)
-            .strict(strict)
-            .skip(skip.to_vec())
-            .progress_type(progress_type)
-            .options(options)
-            .build();
-        let exporter = exporter_for(&request.format);
-        if (from.is_some() || to.is_some()) && format.is_structured() {
-            exporter.crosswalk(request, *from, *to).await
-        } else {
-            exporter.export(request).await
-        }
+impl ExportHandler for StructuredExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
+        Box::pin(async move {
+            let extension = request.format.to_string().to_lowercase();
+            export_as_format(
+                &request.path,
+                request.options,
+                &request.format,
+                &extension,
+                |p, ext| p.with_extension(ext),
+                request.progress_type,
+            )
+            .await
+        })
+    }
+    fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
+        Box::pin(async move {
+            let extension = request.format.to_string().to_lowercase();
+            export_as_format_crosswalk(
+                &request.path,
+                request.options,
+                &request.format,
+                &extension,
+                |p, ext| p.with_extension(ext),
+                request.progress_type,
+                from,
+                to,
+                request.dry_run,
+                request.strict,
+                request.skip,
+                &request.output,
+            )
+            .await
+        })
     }
 }
 async fn export_as_format(
@@ -419,121 +452,126 @@ async fn export_as_format_crosswalk(
         | Some(target) => {
             let threads = options.threads;
             let resolved_paths = match path {
-                | Some(p) if p.is_file() => vec![p.clone()],
-                | _ => resolve_paths(path, &options).await?,
+                | Some(p) if p.is_file() => Ok(vec![p.clone()]),
+                | _ => resolve_paths(path, &options).await,
             };
-            let mut seen = HashSet::new();
-            let items: Vec<_> = resolved_paths
-                .iter()
-                .filter(|&p| seen.insert(output_path(p, extension)))
-                .cloned()
-                .collect();
-            let count = items.len() as u64;
-            let ext = extension.to_owned();
-            let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
-            let output_dir = output.clone();
-            let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
-            let progress = with_progress(
-                items,
-                |item| format!("Generating {format} for {}", item.display()),
-                |item| {
-                    let ext = ext.clone();
-                    let checks = Arc::clone(&collected_checks);
-                    let output_dir = output_dir.clone();
-                    async move {
-                        let output = match &output_dir {
-                            | Some(dir) => {
-                                let name = item.file_name().unwrap_or(item.as_os_str());
-                                dir.join(Path::new(name)).with_extension(&ext)
-                            }
-                            | None => output_path(&item, &ext),
-                        };
-                        match read_file(item.clone()) {
-                            | Ok(content) => {
-                                let mime = MimeType::from_path(&item);
-                                let source = match from {
-                                    | Some(value) => Ok(value),
-                                    | None => infer_standard_from_content(&item, &content, &mime),
-                                };
-                                let processed = source.and_then(|resolved| {
-                                    let target_mime = MimeType::from(format);
-                                    if strict || dry_run || skip_crosswalk {
-                                        resolved
-                                            .crosswalk(&content, mime, target, target_mime)
-                                            .map(|c| (c, Vec::new()))
-                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
-                                    } else {
-                                        resolved
-                                            .crosswalk_with_warnings(&content, mime, target, target_mime)
-                                            .map_err(|e| eyre!("Crosswalk failed — {e}"))
+            match resolved_paths {
+                | Ok(resolved_paths) => {
+                    let mut seen = HashSet::new();
+                    let items: Vec<_> = resolved_paths
+                        .iter()
+                        .filter(|&p| seen.insert(output_path(p, extension)))
+                        .cloned()
+                        .collect();
+                    let count = items.len() as u64;
+                    let ext = extension.to_owned();
+                    let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
+                    let output_dir = output.clone();
+                    let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
+                    let progress = with_progress(
+                        items,
+                        |item| format!("Generating {format} for {}", item.display()),
+                        |item| {
+                            let ext = ext.clone();
+                            let checks = Arc::clone(&collected_checks);
+                            let output_dir = output_dir.clone();
+                            async move {
+                                let output = match &output_dir {
+                                    | Some(dir) => {
+                                        let name = item.file_name().unwrap_or(item.as_os_str());
+                                        dir.join(Path::new(name)).with_extension(&ext)
                                     }
-                                });
-                                match processed {
-                                    | Ok((content, warnings)) => {
-                                        let uri = item.to_string_lossy().to_string();
-                                        if let Ok(mut guard) = checks.lock() {
-                                            guard.extend(warnings.to_checks(Some(uri)));
-                                        }
-                                        if dry_run {
-                                            info!(
-                                                "  {} would write {} ({} warnings)",
-                                                Label::fmt_skip("DRYRUN"),
-                                                output.display(),
-                                                warnings.len()
-                                            );
-                                            Ok(())
-                                        } else {
-                                            write_file(output, content)
+                                    | None => output_path(&item, &ext),
+                                };
+                                match read_file(item.clone()) {
+                                    | Ok(content) => {
+                                        let mime = MimeType::from_path(&item);
+                                        let source = match from {
+                                            | Some(value) => Ok(value),
+                                            | None => infer_standard_from_content(&item, &content, &mime),
+                                        };
+                                        let processed = source.and_then(|resolved| {
+                                            let target_mime = MimeType::from(format);
+                                            if strict || dry_run || skip_crosswalk {
+                                                resolved
+                                                    .crosswalk(&content, mime, target, target_mime)
+                                                    .map(|c| (c, Vec::new()))
+                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                            } else {
+                                                resolved
+                                                    .crosswalk_with_warnings(&content, mime, target, target_mime)
+                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
+                                            }
+                                        });
+                                        match processed {
+                                            | Ok((content, warnings)) => {
+                                                let uri = item.to_string_lossy().to_string();
+                                                if let Ok(mut guard) = checks.lock() {
+                                                    guard.extend(warnings.to_checks(Some(uri)));
+                                                }
+                                                if dry_run {
+                                                    info!(
+                                                        "  {} would write {} ({} warnings)",
+                                                        Label::fmt_skip("DRYRUN"),
+                                                        output.display(),
+                                                        warnings.len()
+                                                    );
+                                                    Ok(())
+                                                } else {
+                                                    write_file(output, content)
+                                                }
+                                            }
+                                            | Err(why) => Err(why),
                                         }
                                     }
                                     | Err(why) => Err(why),
                                 }
                             }
-                            | Err(why) => Err(why),
+                        },
+                        |count| {
+                            if dry_run {
+                                format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
+                            } else {
+                                format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
+                            }
+                        },
+                        Some(threads),
+                        progress_type,
+                    );
+                    match progress.await {
+                        | Ok(_) => {
+                            let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
+                            if !(all_warnings.is_empty() || matches!(progress_type, ProgressType::Silent)) {
+                                info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
+                                for check in &all_warnings {
+                                    info!("  {check}");
+                                }
+                                print_values_as_table::<String>(vec!["", "Count"], summary(all_warnings.clone()), None);
+                            }
+                            if dry_run {
+                                info!(
+                                    "=> {} Dry-run complete for {} {format} crosswalk file{}",
+                                    Label::pass(),
+                                    count.green(),
+                                    suffix(count)
+                                );
+                            } else {
+                                info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
+                            }
+                            if strict && !all_warnings.is_empty() {
+                                fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
+                                Err(eyre!("Strict mode — {} crosswalk warning(s) found", all_warnings.len()))
+                            } else {
+                                Ok(())
+                            }
+                        }
+                        | Err(why) => {
+                            fail!("Generate {} crosswalk — {}", format, why);
+                            Err(eyre!("Generate {} crosswalk — {why}", format))
                         }
                     }
-                },
-                |count| {
-                    if dry_run {
-                        format!("{}{} file{} would be generated", Label::CHECKMARK, count.green(), suffix(count))
-                    } else {
-                        format!("{}Done! Generated {} {format} file{}", Label::CHECKMARK, count.green(), suffix(count))
-                    }
-                },
-                Some(threads),
-                progress_type,
-            );
-            match progress.await {
-                | Ok(_) => {
-                    let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
-                    if !(all_warnings.is_empty() || matches!(progress_type, ProgressType::Silent)) {
-                        info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
-                        for check in &all_warnings {
-                            info!("  {check}");
-                        }
-                        print_values_as_table::<String>(vec!["", "Count"], summary(all_warnings.clone()), None);
-                    }
-                    if dry_run {
-                        info!(
-                            "=> {} Dry-run complete for {} {format} crosswalk file{}",
-                            Label::pass(),
-                            count.green(),
-                            suffix(count)
-                        );
-                    } else {
-                        info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
-                    }
-                    if strict && !all_warnings.is_empty() {
-                        fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
-                        Err(eyre!("Strict mode — {} crosswalk warning(s) found", all_warnings.len()))
-                    } else {
-                        Ok(())
-                    }
                 }
-                | Err(why) => {
-                    fail!("Generate {} crosswalk — {}", format, why);
-                    Err(eyre!("Generate {} crosswalk — {why}", format))
-                }
+                | Err(why) => Err(why),
             }
         }
         | None => Err(eyre!(

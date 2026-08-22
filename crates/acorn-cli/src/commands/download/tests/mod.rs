@@ -9,8 +9,7 @@
     clippy::arithmetic_side_effects
 )]
 extern crate alloc;
-use super::run;
-use crate::cli::arguments::{OutputFormat, SyncTarget};
+use crate::cli::arguments::{DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget};
 use crate::test::server::{
     spawn_basic_model_config_server, spawn_huggingface_missing_model_search_server, spawn_huggingface_model_info_server,
     spawn_huggingface_model_search_server, spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server,
@@ -26,6 +25,7 @@ use acorn::io::download::{DownloadItem, DownloadItems, DownloadTask};
 use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
 use acorn::prelude::{create_dir_all, read_to_string, write, HashSet, PathBuf};
 use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
+use acorn::schema::hardware::memory::Memory;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::env::MODEL_WHITELIST;
@@ -46,6 +46,36 @@ use tracing_subscriber::fmt::MakeWriter;
 const OFFLINE: bool = false;
 const TEST_THREADS: usize = 2;
 static HF_ENDPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+#[allow(clippy::too_many_arguments)]
+async fn import_local(
+    config: &Option<PathBuf>,
+    uri: &[String],
+    filter: &[String],
+    ignore: &[String],
+    output: &Option<PathBuf>,
+    flatten: bool,
+    clobber: bool,
+    database_path: &Option<PathBuf>,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+    no_local_database: bool,
+) -> crate::cli::Void {
+    let arguments = Import {
+        command: None,
+        uri: uri.to_vec(),
+        config: config.clone(),
+        filter: filter.to_vec(),
+        ignore: ignore.to_vec(),
+        output: output.clone(),
+        flatten,
+        clobber,
+        archive_format: None,
+        verbose: *verbose,
+    };
+    crate::commands::import::run(&arguments, database_path, threads, offline, no_local_database).await
+}
 
 fn write_rad(path: &std::path::Path, identifier: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
@@ -70,7 +100,7 @@ fn test_download_zero_items_prints_warning() {
     let bucket = format!("file:{}/", fixture_path("data/bucket").display());
     let output = Command::cargo_bin("acorn")
         .expect("locate acorn binary")
-        .args(["--no-local-database", "download"])
+        .args(["--no-local-database", "import"])
         .arg(bucket)
         .args(["--filter", "^does-not-match$"])
         .arg("--output")
@@ -112,7 +142,7 @@ async fn run_model(
     raw: bool,
     format: &OutputFormat,
 ) -> crate::cli::Void {
-    super::model::run(
+    execute_model(
         model,
         &None,
         &None,
@@ -139,6 +169,70 @@ async fn run_model(
         raw,
         format,
     )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+async fn execute_model(
+    model: &[String],
+    model_file: &Option<String>,
+    sync: &Option<SyncTarget>,
+    force: bool,
+    filter: &[String],
+    ignore: &[String],
+    config: &Option<PathBuf>,
+    output: &Option<PathBuf>,
+    database_path: &Option<PathBuf>,
+    verbose: &Verbosity,
+    offline: bool,
+    copy: bool,
+    symlink: bool,
+    skip_verify_checksum: bool,
+    whitelist: &[String],
+    no_fallback: bool,
+    no_local_database: bool,
+    quantization: &[Quantization],
+    gpu_memory: &Option<Memory>,
+    search_limit: usize,
+    minimum_download_count: u64,
+    interactive: bool,
+    dry_run: bool,
+    raw: bool,
+    format: &OutputFormat,
+) -> crate::cli::Void {
+    let arguments = DownloadModel {
+        source: ModelSourceArgs {
+            model: model.to_vec(),
+            model_file: model_file.clone(),
+            config: config.clone(),
+        },
+        resolution: ModelResolutionArgs {
+            no_fallback,
+            interactive,
+            search_limit,
+            minimum_download_count,
+        },
+        synchronization: ModelSyncArgs { sync: *sync, force, dry_run },
+        filter: filter.to_vec(),
+        ignore: ignore.to_vec(),
+        quantization: quantization.to_vec(),
+        gpu_memory: gpu_memory.clone(),
+        local_dir: output.clone(),
+        copy,
+        symlink,
+        whitelist: whitelist.to_vec(),
+        whitelist_file: None,
+        skip_verify_checksum,
+        raw,
+        format: format.clone(),
+        verbose: *verbose,
+    };
+    super::model::execute(super::model::Request {
+        arguments: &arguments,
+        whitelist,
+        database_path,
+        offline,
+        no_local_database,
+    })
     .await
 }
 
@@ -477,7 +571,26 @@ fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
     assert!(text.contains("Model download is incomplete"));
 }
 #[tokio::test]
-async fn test_download_local_config_silent() -> Result<()> {
+async fn test_download_rejects_local_source() {
+    let result = super::run(
+        &None,
+        &["file:./tests/fixtures/data/bucket/".to_string()],
+        &[],
+        &[],
+        &Some(PathBuf::from("unused")),
+        false,
+        false,
+        &None,
+        TEST_THREADS,
+        &Verbosity::new(0, 1),
+        false,
+        true,
+    )
+    .await;
+    assert!(result.is_err());
+}
+#[tokio::test]
+async fn test_import_local_config_silent() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_config_silent");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("output");
@@ -490,7 +603,7 @@ async fn test_download_local_config_silent() -> Result<()> {
     let filter: Vec<String> = vec![];
     let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
-    let result = run(
+    let result = import_local(
         &Some(config_path),
         &[],
         &filter,
@@ -510,16 +623,16 @@ async fn test_download_local_config_silent() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_local_url_silent() -> Result<()> {
+async fn test_import_local_url_silent() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_url_silent");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let output_dir = temp_dir.join("output");
     create_dir_all(&output_dir)?;
-    let url = vec!["file:./tests/fixtures/data/bucket/".to_string()];
+    let url = vec![format!("file:{}/", fixture_path("data/bucket").display())];
     let filter: Vec<String> = vec![];
     let ignore: Vec<String> = vec![];
     let verbose = Verbosity::new(0, 1);
-    let result = run(
+    let result = import_local(
         &None,
         &url,
         &filter,
@@ -534,19 +647,19 @@ async fn test_download_local_url_silent() -> Result<()> {
         true,
     )
     .await;
-    assert!(result.is_ok(), "download from local URL should succeed");
+    assert!(result.is_ok(), "import from local URL should succeed");
     assert!(output_dir.exists(), "output directory should exist");
     Ok(())
 }
 #[tokio::test]
-async fn test_download_local_url_flattens_and_ingests_rad() -> Result<()> {
+async fn test_import_local_url_flattens_and_ingests_rad() -> Result<()> {
     let temp_dir = temp_test_dir("download_local_url_flatten");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let bucket_dir = temp_dir.join("bucket");
     let output_dir = temp_dir.join("output");
     let database_path = Some(temp_dir.join("acorn.db"));
     write_rad(&bucket_dir.join("nested/index.json"), "flattened-project")?;
-    run(
+    import_local(
         &None,
         &[format!("file:{}/", bucket_dir.display())],
         &[],
@@ -611,7 +724,7 @@ fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
     write(output_dir.join("unrelated.txt"), "keep").expect("write unrelated destination");
     let output = Command::cargo_bin("acorn")
         .expect("locate acorn binary")
-        .args(["--no-local-database", "download"])
+        .args(["--no-local-database", "import"])
         .arg(format!("file:{}/", bucket_dir.display()))
         .arg("--output")
         .arg(&output_dir)
@@ -629,7 +742,7 @@ fn test_download_clobber_replaces_selected_file_and_preserves_unrelated_file() {
     assert_eq!(read_to_string(output_dir.join("unrelated.txt")).expect("read unrelated file"), "keep");
 }
 #[tokio::test]
-async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
+async fn test_import_ingests_and_replays_valid_rad() -> Result<()> {
     let temp_dir = temp_test_dir("download_ingests_valid_rad");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let bucket_dir = temp_dir.join("bucket");
@@ -641,7 +754,7 @@ async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
     let verbose = Verbosity::new(0, 1);
     for index in 0..2 {
         let run_output = output_dir.join(index.to_string());
-        run(
+        import_local(
             &None,
             &url,
             &[],
@@ -664,14 +777,14 @@ async fn test_download_ingests_and_replays_valid_rad() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_download_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
+async fn test_import_preserves_malformed_rad_and_fails_ingestion() -> Result<()> {
     let temp_dir = temp_test_dir("download_malformed_rad");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let bucket_dir = temp_dir.join("bucket");
     let output_dir = temp_dir.join("output");
     create_dir_all(&bucket_dir)?;
     write(bucket_dir.join("index.json"), "{ malformed")?;
-    let result = run(
+    let result = import_local(
         &None,
         &[format!("file:{}/", bucket_dir.display())],
         &[],
@@ -691,7 +804,7 @@ async fn test_download_preserves_malformed_rad_and_fails_ingestion() -> Result<(
     Ok(())
 }
 #[tokio::test]
-async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
+async fn test_import_ingests_multiple_rad_formats_and_honors_filter() -> Result<()> {
     let temp_dir = temp_test_dir("download_multiple_rad");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let bucket_dir = temp_dir.join("bucket");
@@ -702,7 +815,7 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
     write_rad(&bucket_dir.join("keep/project.md"), "kept-markdown")?;
     write(bucket_dir.join("keep/README.md"), "# Documentation\n")?;
     write_rad(&bucket_dir.join("skip/index.json"), "filtered-out")?;
-    run(
+    import_local(
         &None,
         &[format!("file:{}/", bucket_dir.display())],
         &["keep".to_string()],
@@ -727,13 +840,13 @@ async fn test_download_ingests_multiple_rad_formats_and_honors_filter() -> Resul
     Ok(())
 }
 #[tokio::test]
-async fn test_download_no_local_database_disables_candidate_persistence() -> Result<()> {
+async fn test_import_no_local_database_disables_candidate_persistence() -> Result<()> {
     let temp_dir = temp_test_dir("download_no_candidate_persistence");
     let _cleanup = TestCleanup::new(temp_dir.clone());
     let bucket_dir = temp_dir.join("bucket");
     let database_path = temp_dir.join("acorn.db");
     write_rad(&bucket_dir.join("index.json"), "not-persisted")?;
-    run(
+    import_local(
         &None,
         &[format!("file:{}/", bucket_dir.display())],
         &[],
@@ -1062,7 +1175,7 @@ async fn test_download_model_syncs_downloaded_model() -> Result<()> {
         &config_path,
         serde_json::json!({"config":{"opencode":{"path":opencode_path.display().to_string()}}}).to_string(),
     )?;
-    let result = super::model::run(
+    let result = execute_model(
         &[model_file.display().to_string()],
         &None,
         &Some(SyncTarget::Opencode),
@@ -1269,7 +1382,7 @@ async fn test_download_model_reads_model_file() -> Result<()> {
     let model_file = temp_dir.join("models.txt");
     write(&model, b"fake model data")?;
     write(&model_file, model.display().to_string())?;
-    let result = super::model::run(
+    let result = execute_model(
         &[],
         &Some(model_file.display().to_string()),
         &None,
@@ -1408,7 +1521,7 @@ async fn test_download_model_file_overrides_config() -> Result<()> {
     write(&model, b"fake model data")?;
     write(&model_file, model.display().to_string())?;
     write(&config_path, r#"{"models": ["configured/remote-model"]}"#)?;
-    let result = super::model::run(
+    let result = execute_model(
         &[],
         &Some(model_file.display().to_string()),
         &None,

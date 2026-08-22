@@ -53,6 +53,7 @@ hf-hub = { workspace = true, optional = true }
 httpdate = { workspace = true, optional = true }
 human-units = { version = "0.5.3", default-features = false }
 indicatif = { workspace = true, optional = true }
+infer = { workspace = true, optional = true }
 is_executable = { version = "1.0.5", default-features = false, optional = true }
 itertools = { workspace = true }
 jsonc-parser = { workspace = true }
@@ -88,6 +89,7 @@ serde_repr = { workspace = true }
 serde_trim = { version = "1.1.0", default-features = false }
 serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
 serde_norway = { workspace = true }
+sevenz-rust2 = { workspace = true, optional = true }
 similar = { version = "3.1.0", features = ["text"], default-features = false, optional = true }
 sophia = { workspace = true }
 swhid = { workspace = true, features = ["git"], optional = true }
@@ -135,7 +137,7 @@ alloc = ["core", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc"]
 unicode = ["std", "console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:flate2", "dep:polars", "dep:rayon", "dep:rust-ini", "dep:tar"]
+analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
 chart = ["dep:resvg"]
 default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
@@ -155,6 +157,7 @@ std = [
   "dep:hf-hub",
   "dep:httpdate",
   "dep:indicatif",
+  "dep:infer",
   "dep:is_executable",
   "dep:lychee-lib",
   "dep:nanoid",
@@ -166,7 +169,10 @@ std = [
   "dep:rsa",
   "dep:rust-embed",
   "dep:rusqlite",
+  "dep:sevenz-rust2",
   "dep:similar",
+  "dep:flate2",
+  "dep:tar",
   "dep:tera",
   "dep:tokio",
   "dep:tower",

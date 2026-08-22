@@ -1,4 +1,4 @@
-use crate::cli::arguments::SyncTarget;
+use crate::cli::arguments::{ImportModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs};
 use crate::cli::Void;
 #[cfg(feature = "tui")]
 use crate::commands::download::model::plan::run_gguf_picker;
@@ -11,7 +11,6 @@ use acorn::io::{sync, ApiResult, Source};
 use acorn::prelude::{PathBuf, String, Vec};
 use acorn::schema::agent::{ModelSelectors, Weights};
 use acorn::util::{suffix, Label};
-use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 use itertools::Itertools;
@@ -19,25 +18,38 @@ use owo_colors::OwoColorize;
 use tracing::{error, info, warn};
 
 /// Import model metadata into the local database
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    model: &[String],
-    model_file: &Option<String>,
-    sync_target: &Option<SyncTarget>,
-    force: bool,
-    dry_run: bool,
-    config: &Option<PathBuf>,
-    database_path: &Option<PathBuf>,
-    no_local_database: bool,
-    offline: bool,
-    no_fallback: bool,
-    search_limit: usize,
-    minimum_download_count: u64,
-    interactive: bool,
-    verbose: &Verbosity,
-) -> Void {
+pub(crate) struct Request<'a> {
+    pub(crate) arguments: &'a ImportModel,
+    pub(crate) database_path: &'a Option<PathBuf>,
+    pub(crate) no_local_database: bool,
+    pub(crate) offline: bool,
+}
+pub async fn execute(request: Request<'_>) -> Void {
+    let Request {
+        arguments,
+        database_path,
+        no_local_database,
+        offline,
+    } = request;
+    let ImportModel {
+        source: ModelSourceArgs { model, model_file, config },
+        resolution:
+            ModelResolutionArgs {
+                no_fallback,
+                interactive,
+                search_limit,
+                minimum_download_count,
+            },
+        synchronization: ModelSyncArgs {
+            sync: sync_target,
+            force,
+            dry_run,
+        },
+        verbose,
+    } = arguments;
+    let model = model.as_slice();
     let quiet = verbose.is_silent();
-    let persistence_disabled = no_local_database || dry_run;
+    let persistence_disabled = no_local_database || *dry_run;
     match ModelSelectors::from(model).resolve(model_file, offline).await {
         | Ok(model) => match (model.is_empty() && config.is_none(), persistence_disabled) {
             | (true, true) => {
@@ -45,7 +57,7 @@ pub async fn run(
                     println!(
                         "=> {} Model catalog persistence {}",
                         Label::skip(),
-                        if dry_run { "(dry run)" } else { "(local database is disabled)" }.dimmed()
+                        if *dry_run { "(dry run)" } else { "(local database is disabled)" }.dimmed()
                     );
                 }
                 Ok(())
@@ -78,10 +90,10 @@ pub async fn run(
                             let options = ModelImportOptions {
                                 no_local_database: persistence_disabled,
                                 offline,
-                                no_fallback,
-                                search_limit,
-                                minimum_download_count,
-                                interactive,
+                                no_fallback: *no_fallback,
+                                search_limit: *search_limit,
+                                minimum_download_count: *minimum_download_count,
+                                interactive: *interactive,
                                 quiet,
                                 database_path: database_path.clone(),
                             };
@@ -104,9 +116,9 @@ pub async fn run(
                                         .llama_swap(target.is_llama_swap())
                                         .vscode(target.is_vscode())
                                         .goose(target.is_goose())
-                                        .force(force)
-                                        .assume_models(force)
-                                        .dry_run(dry_run)
+                                        .force(*force)
+                                        .assume_models(*force)
+                                        .dry_run(*dry_run)
                                         .build();
                                     configuration.sync_and_update(config, options)
                                 })

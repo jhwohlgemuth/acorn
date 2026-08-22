@@ -354,10 +354,7 @@ pub enum Commands {
     ///     $> acorn import model
     #[clap(verbatim_doc_comment)]
     #[command(long_about = None, visible_alias = "load")]
-    Import {
-        #[command(subcommand)]
-        command: Option<ImportCommands>,
-    },
+    Import(Box<arguments::Import>),
     /// Add linked data context to research activity data
     ///
     ///     $> acorn link /path/to/data/
@@ -440,7 +437,7 @@ pub enum DownloadCommands {
     /// Download model weights for use with ACORN research harnesses and local inference
     Model(Box<arguments::DownloadModel>),
 }
-#[derive(Debug, Subcommand)]
+#[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum ImportCommands {
     /// Import model metadata into the local database
