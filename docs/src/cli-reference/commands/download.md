@@ -46,7 +46,7 @@ acorn --no-local-database download --config /path/to/.acorn.json
 ```
 
 ### Local vs Remote
-The `download` command copies files from a *local* ACORN bucket when local `file://` URIs are used for associated buckets in the [configuration](../configuration.md) file. Use `"git"` as the `provider` for local buckets.
+Top-level `download` accepts remote bucket repositories only and requires online mode. Use [`acorn import`](import.md#research-content-and-bagit-archives) for local directories, local bucket entries in configuration, and offline local transfers. This policy does not apply to `download model`, which retains its documented local-file and offline behavior.
 
 ```json
 "buckets": [

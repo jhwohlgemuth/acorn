@@ -11,7 +11,7 @@ use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
 use crate::io::http::policy::{http_timeout_layer, retry_delay, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::{
-    archive, create_rsa_keypair, current_date, env_var_is_truthy, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
+    archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
     read_large_file, remove_fields, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, Fingerprint, InputOutput,
     PathConversion, PathExt, Remote, Source, SourceAction,
@@ -441,7 +441,7 @@ fn test_runners() {
 #[test]
 fn test_archive() {
     let path = fixtures_dir().join("data");
-    let output_file = archive(path.clone(), None).unwrap();
+    let output_file = archive(path.clone(), None, MimeType::Zip).unwrap();
     assert_eq!(output_file.file_name().unwrap().to_str().unwrap(), "data.zip");
     let file = File::open(output_file).unwrap();
     let mut zip = ZipArchive::new(file).unwrap();
@@ -449,6 +449,72 @@ fn test_archive() {
         .filter_map(|index| zip.by_index(index).ok().map(|entry| entry.name().to_string()))
         .collect::<Vec<_>>();
     assert!(names.iter().any(|name| name == "highlight/reference.pptx"));
+}
+#[test]
+fn test_archive_round_trips_supported_formats() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(source.join("nested")).unwrap();
+    write(source.join("nested/data.txt"), "archive content").unwrap();
+    for (index, format) in [MimeType::SevenZip, MimeType::Zip, MimeType::Tar, MimeType::Gzip].into_iter().enumerate() {
+        let archive_path = archive(source.clone(), None, format.clone()).unwrap();
+        let destination = temporary.path().join(format!("extract-{index}"));
+        extract(archive_path, Some(destination.clone()), None).unwrap();
+        assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
+    }
+}
+#[test]
+fn test_archive_rejects_destination_inside_source() {
+    let temporary = tempfile::tempdir().unwrap();
+    let source = temporary.path().join("source");
+    create_dir_all(&source).unwrap();
+    write(source.join("data.txt"), "archive content").unwrap();
+    assert!(archive(source.clone(), Some(source.join("inside.zip")), MimeType::Zip).is_err());
+}
+#[test]
+fn test_tar_extraction_accepts_current_directory_prefix() {
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("prefixed.tar");
+    let mut builder = tar::Builder::new(File::create(&archive_path).unwrap());
+    let content = b"archive content";
+    let mut header = tar::Header::new_gnu();
+    header.set_size(content.len() as u64);
+    header.set_mode(0o644);
+    header.set_cksum();
+    builder.append_data(&mut header, "./nested/data.txt", content.as_slice()).unwrap();
+    builder.finish().unwrap();
+    let destination = temporary.path().join("output");
+    extract(archive_path, Some(destination.clone()), Some(MimeType::Tar)).unwrap();
+    assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
+}
+#[cfg(unix)]
+#[test]
+fn test_zip_extraction_rejects_preexisting_symlink_component() {
+    use std::os::unix::fs::symlink;
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("unsafe.zip");
+    let mut writer = zip::ZipWriter::new(File::create(&archive_path).unwrap());
+    writer.start_file("child/escape.txt", zip::write::SimpleFileOptions::default()).unwrap();
+    std::io::Write::write_all(&mut writer, b"escape").unwrap();
+    writer.finish().unwrap();
+    let destination = temporary.path().join("output");
+    let outside = temporary.path().join("outside");
+    create_dir_all(&destination).unwrap();
+    create_dir_all(&outside).unwrap();
+    symlink(&outside, destination.join("child")).unwrap();
+    assert!(extract(archive_path, Some(destination), Some(MimeType::Zip)).is_err());
+    assert!(!outside.join("escape.txt").exists());
+}
+#[test]
+fn test_zip_extraction_rejects_traversal() {
+    let temporary = tempfile::tempdir().unwrap();
+    let archive_path = temporary.path().join("unsafe.zip");
+    let file = File::create(&archive_path).unwrap();
+    let mut writer = zip::ZipWriter::new(file);
+    writer.start_file("../escape.txt", zip::write::SimpleFileOptions::default()).unwrap();
+    std::io::Write::write_all(&mut writer, b"escape").unwrap();
+    writer.finish().unwrap();
+    assert!(extract(archive_path, Some(temporary.path().join("output")), Some(MimeType::Zip)).is_err());
 }
 #[test]
 fn test_bagit() {

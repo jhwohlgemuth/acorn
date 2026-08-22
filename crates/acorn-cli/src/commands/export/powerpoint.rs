@@ -8,10 +8,10 @@ use acorn::io::powerpoint::ooxml::{
     validate_xml_well_formed, Relationship, Relationships,
 };
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::io::{archive, extract_zip, read_file, write_file, ApiResult, InputOutput};
+use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput};
 use acorn::prelude::{copy, create_dir_all, write, Arc, Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{Label, StringConversion};
+use acorn::util::{Label, MimeType, StringConversion};
 use color_eyre::eyre::eyre;
 use itertools::izip;
 use nanoid::nanoid;
@@ -307,10 +307,13 @@ pub fn create(
             }
         })
         .and_then(|reference_path| {
-            extract_zip(reference_path.clone(), None).map(Arc::new).map_err(|_| {
-                error!(path = reference_path.to_absolute_path(), "=> {} Extract reference", Label::fail());
-                eyre!("Failed to extract PowerPoint reference at {reference_path:?}")
-            })
+            ArchiveCandidate::from(reference_path.clone())
+                .extract_zip(None)
+                .map(Arc::new)
+                .map_err(|_| {
+                    error!(path = reference_path.to_absolute_path(), "=> {} Extract reference", Label::fail());
+                    eyre!("Failed to extract PowerPoint reference at {reference_path:?}")
+                })
         })
         .and_then(move |reference_extract_path| {
             research_activity_data
@@ -371,7 +374,7 @@ pub fn create(
                             let folder_name = folder.file_name_with_parent();
                             validate_ooxml_files(&reference_extract_path, count)
                                 .and_then(|_| prepare_destination(output, &folder_name))
-                                .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination)))
+                                .and_then(|destination| archive(reference_extract_path.as_ref().clone(), Some(destination), MimeType::Zip))
                         })
                 })
         })

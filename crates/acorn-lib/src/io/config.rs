@@ -5,11 +5,13 @@
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
+use crate::io::bagit::Bag;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{resolve_database_path, Database, Provenance, ResearchActivityCandidate, Row};
+use crate::io::http::download_with_progress;
 use crate::io::{
-    files_all, parse_jsonc_cst, read_file, sync, with_progress, write_file, write_file_bytes, ApiResult, CstRootNode, CstValue, Executor, FromPath,
-    InputOutput, ProgressType, Source,
+    files_all, parse_jsonc_cst, read_file, sync, uri_to_path, with_progress, write_file, write_file_bytes, ApiResult, ArchiveCandidate, CstRootNode,
+    CstValue, Executor, FromPath, InputOutput, ProgressType, Source, TemporaryDirectory,
 };
 use crate::prelude::{self, env, exit, Arc, ErrorKind, HashMap, HashSet, Mutex, Path, PathBuf};
 use crate::schema::pid::{Identifier, PID};
@@ -29,6 +31,7 @@ use core::future::Future;
 use core::iter::once;
 use derive_more::Display;
 use fancy_regex::Regex;
+use futures::{future, stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
@@ -189,6 +192,14 @@ pub enum RunnerType {
     #[serde(rename = "project_type", alias = "project")]
     Project,
 }
+/// Policy controlling which bucket sources a transfer accepts.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TransferPolicy {
+    /// Require a remote repository source.
+    Download,
+    /// Permit local and remote sources.
+    Import,
+}
 /// Struct for application configuration
 /// ### Example `.acorn` configuration file
 /// ```json
@@ -252,6 +263,70 @@ pub struct ApplicationConfiguration {
     #[eserde(compat)]
     pub whitelist: Option<WhitelistLookup>,
 }
+/// Struct for bucket data
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[builder(start_fn = init)]
+pub struct Bucket {
+    /// Bucket name
+    ///
+    /// See <https://schema.org/name>
+    pub name: Option<String>,
+    /// Bucket description
+    ///
+    /// See <https://schema.org/description>
+    pub description: Option<String>,
+    /// Code repository data of bucket
+    ///
+    /// See <https://schema.org/codeRepository>
+    #[serde(alias = "repository")]
+    pub code_repository: Repository,
+}
+/// Options for bucket transfers
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init)]
+pub struct BucketOptions {
+    /// Path to output directory
+    pub output: Option<PathBuf>,
+    /// Optional path to the activity database
+    pub database_path: Option<PathBuf>,
+    /// Disable ingestion into the local activity database
+    #[builder(default)]
+    pub no_local_database: bool,
+    /// Disable remote bucket operations
+    #[builder(default)]
+    pub offline: bool,
+    /// Number of threads used for parallel processing
+    #[builder(default = 10)]
+    pub threads: usize,
+    /// Suppress progress output
+    #[builder(default)]
+    pub quiet: bool,
+    /// Regex pattern(s) of files to ignore
+    #[builder(default)]
+    pub ignore: Vec<String>,
+    /// Regex pattern(s) of files to include
+    #[builder(default)]
+    pub filter: Vec<String>,
+    /// Save transferred files directly beneath the output directory
+    #[builder(default)]
+    pub flatten: bool,
+    /// Replace existing files or directories at selected output paths
+    #[builder(default)]
+    pub clobber: bool,
+}
+/// A collection of buckets that can be transferred together.
+#[derive(Clone, Debug, Default)]
+pub struct Buckets(Vec<Bucket>);
+/// Struct for filtering files based on regex patterns
+#[derive(Clone, Debug)]
+pub struct FilterSet {
+    /// Regex patterns to ignore
+    pub ignore: Vec<Regex>,
+    /// Regex patterns to include
+    pub filter: Vec<Regex>,
+}
 /// Detailed model download entry for use in `ApplicationConfiguration.models`
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
@@ -286,123 +361,6 @@ pub struct ModelEntryOptions {
     /// Symlink local model files into the model directory instead of referencing in place
     #[serde(default)]
     pub symlink: Option<bool>,
-}
-/// Struct for bucket data
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[builder(start_fn = init)]
-pub struct Bucket {
-    /// Bucket name
-    ///
-    /// See <https://schema.org/name>
-    pub name: Option<String>,
-    /// Bucket description
-    ///
-    /// See <https://schema.org/description>
-    pub description: Option<String>,
-    /// Code repository data of bucket
-    ///
-    /// See <https://schema.org/codeRepository>
-    #[serde(alias = "repository")]
-    pub code_repository: Repository,
-}
-/// Options for bucket file operations (copy and download)
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
-pub struct BucketOptions {
-    /// Path to output directory
-    pub output: Option<PathBuf>,
-    /// Number of threads used for parallel processing
-    #[builder(default = 10)]
-    pub threads: usize,
-    /// Suppress progress output
-    #[builder(default)]
-    pub quiet: bool,
-    /// Regex pattern(s) of files to ignore
-    #[builder(default)]
-    pub ignore: Vec<String>,
-    /// Regex pattern(s) of files to include
-    #[builder(default)]
-    pub filter: Vec<String>,
-    /// Save transferred files directly beneath the output directory
-    #[builder(default)]
-    pub flatten: bool,
-    /// Replace existing files or directories at selected output paths
-    #[builder(default)]
-    pub clobber: bool,
-}
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct TransferItem {
-    source: PathBuf,
-    destination: PathBuf,
-}
-impl From<&Path> for TransferItem {
-    fn from(source: &Path) -> Self {
-        Self {
-            source: source.to_path_buf(),
-            destination: source.to_path_buf(),
-        }
-    }
-}
-impl TransferItem {
-    fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
-        let items = paths
-            .into_iter()
-            .map(PathBuf::from)
-            .map(|path| Self::from(path.as_path()))
-            .map(|item| match flatten {
-                | true => item.flatten(),
-                | false => Ok(item),
-            })
-            .collect::<ApiResult<Vec<_>>>();
-        match items {
-            | Ok(items) => items
-                .iter()
-                .try_fold(HashMap::<PathBuf, PathBuf>::new(), |mut destinations, item| {
-                    let destination = &item.destination;
-                    let safe = !destination.as_os_str().is_empty() && destination.components().all(|part| matches!(part, Component::Normal(_)));
-                    match safe {
-                        | false => Err(eyre!("Output path is unsafe — '{}'", item.destination.display())),
-                        | true => match destinations.insert(item.destination.clone(), item.source.clone()) {
-                            | Some(source) => Err(eyre!(
-                                "Output path collision for '{}' — '{}' and '{}'",
-                                item.destination.display(),
-                                source.display(),
-                                item.source.display()
-                            )),
-                            | None => Ok(destinations),
-                        },
-                    }
-                })
-                .map(|_| items),
-            | Err(why) => Err(why),
-        }
-    }
-    fn flatten(self) -> ApiResult<Self> {
-        match self.source.file_name().map(PathBuf::from) {
-            | Some(destination) => Ok(Self { destination, ..self }),
-            | None => Err(eyre!("Cannot flatten repository path without a filename — {}", self.source.display())),
-        }
-    }
-}
-/// Files successfully transferred from one configured bucket.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TransferManifest {
-    /// Configured bucket name.
-    pub bucket: Option<String>,
-    /// Repository location used for the transfer.
-    pub repository: String,
-    /// Relative paths written beneath the output directory.
-    pub files: Vec<PathBuf>,
-}
-/// Struct for filtering files based on regex patterns
-#[derive(Clone, Debug)]
-pub struct FilterSet {
-    /// Regex patterns to ignore
-    pub ignore: Vec<Regex>,
-    /// Regex patterns to include
-    pub filter: Vec<Regex>,
 }
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
@@ -451,6 +409,21 @@ pub struct RunnerDetails {
     #[serde(default)]
     pub token: Option<String>,
 }
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TransferItem {
+    source: PathBuf,
+    destination: PathBuf,
+}
+/// Files successfully transferred from one configured bucket.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransferManifest {
+    /// Configured bucket name.
+    pub bucket: Option<String>,
+    /// Repository location used for the transfer.
+    pub repository: String,
+    /// Relative paths written beneath the output directory.
+    pub files: Vec<PathBuf>,
+}
 /// Whitelist entry for downloadable items
 /// ### Note
 /// An empty whitelist is interpreted to mean there are no restrictions and any item will be allowed
@@ -463,110 +436,6 @@ pub struct WhitelistLookup {
     pub buckets: Option<Vec<String>>,
     /// Whitelisted model IDs/URLs, or one URL to a JSON whitelist document
     pub models: Option<OneOrMany<String>>,
-}
-impl InputOutput for ApplicationConfiguration {
-    /// Read and parse application configuration file (JSON, JSONC, or YAML)
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match source.file_name().and_then(|name| name.to_str()) {
-            | Some(".acorn") => Self::read_jsonc(source),
-            | _ => match MimeType::from_path(&source) {
-                | MimeType::Json => Self::read_json(source.clone()),
-                | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-                | MimeType::Yaml => Self::read_yaml(source.clone()),
-                | _ => Err(eyre!("Unsupported configuration file extension")),
-            },
-        }
-    }
-    /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(
-                    path = path.to_string_lossy().to_string(),
-                    "=> {} ACORN configuration JSON content",
-                    Label::fail()
-                );
-                "{}".to_owned()
-            }
-        };
-        match Self::parse_json(content) {
-            | Ok(config) => Ok(config),
-            | Err(errors) => {
-                let details: Vec<String> = errors
-                    .iter()
-                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                    .collect();
-                Err(eyre!("{}", details.join("\n")))
-            }
-        }
-    }
-    /// Read configuration (e.g., `.acorn.jsonc`) using JSONC parser
-    ///
-    /// Supports comments (`//` and `/* */`) and trailing commas.
-    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) if !value.is_empty() => value,
-            | Ok(_) | Err(_) => {
-                error!(
-                    path = path.to_string_lossy().to_string(),
-                    "=> {} ACORN configuration JSONC content",
-                    Label::fail()
-                );
-                "{}".to_owned()
-            }
-        };
-        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
-    }
-    /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
-            | Ok(value) => value,
-            | Err(_) => {
-                error!(
-                    path = path.to_string_lossy().to_string(),
-                    "=> {} ACORN configuration YAML content",
-                    Label::fail()
-                );
-                "".to_owned()
-            }
-        };
-        Self::parse_yaml(content).map_err(|why| eyre!("Failed to parse YAML config — {why}"))
-    }
-    /// Write configuration to specified path (detects JSON, JSONC, or YAML from extension)
-    ///
-    /// JSONC files are written as strict JSON (no comments generated).
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        match target.file_name().and_then(|name| name.to_str()) {
-            | Some(".acorn") => self.write_json(&target),
-            | _ => match MimeType::from_path(&target) {
-                | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-                | MimeType::Yaml => self.write_yaml(&target),
-                | _ => Err(eyre!("Unsupported configuration file extension")),
-            },
-        }
-    }
-    /// Write configuration as JSON to specified path
-    ///
-    /// If the config was parsed from JSONC, preserves comments via CST.
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        match &self.cst {
-            | Some(cst) => write_file(target, cst.to_string()),
-            | None => serde_json::to_string_pretty(&self)
-                .map_err(|why| eyre!("Failed to serialize JSON config — {why}"))
-                .and_then(|content| write_file(target, content)),
-        }
-    }
-    /// Write configuration as YAML to specified path
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        serde_norway::to_string(&self)
-            .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
-            .and_then(|content| write_file(target.clone(), content))
-    }
 }
 impl ApplicationConfiguration {
     /// Load explicit or discovered application configuration, rejecting a missing explicit path.
@@ -766,7 +635,159 @@ impl ApplicationConfiguration {
         serde_norway::from_str(content.as_ref())
     }
 }
+impl InputOutput for ApplicationConfiguration {
+    /// Read and parse application configuration file (JSON, JSONC, or YAML)
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match source.file_name().and_then(|name| name.to_str()) {
+            | Some(".acorn") => Self::read_jsonc(source),
+            | _ => match MimeType::from_path(&source) {
+                | MimeType::Json => Self::read_json(source.clone()),
+                | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+                | MimeType::Yaml => Self::read_yaml(source.clone()),
+                | _ => Err(eyre!("Unsupported configuration file extension")),
+            },
+        }
+    }
+    /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration JSON content",
+                    Label::fail()
+                );
+                "{}".to_owned()
+            }
+        };
+        match Self::parse_json(content) {
+            | Ok(config) => Ok(config),
+            | Err(errors) => {
+                let details: Vec<String> = errors
+                    .iter()
+                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
+                    .collect();
+                Err(eyre!("{}", details.join("\n")))
+            }
+        }
+    }
+    /// Read configuration (e.g., `.acorn.jsonc`) using JSONC parser
+    ///
+    /// Supports comments (`//` and `/* */`) and trailing commas.
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) if !value.is_empty() => value,
+            | Ok(_) | Err(_) => {
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration JSONC content",
+                    Label::fail()
+                );
+                "{}".to_owned()
+            }
+        };
+        Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+    }
+    /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        let content = match read_file(path.clone()) {
+            | Ok(value) => value,
+            | Err(_) => {
+                error!(
+                    path = path.to_string_lossy().to_string(),
+                    "=> {} ACORN configuration YAML content",
+                    Label::fail()
+                );
+                "".to_owned()
+            }
+        };
+        Self::parse_yaml(content).map_err(|why| eyre!("Failed to parse YAML config — {why}"))
+    }
+    /// Write configuration to specified path (detects JSON, JSONC, or YAML from extension)
+    ///
+    /// JSONC files are written as strict JSON (no comments generated).
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let target = path.into();
+        match target.file_name().and_then(|name| name.to_str()) {
+            | Some(".acorn") => self.write_json(&target),
+            | _ => match MimeType::from_path(&target) {
+                | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+                | MimeType::Yaml => self.write_yaml(&target),
+                | _ => Err(eyre!("Unsupported configuration file extension")),
+            },
+        }
+    }
+    /// Write configuration as JSON to specified path
+    ///
+    /// If the config was parsed from JSONC, preserves comments via CST.
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let target = path.into();
+        match &self.cst {
+            | Some(cst) => write_file(target, cst.to_string()),
+            | None => serde_json::to_string_pretty(&self)
+                .map_err(|why| eyre!("Failed to serialize JSON config — {why}"))
+                .and_then(|content| write_file(target, content)),
+        }
+    }
+    /// Write configuration as YAML to specified path
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let target = path.into();
+        serde_norway::to_string(&self)
+            .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
+            .and_then(|content| write_file(target.clone(), content))
+    }
+}
 impl Bucket {
+    /// Resolves and validates a BagIt archive as a local payload bucket.
+    pub async fn archive(source: &str, format: Option<MimeType>, temporary: &TemporaryDirectory, offline: bool) -> ApiResult<(Self, String)> {
+        let local = uri_to_path(source);
+        let archive_path = match local.is_file() {
+            | true => Ok(local),
+            | false if offline => Err(eyre!("Offline mode cannot import remote archive: {source}")),
+            | false => {
+                let path = temporary.path().join("archive");
+                download_with_progress(source, &path, |_, _| {}, None, None, None, None)
+                    .await
+                    .map(|_| path)
+            }
+        };
+        archive_path
+            .and_then(|path| ArchiveCandidate::from(path).extract(Some(temporary.path().join("extracted")), format))
+            .and_then(|root| bag_root(&root))
+            .and_then(|root| Bag::verify(&root).map(|()| root.join("data")))
+            .map(|payload| (Self::from(payload.as_path()), source.to_string()))
+    }
+    /// Transfers this bucket and ingests supported research activity data.
+    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy, provenance: Option<&str>) -> ApiResult<usize> {
+        let local = self.code_repository.is_local();
+        match (policy, local, options.offline) {
+            | (TransferPolicy::Download, true, _) => Err(eyre!("Bucket download requires a remote repository source")),
+            | (_, false, true) => Err(eyre!("Offline mode cannot transfer remote bucket sources")),
+            | _ => match local {
+                | true => self.copy_files(options).await,
+                | false => self.download_files(options).await,
+            }
+            .and_then(|manifest| {
+                let manifest = match provenance {
+                    | Some(source) => TransferManifest {
+                        repository: source.to_string(),
+                        ..manifest
+                    },
+                    | None => manifest,
+                };
+                let count = manifest.count();
+                manifest
+                    .ingest(options, &options.database_path, options.no_local_database)
+                    .map(|()| count)
+            }),
+        }
+    }
+    /// Imports this bucket and ingests supported research activity data.
+    pub async fn import(self, options: &BucketOptions, provenance: Option<&str>) -> ApiResult<usize> {
+        self.transfer(options, TransferPolicy::Import, provenance).await
+    }
     /// Get hosting domain from bucket struct
     pub(crate) fn domain(&self) -> ApiResult<String> {
         let location = match &self.code_repository {
@@ -1024,6 +1045,12 @@ impl Bucket {
         }
     }
 }
+impl From<&Path> for Bucket {
+    fn from(value: &Path) -> Self {
+        let location = Location::Simple(format!("file:{}/", value.display()));
+        Self::init().code_repository(Repository::Git { location }).build()
+    }
+}
 impl From<&str> for Bucket {
     fn from(value: &str) -> Self {
         let location = Location::Simple(value.to_string());
@@ -1051,10 +1078,18 @@ impl From<&str> for Bucket {
         Bucket::init().code_repository(repository).build()
     }
 }
+impl From<PathBuf> for Bucket {
+    fn from(value: PathBuf) -> Self {
+        Self::from(value.as_path())
+    }
+}
 impl Default for BucketOptions {
     fn default() -> Self {
         Self {
             output: None,
+            database_path: None,
+            no_local_database: false,
+            offline: false,
             threads: 10,
             quiet: false,
             ignore: Vec::new(),
@@ -1064,13 +1099,23 @@ impl Default for BucketOptions {
         }
     }
 }
-impl BucketOptions {
-    /// Set the output path
-    pub fn with_output(self, output: impl Into<PathBuf>) -> Self {
-        Self {
-            output: Some(output.into()),
-            ..self
+impl Buckets {
+    /// Transfers all buckets and returns the total number of processed items.
+    pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy) -> ApiResult<usize> {
+        match options.output {
+            | Some(_) => {
+                stream::iter(self.0)
+                    .then(|bucket| bucket.transfer(options, policy, None))
+                    .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
+                    .await
+            }
+            | None => Ok(0),
         }
+    }
+}
+impl From<Vec<Bucket>> for Buckets {
+    fn from(value: Vec<Bucket>) -> Self {
+        Self(value)
     }
 }
 impl FilterSet {
@@ -1185,16 +1230,6 @@ impl ModelEntry {
             .unwrap_or_default()
     }
 }
-impl fmt::Display for RunnerType {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            | RunnerType::Group => "group",
-            | RunnerType::Instance => "instance",
-            | RunnerType::Project => "project",
-        };
-        formatter.write_str(value)
-    }
-}
 impl RunnerDetails {
     /// Set the runner identifier (assigned by GitLab after creation)
     pub fn with_id(self, value: u64) -> Self {
@@ -1212,6 +1247,16 @@ impl RunnerDetails {
         Self { token: value, ..self }
     }
 }
+impl fmt::Display for RunnerType {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | RunnerType::Group => "group",
+            | RunnerType::Instance => "instance",
+            | RunnerType::Project => "project",
+        };
+        formatter.write_str(value)
+    }
+}
 impl From<&str> for RunnerType {
     fn from(value: &str) -> Self {
         match value.to_uppercase().as_str() {
@@ -1224,6 +1269,55 @@ impl From<&str> for RunnerType {
 impl From<String> for RunnerType {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
+    }
+}
+impl From<&Path> for TransferItem {
+    fn from(source: &Path) -> Self {
+        Self {
+            source: source.to_path_buf(),
+            destination: source.to_path_buf(),
+        }
+    }
+}
+impl TransferItem {
+    fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
+        let items = paths
+            .into_iter()
+            .map(PathBuf::from)
+            .map(|path| Self::from(path.as_path()))
+            .map(|item| match flatten {
+                | true => item.flatten(),
+                | false => Ok(item),
+            })
+            .collect::<ApiResult<Vec<_>>>();
+        match items {
+            | Ok(items) => items
+                .iter()
+                .try_fold(HashMap::<PathBuf, PathBuf>::new(), |mut destinations, item| {
+                    let destination = &item.destination;
+                    let safe = !destination.as_os_str().is_empty() && destination.components().all(|part| matches!(part, Component::Normal(_)));
+                    match safe {
+                        | false => Err(eyre!("Output path is unsafe — '{}'", item.destination.display())),
+                        | true => match destinations.insert(item.destination.clone(), item.source.clone()) {
+                            | Some(source) => Err(eyre!(
+                                "Output path collision for '{}' — '{}' and '{}'",
+                                item.destination.display(),
+                                source.display(),
+                                item.source.display()
+                            )),
+                            | None => Ok(destinations),
+                        },
+                    }
+                })
+                .map(|_| items),
+            | Err(why) => Err(why),
+        }
+    }
+    fn flatten(self) -> ApiResult<Self> {
+        match self.source.file_name().map(PathBuf::from) {
+            | Some(destination) => Ok(Self { destination, ..self }),
+            | None => Err(eyre!("Cannot flatten repository path without a filename — {}", self.source.display())),
+        }
     }
 }
 impl TransferManifest {
@@ -1292,11 +1386,29 @@ impl TransferManifest {
         )
     }
 }
-fn count_json_files(paths: &[String]) -> usize {
-    paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
+fn bag_root(root: &Path) -> ApiResult<PathBuf> {
+    match root.join("bagit.txt").is_file() {
+        | true => Ok(root.to_path_buf()),
+        | false => root
+            .read_dir()
+            .map_err(Into::into)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter_map(|entry| entry.file_type().ok().filter(|kind| kind.is_dir()).map(|_| entry.path()))
+                    .collect::<Vec<_>>()
+            })
+            .and_then(|directories| match directories.as_slice() {
+                | [directory] if directory.join("bagit.txt").is_file() => Ok(directory.clone()),
+                | _ => Err(eyre!("BagIt metadata must be at the archive root or beneath one enclosing directory")),
+            }),
+    }
 }
 fn count_image_files(paths: &[String]) -> usize {
     paths.iter().filter(|&x| has_image_extension(x)).count()
+}
+fn count_json_files(paths: &[String]) -> usize {
+    paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
 }
 fn default_docker_image() -> String {
     "gitlab/gitlab-runner:latest".to_string()
@@ -1314,13 +1426,13 @@ fn filter_paths(paths: Vec<String>, filters: &FilterSet) -> Vec<String> {
 fn has_image_extension(path: &String) -> bool {
     path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
+fn is_filtered_path(path: &str, filter: &[Regex]) -> bool {
+    filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(path).unwrap_or(false))
+}
 fn is_ignored_path(path: &str, ignore: &[Regex]) -> bool {
     let is_builtin_ignored = IGNORE.iter().any(|value| path.ends_with(value));
     let is_regex_ignored = ignore.iter().any(|pattern| pattern.is_match(path).unwrap_or(false));
     is_builtin_ignored || is_regex_ignored
-}
-fn is_filtered_path(path: &str, filter: &[Regex]) -> bool {
-    filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(path).unwrap_or(false))
 }
 fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count.saturating_add(image_count);
@@ -1401,19 +1513,6 @@ mod tests {
     use super::*;
     use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write};
 
-    #[test]
-    fn test_resolution_failure_reason_reports_fallback_lookup_status() {
-        assert_eq!(
-            ModelEntry::resolution_failure_reason(&"missing", true, &[]),
-            "(missing; no fallback repositories found in the local model database)"
-        );
-        assert_eq!(ModelEntry::resolution_failure_reason(&"missing", false, &[]), "(missing)");
-        assert_eq!(
-            ModelEntry::resolution_failure_reason(&"missing", true, &["fallback/model".to_string()]),
-            "(missing)"
-        );
-    }
-
     fn temp_resolve_dir(name: &str) -> PathBuf {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1426,167 +1525,49 @@ mod tests {
             .join(format!("{name}-{nanos}"))
     }
 
-    #[test]
-    fn test_load_rejects_missing_explicit_path() {
-        let missing = temp_resolve_dir("load-missing").join("missing.json");
-        let result = ApplicationConfiguration::load(&Some(missing.clone()));
+    #[tokio::test]
+    async fn test_clobber_preserves_destination_when_source_read_fails() {
+        let output = temp_resolve_dir("clobber-source-failure-output");
+        create_dir_all(&output).unwrap();
+        write(output.join("index.json"), "old").unwrap();
+        let write_lock = Mutex::new(());
+        let result = Bucket::write_file(&output, Path::new("index.json"), true, &write_lock, || async {
+            Err::<Vec<u8>, Report>(eyre!("source failure"))
+        })
+        .await;
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            format!("Configuration file does not exist — {}", missing.display())
-        );
+        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
+        let _ = remove_dir_all(output);
     }
-    #[test]
-    fn test_with_models_keeps_unique_identifiers() {
-        let configuration = ApplicationConfiguration::parse(r#"{"models":["acme/existing","acme/existing"]}"#).unwrap();
-        let entries = vec![
-            ModelEntry::Selector("acme/existing".to_string()),
-            ModelEntry::Selector("acme/added".to_string()),
-            ModelEntry::Selector("acme/added".to_string()),
-        ];
-        let updated = configuration.with_models(&entries).unwrap();
-        let identifiers = updated
-            .models
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|entry| match entry {
-                | ModelEntry::Selector(identifier) => Some(identifier),
-                | ModelEntry::Entry(_) => None,
+    #[tokio::test]
+    async fn test_copy_files_clobbers_selected_path_conflicts_only() {
+        let source = temp_resolve_dir("clobber-enabled-source");
+        let output = temp_resolve_dir("clobber-enabled-output");
+        create_dir_all(source.join("nested")).unwrap();
+        create_dir_all(output.join("directory.json")).unwrap();
+        write(source.join("existing.json"), "new file").unwrap();
+        write(source.join("directory.json"), "new directory replacement").unwrap();
+        write(source.join("nested/index.json"), "new nested file").unwrap();
+        write(source.join("nested/other.json"), "new sibling file").unwrap();
+        write(output.join("existing.json"), "old file").unwrap();
+        write(output.join("directory.json/old.json"), "old directory content").unwrap();
+        write(output.join("nested"), "old parent file").unwrap();
+        write(output.join("unrelated.json"), "keep").unwrap();
+        let bucket = Bucket::init()
+            .code_repository(Repository::Git {
+                location: Location::Simple(format!("file:{}", source.display())),
             })
-            .collect::<Vec<_>>();
-        assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
-    }
-    #[test]
-    fn test_model_update_preserves_jsonc_comments_and_dry_run() {
-        let directory = temp_resolve_dir("sync-acorn-config");
-        create_dir_all(&directory).unwrap();
-        let path = directory.join("config.jsonc");
-        let before = "{\n  // Keep this comment\n  \"models\": [\"acme/existing\"]\n}\n";
-        write(&path, before).unwrap();
-        let configuration = ApplicationConfiguration::read(path.clone()).unwrap();
-        let entries = vec![ModelEntry::Selector("acme/added".to_string())];
-        let updated = configuration.with_models(&entries).unwrap();
-        updated.write_or_preview(&path, true, true).unwrap();
-        assert_eq!(read_file(&path).unwrap(), before);
-        updated.write_or_preview(&path, false, true).unwrap();
-        let content = read_file(&path).unwrap();
-        assert_eq!(
-            content,
-            "{\n  // Keep this comment\n  \"models\": [\n    \"acme/existing\",\n    \"acme/added\"\n  ]\n}\n"
-        );
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_resolve_returns_explicit_existing_path() {
-        let directory = temp_resolve_dir("resolve-explicit");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let provided = directory.join("config.yaml");
-        let default = directory.join(".acorn.json");
-        write(&provided, "{}\n").unwrap();
-        write(&default, "{}\n").unwrap();
-        let resolved = ApplicationConfiguration::resolve(&Some(provided.clone()));
-        assert_eq!(resolved, Some(provided));
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_resolve_falls_back_to_default_when_provided_path_missing() {
-        let directory = temp_resolve_dir("resolve-fallback");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let default = directory.join(".acorn.yml");
-        write(&default, "{}\n").unwrap();
-        let resolved = ApplicationConfiguration::resolve_in(&Some(directory.join("missing.json")), &directory);
-        assert_eq!(resolved, Some(default));
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_extensionless_config_is_last_and_read_as_jsonc() {
-        assert_eq!(DEFAULT_CONFIG_FILENAMES.last(), Some(&".acorn"));
-        let directory = temp_resolve_dir("extensionless-jsonc");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let extensionless = directory.join(".acorn");
-        write(&extensionless, "{\n  // Comment\n}\n").unwrap();
-        let config = ApplicationConfiguration::read(extensionless.clone()).unwrap();
-        assert!(config.write(extensionless).is_ok());
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_count_image_files_counts_supported_extensions() {
-        let paths = vec![
-            "content/plot.png".to_string(),
-            "content/photo.jpg".to_string(),
-            "content/photo.jpeg".to_string(),
-            "content/index.json".to_string(),
-        ];
-        assert_eq!(count_image_files(&paths), 2);
-    }
-    #[test]
-    fn test_count_json_files_counts_case_insensitive_json_paths() {
-        let paths = vec![
-            "content/index.json".to_string(),
-            "content/README.md".to_string(),
-            "content/data.JSON".to_string(),
-        ];
-        assert_eq!(count_json_files(&paths), 2);
-    }
-    #[test]
-    fn test_has_image_extension_matches_png_and_jpg() {
-        assert!(has_image_extension(&"image.png".to_string()));
-        assert!(has_image_extension(&"photo.JPG".to_string()));
-        assert!(!has_image_extension(&"graphic.jpeg".to_string()));
-    }
-    #[test]
-    fn test_is_ignored_path() {
-        let ignore = FilterSet::compile(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()], &[])
-            .unwrap()
-            .ignore;
-        assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
-        assert!(is_ignored_path("/tmp/notes.txt", &ignore));
-        assert!(!is_ignored_path("/tmp/index.json", &ignore));
-        let invalid = FilterSet::compile(&["[".to_string()], &[]);
-        assert!(invalid.is_err());
-        let ignore: Vec<Regex> = vec![];
-        assert!(is_ignored_path("/tmp/README.md", &ignore));
-    }
-    #[test]
-    fn test_is_filtered_path() {
-        let filter = FilterSet::compile(&[], &[r"\.json$".to_string(), r"img/".to_string()]).unwrap().filter;
-        assert!(is_filtered_path("/tmp/data.json", &filter));
-        assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
-        assert!(!is_filtered_path("/tmp/README.md", &filter));
-        let invalid = FilterSet::compile(&[], &["[".to_string()]);
-        assert!(invalid.is_err());
-        let filter: Vec<Regex> = vec![];
-        assert!(is_filtered_path("/tmp/README.md", &filter));
-    }
-    #[test]
-    fn test_transfer_item_collect_preserves_or_flattens_paths() {
-        let paths = vec!["docs/quest/index.json".to_string(), "docs/quest/image.png".to_string()];
-        let preserved = TransferItem::collect(paths.clone(), false).unwrap();
-        let flattened = TransferItem::collect(paths, true).unwrap();
-        assert_eq!(
-            preserved.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
-            vec![PathBuf::from("docs/quest/index.json"), PathBuf::from("docs/quest/image.png")]
-        );
-        assert_eq!(
-            flattened.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
-            vec![PathBuf::from("index.json"), PathBuf::from("image.png")]
-        );
-    }
-    #[test]
-    fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
-        let result = TransferItem::collect(vec!["one/index.json".to_string(), "two/index.json".to_string()], true);
-        let message = result.unwrap_err().to_string();
-        assert!(message.contains("index.json"));
-        assert!(message.contains("one/index.json"));
-        assert!(message.contains("two/index.json"));
-    }
-    #[test]
-    fn test_transfer_item_collect_rejects_unsafe_destination() {
-        let result = TransferItem::collect(vec!["../outside.json".to_string()], false);
-        assert!(result.unwrap_err().to_string().contains("unsafe"));
+            .build();
+        let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
+        let result = bucket.copy_files(&options).await;
+        assert!(result.is_ok());
+        assert_eq!(read_to_string(output.join("existing.json")).unwrap(), "new file");
+        assert_eq!(read_to_string(output.join("directory.json")).unwrap(), "new directory replacement");
+        assert_eq!(read_to_string(output.join("nested/index.json")).unwrap(), "new nested file");
+        assert_eq!(read_to_string(output.join("nested/other.json")).unwrap(), "new sibling file");
+        assert_eq!(read_to_string(output.join("unrelated.json")).unwrap(), "keep");
+        let _ = remove_dir_all(source);
+        let _ = remove_dir_all(output);
     }
     #[tokio::test]
     async fn test_copy_files_flattens_destinations_and_manifest() {
@@ -1630,66 +1611,96 @@ mod tests {
         let _ = remove_dir_all(source);
         let _ = remove_dir_all(output);
     }
-    #[tokio::test]
-    async fn test_copy_files_clobbers_selected_path_conflicts_only() {
-        let source = temp_resolve_dir("clobber-enabled-source");
-        let output = temp_resolve_dir("clobber-enabled-output");
-        create_dir_all(source.join("nested")).unwrap();
-        create_dir_all(output.join("directory.json")).unwrap();
-        write(source.join("existing.json"), "new file").unwrap();
-        write(source.join("directory.json"), "new directory replacement").unwrap();
-        write(source.join("nested/index.json"), "new nested file").unwrap();
-        write(source.join("nested/other.json"), "new sibling file").unwrap();
-        write(output.join("existing.json"), "old file").unwrap();
-        write(output.join("directory.json/old.json"), "old directory content").unwrap();
-        write(output.join("nested"), "old parent file").unwrap();
-        write(output.join("unrelated.json"), "keep").unwrap();
-        let bucket = Bucket::init()
-            .code_repository(Repository::Git {
-                location: Location::Simple(format!("file:{}", source.display())),
-            })
-            .build();
-        let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
-        let result = bucket.copy_files(&options).await;
-        assert!(result.is_ok());
-        assert_eq!(read_to_string(output.join("existing.json")).unwrap(), "new file");
-        assert_eq!(read_to_string(output.join("directory.json")).unwrap(), "new directory replacement");
-        assert_eq!(read_to_string(output.join("nested/index.json")).unwrap(), "new nested file");
-        assert_eq!(read_to_string(output.join("nested/other.json")).unwrap(), "new sibling file");
-        assert_eq!(read_to_string(output.join("unrelated.json")).unwrap(), "keep");
-        let _ = remove_dir_all(source);
-        let _ = remove_dir_all(output);
-    }
-    #[tokio::test]
-    async fn test_clobber_preserves_destination_when_source_read_fails() {
-        let output = temp_resolve_dir("clobber-source-failure-output");
-        create_dir_all(&output).unwrap();
-        write(output.join("index.json"), "old").unwrap();
-        let write_lock = Mutex::new(());
-        let result = Bucket::write_file(&output, Path::new("index.json"), true, &write_lock, || async {
-            Err::<Vec<u8>, Report>(eyre!("source failure"))
-        })
-        .await;
-        assert!(result.is_err());
-        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
-        let _ = remove_dir_all(output);
-    }
-    #[cfg(unix)]
     #[test]
-    fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
-        let output = temp_resolve_dir("clobber-symlink-output");
-        let external = temp_resolve_dir("clobber-symlink-external");
-        create_dir_all(&output).unwrap();
-        create_dir_all(&external).unwrap();
-        write(external.join("index.json"), "outside").unwrap();
-        crate::prelude::symlink(&external, output.join("linked")).unwrap();
-        let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
-        assert_eq!(target, output.join("linked/index.json"));
-        assert!(output.join("linked").is_dir());
-        assert!(!output.join("linked").symlink_metadata().unwrap().file_type().is_symlink());
-        assert_eq!(read_to_string(external.join("index.json")).unwrap(), "outside");
-        let _ = remove_dir_all(output);
-        let _ = remove_dir_all(external);
+    fn test_count_image_files_counts_supported_extensions() {
+        let paths = vec![
+            "content/plot.png".to_string(),
+            "content/photo.jpg".to_string(),
+            "content/photo.jpeg".to_string(),
+            "content/index.json".to_string(),
+        ];
+        assert_eq!(count_image_files(&paths), 2);
+    }
+    #[test]
+    fn test_count_json_files_counts_case_insensitive_json_paths() {
+        let paths = vec![
+            "content/index.json".to_string(),
+            "content/README.md".to_string(),
+            "content/data.JSON".to_string(),
+        ];
+        assert_eq!(count_json_files(&paths), 2);
+    }
+    #[test]
+    fn test_extensionless_config_is_last_and_read_as_jsonc() {
+        assert_eq!(DEFAULT_CONFIG_FILENAMES.last(), Some(&".acorn"));
+        let directory = temp_resolve_dir("extensionless-jsonc");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let extensionless = directory.join(".acorn");
+        write(&extensionless, "{\n  // Comment\n}\n").unwrap();
+        let config = ApplicationConfiguration::read(extensionless.clone()).unwrap();
+        assert!(config.write(extensionless).is_ok());
+        let _ = remove_dir_all(directory);
+    }
+    #[test]
+    fn test_has_image_extension_matches_png_and_jpg() {
+        assert!(has_image_extension(&"image.png".to_string()));
+        assert!(has_image_extension(&"photo.JPG".to_string()));
+        assert!(!has_image_extension(&"graphic.jpeg".to_string()));
+    }
+    #[test]
+    fn test_is_filtered_path() {
+        let filter = FilterSet::compile(&[], &[r"\.json$".to_string(), r"img/".to_string()]).unwrap().filter;
+        assert!(is_filtered_path("/tmp/data.json", &filter));
+        assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
+        assert!(!is_filtered_path("/tmp/README.md", &filter));
+        let invalid = FilterSet::compile(&[], &["[".to_string()]);
+        assert!(invalid.is_err());
+        let filter: Vec<Regex> = vec![];
+        assert!(is_filtered_path("/tmp/README.md", &filter));
+    }
+    #[test]
+    fn test_is_ignored_path() {
+        let ignore = FilterSet::compile(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()], &[])
+            .unwrap()
+            .ignore;
+        assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
+        assert!(is_ignored_path("/tmp/notes.txt", &ignore));
+        assert!(!is_ignored_path("/tmp/index.json", &ignore));
+        let invalid = FilterSet::compile(&["[".to_string()], &[]);
+        assert!(invalid.is_err());
+        let ignore: Vec<Regex> = vec![];
+        assert!(is_ignored_path("/tmp/README.md", &ignore));
+    }
+    #[test]
+    fn test_load_rejects_missing_explicit_path() {
+        let missing = temp_resolve_dir("load-missing").join("missing.json");
+        let result = ApplicationConfiguration::load(&Some(missing.clone()));
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Configuration file does not exist — {}", missing.display())
+        );
+    }
+    #[test]
+    fn test_model_update_preserves_jsonc_comments_and_dry_run() {
+        let directory = temp_resolve_dir("sync-acorn-config");
+        create_dir_all(&directory).unwrap();
+        let path = directory.join("config.jsonc");
+        let before = "{\n  // Keep this comment\n  \"models\": [\"acme/existing\"]\n}\n";
+        write(&path, before).unwrap();
+        let configuration = ApplicationConfiguration::read(path.clone()).unwrap();
+        let entries = vec![ModelEntry::Selector("acme/added".to_string())];
+        let updated = configuration.with_models(&entries).unwrap();
+        updated.write_or_preview(&path, true, true).unwrap();
+        assert_eq!(read_file(&path).unwrap(), before);
+        updated.write_or_preview(&path, false, true).unwrap();
+        let content = read_file(&path).unwrap();
+        assert_eq!(
+            content,
+            "{\n  // Keep this comment\n  \"models\": [\n    \"acme/existing\",\n    \"acme/added\"\n  ]\n}\n"
+        );
+        let _ = remove_dir_all(directory);
     }
     #[test]
     fn test_operations_complete_message_includes_bucket_name_and_guidance() {
@@ -1712,5 +1723,106 @@ mod tests {
         let content = "{endpoints: []}";
         let result = ApplicationConfiguration::parse(content);
         assert!(result.is_ok());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
+        let output = temp_resolve_dir("clobber-symlink-output");
+        let external = temp_resolve_dir("clobber-symlink-external");
+        create_dir_all(&output).unwrap();
+        create_dir_all(&external).unwrap();
+        write(external.join("index.json"), "outside").unwrap();
+        crate::prelude::symlink(&external, output.join("linked")).unwrap();
+        let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
+        assert_eq!(target, output.join("linked/index.json"));
+        assert!(output.join("linked").is_dir());
+        assert!(!output.join("linked").symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(read_to_string(external.join("index.json")).unwrap(), "outside");
+        let _ = remove_dir_all(output);
+        let _ = remove_dir_all(external);
+    }
+    #[test]
+    fn test_resolution_failure_reason_reports_fallback_lookup_status() {
+        assert_eq!(
+            ModelEntry::resolution_failure_reason(&"missing", true, &[]),
+            "(missing; no fallback repositories found in the local model database)"
+        );
+        assert_eq!(ModelEntry::resolution_failure_reason(&"missing", false, &[]), "(missing)");
+        assert_eq!(
+            ModelEntry::resolution_failure_reason(&"missing", true, &["fallback/model".to_string()]),
+            "(missing)"
+        );
+    }
+
+    #[test]
+    fn test_resolve_falls_back_to_default_when_provided_path_missing() {
+        let directory = temp_resolve_dir("resolve-fallback");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let default = directory.join(".acorn.yml");
+        write(&default, "{}\n").unwrap();
+        let resolved = ApplicationConfiguration::resolve_in(&Some(directory.join("missing.json")), &directory);
+        assert_eq!(resolved, Some(default));
+        let _ = remove_dir_all(directory);
+    }
+    #[test]
+    fn test_resolve_returns_explicit_existing_path() {
+        let directory = temp_resolve_dir("resolve-explicit");
+        create_dir_all(&directory).unwrap();
+        let directory = directory.canonicalize().unwrap();
+        let provided = directory.join("config.yaml");
+        let default = directory.join(".acorn.json");
+        write(&provided, "{}\n").unwrap();
+        write(&default, "{}\n").unwrap();
+        let resolved = ApplicationConfiguration::resolve(&Some(provided.clone()));
+        assert_eq!(resolved, Some(provided));
+        let _ = remove_dir_all(directory);
+    }
+    #[test]
+    fn test_transfer_item_collect_preserves_or_flattens_paths() {
+        let paths = vec!["docs/quest/index.json".to_string(), "docs/quest/image.png".to_string()];
+        let preserved = TransferItem::collect(paths.clone(), false).unwrap();
+        let flattened = TransferItem::collect(paths, true).unwrap();
+        assert_eq!(
+            preserved.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+            vec![PathBuf::from("docs/quest/index.json"), PathBuf::from("docs/quest/image.png")]
+        );
+        assert_eq!(
+            flattened.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
+            vec![PathBuf::from("index.json"), PathBuf::from("image.png")]
+        );
+    }
+    #[test]
+    fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
+        let result = TransferItem::collect(vec!["one/index.json".to_string(), "two/index.json".to_string()], true);
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("index.json"));
+        assert!(message.contains("one/index.json"));
+        assert!(message.contains("two/index.json"));
+    }
+    #[test]
+    fn test_transfer_item_collect_rejects_unsafe_destination() {
+        let result = TransferItem::collect(vec!["../outside.json".to_string()], false);
+        assert!(result.unwrap_err().to_string().contains("unsafe"));
+    }
+    #[test]
+    fn test_with_models_keeps_unique_identifiers() {
+        let configuration = ApplicationConfiguration::parse(r#"{"models":["acme/existing","acme/existing"]}"#).unwrap();
+        let entries = vec![
+            ModelEntry::Selector("acme/existing".to_string()),
+            ModelEntry::Selector("acme/added".to_string()),
+            ModelEntry::Selector("acme/added".to_string()),
+        ];
+        let updated = configuration.with_models(&entries).unwrap();
+        let identifiers = updated
+            .models
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| match entry {
+                | ModelEntry::Selector(identifier) => Some(identifier),
+                | ModelEntry::Entry(_) => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
     }
 }

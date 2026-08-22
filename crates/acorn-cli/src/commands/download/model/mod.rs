@@ -2,19 +2,17 @@
 pub mod plan;
 use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
-use crate::cli::arguments::{OutputFormat, SyncTarget};
+use crate::cli::arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat};
 use crate::cli::{CommandOptions, Void};
 use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization};
-use acorn::schema::hardware::memory::Memory;
+use acorn::schema::agent::{ModelDetails, ModelSelectors};
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
-use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{self, eyre};
 use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
@@ -23,34 +21,52 @@ use owo_colors::OwoColorize;
 use tracing::{error, info};
 
 /// Download model weights with optional persisted-metadata constraints.
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    model: &[String],
-    model_file: &Option<String>,
-    sync_target: &Option<SyncTarget>,
-    force: bool,
-    filter: &[String],
-    ignore: &[String],
-    config: &Option<PathBuf>,
-    output: &Option<PathBuf>,
-    database_path: &Option<PathBuf>,
-    verbose: &Verbosity,
-    offline: bool,
-    copy: bool,
-    symlink: bool,
-    skip_verify_checksum: bool,
-    whitelist: &[String],
-    no_fallback: bool,
-    no_local_database: bool,
-    quantization: &[Quantization],
-    gpu_memory: &Option<Memory>,
-    search_limit: usize,
-    minimum_download_count: u64,
-    interactive: bool,
-    dry_run: bool,
-    raw: bool,
-    format: &OutputFormat,
-) -> Void {
+pub(crate) struct Request<'a> {
+    pub(crate) arguments: &'a DownloadModel,
+    pub(crate) whitelist: &'a [String],
+    pub(crate) database_path: &'a Option<PathBuf>,
+    pub(crate) offline: bool,
+    pub(crate) no_local_database: bool,
+}
+pub async fn execute(request: Request<'_>) -> Void {
+    let Request {
+        arguments,
+        whitelist,
+        database_path,
+        offline,
+        no_local_database,
+    } = request;
+    let DownloadModel {
+        source: ModelSourceArgs { model, model_file, config },
+        resolution:
+            ModelResolutionArgs {
+                no_fallback,
+                interactive,
+                search_limit,
+                minimum_download_count,
+            },
+        synchronization: ModelSyncArgs {
+            sync: sync_target,
+            force,
+            dry_run,
+        },
+        filter,
+        ignore,
+        quantization,
+        gpu_memory,
+        local_dir: output,
+        copy,
+        symlink,
+        skip_verify_checksum,
+        raw,
+        format,
+        verbose,
+        ..
+    } = arguments;
+    let model = model.as_slice();
+    let filter = filter.as_slice();
+    let ignore = ignore.as_slice();
+    let quantization = quantization.as_slice();
     let quiet = verbose.is_silent();
     let use_configured_models = model.is_empty() && model_file.is_none();
     let model = match ModelSelectors::from(model).resolve(model_file, offline).await {
@@ -60,7 +76,7 @@ pub async fn run(
             return Err(why);
         }
     };
-    let action = SourceAction::from_options(copy, symlink);
+    let action = SourceAction::from_options(*copy, *symlink);
     let configuration = match ApplicationConfiguration::load(config) {
         | Ok(configuration) => configuration,
         | Err(why) => {
@@ -132,18 +148,18 @@ pub async fn run(
                         } else {
                             let options = DownloadOptions {
                                 offline,
-                                limit: search_limit,
-                                minimum_download_count,
-                                interactive,
+                                limit: *search_limit,
+                                minimum_download_count: *minimum_download_count,
+                                interactive: *interactive,
                             };
                             let models = selectors.resolve(options).await;
                             if models.is_empty() {
                                 let why = ModelDownloadError::NoModelsFound;
                                 error!("=> {} {why}", Label::fail());
                                 Err(eyre!(why))
-                            } else if dry_run {
+                            } else if *dry_run {
                                 let models = models.into_iter().map(ModelDetails::from).collect::<Vec<_>>();
-                                let rendered = if raw {
+                                let rendered = if *raw {
                                     output_raw(&models, format)
                                 } else {
                                     info!(
@@ -175,8 +191,8 @@ pub async fn run(
                                             .llama_swap(target.is_llama_swap())
                                             .vscode(target.is_vscode())
                                             .goose(target.is_goose())
-                                            .force(force)
-                                            .assume_models(force)
+                                            .force(*force)
+                                            .assume_models(*force)
                                             .dry_run(true)
                                             .maybe_models_dir(output.as_deref())
                                             .build();
@@ -211,12 +227,12 @@ pub async fn run(
                                                     .maybe_database_path(database_path.clone())
                                                     .offline(offline)
                                                     .no_local_database(no_local_database)
-                                                    .no_fallback(no_fallback)
-                                                    .search_limit(search_limit)
-                                                    .minimum_download_count(minimum_download_count)
-                                                    .interactive(interactive)
-                                                    .quiet(quiet || raw)
-                                                    .skip_verify_checksum(skip_verify_checksum)
+                                                    .no_fallback(*no_fallback)
+                                                    .search_limit(*search_limit)
+                                                    .minimum_download_count(*minimum_download_count)
+                                                    .interactive(*interactive)
+                                                    .quiet(quiet || *raw)
+                                                    .skip_verify_checksum(*skip_verify_checksum)
                                                     .maybe_filter(regex_join(&filter))
                                                     .maybe_ignore(regex_join(&ignore))
                                                     .build();
@@ -232,7 +248,7 @@ pub async fn run(
                                                     }
                                                 }
                                             }
-                                            if raw {
+                                            if *raw {
                                                 output_raw(&results, format)
                                             } else {
                                                 if !quiet {
@@ -275,8 +291,8 @@ pub async fn run(
                                                                 .llama_swap(target.is_llama_swap())
                                                                 .vscode(target.is_vscode())
                                                                 .goose(target.is_goose())
-                                                                .force(force)
-                                                                .assume_models(force)
+                                                                .force(*force)
+                                                                .assume_models(*force)
                                                                 .models_dir(&root)
                                                                 .build();
                                                             configuration.sync_and_update(config, options)
@@ -318,7 +334,6 @@ pub async fn run(
         }
     }
 }
-
 pub(crate) struct Whitelist(pub(crate) Vec<String>);
 impl From<&[String]> for Whitelist {
     fn from(values: &[String]) -> Self {

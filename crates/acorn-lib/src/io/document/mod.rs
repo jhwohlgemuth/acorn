@@ -88,38 +88,13 @@ impl From<DocumentFormat> for Format {
 }
 impl From<Format> for DocumentFormat {
     fn from(value: Format) -> Self {
-        match value {
-            | Format::Csv => Self::Csv,
-            | Format::Doc => Self::Doc,
-            | Format::Docx => Self::Docx,
-            | Format::Epub => Self::Epub,
-            | Format::Excel => Self::Excel,
-            | Format::Odp => Self::Odp,
-            | Format::Ods => Self::Ods,
-            | Format::Odt => Self::Odt,
-            | Format::Pdf => Self::Pdf,
-            | Format::Ppt => Self::Ppt,
-            | Format::Pptx => Self::Pptx,
-            | Format::Rtf => Self::Rtf,
-        }
+        #[allow(clippy::expect_used)]
+        Self::try_from(&MimeType::from(value)).expect("anydoc formats always map to document formats")
     }
 }
 impl From<DocumentFormat> for MimeType {
     fn from(value: DocumentFormat) -> Self {
-        match value {
-            | DocumentFormat::Csv => Self::Csv,
-            | DocumentFormat::Doc => Self::Doc,
-            | DocumentFormat::Docx => Self::Docx,
-            | DocumentFormat::Epub => Self::Epub,
-            | DocumentFormat::Excel => Self::Excel,
-            | DocumentFormat::Odp => Self::Odp,
-            | DocumentFormat::Ods => Self::Ods,
-            | DocumentFormat::Odt => Self::Odt,
-            | DocumentFormat::Pdf => Self::Pdf,
-            | DocumentFormat::Ppt => Self::Ppt,
-            | DocumentFormat::Pptx => Self::Powerpoint,
-            | DocumentFormat::Rtf => Self::Rtf,
-        }
+        Self::from(Format::from(value))
     }
 }
 impl TryFrom<&MimeType> for DocumentFormat {

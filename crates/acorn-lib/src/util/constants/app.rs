@@ -1,5 +1,11 @@
 use jiff::SignedDuration;
 
+/// Maximum number of archive bytes inspected while inferring its format.
+pub const ARCHIVE_INFERENCE_BYTES: u64 = 8192;
+/// Maximum number of entries accepted from an archive.
+pub const MAX_ARCHIVE_ENTRIES: usize = 100_000;
+/// Maximum expanded size accepted from an archive.
+pub const MAX_ARCHIVE_EXPANDED_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 /// ASCII art logo for ACORN
 pub const LOGO: &str = r"
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀

@@ -226,33 +226,13 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     | Some(DownloadCommands::Model(args)) => {
                         match Whitelist::from(args.whitelist.as_slice()).resolve(&args.whitelist_file, offline).await {
                             | Ok(whitelist) => {
-                                download::model::run(
-                                    &args.model,
-                                    &args.model_file,
-                                    &args.sync,
-                                    args.force,
-                                    &args.filter,
-                                    &args.ignore,
-                                    &args.config,
-                                    &args.local_dir,
-                                    &config.database_path,
-                                    &args.verbose,
+                                download::model::execute(download::model::Request {
+                                    arguments: args,
+                                    whitelist: &whitelist.0,
+                                    database_path: &config.database_path,
                                     offline,
-                                    args.copy,
-                                    args.symlink,
-                                    args.skip_verify_checksum,
-                                    &whitelist.0,
-                                    args.no_fallback,
-                                    config.no_local_database,
-                                    &args.quantization,
-                                    &args.gpu_memory,
-                                    args.search_limit,
-                                    args.minimum_download_count,
-                                    args.interactive,
-                                    args.dry_run,
-                                    args.raw,
-                                    &args.format,
-                                )
+                                    no_local_database: config.no_local_database,
+                                })
                                 .await
                             }
                             | Err(why) => Err(why),
@@ -298,6 +278,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     show_aspect_labels,
                     show_aspect_scores,
                     format,
+                    archive_format,
                     reference,
                     from,
                     to,
@@ -322,6 +303,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     *show_aspect_labels,
                     *show_aspect_scores,
                     format,
+                    *archive_format,
                     reference,
                     from,
                     to,
@@ -447,31 +429,24 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Sync(arguments)) => {
             with_runtime(async { sync::run(arguments, &config.database_path, config.no_local_database, offline).await })
         }
-        | Some(Commands::Import { command, .. }) => match command {
+        | Some(Commands::Import(arguments)) if arguments.archive_format.is_some() && arguments.command.is_some() => {
+            Err(eyre::eyre!("--archive-format is only supported for bucket imports"))
+        }
+        | Some(Commands::Import(arguments)) => match &arguments.command {
             | Some(ImportCommands::Model(arguments)) => with_runtime(async {
                 let config = DatabaseConfig {
                     initial_download: false,
-                    no_local_database: config.no_local_database || arguments.dry_run,
+                    no_local_database: config.no_local_database || arguments.synchronization.dry_run,
                     ..config.clone()
                 };
                 match initialize_database(&config).await {
                     | Ok(()) => {
-                        import::model::run(
-                            &arguments.model,
-                            &arguments.model_file,
-                            &arguments.sync,
-                            arguments.force,
-                            arguments.dry_run,
-                            &arguments.config,
-                            &config.database_path,
-                            config.no_local_database,
+                        import::model::execute(import::model::Request {
+                            arguments,
+                            database_path: &config.database_path,
+                            no_local_database: config.no_local_database,
                             offline,
-                            arguments.no_fallback,
-                            arguments.search_limit,
-                            arguments.minimum_download_count,
-                            arguments.interactive,
-                            &arguments.verbose,
-                        )
+                        })
                         .await
                     }
                     | Err(why) => Err(why),
@@ -491,7 +466,10 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 } = arguments.as_ref();
                 import::spec::run(source, name, domain, root, auth_token, output, *dry_run, verbose, offline).await
             }),
-            | None => Err(eyre::eyre!("No subcommand provided for 'import'")),
+            | None => with_runtime(async {
+                initialize_database(config).await?;
+                import::run(arguments, &config.database_path, threads, offline, config.no_local_database).await
+            }),
         },
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {

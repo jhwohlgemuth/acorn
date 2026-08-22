@@ -200,6 +200,34 @@ pub enum FileFormat {
     #[display("YAML")]
     Yaml,
 }
+/// Archive container format used for BagIt import and export.
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
+pub(crate) enum ArchiveType {
+    /// 7-Zip archive.
+    #[value(name = "7z")]
+    #[display("7z")]
+    SevenZip,
+    /// Uncompressed TAR archive.
+    #[display("tar")]
+    Tar,
+    /// Gzip-compressed TAR archive.
+    #[value(name = "tar.gz")]
+    #[display("tar.gz")]
+    TarGzip,
+    /// ZIP archive.
+    #[display("zip")]
+    Zip,
+}
+impl From<ArchiveType> for MimeType {
+    fn from(value: ArchiveType) -> Self {
+        match value {
+            | ArchiveType::SevenZip => Self::SevenZip,
+            | ArchiveType::Tar => Self::Tar,
+            | ArchiveType::TarGzip => Self::Gzip,
+            | ArchiveType::Zip => Self::Zip,
+        }
+    }
+}
 /// Structured output format for gathered identifiers.
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum GatherOutputFormat {
@@ -412,6 +440,80 @@ pub(crate) struct Download {
     pub(crate) verbose: Verbosity,
 }
 #[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Import {
+    #[command(subcommand)]
+    pub(crate) command: Option<super::ImportCommands>,
+    /// Local directories, repository URIs, or BagIt archive URIs.
+    #[arg(value_name = "URI", required = false, value_delimiter = ',', value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) uri: Vec<String>,
+    /// Path to configuration file (JSON, JSONC, or YAML).
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "uri", help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Regular expression patterns used to include files.
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) filter: Vec<String>,
+    /// Regular expression patterns used to exclude files.
+    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) ignore: Vec<String>,
+    /// Directory where imported content is saved.
+    #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    /// Save imported files directly beneath the output directory.
+    #[arg(short = 'f', long, help_heading = "FLAGS")]
+    pub(crate) flatten: bool,
+    /// Replace existing files or directories at selected output paths.
+    #[arg(short = 'C', long, help_heading = "FLAGS")]
+    pub(crate) clobber: bool,
+    /// Force archive handling and bypass content inference.
+    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) archive_format: Option<ArchiveType>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+/// Model selectors and configuration shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelSourceArgs {
+    /// Model ID/name(s), local path(s), or direct URL(s).
+    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
+    pub(crate) model: Vec<String>,
+    /// URI or local path to a model list file.
+    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
+    pub(crate) model_file: Option<String>,
+    /// Path to an application configuration file listing models.
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+}
+/// Fallback and search behavior shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelResolutionArgs {
+    /// Disable automatic GGUF fallback repository discovery.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) no_fallback: bool,
+    /// Open an interactive picker when fallback finds multiple repositories.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
+    /// Maximum number of Hugging Face repositories to search.
+    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
+    pub(crate) search_limit: usize,
+    /// Minimum downloads required for a GGUF fallback repository.
+    #[arg(long = "minimum-popularity", value_name = "COUNT", env = MINIMUM_DOWNLOAD_COUNT, default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, help_heading = "OPTIONS")]
+    pub(crate) minimum_download_count: u64,
+}
+/// Synchronization behavior shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelSyncArgs {
+    /// Synchronize resolved models with configured inference applications.
+    #[arg(long, value_enum, value_name = "TARGET", num_args = 0..=1, default_missing_value = "all", help_heading = "OPTIONS")]
+    pub(crate) sync: Option<SyncTarget>,
+    /// Assume synchronized models exist under the models directory.
+    #[arg(long, requires = "sync", help_heading = "FLAGS")]
+    pub(crate) force: bool,
+    /// Preview resolution and synchronization without writes.
+    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+}
+#[derive(Clone, Debug, Args)]
 #[command(
     long_about = "Download model weights for use with ACORN research harnesses and local inference.\n\
         \n\
@@ -433,31 +535,12 @@ pub(crate) struct Download {
     verbatim_doc_comment
 )]
 pub(crate) struct DownloadModel {
-    /// Model ID/name(s), local path(s), or direct URL(s) to download
-    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
-    pub(crate) model: Vec<String>,
-    /// URI or local path to a model list file
-    ///
-    /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
-    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
-    pub(crate) model_file: Option<String>,
-    /// Add downloaded models to ACORN and synchronize OpenCode and/or llama-swap configuration
-    #[arg(
-        long,
-        value_enum,
-        value_name = "TARGET",
-        num_args = 0..=1,
-        default_missing_value = "all",
-        conflicts_with = "raw",
-        help_heading = "OPTIONS"
-    )]
-    pub(crate) sync: Option<SyncTarget>,
-    /// Assume synchronized models exist under the models directory
-    #[arg(long, requires = "sync", help_heading = "FLAGS")]
-    pub(crate) force: bool,
-    /// Path to configuration file listing models to download
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-    pub(crate) config: Option<PathBuf>,
+    #[command(flatten)]
+    pub(crate) source: ModelSourceArgs,
+    #[command(flatten)]
+    pub(crate) resolution: ModelResolutionArgs,
+    #[command(flatten)]
+    pub(crate) synchronization: ModelSyncArgs,
     /// Regular expression pattern(s) used to include model weight sources while downloading
     ///
     /// Only sources matching at least one pattern will be downloaded
@@ -496,31 +579,8 @@ pub(crate) struct DownloadModel {
     /// Skip SHA-256 checksum verification when checksum sidecar metadata is available
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) skip_verify_checksum: bool,
-    /// Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
-    ///
-    /// Applies when the requested repository contains no GGUF files and automatic fallback is enabled
-    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
-    pub(crate) search_limit: usize,
-    /// Minimum number of downloads required for a GGUF fallback repository
-    #[arg(
-        long = "minimum-popularity",
-        value_name = "COUNT",
-        env = MINIMUM_DOWNLOAD_COUNT,
-        default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT,
-        help_heading = "OPTIONS"
-    )]
-    pub(crate) minimum_download_count: u64,
-    /// Disable automatic GGUF quantization repository discovery when the target has no GGUF files
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) no_fallback: bool,
-    /// Open an interactive picker when GGUF fallback finds multiple repositories
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) interactive: bool,
-    /// Preview resolved models and fallbacks without downloading
-    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
-    pub(crate) dry_run: bool,
     /// Output structured JSON (or YAML with --format yaml) of resolved models
-    #[arg(long, help_heading = "FLAGS")]
+    #[arg(long, conflicts_with = "sync", help_heading = "FLAGS")]
     pub(crate) raw: bool,
     /// Output format for --raw results
     #[arg(long, value_name = "FORMAT", default_value = "json", requires = "raw", help_heading = "OPTIONS")]
@@ -531,44 +591,12 @@ pub(crate) struct DownloadModel {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct ImportModel {
-    /// Hugging Face model repository ID(s) to inspect
-    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
-    pub(crate) model: Vec<String>,
-    /// URI or local path to a model list file
-    ///
-    /// Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
-    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
-    pub(crate) model_file: Option<String>,
-    /// Add imported models to ACORN and synchronize OpenCode and/or llama-swap configuration
-    #[arg(long, value_enum, value_name = "TARGET", num_args = 0..=1, default_missing_value = "all", help_heading = "OPTIONS")]
-    pub(crate) sync: Option<SyncTarget>,
-    /// Assume synchronized models exist under the models directory
-    #[arg(long, requires = "sync", help_heading = "FLAGS")]
-    pub(crate) force: bool,
-    /// Resolve model metadata without database or configuration writes
-    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
-    pub(crate) dry_run: bool,
-    /// Path to configuration file listing models to inspect
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-    pub(crate) config: Option<PathBuf>,
-    /// Disable automatic GGUF quantization repository discovery
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) no_fallback: bool,
-    /// Open an interactive picker when GGUF fallback finds multiple repositories
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) interactive: bool,
-    /// Maximum number of Hugging Face repositories to search during GGUF fallback discovery
-    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
-    pub(crate) search_limit: usize,
-    /// Minimum number of downloads required for a GGUF fallback repository
-    #[arg(
-        long = "minimum-popularity",
-        value_name = "COUNT",
-        env = MINIMUM_DOWNLOAD_COUNT,
-        default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT,
-        help_heading = "OPTIONS"
-    )]
-    pub(crate) minimum_download_count: u64,
+    #[command(flatten)]
+    pub(crate) source: ModelSourceArgs,
+    #[command(flatten)]
+    pub(crate) resolution: ModelResolutionArgs,
+    #[command(flatten)]
+    pub(crate) synchronization: ModelSyncArgs,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
@@ -604,6 +632,9 @@ pub(crate) struct Export {
     /// When used with --schema, specifies the output format (json or yaml)
     #[arg(default_value = "pdf", short, long, value_name = "FORMAT", help_heading = "OPTIONS")]
     pub(crate) format: FileFormat,
+    /// BagIt archive container format.
+    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) archive_format: Option<ArchiveType>,
     /// Regular expression pattern(s) applied to absolute paths of files to include during export
     ///
     /// Only files matching at least one pattern will be processed

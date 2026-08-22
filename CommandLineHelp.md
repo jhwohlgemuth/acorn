@@ -398,14 +398,21 @@ Download model weights for use with ACORN research harnesses and local inference
 
 ###### **Arguments:**
 
-* `<MODEL>` — Model ID/name(s), local path(s), or direct URL(s) to download
+* `<MODEL>` — Model ID/name(s), local path(s), or direct URL(s)
 
 ###### **Options:**
 
 * `--model-file <URI_OR_PATH>` — URI or local path to a model list file
+* `-c`, `--config <PATH>` — Path to an application configuration file listing models
+* `--no-fallback` — Disable automatic GGUF fallback repository discovery
+* `--interactive` — Open an interactive picker when fallback finds multiple repositories
+* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search
 
-   Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
-* `--sync <TARGET>` — Add downloaded models to ACORN and synchronize OpenCode and/or llama-swap configuration
+  Default value: `20`
+* `--minimum-popularity <COUNT>` — Minimum downloads required for a GGUF fallback repository
+
+  Default value: `100`
+* `--sync <TARGET>` — Synchronize resolved models with configured inference applications
 
   Possible values:
   - `all`:
@@ -420,7 +427,7 @@ Download model weights for use with ACORN research harnesses and local inference
     Synchronize Goose CLI only
 
 * `--force` — Assume synchronized models exist under the models directory
-* `-c`, `--config <PATH>` — Path to configuration file listing models to download
+* `--dry-run` [alias: `what-if`] — Preview resolution and synchronization without writes
 * `--filter <LIST>` — Regular expression pattern(s) used to include model weight sources while downloading
 
    Only sources matching at least one pattern will be downloaded
@@ -439,17 +446,6 @@ Download model weights for use with ACORN research harnesses and local inference
 
    Accepts a plain-text list of names or a JSON/YAML list of names or model details
 * `--skip-verify-checksum` — Skip SHA-256 checksum verification when checksum sidecar metadata is available
-* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search when discovering GGUF quantizations
-
-   Applies when the requested repository contains no GGUF files and automatic fallback is enabled
-
-  Default value: `20`
-* `--minimum-popularity <COUNT>` — Minimum number of downloads required for a GGUF fallback repository
-
-  Default value: `100`
-* `--no-fallback` — Disable automatic GGUF quantization repository discovery when the target has no GGUF files
-* `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
-* `--dry-run` [alias: `what-if`] — Preview resolved models and fallbacks without downloading
 * `--raw` — Output structured JSON (or YAML with --format yaml) of resolved models
 * `--format <FORMAT>` — Output format for --raw results
 
@@ -505,6 +501,18 @@ Export research activity data to a specific target
   Default value: `pdf`
 
   Possible values: `pdf`, `bag`, `cff`, `json`, `markdown`, `powerpoint`, `yaml`
+
+* `--archive-format <FORMAT>` — BagIt archive container format
+
+  Possible values:
+  - `7z`:
+    7-Zip archive
+  - `tar`:
+    Uncompressed TAR archive
+  - `tar.gz`:
+    Gzip-compressed TAR archive
+  - `zip`:
+    ZIP archive
 
 * `--filter <LIST>` — Regular expression pattern(s) applied to absolute paths of files to include during export
 
@@ -729,7 +737,7 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
 
 Import external metadata into ACORN
 
-**Usage:** `acorn-cli import [COMMAND]`
+**Usage:** `acorn-cli import [OPTIONS] [URI]... [COMMAND]`
 
 **Command Alias:** `load`
 
@@ -737,6 +745,35 @@ Import external metadata into ACORN
 
 * `model` — Import model metadata into the local database
 * `spec` — Import endpoint resources from an API specification
+
+###### **Arguments:**
+
+* `<URI>` — Local directories, repository URIs, or BagIt archive URIs
+
+###### **Options:**
+
+* `-c`, `--config <PATH>` — Path to configuration file (JSON, JSONC, or YAML)
+* `--filter <LIST>` — Regular expression patterns used to include files
+* `-i`, `--ignore <LIST>` — Regular expression patterns used to exclude files
+* `-o`, `--output <PATH>` — Directory where imported content is saved
+
+  Default value: `./content`
+* `-f`, `--flatten` — Save imported files directly beneath the output directory
+* `-C`, `--clobber` — Replace existing files or directories at selected output paths
+* `--archive-format <FORMAT>` — Force archive handling and bypass content inference
+
+  Possible values:
+  - `7z`:
+    7-Zip archive
+  - `tar`:
+    Uncompressed TAR archive
+  - `tar.gz`:
+    Gzip-compressed TAR archive
+  - `zip`:
+    ZIP archive
+
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
 
 
 
@@ -748,14 +785,21 @@ Import model metadata into the local database
 
 ###### **Arguments:**
 
-* `<MODEL>` — Hugging Face model repository ID(s) to inspect
+* `<MODEL>` — Model ID/name(s), local path(s), or direct URL(s)
 
 ###### **Options:**
 
 * `--model-file <URI_OR_PATH>` — URI or local path to a model list file
+* `-c`, `--config <PATH>` — Path to an application configuration file listing models
+* `--no-fallback` — Disable automatic GGUF fallback repository discovery
+* `--interactive` — Open an interactive picker when fallback finds multiple repositories
+* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search
 
-   Accepts a plain-text list of repository IDs or a JSON/YAML list of IDs or model details
-* `--sync <TARGET>` — Add imported models to ACORN and synchronize OpenCode and/or llama-swap configuration
+  Default value: `20`
+* `--minimum-popularity <COUNT>` — Minimum downloads required for a GGUF fallback repository
+
+  Default value: `100`
+* `--sync <TARGET>` — Synchronize resolved models with configured inference applications
 
   Possible values:
   - `all`:
@@ -770,16 +814,7 @@ Import model metadata into the local database
     Synchronize Goose CLI only
 
 * `--force` — Assume synchronized models exist under the models directory
-* `--dry-run` [alias: `what-if`] — Resolve model metadata without database or configuration writes
-* `-c`, `--config <PATH>` — Path to configuration file listing models to inspect
-* `--no-fallback` — Disable automatic GGUF quantization repository discovery
-* `--interactive` — Open an interactive picker when GGUF fallback finds multiple repositories
-* `--search-limit <LIMIT>` — Maximum number of Hugging Face repositories to search during GGUF fallback discovery
-
-  Default value: `20`
-* `--minimum-popularity <COUNT>` — Minimum number of downloads required for a GGUF fallback repository
-
-  Default value: `100`
+* `--dry-run` [alias: `what-if`] — Preview resolution and synchronization without writes
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

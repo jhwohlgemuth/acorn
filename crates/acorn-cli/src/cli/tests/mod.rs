@@ -317,9 +317,9 @@ fn test_download_model_gguf_fallback_arguments() {
     match arguments.command {
         | Some(Commands::Download(arguments)) => match arguments.command {
             | Some(DownloadCommands::Model(arguments)) => {
-                assert!(arguments.no_fallback);
-                assert_eq!(arguments.search_limit, 42);
-                assert_eq!(arguments.minimum_download_count, 250);
+                assert!(arguments.resolution.no_fallback);
+                assert_eq!(arguments.resolution.search_limit, 42);
+                assert_eq!(arguments.resolution.minimum_download_count, 250);
             }
             | other => panic!("unexpected download command: {other:?}"),
         },
@@ -345,7 +345,7 @@ fn test_download_model_model_file_argument() {
     match arguments.command {
         | Some(Commands::Download(arguments)) => match arguments.command {
             | Some(DownloadCommands::Model(arguments)) => {
-                assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
+                assert_eq!(arguments.source.model_file.as_deref(), Some("https://example.com/models.yaml"));
             }
             | other => panic!("unexpected download command: {other:?}"),
         },
@@ -373,9 +373,9 @@ fn test_download_model_sync_argument() {
     match arguments.command {
         | Some(Commands::Download(arguments)) => match arguments.command {
             | Some(DownloadCommands::Model(arguments)) => {
-                assert_eq!(arguments.sync, Some(SyncTarget::Opencode));
-                assert!(arguments.force);
-                assert!(arguments.dry_run);
+                assert_eq!(arguments.synchronization.sync, Some(SyncTarget::Opencode));
+                assert!(arguments.synchronization.force);
+                assert!(arguments.synchronization.dry_run);
             }
             | other => panic!("unexpected download command: {other:?}"),
         },
@@ -389,7 +389,7 @@ fn test_download_model_search_limit_from_env() {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
             | Some(Commands::Download(arguments)) => match arguments.command {
-                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.search_limit, 73),
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.resolution.search_limit, 73),
                 | other => panic!("unexpected download command: {other:?}"),
             },
             | other => panic!("unexpected command: {other:?}"),
@@ -403,7 +403,7 @@ fn test_download_model_minimum_download_count_default_and_env_precedence() {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
             | Some(Commands::Download(arguments)) => match arguments.command {
-                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.minimum_download_count, 73),
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 73),
                 | other => panic!("unexpected download command: {other:?}"),
             },
             | other => panic!("unexpected command: {other:?}"),
@@ -411,7 +411,7 @@ fn test_download_model_minimum_download_count_default_and_env_precedence() {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b", "--minimum-popularity", "125"]).unwrap();
         match arguments.command {
             | Some(Commands::Download(arguments)) => match arguments.command {
-                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.minimum_download_count, 125),
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 125),
                 | other => panic!("unexpected download command: {other:?}"),
             },
             | other => panic!("unexpected command: {other:?}"),
@@ -421,7 +421,7 @@ fn test_download_model_minimum_download_count_default_and_env_precedence() {
         let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
             | Some(Commands::Download(arguments)) => match arguments.command {
-                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.minimum_download_count, 100),
+                | Some(DownloadCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 100),
                 | other => panic!("unexpected download command: {other:?}"),
             },
             | other => panic!("unexpected command: {other:?}"),
@@ -433,7 +433,7 @@ fn test_download_model_interactive_flag() {
     let arguments = Arguments::try_parse_from(["acorn", "download", "model", "openai/gpt-oss-2b", "--interactive"]).unwrap();
     match arguments.command {
         | Some(Commands::Download(arguments)) => match arguments.command {
-            | Some(DownloadCommands::Model(arguments)) => assert!(arguments.interactive),
+            | Some(DownloadCommands::Model(arguments)) => assert!(arguments.resolution.interactive),
             | other => panic!("unexpected download command: {other:?}"),
         },
         | other => panic!("unexpected command: {other:?}"),
@@ -487,14 +487,14 @@ fn test_import_model_metadata_arguments() {
     ])
     .unwrap();
     match arguments.command {
-        | Some(Commands::Import { command, .. }) => match command {
+        | Some(Commands::Import(command_arguments)) => match command_arguments.command {
             | Some(ImportCommands::Model(arguments)) => {
-                assert_eq!(arguments.model, vec!["openai/gpt-oss-20b"]);
-                assert_eq!(arguments.model_file.as_deref(), Some("https://example.com/models.yaml"));
-                assert_eq!(arguments.search_limit, 42);
-                assert_eq!(arguments.minimum_download_count, 250);
-                assert!(arguments.no_fallback);
-                assert!(arguments.interactive);
+                assert_eq!(arguments.source.model, vec!["openai/gpt-oss-20b"]);
+                assert_eq!(arguments.source.model_file.as_deref(), Some("https://example.com/models.yaml"));
+                assert_eq!(arguments.resolution.search_limit, 42);
+                assert_eq!(arguments.resolution.minimum_download_count, 250);
+                assert!(arguments.resolution.no_fallback);
+                assert!(arguments.resolution.interactive);
                 assert!(arguments.verbose.is_present());
             }
             | other => panic!("unexpected import command: {other:?}"),
@@ -506,25 +506,94 @@ fn test_import_model_metadata_arguments() {
 fn test_import_model_sync_argument_defaults_to_all() {
     let arguments = Arguments::try_parse_from(["acorn", "import", "model", "acme/model", "--sync", "--force", "--dry-run"]).unwrap();
     match arguments.command {
-        | Some(Commands::Import {
-            command: Some(ImportCommands::Model(arguments)),
-        }) => {
-            assert_eq!(arguments.sync, Some(SyncTarget::All));
-            assert!(arguments.force);
-            assert!(arguments.dry_run);
+        | Some(Commands::Import(command_arguments)) if matches!(&command_arguments.command, Some(ImportCommands::Model(_))) => {
+            let Some(ImportCommands::Model(arguments)) = command_arguments.command else {
+                unreachable!()
+            };
+            assert_eq!(arguments.synchronization.sync, Some(SyncTarget::All));
+            assert!(arguments.synchronization.force);
+            assert!(arguments.synchronization.dry_run);
         }
         | other => panic!("unexpected command: {other:?}"),
     }
 }
 #[test]
+fn test_import_bucket_archive_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "import",
+        "deposit.bin",
+        "--archive-format",
+        "tar.gz",
+        "--output",
+        "content",
+        "--flatten",
+        "--clobber",
+    ])
+    .unwrap();
+    match arguments.command {
+        | Some(Commands::Import(arguments)) => {
+            assert!(arguments.command.is_none());
+            assert_eq!(arguments.uri, vec!["deposit.bin"]);
+            assert_eq!(arguments.archive_format, Some(crate::cli::arguments::ArchiveType::TarGzip));
+            assert!(arguments.flatten);
+            assert!(arguments.clobber);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_import_bucket_seven_zip_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "import", "deposit.bin", "--archive-format", "7z"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Import(arguments)) => {
+            assert_eq!(arguments.archive_format, Some(crate::cli::arguments::ArchiveType::SevenZip));
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_model_commands_share_resolution_arguments() {
+    let flags = [
+        "acme/model",
+        "--search-limit",
+        "31",
+        "--minimum-popularity",
+        "400",
+        "--no-fallback",
+        "--interactive",
+    ];
+    let download = Arguments::try_parse_from(["acorn", "download", "model"].into_iter().chain(flags)).unwrap();
+    let import = Arguments::try_parse_from(["acorn", "import", "model"].into_iter().chain(flags)).unwrap();
+    let download_resolution = match download.command {
+        | Some(Commands::Download(arguments)) => match arguments.command {
+            | Some(DownloadCommands::Model(arguments)) => arguments.resolution,
+            | other => panic!("unexpected download command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    };
+    let import_resolution = match import.command {
+        | Some(Commands::Import(arguments)) => match arguments.command {
+            | Some(ImportCommands::Model(arguments)) => arguments.resolution,
+            | other => panic!("unexpected import command: {other:?}"),
+        },
+        | other => panic!("unexpected command: {other:?}"),
+    };
+    assert_eq!(download_resolution.search_limit, import_resolution.search_limit);
+    assert_eq!(download_resolution.minimum_download_count, import_resolution.minimum_download_count);
+    assert_eq!(download_resolution.no_fallback, import_resolution.no_fallback);
+    assert_eq!(download_resolution.interactive, import_resolution.interactive);
+}
+#[test]
 fn test_import_model_dry_run_does_not_require_sync() {
     let arguments = Arguments::try_parse_from(["acorn", "import", "model", "acme/model", "--dry-run"]).unwrap();
     match arguments.command {
-        | Some(Commands::Import {
-            command: Some(ImportCommands::Model(arguments)),
-        }) => {
-            assert_eq!(arguments.sync, None);
-            assert!(arguments.dry_run);
+        | Some(Commands::Import(command_arguments)) if matches!(&command_arguments.command, Some(ImportCommands::Model(_))) => {
+            let Some(ImportCommands::Model(arguments)) = command_arguments.command else {
+                unreachable!()
+            };
+            assert_eq!(arguments.synchronization.sync, None);
+            assert!(arguments.synchronization.dry_run);
         }
         | other => panic!("unexpected command: {other:?}"),
     }
@@ -533,9 +602,10 @@ fn test_import_model_dry_run_does_not_require_sync() {
 fn test_import_model_quiet_argument() {
     let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-20b", "--quiet"]).unwrap();
     match arguments.command {
-        | Some(Commands::Import {
-            command: Some(ImportCommands::Model(arguments)),
-        }) => assert!(arguments.verbose.is_silent()),
+        | Some(Commands::Import(command_arguments)) => match command_arguments.command {
+            | Some(ImportCommands::Model(arguments)) => assert!(arguments.verbose.is_silent()),
+            | other => panic!("unexpected import command: {other:?}"),
+        },
         | other => panic!("unexpected command: {other:?}"),
     }
 }
@@ -545,25 +615,28 @@ fn test_import_model_minimum_download_count_default_and_env_precedence() {
     temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", Some("73"), || {
         let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
-            | Some(Commands::Import {
-                command: Some(ImportCommands::Model(arguments)),
-            }) => assert_eq!(arguments.minimum_download_count, 73),
+            | Some(Commands::Import(command_arguments)) => match command_arguments.command {
+                | Some(ImportCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 73),
+                | other => panic!("unexpected import command: {other:?}"),
+            },
             | other => panic!("unexpected command: {other:?}"),
         }
         let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b", "--minimum-popularity", "125"]).unwrap();
         match arguments.command {
-            | Some(Commands::Import {
-                command: Some(ImportCommands::Model(arguments)),
-            }) => assert_eq!(arguments.minimum_download_count, 125),
+            | Some(Commands::Import(command_arguments)) => match command_arguments.command {
+                | Some(ImportCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 125),
+                | other => panic!("unexpected import command: {other:?}"),
+            },
             | other => panic!("unexpected command: {other:?}"),
         }
     });
     temp_env::with_var("ACORN_MINIMUM_DOWNLOAD_COUNT", None::<&str>, || {
         let arguments = Arguments::try_parse_from(["acorn", "import", "model", "openai/gpt-oss-2b"]).unwrap();
         match arguments.command {
-            | Some(Commands::Import {
-                command: Some(ImportCommands::Model(arguments)),
-            }) => assert_eq!(arguments.minimum_download_count, 100),
+            | Some(Commands::Import(command_arguments)) => match command_arguments.command {
+                | Some(ImportCommands::Model(arguments)) => assert_eq!(arguments.resolution.minimum_download_count, 100),
+                | other => panic!("unexpected import command: {other:?}"),
+            },
             | other => panic!("unexpected command: {other:?}"),
         }
     });

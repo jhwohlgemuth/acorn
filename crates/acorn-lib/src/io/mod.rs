@@ -23,8 +23,8 @@ pub use crate::error::ApiResult;
 #[cfg(unix)]
 use crate::prelude;
 use crate::prelude::{
-    absolute, canonicalize, consts, create_dir_all, current_dir, io, remove_file, temp_dir, var, var_os, write, BufReader, CommandOutput, Cursor,
-    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read, Write,
+    absolute, canonicalize, consts, create_dir_all, current_dir, io, temp_dir, var, var_os, write, BufReader, CommandOutput, Component, Cursor, File,
+    HashSet, OpenOptions, OsString, Path, PathBuf, Read,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -61,12 +61,12 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, trace, warn};
 use which::which;
-use zip::write::SimpleFileOptions;
-use zip::{ZipArchive, ZipWriter};
 
 pub mod api;
+mod archive;
+pub use archive::{archive, extract, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
 pub mod bagit;
 #[cfg(feature = "chart")]
 pub mod chart;
@@ -85,11 +85,13 @@ pub mod source;
 #[cfg(feature = "swhid-compute")]
 pub mod swhid;
 pub mod sync;
+mod temporary;
 
 pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
 pub use model::ModelListFile;
 pub use source::{Source, SourceAction};
+pub use temporary::TemporaryDirectory;
 
 lazy_static! {
     static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
@@ -153,10 +155,12 @@ pub trait InputOutput: Sized {
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
 }
-/// Convert filesystem paths to portable configuration strings.
+/// Convert filesystem paths to portable configuration strings
 pub trait PathConversion {
-    /// Render a path using native separators without a Windows extended-length prefix.
+    /// Render a path using native separators without a Windows extended-length prefix
     fn cross_platform_display(&self) -> String;
+    /// Normalize a relative archive entry while rejecting traversal and absolute paths
+    fn relative(&self) -> ApiResult<PathBuf>;
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
@@ -511,6 +515,17 @@ impl PathExt for &Path {
     }
 }
 impl PathConversion for Path {
+    fn relative(&self) -> ApiResult<PathBuf> {
+        let normalized = self
+            .components()
+            .filter_map(|component| match component {
+                | Component::CurDir => None,
+                | Component::Normal(value) => Some(Ok(value)),
+                | _ => Some(Err(eyre!("Unsafe archive path: {}", self.display()))),
+            })
+            .collect::<ApiResult<PathBuf>>();
+        normalized
+    }
     fn cross_platform_display(&self) -> String {
         let value = self.display().to_string();
         #[cfg(windows)]
@@ -519,11 +534,17 @@ impl PathConversion for Path {
     }
 }
 impl PathConversion for &Path {
+    fn relative(&self) -> ApiResult<PathBuf> {
+        <Path as PathConversion>::relative(self)
+    }
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(*self)
     }
 }
 impl PathConversion for PathBuf {
+    fn relative(&self) -> ApiResult<PathBuf> {
+        <Path as PathConversion>::relative(self)
+    }
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(self)
     }
@@ -666,108 +687,6 @@ impl StringConversion for &str {
 pub fn apply_progress_style(progress: &ProgressBar, template: &str) {
     #[allow(clippy::unwrap_used)]
     progress.set_style(ProgressStyle::with_template(template).unwrap());
-}
-/// Creates zip archive from directory
-pub fn archive(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-    let zip_file_path = match destination {
-        | Some(value) => value,
-        | None => path.with_extension("zip"),
-    };
-    info!("=> {} Create archive at {}", Label::using(), zip_file_path.to_absolute_path());
-    let prepared = if zip_file_path.exists() {
-        match zip_file_path.symlink_metadata() {
-            | Ok(metadata) => {
-                let file_type = metadata.file_type();
-                if file_type.is_symlink() {
-                    error!("=> {} Create zip archive — destination cannot be a symlink", Label::fail());
-                    false
-                } else if metadata.is_file() {
-                    match remove_file(zip_file_path.clone()) {
-                        | Ok(_) => true,
-                        | Err(why) => {
-                            error!("=> {} Prepare zip destination — {why}", Label::fail());
-                            false
-                        }
-                    }
-                } else {
-                    error!("=> {} Create zip archive — destination exists and is not a file", Label::fail());
-                    false
-                }
-            }
-            | Err(why) => {
-                error!("=> {} Inspect zip destination — {why}", Label::fail());
-                false
-            }
-        }
-    } else {
-        true
-    };
-    let zip_file = if prepared {
-        match OpenOptions::new().write(true).create_new(true).open(&zip_file_path) {
-            | Ok(zip_file) => Some(ZipWriter::new(zip_file)),
-            | Err(why) => {
-                error!("=> {} Create zip archive — {why}", Label::fail());
-                None
-            }
-        }
-    } else {
-        None
-    };
-    if let Some(mut zip) = zip_file {
-        let archive_root = path.canonicalize();
-        let files = files_all(path.clone(), None::<Vec<String>>).into_iter().filter(|x| x.is_file());
-        for file_path in files {
-            if let Ok(file) = File::open(file_path.clone()) {
-                let name = archive_root.as_ref().ok().and_then(|root| {
-                    file_path
-                        .canonicalize()
-                        .ok()
-                        .and_then(|absolute| absolute.strip_prefix(root).ok().map(Path::to_path_buf))
-                });
-                match name {
-                    | Some(name) => {
-                        trace!(file = name.to_absolute_path(), "=> {} Add file to archive", Label::using());
-                        match zip.start_file_from_path(name, options) {
-                            | Ok(_) => {
-                                let mut buffer = Vec::new();
-                                match io::copy(&mut file.take(u64::MAX), &mut buffer) {
-                                    | Ok(_) => match zip.write_all(&buffer) {
-                                        | Ok(_) => {}
-                                        | Err(why) => {
-                                            error!(file = file_path.to_absolute_path(), "=> {} Write zip archive — {why}", Label::fail())
-                                        }
-                                    },
-                                    | Err(why) => {
-                                        error!("=> {} Copy buffer - {why}", Label::fail())
-                                    }
-                                }
-                            }
-                            | Err(why) => {
-                                error!(file = file_path.to_absolute_path(), "=> {} Start zip archive - {why}", Label::fail());
-                            }
-                        }
-                    }
-                    | None => {
-                        error!(
-                            file = file_path.to_absolute_path(),
-                            "=> {} Resolve relative zip archive path",
-                            Label::fail()
-                        );
-                    }
-                }
-            }
-        }
-        match zip.finish() {
-            | Ok(_) => Ok(zip_file_path),
-            | Err(why) => {
-                error!(file = path.to_absolute_path(), "=> {} Finish zip archive - {why}", Label::fail());
-                Err(why.into())
-            }
-        }
-    } else {
-        Err(eyre!("Unable to create zip archive"))
-    }
 }
 /// Create a new [Tokio](https://tokio.rs/) runtime
 /// ### Example
@@ -929,64 +848,6 @@ pub fn env_var_is_truthy(name: impl AsRef<str>) -> Option<bool> {
     var(name.as_ref())
         .ok()
         .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
-}
-/// Extract zip archive
-/// ### Note
-/// If `destination` is not provided, the extracted files will be saved in a folder named "extract" an OS-specific cache location.
-pub fn extract_zip(path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
-    let root = match destination {
-        | Some(value) => value,
-        | None => standard_project_folder("extract", None),
-    };
-    match File::open(path.clone()) {
-        | Ok(zip_file) => match ZipArchive::new(zip_file) {
-            | Ok(mut archive) => {
-                let success = (0..archive.len()).all(|index| match archive.by_index(index) {
-                    | Ok(mut file) => {
-                        let target = root.join(file.name());
-                        if let Some(parent) = target.parent() {
-                            match create_dir_all(parent) {
-                                | Ok(_) => {}
-                                | Err(why) => error!(path = parent.to_path_buf().to_absolute_path(), "=> {} Create - {}", Label::fail(), why),
-                            }
-                        }
-                        match OpenOptions::new().write(true).create_new(true).open(&target) {
-                            | Ok(mut output_file) => match io::copy(&mut file, &mut output_file) {
-                                | Ok(_) => true,
-                                | Err(why) => {
-                                    error!(path = target.to_absolute_path(), "=> {} Copy file content - {why}", Label::fail());
-                                    false
-                                }
-                            },
-                            | Err(_) => {
-                                error!(path = target.to_absolute_path(), "=> {} Create file", Label::fail());
-                                false
-                            }
-                        }
-                    }
-                    | Err(why) => {
-                        error!(path = path.to_absolute_path(), "=> {} Extract file - {why}", Label::fail());
-                        false
-                    }
-                });
-                if success {
-                    info!(path = root.to_absolute_path(), "=> {} Extract zip archive", Label::pass());
-                    Ok(root)
-                } else {
-                    error!(path = root.to_absolute_path(), "=> {} Extract zip archive", Label::fail());
-                    Err(eyre!("Failed to extract zip archive"))
-                }
-            }
-            | Err(why) => {
-                error!(path = path.to_absolute_path(), "=> {} Read zip archive - {why}", Label::fail());
-                Err(eyre!("Failed to read zip archive - {why}"))
-            }
-        },
-        | Err(why) => {
-            error!(path = path.to_absolute_path(), "=> {} Read file - {why}", Label::fail());
-            Err(eyre!("Failed to read file - {why}"))
-        }
-    }
 }
 /// Get SHA256 hash of a file
 ///

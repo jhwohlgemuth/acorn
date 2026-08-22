@@ -349,6 +349,9 @@ pub enum MimeType {
     /// See <https://github.com/ggml-org/ggml/blob/master/docs/gguf.md> for more information
     #[display("application/vnd.gguf.model")]
     Gguf,
+    /// Gzip-compressed data.
+    #[display("application/gzip")]
+    Gzip,
     /// Linked Data [JSON](https://www.json.org/json-en.html)
     ///
     /// See <https://json-ld.org/>
@@ -435,9 +438,15 @@ pub enum MimeType {
     /// See <https://cyclonedx.org/> for more information
     #[display("application/spdx+json")]
     Sbom,
+    /// 7-Zip archive.
+    #[display("application/x-7z-compressed")]
+    SevenZip,
     /// Scalable Vector Graphic (SVG)
     #[display("image/svg+xml")]
     Svg,
+    /// Tape archive.
+    #[display("application/x-tar")]
+    Tar,
     /// Plain Text
     ///
     /// Just plain old text
@@ -627,6 +636,7 @@ impl From<&str> for MimeType {
                 | "docx" | "docm" => MimeType::Docx,
                 | "epub" => MimeType::Epub,
                 | "gguf" => MimeType::Gguf,
+                | "gz" => MimeType::Gzip,
                 | "jpg" | "jpeg" => MimeType::Jpeg,
                 | "json" => MimeType::Json,
                 | "jsonc" => MimeType::Jsonc,
@@ -648,8 +658,10 @@ impl From<&str> for MimeType {
                 | "rtf" => MimeType::Rtf,
                 | "rs" => MimeType::Rust,
                 | "safetensors" => MimeType::Safetensors,
+                | "7z" => MimeType::SevenZip,
                 | "spdx.json" => MimeType::Sbom,
                 | "svg" => MimeType::Svg,
+                | "tar" => MimeType::Tar,
                 | "toml" => MimeType::Toml,
                 | "txt" => MimeType::Text,
                 | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
@@ -670,7 +682,45 @@ impl From<String> for MimeType {
         Self::from(value.as_str())
     }
 }
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
 impl MimeType {
+    /// Infers a MIME type from file content.
+    ///
+    /// Semantic document containers are identified before generic binary
+    /// signatures so formats such as DOCX and EPUB are not reduced to ZIP.
+    #[cfg(feature = "std")]
+    pub fn infer(bytes: &[u8]) -> Option<Self> {
+        anydoc::Format::from_bytes(bytes).map(Self::from).or_else(|| {
+            infer::get(bytes).and_then(|kind| match kind.mime_type() {
+                | "application/gzip" | "application/x-gzip" => Some(Self::Gzip),
+                | "application/pdf" => Some(Self::Pdf),
+                | "application/x-7z-compressed" => Some(Self::SevenZip),
+                | "application/zip" => Some(Self::Zip),
+                | "application/x-tar" => Some(Self::Tar),
+                | "image/jpeg" => Some(Self::Jpeg),
+                | "image/png" => Some(Self::Png),
+                | _ => None,
+            })
+        })
+    }
     /// Returns the file type as a string
     /// ### Example
     /// ```rust
@@ -688,6 +738,7 @@ impl MimeType {
             | MimeType::Epub => "epub",
             | MimeType::Excel => "xlsx",
             | MimeType::Gguf => "gguf",
+            | MimeType::Gzip => "tar.gz",
             | MimeType::Jpeg => "jpeg",
             | MimeType::Json => "json",
             | MimeType::Jsonc => "jsonc",
@@ -711,7 +762,9 @@ impl MimeType {
             | MimeType::Rust => "rs",
             | MimeType::Safetensors => "safetensors",
             | MimeType::Sbom => "spdx.json",
+            | MimeType::SevenZip => "7z",
             | MimeType::Svg => "svg",
+            | MimeType::Tar => "tar",
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",

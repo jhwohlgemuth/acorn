@@ -2,8 +2,25 @@
 
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
-<p>Populate ACORN's model catalog or inspect model metadata with <code>acorn import model</code>.</p>
+<p>Import local or remote research-content buckets and BagIt archives, or populate ACORN's model catalog.</p>
 </blockquote>
+
+## Research content and BagIt archives
+
+Use `acorn import` without a subcommand to transfer research content from a local directory, a remote repository, or a 7z, ZIP, TAR, or TAR.GZ BagIt archive:
+
+```sh
+acorn import ./local-bucket
+acorn import https://github.com/example/research-data
+acorn import https://example.org/deposit.tar.gz --output ./content
+acorn import https://example.org/deposit.7z --output ./content
+```
+
+Archive type is inferred from a bounded content header. `--archive-format 7z|zip|tar|tar.gz` bypasses inference, which is useful for extensionless downloads. Extracted archives must contain valid BagIt metadata at their root or beneath one enclosing directory; their complete SHA-256 or SHA-512 payload manifest is verified before files are imported. Extraction rejects traversal paths, links, duplicate destinations, and writes through pre-existing symlink components.
+
+`--filter`, `--ignore`, `--flatten`, and `--clobber` have the same transfer meaning as bucket download. `--config` loads bucket sources from an ACORN configuration. Offline import is accepted only when every selected source is local. The original archive URI is retained as transfer provenance.
+
+Top-level `acorn download` remains for remote repository transfers and rejects local sources and offline operation. Model commands retain their own local and offline behavior.
 
 ## Model metadata
 
