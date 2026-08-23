@@ -1,7 +1,6 @@
-//! ## Data model for patent data
-//!
-use super::PersistentIdentifierParse;
-use crate::prelude::*;
+//! Data model for patent data
+use super::{PersistentIdentifier, PersistentIdentifierParse};
+use crate::prelude::{format, vec, String, ToString, Vec};
 use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
 use crate::util::regex_capture_lookup;
 use core::fmt;
@@ -250,6 +249,56 @@ impl fmt::Display for Patent {
         }
     }
 }
+impl PersistentIdentifier for Patent {
+    fn new() -> Self {
+        Self::default()
+    }
+    fn schema_uri(&self) -> String {
+        String::new()
+    }
+    fn identifier(&self) -> String {
+        self.to_string()
+    }
+    fn prefix(&self) -> Option<String> {
+        match self {
+            | Self::Granted { country_code, .. } => country_code.as_ref().map(ToString::to_string),
+            | Self::Application { year, .. } => year.clone(),
+            | Self::Publication { country_code, year, .. } => {
+                let prefix = [country_code.as_ref().map(ToString::to_string), year.clone()]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>()
+                    .join("/");
+                (!prefix.is_empty()).then_some(prefix)
+            }
+        }
+    }
+    fn suffix(&self) -> Option<String> {
+        match self {
+            | Self::Application { serial_number, .. } | Self::Granted { serial_number, .. } | Self::Publication { serial_number, .. } => {
+                (!serial_number.is_empty()).then(|| serial_number.clone())
+            }
+        }
+    }
+}
+impl PersistentIdentifierParse for Patent {
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let value = value.to_string();
+        match Self::parse(&value) {
+            | Some(identifier) => vec![identifier],
+            | None => Self::find_all(&value),
+        }
+    }
+    fn format(value: impl ToString) -> String {
+        Self::from_string(value).to_string()
+    }
+    fn from_string(value: impl ToString) -> Self {
+        Self::from(value.to_string())
+    }
+    fn is_valid(value: impl ToString) -> bool {
+        Self::is_valid(value.to_string())
+    }
+}
 impl From<&str> for Patent {
     fn from(s: &str) -> Self {
         Patent::parse(s).unwrap_or_default()
@@ -355,21 +404,6 @@ impl Patent {
         }
     }
 }
-impl PersistentIdentifierParse for Patent {
-    fn find_all(value: impl ToString) -> Vec<Self> {
-        let value = value.to_string();
-        match Self::parse(&value) {
-            | Some(identifier) => vec![identifier],
-            | None => Self::find_all(&value),
-        }
-    }
-    fn format(value: impl ToString) -> String {
-        Self::from_string(value).to_string()
-    }
-    fn from_string(value: impl ToString) -> Self {
-        Self::from(value.to_string())
-    }
-    fn is_valid(value: impl ToString) -> bool {
-        Self::is_valid(value.to_string())
-    }
-}
+
+#[cfg(test)]
+mod tests;

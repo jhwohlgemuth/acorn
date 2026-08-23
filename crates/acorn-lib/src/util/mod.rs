@@ -143,6 +143,11 @@ pub trait StringConversion {
     /// Return a string representation of the absolute path
     fn to_absolute_path(&self) -> String;
 }
+/// Add persistent-identifier utilities to string values.
+pub trait StringExt {
+    /// Check whether all characters in a string are numeric.
+    fn is_numeric(&self) -> bool;
+}
 /// Add enhanced string interpolation functionality
 pub trait StringInterpolation<T>
 where
@@ -845,6 +850,16 @@ where
 impl MarkdownSupport for str {
     fn to_markdown(&self) -> String {
         self.to_string()
+    }
+}
+impl StringExt for str {
+    fn is_numeric(&self) -> bool {
+        self.chars().all(char::is_numeric)
+    }
+}
+impl StringExt for String {
+    fn is_numeric(&self) -> bool {
+        self.as_str().is_numeric()
     }
 }
 impl MarkdownSupport for String {

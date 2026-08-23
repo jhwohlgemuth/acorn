@@ -1,16 +1,15 @@
-//! Handle identifier parsing and formatting.
-use crate::prelude::*;
+//! Handle identifier parsing and formatting
+use crate::prelude::{format, String, ToString, Vec};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::app::HANDLE_RESOLVER_URI;
 use crate::util::constants::RE_HANDLE;
 use bon::Builder;
-use core::fmt;
-use core::str::FromStr;
+use core::{fmt, str::FromStr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A Handle System persistent identifier
-#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields)]
 pub struct Handle {
@@ -24,40 +23,14 @@ pub struct Handle {
 pub struct HandleParseError {
     message: String,
 }
+impl Default for Handle {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
 impl fmt::Display for Handle {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.identifier())
-    }
-}
-impl fmt::Display for HandleParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.message)
-    }
-}
-impl core::error::Error for HandleParseError {}
-impl FromStr for Handle {
-    type Err = HandleParseError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        representation(value).and_then(|value| match value.split_once('/') {
-            | Some((prefix, suffix)) => {
-                let prefix_is_valid = !prefix.is_empty()
-                    && prefix
-                        .split('.')
-                        .all(|segment| !segment.is_empty() && segment.chars().all(|character| character.is_ascii_digit()));
-                let suffix_is_valid = !suffix.is_empty() && suffix.chars().all(|character| !character.is_control());
-                match (prefix_is_valid, suffix_is_valid, value.to_ascii_lowercase().starts_with("swh:")) {
-                    | (true, true, false) => Ok(Self {
-                        prefix: Some(prefix.to_string()),
-                        suffix: Some(suffix.to_string()),
-                    }),
-                    | (false, _, _) => Err(HandleParseError::new("Handle prefix is invalid")),
-                    | (_, false, _) => Err(HandleParseError::new("Handle local name is invalid")),
-                    | _ => Err(HandleParseError::new("Software Heritage identifiers are not generic Handles")),
-                }
-            }
-            | None => Err(HandleParseError::new("Handle must contain a prefix and local name")),
-        })
     }
 }
 impl PersistentIdentifier for Handle {
@@ -108,6 +81,37 @@ impl PersistentIdentifierParse for Handle {
     }
     fn is_valid(value: impl ToString) -> bool {
         value.to_string().parse::<Self>().is_ok()
+    }
+}
+impl fmt::Display for HandleParseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+impl core::error::Error for HandleParseError {}
+impl FromStr for Handle {
+    type Err = HandleParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        representation(value).and_then(|value| match value.split_once('/') {
+            | Some((prefix, suffix)) => {
+                let prefix_is_valid = !prefix.is_empty()
+                    && prefix
+                        .split('.')
+                        .all(|segment| !segment.is_empty() && segment.chars().all(|character| character.is_ascii_digit()));
+                let suffix_is_valid = !suffix.is_empty() && suffix.chars().all(|character| !character.is_control());
+                match (prefix_is_valid, suffix_is_valid, value.to_ascii_lowercase().starts_with("swh:")) {
+                    | (true, true, false) => Ok(Self {
+                        prefix: Some(prefix.to_string()),
+                        suffix: Some(suffix.to_string()),
+                    }),
+                    | (false, _, _) => Err(HandleParseError::new("Handle prefix is invalid")),
+                    | (_, false, _) => Err(HandleParseError::new("Handle local name is invalid")),
+                    | _ => Err(HandleParseError::new("Software Heritage identifiers are not generic Handles")),
+                }
+            }
+            | None => Err(HandleParseError::new("Handle must contain a prefix and local name")),
+        })
     }
 }
 impl Handle {
@@ -173,58 +177,4 @@ fn valid_percent_encoding(value: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_idutils_handle_vectors() {
-        [
-            "10013/epic.10033",
-            "hdl:10013/epic.10033",
-            "hdl: 10013/epic.10033",
-            "HDL:10013/epic.10033",
-            "hdl.handle.net/10013/epic.10033",
-            "http://hdl.handle.net/10013/epic.10033",
-            "https://hdl.handle.net/10013/epic.10033",
-        ]
-        .into_iter()
-        .for_each(|value| assert_eq!(Handle::format(value), "10013/epic.10033", "{value}"));
-    }
-    #[test]
-    fn test_handle_preserves_case_unicode_and_components() {
-        let handle = Handle::from_string("hdl:20.5000/Case/üникóδé");
-        assert_eq!(handle.prefix(), Some("20.5000".to_string()));
-        assert_eq!(handle.suffix(), Some("Case/üникóδé".to_string()));
-        assert_eq!(handle.to_string(), "20.5000/Case/üникóδé");
-        assert_eq!(Handle::format(handle.url()), handle.to_string());
-    }
-    #[test]
-    fn test_handle_rejects_invalid_values() {
-        [
-            "",
-            "10013",
-            "/suffix",
-            "10013/",
-            "10..123/name",
-            "docs/index.md",
-            "https://example.org/10013/name",
-            "swh:1/cnt",
-        ]
-        .into_iter()
-        .for_each(|value| assert!(!Handle::is_valid(value), "{value}"));
-    }
-    #[test]
-    fn test_handle_find_all_requires_explicit_form() {
-        let found = Handle::find_all("See hdl: 10013/epic.10033. Ignore docs/index.md.");
-        assert_eq!(found, vec![Handle::from_string("10013/epic.10033")]);
-    }
-    #[test]
-    fn test_handle_uri_ignores_query_and_fragment() {
-        [
-            "hdl:10013/epic.10033?locatt=view:level2",
-            "https://hdl.handle.net/10013/epic.10033#metadata",
-        ]
-        .into_iter()
-        .for_each(|value| assert_eq!(Handle::format(value), "10013/epic.10033", "{value}"));
-    }
-}
+mod tests;

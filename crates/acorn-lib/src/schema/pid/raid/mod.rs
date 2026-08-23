@@ -7,22 +7,27 @@
 use crate::io::current_date;
 #[cfg(feature = "std")]
 use crate::io::{read_file, License};
-use crate::prelude::*;
+use crate::prelude::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::{Error, PathBuf};
+use crate::prelude::{vec, Error, PathBuf};
 #[cfg(feature = "std")]
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
+use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{has_at_least_one_truthy, is_date, is_isni, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
 use crate::schema::Date;
+use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
 use crate::util::Constant;
 #[cfg(feature = "std")]
 use crate::util::Label;
 #[cfg(not(feature = "std"))]
 use crate::util::License;
+use crate::util::StringExt;
+use crate::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses};
 use alloc::collections::BTreeSet;
 use bon::Builder;
+use core::fmt;
 use derive_more::Display;
 #[cfg(feature = "std")]
 use schemars::schema_for;
@@ -550,12 +555,6 @@ pub struct AlternateUrl {
     #[validate(url)]
     url: String,
 }
-impl AlternateUrl {
-    /// Return the alternate project URL.
-    pub fn url(&self) -> &str {
-        &self.url
-    }
-}
 /// Metadata schema block containing a contributor to a RAiD and their associated properties
 ///
 /// See <https://metadata.raid.org/en/v1.6/core/contributors.html>
@@ -904,6 +903,27 @@ pub struct Place {
     #[validate(nested)]
     pub language: Option<Language>,
 }
+/// Research Activity Identifier (RAiD)[^raid]
+///
+/// RAiDs are expressed in the form of `https://raid.org/prefix/suffix`, resolvable through the RAiD portal operated by the ARDC[^ardc] at <https://raid.org/> —though they may still be resolved through any DOI or handle resolver.
+///
+/// RAiDs are governed by [ISO 23527](https://www.iso.org/standard/75931.html)
+///
+/// [^ardc]: [Australian Research Data Commons](https://ardc.edu.au/)
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct RAID {
+    /// Schema URI (e.g., <https://www.raid.org/>)
+    pub schema_uri: Option<String>,
+    /// RAiD prefix value
+    pub prefix: Option<String>,
+    /// RAiD suffix value
+    pub suffix: Option<String>,
+    /// RAiD metadata
+    ///
+    /// Metadata associated with identifier. See <https://metadata.raid.org> for more information.
+    pub metadata: Option<Metadata>,
+}
 /// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -1101,6 +1121,100 @@ pub struct TitleIdentifier {
     #[validate(url)]
     pub schema_uri: String,
 }
+impl AlternateUrl {
+    /// Return the alternate project URL.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+}
+impl Default for RAID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl fmt::Display for RAID {
+    /// Format a RAID into a standard format of `"{prefix}/{suffix}"`
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let result = self.identifier();
+        write!(f, "{result}")
+    }
+}
+impl PersistentIdentifier for RAID {
+    fn new() -> Self {
+        RAID::init().build()
+    }
+    fn schema_uri(&self) -> String {
+        self.schema_uri.as_ref().cloned().unwrap_or_default().trim_end_matches("/").to_string()
+    }
+    fn prefix(&self) -> Option<String> {
+        self.prefix.clone()
+    }
+    fn suffix(&self) -> Option<String> {
+        self.suffix.clone()
+    }
+    fn identifier(&self) -> String {
+        let values = [self.prefix(), self.suffix()];
+        values
+            .iter()
+            .flatten()
+            .filter(|x| !x.is_empty())
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join("/")
+    }
+}
+impl PersistentIdentifierParse for RAID {
+    /// Find all [`RAID`] values present in a string
+    fn find_all(value: impl ToString) -> Vec<Self> {
+        let re = &RE_DOI;
+        re.find_iter(&value.to_string())
+            .filter_map(Result::ok)
+            .map(|m| RAID::from_string(trim_unmatched_trailing_parentheses(m.as_str())))
+            .collect()
+    }
+    /// Convenience method for easily parsing and formatting a [`RAID`] from a string value
+    /// ### Example
+    /// ```rust
+    /// use acorn::schema::pid::{RAID, PersistentIdentifierParse};
+    ///
+    /// assert_eq!(RAID::format("https://raid.org/10.83962/fb5be317"), "10.83962/fb5be317");
+    /// ```
+    fn format(value: impl ToString) -> String {
+        RAID::from_string(value).to_string()
+    }
+    /// Create new [`RAID`] by parsing a raw string value
+    /// ### Note
+    /// > RAiD identifiers are [DOI](crate::schema::pid::DOI) identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
+    fn from_string(value: impl ToString) -> Self {
+        let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
+        let pattern = format!("^{RE_RAID_TEXT}$");
+        let text = value.to_string().trim().to_string();
+        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let directory_indicator = lookup.get("directory_indicator").cloned();
+        let registrant_code = lookup.get("registrant_code").cloned();
+        let prefix = [directory_indicator, registrant_code]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<String>>()
+            .join(".");
+        RAID::init()
+            .prefix(prefix)
+            .maybe_schema_uri(lookup.get("schema_uri").cloned())
+            .maybe_suffix(lookup.get("suffix").cloned())
+            .build()
+    }
+    /// Check if value is a valid [`RAID`]
+    /// > See `DOI::is_valid` for conditions, as RAiD identifiers are [DOIs](crate::schema::pid::DOI).
+    fn is_valid(value: impl ToString) -> bool {
+        let pid = RAID::from_string(value.to_string());
+        let prefix_is_valid = match pid.prefix() {
+            | Some(x) => x.replace(".", "").is_numeric() && !x.eq("10.5555"),
+            | _ => false,
+        };
+        let suffix_is_valid = pid.suffix().is_some();
+        prefix_is_valid && suffix_is_valid
+    }
+}
 impl Metadata {
     /// Print research activity identifier (RAiD) metadata schema as JSON or YAML schema
     #[cfg(feature = "std")]
@@ -1253,15 +1367,6 @@ fn has_contact(value: &Vec<Contributor>) -> Result<(), ValidationError> {
         "Mark at least one contributor as contact",
     )
 }
-fn validate_contributor_identifier(value: &Contributor) -> Result<(), ValidationError> {
-    match (value.id.as_deref(), value.schema_uri.as_deref().map(|uri| uri.trim_end_matches('/'))) {
-        | (Some(identifier), Some("https://orcid.org")) => is_orcid(identifier),
-        | (Some(identifier), Some("https://isni.org")) => is_isni(identifier),
-        | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
-            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())),
-        | _ => Ok(()),
-    }
-}
 fn has_leader(value: &Vec<Contributor>) -> Result<(), ValidationError> {
     has_at_least_one_truthy(
         value.as_slice(),
@@ -1274,6 +1379,15 @@ fn has_start_date(value: &Date) -> Result<(), ValidationError> {
     match value.start_date.as_ref() {
         | Some(start_date) if !start_date.trim().is_empty() => Ok(()),
         | _ => Err(ValidationError::new("date").with_message("Provide valid start date".into())),
+    }
+}
+fn validate_contributor_identifier(value: &Contributor) -> Result<(), ValidationError> {
+    match (value.id.as_deref(), value.schema_uri.as_deref().map(|uri| uri.trim_end_matches('/'))) {
+        | (Some(identifier), Some("https://orcid.org")) => is_orcid(identifier),
+        | (Some(identifier), Some("https://isni.org")) => is_isni(identifier),
+        | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
+            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())),
+        | _ => Ok(()),
     }
 }
 fn validate_contributors(value: &Metadata) -> Result<(), ValidationError> {
@@ -1297,6 +1411,24 @@ fn validate_contributors(value: &Metadata) -> Result<(), ValidationError> {
             }
         }
         | None => Ok(()),
+    }
+}
+fn validate_metadata(value: &Metadata) -> Result<(), ValidationError> {
+    let message = [
+        validate_contributors(value)
+            .err()
+            .map(|why| why.message.unwrap_or_else(|| "Invalid contributors".into()).to_string()),
+        validate_organization(value)
+            .err()
+            .map(|why| why.message.unwrap_or_else(|| "Invalid organization".into()).to_string()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<String>>()
+    .join("; ");
+    match message.is_empty() {
+        | true => Ok(()),
+        | false => Err(ValidationError::new("metadata").with_message(message.into())),
     }
 }
 fn validate_organization(value: &Metadata) -> Result<(), ValidationError> {
@@ -1323,21 +1455,5 @@ fn validate_organization(value: &Metadata) -> Result<(), ValidationError> {
         | None => Ok(()),
     }
 }
-fn validate_metadata(value: &Metadata) -> Result<(), ValidationError> {
-    let message = [
-        validate_contributors(value)
-            .err()
-            .map(|why| why.message.unwrap_or_else(|| "Invalid contributors".into()).to_string()),
-        validate_organization(value)
-            .err()
-            .map(|why| why.message.unwrap_or_else(|| "Invalid organization".into()).to_string()),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<String>>()
-    .join("; ");
-    match message.is_empty() {
-        | true => Ok(()),
-        | false => Err(ValidationError::new("metadata").with_message(message.into())),
-    }
-}
+#[cfg(test)]
+mod tests;

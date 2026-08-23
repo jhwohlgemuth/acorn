@@ -46,7 +46,7 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
 
 [^version]: Check [crates.io](https://crates.io/crates/acorn-lib) for the latest version
 [^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.
-[^isbn]: [`isbn_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.isbn_check_digit.html)
-[^isni]: [`isni_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.isni_check_digit.html)
-[^orcid]: [`orcid_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.orcid_check_digit.html)
-[^ror]: [`ror_check_digit`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/fn.ror_check_digit.html)
+[^isbn]: [`ISBN`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ISBN.html)
+[^isni]: [`ISNI`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ISNI.html)
+[^orcid]: [`ORCID`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ORCID.html)
+[^ror]: [`ROR`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ROR.html)
