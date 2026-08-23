@@ -143,8 +143,8 @@ Never use `#[ignore]` for broken or unknown failures — fix or delete instead.
 
 # Related testing plans
 
-- [Informational Miri quality checks](miri-quality.md) — Run a curated undefined-behavior check for portable `acorn-lib` behavior.
-- [Creusot verification for PID checksum calculations](creusot-pid-checksums.md) — Formally verify PID check-digit arithmetic with Creusot/Why3.
+- [Informational Miri quality checks](miri-quality.md) — Run curated undefined-behavior checks through portable public APIs, including refactored PID boundaries.
+- [Creusot verification for PID checksum calculations](creusot-pid-checksums.md) — Formally verify the four shared PID check-digit algorithms and PID-specific callers.
 
 # Acceptance criteria
 

@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Creusot verification for PID checksum calculations"
-description: "Formally verify panic/overflow-freedom and functional correctness of persistent-identifier check-digit calculations in acorn-lib's PID module using Creusot (Coma/Why3/SMT)."
+description: "Formally verify the four shared PID check-digit algorithms and their PID-specific callers using Creusot, Why3, and SMT solvers."
 difficulty: high
 impact: medium
 package: [acorn-lib]
@@ -12,120 +12,126 @@ priority: next
 
 # Goal
 
-Prove that every PID checksum / check-digit routine in `crates/acorn-lib/src/schema/pid/mod.rs` is free of panics, integer overflows, and logic mismatches against its published specification, using the Creusot deductive verifier. Initial scope is the six pure checksum helpers and their public wrappers; network, regex, and SHA-256 paths are explicitly excluded.
+Prove panic- and overflow-freedom plus functional correctness for the shared check-digit algorithms in `crates/acorn-lib/src/schema/pid/mod.rs` and connect those proofs to the checksum-bearing PID modules that call them. Preserve the refactored folder layout and existing visibility: proofs must not make private helpers public or move PID-specific parsing back into the base module.
+
+Network access, regex matching, serialization, SHA-256 identifier hashing, and PID types without checksum arithmetic are outside the initial proof boundary.
 
 # Current evidence
 
-## In-scope checksum surface (verified 2026-08-20 against `acorn-lib` `0.1.72`)
+## Refactored PID layout (verified 2026-08-23 against `acorn-lib` `0.1.75`)
 
-| Function | Location | Normative spec | Current implementation notes |
+- Shared traits, `PID`, `Identifier`, the beta-numeric alphabet, and shared free functions live in `crates/acorn-lib/src/schema/pid/mod.rs`.
+- Every concrete PID has its own `pid/<kind>/mod.rs` implementation and adjacent `pid/<kind>/tests.rs` suite. Checksum-bearing callers are `ark`, `isbn`, `isni`, `orcid`, and `ror`.
+- Direct vectors for every shared check-digit function are centralized in `crates/acorn-lib/src/schema/pid/tests.rs:12-96`; PID-specific parsing, validation, and trait contracts remain in the adjacent test modules.
+- `cargo check -p acorn-lib --no-default-features --features alloc` passes. The proof target can therefore stay on the portable `alloc` surface.
+
+## In-scope proof surface
+
+| Shared function or helper | Current location | PID callers | Current arithmetic and test evidence |
 |---|---|---|---|
-| `isbn_check_digit` | `crates/acorn-lib/src/schema/pid/mod.rs:1911` | ISBN-10 MOD 11 ( `X` for 10 ) and ISBN-13 MOD 10 with alternating weights 1/3 | `try_fold` over 9/12 chars; `#[allow(clippy::arithmetic_side_effects)]` at `mod.rs:1910`; integration test vectors at `crates/acorn-lib/src/schema/pid/tests/mod.rs:335` |
-| `isni_check_digit` | `mod.rs:1949` | ISO 7064 MOD 11-2 | delegates to `mod_11_2_check_digit` |
-| `orcid_check_digit` | `mod.rs:2014` | ISO 7064 MOD 11-2 | delegates to `mod_11_2_check_digit`; vectors at `tests/mod.rs:511` |
-| `mod_11_2_check_digit` (private core) | `mod.rs:1959` | ISO 7064 MOD 11-2, modulus 11 radix 2 | `fold(0,(acc+digit)*2)`, `(MODULUS+1-remainder)%MODULUS`; uses `unwrap_or_default` at `mod.rs:1967` |
-| `noid_check_digit` | `mod.rs:1990` | NOID Check Digit Algorithm (NCDA), radix 29 | `sum(position*ordinal)%29` via `Betanumeric::to_betanumeric_ordinal` `mod.rs:46,749`; `BETANUMERIC_DIGITS` `mod.rs:41` length 29; vector at `tests/mod.rs:422` |
-| `ror_check_digit` | `mod.rs:2035` | ISO 7064 MOD 97-10, ROR + Crockford Base32 | `take(6)` + `base32_crockford_decode` `crates/acorn-lib/src/util/mod.rs:873` + `(value*100)%97`; `98 - remainder` zero-padded; vectors at `tests/mod.rs:708` |
-| `base32_crockford_encode` / `decode` / `crockford_digit` | `crates/acorn-lib/src/util/mod.rs:845,873,904` | Crockford Base32 (excludes I,L,O,U) | `checked_mul`/`checked_add` loop with `HashSet` dedup; used only by ROR |
-| `to_betanumeric` | `mod.rs:2063` | helper for NOID | linear search in `BETANUMERIC_DIGITS` |
+| `mod_10_or_11_check_digit` (private) | `pid/mod.rs:778` | `ISBN::check_digit` and `ISBN::is_valid` in `pid/isbn/mod.rs` | ISBN-10 MOD 11 and ISBN-13 MOD 10; all multiplication, addition, subtraction, and remainder operations are checked; direct vectors at `pid/tests.rs:12,74` and wrapper cases in `pid/isbn/tests.rs` |
+| `mod_11_2_check_digit` (private) | `pid/mod.rs:847` | `ISNI` and `ORCID` check/validation paths in `pid/isni/mod.rs` and `pid/orcid/mod.rs` | ISO 7064 MOD 11-2; checked fold; non-decimal payload characters currently contribute zero; direct vectors at `pid/tests.rs:20,80` plus both adjacent suites |
+| `mod_97_10_check_digit` (private) | `pid/mod.rs:887` | `ROR::check_digit` and `ROR::is_valid` in `pid/ror/mod.rs` | first six compact Crockford characters, `base32_crockford_decode`, checked multiply/remainder/complement, two-digit formatting; direct vectors at `pid/tests.rs:26,86` and ROR cases in `pid/ror/tests.rs` |
+| `noid_check_digit` (public) | `pid/mod.rs:924` | `ARK::check_digit` in `pid/ark/mod.rs` | NCDA radix 29; position, ordinal, accumulation, and reduction use checked operations; direct vectors at `pid/tests.rs:33,92` and ARK cases in `pid/ark/tests.rs` |
+| `BETANUMERIC_DIGITS`, `Betanumeric for char`, `to_betanumeric` | `pid/mod.rs:47,556,943` | NCDA implementation | 29-character alphabet, forward lookup by `position`, reverse lookup by bounded enumeration; direct boundary checks at `pid/tests.rs:34` |
+| `base32_crockford_encode`, `base32_crockford_decode`, `crockford_digit` | `crates/acorn-lib/src/util/mod.rs:913,941,972` | ROR checksum dependency | checked decoder arithmetic and Crockford alphabet mapping; utility tests remain the executable oracle |
 
-Out of scope for phase 1: `Identifier::identifier_hash` `mod.rs:571` (SHA-256 via `ring`), `RE_*` regex parsing, and all `PersistentIdentifierParse` dispatch; they remain tested by existing `is_valid`/`find_all` unit tests.
+The old `isbn_check_digit`, `isni_check_digit`, `orcid_check_digit`, and `ror_check_digit` free-function names no longer exist. ISBN, ISNI, ORCID, and ROR expose checksum behavior through their `PersistentIdentifier::check_digit` implementations, while only `noid_check_digit` remains a public free function.
+
+Out of scope for phase 1:
+
+- `Identifier::identifier_hash` in `pid/mod.rs` because it is a `std`-gated SHA-256 path through `ring`.
+- Regex-backed `PersistentIdentifierParse::{find_all,from_string,is_valid}` internals except for narrow wrapper lemmas connecting validated ASCII payloads to the shared arithmetic.
+- ARK, ISBN, ISNI, ORCID, and ROR formatting rules unrelated to check digits.
+- arXiv, DOI, Handle, Patent, RAiD, and SWHID modules, which do not implement checksum arithmetic in this scope.
 
 ## Tooling readiness
 
-- No Creusot/Why3 integration exists in the repo (grep `creusot|why3|coma` across workspace returns zero hits).
-- Toolchain pinned to `rust-version = "1.95.0"` `Cargo.toml:7`; Creusot requires nightly + `why3` + SMT solvers (`z3`, `cvc5`, `alt-ergo`) — see [Creusot](https://creusot.rs/) and [creusot-rs/creusot](https://github.com/creusot-rs/creusot).
-- Workspace lints `unwrap_used = "warn"` `Cargo.toml:39` and `arithmetic_side_effects = "warn"` `Cargo.toml:22` already forbid patterns Creusot will prove away; `clippy.toml` allows unwraps in tests only.
-- Checksum helpers are `alloc`-only (except pure `core` arithmetic) and can be verified under `--no-default-features --features alloc`, avoiding `std` dependencies (`ring`, `fancy-regex`, `reqwest`) gated in `crates/acorn-lib/Cargo.toml:144`.
+- No Creusot, Why3, or Coma integration currently exists in the repository.
+- Stable Rust remains pinned to `1.95.0`; the existing CI nightly is `nightly-2026-08-01`. Creusot requires its own compatible nightly, Why3, and SMT solver installation; pin the verified combination rather than assuming the fuzz/Miri nightly is compatible. See [Creusot](https://creusot.rs/) and [creusot-rs/creusot](https://github.com/creusot-rs/creusot).
+- Workspace Clippy warns on arithmetic side effects, unwraps, indexing, and unchecked conversions. The refactored shared functions now use checked arithmetic and do not carry production `clippy::arithmetic_side_effects` allowances.
+- The shared helpers allocate `String`/`Vec<char>` wrappers, but their arithmetic is otherwise `core`-compatible. Private slice- or digit-based proof cores can be extracted if Creusot cannot model the wrappers directly.
 
 ## Related work
 
-- [Informational Miri quality checks](miri-quality.md) establishes the pattern for isolated, informational verification jobs over `acorn-lib` `alloc` surface — reuse its curated-suite and `make miri` conventions.
-- [CLI test coverage initiative](index.md) tracks complementary dynamic test coverage; Creusot is deductive and does not overlap.
+- [Informational Miri quality checks](miri-quality.md) covers dynamic undefined-behavior checks through public PID APIs; Creusot supplies deductive arithmetic guarantees for the private shared cores.
+- [CLI test coverage initiative](index.md) tracks complementary executable tests and does not replace formal contracts.
 
 # Recommendation
 
-## Phase 0 — Tool install & harness (1 day)
+## Phase 0 — Pin tools and create the proof target
 
-1. Install Creusot nightly toolchain, `why3` platform, and at least two SMT solvers. Document in `CONTRIBUTING.md` alongside Miri install notes.
-2. Add `make creusot` mirroring the existing `make wasm` pattern (`make wasm` runs `cargo check --no-default-features` for portable surface):
-   ```make
-   creusot:
-       cargo creusot --only=coma -p acorn-lib --no-default-features --features alloc
-   creusot-prove:
-       cargo creusot -p acorn-lib --no-default-features --features alloc
-   ```
-   Default `cargo creusot` now runs compile + prove (`cargo creusot 0.12.0 prove-by-default` — see [Creusot 0.12.0 devlog](https://devlog.creusot.rs/v0-12-0/)).
-3. Create a feature-gated shim `#[cfg(creusot)]` that re-exports checksum helpers with contracts, so normal `cargo check/test` is unaffected. Pin `creusot-contracts` as an optional dev dependency; do not add to `default` features.
+1. Pin a Creusot-supported nightly, Creusot release, Why3 release, and at least two supported SMT solvers. Document installation in `CONTRIBUTING.md` separately from the Miri nightly.
+2. Add canonical `make creusot` and `make creusot-prove` targets for `acorn-lib --no-default-features --features alloc`. Keep normal stable builds and default features unchanged.
+3. Add the narrowest conditional dependency/configuration supported by the pinned Creusot release. Contracts belong on private shared helpers or private extracted cores; do not re-export them from `schema::pid` solely for verification.
+4. Record a baseline showing that native `cargo check -p acorn-lib --no-default-features --features alloc`, `make lint`, and PID tests pass before proof annotations are added.
 
-## Phase 1 — Isolate pure cores (2 days)
+## Phase 1 — Define invariant-friendly private cores
 
-1. Keep public signatures (`Option<Vec<char>>`) for backward compat but extract inner `fn mod_11_2_on_digits(digits: &[u8]) -> u32` etc for spec-level proof. Where `String` construction is required, provide `#[logic]` spec functions.
-2. Replace proof-hostile patterns with invariant-friendly forms:
-   - `unwrap_or_default` at `mod.rs:1967` (`to_digit` fallback) → explicit `requires` that input contains digits.
-   - `BETANUMERIC_DIGITS.chars().position` at `mod.rs:750` → `#[logic]` lookup with bounded index `< 29`.
-3. Annotate `BETANUMERIC_DIGITS` length, `CROCKFORD_BASE32_ALPHABET` length, and `checked_mul/add` preconditions for overflow-freedom.
+1. Attempt contracts on the four current shared helpers first. Extract private arithmetic cores only where `String`, `Vec<char>`, iterator, or formatting support blocks verification.
+2. If extraction is required, keep the existing `Option<Vec<char>>` wrappers behaviorally unchanged and place the cores in `pid/mod.rs` beside their wrappers:
+   - ISBN-10/13 over validated ASCII digits and a declared algorithm variant.
+   - MOD 11-2 over at most the first 15 normalized decimal digits.
+   - MOD 97-10 over the decoded six-character Crockford payload.
+   - NCDA over beta-numeric ordinals with position computed modulo 29.
+3. Model the 29-character beta-numeric alphabet and Crockford alphabet as finite sequences with bounded forward/reverse lookup lemmas.
+4. Preserve current invalid-input semantics at wrapper boundaries. In particular, `mod_11_2_check_digit` currently maps non-decimal payload characters to zero; PID-specific validation supplies the stronger character-set precondition.
 
-## Phase 2 — Contracts (3–5 days)
+## Phase 2 — Add contracts and wrapper lemmas
 
-Attach `creusot_contracts::{requires, ensures, invariant}` to each helper:
+Prove both safety and functional behavior:
 
-- **Safety:** `#[ensures(!panics)]` +溢出 freedom: `checked_mul`/`checked_add` succeed, indexing within `BETANUMERIC_DIGITS`, `CROCKFORD_BASE32_ALPHABET`.
-- **Functional:**
+- `mod_10_or_11_check_digit`: valid compact ISBN-10 input uses weights 10 through 2 and maps result 10 to `X`; valid ISBN-13 input uses alternating weights 1/3 and produces one decimal digit.
+- `mod_11_2_check_digit`: each step equals `(remainder + digit) * 2 mod 11`; the final complement is decimal or `X`; the remainder remains below 11.
+- `mod_97_10_check_digit`: Crockford decoding succeeds for a valid six-character ROR payload, checked multiplication by 100 cannot overflow for that bound, and the result is the zero-padded MOD 97-10 complement.
+- `noid_check_digit`: the result is the alphabet entry at `Σ((index + 1) * ordinal) mod 29`; checked operations succeed for all finite Rust strings because the accumulator is reduced below 29 on every step.
+- Beta-numeric/Crockford lookup: accepted characters map to bounded ordinals and reverse lookup returns the original canonical character.
 
-  ```rust
-  #[requires(value.chars().filter(|c| c.is_ascii_digit()).count() >= 15)]
-  #[ensures(result.is_some() ==> result.unwrap().len()==1 && (result.unwrap()[0].is_ascii_digit() || result.unwrap()[0]=='X'))]
-  pub fn mod_11_2_check_digit<S: AsRef<str>>(value: S) -> Option<Vec<char>>
-  ```
+Add narrow lemmas connecting each private core to the public trait boundary in `pid/ark/mod.rs`, `pid/isbn/mod.rs`, `pid/isni/mod.rs`, `pid/orcid/mod.rs`, and `pid/ror/mod.rs`. Do not pull regex engines or complete parsing implementations into the proof target.
 
-  - `isbn_check_digit`: 10-char branch `check = (11 - sum%11)%11` → `X` iff 10 else digit; 13-char branch `check = (10 - sum%10)%10` with weight `1 + 2*(i%2)`.
-  - `noid_check_digit`: `sum = Σ (i+1)*ordinal(c_i)` `% 29` maps via `BETANUMERIC_DIGITS[sum%29]`.
-  - `ror_check_digit`: `take(6)` truncation `mod.rs:2045`, `base32_crockford_decode` inverts `encode` (lemma `decode(encode(n))==Some(n)` in `util/mod.rs`), then `checksum = (98 - (decoded*100)%97)%97`.
-  - `base32_crockford_decode`: loop `#[invariant(acc < 32u128.pow(k))]` and `checked_*` postconditions.
+## Phase 3 — Prove and cross-check executable vectors
 
-Prefer `pearlite` `seq` for sum specs; keep `util::base32_crockford_decode` loop as explicit `for` for Creusot invariant inference.
+1. Generate/type-check the Creusot/Coma translation, then discharge all verification conditions with two solvers.
+2. Treat `crates/acorn-lib/src/schema/pid/tests.rs` as the shared executable oracle. Encode its beta-numeric and four check-digit case tables as proof examples or theorem checks without deleting the native tests.
+3. Retain the adjacent PID suites as wrapper-level regression coverage. Formal proof should complement, not replace, parsing, formatting, trait-order, and validation tests.
+4. Run native PID tests, `make lint`, `make test`, and the portable `cargo check` after proof-oriented extraction.
 
-## Phase 3 — Prove & curate
+## Phase 4 — CI and maintenance
 
-1. Fast feedback: `cargo creusot --only=coma` (type-checks Coma translation). Fix unsupported constructs (`fancy_regex`, `HashSet` in `merge`) by keeping them out of verified path.
-2. Full prove: `cargo creusot` → Why3 VCs → SMT. Expect manual lemmas for Crockford modulo and ROR padding; place in `crates/acorn-lib/src/util/mod.rs` logic module.
-3. Cross-check against existing vectors (`tests/mod.rs:335,422,511,708`) — encode as `#[ensures]` examples so proofs subsume tests.
-
-## Phase 4 — CI & sustainability
-
-- Add informational GitLab job `creusot` (test stage, `allow_failure: true` initially, mirroring `miri-quality.md`), gating on `acorn-lib/**`, `Cargo.*`, `Makefile`.
-- Document maintenance: re-pin nightly with fuzz/Miri nightly (`nightly-2026-08-01` in `miri-quality.md`), keep `make creusot` as canonical local entry, file upstream issues for unsupported `alloc` patterns rather than disabling checks globally.
+- Add an informational GitLab `creusot` job with `allow_failure: true` initially.
+- Trigger it for `crates/acorn-lib/src/schema/pid/**`, `crates/acorn-lib/src/util/mod.rs`, Creusot configuration, Cargo manifests/lockfile, `Makefile`, and CI changes.
+- Keep the Creusot toolchain pin independent but review it alongside the Miri/fuzz nightly update.
+- Require proof updates when a shared checksum helper, checksum-bearing PID caller, beta-numeric alphabet, or Crockford decoder changes.
 
 # Validation
 
-1. `cargo creusot --only=coma -p acorn-lib --no-default-features --features alloc` type-checks with zero errors.
-2. `cargo creusot -p acorn-lib --no-default-features --features alloc` discharges all checksum VCs with `z3` + `cvc5` (or `alt-ergo`) without `admit`/`assume`.
-3. `make test` and `make test-ci` still pass; no new `unsafe` introduced (`unsafe_code = "forbid"` `Cargo.toml:48`).
-4. `cargo clippy --workspace --no-deps --all-targets` clean (existing `#[allow(clippy::arithmetic_side_effects)]` at `mod.rs:1910,1958,1989,2014,2034` remains justified and proven).
-5. A merge request touching `crates/acorn-lib/src/schema/pid/**` or `crates/acorn-lib/src/util/mod.rs` triggers the `creusot` job, logs are exposed, pipeline not blocked.
+1. `cargo check -p acorn-lib --no-default-features --features alloc` remains clean.
+2. The pinned Creusot translation command succeeds for the isolated PID proof target with zero unsupported items in the proof boundary.
+3. Two configured SMT solvers discharge every checksum verification condition without `admit`, `assume`, blanket ignore attributes, or solver-disable flags.
+4. `cargo test -p acorn-lib schema::pid`, `make lint`, and `make test` pass after proof annotations or private-core extraction.
+5. A qualifying change under `schema/pid/**` or to the Crockford helpers triggers the informational CI job and exposes its logs without blocking the pipeline.
 
 # Acceptance criteria
 
-1. `make creusot` and `make creusot-prove` are documented and reproduce locally.
-2. All five checksum families (ISBN-10/13, ISNI/ORCID MOD 11-2, NOID NCDA, ROR MOD 97-10) plus `base32_crockford_*`/`Betanumeric` helpers carry `requires/ensures` linking to normative references in their doc comments (`mod.rs:1978,2003,2021`).
-3. Proofs cover overflow-freedom and functional equivalence to spec, not just smoke tests.
-4. Existing unit vectors in `crates/acorn-lib/src/schema/pid/tests/mod.rs` are encoded as proof examples and continue to pass natively.
-5. No blanket `cfg_attr(creusot, ignore)` or solver-disable flags; only narrow, documented lemmas.
+1. `make creusot` and `make creusot-prove` are documented, reproducible entry points using pinned tools.
+2. All four shared algorithms, beta-numeric lookup, and the Crockford decoder dependency have contracts covering overflow-freedom, bounds, and functional equivalence to their specifications.
+3. Wrapper lemmas cover ARK/NOID, ISBN-10/13, ISNI/ORCID MOD 11-2, and ROR MOD 97-10 without making private helpers public.
+4. Every case table in `crates/acorn-lib/src/schema/pid/tests.rs` remains a passing native test and has a corresponding proof example or theorem.
+5. The refactored `pid/<kind>/mod.rs` plus `pid/<kind>/tests.rs` organization remains intact, with no checksum implementation duplicated into PID-specific modules.
 
-# Risks & tradeoffs
+# Risks and tradeoffs
 
-- **Unsupported Rust features:** `fancy_regex`, `serde` derives, and `HashMap`/`HashSet` in non-checksum code are outside Creusot's supported fragment — mitigated by scoping to pure `alloc`/`core` helpers.
-- **String allocation model:** Creusot's `std`/`alloc` model is less mature than `core` — fallback is to verify `&[u8]` cores and lift via wrapper lemmas.
-- **Nightly pin drift:** reuse the existing `nightly-2026-08-01`/`1.95.0` coordination pattern from `miri-quality.md`; update lockstep.
-- **Alternative tooling:** `prusti`/`kani` provide cheaper bounded checking but weaker deductive guarantees — Creusot chosen for ISO-spec functional proofs; `proptest` (`crates/acorn-lib/Cargo.toml:114`) remains for fuzz complement.
+- **Iterator and allocation support:** Creusot may not model the current `String`/`Vec<char>` wrappers or iterator chains directly. Mitigate with small private digit/slice cores, not public API expansion.
+- **Parser-to-core gap:** Regex validation is excluded, so wrapper lemmas must state the exact normalized ASCII and length assumptions supplied by each PID module.
+- **Formatting proof:** ROR zero-padding creates an allocation boundary. Prove the numeric checksum first and keep a narrow formatting lemma or executable assertion if string formatting is unsupported.
+- **Nightly pin drift:** Creusot compatibility may differ from Miri compatibility. Pin and update each toolchain deliberately.
+- **Proof maintenance:** Shared helpers reduce duplicate proof work, but changes affect several PID modules. CI path rules and wrapper lemmas make that blast radius explicit.
 
 # References
 
-- Creusot homepage & user guide — <https://creusot.rs/>
+- Creusot homepage and user guide — <https://creusot.rs/>
 - Creusot repository — <https://github.com/creusot-rs/creusot>
-- Creusot 0.12.0 prove-by-default — <https://devlog.creusot.rs/v0-12-0/>
 - Why3 platform — <https://why3.org/>
-- ISO 7064 MOD 11-2 / MOD 97-10 — citations already in `mod.rs:2003,2021`
-- NOID Check Digit Algorithm — <https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM> and `mod.rs:1978`
-- Crockford Base32 — <https://www.crockford.com/base32.html> and `util/mod.rs:845`
+- ISO 7064 MOD 11-2 and MOD 97-10 — links in the ORCID/ROR implementation documentation
+- NOID Check Digit Algorithm — <https://metacpan.org/dist/Noid/view/noid#NOID-CHECK-DIGIT-ALGORITHM>
+- Crockford Base32 — <https://www.crockford.com/base32.html>
