@@ -76,6 +76,70 @@ This division delivers generic Harbor downloads immediately because Harbor imple
 - Resolve tags to a manifest digest during planning. Persist and report both the requested tag and resolved digest so dry runs, logs, database records, and synchronization are reproducible.
 - Reject URL user-info, fragments, malformed digests, ambiguous hostless references, and insecure HTTP unless a registry profile explicitly enables development-only plain HTTP.
 
+### Example use
+
+These commands show the planned interface; OCI support is not yet implemented. The registry names, repositories, tags, and digests are illustrative.
+
+Pull a model artifact from Harbor or any other OCI Distribution-compatible registry by tag:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M
+```
+
+Pull an immutable artifact by digest:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+Resolve a mutable tag to its digest and preview the selected files without writing:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --dry-run
+```
+
+Emit the same dry-run resolution as structured JSON for automation:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --dry-run --raw --format json
+```
+
+Select a quantization and restrict the materialized files using the existing model filters:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:v1 --quantization Q4_K_M --filter '\.gguf$|tokenizer|config\.json$' --ignore 'imatrix|\.md$'
+```
+
+Write the verified artifact beneath a specific model directory:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --local-dir ./models
+```
+
+Load one or more `oci://` references from an existing plain-text, JSON, or YAML model-list document:
+
+```sh
+acorn download model --model-file ./oci-models.txt
+```
+
+Use OCI sources and the named Harbor registry profile from application configuration:
+
+```sh
+acorn download model --config ./.acorn.json
+```
+
+Download and then synchronize the resolved local model with one inference target:
+
+```sh
+acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --sync opencode
+```
+
+Remote OCI access remains subject to the global offline policy, so this command is expected to fail before ORAS or Harbor is contacted:
+
+```sh
+acorn --offline download model oci://harbor.example.org/ai/models/qwen:Q4_K_M
+```
+
 ### Configuration
 
 Add `Repository::OCI` and an optional named registry profile rather than a Harbor-only model source. A target shape to validate against existing schema conventions is:
