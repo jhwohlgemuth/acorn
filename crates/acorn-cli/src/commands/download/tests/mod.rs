@@ -2267,6 +2267,25 @@ fn test_model_select_preferred_file_prefers_marker() {
     assert_eq!(selected.first().map(|file| file.path.as_str()), Some("model.Q4_K_M.gguf"));
 }
 #[test]
+fn test_model_select_preferred_file_prefers_repository_model_over_auxiliary_models() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = HuggingFaceRepositoryFiles::new(
+        "ggml-org/gpt-oss-120b-GGUF",
+        "main",
+        vec![
+            candidate_file("eagle3-gpt-oss-120b-BF16.gguf"),
+            candidate_file("eagle3-gpt-oss-120b-Q8_0.gguf"),
+            candidate_file("gpt-oss-120b-MXFP4.gguf"),
+        ],
+    );
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected.first().map(|file| file.path.as_str()), Some("gpt-oss-120b-MXFP4.gguf"));
+}
+#[test]
 fn test_model_select_preferred_file_keeps_complete_shard_set() {
     let policy = FileSelectionPolicy {
         preferred_marker: "Q4_K_M",
@@ -2280,6 +2299,21 @@ fn test_model_select_preferred_file_keeps_complete_shard_set() {
     let selected = files.select(&policy).unwrap();
     assert_eq!(selected.len(), 2);
     assert!(selected.iter().all(|file| file.path.contains("Q4_K_M")));
+}
+#[test]
+fn test_model_select_preferred_file_keeps_complete_shard_set_without_preferred_marker() {
+    let policy = FileSelectionPolicy {
+        preferred_marker: "Q4_K_M",
+        no_match_message: "No GGUF model files found",
+    };
+    let files = repository_files(vec![
+        candidate_file("model-MXFP4-00001-of-00003.gguf"),
+        candidate_file("model-MXFP4-00002-of-00003.gguf"),
+        candidate_file("model-MXFP4-00003-of-00003.gguf"),
+    ]);
+    let selected = files.select(&policy).unwrap();
+    assert_eq!(selected.len(), 3);
+    assert!(selected.iter().all(|file| file.path.contains("MXFP4")));
 }
 #[test]
 fn test_model_select_preferred_file_rejects_incomplete_shard_set() {

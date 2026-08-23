@@ -275,6 +275,22 @@ impl HuggingFaceRepositoryFiles {
             }
         })
     }
+    fn repository_model_files(&self) -> Self {
+        let repository_name = self.identifier.rsplit('/').next().unwrap_or_default().to_ascii_lowercase();
+        let model_name = repository_name.strip_suffix("-gguf").unwrap_or(&repository_name);
+        let prefix = format!("{model_name}-");
+        let files = self
+            .iter()
+            .filter(|file| {
+                file.path
+                    .rsplit('/')
+                    .next()
+                    .is_some_and(|filename| filename.to_ascii_lowercase().starts_with(&prefix))
+            })
+            .cloned()
+            .collect();
+        Self::new(&self.identifier, &self.revision, files)
+    }
     fn candidate_report(&self) -> String {
         match self.len() {
             | 0 => "no GGUF files".to_string(),
@@ -643,9 +659,19 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
                     .cloned()
                     .collect();
                 let preferred = Self::new(identifier, revision, preferred_files);
-                match preferred.len() {
-                    | 1 => Ok(preferred),
-                    | _ => preferred.complete_shard_set().ok_or_else(|| {
+                let candidates = match preferred.is_empty() {
+                    | false => preferred,
+                    | true => {
+                        let repository_models = files.repository_model_files();
+                        match repository_models.is_empty() {
+                            | true => files.clone(),
+                            | false => repository_models,
+                        }
+                    }
+                };
+                match candidates.len() {
+                    | 1 => Ok(candidates),
+                    | _ => candidates.complete_shard_set().ok_or_else(|| {
                         eyre!(
                             "Multiple model file candidates found ({}); use --filter to choose one",
                             files.candidate_report()
