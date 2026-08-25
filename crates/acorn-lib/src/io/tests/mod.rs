@@ -20,7 +20,10 @@ use crate::io::{
 };
 use crate::prelude::OsString;
 use crate::schema::agent::Quantization;
-use crate::util::constants::app::{ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP};
+use crate::util::constants::app::{
+    ACORN_MODEL_LAYER, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER,
+    OCI_LAYER_GZIP,
+};
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::{MimeType, SemanticVersion, StringConversion};
 use crate::{args, Location, Repository, Scheme};
@@ -1293,6 +1296,9 @@ fn test_walk_returns_portable_relative_file_paths() {
 }
 #[test]
 fn test_oci_descriptor_media_types_map_to_model_layers() {
+    for path in ["model.gguf", "model.onnx", "model.pt", "model.safetensors"] {
+        assert!(MimeType::from(path).is_model_resource(), "{path} must be accepted");
+    }
     for media_type in ["application/octet-stream", OCI_LAYER, OCI_LAYER_GZIP, ACORN_MODEL_LAYER] {
         let descriptor = Descriptor {
             media_type: media_type.to_string(),
@@ -1467,4 +1473,46 @@ fi
     transport.pull(&reference, &resolution, &destination).unwrap();
     assert_eq!(read(destination.join("model-Q4_K_M.gguf")).unwrap(), b"fake");
     assert!(transport.pull(&reference, &resolution, &destination).is_err());
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_fake_oras_resolves_and_unpacks_modelkit_model_layer() {
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let source = temp.path().join("model-layer");
+    create_dir_all(&source).unwrap();
+    let model = source.join("model.safetensors");
+    let layer = temp.path().join("model.tar.gz");
+    write(&model, b"model").unwrap();
+    archive(source, Some(layer.clone()), MimeType::Gzip).unwrap();
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ]; then
+  printf '%s' '{{"schemaVersion":2,"config":{{"mediaType":"{KITOPS_MODELKIT_CONFIG}","digest":"{OCI_TEST_DIGEST}","size":100,"annotations":{{}}}},"layers":[{{"mediaType":"{KITOPS_MODELKIT_MODEL_GZIP}","digest":"{OCI_TEST_DIGEST}","size":5,"annotations":{{}}}}]}}'
+elif [ "$1" = "blob" ] && [ "$4" = "-" ]; then
+  printf '%s' '{{"manifestVersion":"1.0.0","model":{{"path":"model.safetensors"}}}}'
+elif [ "$1" = "blob" ]; then
+  cp '{}' "$4"
+else
+  exit 1
+fi
+"#,
+        layer.display()
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/jozu/model:v1").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[]).unwrap();
+    assert_eq!(resolution.files.len(), 1);
+    assert_eq!(resolution.files[0].path, "model.safetensors");
+    assert_eq!(resolution.files[0].media_type, KITOPS_MODELKIT_MODEL_GZIP);
+    let destination = temp.path().join("published-modelkit");
+    transport.pull(&reference, &resolution, &destination).unwrap();
+    assert_eq!(read(destination.join("model.safetensors")).unwrap(), b"model");
 }

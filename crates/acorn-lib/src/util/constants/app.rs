@@ -100,6 +100,10 @@ pub const OCI_LAYER: &str = "application/vnd.oci.image.layer.v1.tar";
 pub const OCI_LAYER_GZIP: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
 /// ACORN-specific OCI layer media type for model files.
 pub const ACORN_MODEL_LAYER: &str = "application/vnd.acorn.model.file.v1";
+/// KitOps ModelKit configuration media type.
+pub const KITOPS_MODELKIT_CONFIG: &str = "application/vnd.kitops.modelkit.config.v1+json";
+/// Gzip-compressed KitOps ModelKit model layer media type.
+pub const KITOPS_MODELKIT_MODEL_GZIP: &str = "application/vnd.kitops.modelkit.model.v1.tar+gzip";
 /// Minimum supported ORAS CLI version.
 pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
 /// Default llama-swap configuration path beneath the user's home directory.

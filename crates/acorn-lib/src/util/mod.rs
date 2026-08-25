@@ -713,7 +713,7 @@ impl MimeType {
     /// Return whether this file type is accepted as OCI model content.
     pub fn is_model_resource(&self) -> bool {
         match self {
-            | Self::Gguf | Self::Json | Self::Jsonc | Self::Text => true,
+            | Self::Gguf | Self::Json | Self::Jsonc | Self::Onnx | Self::Pytorch | Self::Safetensors | Self::Text => true,
             | Self::Vendor(extension) => matches!(extension.as_str(), "model" | "tiktoken"),
             | Self::Unknown(name) => name.ends_with("tokenizer_config"),
             | _ => false,

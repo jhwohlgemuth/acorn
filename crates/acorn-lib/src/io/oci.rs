@@ -1,7 +1,7 @@
 //! OCI model artifact references, manifests, and ORAS-backed transport
 use crate::args;
 use crate::io::config::{FilterSet, RegistryProfile};
-use crate::io::{walk, ApiResult, FromCommand, PathExt};
+use crate::io::{extract, walk, ApiResult, FromCommand, PathExt};
 use crate::prelude::{
     create_dir, create_dir_all, env, fs, remove_dir_all, remove_file, rename, HashMap, HashSet, OsString, Path, PathBuf, String, ToString, Vec,
 };
@@ -9,7 +9,8 @@ use crate::schema::agent::Quantization;
 use crate::schema::validate::is_digest;
 use crate::util::cmd::{redact, run_output, run_output_with_stdin, try_from_output};
 use crate::util::constants::app::{
-    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
+    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG,
+    OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
 };
 use crate::util::{MimeType, SemanticVersion};
 use crate::Location;
@@ -91,6 +92,7 @@ pub(crate) struct Descriptor {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Manifest {
     pub(crate) schema_version: u64,
+    #[serde(default = "default_manifest_media_type")]
     pub(crate) media_type: String,
     #[serde(default)]
     pub(crate) artifact_type: Option<String>,
@@ -98,6 +100,14 @@ pub(crate) struct Manifest {
     pub(crate) config: Descriptor,
     #[validate(nested)]
     pub(crate) layers: Vec<Descriptor>,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ModelKitConfig {
+    model: Option<ModelKitModel>,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ModelKitModel {
+    path: String,
 }
 /// Credentials and development transport options for ORAS.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -387,6 +397,80 @@ impl OrasTransport {
             try_from_output(output).map_err(|why| eyre!("ORAS request failed — {}", redact(&why)))
         })
     }
+    fn model_files(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<Vec<OciFile>> {
+        match manifest.config.media_type.as_str() == KITOPS_MODELKIT_CONFIG {
+            | true => self.modelkit_files(reference, manifest),
+            | false => manifest
+                .layers
+                .clone()
+                .into_iter()
+                .map(|descriptor| {
+                    descriptor.of_model().map(OciFile::from).and_then(|file| {
+                        file.validate()
+                            .map_err(|why| eyre!("Invalid OCI model artifact file — {why}"))
+                            .map(|()| file)
+                    })
+                })
+                .collect(),
+        }
+    }
+    fn modelkit_files(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<Vec<OciFile>> {
+        let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
+        self.invoke(args!["blob", "fetch", "--output", "-", config_reference])
+            .and_then(|content| serde_json::from_str::<ModelKitConfig>(&content).map_err(|why| eyre!("Invalid KitOps ModelKit config — {why}")))
+            .and_then(|config| config.model.ok_or_else(|| eyre!("KitOps ModelKit does not contain a model")))
+            .and_then(|model| {
+                let path = model.path;
+                let valid_path = Path::new(&path).is_safe();
+                let is_model = MimeType::from(path.as_str()).is_model_resource();
+                match (valid_path, is_model) {
+                    | (false, _) => Err(eyre!("Unsafe KitOps ModelKit model path '{path}'")),
+                    | (_, false) => Err(eyre!("Unsupported KitOps ModelKit model file '{path}'")),
+                    | _ => Ok(path),
+                }
+            })
+            .and_then(|path| {
+                let layers = manifest
+                    .layers
+                    .iter()
+                    .filter(|layer| layer.media_type == KITOPS_MODELKIT_MODEL_GZIP)
+                    .collect::<Vec<_>>();
+                match layers.as_slice() {
+                    | [layer] => layer
+                        .validate()
+                        .map_err(|why| eyre!("Invalid KitOps ModelKit model layer — {why}"))
+                        .map(|()| {
+                            vec![OciFile {
+                                media_type: layer.media_type.clone(),
+                                digest: layer.digest.clone(),
+                                size: layer.size,
+                                path,
+                            }]
+                        }),
+                    | [] => Err(eyre!("KitOps ModelKit has no supported model layer")),
+                    | _ => Err(eyre!("KitOps ModelKit has multiple model layers")),
+                }
+            })
+    }
+    fn pull_files(&self, reference: &OciReference, resolution: &OciResolution, staging: &Path) -> ApiResult<()> {
+        match resolution.files.as_slice() {
+            | [file] if file.media_type == KITOPS_MODELKIT_MODEL_GZIP => {
+                let archive = staging.join(".acorn-modelkit-model.tar.gz");
+                let blob_reference = reference.with_digest(&file.digest).trim_start_matches(OCI_PREFIX).to_string();
+                self.invoke(args!["blob", "fetch", "--output", archive.as_os_str(), blob_reference])
+                    .and_then(|_| extract(archive.clone(), Some(staging.to_path_buf()), Some(MimeType::Gzip)).map(|_| ()))
+                    .and_then(|()| remove_file(&archive).map_err(|why| eyre!("Failed to remove staged ModelKit layer — {why}")))
+            }
+            | _ => {
+                let resolved_reference = reference
+                    .with_digest(&resolution.resolved_digest)
+                    .trim_start_matches(OCI_PREFIX)
+                    .to_string();
+                self.invoke(args!["pull", resolved_reference, "--output", staging.as_os_str()])
+                    .map(|_| ())
+            }
+        }
+    }
     pub(crate) fn transport_args(&self, args: Vec<OsString>, password_stdin: bool) -> Vec<OsString> {
         let options = &self.options;
         let password = password_stdin.then_some("--password-stdin");
@@ -434,17 +518,7 @@ impl OciTransport for OrasTransport {
                     })
             })
             .and_then(|(descriptor, manifest)| {
-                manifest
-                    .layers
-                    .into_iter()
-                    .map(|descriptor| {
-                        descriptor.of_model().map(OciFile::from).and_then(|file| {
-                            file.validate()
-                                .map_err(|why| eyre!("Invalid OCI model artifact file — {why}"))
-                                .map(|()| file)
-                        })
-                    })
-                    .collect::<ApiResult<Vec<_>>>()
+                self.model_files(reference, &manifest)
                     .and_then(|files| {
                         let unique = files.iter().map(|file| file.path.as_str()).collect::<HashSet<_>>().len();
                         match unique == files.len() {
@@ -502,13 +576,9 @@ impl OciTransport for OrasTransport {
                     create_dir(&staging)
                         .map_err(|why| eyre!("Failed to create OCI staging directory — {why}"))
                         .and_then(|()| {
-                            let resolved_reference = reference
-                                .with_digest(&resolution.resolved_digest)
-                                .trim_start_matches(OCI_PREFIX)
-                                .to_string();
                             let result = self
-                                .invoke(args!["pull", resolved_reference, "--output", staging.display().to_string()])
-                                .and_then(|_| validate_staging(&staging, &resolution.files))
+                                .pull_files(reference, resolution, &staging)
+                                .and_then(|()| validate_staging(&staging, &resolution.files))
                                 .and_then(|_| rename(&staging, destination).map_err(|why| eyre!("Failed to publish OCI model atomically — {why}")));
                             if result.is_err() && staging.exists() {
                                 let _ = remove_dir_all(&staging);
@@ -518,6 +588,9 @@ impl OciTransport for OrasTransport {
                 }),
         }
     }
+}
+fn default_manifest_media_type() -> String {
+    OCI_IMAGE_MANIFEST.to_string()
 }
 fn is_model_store_path(path: &str) -> bool {
     let segments = path.split('/').collect::<Vec<_>>();
@@ -568,19 +641,22 @@ fn validate_staging(staging: &Path, expected: &[OciFile]) -> ApiResult<()> {
                     "OCI staged files did not match the validated manifest (missing: {})",
                     missing.join(", ")
                 )),
-                | true => expected.iter().try_for_each(|file| {
-                    fs::metadata(staging.join(&file.path))
-                        .map_err(|why| eyre!("Failed to inspect OCI staged file '{}' — {why}", file.path))
-                        .and_then(|metadata| match metadata.len() == file.size {
-                            | true => Ok(()),
-                            | false => Err(eyre!(
-                                "OCI staged file '{}' size mismatch: expected {}, found {}",
-                                file.path,
-                                file.size,
-                                metadata.len()
-                            )),
-                        })
-                }),
+                | true => expected
+                    .iter()
+                    .filter(|file| file.media_type != KITOPS_MODELKIT_MODEL_GZIP)
+                    .try_for_each(|file| {
+                        fs::metadata(staging.join(&file.path))
+                            .map_err(|why| eyre!("Failed to inspect OCI staged file '{}' — {why}", file.path))
+                            .and_then(|metadata| match metadata.len() == file.size {
+                                | true => Ok(()),
+                                | false => Err(eyre!(
+                                    "OCI staged file '{}' size mismatch: expected {}, found {}",
+                                    file.path,
+                                    file.size,
+                                    metadata.len()
+                                )),
+                            })
+                    }),
             }
         })
 }

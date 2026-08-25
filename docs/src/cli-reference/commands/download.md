@@ -177,7 +177,7 @@ acorn download model oci://registry.example.org/ai/models/qwen@sha256:0123456789
 
 Tags are resolved during planning. Dry-run and raw output include the requested reference, resolved SHA-256 manifest digest, artifact type, selected files, and total size. Downloads pin the resolved digest, use ORAS digest verification, stage into a unique sibling directory, validate every materialized path, and publish with one rename. A non-empty existing destination is rejected. `--skip-verify-checksum` does not disable OCI descriptor verification.
 
-ACORN accepts OCI artifact manifests whose files have safe `org.opencontainers.image.title` annotations and recognized model/config/tokenizer filenames. Ordinary runnable container images, missing titles, absolute or traversal paths, unsupported files, symbolic links, and malformed digests are rejected. Digest integrity proves content identity; it does not authenticate the publisher or replace a future signature policy.
+ACORN accepts OCI artifact manifests whose files have safe `org.opencontainers.image.title` annotations and recognized model/config/tokenizer filenames. It also accepts KitOps ModelKits, including manifests that omit the optional top-level `mediaType`; ACORN reads the ModelKit config, fetches only its declared gzip-compressed model layer, and safely extracts the declared GGUF, SafeTensors, ONNX, or PyTorch model file. Ordinary runnable container images, unrecognized missing titles, absolute or traversal paths, unsupported files, symbolic links, and malformed digests are rejected. Digest integrity proves content identity; it does not authenticate the publisher or replace a future signature policy.
 
 #### Custom Harbor endpoints
 
