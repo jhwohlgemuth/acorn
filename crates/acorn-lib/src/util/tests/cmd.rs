@@ -4,9 +4,9 @@ use crate::io::command_exists;
 use crate::prelude::CommandOutput;
 use crate::prelude::OsString;
 use crate::test::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin};
-use crate::util::cmd::redact;
 #[cfg(feature = "shell-lint")]
 use crate::util::cmd::Severity as CmdSeverity;
+use crate::util::cmd::{redact, redact_args};
 #[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
 #[cfg(feature = "shell-lint")]
@@ -41,8 +41,12 @@ fn test_redact() {
     ];
     for (args, expected) in cases {
         let oss_args: Vec<OsString> = args.iter().map(OsString::from).collect();
-        assert_eq!(redact(&oss_args).join(" "), *expected, "failed for args: {args:?}");
+        assert_eq!(redact_args(&oss_args).join(" "), *expected, "argument redaction mismatch");
     }
+}
+#[test]
+fn test_redact_registry_authorization() {
+    assert_eq!(redact("request failed\nauthorization: Bearer secret"), "request failed\nauth=[REDACTED]");
 }
 mod args_macro {
     use super::*;

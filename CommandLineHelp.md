@@ -398,7 +398,7 @@ Download model weights for use with ACORN research harnesses and local inference
 
 ###### **Arguments:**
 
-* `<MODEL>` — Model ID/name(s), local path(s), or direct URL(s)
+* `<MODEL>` — Model ID/name(s), local path(s), direct URL(s), or explicit oci:// artifact reference(s)
 
 ###### **Options:**
 
@@ -785,7 +785,7 @@ Import model metadata into the local database
 
 ###### **Arguments:**
 
-* `<MODEL>` — Model ID/name(s), local path(s), or direct URL(s)
+* `<MODEL>` — Model ID/name(s), local path(s), direct URL(s), or explicit oci:// artifact reference(s)
 
 ###### **Options:**
 

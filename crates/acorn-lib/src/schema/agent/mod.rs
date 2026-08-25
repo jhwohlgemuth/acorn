@@ -447,6 +447,31 @@ pub struct Modalities {
     /// Output modalities the model produces
     pub output: Vec<Modality>,
 }
+/// OCI artifact provenance recorded for a resolved model.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OciModelDetails {
+    /// Registry host and optional port.
+    pub registry: String,
+    /// Repository path within the registry.
+    pub repository: String,
+    /// Original explicit OCI reference.
+    pub requested_reference: String,
+    /// Resolved immutable manifest digest.
+    pub resolved_digest: String,
+    /// Declared artifact type, when present.
+    pub artifact_type: Option<String>,
+    /// Total selected file size in bytes.
+    pub total_size: u64,
+    /// Selected repository-relative file paths.
+    pub files: Vec<String>,
+    /// Harbor tag names returned by optional registry enrichment.
+    pub harbor_tags: Option<Vec<String>>,
+    /// Harbor label names returned by optional registry enrichment.
+    pub harbor_labels: Option<Vec<String>>,
+    /// Harbor push timestamp returned by optional registry enrichment.
+    pub harbor_push_time: Option<String>,
+}
 /// Describe a language model (LM)
 ///
 /// This struct strives to accommodate the wide myriad varieties of language models in the wild.
@@ -481,6 +506,8 @@ pub struct ModelDetails {
     pub name: Option<String>,
     /// Indicates whether the model weights are openly available
     pub open_weights: Option<bool>,
+    /// OCI artifact resolution and immutable provenance.
+    pub oci: Option<OciModelDetails>,
     /// Number of parameters (in billions) (e.g., 14 for "14B")
     pub parameters: Option<i64>,
     /// Resolved local path to model weights
@@ -1098,6 +1125,15 @@ impl MarkdownSupport for ModelDetails {
     }
 }
 impl ModelDetails {
+    /// Return display parts for human-readable summary output
+    ///
+    /// Returns `(primary, optional_context)` where primary is the model identifier
+    /// and context is a fallback annotation when applicable.
+    pub fn report(&self) -> (String, Option<String>) {
+        let id = self.id.as_deref().unwrap_or("unknown").to_string();
+        let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
+        (id, context)
+    }
     /// Return a Hugging Face repository selector or explain why one cannot be resolved.
     pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
         let repository = Option::<Source>::from(self.clone())
@@ -1497,17 +1533,6 @@ fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> 
         Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()))
     } else {
         Ok(())
-    }
-}
-impl ModelDetails {
-    /// Return display parts for human-readable summary output
-    ///
-    /// Returns `(primary, optional_context)` where primary is the model identifier
-    /// and context is a fallback annotation when applicable.
-    pub fn report(&self) -> (String, Option<String>) {
-        let id = self.id.as_deref().unwrap_or("unknown").to_string();
-        let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
-        (id, context)
     }
 }
 

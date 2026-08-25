@@ -901,7 +901,9 @@ impl Weights {
                     .path()
                     .is_some_and(|path| path.split('/').filter(|segment| !segment.is_empty()).count() == 2);
             let source = match is_repository {
-                | true => Source::from(&Repository::HuggingFace { location }),
+                | true => Source::from(&Repository::HuggingFace {
+                    location: Box::new(location),
+                }),
                 | false => Source::from(weight.url.as_str()),
             };
             source.with_name(name.unwrap_or(weight.label))

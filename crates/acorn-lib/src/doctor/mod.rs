@@ -111,6 +111,10 @@ pub struct SystemSoftwareInformation {
     ///
     /// [`Node.js`]: ./struct.SystemSoftwareInformation.html#structfield.node
     pub npm: InstalledSoftwareData,
+    /// ORAS OCI registry client used by model artifact downloads.
+    ///
+    /// See <https://oras.land/>
+    pub oras: InstalledSoftwareData,
     /// ### npx
     ///
     /// Run a command from a local or remote npm package
@@ -133,7 +137,7 @@ pub struct SystemSoftwareInformation {
     pub vale: InstalledSoftwareData,
 }
 impl InstalledSoftwareData {
-    fn from_command(name: &str) -> InstalledSoftwareData {
+    fn from_command(name: &str) -> Self {
         InstalledSoftwareData {
             version: match SemanticVersion::from_command(name) {
                 | Some(version) => Some(version.to_string()),
@@ -143,6 +147,14 @@ impl InstalledSoftwareData {
                 | Ok(path) => Some(path.display().to_string()),
                 | Err(_) => None,
             },
+        }
+    }
+    fn from_oras() -> Self {
+        let path = which("oras").ok();
+        let version = SemanticVersion::from_command("oras").map(|version| version.to_string());
+        Self {
+            version,
+            path: path.map(|path| path.display().to_string()),
         }
     }
     fn as_row(&self, title: &str) -> Vec<String> {
@@ -261,6 +273,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             git: InstalledSoftwareData::from_command("git"),
             node: InstalledSoftwareData::from_command("node"),
             npm: InstalledSoftwareData::from_command("npm"),
+            oras: InstalledSoftwareData::from_oras(),
             npx: InstalledSoftwareData::from_command("npx"),
             pandoc: InstalledSoftwareData::from_command("pandoc"),
             vale: InstalledSoftwareData::from_command("vale"),
@@ -272,6 +285,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             git,
             node,
             npm,
+            oras,
             npx,
             pandoc,
             vale,
@@ -282,6 +296,7 @@ impl TableFormatPrint for SystemSoftwareInformation {
             git.as_row("Git"),
             node.as_row("Node.js"),
             npm.as_row("npm"),
+            oras.as_row("ORAS"),
             npx.as_row("npx"),
             pandoc.as_row("Pandoc"),
             vale.as_row("Vale"),

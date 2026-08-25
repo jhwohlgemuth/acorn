@@ -3,6 +3,7 @@
 //! Provides types for the `acorn sync` command, which resolves ACORN model
 //! entries to downloaded GGUF files and merges the corresponding models into
 //! llama-swap, OpenCode, VS Code, and Goose configuration.
+use crate::io::oci::OciReference;
 use crate::io::{
     command_exists,
     config::{FilterSet, ModelEntry},
@@ -460,11 +461,16 @@ impl RenderedOutput {
     }
 }
 impl ModelRequest {
+    fn repository(&self) -> String {
+        OciReference::parse(&self.id)
+            .and_then(|reference| reference.local_repository())
+            .unwrap_or_else(|_| self.id.clone())
+    }
     /// Build model details from the configured source or expected models-directory path without checking the filesystem.
     pub fn assume(&self, models_dir: &Path) -> ModelDetails {
         let path = match &self.source {
             | Source::Local { path, .. } => path.clone(),
-            | _ => models_dir.join(&self.id),
+            | _ => models_dir.join(self.repository()),
         };
         ModelDetails::init()
             .id(self.id.clone())
@@ -494,7 +500,7 @@ impl ModelRequest {
     fn source_exists(&self, models_dir: &Path) -> bool {
         match &self.source {
             | Source::Local { path, .. } => path.exists(),
-            | _ => models_dir.join(&self.id).is_dir(),
+            | _ => models_dir.join(self.repository()).is_dir(),
         }
     }
     fn is_gguf(path: &Path) -> bool {
@@ -529,7 +535,7 @@ impl ModelRequest {
                 };
                 match direct_path {
                     | Some(path) => self.resolve_direct(&path),
-                    | None => match self.resolve_repository(models_dir, &self.id) {
+                    | None => match self.resolve_repository(models_dir, &self.repository()) {
                         | Ok(model) => Ok(model),
                         | Err(direct_error) if fallbacks.is_empty() => Err(direct_error),
                         | Err(direct_error) => {
@@ -819,7 +825,7 @@ mod tests {
         ModelEntry::Entry(ModelEntryOptions {
             name: name.to_string(),
             source: Repository::HuggingFace {
-                location: Location::Simple(format!("https://huggingface.co/example/{name}")),
+                location: Box::new(Location::Simple(format!("https://huggingface.co/example/{name}"))),
             },
             revision: None,
             auth: None,
@@ -1420,5 +1426,16 @@ mod tests {
                 ..Default::default()
             })
             .is_err());
+    }
+    #[test]
+    fn test_oci_model_request_uses_materialized_digest_directory() {
+        let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let entry = ModelEntry::Selector(format!("oci://registry.example.org/ai/qwen@{digest}"));
+        let request = ModelRequest::try_from(&entry).unwrap();
+        let details = request.assume(Path::new("models"));
+        assert_eq!(
+            details.path.as_deref(),
+            Some("models/registry.example.org/ai/qwen@sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        );
     }
 }

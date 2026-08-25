@@ -46,7 +46,7 @@ use crate::io::api::{github, gitlab, Configuration};
 use crate::io::http::get;
 #[cfg(feature = "std")]
 use crate::io::uri_to_path;
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::{format, Box, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::{Path, PathBuf};
 #[cfg(feature = "std")]
@@ -96,7 +96,7 @@ pub enum Repository {
     Git {
         /// Repository location information
         #[serde(alias = "uri")]
-        location: Location,
+        location: Box<Location>,
     },
     /// GitHub
     ///
@@ -105,7 +105,7 @@ pub enum Repository {
     GitHub {
         /// Repository location information
         #[serde(alias = "uri")]
-        location: Location,
+        location: Box<Location>,
     },
     /// GitLab
     ///
@@ -118,7 +118,7 @@ pub enum Repository {
         id: Option<u64>,
         /// Repository location information
         #[serde(alias = "uri")]
-        location: Location,
+        location: Box<Location>,
     },
     /// Hugging Face
     ///
@@ -127,7 +127,17 @@ pub enum Repository {
     HuggingFace {
         /// Repository location information
         #[serde(alias = "uri")]
-        location: Location,
+        location: Box<Location>,
+    },
+    /// Open Container Initiative artifact registry.
+    #[display("oci")]
+    OCI {
+        /// Explicit `oci://` artifact location.
+        #[serde(alias = "uri")]
+        location: Box<Location>,
+        /// Optional named registry profile from application configuration.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        registry: Option<String>,
     },
 }
 /// URI Scheme
@@ -190,6 +200,11 @@ impl From<&str> for Location {
         }
     }
 }
+impl From<&String> for Location {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
 impl<'a> From<&'a Location> for &'a str {
     fn from(value: &'a Location) -> Self {
         match value {
@@ -198,6 +213,10 @@ impl<'a> From<&'a Location> for &'a str {
     }
 }
 impl Location {
+    /// Return whether this location uses HTTP or HTTPS.
+    pub fn is_http_or_https(&self) -> bool {
+        matches!(self.scheme(), Scheme::HTTP | Scheme::HTTPS)
+    }
     /// Returns true when a source string points to a local filesystem path.
     pub fn is_local(&self) -> bool {
         let value = match self {
@@ -328,6 +347,17 @@ impl Location {
             | None => None,
         }
     }
+    /// Get the registry authority, preserving an explicit port and IPv6 brackets.
+    pub fn registry(&self) -> Option<String> {
+        self.host().map(|host| match self.port() {
+            | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
+            | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
+            | Some(port) => format!("{host}:{port}"),
+            | None if host.starts_with('[') => host,
+            | None if host.contains(':') => format!("[{host}]"),
+            | None => host,
+        })
+    }
     /// Get path from location URI
     pub fn path(&self) -> Option<String> {
         match self.uri() {
@@ -348,7 +378,7 @@ impl Location {
 impl Default for Repository {
     fn default() -> Self {
         Self::Git {
-            location: Location::Simple("file:///".to_string()),
+            location: Box::new(Location::Simple("file:///".to_string())),
         }
     }
 }
@@ -365,9 +395,16 @@ impl Repository {
         let configured = Location::from(configured_url.as_str());
         let is_gitlab = configured.host() == location.host() && configured.port() == location.port();
         match (location.scheme(), host.as_deref()) {
-            | (Scheme::HTTP | Scheme::HTTPS, Some("github.com")) => Some(Self::GitHub { location }),
-            | (Scheme::HTTP | Scheme::HTTPS, Some(host)) if host == DEFAULT_HUGGINGFACE_DOMAIN => Some(Self::HuggingFace { location }),
-            | (Scheme::HTTP | Scheme::HTTPS, Some(_)) if is_gitlab => Some(Self::GitLab { id: None, location }),
+            | (Scheme::HTTP | Scheme::HTTPS, Some("github.com")) => Some(Self::GitHub {
+                location: Box::new(location),
+            }),
+            | (Scheme::HTTP | Scheme::HTTPS, Some(host)) if host == DEFAULT_HUGGINGFACE_DOMAIN => Some(Self::HuggingFace {
+                location: Box::new(location),
+            }),
+            | (Scheme::HTTP | Scheme::HTTPS, Some(_)) if is_gitlab => Some(Self::GitLab {
+                id: None,
+                location: Box::new(location),
+            }),
             | _ => None,
         }
     }
@@ -399,13 +436,14 @@ impl Repository {
             | Repository::Git { location, .. }
             | Repository::GitHub { location, .. }
             | Repository::GitLab { location, .. }
-            | Repository::HuggingFace { location, .. } => location,
+            | Repository::HuggingFace { location, .. }
+            | Repository::OCI { location, .. } => *location,
         }
     }
     /// Get repository ID
     pub fn id(&self) -> Option<String> {
         match self {
-            | Repository::Git { .. } | Repository::GitHub { .. } => None,
+            | Repository::Git { .. } | Repository::GitHub { .. } | Repository::OCI { .. } => None,
             | Repository::HuggingFace { location } => location.path().map(|path| path.trim_start_matches('/').to_string()),
             | Repository::GitLab { id, location } => match id {
                 | Some(value) => Some(value.to_string()),
@@ -441,7 +479,7 @@ impl Repository {
                 let project_path = path.trim_matches('/').split("/-/").next().unwrap_or_default().trim_end_matches(".git");
                 (project_path.split('/').count() >= 2).then(|| project_path.to_string())
             }),
-            | Repository::Git { .. } => None,
+            | Repository::Git { .. } | Repository::OCI { .. } => None,
         }
     }
     /// Fetch canonical programming-language names for the first supported repository.
@@ -469,7 +507,7 @@ impl Repository {
     #[cfg(feature = "std")]
     async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
-            | Repository::Git { .. } | Repository::HuggingFace { .. } => None,
+            | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
             | Repository::GitHub { location } => {
                 let host = location.host();
                 let path = location.path();
@@ -543,7 +581,7 @@ impl Repository {
                 }
             },
             | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
-            | Repository::Git { .. } | Repository::HuggingFace { .. } => None,
+            | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
         }
     }
 }
@@ -593,6 +631,23 @@ mod tests {
         assert_eq!(Location::from("https://example.com/input.json").local_path(), None);
     }
     #[test]
+    fn test_location_registry_preserves_ports_and_ipv6_brackets() {
+        assert_eq!(
+            Location::from("https://registry.example.org:5000").registry().as_deref(),
+            Some("registry.example.org:5000")
+        );
+        assert_eq!(
+            Location::from("https://[2001:db8::1]:5000").registry().as_deref(),
+            Some("[2001:db8::1]:5000")
+        );
+    }
+    #[test]
+    fn test_location_identifies_http_sources() {
+        assert!(Location::from("https://example.org/model.gguf").is_http_or_https());
+        assert!(Location::from("http://localhost:8080/model.gguf").is_http_or_https());
+        assert!(!Location::from("file:///models/model.gguf").is_http_or_https());
+    }
+    #[test]
     fn test_repository_default_is_local_git() {
         let repository = Repository::default();
         assert!(repository.is_local());
@@ -618,7 +673,7 @@ mod tests {
     fn test_repository_id_prefers_explicit_gitlab_id() {
         let repository = Repository::GitLab {
             id: Some(16689),
-            location: Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string()),
+            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string())),
         };
         assert_eq!(repository.id(), Some("16689".to_string()));
     }
@@ -626,7 +681,7 @@ mod tests {
     fn test_repository_id_falls_back_to_encoded_gitlab_path() {
         let repository = Repository::GitLab {
             id: None,
-            location: Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string()),
+            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string())),
         };
         assert_eq!(repository.id(), Some("research-enablement%2Facorn".to_string()));
     }
@@ -634,7 +689,7 @@ mod tests {
     fn test_repository_id_returns_none_without_gitlab_id_or_valid_uri() {
         let repository = Repository::GitLab {
             id: None,
-            location: Location::Simple("not a uri".to_string()),
+            location: Box::new(Location::Simple("not a uri".to_string())),
         };
         assert_eq!(repository.id(), None);
     }

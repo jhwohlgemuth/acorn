@@ -62,7 +62,7 @@ pub async fn run(
             | (Ok(value), Ok(runner_type), Ok(identifier)) => {
                 let repository = runner.map(|entry| entry.code_repository.clone()).unwrap_or_else(|| Repository::GitLab {
                     id: identifier.parse::<u64>().ok(),
-                    location: Location::Simple("https://gitlab.com".to_string()),
+                    location: Box::new(Location::Simple("https://gitlab.com".to_string())),
                 });
                 let domain = match repo {
                     | Some(value) => Ok(value.clone()),
@@ -553,7 +553,7 @@ mod tests {
     fn test_remote_runner_validation_rejects_non_docker_config_before_creation() {
         let runner = RunnerDetails::at(Repository::GitLab {
             id: Some(42),
-            location: Location::Simple("https://gitlab.com".to_string()),
+            location: Box::new(Location::Simple("https://gitlab.com".to_string())),
         })
         .executor(Executor::Podman)
         .build();

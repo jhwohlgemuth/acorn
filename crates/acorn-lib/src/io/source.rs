@@ -233,6 +233,10 @@ impl From<&Repository> for Source {
                 name: None,
                 identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
             },
+            | Repository::OCI { location, .. } => Self::Remote {
+                name: None,
+                identifier: location.uri().unwrap_or_default(),
+            },
             | _ => Self::from(repository.location()),
         }
     }

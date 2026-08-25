@@ -30,6 +30,13 @@ const VALID_ARK_VALUES: [&str; 8] = [
     // https://gallica.bnf.fr/ark:/12148/btv1b8449691v
     "ark:/12148/btv1b8449691v",
 ];
+#[test]
+fn test_validates_lowercase_sha256_digests() {
+    let valid = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    assert!(is_digest(valid).is_ok());
+    assert!(is_digest("sha256:ABCDEF").is_err());
+    assert!(is_digest("sha512:0123456789abcdef").is_err());
+}
 const VALID_DOI_VALUES: [&str; 31] = [
     // ACORN DOI
     "10.11578/dc.20250604.1",
@@ -1103,8 +1110,11 @@ fn test_trl_into_maturity() {
 fn test_scalar_enum_validation_helpers() {
     assert!(IntegerOrString::Number(42).validate().is_ok());
     assert!(IntegerOrString::Text("42".to_string()).validate().is_ok());
+    assert!(IntegerOrString::Text("  ".to_string()).validate().is_err());
     assert!(NumberOrString::Number(42.5).validate().is_ok());
     assert!(NumberOrString::Text("42.5".to_string()).validate().is_ok());
+    assert!(NumberOrString::Number(f64::NAN).validate().is_err());
+    assert!(NumberOrString::Text(String::new()).validate().is_err());
     assert!(YearValue::Number(2025).validate().is_ok());
     assert!(YearValue::Text("2025".to_string()).validate().is_ok());
     let valid_month_values = [

@@ -4,8 +4,7 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
-use crate::io::http::HttpMethod;
-use crate::io::http::{delete, get, patch, post, put};
+use crate::io::http::{delete, get, patch, post, put, HttpMethod};
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -36,6 +35,7 @@ pub mod geonames;
 pub mod github;
 pub mod gitlab;
 pub mod handle;
+pub mod harbor;
 pub mod huggingface;
 pub mod models_dev;
 pub mod openai;

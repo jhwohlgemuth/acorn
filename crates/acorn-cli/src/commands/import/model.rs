@@ -85,7 +85,7 @@ pub async fn execute(request: Request<'_>) -> Void {
                         | true => configured_entries,
                         | false => Vec::new(),
                     };
-                    match resolve_plans(&model, &entries, None, database_path, true, offline).await {
+                    match resolve_plans(&model, &entries, &Default::default(), None, database_path, true, offline).await {
                         | Ok(plans) => {
                             let options = ModelImportOptions {
                                 no_local_database: persistence_disabled,

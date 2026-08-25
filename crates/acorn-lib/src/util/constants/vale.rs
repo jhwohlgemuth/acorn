@@ -6,6 +6,8 @@ pub const VALE_VERSION: &str = "3.9.4";
 pub const DEFAULT_VALE_ROOT: &str = "./.vale/";
 /// URL for custom ORNL Science Vale package.
 pub const DEFAULT_VALE_PACKAGE_URL: &str = "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip";
+/// Repository URL for the custom ORNL Science Vale package.
+pub const VALE_PACKAGE_REPOSITORY_URL: &str = "https://code.ornl.gov/research-enablement/vale-package";
 /// Custom Vale package name.
 pub const CUSTOM_VALE_PACKAGE_NAME: &str = "Science";
 /// Enabled Vale packages.

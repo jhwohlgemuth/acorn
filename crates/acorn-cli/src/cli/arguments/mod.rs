@@ -474,7 +474,7 @@ pub(crate) struct Import {
 /// Model selectors and configuration shared by model commands.
 #[derive(Clone, Debug, Args)]
 pub(crate) struct ModelSourceArgs {
-    /// Model ID/name(s), local path(s), or direct URL(s).
+    /// Model ID/name(s), local path(s), direct URL(s), or explicit oci:// artifact reference(s).
     #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
     pub(crate) model: Vec<String>,
     /// URI or local path to a model list file.

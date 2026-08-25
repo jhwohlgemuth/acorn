@@ -1,10 +1,11 @@
 //! Model download command orchestration and execution.
 pub mod plan;
+
 use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
 use crate::cli::arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat};
 use crate::cli::{CommandOptions, Void};
-use acorn::io::config::{ApplicationConfiguration, FilterSet, ModelEntry};
+use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
 use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
 use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
@@ -13,6 +14,7 @@ use acorn::schema::OneOrMany;
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
+use acorn::Location;
 use color_eyre::eyre::{self, eyre};
 use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
@@ -27,312 +29,6 @@ pub(crate) struct Request<'a> {
     pub(crate) database_path: &'a Option<PathBuf>,
     pub(crate) offline: bool,
     pub(crate) no_local_database: bool,
-}
-pub async fn execute(request: Request<'_>) -> Void {
-    let Request {
-        arguments,
-        whitelist,
-        database_path,
-        offline,
-        no_local_database,
-    } = request;
-    let DownloadModel {
-        source: ModelSourceArgs { model, model_file, config },
-        resolution:
-            ModelResolutionArgs {
-                no_fallback,
-                interactive,
-                search_limit,
-                minimum_download_count,
-            },
-        synchronization: ModelSyncArgs {
-            sync: sync_target,
-            force,
-            dry_run,
-        },
-        filter,
-        ignore,
-        quantization,
-        gpu_memory,
-        local_dir: output,
-        copy,
-        symlink,
-        skip_verify_checksum,
-        raw,
-        format,
-        verbose,
-        ..
-    } = arguments;
-    let model = model.as_slice();
-    let filter = filter.as_slice();
-    let ignore = ignore.as_slice();
-    let quantization = quantization.as_slice();
-    let quiet = verbose.is_silent();
-    let use_configured_models = model.is_empty() && model_file.is_none();
-    let model = match ModelSelectors::from(model).resolve(model_file, offline).await {
-        | Ok(model) => model,
-        | Err(why) => {
-            error!("=> {} Read model list file — {why}", Label::fail());
-            return Err(why);
-        }
-    };
-    let action = SourceAction::from_options(*copy, *symlink);
-    let configuration = match ApplicationConfiguration::load(config) {
-        | Ok(configuration) => configuration,
-        | Err(why) => {
-            error!("=> {} Read application configuration — {why}", Label::fail());
-            return Err(why);
-        }
-    };
-    let (configured_entries, configured_whitelist) = configuration.model_entries_and_whitelist();
-    let entries = match use_configured_models {
-        | true => configured_entries,
-        | false => Vec::new(),
-    };
-    let whitelist = match Whitelist::prioritized(whitelist, configured_whitelist, offline).await {
-        | Ok(whitelist) => whitelist.0,
-        | Err(why) => {
-            error!("=> {} Resolve model whitelist — {why}", Label::fail());
-            return Err(why);
-        }
-    };
-    let whitelist = whitelist
-        .iter()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .collect::<HashSet<_>>();
-    match resolve_plans(&model, &entries, action, database_path, no_local_database, offline).await {
-        | Ok(planned) => match FilterSet::filter(planned, filter, ignore, |plan| plan.selector.identifier(), |_| true) {
-            | Ok(plans) => {
-                let plans = plans.into_iter().sorted_by_key(|plan| plan.selector.identifier());
-                let futures =
-                    stream::iter(plans).then(|plan| async { plan.matches(&whitelist, offline).await.map(|matches| matches.then_some(plan)) });
-                match futures.try_collect::<Vec<_>>().await.map_err(|why| {
-                    error!("=> {} Validate model whitelist — {why}", Label::fail());
-                    why
-                }) {
-                    | Ok(value) => {
-                        let selectors = value.into_iter().flatten().collect::<Vec<_>>();
-                        let cli_constrained = !quantization.is_empty() || gpu_memory.is_some();
-                        let config_constrained = selectors.iter().any(|plan| !plan.quantization.is_empty() || plan.gpu_memory.is_some());
-                        let constrained = cli_constrained || config_constrained;
-                        let selectors =
-                            ModelDownloadPlans(selectors).constrain(quantization, filter, ignore, no_local_database, gpu_memory, database_path);
-                        if constrained && selectors.0.is_empty() {
-                            let why = ModelDownloadError::NoModelsFound;
-                            error!("=> {} {why}", Label::fail());
-                            Err(eyre!(why))
-                        } else if offline && selectors.0.iter().any(ModelDownloadPlan::is_remote) {
-                            let remote_names: Vec<String> = selectors
-                                .0
-                                .iter()
-                                .filter(|plan| plan.is_remote())
-                                .map(|plan| plan.selector.identifier())
-                                .collect();
-                            error!(
-                                "=> {} Offline mode cannot download remote models: {}",
-                                Label::fail(),
-                                remote_names.join(", ")
-                            );
-                            Err(eyre!("Offline mode cannot download remote models: {}", remote_names.join(", ")))
-                        } else if selectors.0.is_empty() {
-                            let msg = if model.is_empty() && entries.is_empty() {
-                                "No models specified — provide model IDs, --model-file, or --config"
-                            } else if !whitelist.is_empty() {
-                                "No models were found or matched the whitelist"
-                            } else {
-                                "No models matched --filter/--ignore"
-                            };
-                            error!("=> {} {msg}", Label::fail());
-                            Err(eyre!(msg))
-                        } else {
-                            let options = DownloadOptions {
-                                offline,
-                                limit: *search_limit,
-                                minimum_download_count: *minimum_download_count,
-                                interactive: *interactive,
-                            };
-                            let models = selectors.resolve(options).await;
-                            if models.is_empty() {
-                                let why = ModelDownloadError::NoModelsFound;
-                                error!("=> {} {why}", Label::fail());
-                                Err(eyre!(why))
-                            } else if *dry_run {
-                                let models = models.into_iter().map(ModelDetails::from).collect::<Vec<_>>();
-                                let rendered = if *raw {
-                                    output_raw(&models, format)
-                                } else {
-                                    info!(
-                                        "=> {} Resolved {} model{}",
-                                        Label::run(),
-                                        models.len().cyan().bold(),
-                                        suffix(models.len())
-                                    );
-                                    for details in &models {
-                                        let (id, context) = details.report();
-                                        match context {
-                                            | Some(ctx) => info!("=> {} {} {}", Label::using(), id.green(), ctx.dimmed()),
-                                            | None => info!("  {} {}", "→".cyan(), id.green()),
-                                        }
-                                    }
-                                    Ok(())
-                                };
-                                rendered.and_then(|()| {
-                                    sync_target.as_ref().map_or(Ok(()), |target| {
-                                        let entries = models
-                                            .iter()
-                                            .filter_map(|details| details.id.clone())
-                                            .unique()
-                                            .map(ModelEntry::Selector)
-                                            .collect::<Vec<_>>();
-                                        let options = sync::Options::init()
-                                            .entries(&entries)
-                                            .opencode(target.is_opencode())
-                                            .llama_swap(target.is_llama_swap())
-                                            .vscode(target.is_vscode())
-                                            .goose(target.is_goose())
-                                            .force(*force)
-                                            .assume_models(*force)
-                                            .dry_run(true)
-                                            .maybe_models_dir(output.as_deref())
-                                            .build();
-                                        configuration.sync_and_update(config, options)
-                                    })
-                                })
-                            } else {
-                                let resolved = models.iter().map(|resolution| resolution.requested()).collect::<HashSet<_>>();
-                                let plans = selectors
-                                    .0
-                                    .into_iter()
-                                    .filter(|plan| resolved.contains(plan.selector.identifier().as_str()))
-                                    .collect::<Vec<_>>();
-                                if plans.is_empty() {
-                                    Err(eyre!("No models resolved"))
-                                } else {
-                                    match output.clone().map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok) {
-                                        | Ok(root) => {
-                                            let mut success_count = 0usize;
-                                            let mut failure_count = 0usize;
-                                            let mut results: Vec<ModelDetails> = Vec::new();
-                                            for plan in &plans {
-                                                let filter = merge(&plan.filter, Some(filter));
-                                                let ignore = merge(&plan.ignore, Some(ignore));
-                                                let options = CommandOptions::init()
-                                                    .selector(plan.selector.clone())
-                                                    .maybe_action(match &plan.selector {
-                                                        | Source::Local { action, .. } => *action,
-                                                        | _ => plan.action,
-                                                    })
-                                                    .output(root.clone())
-                                                    .maybe_database_path(database_path.clone())
-                                                    .offline(offline)
-                                                    .no_local_database(no_local_database)
-                                                    .no_fallback(*no_fallback)
-                                                    .search_limit(*search_limit)
-                                                    .minimum_download_count(*minimum_download_count)
-                                                    .interactive(*interactive)
-                                                    .quiet(quiet || *raw)
-                                                    .skip_verify_checksum(*skip_verify_checksum)
-                                                    .maybe_filter(regex_join(&filter))
-                                                    .maybe_ignore(regex_join(&ignore))
-                                                    .build();
-                                                match plan.execute(options).await {
-                                                    | Ok(resolved_id) => {
-                                                        success_count = success_count.saturating_add(1);
-                                                        let details = plan.details.clone().unwrap_or_else(|| plan.into()).with_id(&resolved_id);
-                                                        results.push(details);
-                                                    }
-                                                    | Err(why) => {
-                                                        failure_count = failure_count.saturating_add(1);
-                                                        error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
-                                                    }
-                                                }
-                                            }
-                                            if *raw {
-                                                output_raw(&results, format)
-                                            } else {
-                                                if !quiet {
-                                                    let local_count = plans.iter().filter(|plan| plan.selector.is_local()).count();
-                                                    let remote_count = plans.len().saturating_sub(local_count);
-                                                    let parts = [(local_count, "local"), (remote_count, "remote")]
-                                                        .into_iter()
-                                                        .filter(|(count, _)| *count > 0)
-                                                        .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
-                                                        .collect::<Vec<_>>();
-                                                    info!(
-                                                        "=> {} {} model{} to download ({})",
-                                                        Label::run(),
-                                                        plans.len().cyan().bold(),
-                                                        suffix(plans.len()),
-                                                        parts.join(", ")
-                                                    );
-                                                    for plan in plans {
-                                                        info!("  {} {}", "→".cyan(), plan.selector.green());
-                                                    }
-                                                }
-                                                if !no_local_database {
-                                                    log_activity("download model", root.to_absolute_path(), database_path, failure_count == 0);
-                                                }
-                                                if failure_count > 0 {
-                                                    Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
-                                                } else {
-                                                    sync_target
-                                                        .as_ref()
-                                                        .map_or(Ok(()), |target| {
-                                                            let entries = results
-                                                                .iter()
-                                                                .filter_map(|details| details.id.clone())
-                                                                .unique()
-                                                                .map(ModelEntry::Selector)
-                                                                .collect::<Vec<_>>();
-                                                            let options = sync::Options::init()
-                                                                .entries(&entries)
-                                                                .opencode(target.is_opencode())
-                                                                .llama_swap(target.is_llama_swap())
-                                                                .vscode(target.is_vscode())
-                                                                .goose(target.is_goose())
-                                                                .force(*force)
-                                                                .assume_models(*force)
-                                                                .models_dir(&root)
-                                                                .build();
-                                                            configuration.sync_and_update(config, options)
-                                                        })
-                                                        .map(|()| {
-                                                            if !quiet {
-                                                                println!(
-                                                                    "\n\n   => {} Resolved {} model{} to {}\n",
-                                                                    Label::pass(),
-                                                                    success_count.green(),
-                                                                    suffix(success_count),
-                                                                    root.display()
-                                                                );
-                                                            }
-                                                        })
-                                                }
-                                            }
-                                        }
-                                        | Err(why) => Err(why),
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    | Err(why) => {
-                        error!("=> {} Validate model whitelist — {why}", Label::fail());
-                        Err(why)
-                    }
-                }
-            }
-            | Err(why) => {
-                error!("=> {} Filter model selectors — {why}", Label::fail());
-                Err(why)
-            }
-        },
-        | Err(why) => {
-            error!("=> {} Resolve model selectors — {why}", Label::fail());
-            Err(why)
-        }
-    }
 }
 pub(crate) struct Whitelist(pub(crate) Vec<String>);
 impl From<&[String]> for Whitelist {
@@ -382,7 +78,7 @@ impl Whitelist {
     }
     pub(crate) async fn from_configuration(values: Option<OneOrMany<String>>, offline: bool) -> ApiResult<Self> {
         match values {
-            | Some(OneOrMany::One(value)) if is_http_or_https(&value) => Self(Vec::new()).resolve(&Some(value), offline).await,
+            | Some(OneOrMany::One(value)) if Location::from(&value).is_http_or_https() => Self(Vec::new()).resolve(&Some(value), offline).await,
             | Some(values) => Ok(Self(values.into_vec())),
             | None => Ok(Self(Vec::new())),
         }
@@ -458,6 +154,345 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {
         | _ => Err(eyre!("Model selector is not remote")),
     }
 }
+pub async fn execute(request: Request<'_>) -> Void {
+    let Request {
+        arguments,
+        whitelist,
+        database_path,
+        offline,
+        no_local_database,
+    } = request;
+    let DownloadModel {
+        source: ModelSourceArgs { model, model_file, config },
+        resolution:
+            ModelResolutionArgs {
+                no_fallback,
+                interactive,
+                search_limit,
+                minimum_download_count,
+            },
+        synchronization: ModelSyncArgs {
+            sync: sync_target,
+            force,
+            dry_run,
+        },
+        filter,
+        ignore,
+        quantization,
+        gpu_memory,
+        local_dir: output,
+        copy,
+        symlink,
+        skip_verify_checksum,
+        raw,
+        format,
+        verbose,
+        ..
+    } = arguments;
+    let model = model.as_slice();
+    let filter = filter.as_slice();
+    let ignore = ignore.as_slice();
+    let quantization = quantization.as_slice();
+    let quiet = verbose.is_silent();
+    let use_configured_models = model.is_empty() && model_file.is_none();
+    let action = SourceAction::from_options(*copy, *symlink);
+    let prepared = match ModelSelectors::from(model).resolve(model_file, offline).await {
+        | Ok(model) => match ApplicationConfiguration::load(config) {
+            | Ok(configuration) => {
+                let (configured_entries, configured_whitelist) = configuration.model_entries_and_whitelist();
+                match configuration.registry_lookup() {
+                    | Ok(registry_profiles) => {
+                        let entries = match use_configured_models {
+                            | true => configured_entries,
+                            | false => Vec::new(),
+                        };
+                        match Whitelist::prioritized(whitelist, configured_whitelist, offline).await {
+                            | Ok(whitelist) => Ok((
+                                model,
+                                configuration,
+                                entries,
+                                registry_profiles,
+                                whitelist
+                                    .0
+                                    .iter()
+                                    .map(|value| value.trim().to_string())
+                                    .filter(|value| !value.is_empty())
+                                    .collect::<HashSet<_>>(),
+                            )),
+                            | Err(why) => {
+                                let why = ModelDownloadError::Whitelist(why.to_string());
+                                error!("=> {} Resolve model whitelist — {why}", Label::fail());
+                                Err(eyre!(why))
+                            }
+                        }
+                    }
+                    | Err(why) => {
+                        let why = ModelDownloadError::RegistryConfiguration(why.to_string());
+                        error!("=> {} Validate OCI registry configuration — {why}", Label::fail());
+                        Err(eyre!(why))
+                    }
+                }
+            }
+            | Err(why) => {
+                let why = ModelDownloadError::Configuration(why.to_string());
+                error!("=> {} Read application configuration — {why}", Label::fail());
+                Err(eyre!(why))
+            }
+        },
+        | Err(why) => {
+            let why = ModelDownloadError::ModelList(why.to_string());
+            error!("=> {} Read model list file — {why}", Label::fail());
+            Err(eyre!(why))
+        }
+    };
+    match prepared {
+        | Ok((model, configuration, entries, registry_profiles, whitelist)) => {
+            match resolve_plans(&model, &entries, &registry_profiles, action, database_path, no_local_database, offline).await {
+                | Ok(planned) => match ModelDownloadPlans(planned).filter(filter, ignore) {
+                    | Ok(plans) => {
+                        let plans = plans.0.into_iter().sorted_by_key(|plan| plan.selector.identifier());
+                        let futures =
+                            stream::iter(plans).then(|plan| async { plan.matches(&whitelist, offline).await.map(|matches| matches.then_some(plan)) });
+                        let whitelist_result = futures.try_collect::<Vec<_>>().await.map_err(|why| {
+                            error!("=> {} Validate model whitelist — {why}", Label::fail());
+                            why
+                        });
+                        match whitelist_result {
+                            | Ok(value) => {
+                                let selectors = value.into_iter().flatten().collect::<Vec<_>>();
+                                let cli_constrained = !quantization.is_empty() || gpu_memory.is_some();
+                                let config_constrained = selectors.iter().any(|plan| !plan.quantization.is_empty() || plan.gpu_memory.is_some());
+                                let constrained = cli_constrained || config_constrained;
+                                let selectors = ModelDownloadPlans(selectors).constrain(
+                                    quantization,
+                                    filter,
+                                    ignore,
+                                    no_local_database,
+                                    gpu_memory,
+                                    database_path,
+                                );
+                                let no_selectors = selectors.0.is_empty();
+                                let has_remote = selectors.0.iter().any(ModelDownloadPlan::is_remote);
+                                match (no_selectors, constrained, offline && has_remote) {
+                                    | (true, true, _) => {
+                                        let why = ModelDownloadError::NoModelsFound;
+                                        error!("=> {} {why}", Label::fail());
+                                        Err(eyre!(why))
+                                    }
+                                    | (_, _, true) => {
+                                        let remote_names: Vec<String> = selectors
+                                            .0
+                                            .iter()
+                                            .filter(|plan| plan.is_remote())
+                                            .map(|plan| plan.selector.identifier())
+                                            .collect();
+                                        let why = ModelDownloadError::OfflineRemoteModels(remote_names.join(", "));
+                                        error!("=> {} {why}", Label::fail());
+                                        Err(eyre!(why))
+                                    }
+                                    | (true, false, false) => {
+                                        let why = match (model.is_empty() && entries.is_empty(), whitelist.is_empty()) {
+                                            | (true, _) => ModelDownloadError::NoModelsSpecified,
+                                            | (false, false) => ModelDownloadError::NoWhitelistMatches,
+                                            | (false, true) => ModelDownloadError::NoFilterMatches,
+                                        };
+                                        error!("=> {} {why}", Label::fail());
+                                        Err(eyre!(why))
+                                    }
+                                    | (false, _, false) => {
+                                        let options = DownloadOptions {
+                                            offline,
+                                            limit: *search_limit,
+                                            minimum_download_count: *minimum_download_count,
+                                            interactive: *interactive,
+                                        };
+                                        let models = selectors.resolve(options).await;
+                                        match (models.is_empty(), *dry_run) {
+                                            | (true, _) => {
+                                                let why = ModelDownloadError::NoModelsFound;
+                                                error!("=> {} {why}", Label::fail());
+                                                Err(eyre!(why))
+                                            }
+                                            | (false, true) => {
+                                                let models = models.into_iter().map(ModelDetails::from).collect::<Vec<_>>();
+                                                let rendered = match *raw {
+                                                    | true => output_raw(&models, format),
+                                                    | false => {
+                                                        info!(
+                                                            "=> {} Resolved {} model{}",
+                                                            Label::run(),
+                                                            models.len().cyan().bold(),
+                                                            suffix(models.len())
+                                                        );
+                                                        for details in &models {
+                                                            let (id, context) = details.report();
+                                                            match context {
+                                                                | Some(ctx) => info!("=> {} {} {}", Label::using(), id.green(), ctx.dimmed()),
+                                                                | None => info!("  {} {}", "→".cyan(), id.green()),
+                                                            }
+                                                        }
+                                                        Ok(())
+                                                    }
+                                                };
+                                                rendered.and_then(|()| {
+                                                    sync_target.as_ref().map_or(Ok(()), |target| {
+                                                        let entries = models
+                                                            .iter()
+                                                            .filter_map(|details| details.id.clone())
+                                                            .unique()
+                                                            .map(ModelEntry::Selector)
+                                                            .collect::<Vec<_>>();
+                                                        let options = sync::Options::init()
+                                                            .entries(&entries)
+                                                            .opencode(target.is_opencode())
+                                                            .llama_swap(target.is_llama_swap())
+                                                            .vscode(target.is_vscode())
+                                                            .goose(target.is_goose())
+                                                            .force(*force)
+                                                            .assume_models(*force)
+                                                            .dry_run(true)
+                                                            .maybe_models_dir(output.as_deref())
+                                                            .build();
+                                                        configuration.sync_and_update(config, options)
+                                                    })
+                                                })
+                                            }
+                                            | (false, false) => match output.clone().map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok) {
+                                                | Ok(root) => {
+                                                    let mut success_count = 0usize;
+                                                    let mut failure_count = 0usize;
+                                                    let mut results: Vec<ModelDetails> = Vec::new();
+                                                    for model in &models {
+                                                        let plan = model.plan();
+                                                        let filter = merge(&plan.filter, Some(filter));
+                                                        let ignore = merge(&plan.ignore, Some(ignore));
+                                                        let options = CommandOptions::init()
+                                                            .selector(plan.selector.clone())
+                                                            .maybe_action(match &plan.selector {
+                                                                | Source::Local { action, .. } => *action,
+                                                                | _ => plan.action,
+                                                            })
+                                                            .output(root.clone())
+                                                            .maybe_database_path(database_path.clone())
+                                                            .offline(offline)
+                                                            .no_local_database(no_local_database)
+                                                            .no_fallback(*no_fallback)
+                                                            .search_limit(*search_limit)
+                                                            .minimum_download_count(*minimum_download_count)
+                                                            .interactive(*interactive)
+                                                            .quiet(quiet || *raw)
+                                                            .skip_verify_checksum(*skip_verify_checksum)
+                                                            .maybe_filter(regex_join(&filter))
+                                                            .maybe_ignore(regex_join(&ignore))
+                                                            .build();
+                                                        match model.execute(options).await {
+                                                            | Ok(details) => {
+                                                                success_count = success_count.saturating_add(1);
+                                                                results.push(details);
+                                                            }
+                                                            | Err(why) => {
+                                                                failure_count = failure_count.saturating_add(1);
+                                                                error!("=> {} Download model '{}' — {why}", Label::fail(), plan.name());
+                                                            }
+                                                        }
+                                                    }
+                                                    match *raw {
+                                                        | true => output_raw(&results, format),
+                                                        | false => {
+                                                            if !quiet {
+                                                                let local_count =
+                                                                    models.iter().filter(|model| model.plan().selector.is_local()).count();
+                                                                let remote_count = models.len().saturating_sub(local_count);
+                                                                let parts = [(local_count, "local"), (remote_count, "remote")]
+                                                                    .into_iter()
+                                                                    .filter(|(count, _)| *count > 0)
+                                                                    .map(|(count, label)| format!("{} {label}", count.cyan().bold()))
+                                                                    .collect::<Vec<_>>();
+                                                                info!(
+                                                                    "=> {} {} model{} to download ({})",
+                                                                    Label::run(),
+                                                                    models.len().cyan().bold(),
+                                                                    suffix(models.len()),
+                                                                    parts.join(", ")
+                                                                );
+                                                                for model in &models {
+                                                                    info!("  {} {}", "→".cyan(), model.plan().green());
+                                                                }
+                                                            }
+                                                            if !no_local_database {
+                                                                log_activity(
+                                                                    "download model",
+                                                                    root.to_absolute_path(),
+                                                                    database_path,
+                                                                    failure_count == 0,
+                                                                );
+                                                            }
+                                                            match failure_count {
+                                                                | 0 => sync_target
+                                                                    .as_ref()
+                                                                    .map_or(Ok(()), |target| {
+                                                                        let entries = results
+                                                                            .iter()
+                                                                            .filter_map(|details| details.id.clone())
+                                                                            .unique()
+                                                                            .map(ModelEntry::Selector)
+                                                                            .collect::<Vec<_>>();
+                                                                        let options = sync::Options::init()
+                                                                            .entries(&entries)
+                                                                            .opencode(target.is_opencode())
+                                                                            .llama_swap(target.is_llama_swap())
+                                                                            .vscode(target.is_vscode())
+                                                                            .goose(target.is_goose())
+                                                                            .force(*force)
+                                                                            .assume_models(*force)
+                                                                            .models_dir(&root)
+                                                                            .build();
+                                                                        configuration.sync_and_update(config, options)
+                                                                    })
+                                                                    .map(|()| {
+                                                                        if !quiet {
+                                                                            println!(
+                                                                                "\n\n   => {} Resolved {} model{} to {}\n",
+                                                                                Label::pass(),
+                                                                                success_count.green(),
+                                                                                suffix(success_count),
+                                                                                root.display()
+                                                                            );
+                                                                        }
+                                                                    }),
+                                                                | _ => {
+                                                                    Err(eyre!("Failed to download {failure_count} model{}", suffix(failure_count)))
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                | Err(why) => Err(why),
+                                            },
+                                        }
+                                    }
+                                }
+                            }
+                            | Err(why) => {
+                                error!("=> {} Validate model whitelist — {why}", Label::fail());
+                                Err(why)
+                            }
+                        }
+                    }
+                    | Err(why) => {
+                        error!("=> {} Filter model selectors — {why}", Label::fail());
+                        Err(why)
+                    }
+                },
+                | Err(why) => {
+                    error!("=> {} Resolve model selectors — {why}", Label::fail());
+                    Err(why)
+                }
+            }
+        }
+        | Err(why) => Err(why),
+    }
+}
 fn materialize_local_model(options: CommandOptions) -> ApiResult<String> {
     match options.selector.clone() {
         | Some(Source::Local { .. }) => {
@@ -503,9 +538,4 @@ fn output_raw(models: &[ModelDetails], format: &OutputFormat) -> Void {
     output.map(|serialized| {
         println!("{serialized}");
     })
-}
-fn is_http_or_https(value: &str) -> bool {
-    Uri::parse(value)
-        .ok()
-        .is_some_and(|uri| matches!(uri.scheme().as_str(), "http" | "https"))
 }

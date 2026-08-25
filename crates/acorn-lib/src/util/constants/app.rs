@@ -86,6 +86,22 @@ pub const QUALIFIER: &str = "org";
 pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 /// Default Hugging Face repository revision used when none is specified.
 pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
+/// Explicit URI prefix used to route model references through OCI.
+pub const OCI_PREFIX: &str = "oci://";
+/// OCI image manifest media type accepted for model artifacts.
+pub const OCI_IMAGE_MANIFEST: &str = "application/vnd.oci.image.manifest.v1+json";
+/// OCI image configuration media type used to identify runnable images.
+pub const OCI_IMAGE_CONFIG: &str = "application/vnd.oci.image.config.v1+json";
+/// Docker image configuration media type used to identify runnable images.
+pub const DOCKER_IMAGE_CONFIG: &str = "application/vnd.docker.container.image.v1+json";
+/// Uncompressed OCI image layer media type accepted for model files.
+pub const OCI_LAYER: &str = "application/vnd.oci.image.layer.v1.tar";
+/// Compressed OCI image layer media type accepted for model files.
+pub const OCI_LAYER_GZIP: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
+/// ACORN-specific OCI layer media type for model files.
+pub const ACORN_MODEL_LAYER: &str = "application/vnd.acorn.model.file.v1";
+/// Minimum supported ORAS CLI version.
+pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
 /// Default llama-swap configuration path beneath the user's home directory.
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
 /// Default OpenCode configuration path beneath the user's home directory.

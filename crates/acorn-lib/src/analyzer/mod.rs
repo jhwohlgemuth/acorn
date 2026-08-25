@@ -18,7 +18,9 @@ use crate::schema::standard::text::{Docx, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
-use crate::util::constants::vale::{CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_RELEASES_URL, VALE_VERSION};
+use crate::util::constants::vale::{
+    CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
+};
 use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
@@ -1198,12 +1200,12 @@ impl StaticAnalyzerConfig for ValeConfig {
         let mut conf = Ini::new();
         let package_repository = Repository::GitLab {
             id: None,
-            location: Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string()),
+            location: Box::new(Location::Simple(VALE_PACKAGE_REPOSITORY_URL.to_string())),
         };
         let package_url = match package_repository.latest_release().await {
             | Some(release) => {
                 let tag = release.tag_name;
-                format!("https://code.ornl.gov/research-enablement/vale-package/-/archive/{tag}/vale-package-{tag}.zip")
+                format!("{VALE_PACKAGE_REPOSITORY_URL}/-/archive/{tag}/vale-package-{tag}.zip")
             }
             | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
         };

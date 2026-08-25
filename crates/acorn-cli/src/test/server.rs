@@ -161,40 +161,6 @@ pub(crate) fn spawn_huggingface_model_search_server(
     });
     (endpoint, handle)
 }
-/// Spawn a local Hugging Face server where the requested base model is missing but a GGUF fallback exists.
-pub(crate) fn spawn_huggingface_missing_model_search_server(
-    identifier: &str,
-    base_model: &str,
-    declared_base_model: &str,
-) -> (String, JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind missing model search server");
-    let endpoint = format!("http://{}", listener.local_addr().expect("missing model search server address"));
-    let identifier = identifier.to_string();
-    let base_model = base_model.to_string();
-    let declared_base_model = declared_base_model.to_string();
-    let search_term = base_model.rsplit('/').next().unwrap_or_default().to_string();
-    let handle = thread::spawn(move || {
-        for stream in listener.incoming().take(2) {
-            let mut stream = stream.expect("accept missing model search request");
-            let parsed = parse_request(&mut stream);
-            let response = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
-                let body = format!(
-                    r#"[{{"id":"{identifier}","downloads":142,"tags":["base_model:quantized:{declared_base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
-                );
-                response_200_with_body(body.as_bytes())
-            } else {
-                assert!(
-                    parsed.path.starts_with(format!("/api/models/{base_model}").as_str()),
-                    "unexpected missing model request: {}",
-                    parsed.path
-                );
-                response_401()
-            };
-            stream.write_all(&response).expect("write missing model search response");
-        }
-    });
-    (endpoint, handle)
-}
 /// Spawn a local Hugging Face API server for the basic model download configuration snapshot.
 pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind basic model config server");

@@ -79,6 +79,28 @@
       ]
     },
     {
+      "name": "harbor::api",
+      "domain": "harbor.example.org",
+      "root": "api/v2.0",
+      "resources": [
+        {
+          "name": "health",
+          "method": "get",
+          "template": "{{ base }}/health"
+        },
+        {
+          "name": "artifact",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts/{{ reference }}"
+        },
+        {
+          "name": "artifacts",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts{{ query }}"
+        }
+      ]
+    },
+    {
       "name": "gitlab::api",
       "domain": "gitlab.com",
       "root": "api/v4",

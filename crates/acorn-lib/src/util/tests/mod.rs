@@ -262,6 +262,10 @@ fn test_mimetype() {
     assert_eq!(MimeType::Yaml.file_type(), "yaml");
     let mime = MimeType::from_path(Path::new("a.jsonc"));
     assert_eq!(mime, MimeType::Jsonc);
+    assert!(MimeType::from("weights.gguf").is_model_resource());
+    assert!(MimeType::from("tokenizer.model").is_model_resource());
+    assert!(MimeType::from("tokenizer_config").is_model_resource());
+    assert!(!MimeType::from("README.md").is_model_resource());
     let mime = MimeType::from("config.jsonc");
     assert_eq!(mime, MimeType::Jsonc);
     assert_eq!(MimeType::from("archive.tar"), MimeType::Tar);
@@ -508,6 +512,8 @@ fn test_semantic_version() {
     assert_eq!(version.minor, 2);
     assert_eq!(version.patch, 3);
     assert_eq!(format!("{}", version), "1.2.3");
+    assert!(version >= (1, 2, 3));
+    assert!(version < (1, 3, 0));
     // cargo
     let version = SemanticVersion::from("cargo 1.88.0-nightly (d811228b1 2025-04-15)");
     assert_eq!(version.major, 1);

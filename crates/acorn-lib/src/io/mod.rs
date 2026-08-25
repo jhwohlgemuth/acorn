@@ -23,8 +23,8 @@ pub use crate::error::ApiResult;
 #[cfg(unix)]
 use crate::prelude;
 use crate::prelude::{
-    absolute, canonicalize, consts, create_dir_all, current_dir, io, temp_dir, var, var_os, write, BufReader, CommandOutput, Component, Cursor, File,
-    HashSet, OpenOptions, OsString, Path, PathBuf, Read,
+    absolute, canonicalize, consts, create_dir_all, current_dir, fs, io, temp_dir, var, var_os, write, BufReader, CommandOutput, Component, Cursor,
+    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -37,6 +37,7 @@ use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, Mim
 use crate::{args, cmd, Location};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt;
+use core::iter::once;
 use core::pin::Pin;
 use core::time::Duration;
 use data_encoding::HEXUPPER;
@@ -79,6 +80,7 @@ pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
 pub mod model;
+pub mod oci;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
 pub mod source;
@@ -156,14 +158,24 @@ pub trait InputOutput: Sized {
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
 }
 /// Convert filesystem paths to portable configuration strings
-pub trait PathConversion {
+pub trait PathConversion: AsRef<Path> {
+    /// Borrow this value as a filesystem path.
+    fn to_path(&self) -> &Path {
+        self.as_ref()
+    }
     /// Render a path using native separators without a Windows extended-length prefix
-    fn cross_platform_display(&self) -> String;
+    fn cross_platform_display(&self) -> String {
+        self.to_path().display().to_string()
+    }
     /// Normalize a relative archive entry while rejecting traversal and absolute paths
-    fn relative(&self) -> ApiResult<PathBuf>;
+    fn relative(&self) -> ApiResult<PathBuf> {
+        Ok(self.to_path().to_path_buf())
+    }
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
+    /// Return whether this path is non-empty, relative, and contains only normal components.
+    fn is_safe(&self) -> bool;
     /// Return whether this path is a Windows drive path such as `C:/...` or `C:\...`.
     fn is_windows(&self) -> bool;
     /// Return whether two paths identify the same absolute path.
@@ -450,11 +462,7 @@ impl Executor {
     }
 }
 impl FromCommand for SemanticVersion {
-    /// Returns a `SemanticVersion` value based on the output of the `--version` command-line flag
-    /// of the given executable name. Tested with [cargo](https://rustup.rs/), [git](https://git-scm.com/book/en/v2/Getting-Started-The-Command-Line), and [pandoc](https://pandoc.org/).
-    ///
-    /// <div class="warning">this function only supports commands that provide a `--version` flag</div>
-    ///
+    /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
     /// ### Example
     /// ```ignore
     /// use acorn::schema::validate::SemanticVersion;
@@ -468,14 +476,14 @@ impl FromCommand for SemanticVersion {
         S: Into<String> + core::marker::Copy,
     {
         let command = name.into();
-        if command_exists(command.clone()) {
-            match cmd!(&command, ["--version"]) {
-                | Ok(output) if output.status.success() => output.stdout().lines().next().map(SemanticVersion::from),
-                | Ok(_) | Err(_) => None,
-            }
-        } else {
-            None
-        }
+        command_exists(command.clone()).then(|| {
+            ["--version", "version", "-version", "-v"]
+                .into_iter()
+                .find_map(|argument| match cmd!(&command, [argument]) {
+                    | Ok(output) if output.status.success() => Some(SemanticVersion::from(output.stdout().as_str())),
+                    | Ok(_) | Err(_) => None,
+                })
+        })?
     }
 }
 impl FromPath for MimeType {
@@ -498,6 +506,9 @@ impl FromPath for MimeType {
     }
 }
 impl PathExt for Path {
+    fn is_safe(&self) -> bool {
+        !self.as_os_str().is_empty() && !self.is_absolute() && self.components().all(|component| matches!(component, Component::Normal(_)))
+    }
     fn is_windows(&self) -> bool {
         matches!(self.as_os_str().as_encoded_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic())
     }
@@ -507,6 +518,9 @@ impl PathExt for Path {
     }
 }
 impl PathExt for &Path {
+    fn is_safe(&self) -> bool {
+        <Path as PathExt>::is_safe(self)
+    }
     fn is_windows(&self) -> bool {
         <Path as PathExt>::is_windows(self)
     }
@@ -1638,6 +1652,41 @@ pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> Ap
     } else {
         Ok(())
     }
+}
+/// Walk a directory tree and return portable paths relative to its root.
+///
+/// Symbolic links and non-file entries are rejected so callers can safely
+/// compare the result with an expected manifest.
+pub fn walk(root: impl Into<PathBuf>) -> ApiResult<HashSet<String>> {
+    fn visit(root: &Path, directory: &Path) -> ApiResult<HashSet<String>> {
+        fs::read_dir(directory)
+            .map_err(|why| eyre!("Failed to inspect directory '{}' — {why}", directory.display()))
+            .and_then(|entries| {
+                entries
+                    .map(|entry| entry.map_err(|why| eyre!("Failed to inspect directory entry — {why}")))
+                    .collect::<ApiResult<Vec<_>>>()
+            })
+            .and_then(|entries| {
+                entries.into_iter().try_fold(HashSet::new(), |paths, entry| {
+                    let path = entry.path();
+                    entry
+                        .file_type()
+                        .map_err(|why| eyre!("Failed to inspect filesystem entry type — {why}"))
+                        .and_then(|file_type| match (file_type.is_symlink(), file_type.is_dir(), file_type.is_file()) {
+                            | (true, _, _) => Err(eyre!("Directory contains a symbolic link — {}", path.display())),
+                            | (false, true, _) => visit(root, &path).map(|nested| paths.into_iter().chain(nested).collect()),
+                            | (false, false, true) => path
+                                .strip_prefix(root)
+                                .map_err(|why| eyre!("Failed to resolve relative path — {why}"))
+                                .map(|relative| relative.to_string_lossy().replace('\\', "/"))
+                                .map(|relative| paths.into_iter().chain(once(relative)).collect()),
+                            | _ => Err(eyre!("Directory contains an unsupported filesystem entry — {}", path.display())),
+                        })
+                })
+            })
+    }
+    let root = root.into();
+    visit(&root, &root)
 }
 /// Process a collection of data items with progress indication.
 ///

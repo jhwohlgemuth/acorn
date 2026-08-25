@@ -3,7 +3,7 @@
 //! These are `#[doc(hidden)]` and not part of the public API.
 #[cfg(feature = "shell-lint")]
 use crate::prelude::env;
-use crate::prelude::{io, Command, ExitStatus, OsString, Output, Path};
+use crate::prelude::{io, Command, ExitStatus, OsStr, OsString, Output, Path, Stdio, Write};
 #[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
 use crate::util::Label;
@@ -128,13 +128,36 @@ pub fn parse_sh(cmd: &str) -> io::Result<(String, Vec<String>)> {
 pub fn run_output<I, S>(binary: impl AsRef<str>, args: I, dir: Option<&Path>) -> io::Result<Output>
 where
     I: IntoIterator<Item = S>,
-    S: AsRef<std::ffi::OsStr>,
+    S: AsRef<OsStr>,
 {
     let binary = binary.as_ref();
     let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
     log_command(binary, &args, dir);
     let mut cmd = command_with_args(binary, &args, dir);
     cmd.output()
+}
+/// Run a command with standard-input bytes and capture its output.
+#[doc(hidden)]
+pub fn run_output_with_stdin<I, S>(binary: impl AsRef<str>, args: I, dir: Option<&Path>, input: &[u8]) -> io::Result<Output>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let binary = binary.as_ref();
+    let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
+    log_command(binary, &args, dir);
+    let mut cmd = command_with_args(binary, &args, dir);
+    cmd.stdin(Stdio::piped());
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+    cmd.spawn().and_then(|mut child| {
+        child
+            .stdin
+            .take()
+            .ok_or_else(|| io::Error::other("failed to open command standard input"))
+            .and_then(|mut stdin| stdin.write_all(input))
+            .and_then(|()| child.wait_with_output())
+    })
 }
 /// Run a command string using a shell, capture output, with optional working directory.
 #[doc(hidden)]
@@ -236,7 +259,7 @@ fn escape(value: &str) -> String {
     }
 }
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
-    let rendered = once(escape(binary)).chain(redact(args)).collect::<Vec<_>>().join(" ");
+    let rendered = once(escape(binary)).chain(redact_args(args)).collect::<Vec<_>>().join(" ");
     let cwd = dir.map(|path| path.display().to_string()).unwrap_or_else(|| "<current>".to_string());
     warn!(cwd, "=> {} {rendered}", Label::run());
 }
@@ -248,7 +271,18 @@ fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Optio
         .collect::<Vec<OsString>>();
     log_command(shell, &args, dir);
 }
-pub(crate) fn redact(args: &[OsString]) -> Vec<String> {
+/// Remove registry authorization details from diagnostic text.
+pub(crate) fn redact(value: &str) -> String {
+    value
+        .lines()
+        .map(|line| match line.to_ascii_lowercase().contains("authorization") {
+            | true => "auth=[REDACTED]",
+            | false => line,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+pub(crate) fn redact_args(args: &[OsString]) -> Vec<String> {
     let sensitive_flags = ["--api-key", "--api-token", "--password", "--registration-token", "--secret", "--token"];
     args.iter()
         .scan(false, |redact_next, arg| {

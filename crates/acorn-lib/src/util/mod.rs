@@ -37,7 +37,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIs;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 pub mod assets;
 #[cfg(feature = "std")]
 pub mod cmd;
@@ -386,6 +386,9 @@ pub enum MimeType {
     /// See <https://onnx.ai/> for more information
     #[display("application/vnd.onnx.model")]
     Onnx,
+    /// OCI layer media type accepted for model artifacts.
+    #[display("{_0}")]
+    OciLayer(String),
     /// OpenDocument presentation.
     #[display("application/vnd.oasis.opendocument.presentation")]
     Odp,
@@ -503,7 +506,7 @@ pub struct Checksum {
 /// assert_eq!(version.to_string(), "1.2.3");
 /// ```
 
-#[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Eq, Ord, PartialEq, PartialOrd, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[display("{}.{}.{}", major, minor, patch)]
 pub struct SemanticVersion {
@@ -707,6 +710,15 @@ impl From<anydoc::Format> for MimeType {
     }
 }
 impl MimeType {
+    /// Return whether this file type is accepted as OCI model content.
+    pub fn is_model_resource(&self) -> bool {
+        match self {
+            | Self::Gguf | Self::Json | Self::Jsonc | Self::Text => true,
+            | Self::Vendor(extension) => matches!(extension.as_str(), "model" | "tiktoken"),
+            | Self::Unknown(name) => name.ends_with("tokenizer_config"),
+            | _ => false,
+        }
+    }
     /// Infers a MIME type from file content.
     ///
     /// Semantic document containers are identified before generic binary
@@ -812,10 +824,36 @@ impl From<&str> for SemanticVersion {
         }
     }
 }
+impl PartialEq<(u64, u64, u64)> for SemanticVersion {
+    fn eq(&self, other: &(u64, u64, u64)) -> bool {
+        (u64::from(self.major), u64::from(self.minor), u64::from(self.patch)) == *other
+    }
+}
+impl PartialOrd<(u64, u64, u64)> for SemanticVersion {
+    fn partial_cmp(&self, other: &(u64, u64, u64)) -> Option<core::cmp::Ordering> {
+        Some((u64::from(self.major), u64::from(self.minor), u64::from(self.patch)).cmp(other))
+    }
+}
+impl From<(u64, u64, u64)> for SemanticVersion {
+    fn from(value: (u64, u64, u64)) -> Self {
+        Self::init()
+            .major(u32::try_from(value.0).unwrap_or(u32::MAX))
+            .minor(u32::try_from(value.1).unwrap_or(u32::MAX))
+            .patch(u32::try_from(value.2).unwrap_or(u32::MAX))
+            .build()
+    }
+}
 impl SemanticVersion {
     /// Parse the numeric components of a semantic version string
     pub fn from_string(value: impl AsRef<str>) -> Self {
         Self::from(value.as_ref())
+    }
+    // TODO: Add support for resolve version globs (e.g., `1.2.*` or `1.*` or `*`)
+    /// Validate that this version satisfies a required minimum version.
+    pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
+        (*self >= minimum)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}").into()))
     }
 }
 impl<T: AsRef<str>> StringInterpolation<T> for T

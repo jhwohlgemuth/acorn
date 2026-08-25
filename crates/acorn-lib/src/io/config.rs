@@ -38,10 +38,12 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::path::Component;
+use strum::EnumIs;
 use tracing::{error, info, warn};
+use validator::{Validate, ValidationError, ValidationErrors};
 
 /// Authentication requirement for a configured model download source
-#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthenticationRequirement {
     /// Authentication is not expected for this model source
@@ -51,6 +53,16 @@ pub enum AuthenticationRequirement {
     Optional,
     /// Authentication is required for this model source
     Required,
+}
+/// Registry-specific metadata provider for an OCI registry profile.
+#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RegistryKind {
+    /// Generic OCI Distribution-compatible registry.
+    #[default]
+    OCI,
+    /// Harbor registry with optional v2 API enrichment.
+    Harbor,
 }
 /// Model config entry — either a bare selector string or a detailed download entry
 /// ### Notes
@@ -256,6 +268,9 @@ pub struct ApplicationConfiguration {
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
     pub models: Option<Vec<ModelEntry>>,
+    /// Named OCI registry profiles referenced by model entries.
+    #[eserde(compat)]
+    pub registries: Option<HashMap<String, RegistryProfile>>,
     /// List of runners
     #[eserde(compat)]
     pub runners: Option<Vec<RunnerDetails>>,
@@ -362,6 +377,32 @@ pub struct ModelEntryOptions {
     #[serde(default)]
     pub symlink: Option<bool>,
 }
+/// Named OCI registry configuration without embedded credentials.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RegistryProfile {
+    /// Registry implementation used for optional metadata enrichment.
+    #[serde(default)]
+    pub kind: RegistryKind,
+    /// HTTPS registry/API endpoint.
+    pub endpoint: String,
+    /// Environment variable containing a token or password.
+    pub credential_env: Option<String>,
+    /// Username paired with the credential environment variable.
+    pub username: Option<String>,
+    /// Docker-compatible registry configuration path.
+    pub registry_config: Option<PathBuf>,
+    /// Custom certificate-authority path.
+    pub ca_file: Option<PathBuf>,
+    /// Client certificate path.
+    pub client_cert: Option<PathBuf>,
+    /// Client private-key path.
+    pub client_key: Option<PathBuf>,
+    /// Permit development-only plain HTTP.
+    #[serde(default)]
+    pub plain_http: bool,
+}
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
@@ -455,6 +496,27 @@ impl ApplicationConfiguration {
             self.models.clone().unwrap_or_default(),
             self.whitelist.as_ref().and_then(|lookup| lookup.models.clone()),
         )
+    }
+    /// Return configured OCI registry profiles after validating their public settings.
+    pub fn registry_lookup(&self) -> ApiResult<HashMap<String, RegistryProfile>> {
+        self.registries
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .try_fold(HashMap::new(), |mut profiles, (name, profile)| {
+                let valid_characters = name.chars().all(|x| x.is_ascii_alphanumeric() || matches!(x, '-' | '_' | '.'));
+                let is_valid_name = !name.is_empty() && valid_characters;
+                match is_valid_name {
+                    | false => Err(eyre!("Invalid OCI registry profile name '{name}'")),
+                    | true => profile
+                        .validate()
+                        .map_err(|why| eyre!("Invalid OCI registry profile '{name}' — {why}"))
+                        .map(|()| {
+                            profiles.insert(name, profile);
+                            profiles
+                        }),
+                }
+            })
     }
     /// Synchronize selected model entries with configured local inference targets.
     pub fn sync(&self, options: sync::Options<'_>) -> ApiResult<()> {
@@ -791,14 +853,15 @@ impl Bucket {
     /// Get hosting domain from bucket struct
     pub(crate) fn domain(&self) -> ApiResult<String> {
         let location = match &self.code_repository {
-            | Repository::GitHub { location } | Repository::GitLab { location, .. } => location,
-            | Repository::Git { .. } => return Err(eyre!("Domain is unsupported for generic Git repositories")),
-            | Repository::HuggingFace { .. } => return Err(eyre!("Domain is unsupported for Hugging Face repositories")),
+            | Repository::GitHub { location } | Repository::GitLab { location, .. } => Ok(location),
+            | Repository::Git { .. } => Err(eyre!("Domain is unsupported for generic Git repositories")),
+            | Repository::HuggingFace { .. } => Err(eyre!("Domain is unsupported for Hugging Face repositories")),
+            | Repository::OCI { .. } => Err(eyre!("Domain is unsupported for OCI artifacts used as buckets")),
         };
-        match location.scheme() {
+        location.and_then(|location| match location.scheme() {
             | Scheme::HTTPS => location.host().ok_or_else(|| eyre!("Failed to parse repository host from URI")),
             | _ => Err(eyre!("Unsupported repository URI scheme")),
-        }
+        })
     }
     fn remove_destination(path: &Path) -> ApiResult<()> {
         match path.symlink_metadata() {
@@ -1042,13 +1105,18 @@ impl Bucket {
                 | None => Err(eyre!("Missing GitLab project id for {bucket_name} bucket")),
             },
             | Repository::HuggingFace { .. } => Err(eyre!("Hugging Face repositories are unsupported for bucket downloads")),
+            | Repository::OCI { .. } => Err(eyre!("OCI artifacts are unsupported for bucket downloads")),
         }
     }
 }
 impl From<&Path> for Bucket {
     fn from(value: &Path) -> Self {
         let location = Location::Simple(format!("file:{}/", value.display()));
-        Self::init().code_repository(Repository::Git { location }).build()
+        Self::init()
+            .code_repository(Repository::Git {
+                location: Box::new(location),
+            })
+            .build()
     }
 }
 impl From<&str> for Bucket {
@@ -1058,7 +1126,9 @@ impl From<&str> for Bucket {
             exit(exitcode::DATAERR);
         }
         let repository = match location.is_local() {
-            | true => Repository::Git { location },
+            | true => Repository::Git {
+                location: Box::new(location),
+            },
             | false => {
                 let host = match location.host() {
                     | Some(value) => value.to_lowercase(),
@@ -1068,10 +1138,15 @@ impl From<&str> for Bucket {
                     }
                 };
                 if host.contains("github.com") {
-                    Repository::GitHub { location }
+                    Repository::GitHub {
+                        location: Box::new(location),
+                    }
                 } else {
                     let id = None;
-                    Repository::GitLab { id, location }
+                    Repository::GitLab {
+                        id,
+                        location: Box::new(location),
+                    }
                 }
             }
         };
@@ -1147,6 +1222,44 @@ impl FilterSet {
         let ignored = self.ignore.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
         let filtered = self.filter.is_empty() || self.filter.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
         !ignored && filtered
+    }
+}
+impl Validate for RegistryProfile {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let location = Location::from(&self.endpoint);
+        let scheme = location.scheme();
+        let is_valid_scheme = scheme.is_https() || scheme.is_http() && self.plain_http;
+        let is_valid_endpoint = location.host().is_some() && is_valid_scheme;
+        let is_valid_environment = self.credential_env.as_ref().is_none_or(|value| {
+            let valid_characters = value
+                .chars()
+                .enumerate()
+                .all(|(index, character)| character == '_' || character.is_ascii_uppercase() || index > 0 && character.is_ascii_digit());
+            !value.is_empty() && valid_characters
+        });
+        let has_paired_identity = matches!((&self.client_cert, &self.client_key), (Some(_), Some(_)) | (None, None));
+        let pairs = [
+            (!is_valid_endpoint).then(|| {
+                let message = "Registry profile requires an HTTPS endpoint unless plainHttp is explicitly enabled".into();
+                ("endpoint", ValidationError::new("scheme").with_message(message))
+            }),
+            (!is_valid_environment).then(|| {
+                let message = "Registry profile has an invalid credentialEnv name".into();
+                ("credential_env", ValidationError::new("format").with_message(message))
+            }),
+            (!has_paired_identity).then(|| {
+                let message = "Registry profile must configure clientCert and clientKey together".into();
+                ("client_cert", ValidationError::new("paired").with_message(message))
+            }),
+        ];
+        let data = pairs.into_iter().flatten().fold(ValidationErrors::new(), |mut errors, (field, error)| {
+            errors.add(field, error);
+            errors
+        });
+        match data.errors().is_empty() {
+            | true => Ok(()),
+            | false => Err(data),
+        }
     }
 }
 impl ModelEntry {
@@ -1228,6 +1341,11 @@ impl ModelEntry {
             .and_then(|row| row.parsed_weights())
             .map(|weights| weights.groups().0.into_iter().map(|group| group.repository).unique().collect())
             .unwrap_or_default()
+    }
+}
+impl fmt::Display for ModelEntryOptions {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.name)
     }
 }
 impl RunnerDetails {
@@ -1555,7 +1673,7 @@ mod tests {
         write(output.join("unrelated.json"), "keep").unwrap();
         let bucket = Bucket::init()
             .code_repository(Repository::Git {
-                location: Location::Simple(format!("file:{}", source.display())),
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
             })
             .build();
         let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
@@ -1578,7 +1696,7 @@ mod tests {
         write(source.join("docs/quest/image.png"), "image").unwrap();
         let bucket = Bucket::init()
             .code_repository(Repository::Git {
-                location: Location::Simple(format!("file:{}", source.display())),
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
             })
             .build();
         let options = BucketOptions::init().output(output.clone()).quiet(true).flatten(true).build();
@@ -1602,7 +1720,7 @@ mod tests {
         write(output.join("index.json"), "old").unwrap();
         let bucket = Bucket::init()
             .code_repository(Repository::Git {
-                location: Location::Simple(format!("file:{}", source.display())),
+                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
             })
             .build();
         let options = BucketOptions::init().output(output.clone()).quiet(true).build();
@@ -1824,5 +1942,47 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
+    }
+    #[test]
+    fn test_oci_registry_profile_and_model_source_parse() {
+        let configuration = ApplicationConfiguration::parse(
+            r#"{
+                "registries": {
+                    "internal": {
+                        "kind": "harbor",
+                        "endpoint": "https://harbor.example.org",
+                        "credentialEnv": "ACORN_HARBOR_TOKEN"
+                    }
+                },
+                "models": [{
+                    "name": "nemotron-oci",
+                    "source": {
+                        "provider": "oci",
+                        "location": "oci://harbor.example.org/ai/models/nemotron:v1",
+                        "registry": "internal"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let profiles = configuration.registry_lookup().unwrap();
+        assert_eq!(profiles.get("internal").map(|profile| &profile.kind), Some(&RegistryKind::Harbor));
+        assert!(matches!(
+            configuration.models.as_deref(),
+            Some([ModelEntry::Entry(ModelEntryOptions {
+                source: Repository::OCI { registry: Some(name), .. },
+                ..
+            })]) if name == "internal"
+        ));
+    }
+    #[test]
+    fn test_oci_registry_profile_rejects_plaintext_secret_and_insecure_endpoint() {
+        assert!(
+            ApplicationConfiguration::parse(r#"{"registries":{"bad":{"endpoint":"https://registry.example.org","password":"secret"}}}"#).is_err()
+        );
+        let configuration =
+            ApplicationConfiguration::parse(r#"{"registries":{"bad":{"endpoint":"http://registry.example.org","credentialEnv":"bad-name"}}}"#)
+                .unwrap();
+        assert!(configuration.registry_lookup().is_err());
     }
 }

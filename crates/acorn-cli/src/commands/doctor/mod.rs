@@ -3,6 +3,7 @@ use crate::cli::CommandOptions;
 use crate::commands::preflight;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use color_eyre::eyre::{Report, Result};
+use serde_json::json;
 use tracing::warn;
 
 fn should_run(checks: &[Diagnostic], diagnostic: Diagnostic) -> bool {
@@ -58,7 +59,6 @@ fn build_report_json(
     net: &NetworkInformation,
     sw: &SystemSoftwareInformation,
 ) -> serde_json::Value {
-    use serde_json::json;
     let network_interfaces: Vec<serde_json::Value> = net
         .networks
         .iter()
@@ -93,6 +93,7 @@ fn build_report_json(
             "git": { "version": sw.git.version, "path": sw.git.path },
             "node": { "version": sw.node.version, "path": sw.node.path },
             "npm": { "version": sw.npm.version, "path": sw.npm.path },
+            "oras": { "version": sw.oras.version, "path": sw.oras.path },
             "npx": { "version": sw.npx.version, "path": sw.npx.path },
             "pandoc": { "version": sw.pandoc.version, "path": sw.pandoc.path },
             "vale": { "version": sw.vale.version, "path": sw.vale.path },

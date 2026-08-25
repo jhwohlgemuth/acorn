@@ -1,22 +1,25 @@
 //! Model download planning, resolution, and metadata filtering.
-use super::{download_remote_model, is_http_or_https, materialize_local_model};
+use super::{download_remote_model, materialize_local_model};
 use crate::cli::CommandOptions;
+use acorn::io::api::harbor::{self, Artifact as HarborArtifact, Options as HarborOptions};
 use acorn::io::api::huggingface::{
     self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension, RepositoryResolution,
 };
 use acorn::io::api::models_dev;
-use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions};
+use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions, RegistryKind, RegistryProfile};
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
+use acorn::io::oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport};
 use acorn::io::{ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
-use acorn::prelude::{create_dir_all, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, WeightGroups, Weights};
+use acorn::prelude::{create_dir_all, HashMap, HashSet, Path, PathBuf, String, Vec};
+use acorn::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, OciModelDetails, Quantization, Weight, WeightGroups, Weights};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
-use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
 use acorn::util::{merge, Label, StringConversion};
+use acorn::{Location, Repository};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -32,6 +35,14 @@ pub(crate) enum ModelDownloadError {
     UnknownModel(String),
     MultipleMatches(String),
     MissingAuth(String),
+    ModelList(String),
+    Configuration(String),
+    RegistryConfiguration(String),
+    Whitelist(String),
+    NoModelsSpecified,
+    NoWhitelistMatches,
+    NoFilterMatches,
+    OfflineRemoteModels(String),
     NoModelsFound,
 }
 #[derive(Clone, Copy, Debug)]
@@ -60,19 +71,59 @@ pub(crate) struct ModelDownloadPlan {
     pub(crate) required_paths: Vec<String>,
     pub(crate) action: Option<SourceAction>,
     pub(crate) details: Option<ModelDetails>,
+    #[builder(default)]
+    pub(crate) oci_options: OciTransportOptions,
+    pub(crate) registry_profile: Option<RegistryProfile>,
 }
 pub(crate) struct ModelDownloadPlans(pub(crate) Vec<ModelDownloadPlan>);
+struct OciPlanResolution {
+    reference: OciReference,
+    resolution: OciResolution,
+    harbor: Option<HarborArtifact>,
+}
+pub(crate) struct ResolvedModelDownload {
+    plan: ModelDownloadPlan,
+    resolution: RepositoryResolution<ModelDetails>,
+    oci: Option<OciPlanResolution>,
+}
 impl fmt::Display for ModelDownloadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             | Self::UnknownModel(value) => write!(formatter, "Unknown model selector: {value}"),
             | Self::MultipleMatches(value) => write!(formatter, "Multiple model matches found: {value}"),
             | Self::MissingAuth(value) => write!(formatter, "Model download requires authentication: {value}"),
+            | Self::ModelList(value) | Self::Configuration(value) | Self::RegistryConfiguration(value) | Self::Whitelist(value) => {
+                formatter.write_str(value)
+            }
+            | Self::NoModelsSpecified => write!(formatter, "No models specified — provide model IDs, --model-file, or --config"),
+            | Self::NoWhitelistMatches => write!(formatter, "No models were found or matched the whitelist"),
+            | Self::NoFilterMatches => write!(formatter, "No models matched --filter/--ignore"),
+            | Self::OfflineRemoteModels(value) => write!(formatter, "Offline mode cannot download remote models: {value}"),
             | Self::NoModelsFound => write!(formatter, "No models found"),
         }
     }
 }
 impl core::error::Error for ModelDownloadError {}
+impl ResolvedModelDownload {
+    pub(super) fn plan(&self) -> &ModelDownloadPlan {
+        &self.plan
+    }
+    pub(super) async fn execute(&self, options: CommandOptions) -> ApiResult<ModelDetails> {
+        match &self.oci {
+            | Some(resolved) => self.plan.download_from_oci(options, resolved),
+            | None => self
+                .plan
+                .execute(options)
+                .await
+                .map(|identifier| self.plan.details.clone().unwrap_or_else(|| (&self.plan).into()).with_id(&identifier)),
+        }
+    }
+}
+impl fmt::Display for ModelDownloadPlan {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.selector, formatter)
+    }
+}
 impl ModelDownloadPlan {
     fn new(selector: Source) -> Self {
         let action = match &selector {
@@ -81,7 +132,7 @@ impl ModelDownloadPlan {
         };
         Self::init().selector(selector).maybe_action(action).build()
     }
-    fn from_entry(entry: &ModelEntryOptions) -> Self {
+    fn from_entry(entry: &ModelEntryOptions, oci_options: OciTransportOptions, profile: Option<RegistryProfile>) -> Self {
         let config_action = match (&entry.copy, &entry.symlink) {
             | (Some(true), _) => Some(SourceAction::Copy),
             | (_, Some(true)) => Some(SourceAction::Symlink),
@@ -96,6 +147,8 @@ impl ModelDownloadPlan {
             .quantization(entry.quantization.clone().map(OneOrMany::into_vec).unwrap_or_default())
             .maybe_gpu_memory(entry.gpu_memory.clone())
             .maybe_action(config_action)
+            .oci_options(oci_options)
+            .maybe_registry_profile(profile)
             .build()
     }
     fn with_action(self, action: Option<SourceAction>) -> Self {
@@ -117,6 +170,9 @@ impl ModelDownloadPlan {
     pub(super) fn is_remote(&self) -> bool {
         self.selector.is_remote()
     }
+    fn is_oci(&self) -> bool {
+        self.selector.identifier().starts_with(OCI_PREFIX)
+    }
     pub(crate) async fn matches(&self, whitelist: &HashSet<String>, offline: bool) -> ApiResult<bool> {
         let name = self.name();
         let rejected = || {
@@ -128,9 +184,9 @@ impl ModelDownloadPlan {
             );
             false
         };
-        if whitelist.is_empty() || whitelist.contains(&name) {
+        if whitelist.is_empty() || whitelist.contains(&name) || whitelist.contains(&self.selector.identifier()) {
             Ok(true)
-        } else if offline || !self.is_remote() || is_http_or_https(&self.selector.identifier()) {
+        } else if offline || !self.is_remote() || Location::from(&self.selector.identifier()).is_http_or_https() || self.is_oci() {
             Ok(rejected())
         } else {
             let identifier = self.selector.identifier();
@@ -161,8 +217,8 @@ impl ModelDownloadPlan {
     pub(crate) fn name(&self) -> String {
         self.selector.name()
     }
-    pub(super) async fn execute(&self, options: CommandOptions) -> ApiResult<String> {
-        if matches!(self.auth, AuthenticationRequirement::Required) && self.selector.is_remote() && !huggingface::has_auth_token() {
+    async fn execute(&self, options: CommandOptions) -> ApiResult<String> {
+        if self.auth.is_required() && self.selector.is_remote() && !huggingface::has_auth_token() {
             Err(eyre!("{}", ModelDownloadError::MissingAuth(self.name())))
         } else {
             match options.selector.as_ref() {
@@ -187,7 +243,7 @@ impl ModelDownloadPlan {
                     }
                     self.name()
                 }),
-                | Some(Source::Remote { identifier, .. }) if is_http_or_https(identifier) => download_remote_model(options).await,
+                | Some(Source::Remote { identifier, .. }) if Location::from(identifier).is_http_or_https() => download_remote_model(options).await,
                 | Some(Source::Remote { .. }) => self.download_from_huggingface(options.clone()).await.map(|resolution| {
                     let identifier = resolution.resolved().to_string();
                     if !options.no_local_database {
@@ -224,6 +280,93 @@ impl ModelDownloadPlan {
                 | Some(Source::Unsupported(value)) => Err(eyre!("Unsupported model source — {value}")),
                 | None => Err(eyre!("Model selector is not configured")),
             }
+        }
+    }
+    pub(super) async fn resolve_oci(&self) -> ApiResult<(OciReference, OciResolution, Option<HarborArtifact>)> {
+        let resolved = OciReference::parse(&self.selector.identifier()).and_then(|reference| {
+            OrasTransport::new(self.oci_options.clone()).and_then(|transport| {
+                transport
+                    .resolve(&reference, &self.filter, &self.ignore, &self.quantization)
+                    .map(|resolution| (reference, resolution))
+            })
+        });
+        match resolved {
+            | Ok((reference, resolution)) => self
+                .harbor_metadata(&reference, &resolution)
+                .await
+                .map(|harbor| (reference, resolution, harbor)),
+            | Err(why) => Err(why),
+        }
+    }
+    async fn harbor_metadata(&self, reference: &OciReference, resolution: &OciResolution) -> ApiResult<Option<HarborArtifact>> {
+        match &self.registry_profile {
+            | Some(profile) if profile.kind == RegistryKind::Harbor => {
+                let selected = match reference.reference() {
+                    | OciReferenceValue::Tag(value) | OciReferenceValue::Digest(value) => value,
+                };
+                let artifact = match HarborOptions::from_repository(profile, reference.repository()).map(|options| options.with_reference(selected)) {
+                    | Ok(options) => harbor::artifact(&options).await,
+                    | Err(why) => Err(why),
+                };
+                match artifact {
+                    | Ok(artifact) if artifact.digest == resolution.resolved_digest => Ok(Some(artifact)),
+                    | Ok(_) => Err(eyre!("Harbor and OCI Distribution resolved different artifact digests")),
+                    | Err(why) if !self.auth.is_required() => {
+                        warn!(
+                            "=> {} Harbor metadata is unavailable; using generic OCI resolution — {why}",
+                            Label::CAUTION
+                        );
+                        Ok(None)
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | _ => Ok(None),
+        }
+    }
+    pub(super) fn oci_details(&self, reference: &OciReference, resolution: &OciResolution, harbor: Option<&HarborArtifact>) -> ModelDetails {
+        let identifier = reference.with_digest(&resolution.resolved_digest);
+        let weights = resolution
+            .files
+            .iter()
+            .map(|OciFile { path, size, .. }| Weight {
+                label: path.clone(),
+                url: format!("{identifier}#{path}"),
+                is_open: Some(!self.auth.is_required()),
+                quantization: Quantization::from_gguf_filename(path),
+                size: Some(*size),
+            })
+            .collect();
+        ModelDetails {
+            id: Some(identifier),
+            name: Some(self.name()),
+            fallback: Some(resolution.requested_reference.clone()),
+            open_weights: Some(!self.auth.is_required()),
+            oci: Some(OciModelDetails {
+                registry: resolution.registry.clone(),
+                repository: resolution.repository.clone(),
+                requested_reference: resolution.requested_reference.clone(),
+                resolved_digest: resolution.resolved_digest.clone(),
+                artifact_type: resolution.artifact_type.clone(),
+                total_size: resolution.total_size,
+                files: resolution.files.iter().map(|file| file.path.clone()).collect(),
+                harbor_tags: harbor.map(|artifact| artifact.tags.iter().map(|tag| tag.name.clone()).collect()),
+                harbor_labels: harbor.map(|artifact| artifact.labels.iter().map(|label| label.name.clone()).collect()),
+                harbor_push_time: harbor.and_then(|artifact| artifact.push_time.clone()),
+            }),
+            weights: Some(Weights(weights)),
+            ..Default::default()
+        }
+    }
+    fn download_from_oci(&self, options: CommandOptions, resolved: &OciPlanResolution) -> ApiResult<ModelDetails> {
+        match options.output {
+            | Some(root) => {
+                let destination = resolved.reference.destination(&root, &resolved.resolution.resolved_digest);
+                OrasTransport::new(self.oci_options.clone())
+                    .and_then(|transport| transport.pull(&resolved.reference, &resolved.resolution, &destination))
+                    .map(|()| self.oci_details(&resolved.reference, &resolved.resolution, resolved.harbor.as_ref()))
+            }
+            | None => Err(eyre!("Model output directory is not configured")),
         }
     }
     async fn download_from_huggingface(&self, options: CommandOptions) -> ApiResult<RepositoryResolution<Downloaded>> {
@@ -517,7 +660,7 @@ impl ModelDownloadPlan {
 }
 impl From<&ModelDownloadPlan> for ModelDetails {
     fn from(plan: &ModelDownloadPlan) -> Self {
-        let is_open = Some(plan.auth != AuthenticationRequirement::Required);
+        let is_open = Some(!plan.auth.is_required());
         Self {
             id: Some(plan.selector.identifier()),
             name: Some(plan.name()),
@@ -526,7 +669,22 @@ impl From<&ModelDownloadPlan> for ModelDetails {
         }
     }
 }
+impl From<ResolvedModelDownload> for ModelDetails {
+    fn from(value: ResolvedModelDownload) -> Self {
+        value.resolution.into()
+    }
+}
 impl ModelDownloadPlans {
+    pub(super) fn filter(self, filter: &[String], ignore: &[String]) -> ApiResult<Self> {
+        FilterSet::compile(ignore, filter).map(|filters| {
+            Self(
+                self.0
+                    .into_iter()
+                    .filter(|plan| plan.is_oci() || filters.matches(&plan.selector.identifier()))
+                    .collect(),
+            )
+        })
+    }
     pub(super) fn constrain(
         self,
         cli_quantization: &[Quantization],
@@ -545,23 +703,33 @@ impl ModelDownloadPlans {
                         | false => cli_quantization.to_vec(),
                     };
                     let gpu_memory = cli_gpu_memory.clone().or_else(|| plan.gpu_memory.clone());
-                    match (quantization.is_empty(), gpu_memory.as_ref(), no_local_database) {
-                        | (true, None, _) => Some(plan),
-                        | (_, _, true) => {
-                            warn!(
-                                "=> {} Model '{}' eligibility is unknown because the local database is disabled; proceeding without metadata filtering",
-                                Label::CAUTION,
-                                plan.name()
-                            );
-                            Some(plan)
-                        }
-                        | _ => plan.constrain(quantization, filter, ignore, gpu_memory, database_path),
+                    match plan.is_oci() {
+                        | true => {
+                            let constraints = ModelDownloadPlan {
+                                filter: merge(&plan.filter, Some(filter)),
+                                ignore: merge(&plan.ignore, Some(ignore)),
+                                quantization,
+                                ..plan
+                            };
+                            Some(constraints)
+                        },
+                        | false => match (quantization.is_empty(), gpu_memory.as_ref(), no_local_database) {
+                            | (true, None, _) => Some(plan),
+                            | (_, _, true) => {
+                                warn!(
+                                    "=> {} Model '{plan}' eligibility is unknown because the local database is disabled; proceeding without metadata filtering",
+                                    Label::CAUTION,
+                                );
+                                Some(plan)
+                            }
+                            | _ => plan.constrain(quantization, filter, ignore, gpu_memory, database_path),
+                        },
                     }
                 })
                 .collect(),
         )
     }
-    pub(crate) async fn resolve(&self, options: DownloadOptions) -> Vec<RepositoryResolution<ModelDetails>> {
+    pub(crate) async fn resolve(&self, options: DownloadOptions) -> Vec<ResolvedModelDownload> {
         let DownloadOptions {
             offline,
             limit,
@@ -571,7 +739,26 @@ impl ModelDownloadPlans {
         let results = stream::iter(self.0.iter().cloned())
             .then(|plan| async move {
                 match &plan.selector {
-                    | Source::Remote { identifier, .. } if !offline && !is_http_or_https(identifier) => {
+                    | Source::Remote { identifier, .. } if !offline && plan.is_oci() => match plan.resolve_oci().await {
+                        | Ok((reference, resolution, harbor)) => {
+                            let details = plan.oci_details(&reference, &resolution, harbor.as_ref());
+                            let requested = identifier.clone();
+                            Some(ResolvedModelDownload {
+                                plan,
+                                resolution: RepositoryResolution::new(requested, reference.with_digest(&resolution.resolved_digest), details),
+                                oci: Some(OciPlanResolution {
+                                    reference,
+                                    resolution,
+                                    harbor,
+                                }),
+                            })
+                        }
+                        | Err(why) => {
+                            error!("=> {} Resolve OCI model {} ({why})", Label::fail(), plan.name().yellow());
+                            None
+                        }
+                    },
+                    | Source::Remote { identifier, .. } if !offline && !Location::from(identifier).is_http_or_https() => {
                         let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
                         let search_options = huggingface::SearchOptions::init()
                             .identifier(identifier)
@@ -579,7 +766,7 @@ impl ModelDownloadPlans {
                             .minimum_download_count(minimum_download_count)
                             .interactive(interactive)
                             .build();
-                        match huggingface::parse_identifier(identifier) {
+                        let resolution = match huggingface::parse_identifier(identifier) {
                             | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
                                 | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
                                 | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
@@ -606,9 +793,14 @@ impl ModelDownloadPlans {
                                 error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
                                 None
                             }
-                        }
+                        };
+                        resolution.map(|resolution| ResolvedModelDownload { plan, resolution, oci: None })
                     }
-                    | _ => Some(RepositoryResolution::direct(plan.selector.identifier(), ModelDetails::from(&plan))),
+                    | _ => Some(ResolvedModelDownload {
+                        resolution: RepositoryResolution::direct(plan.selector.identifier(), ModelDetails::from(&plan)),
+                        plan,
+                        oci: None,
+                    }),
                 }
             })
             .collect::<Vec<_>>()
@@ -620,6 +812,7 @@ impl ModelDownloadPlans {
 pub(crate) async fn resolve_plans(
     positional: &ModelSelectors,
     entries: &[ModelEntry],
+    profiles: &HashMap<String, RegistryProfile>,
     action: Option<SourceAction>,
     database_path: &Option<PathBuf>,
     no_local_database: bool,
@@ -634,24 +827,32 @@ pub(crate) async fn resolve_plans(
         .collect::<Vec<_>>();
     let future_plans = positional
         .iter()
-        .map(|selector| resolve_positional_plan(selector, &entry_options, action, database_path, no_local_database, offline));
-    let plans = join_all(future_plans)
-        .await
-        .into_iter()
-        .filter_map(Result::ok)
-        .chain(entries.iter().filter_map(|entry| match entry {
+        .map(|selector| resolve_positional_plan(selector, &entry_options, profiles, action, database_path, no_local_database, offline));
+    let configured = entries
+        .iter()
+        .map(|entry| match entry {
             | ModelEntry::Selector(value) => {
-                ModelSelector::new(value).map(|selector| ModelDownloadPlan::new(Source::from(selector.as_str())).with_action(action))
+                Ok(ModelSelector::new(value).map(|selector| ModelDownloadPlan::new(Source::from(selector.as_str())).with_action(action)))
             }
-            | ModelEntry::Entry(options) => Some(ModelDownloadPlan::from_entry(options).with_action(action)),
-        }))
-        .unique_by(|plan| plan.selector.identifier())
-        .collect();
-    Ok(plans)
+            | ModelEntry::Entry(options) => profile_options(options, profiles)
+                .map(|(oci_options, profile)| Some(ModelDownloadPlan::from_entry(options, oci_options, profile).with_action(action))),
+        })
+        .collect::<ApiResult<Vec<_>>>();
+    match configured {
+        | Ok(plans) => Ok(join_all(future_plans)
+            .await
+            .into_iter()
+            .filter_map(Result::ok)
+            .chain(plans.into_iter().flatten())
+            .unique_by(|plan| plan.selector.identifier())
+            .collect()),
+        | Err(why) => Err(why),
+    }
 }
 async fn resolve_positional_plan(
     selector: &ModelSelector,
     entry_options: &[&ModelEntryOptions],
+    profiles: &HashMap<String, RegistryProfile>,
     action: Option<SourceAction>,
     database_path: &Option<PathBuf>,
     no_local_database: bool,
@@ -663,13 +864,16 @@ async fn resolve_positional_plan(
         .iter()
         .filter(|entry| entry.name.eq_ignore_ascii_case(selector))
         .collect::<Vec<_>>();
-    match (
-        entry_options.iter().find(|entry| entry.name == selector),
-        aliases.as_slice(),
-        is_http_or_https(selector),
-    ) {
-        | (Some(entry), _, _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
-        | (_, [entry], _) => Ok(ModelDownloadPlan::from_entry(entry).with_action(action)),
+    let exact = entry_options.iter().find(|entry| entry.name == selector);
+    let aliases = aliases.as_slice();
+    let is_remote = Location::from(selector).is_http_or_https() || selector.starts_with(OCI_PREFIX);
+    match (exact, aliases, is_remote) {
+        | (Some(entry), _, _) => {
+            profile_options(entry, profiles).map(|(options, profile)| ModelDownloadPlan::from_entry(entry, options, profile).with_action(action))
+        }
+        | (_, [entry], _) => {
+            profile_options(entry, profiles).map(|(options, profile)| ModelDownloadPlan::from_entry(entry, options, profile).with_action(action))
+        }
         | (_, [_, ..], _) => Err(eyre!("{}", ModelDownloadError::MultipleMatches(selector.to_string()))),
         | (_, _, true) => Ok(fallback()),
         | _ if no_local_database => Ok(fallback().with_action(action)),
@@ -719,6 +923,30 @@ async fn resolve_positional_plan(
             };
             Ok(plan.with_action(action))
         }
+    }
+}
+fn profile_options(
+    entry: &ModelEntryOptions,
+    profiles: &HashMap<String, RegistryProfile>,
+) -> ApiResult<(OciTransportOptions, Option<RegistryProfile>)> {
+    match &entry.source {
+        | Repository::OCI {
+            location,
+            registry: Some(name),
+        } => profiles
+            .get(name)
+            .ok_or_else(|| eyre!("OCI model '{entry}' references unknown registry profile '{name}'"))
+            .and_then(|profile| {
+                OciReference::parse(&location.uri().unwrap_or_default()).and_then(|reference| {
+                    let profile_registry = Location::from(&profile.endpoint).registry();
+                    if profile_registry.as_deref() == Some(reference.registry()) {
+                        Ok((OciTransportOptions::from(profile), Some(profile.clone())))
+                    } else {
+                        Err(eyre!("OCI registry profile '{name}' endpoint does not match {}", reference.registry()))
+                    }
+                })
+            }),
+        | _ => Ok((OciTransportOptions::default(), None)),
     }
 }
 #[cfg(feature = "tui")]
@@ -819,12 +1047,56 @@ mod metadata_filter_tests {
             .constrain_with_groups(&groups, &[Quantization::Q4kM], None, &[], &["00002".to_string()])
             .is_none());
     }
+    #[test]
+    fn test_plan_filter_defers_oci_patterns_to_manifest_files() {
+        let plans = ModelDownloadPlans(vec![
+            ModelDownloadPlan::new(Source::from("oci://registry.example.org/ai/qwen:v1")),
+            ModelDownloadPlan::new(Source::from("acme/qwen")),
+        ]);
+        let filtered = plans.filter(&["\\.gguf$".to_string()], &["tokenizer".to_string()]).unwrap();
+        assert_eq!(filtered.0.len(), 1);
+        assert_eq!(
+            filtered.0.first().map(|plan| plan.selector.identifier()).as_deref(),
+            Some("oci://registry.example.org/ai/qwen:v1")
+        );
+    }
+    #[tokio::test]
+    async fn test_optional_harbor_enrichment_falls_back_to_oci() {
+        let profile = RegistryProfile {
+            kind: RegistryKind::Harbor,
+            endpoint: "http://127.0.0.1:1".to_string(),
+            plain_http: true,
+            ..Default::default()
+        };
+        let plan = ModelDownloadPlan::init()
+            .selector(Source::from("oci://127.0.0.1:5000/ai/qwen:v1"))
+            .auth(AuthenticationRequirement::Optional)
+            .maybe_registry_profile(Some(profile.clone()))
+            .build();
+        let reference = OciReference::parse("oci://127.0.0.1:5000/ai/qwen:v1").unwrap();
+        let resolution = OciResolution {
+            registry: "127.0.0.1:5000".to_string(),
+            repository: "ai/qwen".to_string(),
+            requested_reference: "v1".to_string(),
+            resolved_digest: format!("sha256:{}", "a".repeat(64)),
+            artifact_type: None,
+            total_size: 0,
+            files: Vec::new(),
+        };
+        assert!(plan.harbor_metadata(&reference, &resolution).await.unwrap().is_none());
+        let required = ModelDownloadPlan {
+            auth: AuthenticationRequirement::Required,
+            ..plan
+        };
+        assert!(required.harbor_metadata(&reference, &resolution).await.is_err());
+    }
     #[tokio::test]
     async fn test_no_local_database_skips_plan_lookup_and_constraint_lookup() {
         let invalid_database_path = PathBuf::from(".");
         let plans = resolve_plans(
             &ModelSelectors::from(vec!["acme/base".to_string()]),
             &[],
+            &Default::default(),
             None,
             &Some(invalid_database_path.clone()),
             true,

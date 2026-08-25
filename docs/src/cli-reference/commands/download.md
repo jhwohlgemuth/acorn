@@ -163,6 +163,73 @@ Detailed configuration entries can set the same constraints:
 }
 ```
 
+### OCI Model Artifacts
+
+Explicit `oci://` references download model artifacts from any OCI Distribution-compatible registry, including Harbor. [ORAS 1.3.0 or newer](https://oras.land/docs/installation) must be installed and available on `PATH`; `acorn doctor --check software` reports its availability. Unqualified `owner/repository` values remain Hugging Face selectors.
+
+```sh
+# Resolve a tag and preview its immutable digest and selected files
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run
+
+# Pull an immutable artifact digest
+acorn download model oci://registry.example.org/ai/models/qwen@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+Tags are resolved during planning. Dry-run and raw output include the requested reference, resolved SHA-256 manifest digest, artifact type, selected files, and total size. Downloads pin the resolved digest, use ORAS digest verification, stage into a unique sibling directory, validate every materialized path, and publish with one rename. A non-empty existing destination is rejected. `--skip-verify-checksum` does not disable OCI descriptor verification.
+
+ACORN accepts OCI artifact manifests whose files have safe `org.opencontainers.image.title` annotations and recognized model/config/tokenizer filenames. Ordinary runnable container images, missing titles, absolute or traversal paths, unsupported files, symbolic links, and malformed digests are rejected. Digest integrity proves content identity; it does not authenticate the publisher or replace a future signature policy.
+
+#### Custom Harbor endpoints
+
+Use an explicit `oci://` reference for a model in any Harbor registry. A named registry profile is optional for public artifacts, but enables Harbor metadata and registry-specific authentication or TLS settings. ORNL's Savannah Harbor instance is one example:
+
+```sh
+# Inspect the tag, resolved digest, Ollama-store files, and total transfer size
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run --raw
+
+# Download into ACORN's digest-addressed model directory
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --local-dir ./models
+```
+
+ACORN recognizes the extensionless `blobs/sha256-*` and `manifests/...` paths used by the Savannah model's Ollama-store artifact. ACORN keeps the verified artifact in a registry/repository/digest-qualified directory so mutable tags cannot overwrite another resolution; the directory names are portable to Windows. Installing Ollama or Open WebUI and merging artifacts into an application's own store are outside this command's scope.
+
+ORAS uses the normal Docker-compatible credential store by default. A named profile may instead identify a credential environment variable; ACORN passes that value through standard input and never places it in configuration, process arguments, or diagnostics. TLS verification stays enabled. Plain HTTP is allowed only by an explicit development profile.
+
+```json
+{
+    "registries": {
+        "savannah": {
+            "kind": "harbor",
+            "endpoint": "https://savannah.ornl.gov",
+            "credentialEnv": "ACORN_SAVANNAH_TOKEN"
+        }
+    },
+    "models": [
+        {
+            "name": "gpt-oss-20b",
+            "source": {
+                "provider": "oci",
+                "location": "oci://savannah.ornl.gov/models/gpt-oss:20b",
+                "registry": "savannah"
+            },
+            "auth": "required"
+        },
+        {
+            "name": "qwen-huggingface",
+            "source": {
+                "provider": "huggingface",
+                "location": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+            }
+        },
+        "oci://ghcr.io/example/models/qwen:Q4_K_M"
+    ]
+}
+```
+
+The second entry continues to use the pre-OCI Hugging Face API. The final entry shows the simplified selector syntax for an OCI artifact that does not need a named registry profile.
+
+Profiles also support `username`, `registryConfig`, `caFile`, paired `clientCert`/`clientKey`, and `plainHttp`. They intentionally have no password or token field. Harbor profiles enable its v2 artifact metadata API; content transfer always remains portable through ORAS. Global `--offline` rejects OCI access before ORAS or Harbor is contacted.
+
 Command-line constraints override configuration. If neither constraint is present, download selection remains unchanged. With global `--no-local-database`, import reports metadata without persisting it and constrained downloads proceed with an eligibility-unknown warning.
 
 ### Filter and Ignore Semantics

@@ -120,6 +120,128 @@ pub enum PostalCode {
     /// String postal code.
     Text(String),
 }
+impl Validate for IntegerOrString {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let valid = match self {
+            | Self::Number(_) => true,
+            | Self::Text(value) => !value.trim().is_empty(),
+        };
+        match valid {
+            | true => Ok(()),
+            | false => {
+                let mut errors = ValidationErrors::new();
+                errors.add(
+                    "integer_or_string",
+                    ValidationError::new("required").with_message("Integer-or-string text should not be empty".into()),
+                );
+                Err(errors)
+            }
+        }
+    }
+}
+impl Validate for License {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("license", err);
+                acc
+            })
+        };
+        #[cfg(feature = "std")]
+        {
+            let invalid = match self {
+                | License::Single(value) => is_license(value).err(),
+                | License::Multiple(values) => values.iter().find_map(|value| is_license(value).err()),
+            };
+            invalid.map_or(Ok(()), |why| Err(to_validation_errors(why)))
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            is_license(&self.to_string()).map_err(to_validation_errors)
+        }
+    }
+}
+impl Validate for MonthValue {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("month", err);
+                acc
+            })
+        };
+        let valid = match self {
+            | Self::Number(value) => (1..=12).contains(value),
+            | Self::Text(value) => matches!(value.as_str(), "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12"),
+        };
+        match valid {
+            | true => Ok(()),
+            | false => Err(to_validation_errors(
+                ValidationError::new("range").with_message("Month should be an integer 1-12 or a string value from \"1\" to \"12\"".into()),
+            )),
+        }
+    }
+}
+impl Validate for NumberOrString {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let valid = match self {
+            | Self::Number(value) => value.is_finite(),
+            | Self::Text(value) => !value.trim().is_empty(),
+        };
+        match valid {
+            | true => Ok(()),
+            | false => {
+                let mut errors = ValidationErrors::new();
+                errors.add(
+                    "number_or_string",
+                    ValidationError::new("format").with_message("Number-or-string should be finite or contain non-empty text".into()),
+                );
+                Err(errors)
+            }
+        }
+    }
+}
+impl Validate for YearValue {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("year", err);
+                acc
+            })
+        };
+        match self {
+            | Self::Number(value) => is_year(*value).map_err(to_validation_errors),
+            | Self::Text(value) => is_year(value).map_err(to_validation_errors),
+        }
+    }
+}
+impl Validate for PostalCode {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let to_validation_errors = |why: ValidationError| {
+            once(why).fold(ValidationErrors::new(), |mut acc, err| {
+                acc.add("postal_code", err);
+                acc
+            })
+        };
+        let valid = match self {
+            | Self::Number(value) => *value >= 0,
+            | Self::Text(value) => {
+                let trimmed = value.trim();
+                let punctuation = [' ', '-'];
+                let valid_characters = trimmed
+                    .chars()
+                    .all(|character| character.is_alphanumeric() || punctuation.contains(&character));
+                !trimmed.is_empty() && trimmed.len() <= 20 && valid_characters
+            }
+        };
+        match valid {
+            | true => Ok(()),
+            | false => Err(to_validation_errors(ValidationError::new("format").with_message(
+                "Postal code should be a non-negative integer or a non-empty string up to 20 characters using letters, digits, spaces, or hyphens"
+                    .into(),
+            ))),
+        }
+    }
+}
 /// Format a phone number into a standard format
 /// ### Note
 /// > Output format is `000.000.0000`
@@ -239,6 +361,20 @@ pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
     match valid {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
+    }
+}
+/// Validate a lowercase SHA-256 digest including its algorithm prefix.
+pub fn is_digest(value: &str) -> Result<(), ValidationError> {
+    let hash = value.strip_prefix("sha256:");
+    let valid = hash.is_some_and(|hash| {
+        let is_lowercase_hex = hash
+            .chars()
+            .all(|character| character.is_ascii_hexdigit() && !character.is_ascii_uppercase());
+        hash.len() == 64 && is_lowercase_hex
+    });
+    match valid {
+        | true => Ok(()),
+        | false => Err(ValidationError::new("digest").with_message("Provide a lowercase SHA-256 digest".into())),
     }
 }
 /// Check if value is either an ISO 8601 date (`YYYY-MM-DD`) or an RFC3339 timestamp.
@@ -550,99 +686,4 @@ fn has_compatible_offset(value: &str) -> bool {
                     | _ => false,
                 })
             })
-}
-impl Validate for IntegerOrString {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        Ok(())
-    }
-}
-impl Validate for License {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        let to_validation_errors = |why: ValidationError| {
-            once(why).fold(ValidationErrors::new(), |mut acc, err| {
-                acc.add("license", err);
-                acc
-            })
-        };
-        #[cfg(feature = "std")]
-        {
-            let invalid = match self {
-                | License::Single(value) => is_license(value).err(),
-                | License::Multiple(values) => values.iter().find_map(|value| is_license(value).err()),
-            };
-            invalid.map_or(Ok(()), |why| Err(to_validation_errors(why)))
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            is_license(&self.to_string()).map_err(to_validation_errors)
-        }
-    }
-}
-impl Validate for MonthValue {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        let to_validation_errors = |why: ValidationError| {
-            once(why).fold(ValidationErrors::new(), |mut acc, err| {
-                acc.add("month", err);
-                acc
-            })
-        };
-        let valid = match self {
-            | Self::Number(value) => (1..=12).contains(value),
-            | Self::Text(value) => matches!(value.as_str(), "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12"),
-        };
-        match valid {
-            | true => Ok(()),
-            | false => Err(to_validation_errors(
-                ValidationError::new("range").with_message("Month should be an integer 1-12 or a string value from \"1\" to \"12\"".into()),
-            )),
-        }
-    }
-}
-impl Validate for NumberOrString {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        Ok(())
-    }
-}
-impl Validate for YearValue {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        let to_validation_errors = |why: ValidationError| {
-            once(why).fold(ValidationErrors::new(), |mut acc, err| {
-                acc.add("year", err);
-                acc
-            })
-        };
-        match self {
-            | Self::Number(value) => is_year(*value).map_err(to_validation_errors),
-            | Self::Text(value) => is_year(value).map_err(to_validation_errors),
-        }
-    }
-}
-
-impl Validate for PostalCode {
-    fn validate(&self) -> Result<(), ValidationErrors> {
-        let to_validation_errors = |why: ValidationError| {
-            once(why).fold(ValidationErrors::new(), |mut acc, err| {
-                acc.add("postal_code", err);
-                acc
-            })
-        };
-        let valid = match self {
-            | Self::Number(value) => *value >= 0,
-            | Self::Text(value) => {
-                let trimmed = value.trim();
-                !trimmed.is_empty()
-                    && trimmed.len() <= 20
-                    && trimmed
-                        .chars()
-                        .all(|character| character.is_alphanumeric() || character == ' ' || character == '-')
-            }
-        };
-        match valid {
-            | true => Ok(()),
-            | false => Err(to_validation_errors(ValidationError::new("format").with_message(
-                "Postal code should be a non-negative integer or a non-empty string up to 20 characters using letters, digits, spaces, or hyphens"
-                    .into(),
-            ))),
-        }
-    }
 }

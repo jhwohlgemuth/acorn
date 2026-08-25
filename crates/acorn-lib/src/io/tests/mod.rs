@@ -5,20 +5,24 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
 use crate::io::http::policy::{http_timeout_layer, retry_delay, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
+use crate::io::oci::{Descriptor, Manifest, OciFile, OciReference, OciReferenceValue, OciTransport, OciTransportOptions, OrasTransport};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, remove_fields, unique_file_extensions, uri_to_path, write_file_bytes, write_rsa_keypair, Executor, Fingerprint, InputOutput,
-    PathConversion, PathExt, Remote, Source, SourceAction,
+    read_large_file, remove_fields, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair, Executor, Fingerprint,
+    InputOutput, PathConversion, PathExt, Remote, Source, SourceAction,
 };
 use crate::prelude::OsString;
+use crate::schema::agent::Quantization;
+use crate::util::constants::app::{ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP};
 use crate::util::constants::env::NO_LOCAL_DATABASE;
-use crate::util::{MimeType, StringConversion};
+use crate::util::{MimeType, SemanticVersion, StringConversion};
 use crate::{args, Location, Repository, Scheme};
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};
@@ -28,12 +32,13 @@ use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, 
 use jiff::{SignedDuration, Timestamp};
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
+use std::fs::{create_dir_all, read, read_to_string, remove_dir_all, remove_file, set_permissions, write, File, Permissions};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use validator::Validate;
 use zip::ZipArchive;
-
-use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
 
 const ENDPOINTS: &str = r#"{
     "endpoints": [
@@ -128,6 +133,7 @@ const ENDPOINTS: &str = r#"{
         }
     ]
 }"#;
+const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_BAGGING_DATE: &str = "2026-02-22";
 
 fn fixtures_dir() -> PathBuf {
@@ -161,7 +167,7 @@ fn test_bucket() {
         description: Some("Bucket for NSSD".to_string()),
         code_repository: Repository::GitLab {
             id: Some(1234_u64),
-            location: Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string()),
+            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string())),
         },
     };
     assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
@@ -169,7 +175,7 @@ fn test_bucket() {
         name: Some("nssd".to_string()),
         description: Some("Bucket for NSSD".to_string()),
         code_repository: Repository::GitHub {
-            location: Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string()),
+            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string())),
         },
     };
     assert_eq!(bucket.domain().unwrap(), "code.ornl.gov".to_string());
@@ -418,7 +424,7 @@ fn test_location_uri() {
 async fn test_repository_gitlab() {
     let repository = Repository::GitLab {
         id: Some(18243_u64),
-        location: Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string()),
+        location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/vale-package".to_string())),
     };
     let release = repository.latest_release().await;
     assert!(release.is_some());
@@ -427,7 +433,7 @@ async fn test_repository_gitlab() {
 #[tokio::test]
 async fn test_repository_github() {
     let repository = Repository::GitHub {
-        location: Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string()),
+        location: Box::new(Location::Simple("https://github.com/jhwohlgemuth/voxelcss".to_string())),
     };
     let release = repository.latest_release().await;
     assert!(release.is_some());
@@ -984,6 +990,13 @@ fn test_path_ext_compares_normalized_paths() {
     assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
 }
 #[test]
+fn test_path_ext_rejects_unsafe_relative_paths() {
+    assert!(Path::new("models/qwen.gguf").is_safe());
+    assert!(!Path::new("").is_safe());
+    assert!(!Path::new("../models/qwen.gguf").is_safe());
+    assert!(!Path::new("/models/qwen.gguf").is_safe());
+}
+#[test]
 fn test_path_ext_detects_windows_paths() {
     assert!(Path::new("C:/Users/acorn/project.json").is_windows());
     assert!(Path::new("C:\\Users\\acorn\\project.json").is_windows());
@@ -1049,7 +1062,9 @@ fn test_source_from_str_detects_local_paths() {
 #[test]
 fn test_source_from_repository_uses_hugging_face_identifier() {
     let repository = Repository::HuggingFace {
-        location: Location::Simple("https://huggingface.co/hf-internal-testing/tiny-random-bert".to_string()),
+        location: Box::new(Location::Simple(
+            "https://huggingface.co/hf-internal-testing/tiny-random-bert".to_string(),
+        )),
     };
     let source = Source::from(&repository).with_name("tiny-bert");
     assert!(source.is_remote());
@@ -1260,4 +1275,196 @@ fn test_progress_renderer_coordinates_parallel_bars_and_logs() {
     assert!(contents.contains("log 20"));
     first.finish_and_clear();
     second.finish_and_clear();
+}
+#[test]
+fn test_walk_returns_portable_relative_file_paths() {
+    let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let root = temp_dir().join(format!("acorn-walk-{unique}"));
+    let nested = root.join("models");
+    create_dir_all(&nested).unwrap();
+    write(root.join("config.json"), b"{}").unwrap();
+    write(nested.join("weights.gguf"), b"model").unwrap();
+    let paths = walk(&root).unwrap();
+    assert_eq!(
+        paths,
+        ["config.json".to_string(), "models/weights.gguf".to_string()].into_iter().collect()
+    );
+    remove_dir_all(root).unwrap();
+}
+#[test]
+fn test_oci_descriptor_media_types_map_to_model_layers() {
+    for media_type in ["application/octet-stream", OCI_LAYER, OCI_LAYER_GZIP, ACORN_MODEL_LAYER] {
+        let descriptor = Descriptor {
+            media_type: media_type.to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            annotations: Default::default(),
+        };
+        assert!(MimeType::from(descriptor).is_oci_layer(), "{media_type} must be accepted");
+    }
+    let descriptor = Descriptor {
+        media_type: "application/vnd.example.unsupported".to_string(),
+        digest: OCI_TEST_DIGEST.to_string(),
+        size: 1,
+        annotations: Default::default(),
+    };
+    assert!(!MimeType::from(descriptor).is_oci_layer());
+}
+#[test]
+fn test_oci_parses_tag_digest_port_nested_repository_and_ipv6() {
+    let tagged = OciReference::parse("oci://registry.example.org:5000/ai/models/qwen:Q4_K_M").unwrap();
+    assert_eq!(tagged.registry(), "registry.example.org:5000");
+    assert_eq!(tagged.repository(), "ai/models/qwen");
+    assert_eq!(tagged.oras_reference(), "registry.example.org:5000/ai/models/qwen:Q4_K_M");
+    let digest = OciReference::parse(&format!("oci://[2001:db8::1]:5000/models/qwen@{OCI_TEST_DIGEST}")).unwrap();
+    assert!(matches!(digest.reference(), OciReferenceValue::Digest(value) if value == OCI_TEST_DIGEST));
+    assert_eq!(
+        digest.destination(Path::new("models"), OCI_TEST_DIGEST),
+        PathBuf::from("models/_2001_db8__1__5000/models/qwen@sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+    );
+}
+#[test]
+fn test_oci_rejects_ambiguous_or_unsafe_references() {
+    for value in [
+        "registry.example.org/models/qwen:v1",
+        "oci://registry.example.org/models/qwen",
+        "oci://user@registry.example.org/models/qwen:v1",
+        "oci://registry.example.org/models/../qwen:v1",
+        "oci://registry.example.org/models/qwen:v1#fragment",
+        "oci://registry.example.org/models/qwen@sha256:abc",
+    ] {
+        assert!(OciReference::parse(value).is_err(), "{value} must be rejected");
+    }
+}
+#[test]
+fn test_oci_validates_artifact_paths_and_rejects_container_images() {
+    for value in ["../model.gguf", "/model.gguf", "models/../../model.gguf"] {
+        assert!(OciFile {
+            media_type: "application/octet-stream".to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            path: value.to_string(),
+        }
+        .validate()
+        .is_err());
+    }
+    let manifest = Manifest {
+        schema_version: 2,
+        media_type: OCI_IMAGE_MANIFEST.to_string(),
+        artifact_type: None,
+        config: Descriptor {
+            media_type: OCI_IMAGE_CONFIG.to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            annotations: Default::default(),
+        },
+        layers: vec![Descriptor {
+            media_type: "application/octet-stream".to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            annotations: [("org.opencontainers.image.title".to_string(), "model.gguf".to_string())].into(),
+        }],
+    };
+    assert!(manifest.validate().is_err());
+}
+#[test]
+fn test_oci_accepts_ollama_model_store_paths() {
+    for path in [
+        "blobs/sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "manifests/registry.ollama.ai/library/gpt-oss/20b",
+    ] {
+        let descriptor = Descriptor {
+            media_type: "application/octet-stream".to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            annotations: [("org.opencontainers.image.title".to_string(), path.to_string())].into(),
+        };
+        assert!(descriptor.of_model().is_ok(), "{path} must be accepted");
+    }
+    for path in [
+        "blobs/sha256-short",
+        "blobs/md5-0123456789abcdef0123456789abcdef",
+        "manifests/registry.ollama.ai/gpt-oss/20b",
+    ] {
+        let descriptor = Descriptor {
+            media_type: "application/octet-stream".to_string(),
+            digest: OCI_TEST_DIGEST.to_string(),
+            size: 1,
+            annotations: [("org.opencontainers.image.title".to_string(), path.to_string())].into(),
+        };
+        assert!(descriptor.of_model().is_err(), "{path} must be rejected");
+    }
+}
+#[test]
+fn test_oci_validates_minimum_oras_version() {
+    let minimum = SemanticVersion::from(MINIMUM_ORAS_VERSION);
+    assert!(SemanticVersion::from("Version: 1.3.0\nGo version: go1.24").is_supported(minimum).is_ok());
+    assert!(SemanticVersion::from("Version: 1.2.3").is_supported(minimum).is_err());
+    assert!(SemanticVersion::from("unexpected output").is_supported(minimum).is_err());
+}
+#[test]
+fn test_oci_transport_args_append_configured_registry_options() {
+    let transport = OrasTransport {
+        binary: PathBuf::from("oras"),
+        options: OciTransportOptions {
+            credential_env: None,
+            username: Some("robot".to_string()),
+            registry_config: Some(PathBuf::from("registry.json")),
+            ca_file: Some(PathBuf::from("ca.pem")),
+            client_cert: Some(PathBuf::from("client.pem")),
+            client_key: Some(PathBuf::from("client-key.pem")),
+            plain_http: true,
+        },
+    };
+    assert_eq!(
+        transport.transport_args(args!["pull", "registry.example/model:v1"], true),
+        args![
+            "pull",
+            "registry.example/model:v1",
+            "--password-stdin",
+            "--username=robot",
+            "--registry-config=registry.json",
+            "--ca-file=ca.pem",
+            "--cert-file=client.pem",
+            "--key-file=client-key.pem",
+            "--plain-http"
+        ]
+    );
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_fake_oras_resolves_and_atomically_pulls() {
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ]; then
+  printf '%s' '{{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","artifactType":"application/vnd.acorn.model.v1","config":{{"mediaType":"application/vnd.oci.empty.v1+json","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"application/octet-stream","digest":"{OCI_TEST_DIGEST}","size":4,"annotations":{{"org.opencontainers.image.title":"model-Q4_K_M.gguf"}}}}]}}'
+elif [ "$1" = "pull" ]; then
+  mkdir -p "$4"
+  printf 'fake' > "$4/model-Q4_K_M.gguf"
+else
+  exit 1
+fi
+"#
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/ai/qwen:v1").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[Quantization::Q4kM]).unwrap();
+    assert_eq!(resolution.resolved_digest, OCI_TEST_DIGEST);
+    assert_eq!(
+        resolution.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(),
+        ["model-Q4_K_M.gguf"]
+    );
+    let destination = temp.path().join("published");
+    transport.pull(&reference, &resolution, &destination).unwrap();
+    assert_eq!(read(destination.join("model-Q4_K_M.gguf")).unwrap(), b"fake");
+    assert!(transport.pull(&reference, &resolution, &destination).is_err());
 }

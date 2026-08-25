@@ -18,9 +18,11 @@ use crate::test::utils::fixture_path;
 use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
 
+mod harbor;
+
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 15);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 16);
 }
 #[test]
 fn test_tree_entry_type_deserializes_provider_aliases() {
@@ -141,7 +143,7 @@ fn test_endpoint_from_repository() {
     let uri = format!("{expected_base}/research-enablement/buckets/nssd");
     let nssd = Repository::GitLab {
         id: Some(1234_u64),
-        location: Location::Simple(uri.clone()),
+        location: Box::new(Location::Simple(uri.clone())),
     };
     let endpoint: Endpoint = nssd.into();
     assert_eq!(endpoint.domain, expected_domain);

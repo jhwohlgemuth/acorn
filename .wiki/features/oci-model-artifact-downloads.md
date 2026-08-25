@@ -14,7 +14,7 @@ tags:
   - harbor
   - model
   - download
-status: planned
+status: in-progress
 ---
 
 # OCI model artifact downloads
@@ -78,12 +78,12 @@ This division delivers generic Harbor downloads immediately because Harbor imple
 
 ### Example use
 
-These commands show the planned interface; OCI support is not yet implemented. The registry names, repositories, tags, and digests are illustrative.
+These commands show the implemented interface. Savannah is ORNL's Harbor instance; the remaining registry names, repositories, tags, and digests are illustrative.
 
 Pull a model artifact from Harbor or any other OCI Distribution-compatible registry by tag:
 
 ```sh
-acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b
 ```
 
 Pull an immutable artifact by digest:
@@ -95,13 +95,13 @@ acorn download model oci://harbor.example.org/ai/models/qwen@sha256:0123456789ab
 Resolve a mutable tag to its digest and preview the selected files without writing:
 
 ```sh
-acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --dry-run
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run
 ```
 
 Emit the same dry-run resolution as structured JSON for automation:
 
 ```sh
-acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --dry-run --raw --format json
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run --raw --format json
 ```
 
 Select a quantization and restrict the materialized files using the existing model filters:
@@ -113,8 +113,10 @@ acorn download model oci://harbor.example.org/ai/models/qwen:v1 --quantization Q
 Write the verified artifact beneath a specific model directory:
 
 ```sh
-acorn download model oci://harbor.example.org/ai/models/qwen:Q4_K_M --local-dir ./models
+acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --local-dir ./models
 ```
+
+The Savannah GPT-OSS artifact uses Ollama's extensionless `blobs/sha256-*` and `manifests/...` store layout. ACORN accepts and verifies those paths while retaining its normal digest-addressed artifact directory. Installing applications or merging files into an application's own store remains outside the model-download policy.
 
 Load one or more `oci://` references from an existing plain-text, JSON, or YAML model-list document:
 
@@ -285,3 +287,22 @@ Exit condition: documentation, generated help, standard validation, security rev
 - The initial release rejects ordinary container images and undocumented artifact layouts; supported model artifact media types and annotation requirements are documented.
 - Existing filters, quantization/shard completeness, whitelist, output-directory, raw/dry-run, activity logging, and synchronization behavior have explicit OCI tests.
 - Focused unit/integration tests and `make lint`, `make test`, `make help`, `make wasm`, `make book`, and `make audit` have accepted results on the supported toolchain, with OCI integration coverage on Windows and Linux.
+
+## Implementation evidence (2026-08-23)
+
+- `crates/acorn-lib/src/io/oci.rs` now provides the typed `OciReference`, manifest/descriptor validation, file selection, ORAS 1.3.0 version gate, stdin credential handling, digest-pinned pull, unique sibling staging, path/symlink/inventory validation, destination collision rejection, and atomic publish boundary. Unit coverage includes tags, digests, ports, nested repositories, IPv6, malformed and unsafe references, runnable-image rejection, version gating, and a fake-ORAS resolve/pull flow.
+- OCI model policy now recognizes the extensionless blob and manifest paths used by Ollama stores, including Savannah's `models/gpt-oss:20b` artifact. Digest-qualified materialization paths replace reserved separators in registry and digest components so the same resolved artifact layout is valid on Windows.
+- `Repository::OCI`, named `RegistryProfile` configuration, `eserde` parsing, unknown-field rejection, endpoint/environment/client-certificate validation, and indirect credentials are implemented in `crates/acorn-lib/src/lib.rs` and `crates/acorn-lib/src/io/config.rs`. The OCI variant boxes its location to preserve the existing `ModelEntry` enum size.
+- `crates/acorn-cli/src/commands/download/model/plan.rs` routes only explicit `oci://` selectors, resolves tags once during planning, carries that immutable resolution through pull and provenance, defers OCI file filters until manifest selection, rejects offline access before transport, and uses the existing download/sync orchestration. Optional Harbor metadata failures fall back to the canonical OCI result; required enrichment fails closed.
+- `crates/acorn-lib/src/io/api/harbor.rs` implements bounded paginated artifact listing, tag/digest lookup, health probing, nested-repository percent encoding, environment-sourced bearer or username/password authentication, profile CA/mTLS configuration, and typed HTTP errors. Harbor metadata is accepted only when its digest agrees with OCI Distribution resolution; content transfer remains ORAS-backed.
+- Review refinements moved SHA-256 digest validation, certificate-backed HTTP client configuration, registry diagnostic redaction, and safe directory walking into shared schema/API/command/I/O utilities. Harbor now loads its resources from the application endpoint asset and uses the shared `Endpoint::invoke` flow; registry profiles implement `Validate`; ORAS arguments use `args!`; OCI file policy is expressed by `MimeType::is_model`; ORAS versions use `SemanticVersion`; and `ModelDownloadPlan` owns explicit OCI routing.
+- `crates/acorn-lib/src/io/sync/mod.rs` maps immutable OCI identifiers to their digest-addressed materialization directory. `ModelDetails` records selected file weights plus registry, repository, requested reference, digest, artifact type, total size, and optional Harbor tags/labels/push time.
+- ORAS availability appears in doctor output. `CommandLineHelp.md` and `docs/src/cli-reference/commands/download.md` document explicit routing, credentials, TLS/plain-HTTP policy, artifact acceptance, atomic publication, offline behavior, and the digest/signature boundary.
+- Accepted locally: focused OCI/config/Harbor/fake-ORAS tests, all 105 download-command tests, `make lint`, `make test` (1,250 passed; 15 skipped), `make help`, `make wasm`, and `make book`. `make audit` reached dependency analysis but exits nonzero on pre-existing unused-dependency findings for `keyring` and `rmcp`; this implementation adds no dependency. macOS also emitted sandbox-only `xcrun` cache warnings during several builds without changing their successful exit status.
+
+## Remaining release validation
+
+- Publish and record the non-secret generic-registry and Harbor fixture matrix from Phase 0. The local machine has ORAS 1.3.3, but its Docker daemon is unavailable, so a live disposable registry pull was not claimed; the deterministic fake-ORAS transport test covers the local implementation boundary.
+- Run authenticated Harbor, custom-CA/mTLS, interruption/cancellation, and corrupted-blob scenarios against live services.
+- Add Windows and Linux registry interoperability jobs and accept their results before changing this plan to `complete`.
+- Resolve or formally baseline the repository-wide `cargo-udeps` findings so `make audit` has an accepted result.

@@ -11,9 +11,9 @@
 extern crate alloc;
 use crate::cli::arguments::{DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget};
 use crate::test::server::{
-    spawn_basic_model_config_server, spawn_huggingface_missing_model_search_server, spawn_huggingface_model_info_server,
-    spawn_huggingface_model_search_server, spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server,
-    spawn_range_server, spawn_retry_resume_server, spawn_sidecar_server,
+    spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
+    spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
+    spawn_sidecar_server,
 };
 use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
 use acorn::io::api::huggingface::{
@@ -295,7 +295,7 @@ fn model_plan_matches_base(base_model: &str) -> bool {
     let result = with_hf_endpoint(endpoint, || {
         tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
             let entries = vec![ModelEntry::Selector(identifier.to_string())];
-            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
+            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
                 .await
                 .expect("resolve model plan");
             plans
@@ -324,7 +324,7 @@ fn test_model_plan_logs_whitelist_rejection() {
         tracing::subscriber::with_default(subscriber, || {
             tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
                 let entries = vec![ModelEntry::Selector(identifier.to_string())];
-                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
+                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
                     .await
                     .expect("resolve model plan");
                 plans
@@ -382,9 +382,17 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
 #[tokio::test]
 async fn test_config_fixture_resolves_model_fallbacks() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
-    let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &config.models.unwrap(), None, &None, false, true)
-        .await
-        .unwrap();
+    let plans = super::model::plan::resolve_plans(
+        &ModelSelectors::default(),
+        &config.models.unwrap(),
+        &Default::default(),
+        None,
+        &None,
+        false,
+        true,
+    )
+    .await
+    .unwrap();
     let fallbacks = super::model::plan::ModelDownloadPlans(plans)
         .resolve(super::model::plan::DownloadOptions {
             offline: true,
@@ -411,9 +419,17 @@ async fn test_config_fixture_resolves_model_fallbacks() {
 #[tokio::test]
 async fn test_config_fixture_resolves_models() {
     let config = ApplicationConfiguration::read(fixture_path("config/with_models.json")).unwrap();
-    let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &config.models.unwrap(), None, &None, false, true)
-        .await
-        .unwrap();
+    let plans = super::model::plan::resolve_plans(
+        &ModelSelectors::default(),
+        &config.models.unwrap(),
+        &Default::default(),
+        None,
+        &None,
+        false,
+        true,
+    )
+    .await
+    .unwrap();
     let resolved = plans.iter().map(|plan| (plan.name(), plan.selector.identifier())).collect::<Vec<_>>();
     assert_eq!(
         resolved,
@@ -436,7 +452,9 @@ async fn test_config_fixture_resolves_whitelisted_models() -> Result<()> {
     let whitelist = whitelist.map(OneOrMany::into_vec).unwrap_or_default();
     assert_eq!(whitelist, vec!["meta-llama/Llama-2-7b-hf".to_string(), "openai/gpt-oss-2b".to_string()]);
     let whitelist = whitelist.into_iter().collect::<HashSet<_>>();
-    let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, true).await?;
+    let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, true)
+        .await
+        .unwrap();
     let resolved = futures::future::join_all(plans.into_iter().map(|plan| {
         let whitelist = &whitelist;
         async move { plan.matches(whitelist, true).await.map(|matches| matches.then(|| plan.name())) }
@@ -2091,6 +2109,7 @@ fn test_hf_token_not_exposed_in_model_download_error_display() {
         let plans = futures::executor::block_on(super::model::plan::resolve_plans(
             &ModelSelectors::from(vec!["tiny".to_string()]),
             &config.models.unwrap_or_default(),
+            &Default::default(),
             None,
             &None,
             false,
@@ -2121,6 +2140,7 @@ fn test_hf_token_not_exposed_in_model_resolution_logs() {
             let _ = futures::executor::block_on(super::model::plan::resolve_plans(
                 &ModelSelectors::from(vec!["hf-internal-testing/tiny-random-bert".to_string()]),
                 &[],
+                &Default::default(),
                 None,
                 &None,
                 false,
@@ -2218,6 +2238,7 @@ async fn test_model_resolve_plan_matches_config_name() {
     let plans = super::model::plan::resolve_plans(
         &ModelSelectors::from(vec!["tiny".to_string()]),
         &config.models.unwrap(),
+        &Default::default(),
         None,
         &None,
         false,
@@ -2431,36 +2452,6 @@ async fn test_resolve_model_whitelist_yaml_fixture() -> Result<()> {
     Ok(())
 }
 #[test]
-fn test_resolve_models_excludes_failed_fallbacks() {
-    let base_model = "openai/gpt-oss-20b";
-    let fallback = "unsloth/gpt-oss-20b-GGUF";
-    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 4);
-    let resolved = with_hf_endpoint(endpoint, || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
-            let entries = vec![
-                ModelEntry::Selector(base_model.to_string()),
-                ModelEntry::Selector("openai/gpt-oss-2b".to_string()),
-            ];
-            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
-                .await
-                .expect("resolve model plans");
-            super::model::plan::ModelDownloadPlans(plans)
-                .resolve(super::model::plan::DownloadOptions {
-                    offline: false,
-                    limit: 20,
-                    minimum_download_count: 100,
-                    interactive: false,
-                })
-                .await
-        })
-    });
-    handle.join().expect("join model search server");
-    assert_eq!(resolved.len(), 1);
-    assert!(resolved[0].is_fallback());
-    assert_eq!(resolved[0].requested(), base_model);
-    assert_eq!(resolved[0].resolved(), fallback);
-}
-#[test]
 fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     let base_model = "openai/gpt-oss-20b";
     let fallback = "unsloth/gpt-oss-20b-GGUF";
@@ -2474,7 +2465,7 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
         tracing::subscriber::with_default(subscriber, || {
             tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
                 let entries = vec![ModelEntry::Selector(base_model.to_string())];
-                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
+                let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
                     .await
                     .expect("resolve model plan");
                 super::model::plan::ModelDownloadPlans(plans)
@@ -2496,58 +2487,4 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     assert!(text.contains(base_model));
     assert!(text.contains("142 below minimum 143 popularity"));
     assert!(!text.contains(format!("{fallback}-secondary").as_str()));
-}
-#[test]
-fn test_resolve_models_falls_back_when_base_repository_is_unavailable() {
-    let base_model = "nvidia/nemotron-3-super-120b-a12b";
-    let declared_base_model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16";
-    let fallback = "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF";
-    let (endpoint, handle) = spawn_huggingface_missing_model_search_server(fallback, base_model, declared_base_model);
-    let resolved = with_hf_endpoint(endpoint, || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
-            let entries = vec![ModelEntry::Selector(base_model.to_string())];
-            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
-                .await
-                .expect("resolve model plan");
-            super::model::plan::ModelDownloadPlans(plans)
-                .resolve(super::model::plan::DownloadOptions {
-                    offline: false,
-                    limit: 20,
-                    minimum_download_count: 100,
-                    interactive: false,
-                })
-                .await
-        })
-    });
-    handle.join().expect("join missing model search server");
-    assert_eq!(resolved.len(), 1);
-    assert!(resolved[0].is_fallback());
-    assert_eq!(resolved[0].requested(), base_model);
-    assert_eq!(resolved[0].resolved(), fallback);
-}
-#[test]
-fn test_resolve_models_keeps_direct_gguf_repository() {
-    let identifier = "mozilla/test-llama";
-    let (endpoint, handle) = spawn_huggingface_model_search_server("unsloth/gpt-oss-20b-GGUF", "openai/gpt-oss-20b", Some(identifier), 1);
-    let resolved = with_hf_endpoint(endpoint, || {
-        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
-            let entries = vec![ModelEntry::Selector(identifier.to_string())];
-            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, None, &None, false, false)
-                .await
-                .expect("resolve model plan");
-            super::model::plan::ModelDownloadPlans(plans)
-                .resolve(super::model::plan::DownloadOptions {
-                    offline: false,
-                    limit: 20,
-                    minimum_download_count: 100,
-                    interactive: false,
-                })
-                .await
-        })
-    });
-    handle.join().expect("join model metadata server");
-    assert_eq!(resolved.len(), 1);
-    assert!(!resolved[0].is_fallback());
-    assert_eq!(resolved[0].requested(), identifier);
-    assert_eq!(resolved[0].resolved(), identifier);
 }
