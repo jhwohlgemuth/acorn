@@ -90,6 +90,10 @@ pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 pub const OCI_PREFIX: &str = "oci://";
 /// OCI image manifest media type accepted for model artifacts.
 pub const OCI_IMAGE_MANIFEST: &str = "application/vnd.oci.image.manifest.v1+json";
+/// OCI image index media type accepted for model artifact indirection.
+pub const OCI_IMAGE_INDEX: &str = "application/vnd.oci.image.index.v1+json";
+/// Docker manifest-list media type accepted for model artifact indirection.
+pub const DOCKER_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
 /// OCI image configuration media type used to identify runnable images.
 pub const OCI_IMAGE_CONFIG: &str = "application/vnd.oci.image.config.v1+json";
 /// Docker image configuration media type used to identify runnable images.
@@ -104,6 +108,20 @@ pub const ACORN_MODEL_LAYER: &str = "application/vnd.acorn.model.file.v1";
 pub const KITOPS_MODELKIT_CONFIG: &str = "application/vnd.kitops.modelkit.config.v1+json";
 /// Gzip-compressed KitOps ModelKit model layer media type.
 pub const KITOPS_MODELKIT_MODEL_GZIP: &str = "application/vnd.kitops.modelkit.model.v1.tar+gzip";
+/// CNCF ModelPack artifact type.
+pub const MODELPACK_MANIFEST: &str = "application/vnd.cncf.model.manifest.v1+json";
+/// CNCF ModelPack configuration media type.
+pub const MODELPACK_CONFIG: &str = "application/vnd.cncf.model.config.v1+json";
+/// Prefix shared by CNCF ModelPack model-weight layer media types.
+pub const MODELPACK_WEIGHT_PREFIX: &str = "application/vnd.cncf.model.weight.v1.";
+/// CNCF ModelPack raw model-weight layer media type.
+pub const MODELPACK_WEIGHT_RAW: &str = "application/vnd.cncf.model.weight.v1.raw";
+/// CNCF ModelPack uncompressed TAR model-weight layer media type.
+pub const MODELPACK_WEIGHT_TAR: &str = "application/vnd.cncf.model.weight.v1.tar";
+/// CNCF ModelPack gzip-compressed TAR model-weight layer media type.
+pub const MODELPACK_WEIGHT_TAR_GZIP: &str = "application/vnd.cncf.model.weight.v1.tar+gzip";
+/// CNCF ModelPack zstd-compressed TAR model-weight layer media type.
+pub const MODELPACK_WEIGHT_TAR_ZSTD: &str = "application/vnd.cncf.model.weight.v1.tar+zstd";
 /// Minimum supported ORAS CLI version.
 pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
 /// Default llama-swap configuration path beneath the user's home directory.

@@ -11,7 +11,10 @@ use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
 use crate::io::http::policy::{http_timeout_layer, retry_delay, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
-use crate::io::oci::{Descriptor, Manifest, OciFile, OciReference, OciReferenceValue, OciTransport, OciTransportOptions, OrasTransport};
+use crate::io::oci::{
+    Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport, OciTransportOptions,
+    OrasTransport,
+};
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
@@ -21,8 +24,9 @@ use crate::io::{
 use crate::prelude::OsString;
 use crate::schema::agent::Quantization;
 use crate::util::constants::app::{
-    ACORN_MODEL_LAYER, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER,
-    OCI_LAYER_GZIP,
+    ACORN_MODEL_LAYER, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CONFIG, MODELPACK_MANIFEST,
+    MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_INDEX,
+    OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::{MimeType, SemanticVersion, StringConversion};
@@ -35,7 +39,7 @@ use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, 
 use jiff::{SignedDuration, Timestamp};
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
-use std::fs::{create_dir_all, read, read_to_string, remove_dir_all, remove_file, set_permissions, write, File, Permissions};
+use std::fs::{create_dir_all, metadata, read, read_to_string, remove_dir_all, remove_file, set_permissions, write, File, Permissions};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -137,6 +141,21 @@ const ENDPOINTS: &str = r#"{
     ]
 }"#;
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+fn minimal_gguf() -> Vec<u8> {
+    let mut bytes = b"GGUF".to_vec();
+    bytes.extend(3u32.to_le_bytes());
+    bytes.extend(1u64.to_le_bytes());
+    bytes.extend(0u64.to_le_bytes());
+    bytes.extend(6u64.to_le_bytes());
+    bytes.extend(b"weight");
+    bytes.extend(1u32.to_le_bytes());
+    bytes.extend(1u64.to_le_bytes());
+    bytes.extend(0u32.to_le_bytes());
+    bytes.extend(0u64.to_le_bytes());
+    let padding = (32 - bytes.len() % 32) % 32;
+    bytes.extend(vec![0; padding + 4]);
+    bytes
+}
 const TEST_BAGGING_DATE: &str = "2026-02-22";
 
 fn fixtures_dir() -> PathBuf {
@@ -1350,6 +1369,8 @@ fn test_oci_validates_artifact_paths_and_rejects_container_images() {
             digest: OCI_TEST_DIGEST.to_string(),
             size: 1,
             path: value.to_string(),
+            installed_size: Some(1),
+            layer_digest: OCI_TEST_DIGEST.to_string(),
         }
         .validate()
         .is_err());
@@ -1374,8 +1395,14 @@ fn test_oci_validates_artifact_paths_and_rejects_container_images() {
     assert!(manifest.validate().is_err());
 }
 #[test]
-fn test_oci_accepts_ollama_model_store_paths() {
+fn test_oci_policy_rejects_non_gguf_model_resources_and_extensionless_store_paths() {
+    for path in ["model.safetensors", "model.onnx", "model.pt"] {
+        assert!(MimeType::from(path).is_model_resource(), "{path} must remain a generic model resource");
+    }
     for path in [
+        "model.safetensors",
+        "model.onnx",
+        "model.pt",
         "blobs/sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "manifests/registry.ollama.ai/library/gpt-oss/20b",
     ] {
@@ -1385,21 +1412,51 @@ fn test_oci_accepts_ollama_model_store_paths() {
             size: 1,
             annotations: [("org.opencontainers.image.title".to_string(), path.to_string())].into(),
         };
-        assert!(descriptor.of_model().is_ok(), "{path} must be accepted");
-    }
-    for path in [
-        "blobs/sha256-short",
-        "blobs/md5-0123456789abcdef0123456789abcdef",
-        "manifests/registry.ollama.ai/gpt-oss/20b",
-    ] {
-        let descriptor = Descriptor {
-            media_type: "application/octet-stream".to_string(),
-            digest: OCI_TEST_DIGEST.to_string(),
-            size: 1,
-            annotations: [("org.opencontainers.image.title".to_string(), path.to_string())].into(),
-        };
         assert!(descriptor.of_model().is_err(), "{path} must be rejected");
     }
+}
+#[test]
+fn test_modelpack_weight_layer_policy_is_gguf_only() {
+    let descriptor = |media_type: &str, filepath: Option<&str>| Descriptor {
+        media_type: media_type.to_string(),
+        digest: OCI_TEST_DIGEST.to_string(),
+        size: 1,
+        annotations: filepath
+            .map(|path| [("org.cncf.model.filepath".to_string(), path.to_string())].into())
+            .unwrap_or_default(),
+    };
+    let raw = OciLayer::from(descriptor(MODELPACK_WEIGHT_RAW, Some("model.gguf")));
+    let tar = OciLayer::from(descriptor(MODELPACK_WEIGHT_TAR, None));
+    let tar_gzip = OciLayer::from(descriptor(MODELPACK_WEIGHT_TAR_GZIP, None));
+    assert_eq!(raw.extraction, OciExtraction::None);
+    assert_eq!(tar.extraction, OciExtraction::Tar);
+    assert_eq!(tar_gzip.extraction, OciExtraction::TarGzip);
+    assert!(raw.validate().is_ok());
+    assert!(tar.validate().is_ok());
+    assert!(tar_gzip.validate().is_ok());
+    assert!(OciLayer::from(descriptor(MODELPACK_WEIGHT_RAW, None)).validate().is_err());
+    assert!(OciLayer::from(descriptor(MODELPACK_WEIGHT_RAW, Some("model.safetensors")))
+        .validate()
+        .is_err());
+    assert!(OciLayer::from(descriptor(MODELPACK_WEIGHT_TAR_ZSTD, None)).validate().is_err());
+}
+#[test]
+fn test_split_gguf_paths_require_one_complete_primary_group() {
+    let file = |path: &str| OciFile {
+        media_type: "application/gguf".to_string(),
+        digest: OCI_TEST_DIGEST.to_string(),
+        size: 1,
+        path: path.to_string(),
+        installed_size: Some(1),
+        layer_digest: OCI_TEST_DIGEST.to_string(),
+    };
+    assert!(OciFiles(vec![file("model-00001-of-00002.gguf"), file("model-00002-of-00002.gguf")])
+        .validate_paths()
+        .is_ok());
+    assert!(OciFiles(vec![file("model-00001-of-00002.gguf")]).validate_paths().is_err());
+    assert!(OciFiles(vec![file("model.gguf"), file("other.gguf")]).validate_paths().is_err());
+    assert!(OciFiles(vec![file("mmproj-model.gguf")]).validate_paths().is_err());
+    assert!(OciFiles(vec![file("model.gguf"), file("mmproj-model.gguf")]).validate_paths().is_ok());
 }
 #[test]
 fn test_oci_validates_minimum_oras_version() {
@@ -1442,19 +1499,23 @@ fn test_oci_transport_args_append_configured_registry_options() {
 fn test_oci_fake_oras_resolves_and_atomically_pulls() {
     let temp = tempfile::tempdir().unwrap();
     let binary = temp.path().join("oras");
+    let model = temp.path().join("model.gguf");
+    write(&model, minimal_gguf()).unwrap();
+    let model_size = metadata(&model).unwrap().len();
+    let model_digest = format!("sha256:{}", file_checksum(&model, None).unwrap());
     let script = format!(
         r#"#!/bin/sh
 if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
   printf '%s' '{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
 elif [ "$1" = "manifest" ]; then
-  printf '%s' '{{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","artifactType":"application/vnd.acorn.model.v1","config":{{"mediaType":"application/vnd.oci.empty.v1+json","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"application/octet-stream","digest":"{OCI_TEST_DIGEST}","size":4,"annotations":{{"org.opencontainers.image.title":"model-Q4_K_M.gguf"}}}}]}}'
-elif [ "$1" = "pull" ]; then
-  mkdir -p "$4"
-  printf 'fake' > "$4/model-Q4_K_M.gguf"
+  printf '%s' '{{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","artifactType":"application/vnd.acorn.model.v1","config":{{"mediaType":"application/vnd.oci.empty.v1+json","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"application/octet-stream","digest":"{model_digest}","size":{model_size},"annotations":{{"org.opencontainers.image.title":"model-Q4_K_M.gguf"}}}}]}}'
+elif [ "$1" = "blob" ]; then
+  cp '{}' "$4"
 else
   exit 1
 fi
-"#
+"#,
+        model.display()
     );
     write(&binary, script).unwrap();
     set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
@@ -1471,8 +1532,132 @@ fi
     );
     let destination = temp.path().join("published");
     transport.pull(&reference, &resolution, &destination).unwrap();
-    assert_eq!(read(destination.join("model-Q4_K_M.gguf")).unwrap(), b"fake");
+    assert_eq!(read(destination.join("model-Q4_K_M.gguf")).unwrap(), minimal_gguf());
     assert!(transport.pull(&reference, &resolution, &destination).is_err());
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_fake_oras_resolves_and_pulls_raw_modelpack() {
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let model = temp.path().join("model.gguf");
+    write(&model, minimal_gguf()).unwrap();
+    let model_size = metadata(&model).unwrap().len();
+    let model_digest = format!("sha256:{}", file_checksum(&model, None).unwrap());
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"{OCI_IMAGE_MANIFEST}","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ]; then
+  printf '%s' '{{"schemaVersion":2,"mediaType":"{OCI_IMAGE_MANIFEST}","artifactType":"{MODELPACK_MANIFEST}","config":{{"mediaType":"{MODELPACK_CONFIG}","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"{MODELPACK_WEIGHT_RAW}","digest":"{model_digest}","size":{model_size},"annotations":{{"org.cncf.model.filepath":"weights/model-Q4_K_M.gguf"}}}}]}}'
+elif [ "$1" = "blob" ] && [ "$4" = "-" ]; then
+  printf '%s' '{{}}'
+elif [ "$1" = "blob" ]; then
+  cp '{}' "$4"
+else
+  exit 1
+fi
+"#,
+        model.display()
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/cncf/model:v1").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[Quantization::Q4kM]).unwrap();
+    assert_eq!(resolution.artifact_type.as_deref(), Some(MODELPACK_MANIFEST));
+    assert_eq!(resolution.layers.len(), 1);
+    assert_eq!(resolution.files[0].path, "weights/model-Q4_K_M.gguf");
+    assert_eq!(resolution.transfer_size, model_size);
+    assert_eq!(resolution.installed_size, Some(model_size));
+    let destination = temp.path().join("published-modelpack");
+    transport.pull(&reference, &resolution, &destination).unwrap();
+    assert_eq!(read(destination.join("weights/model-Q4_K_M.gguf")).unwrap(), minimal_gguf());
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_fake_oras_resolves_single_model_index_candidate() {
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let model = temp.path().join("model.gguf");
+    write(&model, minimal_gguf()).unwrap();
+    let model_size = metadata(&model).unwrap().len();
+    let model_digest = format!("sha256:{}", file_checksum(&model, None).unwrap());
+    let child_digest = format!("sha256:{}", "b".repeat(64));
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"{OCI_IMAGE_INDEX}","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ] && echo "$3" | grep -q '{OCI_TEST_DIGEST}'; then
+  printf '%s' '{{"schemaVersion":2,"mediaType":"{OCI_IMAGE_INDEX}","manifests":[{{"mediaType":"{OCI_IMAGE_MANIFEST}","digest":"{child_digest}","size":42,"annotations":{{}}}}]}}'
+elif [ "$1" = "manifest" ]; then
+  printf '%s' '{{"schemaVersion":2,"mediaType":"{OCI_IMAGE_MANIFEST}","artifactType":"application/vnd.acorn.model.v1","config":{{"mediaType":"application/vnd.oci.empty.v1+json","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"application/octet-stream","digest":"{model_digest}","size":{model_size},"annotations":{{"org.opencontainers.image.title":"model.gguf"}}}}]}}'
+elif [ "$1" = "blob" ]; then
+  cp '{}' "$4"
+else
+  exit 1
+fi
+"#,
+        model.display()
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/cncf/index:v1").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[]).unwrap();
+    assert_eq!(resolution.resolved_digest, child_digest);
+    let destination = temp.path().join("published-index");
+    transport.pull(&reference, &resolution, &destination).unwrap();
+    assert_eq!(read(destination.join("model.gguf")).unwrap(), minimal_gguf());
+}
+#[cfg(unix)]
+#[test]
+fn test_oci_fake_oras_defers_and_extracts_modelpack_archive_inventory() {
+    let temp = tempfile::tempdir().unwrap();
+    let binary = temp.path().join("oras");
+    let source = temp.path().join("modelpack-layer");
+    create_dir_all(source.join("weights")).unwrap();
+    write(source.join("weights/model-Q4_K_M.gguf"), minimal_gguf()).unwrap();
+    let layer = temp.path().join("weights.tar.gz");
+    archive(source, Some(layer.clone()), MimeType::Gzip).unwrap();
+    let layer_size = metadata(&layer).unwrap().len();
+    let layer_digest = format!("sha256:{}", file_checksum(&layer, None).unwrap());
+    let script = format!(
+        r#"#!/bin/sh
+if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
+  printf '%s' '{{"mediaType":"{OCI_IMAGE_MANIFEST}","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
+elif [ "$1" = "manifest" ]; then
+  printf '%s' '{{"schemaVersion":2,"mediaType":"{OCI_IMAGE_MANIFEST}","artifactType":"{MODELPACK_MANIFEST}","config":{{"mediaType":"{MODELPACK_CONFIG}","digest":"{OCI_TEST_DIGEST}","size":2,"annotations":{{}}}},"layers":[{{"mediaType":"{MODELPACK_WEIGHT_TAR_GZIP}","digest":"{layer_digest}","size":{layer_size},"annotations":{{}}}}]}}'
+elif [ "$1" = "blob" ] && [ "$4" = "-" ]; then
+  printf '%s' '{{}}'
+elif [ "$1" = "blob" ]; then
+  cp '{}' "$4"
+else
+  exit 1
+fi
+"#,
+        layer.display()
+    );
+    write(&binary, script).unwrap();
+    set_permissions(&binary, Permissions::from_mode(0o700)).unwrap();
+    let transport = OrasTransport {
+        binary,
+        options: OciTransportOptions::default(),
+    };
+    let reference = OciReference::parse("oci://registry.example.org/cncf/archive:v1").unwrap();
+    let resolution = transport.resolve(&reference, &[], &[], &[Quantization::Q4kM]).unwrap();
+    assert!(resolution.files.is_empty());
+    assert!(resolution.layers[0].inventory_deferred);
+    assert_eq!(resolution.installed_size, None);
+    let destination = temp.path().join("published-modelpack-archive");
+    transport.pull(&reference, &resolution, &destination).unwrap();
+    assert_eq!(read(destination.join("weights/model-Q4_K_M.gguf")).unwrap(), minimal_gguf());
 }
 #[cfg(unix)]
 #[test]
@@ -1481,18 +1666,20 @@ fn test_oci_fake_oras_resolves_and_unpacks_modelkit_model_layer() {
     let binary = temp.path().join("oras");
     let source = temp.path().join("model-layer");
     create_dir_all(&source).unwrap();
-    let model = source.join("model.safetensors");
+    let model = source.join("model.gguf");
     let layer = temp.path().join("model.tar.gz");
-    write(&model, b"model").unwrap();
+    write(&model, minimal_gguf()).unwrap();
     archive(source, Some(layer.clone()), MimeType::Gzip).unwrap();
+    let layer_size = metadata(&layer).unwrap().len();
+    let layer_digest = format!("sha256:{}", file_checksum(&layer, None).unwrap());
     let script = format!(
         r#"#!/bin/sh
 if [ "$1" = "manifest" ] && [ "$3" = "--descriptor" ]; then
   printf '%s' '{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"{OCI_TEST_DIGEST}","size":42,"annotations":{{}}}}'
 elif [ "$1" = "manifest" ]; then
-  printf '%s' '{{"schemaVersion":2,"config":{{"mediaType":"{KITOPS_MODELKIT_CONFIG}","digest":"{OCI_TEST_DIGEST}","size":100,"annotations":{{}}}},"layers":[{{"mediaType":"{KITOPS_MODELKIT_MODEL_GZIP}","digest":"{OCI_TEST_DIGEST}","size":5,"annotations":{{}}}}]}}'
+  printf '%s' '{{"schemaVersion":2,"config":{{"mediaType":"{KITOPS_MODELKIT_CONFIG}","digest":"{OCI_TEST_DIGEST}","size":100,"annotations":{{}}}},"layers":[{{"mediaType":"{KITOPS_MODELKIT_MODEL_GZIP}","digest":"{layer_digest}","size":{layer_size},"annotations":{{}}}}]}}'
 elif [ "$1" = "blob" ] && [ "$4" = "-" ]; then
-  printf '%s' '{{"manifestVersion":"1.0.0","model":{{"path":"model.safetensors"}}}}'
+  printf '%s' '{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf"}}}}'
 elif [ "$1" = "blob" ]; then
   cp '{}' "$4"
 else
@@ -1510,9 +1697,10 @@ fi
     let reference = OciReference::parse("oci://registry.example.org/jozu/model:v1").unwrap();
     let resolution = transport.resolve(&reference, &[], &[], &[]).unwrap();
     assert_eq!(resolution.files.len(), 1);
-    assert_eq!(resolution.files[0].path, "model.safetensors");
-    assert_eq!(resolution.files[0].media_type, KITOPS_MODELKIT_MODEL_GZIP);
+    assert_eq!(resolution.files[0].path, "model.gguf");
+    assert_eq!(resolution.layers[0].media_type, KITOPS_MODELKIT_MODEL_GZIP);
+    assert!(resolution.layers[0].inventory_deferred);
     let destination = temp.path().join("published-modelkit");
     transport.pull(&reference, &resolution, &destination).unwrap();
-    assert_eq!(read(destination.join("model.safetensors")).unwrap(), b"model");
+    assert_eq!(read(destination.join("model.gguf")).unwrap(), minimal_gguf());
 }

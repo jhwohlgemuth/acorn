@@ -14,11 +14,13 @@ use acorn::io::{ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashMap, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, OciModelDetails, Quantization, Weight, WeightGroups, Weights};
+use acorn::schema::agent::{
+    ModelDetails, ModelSelector, ModelSelectors, OciModelDetails, OciModelExtraction, OciModelLayer, Quantization, Weight, WeightGroups, Weights,
+};
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
 use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
-use acorn::util::{merge, Label, StringConversion};
+use acorn::util::{merge, Label, MimeType, StringConversion};
 use acorn::{Location, Repository};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
@@ -329,12 +331,12 @@ impl ModelDownloadPlan {
         let weights = resolution
             .files
             .iter()
-            .map(|OciFile { path, size, .. }| Weight {
+            .map(|OciFile { path, installed_size, .. }| Weight {
                 label: path.clone(),
                 url: format!("{identifier}#{path}"),
                 is_open: Some(!self.auth.is_required()),
                 quantization: Quantization::from_gguf_filename(path),
-                size: Some(*size),
+                size: *installed_size,
             })
             .collect();
         ModelDetails {
@@ -349,6 +351,21 @@ impl ModelDownloadPlan {
                 resolved_digest: resolution.resolved_digest.clone(),
                 artifact_type: resolution.artifact_type.clone(),
                 total_size: resolution.total_size,
+                transfer_size: resolution.transfer_size,
+                installed_size: resolution.installed_size,
+                layers: resolution
+                    .layers
+                    .iter()
+                    .map(|layer| OciModelLayer {
+                        media_type: MimeType::OciLayer(layer.media_type.clone()),
+                        digest: layer.digest.clone(),
+                        transfer_size: layer.transfer_size,
+                        role: layer.role,
+                        path: layer.path.clone(),
+                        extraction: OciModelExtraction::from(Into::<&str>::into(layer.extraction)),
+                        inventory_deferred: layer.inventory_deferred,
+                    })
+                    .collect(),
                 files: resolution.files.iter().map(|file| file.path.clone()).collect(),
                 harbor_tags: harbor.map(|artifact| artifact.tags.iter().map(|tag| tag.name.clone()).collect()),
                 harbor_labels: harbor.map(|artifact| artifact.labels.iter().map(|label| label.name.clone()).collect()),
@@ -808,6 +825,30 @@ impl ModelDownloadPlans {
         results.into_iter().flatten().collect()
     }
 }
+fn profile_options(
+    entry: &ModelEntryOptions,
+    profiles: &HashMap<String, RegistryProfile>,
+) -> ApiResult<(OciTransportOptions, Option<RegistryProfile>)> {
+    match &entry.source {
+        | Repository::OCI {
+            location,
+            registry: Some(name),
+        } => profiles
+            .get(name)
+            .ok_or_else(|| eyre!("OCI model '{entry}' references unknown registry profile '{name}'"))
+            .and_then(|profile| {
+                OciReference::parse(&location.uri().unwrap_or_default()).and_then(|reference| {
+                    let profile_registry = Location::from(&profile.endpoint).registry();
+                    if profile_registry.as_deref() == Some(reference.registry()) {
+                        Ok((OciTransportOptions::from(profile), Some(profile.clone())))
+                    } else {
+                        Err(eyre!("OCI registry profile '{name}' endpoint does not match {}", reference.registry()))
+                    }
+                })
+            }),
+        | _ => Ok((OciTransportOptions::default(), None)),
+    }
+}
 /// Resolve positional selectors against config entries, merge with entry-based plans, and deduplicate by identifier.
 pub(crate) async fn resolve_plans(
     positional: &ModelSelectors,
@@ -923,30 +964,6 @@ async fn resolve_positional_plan(
             };
             Ok(plan.with_action(action))
         }
-    }
-}
-fn profile_options(
-    entry: &ModelEntryOptions,
-    profiles: &HashMap<String, RegistryProfile>,
-) -> ApiResult<(OciTransportOptions, Option<RegistryProfile>)> {
-    match &entry.source {
-        | Repository::OCI {
-            location,
-            registry: Some(name),
-        } => profiles
-            .get(name)
-            .ok_or_else(|| eyre!("OCI model '{entry}' references unknown registry profile '{name}'"))
-            .and_then(|profile| {
-                OciReference::parse(&location.uri().unwrap_or_default()).and_then(|reference| {
-                    let profile_registry = Location::from(&profile.endpoint).registry();
-                    if profile_registry.as_deref() == Some(reference.registry()) {
-                        Ok((OciTransportOptions::from(profile), Some(profile.clone())))
-                    } else {
-                        Err(eyre!("OCI registry profile '{name}' endpoint does not match {}", reference.registry()))
-                    }
-                })
-            }),
-        | _ => Ok((OciTransportOptions::default(), None)),
     }
 }
 #[cfg(feature = "tui")]
@@ -1081,7 +1098,13 @@ mod metadata_filter_tests {
             resolved_digest: format!("sha256:{}", "a".repeat(64)),
             artifact_type: None,
             total_size: 0,
+            transfer_size: 0,
+            installed_size: Some(0),
+            layers: Vec::new(),
             files: Vec::new(),
+            filter: Vec::new(),
+            ignore: Vec::new(),
+            quantization: Vec::new(),
         };
         assert!(plan.harbor_metadata(&reference, &resolution).await.unwrap().is_none());
         let required = ModelDownloadPlan {

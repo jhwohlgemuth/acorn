@@ -175,23 +175,25 @@ acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run
 acorn download model oci://registry.example.org/ai/models/qwen@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ```
 
-Tags are resolved during planning. Dry-run and raw output include the requested reference, resolved SHA-256 manifest digest, artifact type, selected files, and total size. Downloads pin the resolved digest, use ORAS digest verification, stage into a unique sibling directory, validate every materialized path, and publish with one rename. A non-empty existing destination is rejected. `--skip-verify-checksum` does not disable OCI descriptor verification.
+Tags are resolved during planning. Dry-run and raw output include the requested reference, resolved SHA-256 manifest digest, artifact type, transfer layers, known logical files, transfer size, and installed size when it is known without downloading an archive. Archive inventories remain explicitly deferred during dry runs. Downloads pin the resolved digest, verify each selected blob's digest and size, stage into a unique sibling directory, validate every materialized path, and publish with one rename. A non-empty existing destination is rejected. `--skip-verify-checksum` does not disable OCI descriptor verification.
 
-ACORN accepts OCI artifact manifests whose files have safe `org.opencontainers.image.title` annotations and recognized model/config/tokenizer filenames. It also accepts KitOps ModelKits, including manifests that omit the optional top-level `mediaType`; ACORN reads the ModelKit config, fetches only its declared gzip-compressed model layer, and safely extracts the declared GGUF, SafeTensors, ONNX, or PyTorch model file. Ordinary runnable container images, unrecognized missing titles, absolute or traversal paths, unsupported files, symbolic links, and malformed digests are rejected. Digest integrity proves content identity; it does not authenticate the publisher or replace a future signature policy.
+OCI model downloads have a GGUF-only payload boundary. ACORN accepts annotated artifact layers with safe `.gguf` `org.opencontainers.image.title` paths, KitOps ModelKits whose declared model is GGUF, and strict CNCF ModelPacks with raw, TAR, or gzip-compressed TAR model-weight layers. Raw ModelPack layers require a safe `.gguf` `org.cncf.model.filepath`; archive inventories are filtered and validated after bounded extraction. TAR+zstd ModelPack layers are not yet supported.
+
+Every downloaded GGUF is checked for its magic, supported container version, bounded metadata, tensor declarations, data bounds, and consistent split metadata. A selection must contain exactly one complete primary model group; related projector GGUFs are allowed, while projector- or adapter-only artifacts fail. SafeTensors, ONNX, PyTorch, extensionless application-store blobs, ordinary runnable container images, unsafe paths, symbolic links, malformed digests, and unrelated ModelPack roles are rejected. A one-candidate OCI index resolves to its child manifest digest; ambiguous, nested, or mixed runnable/model indexes fail closed. Digest integrity proves content identity, not publisher authenticity.
 
 #### Custom Harbor endpoints
 
 Use an explicit `oci://` reference for a model in any Harbor registry. A named registry profile is optional for public artifacts, but enables Harbor metadata and registry-specific authentication or TLS settings. ORNL's Savannah Harbor instance is one example:
 
 ```sh
-# Inspect the tag, resolved digest, Ollama-store files, and total transfer size
-acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --dry-run --raw
+# Inspect the tag, resolved digest, GGUF files, and transfer layers
+acorn download model oci://savannah.ornl.gov/models/qwen:Q4_K_M --dry-run --raw
 
 # Download into ACORN's digest-addressed model directory
-acorn download model oci://savannah.ornl.gov/models/gpt-oss:20b --local-dir ./models
+acorn download model oci://savannah.ornl.gov/models/qwen:Q4_K_M --local-dir ./models
 ```
 
-ACORN recognizes the extensionless `blobs/sha256-*` and `manifests/...` paths used by the Savannah model's Ollama-store artifact. ACORN keeps the verified artifact in a registry/repository/digest-qualified directory so mutable tags cannot overwrite another resolution; the directory names are portable to Windows. Installing Ollama or Open WebUI and merging artifacts into an application's own store are outside this command's scope.
+ACORN keeps the verified artifact in a registry/repository/digest-qualified directory so mutable tags cannot overwrite another resolution; the directory names are portable to Windows. Application-specific model stores are outside this command's scope.
 
 ORAS uses the normal Docker-compatible credential store by default. A named profile may instead identify a credential environment variable; ACORN passes that value through standard input and never places it in configuration, process arguments, or diagnostics. TLS verification stays enabled. Plain HTTP is allowed only by an explicit development profile.
 

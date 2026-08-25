@@ -14,11 +14,11 @@ use crate::prelude::*;
 use crate::prelude::{Error, ErrorKind};
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
-use crate::schema::validate::is_partial_date;
+use crate::schema::validate::{is_digest, is_partial_date};
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::constants::HTTP_URL;
-use crate::util::{strip_suffixes, Label, MarkdownSupport, SemanticVersion, StringInterpolation};
+use crate::util::{strip_suffixes, Label, MarkdownSupport, MimeType, SemanticVersion, StringInterpolation};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
@@ -135,6 +135,28 @@ pub enum ModelResolutionReason {
     /// The model has no usable identifier or name.
     #[display("model has no identifier or name")]
     MissingIdentifier,
+}
+/// Extraction mode applied to a selected OCI model layer.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OciModelExtraction {
+    /// Materialize the blob directly.
+    #[default]
+    None,
+    /// Extract an uncompressed TAR archive.
+    Tar,
+    /// Extract a gzip-compressed TAR archive.
+    TarGzip,
+}
+/// Role of a selected OCI model layer.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OciModelLayerRole {
+    /// Generic model payload.
+    #[default]
+    Model,
+    /// CNCF ModelPack model-weight payload.
+    ModelWeight,
 }
 /// Prompt file assets embedded in this crate
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -447,31 +469,6 @@ pub struct Modalities {
     /// Output modalities the model produces
     pub output: Vec<Modality>,
 }
-/// OCI artifact provenance recorded for a resolved model.
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct OciModelDetails {
-    /// Registry host and optional port.
-    pub registry: String,
-    /// Repository path within the registry.
-    pub repository: String,
-    /// Original explicit OCI reference.
-    pub requested_reference: String,
-    /// Resolved immutable manifest digest.
-    pub resolved_digest: String,
-    /// Declared artifact type, when present.
-    pub artifact_type: Option<String>,
-    /// Total selected file size in bytes.
-    pub total_size: u64,
-    /// Selected repository-relative file paths.
-    pub files: Vec<String>,
-    /// Harbor tag names returned by optional registry enrichment.
-    pub harbor_tags: Option<Vec<String>>,
-    /// Harbor label names returned by optional registry enrichment.
-    pub harbor_labels: Option<Vec<String>>,
-    /// Harbor push timestamp returned by optional registry enrichment.
-    pub harbor_push_time: Option<String>,
-}
 /// Describe a language model (LM)
 ///
 /// This struct strives to accommodate the wide myriad varieties of language models in the wild.
@@ -507,6 +504,7 @@ pub struct ModelDetails {
     /// Indicates whether the model weights are openly available
     pub open_weights: Option<bool>,
     /// OCI artifact resolution and immutable provenance.
+    #[validate(nested)]
     pub oci: Option<OciModelDetails>,
     /// Number of parameters (in billions) (e.g., 14 for "14B")
     pub parameters: Option<i64>,
@@ -538,6 +536,63 @@ pub struct ModelSelector(String);
 /// A normalized collection of model lookup values.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ModelSelectors(Vec<ModelSelector>);
+/// OCI artifact provenance recorded for a resolved model.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct OciModelDetails {
+    /// Registry host and optional port.
+    pub registry: String,
+    /// Repository path within the registry.
+    pub repository: String,
+    /// Original explicit OCI reference.
+    pub requested_reference: String,
+    /// Resolved immutable manifest digest.
+    pub resolved_digest: String,
+    /// Declared artifact type, when present.
+    pub artifact_type: Option<String>,
+    /// Backward-compatible total selected transfer size in bytes.
+    pub total_size: u64,
+    /// Total selected compressed transfer size in bytes.
+    #[serde(default)]
+    pub transfer_size: u64,
+    /// Installed logical-file size when known before transfer.
+    pub installed_size: Option<u64>,
+    /// Selected OCI transfer layers.
+    #[serde(default)]
+    #[validate(nested)]
+    pub layers: Vec<OciModelLayer>,
+    /// Selected repository-relative file paths.
+    pub files: Vec<String>,
+    /// Harbor tag names returned by optional registry enrichment.
+    pub harbor_tags: Option<Vec<String>>,
+    /// Harbor label names returned by optional registry enrichment.
+    pub harbor_labels: Option<Vec<String>>,
+    /// Harbor push timestamp returned by optional registry enrichment.
+    pub harbor_push_time: Option<String>,
+}
+/// OCI transfer-layer provenance recorded for a resolved model.
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct OciModelLayer {
+    /// Descriptor media type.
+    #[serde(deserialize_with = "deserialize_oci_media_type", serialize_with = "serialize_oci_media_type")]
+    #[schemars(with = "String")]
+    pub media_type: MimeType,
+    /// Descriptor digest.
+    #[validate(custom(function = "is_digest"))]
+    pub digest: String,
+    /// Compressed transfer size in bytes.
+    #[validate(range(min = 0))]
+    pub transfer_size: u64,
+    /// Artifact-specific layer role.
+    pub role: OciModelLayerRole,
+    /// Declared logical file path, when known.
+    pub path: Option<String>,
+    /// Extraction mode applied to the layer.
+    pub extraction: OciModelExtraction,
+    /// Whether logical files are unknown until extraction.
+    pub inventory_deferred: bool,
+}
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -667,6 +722,614 @@ pub struct WeightGroups(pub Vec<WeightGroup>);
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Weights(pub Vec<Weight>);
+impl MarkdownSupport for Benchmark {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Name: {}", self.name)),
+                Some(format!("- Score: {}", self.score)),
+                self.metric.as_ref().map(|value| format!("- Metric: {value}")),
+                Some(format!("- Source: {}", self.source)),
+                self.date.as_ref().map(|value| format!("- Date: {value}")),
+                self.dataset.as_ref().map(|value| format!("- Dataset: {value}")),
+                self.harness.as_ref().map(|value| format!("- Harness: {value}")),
+                self.variant.as_ref().map(|value| format!("- Variant: {value}")),
+                self.version.as_ref().map(|value| format!("- Version: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for CostDetails {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                self.input.map(|value| format!("- Input: {value}")),
+                self.output.map(|value| format!("- Output: {value}")),
+                self.cache_read.map(|value| format!("- Cache Read: {value}")),
+                self.cache_write.map(|value| format!("- Cache Write: {value}")),
+                self.reasoning.map(|value| format!("- Reasoning: {value}")),
+                self.input_audio.map(|value| format!("- Input Audio: {value}")),
+                self.output_audio.map(|value| format!("- Output Audio: {value}")),
+                self.context_over_200k
+                    .as_ref()
+                    .map(|value| format!("- Context Over 200K\n{}", value.to_markdown().with_additional_indent(2))),
+                self.tiers.as_ref().map(|values| {
+                    format!(
+                        "- Tiers\n{}",
+                        values
+                            .iter()
+                            .map(|value| format!("- Tier\n{}", value.to_markdown().with_additional_indent(2)))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                            .with_additional_indent(2)
+                    )
+                }),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for CostTier {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                format!("- Input: {}", self.input),
+                format!("- Output: {}", self.output),
+                self.cache_read.map(|value| format!("- Cache Read: {value}")).unwrap_or_default(),
+                format!("- Type: {}", self.tier.kind),
+                format!("- Size: {}", self.tier.size),
+            ]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl Default for FrontMatter {
+    fn default() -> Self {
+        FrontMatter::init().build()
+    }
+}
+impl MarkdownSupport for FrontMatter {
+    fn to_markdown(&self) -> String {
+        self.to_front_matter()
+            .map(|frontmatter| format!("---\n{frontmatter}---"))
+            .unwrap_or_default()
+    }
+}
+impl From<&str> for Harness {
+    fn from(value: &str) -> Self {
+        match value {
+            | "Claude Code" => Self::ClaudeCode,
+            | "Codex" => Self::Codex,
+            | "Codex CLI" => Self::CodexCli,
+            | "Cursor CLI" => Self::CursorCli,
+            | "Gemini CLI" => Self::GeminiCli,
+            | "Mini-SWE-Agent" | "mini-swe-agent" => Self::MiniSweAgent,
+            | "OpenCode" => Self::OpenCode,
+            | "Terminus-2" => Self::Terminus2,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Harness {
+    fn from(value: String) -> Self {
+        Self::Other(value)
+    }
+}
+impl MarkdownSupport for LimitDetails {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Context: {}", self.context)),
+                self.input.map(|value| format!("- Input: {value}")),
+                self.output.map(|value| format!("- Output: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl fmt::Display for Metric {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::AveragePassAt1 => write!(f, "average pass@1"),
+            | Self::Index => write!(f, "index"),
+            | Self::PassAt1 => write!(f, "pass@1"),
+            | Self::PercentCorrect => write!(f, "percent correct"),
+            | Self::PercentResolved => write!(f, "percent resolved"),
+            | Self::ResolveRate => write!(f, "resolve rate"),
+            | Self::Resolved => write!(f, "resolved"),
+            | Self::Score => write!(f, "score"),
+            | Self::SuccessRate => write!(f, "success rate"),
+            | Self::Other(value) => write!(f, "{value}"),
+        }
+    }
+}
+impl From<&str> for Metric {
+    fn from(value: &str) -> Self {
+        match value {
+            | "average pass@1" => Self::AveragePassAt1,
+            | "index" => Self::Index,
+            | "pass@1" => Self::PassAt1,
+            | "percent correct" => Self::PercentCorrect,
+            | "percent resolved" => Self::PercentResolved,
+            | "resolve rate" => Self::ResolveRate,
+            | "resolved" => Self::Resolved,
+            | "score" => Self::Score,
+            | "success rate" => Self::SuccessRate,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Metric {
+    fn from(value: String) -> Self {
+        Self::Other(value)
+    }
+}
+impl MarkdownSupport for Modalities {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                (!self.input.is_empty()).then(|| format!("- Input: {}", self.input.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
+                (!self.output.is_empty())
+                    .then(|| format!("- Output: {}", self.output.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
+    }
+}
+impl MarkdownSupport for ModelDetails {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.attachment.map(|value| format!("- Attachment: {value}")),
+            self.benchmarks
+                .as_ref()
+                .map(|value| format!("- Benchmarks\n{}", value.to_markdown().with_additional_indent(2))),
+            self.family.as_ref().map(|value| format!("- Family: {value}")),
+            self.id.as_ref().map(|value| format!("- ID: {value}")),
+            self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),
+            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
+            self.limit
+                .as_ref()
+                .map(|value| format!("- Limits\n{}", value.to_markdown().with_additional_indent(2))),
+            self.modalities
+                .as_ref()
+                .map(|value| format!("- Modalities\n{}", value.to_markdown().with_additional_indent(2))),
+            self.name.as_ref().map(|value| format!("- Name: {value}")),
+            self.open_weights.map(|value| format!("- Open Weights: {value}")),
+            self.path.as_ref().map(|value| format!("- Path: {value}")),
+            self.cost
+                .as_ref()
+                .map(|value| format!("- Cost\n{}", value.to_markdown().with_additional_indent(2))),
+            self.parameters.map(|value| format!("- Parameters: {value}B")),
+            self.reasoning.map(|value| format!("- Reasoning: {value}")),
+            self.release_date.as_ref().map(|value| format!("- Release Date: {value}")),
+            self.structured_output.map(|value| format!("- Structured Output: {value}")),
+            self.temperature.map(|value| format!("- Temperature: {value}")),
+            self.tool_call.map(|value| format!("- Tool Call: {value}")),
+            self.fallback.as_ref().map(|value| format!("- Fallback: {value}")),
+            self.variant.as_ref().map(|value| format!("- Variant: {value}")),
+            self.version.as_ref().map(|value| format!("- Version: {value}")),
+            self.weights
+                .as_ref()
+                .map(|value| format!("- Weights\n{}", value.to_markdown().with_additional_indent(2))),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            lines.join("\n").to_string()
+        }
+    }
+}
+impl ModelDetails {
+    /// Return display parts for human-readable summary output
+    ///
+    /// Returns `(primary, optional_context)` where primary is the model identifier
+    /// and context is a fallback annotation when applicable.
+    pub fn report(&self) -> (String, Option<String>) {
+        let id = self.id.as_deref().unwrap_or("unknown").to_string();
+        let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
+        (id, context)
+    }
+    /// Return a Hugging Face repository selector or explain why one cannot be resolved.
+    pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
+        let repository = Option::<Source>::from(self.clone())
+            .map(|source| source.identifier())
+            .filter(|identifier| !HTTP_URL.is_match(identifier).unwrap_or(false));
+        let identifier = self
+            .id
+            .or(self.name)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let selector = match (repository, self.open_weights, self.weights, identifier) {
+            | (Some(repository), _, _, _) => Ok(repository),
+            | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
+            | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
+            | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
+            | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
+        };
+        selector.and_then(|value| ModelSelector::new(value).ok_or(ModelResolutionReason::MissingIdentifier))
+    }
+    /// Set the original model identifier for a resolved fallback
+    pub fn with_fallback(self, value: &str) -> Self {
+        Self {
+            fallback: Some(value.to_string()),
+            ..self
+        }
+    }
+    /// Set the identifier
+    pub fn with_id(self, value: &str) -> Self {
+        Self {
+            id: Some(value.to_string()),
+            ..self
+        }
+    }
+}
+impl AsRef<str> for ModelSelector {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+impl fmt::Display for ModelSelector {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl ModelSelector {
+    /// Create a selector from a non-empty string after trimming whitespace.
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| Self(trimmed.to_string()))
+    }
+    /// Return the normalized selector value.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+    /// Return the model name used for GGUF fallback repository discovery.
+    pub fn fallback_search_name(&self) -> String {
+        let name = self.0.rsplit('/').next().unwrap_or_default();
+        let canonical = strip_suffixes(FALLBACK_MODEL_SUFFIXES, name)
+            .replace("llama-3.1-", "llama-3_1-")
+            .replace("llama-3.3-", "llama-3_3-")
+            .replace("v1.5", "v1_5");
+        match canonical.as_str() {
+            | "llama-3_1-nemotron-ultra-253b" => format!("{canonical}-v1"),
+            | _ => canonical,
+        }
+    }
+}
+impl From<&[String]> for ModelSelectors {
+    fn from(values: &[String]) -> Self {
+        Self(values.iter().filter_map(|value| ModelSelector::new(value.clone())).collect())
+    }
+}
+impl From<Vec<ModelSelector>> for ModelSelectors {
+    fn from(values: Vec<ModelSelector>) -> Self {
+        Self(values)
+    }
+}
+impl From<Vec<String>> for ModelSelectors {
+    fn from(values: Vec<String>) -> Self {
+        Self(values.into_iter().filter_map(ModelSelector::new).collect())
+    }
+}
+impl ModelSelectors {
+    /// Return whether the collection contains no selectors.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Iterate over normalized selectors.
+    pub fn iter(&self) -> impl Iterator<Item = &ModelSelector> {
+        self.0.iter()
+    }
+    /// Parse selectors from plain text, JSON, or YAML model-list content.
+    pub fn parse(content: String) -> ApiResult<Self> {
+        Self::try_from(content)
+    }
+    fn require_non_empty(self) -> ApiResult<Self> {
+        match self.is_empty() {
+            | true => Err(eyre!("Model list file cannot be empty")),
+            | false => Ok(self),
+        }
+    }
+    /// Merge selectors read from an optional local or remote model-list source.
+    pub async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
+        match source {
+            | Some(source) => Source::read(source, offline)
+                .await
+                .and_then(Self::parse)
+                .map(|file| Self(self.0.into_iter().chain(file.0).collect())),
+            | None => Ok(self),
+        }
+    }
+}
+impl TryFrom<String> for ModelSelectors {
+    type Error = Report;
+
+    fn try_from(content: String) -> Result<Self, Self::Error> {
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            Err(eyre!("Model list file cannot be empty"))
+        } else {
+            let starts_with_collection = trimmed.starts_with(['[', '{']);
+            let has_structured_line = trimmed.lines().any(|line| {
+                let line = line.trim_start();
+                let is_windows_path = Path::new(line).is_windows();
+                let has_url_scheme = line.contains("://");
+                let is_key_value = !(is_windows_path || has_url_scheme) && line.split_once(':').is_some_and(|(key, _)| !key.trim().is_empty());
+                let is_list_item = line.starts_with("- ");
+                let is_mapping_key = line.ends_with(':');
+                is_list_item || is_mapping_key || is_key_value
+            });
+            let structured = starts_with_collection || has_structured_line;
+            match serde_norway::from_str::<ModelListFile>(trimmed) {
+                | Ok(file) => file.selectors().require_non_empty(),
+                | Err(why) if structured => Err(eyre!("Failed to parse model list file as JSON or YAML — {why}")),
+                | Err(_) => Self::from(trimmed.lines().map(str::to_string).collect::<Vec<_>>()).require_non_empty(),
+            }
+        }
+    }
+}
+impl From<&str> for OciModelExtraction {
+    fn from(value: &str) -> Self {
+        match value {
+            | "tar" => Self::Tar,
+            | "tar_gzip" => Self::TarGzip,
+            | _ => Self::None,
+        }
+    }
+}
+impl MarkdownSupport for OneOrMany<Benchmark> {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
+            | Self::Many(values) => values
+                .iter()
+                .map(|value| format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+}
+impl fmt::Display for PromptFileAsset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Eli5 => "eli5.prompt",
+            | Self::ExtractClaim => "extract-claim.prompt",
+            | Self::FindGaps => "find-gaps.prompt",
+            | Self::Summarize => "summarize.prompt",
+            | Self::Teach => "teach.prompt",
+            | Self::Translate => "translate.prompt",
+            | Self::Unknown(value) => value,
+        };
+
+        write!(f, "{value}")
+    }
+}
+impl From<&str> for PromptFileAsset {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "eli5" | "eli5.prompt" => Self::Eli5,
+            | "extract-claim" | "extract-claim.prompt" => Self::ExtractClaim,
+            | "find-gaps" | "find-gaps.prompt" => Self::FindGaps,
+            | "summarize" | "summarize.prompt" => Self::Summarize,
+            | "teach" | "teach.prompt" => Self::Teach,
+            | "translate" | "translate.prompt" => Self::Translate,
+            | _ => Self::Unknown(value.into()),
+        }
+    }
+}
+impl From<String> for PromptFileAsset {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl PromptTemplate {
+    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
+    pub fn from_asset(file_name: &str) -> Option<String> {
+        match Self::get(file_name) {
+            | Some(value) => from_utf8(value.data.as_ref()).ok().map(String::from),
+            | None => None,
+        }
+    }
+    /// Render a prompt template with the given configuration
+    /// ### Example
+    /// ```ignore
+    /// let config = Configuration::init()
+    ///     .text("Some prompt to process")
+    ///     .max_words(160)
+    ///     .build();
+    /// let rendered = PromptTemplate::render(PromptFileAsset::Summarize, &config);
+    /// ```
+    pub fn render<T>(asset: T, config: &PromptTemplateConfiguration) -> ApiResult<String>
+    where
+        T: Into<PromptFileAsset>,
+    {
+        let name = asset.into().to_string();
+        Self::from_asset(&name)
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("Prompt template not found — {name}")))
+            .map_err(Report::from)
+            .and_then(|template| {
+                let mut context = Context::new();
+                context.insert("config", config);
+                Tera::one_off(&template, &context, false).map_err(Report::from)
+            })
+    }
+}
+impl Default for PromptTemplateConfiguration {
+    fn default() -> Self {
+        PromptTemplateConfiguration::init().build()
+    }
+}
+impl From<&str> for Provider {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "alibaba" => Self::Alibaba,
+            | "amazon" => Self::Amazon,
+            | "anthropic" => Self::Anthropic,
+            | "azure" => Self::Azure,
+            | "baichuan" => Self::Baichuan,
+            | "baidu" => Self::Baidu,
+            | "cohere" => Self::Cohere,
+            | "databricks" => Self::Databricks,
+            | "deepseek" => Self::DeepSeek,
+            | "doubao" => Self::Doubao,
+            | "google" => Self::Google,
+            | "groq" => Self::Groq,
+            | "ibm" => Self::IBM,
+            | "kimi" => Self::Kimi,
+            | "meta" => Self::Meta,
+            | "minimax" => Self::Minimax,
+            | "mistral" => Self::Mistral,
+            | "moonshotai" => Self::MoonshotAI,
+            | "nvidia" => Self::Nvidia,
+            | "ollama" => Self::Ollama,
+            | "openai" => Self::OpenAI,
+            | "perplexity" => Self::Perplexity,
+            | "qwen" => Self::Qwen,
+            | "salesforce" => Self::Salesforce,
+            | "sap" => Self::SAP,
+            | "sarvam" => Self::Sarvam,
+            | "stepfun" => Self::Stepfun,
+            | "tencent" => Self::Tencent,
+            | "togetherai" => Self::TogetherAI,
+            | "xai" => Self::XAI,
+            | "xiaomi" => Self::Xiaomi,
+            | "zhipuai" => Self::ZhipuAI,
+            | _ => Self::Custom(value.into()),
+        }
+    }
+}
+impl MarkdownSupport for ProviderDetails {
+    fn to_markdown(&self) -> String {
+        let lines = [
+            self.endpoint.as_ref().map(|value| format!("- API Endpoint: {value}")),
+            self.authentication
+                .as_ref()
+                .map(|value| format!("- Auth Methods: {}", value.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(", "))),
+            self.description.as_ref().map(|value| format!("- Description: {value}")),
+            self.documentation.as_ref().map(|value| format!("- Documentation: {value}")),
+            self.env.as_ref().map(|value| format!("- Env Vars: {}", value.join(", "))),
+            self.established_date.as_ref().map(|value| format!("- Established: {value}")),
+            self.id.as_ref().map(|value| format!("- ID: {value}")),
+            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
+            self.name.as_ref().map(|value| format!("- Name: {value}")),
+            self.npm.as_ref().map(|value| format!("- NPM: {value}")),
+            self.url.as_ref().map(|value| format!("- URL: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        if lines.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", lines.join("\n"))
+        }
+    }
+}
+impl From<&str> for Quantization {
+    fn from(value: &str) -> Self {
+        let normalized = value.to_ascii_uppercase();
+        match normalized.as_str() {
+            | "Q2_K" | "Q2K" => Self::Q2k,
+            | "Q3_K_S" | "Q3KS" => Self::Q3kS,
+            | "Q3_K_M" | "Q3KM" => Self::Q3kM,
+            | "Q3_K_L" | "Q3KL" => Self::Q3kL,
+            | "Q4_K_M" | "Q4KM" => Self::Q4kM,
+            | "Q5_K_M" | "Q5KM" => Self::Q5kM,
+            | "Q6_K" | "Q6K" => Self::Q6k,
+            | "Q8_0" | "Q80" => Self::Q8_0,
+            | "F16" => Self::F16,
+            | "BF16" => Self::BF16,
+            | "F8" | "FP8" => Self::F8,
+            | "IQ4_XS" | "IQ4XS" => Self::IQ4_XS,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Quantization {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl FromStr for Quantization {
+    type Err = Infallible;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(value))
+    }
+}
+impl Quantization {
+    /// Detect a quantization tag in a GGUF filename.
+    pub fn from_gguf_filename(filename: &str) -> Option<Self> {
+        let filename = filename.to_ascii_uppercase();
+        filename.strip_suffix(".GGUF").and_then(|stem| {
+            stem.split(['-', '.'])
+                .find(|part| {
+                    matches!(*part, "F16" | "BF16")
+                        || part
+                            .strip_prefix('Q')
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                        || part
+                            .strip_prefix("IQ")
+                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
+                })
+                .or_else(|| {
+                    stem.split(['-', '.'])
+                        .rev()
+                        .find(|part| part.contains("FP") && part.chars().any(|character| character.is_ascii_digit()))
+                })
+                .map(Self::from)
+        })
+    }
+}
+impl<'de> Deserialize<'de> for Quantization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Self::from)
+    }
+}
+impl From<ModelSelector> for String {
+    fn from(selector: ModelSelector) -> Self {
+        selector.0
+    }
+}
 impl From<&str> for Weight {
     fn from(value: &str) -> Self {
         Self {
@@ -676,6 +1339,26 @@ impl From<&str> for Weight {
             quantization: None,
             size: None,
         }
+    }
+}
+impl MarkdownSupport for Weight {
+    fn to_markdown(&self) -> String {
+        Some(
+            [
+                Some(format!("- Label: {}", self.label)),
+                Some(format!("- URL: {}", self.url)),
+                self.is_open.map(|value| format!("- Open: {value}")),
+                self.quantization.as_ref().map(|value| format!("- Quantization: {value}")),
+                self.size.map(|value| format!("- Size: {value}")),
+            ]
+            .into_iter()
+            .flatten()
+            .map(|value| value.trim_start_matches("- ").to_string())
+            .collect::<Vec<_>>(),
+        )
+        .to_markdown()
+        .trim_start()
+        .to_string()
     }
 }
 impl Weight {
@@ -736,6 +1419,15 @@ impl WeightGroups {
                 None
             }
         }
+    }
+}
+impl MarkdownSupport for Weights {
+    fn to_markdown(&self) -> String {
+        self.0
+            .iter()
+            .map(|value| format!("- Weight\n{}", value.to_markdown().with_additional_indent(2)))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 impl Weights {
@@ -852,633 +1544,17 @@ impl Weights {
         serde_json::to_string(&self).map_err(|why| eyre!("Failed to serialize model weights — {why}"))
     }
 }
-impl Default for FrontMatter {
-    fn default() -> Self {
-        FrontMatter::init().build()
-    }
+fn deserialize_harness<'de, D>(deserializer: D) -> Result<Option<Harness>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_optional_typed_value(deserializer)
 }
-impl MarkdownSupport for FrontMatter {
-    fn to_markdown(&self) -> String {
-        self.to_front_matter()
-            .map(|frontmatter| format!("---\n{frontmatter}---"))
-            .unwrap_or_default()
-    }
-}
-impl From<&str> for Harness {
-    fn from(value: &str) -> Self {
-        match value {
-            | "Claude Code" => Self::ClaudeCode,
-            | "Codex" => Self::Codex,
-            | "Codex CLI" => Self::CodexCli,
-            | "Cursor CLI" => Self::CursorCli,
-            | "Gemini CLI" => Self::GeminiCli,
-            | "Mini-SWE-Agent" | "mini-swe-agent" => Self::MiniSweAgent,
-            | "OpenCode" => Self::OpenCode,
-            | "Terminus-2" => Self::Terminus2,
-            | _ => Self::Other(value.to_string()),
-        }
-    }
-}
-impl From<String> for Harness {
-    fn from(value: String) -> Self {
-        Self::Other(value)
-    }
-}
-impl fmt::Display for Metric {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            | Self::AveragePassAt1 => write!(f, "average pass@1"),
-            | Self::Index => write!(f, "index"),
-            | Self::PassAt1 => write!(f, "pass@1"),
-            | Self::PercentCorrect => write!(f, "percent correct"),
-            | Self::PercentResolved => write!(f, "percent resolved"),
-            | Self::ResolveRate => write!(f, "resolve rate"),
-            | Self::Resolved => write!(f, "resolved"),
-            | Self::Score => write!(f, "score"),
-            | Self::SuccessRate => write!(f, "success rate"),
-            | Self::Other(value) => write!(f, "{value}"),
-        }
-    }
-}
-impl From<&str> for Metric {
-    fn from(value: &str) -> Self {
-        match value {
-            | "average pass@1" => Self::AveragePassAt1,
-            | "index" => Self::Index,
-            | "pass@1" => Self::PassAt1,
-            | "percent correct" => Self::PercentCorrect,
-            | "percent resolved" => Self::PercentResolved,
-            | "resolve rate" => Self::ResolveRate,
-            | "resolved" => Self::Resolved,
-            | "score" => Self::Score,
-            | "success rate" => Self::SuccessRate,
-            | _ => Self::Other(value.to_string()),
-        }
-    }
-}
-impl From<String> for Metric {
-    fn from(value: String) -> Self {
-        Self::Other(value)
-    }
-}
-impl MarkdownSupport for Benchmark {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                Some(format!("- Name: {}", self.name)),
-                Some(format!("- Score: {}", self.score)),
-                self.metric.as_ref().map(|value| format!("- Metric: {value}")),
-                Some(format!("- Source: {}", self.source)),
-                self.date.as_ref().map(|value| format!("- Date: {value}")),
-                self.dataset.as_ref().map(|value| format!("- Dataset: {value}")),
-                self.harness.as_ref().map(|value| format!("- Harness: {value}")),
-                self.variant.as_ref().map(|value| format!("- Variant: {value}")),
-                self.version.as_ref().map(|value| format!("- Version: {value}")),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for OneOrMany<Benchmark> {
-    fn to_markdown(&self) -> String {
-        match self {
-            | Self::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
-            | Self::Many(values) => values
-                .iter()
-                .map(|value| format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        }
-    }
-}
-impl MarkdownSupport for CostDetails {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                self.input.map(|value| format!("- Input: {value}")),
-                self.output.map(|value| format!("- Output: {value}")),
-                self.cache_read.map(|value| format!("- Cache Read: {value}")),
-                self.cache_write.map(|value| format!("- Cache Write: {value}")),
-                self.reasoning.map(|value| format!("- Reasoning: {value}")),
-                self.input_audio.map(|value| format!("- Input Audio: {value}")),
-                self.output_audio.map(|value| format!("- Output Audio: {value}")),
-                self.context_over_200k
-                    .as_ref()
-                    .map(|value| format!("- Context Over 200K\n{}", value.to_markdown().with_additional_indent(2))),
-                self.tiers.as_ref().map(|values| {
-                    format!(
-                        "- Tiers\n{}",
-                        values
-                            .iter()
-                            .map(|value| format!("- Tier\n{}", value.to_markdown().with_additional_indent(2)))
-                            .collect::<Vec<_>>()
-                            .join("\n")
-                            .with_additional_indent(2)
-                    )
-                }),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for CostTier {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                format!("- Input: {}", self.input),
-                format!("- Output: {}", self.output),
-                self.cache_read.map(|value| format!("- Cache Read: {value}")).unwrap_or_default(),
-                format!("- Type: {}", self.tier.kind),
-                format!("- Size: {}", self.tier.size),
-            ]
-            .into_iter()
-            .filter(|value| !value.is_empty())
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for LimitDetails {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                Some(format!("- Context: {}", self.context)),
-                self.input.map(|value| format!("- Input: {value}")),
-                self.output.map(|value| format!("- Output: {value}")),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for Modalities {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                (!self.input.is_empty()).then(|| format!("- Input: {}", self.input.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
-                (!self.output.is_empty())
-                    .then(|| format!("- Output: {}", self.output.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for Weight {
-    fn to_markdown(&self) -> String {
-        Some(
-            [
-                Some(format!("- Label: {}", self.label)),
-                Some(format!("- URL: {}", self.url)),
-                self.is_open.map(|value| format!("- Open: {value}")),
-                self.quantization.as_ref().map(|value| format!("- Quantization: {value}")),
-                self.size.map(|value| format!("- Size: {value}")),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|value| value.trim_start_matches("- ").to_string())
-            .collect::<Vec<_>>(),
-        )
-        .to_markdown()
-        .trim_start()
-        .to_string()
-    }
-}
-impl MarkdownSupport for Weights {
-    fn to_markdown(&self) -> String {
-        self.0
-            .iter()
-            .map(|value| format!("- Weight\n{}", value.to_markdown().with_additional_indent(2)))
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-}
-impl MarkdownSupport for ModelDetails {
-    fn to_markdown(&self) -> String {
-        let lines = [
-            self.attachment.map(|value| format!("- Attachment: {value}")),
-            self.benchmarks
-                .as_ref()
-                .map(|value| format!("- Benchmarks\n{}", value.to_markdown().with_additional_indent(2))),
-            self.family.as_ref().map(|value| format!("- Family: {value}")),
-            self.id.as_ref().map(|value| format!("- ID: {value}")),
-            self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),
-            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
-            self.limit
-                .as_ref()
-                .map(|value| format!("- Limits\n{}", value.to_markdown().with_additional_indent(2))),
-            self.modalities
-                .as_ref()
-                .map(|value| format!("- Modalities\n{}", value.to_markdown().with_additional_indent(2))),
-            self.name.as_ref().map(|value| format!("- Name: {value}")),
-            self.open_weights.map(|value| format!("- Open Weights: {value}")),
-            self.path.as_ref().map(|value| format!("- Path: {value}")),
-            self.cost
-                .as_ref()
-                .map(|value| format!("- Cost\n{}", value.to_markdown().with_additional_indent(2))),
-            self.parameters.map(|value| format!("- Parameters: {value}B")),
-            self.reasoning.map(|value| format!("- Reasoning: {value}")),
-            self.release_date.as_ref().map(|value| format!("- Release Date: {value}")),
-            self.structured_output.map(|value| format!("- Structured Output: {value}")),
-            self.temperature.map(|value| format!("- Temperature: {value}")),
-            self.tool_call.map(|value| format!("- Tool Call: {value}")),
-            self.fallback.as_ref().map(|value| format!("- Fallback: {value}")),
-            self.variant.as_ref().map(|value| format!("- Variant: {value}")),
-            self.version.as_ref().map(|value| format!("- Version: {value}")),
-            self.weights
-                .as_ref()
-                .map(|value| format!("- Weights\n{}", value.to_markdown().with_additional_indent(2))),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-        if lines.is_empty() {
-            String::new()
-        } else {
-            lines.join("\n").to_string()
-        }
-    }
-}
-impl ModelDetails {
-    /// Return display parts for human-readable summary output
-    ///
-    /// Returns `(primary, optional_context)` where primary is the model identifier
-    /// and context is a fallback annotation when applicable.
-    pub fn report(&self) -> (String, Option<String>) {
-        let id = self.id.as_deref().unwrap_or("unknown").to_string();
-        let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
-        (id, context)
-    }
-    /// Return a Hugging Face repository selector or explain why one cannot be resolved.
-    pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
-        let repository = Option::<Source>::from(self.clone())
-            .map(|source| source.identifier())
-            .filter(|identifier| !HTTP_URL.is_match(identifier).unwrap_or(false));
-        let identifier = self
-            .id
-            .or(self.name)
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let selector = match (repository, self.open_weights, self.weights, identifier) {
-            | (Some(repository), _, _, _) => Ok(repository),
-            | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
-            | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
-            | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
-            | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
-            | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
-            | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
-        };
-        selector.and_then(|value| ModelSelector::new(value).ok_or(ModelResolutionReason::MissingIdentifier))
-    }
-    /// Set the original model identifier for a resolved fallback
-    pub fn with_fallback(self, value: &str) -> Self {
-        Self {
-            fallback: Some(value.to_string()),
-            ..self
-        }
-    }
-    /// Set the identifier
-    pub fn with_id(self, value: &str) -> Self {
-        Self {
-            id: Some(value.to_string()),
-            ..self
-        }
-    }
-}
-impl ModelSelector {
-    /// Create a selector from a non-empty string after trimming whitespace.
-    pub fn new(value: impl Into<String>) -> Option<Self> {
-        let value = value.into();
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then(|| Self(trimmed.to_string()))
-    }
-    /// Return the normalized selector value.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-    /// Return the model name used for GGUF fallback repository discovery.
-    pub fn fallback_search_name(&self) -> String {
-        let name = self.0.rsplit('/').next().unwrap_or_default();
-        let canonical = strip_suffixes(FALLBACK_MODEL_SUFFIXES, name)
-            .replace("llama-3.1-", "llama-3_1-")
-            .replace("llama-3.3-", "llama-3_3-")
-            .replace("v1.5", "v1_5");
-        match canonical.as_str() {
-            | "llama-3_1-nemotron-ultra-253b" => format!("{canonical}-v1"),
-            | _ => canonical,
-        }
-    }
-}
-impl AsRef<str> for ModelSelector {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-impl fmt::Display for ModelSelector {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
-impl From<ModelSelector> for String {
-    fn from(selector: ModelSelector) -> Self {
-        selector.0
-    }
-}
-impl From<&[String]> for ModelSelectors {
-    fn from(values: &[String]) -> Self {
-        Self(values.iter().filter_map(|value| ModelSelector::new(value.clone())).collect())
-    }
-}
-impl From<Vec<ModelSelector>> for ModelSelectors {
-    fn from(values: Vec<ModelSelector>) -> Self {
-        Self(values)
-    }
-}
-impl From<Vec<String>> for ModelSelectors {
-    fn from(values: Vec<String>) -> Self {
-        Self(values.into_iter().filter_map(ModelSelector::new).collect())
-    }
-}
-impl TryFrom<String> for ModelSelectors {
-    type Error = Report;
-
-    fn try_from(content: String) -> Result<Self, Self::Error> {
-        let trimmed = content.trim();
-        if trimmed.is_empty() {
-            Err(eyre!("Model list file cannot be empty"))
-        } else {
-            let starts_with_collection = trimmed.starts_with(['[', '{']);
-            let has_structured_line = trimmed.lines().any(|line| {
-                let line = line.trim_start();
-                let is_windows_path = Path::new(line).is_windows();
-                let has_url_scheme = line.contains("://");
-                let is_key_value = !(is_windows_path || has_url_scheme) && line.split_once(':').is_some_and(|(key, _)| !key.trim().is_empty());
-                let is_list_item = line.starts_with("- ");
-                let is_mapping_key = line.ends_with(':');
-                is_list_item || is_mapping_key || is_key_value
-            });
-            let structured = starts_with_collection || has_structured_line;
-            match serde_norway::from_str::<ModelListFile>(trimmed) {
-                | Ok(file) => file.selectors().require_non_empty(),
-                | Err(why) if structured => Err(eyre!("Failed to parse model list file as JSON or YAML — {why}")),
-                | Err(_) => Self::from(trimmed.lines().map(str::to_string).collect::<Vec<_>>()).require_non_empty(),
-            }
-        }
-    }
-}
-impl ModelSelectors {
-    /// Return whether the collection contains no selectors.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-    /// Iterate over normalized selectors.
-    pub fn iter(&self) -> impl Iterator<Item = &ModelSelector> {
-        self.0.iter()
-    }
-    /// Parse selectors from plain text, JSON, or YAML model-list content.
-    pub fn parse(content: String) -> ApiResult<Self> {
-        Self::try_from(content)
-    }
-    fn require_non_empty(self) -> ApiResult<Self> {
-        match self.is_empty() {
-            | true => Err(eyre!("Model list file cannot be empty")),
-            | false => Ok(self),
-        }
-    }
-    /// Merge selectors read from an optional local or remote model-list source.
-    pub async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
-        match source {
-            | Some(source) => Source::read(source, offline)
-                .await
-                .and_then(Self::parse)
-                .map(|file| Self(self.0.into_iter().chain(file.0).collect())),
-            | None => Ok(self),
-        }
-    }
-}
-impl fmt::Display for PromptFileAsset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            | Self::Eli5 => "eli5.prompt",
-            | Self::ExtractClaim => "extract-claim.prompt",
-            | Self::FindGaps => "find-gaps.prompt",
-            | Self::Summarize => "summarize.prompt",
-            | Self::Teach => "teach.prompt",
-            | Self::Translate => "translate.prompt",
-            | Self::Unknown(value) => value,
-        };
-
-        write!(f, "{value}")
-    }
-}
-impl From<&str> for PromptFileAsset {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            | "eli5" | "eli5.prompt" => Self::Eli5,
-            | "extract-claim" | "extract-claim.prompt" => Self::ExtractClaim,
-            | "find-gaps" | "find-gaps.prompt" => Self::FindGaps,
-            | "summarize" | "summarize.prompt" => Self::Summarize,
-            | "teach" | "teach.prompt" => Self::Teach,
-            | "translate" | "translate.prompt" => Self::Translate,
-            | _ => Self::Unknown(value.into()),
-        }
-    }
-}
-impl From<String> for PromptFileAsset {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl Default for PromptTemplateConfiguration {
-    fn default() -> Self {
-        PromptTemplateConfiguration::init().build()
-    }
-}
-impl PromptTemplate {
-    /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
-    pub fn from_asset(file_name: &str) -> Option<String> {
-        match Self::get(file_name) {
-            | Some(value) => from_utf8(value.data.as_ref()).ok().map(String::from),
-            | None => None,
-        }
-    }
-    /// Render a prompt template with the given configuration
-    /// ### Example
-    /// ```ignore
-    /// let config = Configuration::init()
-    ///     .text("Some prompt to process")
-    ///     .max_words(160)
-    ///     .build();
-    /// let rendered = PromptTemplate::render(PromptFileAsset::Summarize, &config);
-    /// ```
-    pub fn render<T>(asset: T, config: &PromptTemplateConfiguration) -> ApiResult<String>
-    where
-        T: Into<PromptFileAsset>,
-    {
-        let name = asset.into().to_string();
-        Self::from_asset(&name)
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("Prompt template not found — {name}")))
-            .map_err(Report::from)
-            .and_then(|template| {
-                let mut context = Context::new();
-                context.insert("config", config);
-                Tera::one_off(&template, &context, false).map_err(Report::from)
-            })
-    }
-}
-impl From<&str> for Provider {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            | "alibaba" => Self::Alibaba,
-            | "amazon" => Self::Amazon,
-            | "anthropic" => Self::Anthropic,
-            | "azure" => Self::Azure,
-            | "baichuan" => Self::Baichuan,
-            | "baidu" => Self::Baidu,
-            | "cohere" => Self::Cohere,
-            | "databricks" => Self::Databricks,
-            | "deepseek" => Self::DeepSeek,
-            | "doubao" => Self::Doubao,
-            | "google" => Self::Google,
-            | "groq" => Self::Groq,
-            | "ibm" => Self::IBM,
-            | "kimi" => Self::Kimi,
-            | "meta" => Self::Meta,
-            | "minimax" => Self::Minimax,
-            | "mistral" => Self::Mistral,
-            | "moonshotai" => Self::MoonshotAI,
-            | "nvidia" => Self::Nvidia,
-            | "ollama" => Self::Ollama,
-            | "openai" => Self::OpenAI,
-            | "perplexity" => Self::Perplexity,
-            | "qwen" => Self::Qwen,
-            | "salesforce" => Self::Salesforce,
-            | "sap" => Self::SAP,
-            | "sarvam" => Self::Sarvam,
-            | "stepfun" => Self::Stepfun,
-            | "tencent" => Self::Tencent,
-            | "togetherai" => Self::TogetherAI,
-            | "xai" => Self::XAI,
-            | "xiaomi" => Self::Xiaomi,
-            | "zhipuai" => Self::ZhipuAI,
-            | _ => Self::Custom(value.into()),
-        }
-    }
-}
-impl From<&str> for Quantization {
-    fn from(value: &str) -> Self {
-        let normalized = value.to_ascii_uppercase();
-        match normalized.as_str() {
-            | "Q2_K" | "Q2K" => Self::Q2k,
-            | "Q3_K_S" | "Q3KS" => Self::Q3kS,
-            | "Q3_K_M" | "Q3KM" => Self::Q3kM,
-            | "Q3_K_L" | "Q3KL" => Self::Q3kL,
-            | "Q4_K_M" | "Q4KM" => Self::Q4kM,
-            | "Q5_K_M" | "Q5KM" => Self::Q5kM,
-            | "Q6_K" | "Q6K" => Self::Q6k,
-            | "Q8_0" | "Q80" => Self::Q8_0,
-            | "F16" => Self::F16,
-            | "BF16" => Self::BF16,
-            | "F8" | "FP8" => Self::F8,
-            | "IQ4_XS" | "IQ4XS" => Self::IQ4_XS,
-            | _ => Self::Other(value.to_string()),
-        }
-    }
-}
-impl From<String> for Quantization {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl FromStr for Quantization {
-    type Err = Infallible;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(value))
-    }
-}
-impl<'de> Deserialize<'de> for Quantization {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).map(Self::from)
-    }
-}
-impl Quantization {
-    /// Detect a quantization tag in a GGUF filename.
-    pub fn from_gguf_filename(filename: &str) -> Option<Self> {
-        let filename = filename.to_ascii_uppercase();
-        filename.strip_suffix(".GGUF").and_then(|stem| {
-            stem.split(['-', '.'])
-                .find(|part| {
-                    matches!(*part, "F16" | "BF16")
-                        || part
-                            .strip_prefix('Q')
-                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
-                        || part
-                            .strip_prefix("IQ")
-                            .is_some_and(|value| value.chars().next().is_some_and(|character| character.is_ascii_digit()) && value.contains('_'))
-                })
-                .or_else(|| {
-                    stem.split(['-', '.'])
-                        .rev()
-                        .find(|part| part.contains("FP") && part.chars().any(|character| character.is_ascii_digit()))
-                })
-                .map(Self::from)
-        })
-    }
-}
-impl MarkdownSupport for ProviderDetails {
-    fn to_markdown(&self) -> String {
-        let lines = [
-            self.endpoint.as_ref().map(|value| format!("- API Endpoint: {value}")),
-            self.authentication
-                .as_ref()
-                .map(|value| format!("- Auth Methods: {}", value.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(", "))),
-            self.description.as_ref().map(|value| format!("- Description: {value}")),
-            self.documentation.as_ref().map(|value| format!("- Documentation: {value}")),
-            self.env.as_ref().map(|value| format!("- Env Vars: {}", value.join(", "))),
-            self.established_date.as_ref().map(|value| format!("- Established: {value}")),
-            self.id.as_ref().map(|value| format!("- ID: {value}")),
-            self.last_updated.as_ref().map(|value| format!("- Last Updated: {value}")),
-            self.name.as_ref().map(|value| format!("- Name: {value}")),
-            self.npm.as_ref().map(|value| format!("- NPM: {value}")),
-            self.url.as_ref().map(|value| format!("- URL: {value}")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
-        if lines.is_empty() {
-            String::new()
-        } else {
-            format!("\n{}", lines.join("\n"))
-        }
-    }
+fn deserialize_metric<'de, D>(deserializer: D) -> Result<Option<Metric>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_optional_typed_value(deserializer)
 }
 fn deserialize_models<'de, D>(deserializer: D) -> Result<Option<Vec<ModelDetails>>, D::Error>
 where
@@ -1496,17 +1572,11 @@ where
         | None => Ok(None),
     }
 }
-fn deserialize_metric<'de, D>(deserializer: D) -> Result<Option<Metric>, D::Error>
+fn deserialize_oci_media_type<'de, D>(deserializer: D) -> Result<MimeType, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    deserialize_optional_typed_value(deserializer)
-}
-fn deserialize_harness<'de, D>(deserializer: D) -> Result<Option<Harness>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    deserialize_optional_typed_value(deserializer)
+    String::deserialize(deserializer).map(MimeType::OciLayer)
 }
 fn deserialize_optional_typed_value<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
@@ -1517,14 +1587,11 @@ where
         .map(|value| value.filter(|value| !value.is_null()))
         .map(|value| value.map(value_to_string_or_other::<T>))
 }
-fn value_to_string_or_other<T>(value: serde_json::Value) -> T
+fn serialize_oci_media_type<S>(value: &MimeType, serializer: S) -> Result<S::Ok, S::Error>
 where
-    T: for<'a> From<&'a str> + From<String>,
+    S: serde::Serializer,
 {
-    match value {
-        | serde_json::Value::String(value) => T::from(value.as_str()),
-        | other => serde_json::to_string(&other).map_or_else(|_| T::from(other.to_string()), T::from),
-    }
+    serializer.serialize_str(&value.to_string())
 }
 fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> {
     let ModelDetails { open_weights, weights, .. } = details;
@@ -1533,6 +1600,15 @@ fn validate_open_weights(details: &ModelDetails) -> Result<(), ValidationError> 
         Err(ValidationError::new("open_weights").with_message("open_weights must be true when any weight has is_open: true".into()))
     } else {
         Ok(())
+    }
+}
+fn value_to_string_or_other<T>(value: serde_json::Value) -> T
+where
+    T: for<'a> From<&'a str> + From<String>,
+{
+    match value {
+        | serde_json::Value::String(value) => T::from(value.as_str()),
+        | other => serde_json::to_string(&other).map_or_else(|_| T::from(other.to_string()), T::from),
     }
 }
 

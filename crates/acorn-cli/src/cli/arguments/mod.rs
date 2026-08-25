@@ -531,7 +531,7 @@ pub(crate) struct ModelSyncArgs {
         \n\
         Users of Transformers or PyTorch typically need the full repository or a broader filter\n\
         that includes config.json, tokenizer files, tokenizer_config.json, and optionally\n\
-        custom code files. The default GGUF-only filter is designed for llama.cpp inference.",
+        custom code files. The default GGUF-only filter is designed for local GGUF inference.",
     verbatim_doc_comment
 )]
 pub(crate) struct DownloadModel {

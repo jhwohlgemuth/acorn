@@ -2,7 +2,7 @@
 
 ## In progress
 
-- [OCI model artifact downloads](oci-model-artifact-downloads.md) - Add portable OCI model resolution and ORAS-backed downloads with optional Harbor discovery and metadata.
+- [OCI model artifact downloads](oci-model-artifact-downloads.md) - Improve GGUF-focused OCI downloads with ModelPack, typed layer planning, index resolution, and registry interoperability.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 - [SWHID persistent-identifier support](swhid-persistent-identifier.md) - Add SWHID v1.2 parsing, discovery, RAD storage, exact identity, CFF interchange, and optional Software Heritage resolution.
 

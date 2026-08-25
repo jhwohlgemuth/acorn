@@ -76,6 +76,7 @@ pub mod database;
 pub mod document;
 pub mod download;
 pub mod fingerprint;
+mod gguf;
 pub mod http;
 #[cfg(feature = "agentic")]
 pub mod mcp;
@@ -174,6 +175,12 @@ pub trait PathConversion: AsRef<Path> {
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
+    /// Return split GGUF filename parts as `(group, index, count)`.
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)>;
+    /// Return whether a GGUF filename denotes an auxiliary projector or adapter.
+    fn is_auxiliary_gguf(&self) -> bool;
+    /// Return whether this path has the GGUF model MIME type.
+    fn is_gguf(&self) -> bool;
     /// Return whether this path is non-empty, relative, and contains only normal components.
     fn is_safe(&self) -> bool;
     /// Return whether this path is a Windows drive path such as `C:/...` or `C:\...`.
@@ -506,6 +513,43 @@ impl FromPath for MimeType {
     }
 }
 impl PathExt for Path {
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        self.file_name()
+            .and_then(|value| value.to_str())
+            .and_then(|filename| filename.to_ascii_lowercase().strip_suffix(".gguf").map(str::to_string))
+            .and_then(|stem| {
+                stem.rsplit_once("-of-")
+                    .map(|(before_count, count)| (before_count.to_string(), count.to_string()))
+            })
+            .and_then(|(before_count, count)| {
+                before_count
+                    .rsplit_once('-')
+                    .map(|(base, index)| (base.to_string(), index.to_string(), count))
+            })
+            .and_then(|(base, index, count)| {
+                index
+                    .parse::<u64>()
+                    .ok()
+                    .zip(count.parse::<u64>().ok())
+                    .filter(|(index, count)| !base.is_empty() && *index > 0 && *count > 0 && index <= count)
+                    .map(|(index, count)| {
+                        let parent = self.parent().filter(|value| !value.as_os_str().is_empty());
+                        let key = parent.map_or_else(|| format!("{base}-of-{count}"), |value| format!("{}/{base}-of-{count}", value.display()));
+                        (key, index, count)
+                    })
+            })
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        let name = self
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_else(|| self.to_str().unwrap_or_default())
+            .to_ascii_lowercase();
+        ["mmproj", "projector", "adapter", "lora"].iter().any(|marker| name.contains(marker))
+    }
+    fn is_gguf(&self) -> bool {
+        MimeType::from_path(self).is_gguf()
+    }
     fn is_safe(&self) -> bool {
         !self.as_os_str().is_empty() && !self.is_absolute() && self.components().all(|component| matches!(component, Component::Normal(_)))
     }
@@ -518,6 +562,15 @@ impl PathExt for Path {
     }
 }
 impl PathExt for &Path {
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
     fn is_safe(&self) -> bool {
         <Path as PathExt>::is_safe(self)
     }
