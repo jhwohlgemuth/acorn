@@ -65,6 +65,36 @@ struct ArrayParamModel {
     #[validate(length(min = 3))]
     tags: Vec<String>,
 }
+impl ValeOutputItem {
+    fn fixture(line: u32, span: Vec<u32>, word_match: &str) -> Self {
+        Self {
+            action: ValeOutputItemAction {
+                name: "replace".to_string(),
+                params: None,
+            },
+            check: "Vale.Spelling".to_string(),
+            description: String::new(),
+            line,
+            link: String::new(),
+            message: "Prose issue".to_string(),
+            severity: ValeOutputItemSeverity::Error,
+            span,
+            word_match: word_match.to_string(),
+        }
+    }
+}
+fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem) -> Check {
+    let document = SourceDocument::init().content(content).format(source).source(source).build();
+    let documents = HashMap::from([(source.to_string(), Arc::new(DocumentIndex::new(document)))]);
+    Check::init()
+        .category(CheckCategory::Prose)
+        .errors(ErrorKind::Vale(vec![item]))
+        .message("prose issue")
+        .uri(source)
+        .build()
+        .with_data(analyzed.to_string())
+        .attach_document(&documents)
+}
 
 #[tokio::test]
 async fn test_vale_retry_sync_reports_exhaustion() {
@@ -513,6 +543,55 @@ fn test_with_context_and_with_uri_preserve_severity() {
     let with_uri = check.with_uri(Some("https://example.org".to_string()));
     assert_eq!(with_context.severity, CheckSeverity::Warning);
     assert_eq!(with_uri.severity, CheckSeverity::Warning);
+}
+#[test]
+fn test_prose_location_maps_extracted_document_coordinates() {
+    let content = "# Title\n\nbad prose";
+    let check = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
+    assert!(check.terse().contains("path=paper.pdf:3:1"));
+}
+#[test]
+fn test_prose_location_maps_structured_prose_to_full_source() {
+    let content = "{\n  \"ignored\": \"metadata\",\n  \"description\": \"geo-spatial science\"\n}";
+    let check = prose_check(
+        "index.json",
+        content,
+        "geo-spatial science",
+        ValeOutputItem::fixture(1, vec![1, 11], "geo-spatial"),
+    );
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
+    assert!(check.to_string().contains("Line 3, Character 19"));
+    assert!(check.terse().contains("path=index.json:3:19"));
+}
+#[test]
+fn test_prose_location_omits_invalid_analyzer_span() {
+    let content = "first\nsecond";
+    let check = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
+    assert_eq!(check.locator, None);
+    assert!(check.to_string().contains("Unlocated"));
+    assert!(!check.terse().contains("path=notes.md:"));
+}
+#[test]
+fn test_prose_location_omits_ambiguous_structured_match() {
+    let content = "{\"title\":\"repeat\",\"description\":\"repeat\"}";
+    let check = prose_check(
+        "index.json",
+        content,
+        "repeat\n\nrepeat",
+        ValeOutputItem::fixture(3, vec![1, 6], "repeat"),
+    );
+    assert_eq!(check.locator, None);
+    assert!(check.to_string().contains("Unlocated"));
+    assert!(check.terse().contains("path=index.json"));
+    assert!(!check.terse().contains("path=index.json:"));
+}
+#[test]
+fn test_prose_location_uses_full_text_coordinates_with_duplicate_words() {
+    let content = "repeat\nclean\nrepeat problem";
+    let check = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
+    assert!(check.terse().contains("path=notes.md:3:1"));
 }
 #[test]
 fn test_terse_output_includes_resolved_line_and_column() {

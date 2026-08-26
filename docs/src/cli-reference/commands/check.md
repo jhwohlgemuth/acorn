@@ -33,6 +33,8 @@ ACORN recognizes `.md` and `.markdown` research activity files by their `schema:
 
 PDF files are discovered in directories and Git changes and are automatically analyzed as document text. ACORN extracts each text-bearing page once, caches the result for the duration of the process, and applies prose, readability, link, and extraction-quality checks. Diagnostics rendered against extracted text include the original one-based PDF page number when the matched text can be located.
 
+Prose diagnostic line and column coordinates refer to the complete source file, not the subset of prose sent to the analyzer. For converted binary documents, coordinates refer to the complete extracted Markdown. When ACORN cannot map a finding to one unambiguous source location, it reports the finding without a line number.
+
 The `document` standard can also be selected explicitly. The previous `docx` name and `pdf` are retained as aliases:
 
 ```sh

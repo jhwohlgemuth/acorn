@@ -910,7 +910,6 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                                         false,
                                         severity: severity.into(),
                                         uri: uri.clone(),
-                                        locator: item.locator(),
                                         message: message,
                                         errors: ErrorKind::Vale(vec![item.clone()]),
                                         data: content.clone(),

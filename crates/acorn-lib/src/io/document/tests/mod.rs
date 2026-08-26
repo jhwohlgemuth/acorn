@@ -178,6 +178,18 @@ fn test_reports_ambiguous_yaml_text_when_only_unanchored_scalar_matches() {
     assert_eq!(index.resolve(&query), DocumentMatch::Ambiguous);
 }
 #[test]
+fn test_resolves_line_columns_to_utf8_span() {
+    let content = "αβ\r\nthird";
+    let index = DocumentIndex::new(document(content, "input.txt"));
+    let first = index.span_from_line_columns(1, &[2, 2]).expect("valid Unicode span");
+    let second = index.span_from_line_columns(2, &[1, 5]).expect("valid CRLF line span");
+    assert_eq!(&content[first.0], "β");
+    assert_eq!(&content[second.0], "third");
+    assert!(index.span_from_line_columns(0, &[1, 1]).is_none());
+    assert!(index.span_from_line_columns(1, &[0, 1]).is_none());
+    assert!(index.span_from_line_columns(3, &[1, 1]).is_none());
+}
+#[test]
 fn test_resolver_prefers_canonical_exact_path() {
     let content = r#"{"contentUrl":"canonical.png","content_url":"fallback.png"}"#;
     let index = DocumentIndex::new(document(content, "index.json"));

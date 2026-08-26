@@ -4,7 +4,7 @@ use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
 use super::{to_dataframe, StaticAnalyzer, StaticAnalyzerConfig};
-use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentQuery, DocumentSpan};
+use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan};
 use crate::io::InputOutput;
 #[cfg(feature = "analysis")]
 use crate::prelude::Cursor;
@@ -509,7 +509,6 @@ impl Check {
                         let ValeOutputItem {
                             check, message, severity, ..
                         } = item;
-                        let query = item.query();
                         let report = DocumentReport::init()
                             .title(&title)
                             .index(index.saturating_add(i))
@@ -518,7 +517,10 @@ impl Check {
                             .message(message.italic().to_string())
                             .color(severity.into())
                             .build();
-                        let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                        let rendered = document
+                            .as_ref()
+                            .zip(self.prose_span(item))
+                            .is_some_and(|(document, span)| document.print(&span, report));
                         if !rendered {
                             print_unlocated(index.saturating_add(i), &CheckSeverity::from(severity.clone()), check, message.clone());
                         }
@@ -602,9 +604,37 @@ impl Check {
     pub(crate) fn attach_document(self, documents: &HashMap<String, Arc<DocumentIndex>>) -> Self {
         let document = self.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
         match document {
-            | Some(document) => self.with_document(document),
+            | Some(document) => {
+                let attached = self.with_document(document);
+                let locator = match (&attached.category, &attached.errors) {
+                    | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.first().and_then(|item| attached.prose_locator(item)),
+                    | _ => attached.locator.clone(),
+                };
+                Self { locator, ..attached }
+            }
             | None => self,
         }
+    }
+    fn prose_locator(&self, item: &ValeOutputItem) -> Option<String> {
+        self.prose_position(item)
+            .map(|position| format!("Line {}, Character {}", position.line, position.column))
+    }
+    fn prose_position(&self, item: &ValeOutputItem) -> Option<DocumentPosition> {
+        self.document
+            .as_ref()
+            .zip(self.prose_span(item))
+            .and_then(|(document, span)| document.position(span.0.start))
+    }
+    fn prose_span(&self, item: &ValeOutputItem) -> Option<DocumentSpan> {
+        self.document
+            .as_ref()
+            .and_then(|document| match self.data.as_deref() == Some(document.document().content.as_str()) {
+                | true => document.span_from_line_columns(item.line, &item.span),
+                | false => match document.resolve(&item.query()) {
+                    | DocumentMatch::Unique(span) => Some(span),
+                    | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
+                },
+            })
     }
     pub(crate) fn terse(&self) -> String {
         let uri = self.uri.as_deref().unwrap_or_default();
@@ -621,7 +651,7 @@ impl Check {
                     };
                     vec![document.locate(&query)]
                 }
-                | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| document.locate(&item.query())).collect(),
+                | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_position(item)).collect(),
                 | (CheckCategory::Schema, _, Some(ErrorKind::Validator(kind))) => {
                     let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
                     process(prefix, kind).iter().map(|issue| document.locate(&issue.query())).collect()
@@ -689,7 +719,7 @@ impl fmt::Display for Check {
                         let ValeOutputItem {
                             check, message, severity, ..
                         } = item;
-                        let location = item.locator();
+                        let location = self.prose_locator(item).unwrap_or_else(|| "Unlocated".to_string());
                         let severity = CheckSeverity::from(severity.clone());
                         let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
                         f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
@@ -1223,8 +1253,14 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
 }
 fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
     match document.resolve(query) {
-        | DocumentMatch::Unique(span) => document.excerpt(&span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
-            let page = document.page_number(span.0.start);
+        | DocumentMatch::Unique(span) => document.print(&span, report),
+        | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
+    }
+}
+impl DocumentIndex {
+    fn print(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
+        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
+            let page = self.page_number(span.0.start);
             let DocumentSpan(span) = excerpt.span;
             let source = Source::from(excerpt.content);
             let message = match page {
@@ -1239,8 +1275,7 @@ fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report
                 .finish()
                 .print((report.title, source));
             true
-        }),
-        | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
+        })
     }
 }
 fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, message: String) {

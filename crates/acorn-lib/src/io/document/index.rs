@@ -299,6 +299,48 @@ impl DocumentIndex {
             }
         })
     }
+    pub(crate) fn span_from_line_columns(&self, line: u32, columns: &[u32]) -> Option<DocumentSpan> {
+        usize::try_from(line)
+            .ok()
+            .and_then(|line| line.checked_sub(1))
+            .and_then(|line| {
+                self.line_starts.get(line).copied().map(|start| {
+                    let end = self
+                        .line_starts
+                        .get(line.saturating_add(1))
+                        .copied()
+                        .unwrap_or(self.document.content.len());
+                    (start, end)
+                })
+            })
+            .and_then(|(line_start, line_end)| {
+                self.document.content.get(line_start..line_end).and_then(|content| {
+                    let content = content.trim_end_matches(['\r', '\n']);
+                    let byte_offset = |character: usize| {
+                        content
+                            .char_indices()
+                            .nth(character)
+                            .map(|(byte, _)| byte)
+                            .or_else(|| (character == content.chars().count()).then_some(content.len()))
+                    };
+                    columns
+                        .first()
+                        .copied()
+                        .and_then(|column| usize::try_from(column).ok())
+                        .and_then(|column| column.checked_sub(1))
+                        .and_then(|start| {
+                            let end = columns
+                                .get(1)
+                                .copied()
+                                .and_then(|column| usize::try_from(column).ok())
+                                .unwrap_or_else(|| start.saturating_add(1));
+                            byte_offset(start).zip(byte_offset(end))
+                        })
+                        .filter(|(start, end)| start < end)
+                        .map(|(start, end)| DocumentSpan(line_start.saturating_add(start)..line_start.saturating_add(end)))
+                })
+            })
+    }
     /// Resolve a query to its one-based physical line and character column
     pub fn locate(&self, query: &DocumentQuery) -> Option<DocumentPosition> {
         match self.resolve(query) {
