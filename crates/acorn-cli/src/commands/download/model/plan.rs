@@ -10,7 +10,7 @@ use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelE
 use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport};
-use acorn::io::{ApiResult, Source, SourceAction};
+use acorn::io::{first_env_var, ApiResult, Source, SourceAction};
 #[cfg(feature = "tui")]
 use acorn::prelude::io;
 use acorn::prelude::{create_dir_all, HashMap, HashSet, Path, PathBuf, String, Vec};
@@ -19,7 +19,7 @@ use acorn::schema::agent::{
 };
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::OneOrMany;
-use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
 use acorn::util::{merge, Label, MimeType, StringConversion};
 use acorn::{Location, Repository};
 use bon::Builder;
@@ -58,6 +58,8 @@ pub(crate) struct DownloadOptions {
 #[builder(start_fn = init)]
 pub(crate) struct ModelDownloadPlan {
     pub(crate) selector: Source,
+    #[builder(default = first_env_var(&["HF_ENDPOINT"]).unwrap_or_else(|| DEFAULT_HUGGINGFACE_DOMAIN.to_string()))]
+    pub(crate) domain: String,
     #[builder(default = String::from(DEFAULT_HUGGINGFACE_MODEL_REVISION))]
     pub(crate) revision: String,
     #[builder(default)]
@@ -194,7 +196,11 @@ impl ModelDownloadPlan {
             let identifier = self.selector.identifier();
             match huggingface::parse_identifier(&identifier) {
                 | Ok((owner, name)) => {
-                    let info = huggingface::fetch_model_info(owner, name).await;
+                    let options = huggingface::Options::init()
+                        .domain(&self.domain)
+                        .identifier(format!("{owner}/{name}"))
+                        .build();
+                    let info = huggingface::ModelInfo::fetch(&options).await;
                     match info {
                         | Ok(model) => match whitelist.iter().any(|base| model.is_declared_derivative_of(base)) {
                             | true => Ok(true),
@@ -390,8 +396,13 @@ impl ModelDownloadPlan {
         match (options.selector.clone(), options.output.clone()) {
             | (Some(Source::Remote { identifier, .. }), Some(root)) => {
                 let destination = root.join(&identifier);
+                let tree_options = huggingface::Options::init()
+                    .domain(&self.domain)
+                    .identifier(&identifier)
+                    .revision(&self.revision)
+                    .build();
                 match create_dir_all(&destination) {
-                    | Ok(()) => match huggingface::repository_tree(&identifier, &self.revision).await {
+                    | Ok(()) => match huggingface::repository_tree(&tree_options).await {
                         | Ok(files) => {
                             let files = match self.required_paths.is_empty() {
                                 | true => files,
@@ -415,6 +426,7 @@ impl ModelDownloadPlan {
                                 ..
                             } = options.clone();
                             let options = huggingface::Options::init()
+                                .domain(&self.domain)
                                 .identifier(&identifier)
                                 .maybe_filter(filter)
                                 .maybe_ignore(ignore)
@@ -455,6 +467,7 @@ impl ModelDownloadPlan {
                                 ..
                             } = options;
                             let options = huggingface::Options::init()
+                                .domain(&self.domain)
                                 .identifier(&identifier)
                                 .maybe_filter(filter)
                                 .maybe_ignore(ignore)
@@ -488,6 +501,7 @@ impl ModelDownloadPlan {
     }
     async fn download_gguf_fallback(root: &Path, options: huggingface::Options) -> ApiResult<RepositoryResolution<Downloaded>> {
         let huggingface::Options {
+            domain,
             identifier,
             filter,
             ignore,
@@ -508,8 +522,13 @@ impl ModelDownloadPlan {
                         identifier.yellow()
                     );
                 }
+                let basename = ModelSelector::new(identifier)
+                    .map(|selector| selector.fallback_search_name())
+                    .unwrap_or_default();
                 let search_options = huggingface::SearchOptions::init()
+                    .domain(domain)
                     .identifier(identifier)
+                    .basename(basename)
                     .limit(*search_limit)
                     .minimum_download_count(*minimum_download_count)
                     .interactive(*interactive)
@@ -518,10 +537,16 @@ impl ModelDownloadPlan {
                     | Ok(candidates) => match candidates.select(&options) {
                         | Ok(fallback_identifier) => {
                             let destination = root.join(&fallback_identifier);
+                            let tree_options = huggingface::Options::init()
+                                .domain(domain)
+                                .identifier(&fallback_identifier)
+                                .revision(DEFAULT_HUGGINGFACE_MODEL_REVISION)
+                                .build();
                             match create_dir_all(&destination) {
-                                | Ok(()) => match huggingface::repository_tree(&fallback_identifier, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
+                                | Ok(()) => match huggingface::repository_tree(&tree_options).await {
                                     | Ok(files) => {
                                         let fallback_options = huggingface::Options::init()
+                                            .domain(domain)
                                             .identifier(&fallback_identifier)
                                             .maybe_filter(filter.clone())
                                             .maybe_ignore(ignore.clone())
@@ -777,34 +802,42 @@ impl ModelDownloadPlans {
                     },
                     | Source::Remote { identifier, .. } if !offline && !Location::from(identifier).is_http_or_https() => {
                         let base = plan.details.clone().unwrap_or_else(|| ModelDetails::from(&plan));
+                        let basename = ModelSelector::new(identifier)
+                            .map(|selector| selector.fallback_search_name())
+                            .unwrap_or_default();
                         let search_options = huggingface::SearchOptions::init()
+                            .domain(&plan.domain)
                             .identifier(identifier)
+                            .basename(basename)
                             .limit(limit)
                             .minimum_download_count(minimum_download_count)
                             .interactive(interactive)
                             .build();
                         let resolution = match huggingface::parse_identifier(identifier) {
-                            | Ok((provider, name)) => match huggingface::fetch_model_info(provider, name).await {
-                                | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
-                                | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
-                                    | Ok(resolved) => Some(resolved),
+                            | Ok(_) => {
+                                let metadata_options = huggingface::Options::init().domain(&plan.domain).identifier(identifier).build();
+                                match huggingface::ModelInfo::fetch(&metadata_options).await {
+                                    | Ok(info) if info.has_gguf_files() => Some(RepositoryResolution::direct(identifier, base)),
+                                    | Ok(_) => match base.resolve_fallback(&search_options, offline).await {
+                                        | Ok(resolved) => Some(resolved),
+                                        | Err(why) => {
+                                            let reason = format!("({why})");
+                                            error!("=> {} Resolve fallback for {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
+                                            None
+                                        }
+                                    },
+                                    | Err(why) if huggingface::model_is_unavailable(&why) => {
+                                        let reason = "(unavailable on Hugging Face)";
+                                        warn!("=> {} {} {}", Label::not_found(), identifier.yellow(), reason.dimmed());
+                                        base.resolve_fallback(&search_options, offline).await.ok()
+                                    }
                                     | Err(why) => {
                                         let reason = format!("({why})");
-                                        error!("=> {} Resolve fallback for {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
+                                        error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
                                         None
                                     }
-                                },
-                                | Err(why) if huggingface::model_is_unavailable(&why) => {
-                                    let reason = "(unavailable on Hugging Face)";
-                                    warn!("=> {} {} {}", Label::not_found(), identifier.yellow(), reason.dimmed());
-                                    base.resolve_fallback(&search_options, offline).await.ok()
                                 }
-                                | Err(why) => {
-                                    let reason = format!("({why})");
-                                    error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());
-                                    None
-                                }
-                            },
+                            }
                             | Err(why) => {
                                 let reason = format!("({why})");
                                 error!("=> {} Resolve {} {}", Label::fail(), plan.name().yellow(), reason.dimmed());

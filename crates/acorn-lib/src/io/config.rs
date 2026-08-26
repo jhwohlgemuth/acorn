@@ -1086,7 +1086,7 @@ impl Bucket {
                         let mut all_paths: Vec<String> = vec![];
                         loop {
                             let page_options = options.clone().with_page(page);
-                            match gitlab::tree_paths(&page_options).await {
+                            match gitlab::repository_tree(&page_options).await {
                                 | Ok(response) if response.entry_count == 0 => {
                                     break Ok(all_paths.clone());
                                 }

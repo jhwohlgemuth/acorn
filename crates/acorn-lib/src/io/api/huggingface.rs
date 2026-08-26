@@ -1,10 +1,12 @@
 //! Hugging Face Hub API helpers.
-use super::{Endpoint, IntoHeaders, Params, RemoteResource, ResponseContent, TreeEntry};
+use super::{Endpoint, IntoHeaders, Params, RemoteResource, TreeEntry};
 use crate::io::api::{Param, RepositoryFileMetadata};
 use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
+use crate::io::http::HttpResponseError;
 use crate::io::sync::Shard;
 use crate::io::{first_env_var, http, ApiResult, Source};
+use crate::param;
 use crate::prelude::{HashMap, Path};
 use crate::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
 use crate::util::constants::app::{
@@ -21,8 +23,7 @@ use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt, ops::Deref};
-use futures::{future::join_all, TryStreamExt};
-use hf_hub::{repository::ModelInfo, HFClient, HFError};
+use futures::future::join_all;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -82,6 +83,21 @@ pub trait ModelInfoExtension {
     /// is a variant of `nvidia/nemotron-3-super-120b-a12b`.
     fn is_declared_variant_of(&self, identifier: &str) -> bool;
 }
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum BaseModelReference {
+    Identifier(String),
+    Metadata { id: String },
+}
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum BaseModels {
+    References(Vec<BaseModelReference>),
+    Relationship {
+        #[serde(default)]
+        models: Vec<BaseModelReference>,
+    },
+}
 /// Errors produced by Hugging Face repository selection and download helpers
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HuggingFaceError {
@@ -125,13 +141,6 @@ pub struct Candidate {
     /// Quantization formats detected in repository filenames
     pub quantizations: Vec<String>,
 }
-/// A repository-backed value together with its requested and resolved identifiers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RepositoryResolution<T> {
-    requested: String,
-    resolved: String,
-    value: T,
-}
 /// Hugging Face repository files selected and downloaded for a model
 #[derive(Builder, Clone, Debug, Eq, PartialEq)]
 #[builder(start_fn = init, on(String, into))]
@@ -151,24 +160,54 @@ pub struct FileSelectionPolicy<'a> {
     /// Error message to display when no files match.
     pub no_match_message: &'a str,
 }
-/// Options for Hugging Face model fallback searches.
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init, on(String, into))]
-pub struct SearchOptions {
-    /// Base model identifier used to find related GGUF repositories.
+/// File metadata returned by the Hugging Face repository tree API
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HuggingFaceRepositoryFile {
+    /// Repository-relative path
+    pub path: String,
+    /// File size in bytes, when provided by Hugging Face
+    pub size: Option<u64>,
+}
+/// Repository identity and files returned by the Hugging Face tree API.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HuggingFaceRepositoryFiles {
+    /// Repository-relative file metadata.
+    pub files: Vec<HuggingFaceRepositoryFile>,
+    /// Hugging Face repository identifier.
     pub identifier: String,
-    /// Hugging Face search filter.
-    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_TERM.to_string())]
-    pub term: String,
-    /// Maximum number of repositories considered during fallback discovery.
-    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
-    pub limit: usize,
-    /// Minimum number of downloads required for a fallback repository.
-    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
-    pub minimum_download_count: u64,
-    /// Whether fallback candidates should be selected interactively.
-    #[builder(default)]
-    pub interactive: bool,
+    /// Repository revision used for the tree request.
+    pub revision: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Hugging Face model metadata used for direct and fallback repository resolution.
+pub struct ModelInfo {
+    /// Repository identifier in `owner/name` form.
+    pub id: String,
+    /// Models declared as ancestors of this repository.
+    #[serde(default, deserialize_with = "deserialize_base_models")]
+    pub base_models: Option<Vec<String>>,
+    /// Parsed model-card metadata.
+    #[serde(default)]
+    pub card_data: Option<Value>,
+    /// Downloads reported by Hugging Face.
+    #[serde(default)]
+    pub downloads: Option<u64>,
+    /// Likes reported by Hugging Face.
+    #[serde(default)]
+    pub likes: Option<u64>,
+    /// Files published by the repository.
+    #[serde(default)]
+    pub siblings: Option<Vec<ModelSibling>>,
+    /// Model and relationship tags computed by Hugging Face.
+    #[serde(default)]
+    pub tags: Option<Vec<String>>,
+}
+/// File reference embedded in Hugging Face model metadata.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ModelSibling {
+    /// Repository-relative filename.
+    pub rfilename: String,
 }
 /// Options for HuggingFace API requests
 #[derive(Builder, Clone, Debug)]
@@ -177,7 +216,7 @@ pub struct Options {
     /// Authentication token
     pub token: Option<String>,
     /// Model registry domain (default: "huggingface.co")
-    #[builder(default = String::from("huggingface.co"))]
+    #[builder(default = DEFAULT_HUGGINGFACE_DOMAIN.to_string())]
     pub domain: String,
     /// Model repository identifier
     pub identifier: Option<String>,
@@ -220,184 +259,41 @@ pub struct Options {
     /// Output directory for downloaded files
     pub output: Option<String>,
 }
-/// File metadata returned by the Hugging Face repository tree API
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HuggingFaceRepositoryFile {
-    /// Repository-relative path
-    pub path: String,
-    /// File size in bytes, when provided by Hugging Face
-    pub size: Option<u64>,
+/// A repository-backed value together with its requested and resolved identifiers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RepositoryResolution<T> {
+    requested: String,
+    resolved: String,
+    value: T,
 }
-/// Repository identity and files returned by the Hugging Face tree API.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HuggingFaceRepositoryFiles {
-    /// Repository-relative file metadata.
-    pub files: Vec<HuggingFaceRepositoryFile>,
-    /// Hugging Face repository identifier.
+/// Options for Hugging Face model fallback searches.
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
+pub struct SearchOptions {
+    /// Base model identifier used to find related GGUF repositories.
     pub identifier: String,
-    /// Repository revision used for the tree request.
-    pub revision: String,
-}
-impl RepositoryFileMetadata for HuggingFaceRepositoryFile {
-    fn path(&self) -> &str {
-        &self.path
-    }
-    fn size(&self) -> Option<u64> {
-        self.size
-    }
-}
-impl HuggingFaceRepositoryFiles {
-    /// Create repository file metadata with its repository identity.
-    pub fn new(identifier: impl Into<String>, revision: impl Into<String>, files: Vec<HuggingFaceRepositoryFile>) -> Self {
-        Self {
-            files,
-            identifier: identifier.into(),
-            revision: revision.into(),
-        }
-    }
-    /// Returns a complete split GGUF shard set as one logical candidate.
-    /// Repository listings expose each shard as a separate file, which can otherwise look like multiple candidates.
-    fn complete_shard_set(&self) -> Option<Self> {
-        let shards = self
-            .iter()
-            .filter_map(|file| Shard::parts(&file.path.to_ascii_lowercase()))
-            .collect::<Vec<_>>();
-        shards.first().and_then(|(key, _, count)| {
-            let indexes = shards
-                .iter()
-                .filter(|(candidate_key, _, candidate_count)| candidate_key == key && candidate_count == count)
-                .map(|(_, index, _)| *index)
-                .collect::<BTreeSet<_>>();
-            let expected = (1..=*count).collect::<BTreeSet<_>>();
-            match indexes == expected && usize::try_from(*count).ok() == Some(shards.len()) {
-                | true => Some(self.clone()),
-                | false => None,
-            }
-        })
-    }
-    fn repository_model_files(&self) -> Self {
-        let repository_name = self.identifier.rsplit('/').next().unwrap_or_default().to_ascii_lowercase();
-        let model_name = repository_name.strip_suffix("-gguf").unwrap_or(&repository_name);
-        let prefix = format!("{model_name}-");
-        let files = self
-            .iter()
-            .filter(|file| {
-                file.path
-                    .rsplit('/')
-                    .next()
-                    .is_some_and(|filename| filename.to_ascii_lowercase().starts_with(&prefix))
-            })
-            .cloned()
-            .collect();
-        Self::new(&self.identifier, &self.revision, files)
-    }
-    fn candidate_report(&self) -> String {
-        match self.len() {
-            | 0 => "no GGUF files".to_string(),
-            | 1 | 2 => self.iter().map(|file| file.path.as_str()).collect::<Vec<_>>().join(", "),
-            | count => format!("{count} GGUF files"),
-        }
-    }
-    fn parse(content: &str, options: &Options) -> ApiResult<Self> {
-        #[derive(Deserialize)]
-        struct ApiError {
-            #[serde(alias = "message")]
-            error: String,
-        }
-        match options.identifier.as_deref() {
-            | Some(identifier) => serde_json::from_str::<Vec<TreeEntry>>(content)
-                .map(|entries| {
-                    let files = entries
-                        .into_iter()
-                        .filter(TreeEntry::is_file)
-                        .map(HuggingFaceRepositoryFile::from)
-                        .collect();
-                    Self::new(identifier, &options.revision, files)
-                })
-                .map_err(|why| {
-                    serde_json::from_str::<ApiError>(content).map_or_else(
-                        |_| eyre!("Failed to parse Hugging Face repository file list for '{identifier}' — {why}"),
-                        |response| eyre!("Hugging Face API rejected repository '{identifier}' — {}", response.error),
-                    )
-                }),
-            | None => Err(eyre!("Missing Hugging Face repository identifier")),
-        }
-    }
-    /// Resolve the configured repository or a selected GGUF fallback repository.
-    pub async fn resolve(options: &Options) -> ApiResult<RepositoryResolution<Self>> {
-        let Options {
-            identifier,
-            no_fallback,
-            revision,
-            search_limit,
-            minimum_download_count,
-            interactive,
-            ..
-        } = options;
-        match identifier.as_deref() {
-            | Some(identifier) => match repository_tree(identifier, revision).await {
-                | Ok(repository) if repository.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) => {
-                    Ok(RepositoryResolution::new(identifier, identifier, repository))
-                }
-                | Ok(_) if *no_fallback => Err(eyre!("No GGUF model files found for '{identifier}'")),
-                | Err(why) if *no_fallback => Err(why),
-                | Ok(_) | Err(_) => {
-                    let search_options = SearchOptions::init()
-                        .identifier(identifier)
-                        .limit(*search_limit)
-                        .minimum_download_count(*minimum_download_count)
-                        .interactive(*interactive)
-                        .build();
-                    match search(&search_options).await {
-                        | Ok(candidates) => match candidates.select(options) {
-                            | Ok(resolved) => match repository_tree(&resolved, DEFAULT_HUGGINGFACE_MODEL_REVISION).await {
-                                | Ok(repository) => Ok(RepositoryResolution::new(identifier, resolved, repository)),
-                                | Err(why) => Err(why),
-                            },
-                            | Err(why) => Err(why),
-                        },
-                        | Err(why) => Err(why),
-                    }
-                }
-            },
-            | None => Err(eyre!("Missing Hugging Face repository identifier")),
-        }
-    }
-}
-impl Deref for HuggingFaceRepositoryFiles {
-    type Target = [HuggingFaceRepositoryFile];
-    fn deref(&self) -> &Self::Target {
-        &self.files
-    }
-}
-impl IntoIterator for HuggingFaceRepositoryFiles {
-    type Item = HuggingFaceRepositoryFile;
-    type IntoIter = alloc::vec::IntoIter<HuggingFaceRepositoryFile>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.files.into_iter()
-    }
-}
-impl From<HuggingFaceRepositoryFiles> for Weights {
-    fn from(repository: HuggingFaceRepositoryFiles) -> Self {
-        Weights(
-            repository
-                .files
-                .into_iter()
-                .filter_map(|file| {
-                    Quantization::from_gguf_filename(&file.path).map(|quantization| Weight {
-                        label: file.path.clone(),
-                        url: format!(
-                            "https://{DEFAULT_HUGGINGFACE_DOMAIN}/{}/resolve/{}/{}",
-                            repository.identifier, repository.revision, file.path
-                        ),
-                        is_open: None,
-                        quantization: Some(quantization),
-                        size: file.size,
-                    })
-                })
-                .collect(),
-        )
-    }
+    /// Model name used for the Hugging Face text search.
+    pub basename: String,
+    /// Model registry domain.
+    #[builder(default = DEFAULT_HUGGINGFACE_DOMAIN.to_string())]
+    pub domain: String,
+    /// Authentication token.
+    pub token: Option<String>,
+    /// Hugging Face search filter.
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_TERM.to_string())]
+    pub term: String,
+    /// Maximum number of repositories considered during fallback discovery.
+    #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_LIMIT)]
+    pub limit: usize,
+    /// Minimum number of downloads required for a fallback repository.
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
+    pub minimum_download_count: u64,
+    /// Whether fallback candidates should be selected interactively.
+    #[builder(default)]
+    pub interactive: bool,
+    /// Custom API parameters to include in the search request.
+    #[builder(default = vec![])]
+    pub custom_params: Vec<Param>,
 }
 impl fmt::Display for Candidate {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -514,6 +410,7 @@ impl Downloaded {
         Weights(existing.0.into_iter().chain(downloaded).collect())
     }
 }
+impl core::error::Error for HuggingFaceError {}
 impl fmt::Display for HuggingFaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -541,13 +438,26 @@ impl fmt::Display for HuggingFaceError {
         }
     }
 }
-impl core::error::Error for HuggingFaceError {}
 impl From<TreeEntry> for HuggingFaceRepositoryFile {
     fn from(entry: TreeEntry) -> Self {
         HuggingFaceRepositoryFile {
             path: entry.path,
             size: entry.size,
         }
+    }
+}
+impl RepositoryFileMetadata for HuggingFaceRepositoryFile {
+    fn path(&self) -> &str {
+        &self.path
+    }
+    fn size(&self) -> Option<u64> {
+        self.size
+    }
+}
+impl Deref for HuggingFaceRepositoryFiles {
+    type Target = [HuggingFaceRepositoryFile];
+    fn deref(&self) -> &Self::Target {
+        &self.files
     }
 }
 #[async_trait]
@@ -716,6 +626,183 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
         }
     }
 }
+impl HuggingFaceRepositoryFiles {
+    /// Create repository file metadata with its repository identity.
+    pub fn new(identifier: impl Into<String>, revision: impl Into<String>, files: Vec<HuggingFaceRepositoryFile>) -> Self {
+        Self {
+            files,
+            identifier: identifier.into(),
+            revision: revision.into(),
+        }
+    }
+    /// Returns a complete split GGUF shard set as one logical candidate.
+    /// Repository listings expose each shard as a separate file, which can otherwise look like multiple candidates.
+    fn complete_shard_set(&self) -> Option<Self> {
+        let shards = self
+            .iter()
+            .filter_map(|file| Shard::parts(&file.path.to_ascii_lowercase()))
+            .collect::<Vec<_>>();
+        shards.first().and_then(|(key, _, count)| {
+            let indexes = shards
+                .iter()
+                .filter(|(candidate_key, _, candidate_count)| candidate_key == key && candidate_count == count)
+                .map(|(_, index, _)| *index)
+                .collect::<BTreeSet<_>>();
+            let expected = (1..=*count).collect::<BTreeSet<_>>();
+            match indexes == expected && usize::try_from(*count).ok() == Some(shards.len()) {
+                | true => Some(self.clone()),
+                | false => None,
+            }
+        })
+    }
+    fn repository_model_files(&self) -> Self {
+        let repository_name = self.identifier.rsplit('/').next().unwrap_or_default().to_ascii_lowercase();
+        let model_name = repository_name.strip_suffix("-gguf").unwrap_or(&repository_name);
+        let prefix = format!("{model_name}-");
+        let files = self
+            .iter()
+            .filter(|file| {
+                file.path
+                    .rsplit('/')
+                    .next()
+                    .is_some_and(|filename| filename.to_ascii_lowercase().starts_with(&prefix))
+            })
+            .cloned()
+            .collect();
+        Self::new(&self.identifier, &self.revision, files)
+    }
+    fn candidate_report(&self) -> String {
+        match self.len() {
+            | 0 => "no GGUF files".to_string(),
+            | 1 | 2 => self.iter().map(|file| file.path.as_str()).collect::<Vec<_>>().join(", "),
+            | count => format!("{count} GGUF files"),
+        }
+    }
+    /// Resolve the configured repository or a selected GGUF fallback repository.
+    pub async fn resolve(options: &Options) -> ApiResult<RepositoryResolution<Self>> {
+        let Options {
+            identifier,
+            no_fallback,
+            search_limit,
+            minimum_download_count,
+            interactive,
+            ..
+        } = options;
+        match identifier.as_deref() {
+            | Some(identifier) => match repository_tree(options).await {
+                | Ok(repository) if repository.files.iter().any(|file| Quantization::from_gguf_filename(&file.path).is_some()) => {
+                    Ok(RepositoryResolution::new(identifier, identifier, repository))
+                }
+                | Ok(_) if *no_fallback => Err(eyre!("No GGUF model files found for '{identifier}'")),
+                | Err(why) if *no_fallback => Err(why),
+                | Ok(_) | Err(_) => {
+                    let basename = ModelSelector::new(identifier)
+                        .map(|selector| selector.fallback_search_name())
+                        .unwrap_or_default();
+                    let search_options = SearchOptions::init()
+                        .identifier(identifier)
+                        .basename(basename)
+                        .domain(&options.domain)
+                        .maybe_token(options.token.clone())
+                        .limit(*search_limit)
+                        .minimum_download_count(*minimum_download_count)
+                        .interactive(*interactive)
+                        .custom_params(options.custom_params.clone())
+                        .build();
+                    match search(&search_options).await {
+                        | Ok(candidates) => match candidates.select(options) {
+                            | Ok(resolved) => {
+                                let fallback_options = Options {
+                                    identifier: Some(resolved.clone()),
+                                    revision: DEFAULT_HUGGINGFACE_MODEL_REVISION.to_string(),
+                                    ..options.clone()
+                                };
+                                match repository_tree(&fallback_options).await {
+                                    | Ok(repository) => Ok(RepositoryResolution::new(identifier, resolved, repository)),
+                                    | Err(why) => Err(why),
+                                }
+                            }
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+            },
+            | None => Err(eyre!("Missing Hugging Face repository identifier")),
+        }
+    }
+}
+impl IntoIterator for HuggingFaceRepositoryFiles {
+    type Item = HuggingFaceRepositoryFile;
+    type IntoIter = alloc::vec::IntoIter<HuggingFaceRepositoryFile>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.files.into_iter()
+    }
+}
+impl From<RepositoryResolution<ModelDetails>> for ModelDetails {
+    fn from(resolution: RepositoryResolution<ModelDetails>) -> Self {
+        let (requested, resolved, details) = resolution.into_parts();
+        let details = details.with_id(&resolved);
+        match requested == resolved {
+            | true => details,
+            | false => details.with_fallback(&requested),
+        }
+    }
+}
+impl ModelDetails {
+    /// Resolve this model to a GGUF fallback repository.
+    pub async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
+        match search(search_options).await {
+            | Ok(candidates) => {
+                let options = Options::init()
+                    .identifier(&search_options.identifier)
+                    .offline(offline)
+                    .search_limit(search_options.limit)
+                    .minimum_download_count(search_options.minimum_download_count)
+                    .interactive(search_options.interactive)
+                    .quiet(true)
+                    .build();
+                candidates
+                    .select(&options)
+                    .map(|resolved| RepositoryResolution::new(&search_options.identifier, resolved, self))
+            }
+            | Err(why) => Err(why),
+        }
+    }
+}
+impl ModelInfo {
+    /// Fetch model metadata with base models, files, card data, and tags expanded.
+    pub async fn fetch(options: &Options) -> ApiResult<Self> {
+        match options.identifier.as_deref() {
+            | Some(identifier) => match Endpoint::from_template("huggingface::api").map(|endpoint| endpoint.with_domain(&options.domain)) {
+                | Ok(endpoint) => {
+                    let token = request_token(options.token.as_deref());
+                    let params: Vec<Param> = vec![
+                        param!(TemplateValue, "identifier", identifier),
+                        param!(KeyValuePair, "expand", "baseModels"),
+                        param!(KeyValuePair, "expand", "cardData"),
+                        param!(KeyValuePair, "expand", "siblings"),
+                        param!(KeyValuePair, "expand", "tags"),
+                    ]
+                    .into_iter()
+                    .chain((!token.is_empty()).then(|| {
+                        let authorization = format!("Bearer {token}");
+                        param!(Header, "Authorization", authorization.as_str())
+                    }))
+                    .chain(options.custom_params.iter().cloned())
+                    .collect();
+                    let response = endpoint.invoke_response("model", Some(params)).await;
+                    endpoint
+                        .handle_response::<Self>(response)
+                        .map(|response| response.value)
+                        .map_err(|why| why.wrap_err(format!("Failed to read Hugging Face metadata for '{identifier}'")))
+                }
+                | Err(why) => Err(why),
+            },
+            | None => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier { identifier: "".into() })),
+        }
+    }
+}
 impl ModelInfoExtension for ModelInfo {
     fn has_gguf_files(&self) -> bool {
         self.siblings
@@ -772,37 +859,6 @@ impl ModelInfoExtension for ModelInfo {
             })
         });
         declares_base_model || declares_card_base_model || has_quantized_base_model_tag
-    }
-}
-impl ModelDetails {
-    /// Resolve this model to a GGUF fallback repository.
-    pub async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
-        match search(search_options).await {
-            | Ok(candidates) => {
-                let options = Options::init()
-                    .identifier(&search_options.identifier)
-                    .offline(offline)
-                    .search_limit(search_options.limit)
-                    .minimum_download_count(search_options.minimum_download_count)
-                    .interactive(search_options.interactive)
-                    .quiet(true)
-                    .build();
-                candidates
-                    .select(&options)
-                    .map(|resolved| RepositoryResolution::new(&search_options.identifier, resolved, self))
-            }
-            | Err(why) => Err(why),
-        }
-    }
-}
-impl From<RepositoryResolution<ModelDetails>> for ModelDetails {
-    fn from(resolution: RepositoryResolution<ModelDetails>) -> Self {
-        let (requested, resolved, details) = resolution.into_parts();
-        let details = details.with_id(&resolved);
-        match requested == resolved {
-            | true => details,
-            | false => details.with_fallback(&requested),
-        }
     }
 }
 impl<T> RepositoryResolution<T> {
@@ -872,6 +928,28 @@ impl From<&Source> for Weights {
         }
     }
 }
+impl From<HuggingFaceRepositoryFiles> for Weights {
+    fn from(repository: HuggingFaceRepositoryFiles) -> Self {
+        Weights(
+            repository
+                .files
+                .into_iter()
+                .filter_map(|file| {
+                    Quantization::from_gguf_filename(&file.path).map(|quantization| Weight {
+                        label: file.path.clone(),
+                        url: format!(
+                            "https://{DEFAULT_HUGGINGFACE_DOMAIN}/{}/resolve/{}/{}",
+                            repository.identifier, repository.revision, file.path
+                        ),
+                        is_open: None,
+                        quantization: Some(quantization),
+                        size: file.size,
+                    })
+                })
+                .collect(),
+        )
+    }
+}
 impl Weights {
     /// Set the open-weight flag for the primary source.
     pub fn open(mut self, is_open: Option<bool>) -> Self {
@@ -917,117 +995,33 @@ pub fn auth_headers() -> HeaderMap {
         .build()
         .into_headers()
 }
-/// Fetch model metadata from Hugging Face API with base model and tag expansion
-pub async fn fetch_model_info(provider: &str, name: &str) -> ApiResult<ModelInfo> {
-    let client = HFClient::new().map_err(|why| {
-        eyre!(HuggingFaceError::ClientInitializationFailed {
-            reason: why.to_string().into()
+fn deserialize_base_models<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<BaseModels>::deserialize(deserializer).map(|value| {
+        value.map(|base_models| {
+            let references = match base_models {
+                | BaseModels::References(references) | BaseModels::Relationship { models: references } => references,
+            };
+            references
+                .into_iter()
+                .map(|reference| match reference {
+                    | BaseModelReference::Identifier(identifier) | BaseModelReference::Metadata { id: identifier } => identifier,
+                })
+                .collect()
         })
-    });
-    match client {
-        | Ok(client) => client
-            .model(provider, name)
-            .info()
-            .expand(vec![
-                "baseModels".to_string(),
-                "cardData".to_string(),
-                "siblings".to_string(),
-                "tags".to_string(),
-            ])
-            .send()
-            .await
-            .map_err(|why| eyre!(why).wrap_err(format!("Failed to read Hugging Face metadata for '{provider}/{name}'"))),
-        | Err(e) => Err(e),
-    }
-}
-/// Return whether a non-empty Hugging Face token is configured
-pub fn has_auth_token() -> bool {
-    first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
-}
-/// Return whether a Hugging Face error means a model is unavailable to the caller
-pub fn model_is_unavailable(error: &Report) -> bool {
-    error.downcast_ref::<HFError>().is_some_and(|source| match source {
-        | HFError::RepoNotFound { .. } | HFError::AuthRequired { .. } | HFError::Forbidden { .. } => true,
-        | HFError::Http { context } => matches!(context.status.as_u16(), 401 | 403 | 404),
-        | _ => false,
     })
 }
-/// Validate and parse a Hugging Face model identifier into (owner, name)
-pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {
-    match identifier.split_once('/') {
-        | Some((owner, name)) if !owner.is_empty() && !name.is_empty() && !name.contains('/') => Ok((owner, name)),
-        | _ => Err(eyre!("Invalid Hugging Face model identifier — {identifier}")),
-    }
-}
-/// List files in a Hugging Face model repository at `revision`
-pub async fn repository_tree(identifier: &str, revision: &str) -> ApiResult<HuggingFaceRepositoryFiles> {
-    let template = "huggingface::api";
-    let action = "tree";
-    let options = Options::init().identifier(identifier).revision(revision).build();
-    let params = Params::new()
-        .with_auth(first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).unwrap_or_default().as_str(), None)
-        .with_template("identifier", options.identifier.as_deref())
-        .with_template("revision", Some(&options.revision))
-        .with_keyvalue("recursive", Some("1"))
-        .build();
-    match Endpoint::from_template(template) {
-        | Ok(endpoint) => match endpoint.invoke(action, Some(params)).await {
-            | Ok(ResponseContent::Json(content)) => HuggingFaceRepositoryFiles::parse(&content, &options),
-            | Ok(_) => Err(eyre!("Failed to list Hugging Face model files — response was not JSON")),
-            | Err(why) => Err(eyre!("Failed to list Hugging Face model files — {why}")),
-        },
-        | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
-    }
-}
-/// Find repositories matching the search options, sorted by downloads.
-pub async fn search(options: &SearchOptions) -> ApiResult<Candidates> {
-    let basename = ModelSelector::new(&options.identifier)
-        .map(|selector| selector.fallback_search_name())
-        .filter(|value| !value.is_empty());
-    match (basename, HFClient::new()) {
-        | (Some(basename), Ok(client)) => {
-            let response = client
-                .list_models()
-                .search(&basename)
-                .filter(&options.term)
-                .sort("downloads")
-                .full(true)
-                .card_data(true)
-                .limit(options.limit)
-                .send();
-            match response {
-                | Ok(stream) => match stream.try_collect::<Vec<ModelInfo>>().await {
-                    | Ok(models) => {
-                        let candidates = Candidates::fallback(models, options);
-                        match candidates.is_empty() {
-                            | true => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
-                                identifier: options.identifier.clone().into()
-                            })),
-                            | false => Ok(candidates),
-                        }
-                    }
-                    | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchFailed {
-                        reason: why.to_string().into()
-                    })),
-                },
-                | Err(why) => Err(eyre!(HuggingFaceError::ModelSearchConfigurationFailed {
-                    reason: why.to_string().into()
-                })),
-            }
-        }
-        | (None, _) => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier {
-            identifier: options.identifier.clone().into()
-        })),
-        | (_, Err(why)) => Err(eyre!(HuggingFaceError::ClientInitializationFailed {
-            reason: why.to_string().into()
-        })),
-    }
-}
-fn extract_sha256(content: &str) -> Option<String> {
+pub(super) fn extract_sha256(content: &str) -> Option<String> {
     content
         .split_whitespace()
         .find(|token| token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
         .map(|value| value.to_ascii_lowercase())
+}
+/// Return whether a non-empty Hugging Face token is configured
+pub fn has_auth_token() -> bool {
+    first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES).is_some()
 }
 fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
     let mut parts = tag.splitn(3, ':');
@@ -1038,6 +1032,162 @@ fn is_quantized_base_model_tag(tag: &str, identifier: &str) -> bool {
         | _ => false,
     }
 }
+/// Return whether a Hugging Face error means a model is unavailable to the caller
+pub fn model_is_unavailable(error: &Report) -> bool {
+    error
+        .downcast_ref::<HttpResponseError>()
+        .is_some_and(|source| matches!(source.status_code(), 401 | 403 | 404))
+}
+pub(super) fn next_page(headers: &HeaderMap, endpoint: &Endpoint) -> ApiResult<Option<String>> {
+    match headers
+        .get("link")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|links| links.split(',').find(|link| link.contains("rel=\"next\"")))
+    {
+        | Some(link) => match link.split_once('<').and_then(|(_, value)| value.split_once('>').map(|(url, _)| url)) {
+            | Some(url) => {
+                let expected = Endpoint::from(Location::from(endpoint.base().as_str()));
+                let actual = Endpoint::from(Location::from(url));
+                match actual.domain.eq_ignore_ascii_case(&expected.domain) && actual.scheme == expected.scheme && actual.port == expected.port {
+                    | true => Ok(Some(url.to_string())),
+                    | false => Err(eyre!(HuggingFaceError::ModelSearchFailed {
+                        reason: "pagination URL did not match the configured Hugging Face origin".into()
+                    })),
+                }
+            }
+            | None => Err(eyre!(HuggingFaceError::ModelSearchFailed {
+                reason: "pagination Link header did not contain a valid target".into()
+            })),
+        },
+        | None => Ok(None),
+    }
+}
+/// Validate and parse a Hugging Face model identifier into (owner, name)
+pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {
+    match identifier.split_once('/') {
+        | Some((owner, name)) if !owner.is_empty() && !name.is_empty() && !name.contains('/') => Ok((owner, name)),
+        | _ => Err(eyre!("Invalid Hugging Face model identifier — {identifier}")),
+    }
+}
+/// List files in a Hugging Face model repository at `revision`
+pub async fn repository_tree(options: &Options) -> ApiResult<HuggingFaceRepositoryFiles> {
+    let template = "huggingface::api";
+    let action = "tree";
+    let token = request_token(options.token.as_deref());
+    let params: Vec<Param> = options
+        .identifier
+        .as_deref()
+        .map(|identifier| param!(TemplateValue, "identifier", identifier))
+        .into_iter()
+        .chain([
+            param!(TemplateValue, "revision", options.revision.as_str()),
+            param!(KeyValuePair, "recursive", "1"),
+        ])
+        .chain((!token.is_empty()).then(|| {
+            let authorization = format!("Bearer {token}");
+            param!(Header, "Authorization", authorization.as_str())
+        }))
+        .chain(options.custom_params.iter().cloned())
+        .collect();
+    match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(&options.domain)) {
+        | Ok(endpoint) => {
+            let response = endpoint.invoke_response(action, Some(params)).await;
+            match (options.identifier.as_deref(), endpoint.handle_response::<Vec<TreeEntry>>(response)) {
+                | (Some(identifier), Ok(response)) => {
+                    let files = response
+                        .value
+                        .into_iter()
+                        .filter(TreeEntry::is_file)
+                        .map(HuggingFaceRepositoryFile::from)
+                        .collect();
+                    Ok(HuggingFaceRepositoryFiles::new(identifier, &options.revision, files))
+                }
+                | (None, _) => Err(eyre!("Missing Hugging Face repository identifier")),
+                | (_, Err(why)) => Err(why.wrap_err("Failed to list Hugging Face model files")),
+            }
+        }
+        | Err(why) => Err(eyre!("Failed to configure Hugging Face API — {why}")),
+    }
+}
+fn request_token(configured: Option<&str>) -> String {
+    configured
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES))
+        .unwrap_or_default()
+}
+/// Find repositories matching the search options, sorted by downloads.
+pub async fn search(options: &SearchOptions) -> ApiResult<Candidates> {
+    let template = "huggingface::api";
+    let action = "models";
+    match options.basename.trim() {
+        | "" => Err(eyre!(HuggingFaceError::InvalidBaseModelIdentifier {
+            identifier: options.identifier.clone().into()
+        })),
+        | basename => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(&options.domain)) {
+            | Ok(endpoint) => {
+                let token = request_token(options.token.as_deref());
+                let limit = options.limit;
+                let limit_value = (limit < 1000).then(|| limit.to_string());
+                let params: Vec<Param> = vec![
+                    param!(KeyValuePair, "search", basename),
+                    param!(KeyValuePair, "filter", options.term.as_str()),
+                    param!(KeyValuePair, "sort", "downloads"),
+                    param!(KeyValuePair, "full", "true"),
+                    param!(KeyValuePair, "cardData", "true"),
+                ]
+                .into_iter()
+                .chain(limit_value.as_deref().map(|value| param!(KeyValuePair, "limit", value)))
+                .chain((!token.is_empty()).then(|| {
+                    let authorization = format!("Bearer {token}");
+                    param!(Header, "Authorization", authorization.as_str())
+                }))
+                .chain(options.custom_params.iter().cloned())
+                .collect();
+                let headers = params.clone().into_headers();
+                let mut models = Vec::new();
+                let mut visited = BTreeSet::new();
+                let mut response = endpoint.invoke_response(action, Some(params)).await;
+                let pagination = loop {
+                    match endpoint.handle_response::<Vec<ModelInfo>>(response) {
+                        | Ok(page) => {
+                            let remaining = limit.saturating_sub(models.len());
+                            let page_is_empty = page.value.is_empty();
+                            models.extend(page.value.into_iter().take(remaining));
+                            match next_page(&page.headers, &endpoint) {
+                                | Ok(Some(next)) if models.len() < limit && !page_is_empty && visited.insert(next.clone()) => {
+                                    response = http::get(next).headers(headers.clone()).send().await;
+                                }
+                                | Ok(Some(_)) if models.len() < limit => {
+                                    break Err(eyre!(HuggingFaceError::ModelSearchFailed {
+                                        reason: "pagination repeated a URL or returned an empty page".into()
+                                    }));
+                                }
+                                | Ok(_) => break Ok(()),
+                                | Err(why) => break Err(why),
+                            }
+                        }
+                        | Err(why) => break Err(why.wrap_err("Failed to search Hugging Face models")),
+                    }
+                };
+                match pagination {
+                    | Ok(()) => {
+                        let candidates = Candidates::fallback(models, options);
+                        match candidates.is_empty() {
+                            | true => Err(eyre!(HuggingFaceError::NoGgufQuantizationRepository {
+                                identifier: options.identifier.clone().into()
+                            })),
+                            | false => Ok(candidates),
+                        }
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        },
+    }
+}
 fn select_first(candidates: Candidates, _options: &Options) -> ApiResult<String> {
     candidates
         .into_iter()
@@ -1045,7 +1195,7 @@ fn select_first(candidates: Candidates, _options: &Options) -> ApiResult<String>
         .map(|candidate| candidate.to_string())
         .ok_or_else(|| eyre!("GGUF search returned no candidates"))
 }
-fn target_path_from_sidecar(path: &str) -> Option<String> {
+pub(super) fn target_path_from_sidecar(path: &str) -> Option<String> {
     path.strip_suffix(".sha256")
         .or_else(|| path.strip_suffix(".sha256sum"))
         .map(ToString::to_string)
@@ -1060,235 +1210,5 @@ fn variant_matches(declared: &str, requested: &str) -> bool {
             (same_owner || owner_is_meta) && !requested_name.is_empty() && name_matches
         }
         | _ => false,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        extract_sha256, target_path_from_sidecar, Candidate, CandidateSelection, Candidates, Downloaded, HuggingFaceRepositoryFiles, ModelInfo,
-        ModelInfoExtension, RepositoryResolution, SearchOptions, Value,
-    };
-    use crate::schema::agent::{ModelDetails, Weight, Weights};
-    use serde_json::json;
-
-    fn model(value: Value) -> ModelInfo {
-        serde_json::from_value(value).unwrap()
-    }
-
-    #[test]
-    fn test_has_gguf_files() {
-        let gguf = model(json!({"id": "mozilla/test-llama", "siblings": [{"rfilename": "tiny-llama.gguf"}]}));
-        assert!(gguf.has_gguf_files());
-        let non_gguf = model(json!({"id": "openai/gpt-oss-20b", "siblings": [{"rfilename": "model.safetensors"}]}));
-        assert!(!non_gguf.has_gguf_files());
-    }
-    #[test]
-    fn test_is_declared_derivative() {
-        let candidate = model(json!({"id": "community/quantized", "baseModels": ["OpenAI/GPT-OSS-2B"]}));
-        assert!(candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
-        let candidate = model(json!({"id": "community/quantized", "tags": ["base_model:quantized:openai/gpt-oss-2b"]}));
-        assert!(candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
-        let candidate = model(json!({
-            "id": "community/quantized",
-            "baseModels": ["other/model"],
-            "tags": ["base_model:quantized:other/model"]
-        }));
-        assert!(!candidate.is_declared_derivative_of("openai/gpt-oss-2b"));
-    }
-    #[test]
-    fn test_is_declared_variant_accepts_decorated_base_model_names() {
-        let candidate = model(json!({
-            "id": "unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-GGUF",
-            "cardData": {"base_model": ["nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"]},
-            "tags": ["base_model:quantized:nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"]
-        }));
-        assert!(candidate.is_declared_variant_of("nvidia/nemotron-3-super-120b-a12b"));
-        assert!(!candidate.is_declared_variant_of("other/nemotron-3-super-120b-a12b"));
-        assert!(!candidate.is_declared_variant_of("nvidia/different-model"));
-    }
-    #[test]
-    fn test_is_declared_variant_accepts_meta_publisher_alias_and_catalog_suffixes() {
-        let candidate = model(json!({
-            "id": "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF",
-            "tags": ["base_model:quantized:meta-llama/Llama-4-Maverick-17B-128E-Instruct"]
-        }));
-        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct"));
-        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct-fp8"));
-        assert!(candidate.is_declared_variant_of("meta/llama-4-maverick-17b-128e-instruct-maas"));
-        assert!(!candidate.is_declared_variant_of("other/llama-4-maverick-17b-128e-instruct"));
-    }
-    #[test]
-    fn test_is_declared_variant_accepts_nvidia_version_separator_aliases() {
-        let ultra = model(json!({
-            "id": "bartowski/nvidia_Llama-3_1-Nemotron-Ultra-253B-v1-GGUF",
-            "tags": ["base_model:quantized:nvidia/Llama-3_1-Nemotron-Ultra-253B-v1"]
-        }));
-        let super_model = model(json!({
-            "id": "bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1_5-GGUF",
-            "tags": ["base_model:quantized:nvidia/Llama-3_3-Nemotron-Super-49B-v1_5"]
-        }));
-        assert!(ultra.is_declared_variant_of("nvidia/llama-3.1-nemotron-ultra-253b"));
-        assert!(super_model.is_declared_variant_of("nvidia/llama-3.3-nemotron-super-49b-v1.5"));
-        assert!(!super_model.is_declared_variant_of("nvidia/llama-nemotron-rerank-vl-1b-v2"));
-    }
-    #[test]
-    fn test_gguf_candidate_includes_sorted_unique_quantizations() {
-        let candidate = Candidate::from(model(json!({
-            "id": "community/quantized",
-            "downloads": 42,
-            "likes": 7,
-            "siblings": [
-                {"rfilename": "model-Q5_K_M.gguf"},
-                {"rfilename": "model-Q4_K_M.gguf"},
-                {"rfilename": "model-Q4_K_M-00001-of-00002.gguf"}
-            ]
-        })));
-        assert_eq!(candidate.downloads, 42);
-        assert_eq!(candidate.likes, Some(7));
-        assert_eq!(candidate.quantizations, vec!["Q4_K_M", "Q5_K_M"]);
-        assert_eq!(candidate.to_string(), "community/quantized");
-    }
-    #[test]
-    fn test_gguf_candidate_excludes_unrecognized_quantizations() {
-        let candidate = Candidate::from(model(json!({
-            "id": "community/unsupported",
-            "siblings": [{"rfilename": "model-tq1_0.gguf"}]
-        })));
-        assert!(candidate.quantizations.is_empty());
-    }
-    #[test]
-    fn test_fallback_candidates_apply_inclusive_minimum_download_count() {
-        let candidate = |id: &str, downloads: Option<u64>| {
-            model(json!({
-                "id": id,
-                "downloads": downloads,
-                "tags": ["base_model:quantized:acme/base"],
-                "siblings": [{"rfilename": "model-Q4_K_M.gguf"}]
-            }))
-        };
-        let options = SearchOptions::init().identifier("acme/base").minimum_download_count(100).build();
-        let candidates = Candidates::fallback(
-            vec![
-                candidate("acme/above-GGUF", Some(101)),
-                candidate("acme/boundary-GGUF", Some(100)),
-                candidate("acme/below-GGUF", Some(99)),
-                candidate("acme/missing-GGUF", None),
-            ],
-            &options,
-        );
-        assert_eq!(
-            candidates.iter().map(|candidate| candidate.id.as_str()).collect::<Vec<_>>(),
-            vec!["acme/above-GGUF", "acme/boundary-GGUF"]
-        );
-    }
-    #[test]
-    fn test_weights_to_source_uses_hugging_face_repository_identifier() {
-        let source = Weights(vec![Weight {
-            label: "Hugging Face".to_string(),
-            url: "https://huggingface.co/openai/gpt-oss-20b".to_string(),
-            is_open: Some(true),
-            quantization: None,
-            size: None,
-        }])
-        .to_source(Some("GPT OSS 20B".to_string()))
-        .unwrap();
-        assert_eq!(source.identifier(), "openai/gpt-oss-20b");
-        assert_eq!(source.name(), "GPT OSS 20B");
-    }
-    #[test]
-    fn test_weights_to_source_keeps_direct_hugging_face_file_url() {
-        let url = "https://huggingface.co/openai/gpt-oss-20b/resolve/main/model.gguf".to_string();
-        let source = Weights(vec![Weight {
-            label: "GGUF".to_string(),
-            url: url.to_string(),
-            is_open: Some(true),
-            quantization: None,
-            size: None,
-        }])
-        .to_source(None)
-        .unwrap();
-        assert_eq!(source.identifier(), url);
-        assert_eq!(source.name(), "GGUF");
-    }
-    #[test]
-    fn test_repository_tree_reports_api_error_message() {
-        let options = super::Options::init().identifier("missing/model").revision("main").build();
-        let error = HuggingFaceRepositoryFiles::parse(r#"{"error":"Repository not found"}"#, &options).unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "Hugging Face API rejected repository 'missing/model' — Repository not found"
-        );
-    }
-    #[test]
-    fn test_repository_tree_parse_error_identifies_repository() {
-        let options = super::Options::init().identifier("broken/model").revision("main").build();
-        let error = HuggingFaceRepositoryFiles::parse(r#"{"unexpected":true}"#, &options).unwrap_err();
-        assert!(error
-            .to_string()
-            .starts_with("Failed to parse Hugging Face repository file list for 'broken/model'"));
-    }
-    #[test]
-    fn test_repository_resolution_identifies_direct_and_fallback_values() {
-        let direct = RepositoryResolution::direct("acme/model", 1);
-        assert!(!direct.is_fallback());
-        assert_eq!(direct.requested(), "acme/model");
-        assert_eq!(direct.resolved(), "acme/model");
-        assert_eq!(*direct.value(), 1);
-        let fallback = RepositoryResolution::new("acme/model", "community/model-GGUF", 2);
-        assert!(fallback.is_fallback());
-        assert_eq!(fallback.requested(), "acme/model");
-        assert_eq!(fallback.resolved(), "community/model-GGUF");
-        assert_eq!(fallback.into_parts(), ("acme/model".to_string(), "community/model-GGUF".to_string(), 2));
-    }
-    #[test]
-    fn test_repository_resolution_transforms_values_without_losing_identity() {
-        let mapped = RepositoryResolution::new("acme/model", "community/model-GGUF", 2).map(|value| value.to_string());
-        assert_eq!(mapped.requested(), "acme/model");
-        assert_eq!(mapped.resolved(), "community/model-GGUF");
-        assert_eq!(mapped.value(), "2");
-        let mapped = RepositoryResolution::direct("acme/model", 2).try_map(|value| if value > 0 { Ok(value * 2) } else { Err("invalid") });
-        assert_eq!(
-            mapped.map(RepositoryResolution::into_parts),
-            Ok(("acme/model".to_string(), "acme/model".to_string(), 4))
-        );
-    }
-    #[test]
-    fn test_downloaded_into_resolution_uses_one_identifier() {
-        let downloaded = Downloaded::init().identifier("acme/model").revision("main").files(Vec::new()).build();
-        let resolution = downloaded.into_resolution("acme/model");
-        assert!(!resolution.is_fallback());
-        assert_eq!(resolution.requested(), "acme/model");
-        assert_eq!(resolution.resolved(), "acme/model");
-    }
-    #[test]
-    fn test_model_details_from_repository_resolution_preserves_fallback() {
-        let resolution = RepositoryResolution::new("acme/model", "community/model-GGUF", ModelDetails::default());
-        let details = ModelDetails::from(resolution);
-        assert_eq!(details.id.as_deref(), Some("community/model-GGUF"));
-        assert_eq!(details.fallback.as_deref(), Some("acme/model"));
-    }
-    #[test]
-    fn test_target_path_from_sidecar() {
-        assert_eq!(target_path_from_sidecar("model.gguf.sha256"), Some("model.gguf".to_string()));
-        assert_eq!(
-            target_path_from_sidecar("nested/model.gguf.sha256sum"),
-            Some("nested/model.gguf".to_string())
-        );
-    }
-    #[test]
-    fn test_extract_sha256() {
-        let digest = "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD";
-        assert_eq!(
-            extract_sha256(format!("{digest}  model.gguf").as_str()).as_deref(),
-            Some("abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
-        );
-        let digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        assert_eq!(
-            extract_sha256(format!("SHA256 ({digest}) = {digest} model.gguf").as_str()).as_deref(),
-            Some(digest),
-        );
-        assert_eq!(extract_sha256("not-a-sha model.gguf"), None);
-        assert_eq!(extract_sha256("0123456789abcdef"), None);
     }
 }

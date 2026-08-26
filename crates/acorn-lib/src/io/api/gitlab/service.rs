@@ -671,7 +671,7 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
     }
 }
 /// Fetch one page of repository tree blob paths for a GitLab project
-pub(crate) async fn tree_paths(options: &Options) -> ApiResult<TreeResponse> {
+pub(crate) async fn repository_tree(options: &Options) -> ApiResult<TreeResponse> {
     let template = "gitlab::api";
     let action = "tree";
     match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {

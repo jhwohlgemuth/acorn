@@ -2488,3 +2488,27 @@ fn test_resolve_models_excludes_fallback_below_minimum_download_count() {
     assert!(text.contains("142 below minimum 143 popularity"));
     assert!(!text.contains(format!("{fallback}-secondary").as_str()));
 }
+#[test]
+fn test_resolve_models_finds_gemma_fallback_with_object_base_models_metadata() {
+    let base_model = "google/gemma-4-31B-it";
+    let fallback = "unsloth/gemma-4-31B-it-GGUF";
+    let (endpoint, handle) = spawn_huggingface_model_search_server(fallback, base_model, None, 2);
+    let resolved = with_hf_endpoint(endpoint, || {
+        tokio::runtime::Runtime::new().expect("create runtime").block_on(async {
+            let entries = vec![ModelEntry::Selector(base_model.to_string())];
+            let plans = super::model::plan::resolve_plans(&ModelSelectors::default(), &entries, &Default::default(), None, &None, false, false)
+                .await
+                .expect("resolve model plan");
+            super::model::plan::ModelDownloadPlans(plans)
+                .resolve(super::model::plan::DownloadOptions {
+                    offline: false,
+                    limit: 20,
+                    minimum_download_count: 0,
+                    interactive: false,
+                })
+                .await
+        })
+    });
+    handle.join().expect("join model search server");
+    assert_eq!(resolved.len(), 1, "Gemma should resolve through its GGUF fallback");
+}

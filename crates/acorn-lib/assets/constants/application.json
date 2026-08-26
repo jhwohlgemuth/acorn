@@ -72,6 +72,16 @@
       "root": "api",
       "resources": [
         {
+          "name": "model",
+          "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "models",
+          "method": "get",
+          "template": "{{ base }}/models{{ query }}"
+        },
+        {
           "name": "tree",
           "method": "get",
           "template": "{{ base }}/models/{{ identifier }}/tree/{{ revision }}{{ query }}"

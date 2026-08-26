@@ -11,6 +11,7 @@ use crate::io::api::{
     self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle,
     Params, RemoteResource, Resource, ResponseContent, TreeEntry, TreeEntryType, INCLUDED_ENDPOINTS,
 };
+use crate::io::http::{HttpResponse, HttpResponseError};
 use crate::io::read_file;
 use crate::param;
 use crate::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
@@ -19,6 +20,7 @@ use crate::util::Searchable;
 use crate::{Location, Repository, Scheme};
 
 mod harbor;
+mod huggingface;
 
 #[test]
 fn test_endpoints_length() {
@@ -210,6 +212,31 @@ fn test_endpoint_handle() {
     let raw = Ok(ResponseContent::Raw("OK".to_string()));
     let response = endpoint.handle::<api::TextResponse>(raw).expect("Failed to parse raw text");
     assert_eq!(response.content, "OK");
+}
+#[test]
+fn test_endpoint_handle_response_preserves_transport_metadata() {
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("link", axum::http::HeaderValue::from_static("next"));
+    let response = HttpResponse {
+        body: br#"{"content":"ok"}"#.to_vec(),
+        headers: headers.clone(),
+        status_code: 200,
+    };
+    let endpoint = Endpoint::default();
+    let handled = endpoint.handle_response::<api::TextResponse>(Ok(response)).unwrap();
+    assert_eq!(handled.value.content, "ok");
+    assert_eq!(handled.headers, headers);
+    assert_eq!(handled.status_code, 200);
+}
+#[test]
+fn test_endpoint_handle_response_preserves_error_status() {
+    let response = HttpResponse {
+        body: br#"{"error":"missing"}"#.to_vec(),
+        headers: axum::http::HeaderMap::new(),
+        status_code: 404,
+    };
+    let error = Endpoint::default().handle_response::<api::TextResponse>(Ok(response)).unwrap_err();
+    assert_eq!(error.downcast_ref::<HttpResponseError>().map(HttpResponseError::status_code), Some(404));
 }
 #[test]
 fn test_endpoint_parse() {

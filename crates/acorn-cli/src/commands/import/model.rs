@@ -154,6 +154,7 @@ impl ModelDownloadPlan {
         match &self.selector {
             | Source::Remote { identifier, .. } if is_huggingface_repository && !options.offline => {
                 let huggingface_options = huggingface::Options::init()
+                    .domain(&self.domain)
                     .identifier(identifier)
                     .revision(self.revision.clone())
                     .interactive(options.interactive)

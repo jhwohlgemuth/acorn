@@ -137,8 +137,12 @@ pub(crate) fn spawn_huggingface_model_search_server(
             let mut stream = stream.expect("accept model search request");
             let parsed = parse_request(&mut stream);
             let body = if parsed.path.starts_with("/api/models?") && parsed.path.contains(format!("search={search_term}").as_str()) {
+                let relationship = match base_model.starts_with("google/gemma-") {
+                    | true => format!(r#""baseModels":{{"relation":"quantized","models":[{{"id":"{base_model}"}}]}}"#),
+                    | false => format!(r#""tags":["base_model:quantized:{base_model}"]"#),
+                };
                 format!(
-                    r#"[{{"id":"{identifier}","downloads":142,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}},{{"id":"{identifier}-secondary","downloads":141,"tags":["base_model:quantized:{base_model}"],"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
+                    r#"[{{"id":"{identifier}","downloads":142,{relationship},"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}},{{"id":"{identifier}-secondary","downloads":141,{relationship},"siblings":[{{"rfilename":"model-Q4_K_M.gguf"}}]}}]"#
                 )
             } else if parsed.path.starts_with("/api/models?") {
                 "[]".to_string()
@@ -150,7 +154,11 @@ pub(crate) fn spawn_huggingface_model_search_server(
                 format!(r#"{{"id":"{direct}","siblings":[{{"rfilename":"tiny-llama.gguf"}}]}}"#)
             } else {
                 let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
-                format!(r#"{{"id":"{model}","siblings":[]}}"#)
+                let base_models = match parsed.path.contains("expand=baseModels") {
+                    | true => format!(r#","baseModels":{{"relation":"finetune","models":[{{"id":"{base_model}"}}]}}"#),
+                    | false => String::new(),
+                };
+                format!(r#"{{"id":"{model}"{base_models},"siblings":[]}}"#)
             };
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

@@ -38,7 +38,6 @@ exitcode = { version = "1.1.2", default-features = false }
 fancy-regex = { workspace = true }
 fast_qr = { version = "0.13.0", features = ["image"], optional = true }
 futures = { workspace = true }
-hf-hub = { workspace = true }
 indicatif = { workspace = true }
 is-terminal = "0.4.16"
 itertools = { workspace = true }

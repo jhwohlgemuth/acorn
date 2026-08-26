@@ -74,6 +74,12 @@ pub struct HttpResponse {
     /// HTTP status code
     pub status_code: u16,
 }
+/// Error returned when an HTTP response has a non-success status.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HttpResponseError {
+    status_code: u16,
+    reason: String,
+}
 /// Reqwest-backed async HTTP service adapter.
 #[derive(Clone, Debug)]
 pub struct ReqwestHttpService {
@@ -167,6 +173,25 @@ impl HttpResponse {
         }
     }
 }
+impl HttpResponseError {
+    /// Create an HTTP response error from its status and response detail.
+    pub fn new(status_code: u16, reason: impl Into<String>) -> Self {
+        Self {
+            status_code,
+            reason: reason.into(),
+        }
+    }
+    /// Return the HTTP status code.
+    pub fn status_code(&self) -> u16 {
+        self.status_code
+    }
+}
+impl fmt::Display for HttpResponseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "HTTP {}: {}", self.status_code, self.reason)
+    }
+}
+impl core::error::Error for HttpResponseError {}
 #[async_trait]
 impl HttpService for ReqwestHttpService {
     async fn execute(&self, request: HttpRequest) -> ApiResult<HttpResponse> {

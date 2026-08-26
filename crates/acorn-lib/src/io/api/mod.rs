@@ -4,7 +4,7 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
-use crate::io::http::{delete, get, patch, post, put, HttpMethod};
+use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -156,6 +156,26 @@ pub trait RemoteResource {
             | Err(e) => Err(eyre!(e)),
         }
     }
+    /// Handle a raw HTTP response while preserving its status and headers.
+    fn handle_response<R>(&self, response: ApiResult<HttpResponse>) -> ApiResult<TypedResponse<R>>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        match response {
+            | Ok(response) => {
+                let status_code = response.status_code;
+                let headers = response.headers.clone();
+                match response_content(response) {
+                    | Ok(content) if (200..=299).contains(&status_code) => {
+                        self.handle(Ok(content)).map(|value| TypedResponse { value, headers, status_code })
+                    }
+                    | Ok(content) => Err(eyre!(HttpResponseError::new(status_code, content.to_string()))),
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
     /// Handle a response from an endpoint request, trying to parse as `R` first,
     /// then falling back to `E` on parse failure to surface a richer error message
     fn handle_or<R, E>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
@@ -164,6 +184,10 @@ pub trait RemoteResource {
         E: FallbackResponse;
     /// Send data to the endpoint and receive a response asynchronously
     async fn invoke(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>;
+    /// Send data to an endpoint and preserve the raw HTTP status, headers, and body.
+    async fn invoke_response(&self, _action: impl Into<String> + Clone + Send, _data: Option<Vec<Param>>) -> ApiResult<HttpResponse> {
+        Err(eyre!("Raw HTTP responses are not supported by this resource"))
+    }
     /// Send data to the endpoint and receive a response asynchronously using explicit query/field types
     async fn invoke_with<Q, F>(&self, action: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>
     where
@@ -226,6 +250,23 @@ pub enum ResponseContent {
     Yaml(String),
     /// XML response content
     Xml(String),
+}
+impl fmt::Display for ResponseContent {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Json(content) | Self::Raw(content) | Self::Yaml(content) | Self::Xml(content) => formatter.write_str(content),
+        }
+    }
+}
+/// Typed endpoint response with transport metadata preserved.
+#[derive(Clone, Debug)]
+pub struct TypedResponse<T> {
+    /// Deserialized response value.
+    pub value: T,
+    /// HTTP response headers.
+    pub headers: HeaderMap,
+    /// HTTP response status code.
+    pub status_code: u16,
 }
 /// Type for repository tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
@@ -444,6 +485,32 @@ impl Endpoint {
         INCLUDED_ENDPOINTS
             .find_by_name(&endpoint_name)
             .ok_or_else(|| eyre!("Endpoint template '{endpoint_name}' not found in application configuration"))
+    }
+    async fn request_with<Q, F>(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<HttpResponse>
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
+        let Self { resources, .. } = self;
+        let context = self.context_with::<Q, F>(data.clone());
+        match resources.find_by_name(name) {
+            | Some(Resource { method, template, .. }) => {
+                let path = render(&template, &context);
+                let params = data.unwrap_or_default();
+                let headers = params.clone().into_headers();
+                let body = params.into_body();
+                let request = match method {
+                    | HttpMethod::Delete => delete(path),
+                    | HttpMethod::Get => get(path),
+                    | HttpMethod::Patch => patch(path).json(&body),
+                    | HttpMethod::Post => post(path).json(&body),
+                    | HttpMethod::Put => put(path).json(&body),
+                };
+                debug!("=> {} {}", Label::run(), request.cyan());
+                request.headers(headers).send().await
+            }
+            | None => Err(eyre!("Resource not found")),
+        }
     }
 }
 impl Searchable<Endpoint> for Vec<Endpoint> {
@@ -860,6 +927,9 @@ impl RemoteResource for Endpoint {
     async fn invoke(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent> {
         self.invoke_with::<Self::Query, Self::Field>(name, data).await
     }
+    async fn invoke_response(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<HttpResponse> {
+        self.request_with::<Self::Query, Self::Field>(name, data).await
+    }
     /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
     /// ### Example
     /// ```ignore
@@ -889,43 +959,25 @@ impl RemoteResource for Endpoint {
         Q: QueryField + ValueValidator,
         F: QueryField,
     {
-        let Self { resources, .. } = self;
-        let context = self.context_with::<Q, F>(data.clone());
-        let resource = resources.find_by_name(name);
-        match resource {
-            | Some(Resource { method, template, .. }) => {
-                let path = render(&template, &context);
-                let params = data.unwrap_or_default();
-                let headers = params.clone().into_headers();
-                let body = params.into_body();
-                let request = match method {
-                    | HttpMethod::Delete => delete(path),
-                    | HttpMethod::Get => get(path),
-                    | HttpMethod::Patch => patch(path).json(&body),
-                    | HttpMethod::Post => post(path).json(&body),
-                    | HttpMethod::Put => put(path).json(&body),
-                };
-                debug!("=> {} {}", Label::run(), request.cyan());
-                match request.headers(headers).send().await {
-                    | Ok(response) => match response.text().await {
-                        | Ok(text) => {
-                            trace!("=> {} Response {text}", Label::using());
-                            let content = if detect_json(&text) {
-                                ResponseContent::Json(text)
-                            } else if detect_xml(&text) {
-                                ResponseContent::Xml(text)
-                            } else {
-                                ResponseContent::Raw(text)
-                            };
-                            Ok(content)
-                        }
-                        | Err(why) => Err(eyre!(why)),
-                    },
-                    | Err(why) => Err(eyre!(why)),
-                }
-            }
-            | None => Err(eyre!("Resource not found")),
+        match self.request_with::<Q, F>(name, data).await {
+            | Ok(response) => response_content(response),
+            | Err(why) => Err(why),
         }
+    }
+}
+fn response_content(response: HttpResponse) -> ApiResult<ResponseContent> {
+    match String::from_utf8(response.body) {
+        | Ok(text) => {
+            trace!("=> {} Response {text}", Label::using());
+            if detect_json(&text) {
+                Ok(ResponseContent::Json(text))
+            } else if detect_xml(&text) {
+                Ok(ResponseContent::Xml(text))
+            } else {
+                Ok(ResponseContent::Raw(text))
+            }
+        }
+        | Err(why) => Err(eyre!("HTTP response body is not valid UTF-8 — {why}")),
     }
 }
 impl TryFrom<&str> for EmptyField {

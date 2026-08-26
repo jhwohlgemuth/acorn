@@ -10,6 +10,7 @@
 
 ### Changed
 
+- Replace `hf-hub` with ACORN-owned Hugging Face metadata and search handling. Public model metadata APIs now use `acorn::io::api::huggingface::ModelInfo` and options-based requests through ACORN's typed endpoint layer, including support for legacy and relationship-object `baseModels` responses and same-origin pagination.
 - Persist Criterion results for every semantic version and relevant default-branch change as normalized longitudinal datasets, self-contained trend reports, and raw GitLab package artifacts.
 - Replace direct Chrono usage with Jiff; public database timestamp fields now use `jiff::Timestamp`, and queue and cache intervals use `jiff::SignedDuration`.
 - Resolve analyzer locations from source structure instead of a hand-maintained alias table. Research activity media must now use `contentUrl` instead of `href` or `url`, sections must use `impact` instead of `outcomes`, and contacts must use `url` instead of `profile`.

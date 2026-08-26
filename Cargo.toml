@@ -70,7 +70,6 @@ duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
-hf-hub = { version = "1", default-features = false }
 httpdate = { version = "1.0.3", default-features = false }
 indicatif = { version = "0.18.2", default-features = false }
 jsonc-parser = { version = "0.33", features = ["serde", "serde_json", "cst"], default-features = false }
