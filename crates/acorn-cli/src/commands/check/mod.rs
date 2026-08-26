@@ -8,7 +8,7 @@ use acorn::analyzer::{
     analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard, StaticAnalyzer,
 };
 use acorn::io::{standard_project_folder, Fingerprint, Source};
-use acorn::prelude::{remove_file, temp_dir, write, Path, PathBuf};
+use acorn::prelude::{remove_file, temp_dir, write, PathBuf};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, suffix, Label};
 use acorn::{fail, skip, Location};
@@ -104,12 +104,7 @@ async fn prepare(location: &Location, options: &CommandOptions) -> Result<Prepar
             let uri = location.uri().unwrap_or_default();
             Source::read_bytes(&uri, options.offline).await.and_then(|content| {
                 let fingerprint = Fingerprint::from_entries([(uri, content.clone())]);
-                let location_path = location.path();
-                let extension = location_path
-                    .as_deref()
-                    .and_then(|path| Path::new(path).extension())
-                    .and_then(|value| value.to_str())
-                    .unwrap_or("json");
+                let extension = location.resolve_file_type(&content);
                 let path = standard_project_folder("check", Some(temp_dir())).with_extension(extension);
                 write(&path, content)
                     .map(|()| {

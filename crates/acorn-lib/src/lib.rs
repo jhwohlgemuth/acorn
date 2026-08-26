@@ -53,6 +53,8 @@ use crate::prelude::{Path, PathBuf};
 use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::Label;
+#[cfg(feature = "std")]
+use crate::util::MimeType;
 pub use error::{AcornError, AcornResult};
 use strum::EnumIs;
 
@@ -248,6 +250,17 @@ impl Location {
     pub fn local_path(&self) -> Option<PathBuf> {
         let path = self.uri_as_path();
         (self.is_local() || path.exists()).then_some(path)
+    }
+    /// Resolve a source file type from its content, falling back to the location path.
+    #[cfg(feature = "std")]
+    pub fn resolve_file_type(&self, content: &[u8]) -> MimeType {
+        MimeType::infer(content).unwrap_or_else(|| {
+            self.path()
+                .as_deref()
+                .map(MimeType::from)
+                .filter(|mime| !mime.is_unknown())
+                .unwrap_or(MimeType::Json)
+        })
     }
     /// Get associated location hash
     /// > Useful for standardizing file path handling across local and remote contexts

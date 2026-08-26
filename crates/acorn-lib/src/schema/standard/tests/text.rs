@@ -7,12 +7,49 @@
 )]
 #[cfg(feature = "std")]
 use crate::io::InputOutput;
-use crate::schema::standard::text::{Docx, Text};
+use crate::schema::standard::text::{Document, Text};
 #[cfg(feature = "std")]
 use crate::test::utils::{fixture_path, unique_path};
 use crate::util::{MarkdownSupport, ToProse, Unstructured};
 use validator::Validate;
 
+#[cfg(feature = "std")]
+#[test]
+fn test_document_input_output_reads_docx_fixture() {
+    let source = fixture_path("acorn.docx");
+    let result = Document::read(source).expect("failed to read docx file");
+    assert!(result.content.contains("ACORN"));
+}
+#[cfg(feature = "std")]
+#[test]
+fn test_document_input_output_rejects_docx_write() {
+    let output = unique_path("docx-io", "docx");
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
+    let source = Document {
+        content: "plain text content".to_string(),
+    };
+    let result = source.write(output.clone());
+    assert!(result.is_err());
+    let _cleanup = std::fs::remove_file(output);
+}
+#[test]
+fn test_document_to_prose_and_markdown_passthrough() {
+    let data = Document {
+        content: "Line one\n\nLine two".to_string(),
+    };
+    assert_eq!(data.to_prose(), "Line one\n\nLine two");
+    assert_eq!(data.to_markdown(), "Line one\n\nLine two");
+    assert_eq!(data.content(), "Line one\n\nLine two");
+}
+#[test]
+fn test_document_validate_is_noop() {
+    let data = Document {
+        content: "any content should validate".to_string(),
+    };
+    assert!(data.validate().is_ok());
+}
 #[test]
 fn test_text_to_prose_and_markdown_passthrough() {
     let data = Text {
@@ -76,41 +113,4 @@ fn test_text_try_from_path_uses_supported_extensions() {
     let unsupported = unique_path("text-io", "pptx");
     let result = Text::try_from(unsupported.as_path());
     assert!(result.is_err());
-}
-#[test]
-fn test_docx_to_prose_and_markdown_passthrough() {
-    let data = Docx {
-        content: "Line one\n\nLine two".to_string(),
-    };
-    assert_eq!(data.to_prose(), "Line one\n\nLine two");
-    assert_eq!(data.to_markdown(), "Line one\n\nLine two");
-    assert_eq!(data.content(), "Line one\n\nLine two");
-}
-#[test]
-fn test_docx_validate_is_noop() {
-    let data = Docx {
-        content: "any content should validate".to_string(),
-    };
-    assert!(data.validate().is_ok());
-}
-#[cfg(feature = "std")]
-#[test]
-fn test_docx_input_output_read_docx_fixture() {
-    let source = fixture_path("acorn.docx");
-    let result = Docx::read(source).expect("failed to read docx file");
-    assert!(result.content.contains("ACORN"));
-}
-#[cfg(feature = "std")]
-#[test]
-fn test_docx_input_output_write_rejects_docx_extension() {
-    let output = unique_path("docx-io", "docx");
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent).expect("failed to create test_artifacts directory");
-    }
-    let source = Docx {
-        content: "plain text content".to_string(),
-    };
-    let result = source.write(output.clone());
-    assert!(result.is_err());
-    let _cleanup = std::fs::remove_file(output);
 }

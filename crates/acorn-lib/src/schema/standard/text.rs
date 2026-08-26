@@ -22,10 +22,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-/// Text document sourced from DOCX or text-like content.
+/// Text document sourced from a supported document format or text-like content.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(transparent)]
-pub struct Docx {
+pub struct Document {
     /// Raw extracted text content.
     pub content: String,
 }
@@ -96,11 +96,11 @@ impl InputOutput for Text {
     }
 }
 #[cfg(feature = "std")]
-impl InputOutput for Docx {
+impl InputOutput for Document {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
-            | Ok(_) => Self::read_docx(source),
+            | Ok(_) => Self::read_document(source),
             | Err(_) => match file_extension(source.display().to_string()).as_deref() {
                 | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => Self::read_text(source),
                 | _ => Err(eyre!("Unsupported document file extension")),
@@ -120,8 +120,8 @@ impl InputOutput for Docx {
         let output = path.into();
         match file_extension(output.display().to_string()).as_deref() {
             | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => self.write_text(output),
-            | Some("docx") => Err(eyre!("DOCX writing is not implemented")),
-            | _ => Err(eyre!("Unsupported DOCX file extension for writing")),
+            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
+            | _ => Err(eyre!("Unsupported document file extension for writing")),
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
@@ -134,7 +134,7 @@ impl InputOutput for Docx {
         self.write_text(path)
     }
 }
-impl MarkdownSupport for Docx {
+impl MarkdownSupport for Document {
     fn to_markdown(&self) -> String {
         self.content().to_string()
     }
@@ -144,7 +144,7 @@ impl MarkdownSupport for Text {
         self.content().to_string()
     }
 }
-impl ToProse for Docx {
+impl ToProse for Document {
     fn to_prose(&self) -> String {
         self.content().to_string()
     }
@@ -154,7 +154,7 @@ impl ToProse for Text {
         self.content().to_string()
     }
 }
-impl Unstructured for Docx {
+impl Unstructured for Document {
     fn content(&self) -> &str {
         &self.content
     }
@@ -165,8 +165,8 @@ impl Unstructured for Text {
     }
 }
 #[cfg(feature = "std")]
-impl Docx {
-    fn read_docx(path: impl Into<PathBuf>) -> ApiResult<Self> {
+impl Document {
+    fn read_document(path: impl Into<PathBuf>) -> ApiResult<Self> {
         SourceDocument::at(path).extract().map(|content| Self { content })
     }
     fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {

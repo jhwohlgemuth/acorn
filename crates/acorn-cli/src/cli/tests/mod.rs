@@ -37,6 +37,9 @@ fn test_cli() {
     assert!(Arguments::try_parse_from(["acorn", "-V"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.json", "--all"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.pdf", "--standard", "document"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.pdf", "--standard", "docx"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "check", "/path/to/file.pdf", "--standard", "pdf"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]valid.json$,[/]draft.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--filter", "[/]valid.json$,[/]draft.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]draft.json$", "--filter", "[/]valid.json$"]).is_ok());
@@ -849,6 +852,16 @@ fn test_resolve_paths_discovers_jsonc_files() {
         resolved.iter().any(|path| has_suffix(path, "jsonc/index.jsonc")),
         "resolve_paths should discover .jsonc files, got: {resolved:?}"
     );
+}
+#[test]
+fn test_resolve_paths_discovers_pdf_files() {
+    let root = temp_test_dir("resolve-pdf");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let pdf = root.join("paper.PDF");
+    write(&pdf, "%PDF-1.7\n").unwrap();
+    let resolved = block_on(resolve_paths(&Some(root), &CommandOptions::init().build())).unwrap();
+    assert!(resolved.contains(&pdf));
 }
 #[test]
 fn test_resolve_paths_discovers_rad_markdown_and_ignores_readme() {

@@ -288,7 +288,8 @@ impl Identifier {
         let trimmed = self
             .value
             .trim()
-            .trim_matches(|character: char| matches!(character, '<' | '>' | '(' | ')' | '[' | ']' | ',' | ';'));
+            .trim_matches(|character: char| matches!(character, '<' | '>' | '(' | ')' | '[' | ']' | ',' | ';'))
+            .trim_end_matches(['.', ',', ';', ':', '!', '?', ')']);
         let trimmed = trim_unmatched_trailing_parentheses(trimmed);
         match self.kind {
             | PID::ARK => Self::parsed::<ARK>(PID::ARK, trimmed),

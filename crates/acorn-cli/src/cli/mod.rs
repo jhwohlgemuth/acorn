@@ -463,7 +463,7 @@ pub enum ServeCommands {
 /// If the options include a filter regex, only matching files are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
 pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
-    let extensions = Some(vec![MimeType::Json, MimeType::Yaml, MimeType::Jsonc, MimeType::Markdown]);
+    let extensions = Some(vec![MimeType::Json, MimeType::Yaml, MimeType::Jsonc, MimeType::Markdown, MimeType::Pdf]);
     let CommandOptions {
         branch,
         commit,

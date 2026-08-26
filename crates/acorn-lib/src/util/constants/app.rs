@@ -32,6 +32,12 @@ pub const COMPACT_LOGO: [&str; 6] = [
     "██║  ██║╚██████╗╚██████╔╝██║  ██║██║ ╚████║",
     "╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝",
 ];
+/// Maximum number of converted documents retained in the process-local cache.
+pub const DOCUMENT_CACHE_LIMIT: usize = 64;
+/// Maximum supported document size in bytes.
+pub const MAX_DOCUMENT_BYTES: usize = 100 * 1024 * 1024;
+/// Maximum supported PDF page count.
+pub const MAX_PDF_PAGES: u32 = 1_000;
 /// Base URL for deploying ORNL data.
 pub const BASE_URL: &str = "https://research.ornl.gov";
 /// ORNL disclaimer.

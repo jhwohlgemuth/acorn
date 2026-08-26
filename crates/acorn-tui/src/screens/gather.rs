@@ -8,7 +8,7 @@ use acorn::io::database::{Database, Operations};
 use acorn::io::document::SourceDocument;
 use acorn::io::{files_all, uri_to_path};
 use acorn::prelude::PathBuf;
-use acorn::schema::pid::Identifier;
+use acorn::schema::pid::{Identifier, PID};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use jiff::Timestamp;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -434,7 +434,7 @@ fn is_explicit_input(input: &str) -> bool {
 fn load_value(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
     let path = uri_to_path(input);
     let remote = input.starts_with("http://") || input.starts_with("https://");
-    let persistent = !Identifier::find_all(input).is_empty();
+    let persistent = Identifier::find_all(input).into_iter().any(|identifier| identifier.kind != PID::URL);
     match (input.is_empty(), path.exists(), remote, persistent, offline) {
         | (true, _, _, _, _) => vec![Err(Box::new(failure("Input cannot be empty", "<input>")))],
         | (false, true, _, _, _) => files_all(path, None::<Vec<String>>)

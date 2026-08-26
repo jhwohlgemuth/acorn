@@ -136,6 +136,15 @@ fn test_discovers_supported_identifiers_without_duplicates() {
     assert_eq!(identifiers[1].kind, PID::URL);
 }
 #[test]
+fn test_identifier_find_all_extracts_document_urls_and_deduplicates() {
+    let content = "[Docs](https://example.org/path), https://example.org/path and https://example.net/end.";
+    let urls = Identifier::find_all(content)
+        .into_iter()
+        .filter_map(|identifier| (identifier.kind == PID::URL).then_some(identifier.value))
+        .collect::<Vec<_>>();
+    assert_eq!(urls, vec!["https://example.org/path", "https://example.net/end"]);
+}
+#[test]
 fn test_arxiv_discovery_preserves_versions_and_uses_work_identity() {
     let identifiers = Identifier::find_all("arXiv:2106.09685v1 https://arxiv.org/abs/2106.09685v2");
     assert_eq!(identifiers.len(), 2);
@@ -151,6 +160,7 @@ fn test_gather_pdf_discovers_only_valid_identifiers() {
     let document = SourceDocument::from_path("../../tests/fixtures/gather/gather.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)
         .into_iter()
+        .filter(|identifier| identifier.kind != PID::URL)
         .map(|identifier| (identifier.kind, identifier.value))
         .collect::<Vec<_>>();
     assert_eq!(
@@ -192,6 +202,7 @@ fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
     let document = SourceDocument::from_path("../../tests/fixtures/gather/resume.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)
         .into_iter()
+        .filter(|identifier| identifier.kind != PID::URL)
         .map(|identifier| (identifier.kind, identifier.value))
         .collect::<Vec<_>>();
     let expected = [

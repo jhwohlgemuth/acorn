@@ -114,6 +114,7 @@ dependencies = [
  "nanoid",
  "nucleo-matcher",
  "owo-colors",
+ "pdf-inspector",
  "percy-dom",
  "petgraph",
  "polars",

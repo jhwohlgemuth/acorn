@@ -22,6 +22,7 @@ use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{Analysis, Check, CheckCategory, Standard};
 use acorn::prelude::{read, PathBuf};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
+use acorn::util::MimeType;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use jiff::SignedDuration;
@@ -66,6 +67,15 @@ where
     let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
     assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
     Ok(())
+}
+
+#[test]
+fn test_location_resolve_file_type_detects_extensionless_pdf_content() {
+    let content = read(fixture_path("gather/resume.pdf")).unwrap();
+    assert_eq!(
+        acorn::Location::from("https://example.org/download").resolve_file_type(&content),
+        MimeType::Pdf
+    );
 }
 
 #[tokio::test]

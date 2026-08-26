@@ -61,6 +61,7 @@ fn test_idutils_url_cases() {
             "http://nbn-resolving.org/urn:nbn:de:bvb:19-146642",
         ),
         ("http://pubmed.ncbi.nlm.nih.gov/12082125/", "http://pubmed.ncbi.nlm.nih.gov/12082125"),
+        ("https://example.org/end.),;:!?", "https://example.org/end"),
         ("https://viaf.org/viaf/75121530", "https://viaf.org/viaf/75121530"),
     ]
     .into_iter()

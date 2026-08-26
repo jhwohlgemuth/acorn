@@ -171,7 +171,7 @@ fn test_verbose_raw_format_writes_load_failures_to_stderr() {
     let _ = remove_file(path);
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("Failed to convert document"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Invalid PDF"));
     assert!(!String::from_utf8_lossy(&output.stderr).contains("ACORN gather:"));
 }
 #[test]

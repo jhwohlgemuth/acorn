@@ -306,6 +306,10 @@ impl DocumentIndex {
             | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
         }
     }
+    /// Return the one-based PDF page containing an extracted byte offset.
+    pub fn page_number(&self, byte: usize) -> Option<usize> {
+        self.document.page_number(byte)
+    }
     /// Create an excerpt whose highlighted span has at most `max_prefix` bytes of leading context.
     pub fn excerpt(&self, span: &DocumentSpan, max_prefix: usize) -> Option<DocumentExcerpt> {
         let DocumentSpan(range) = span;
@@ -432,16 +436,17 @@ impl SourceDocument {
     }
     fn is_physical_text(&self) -> bool {
         let mime = MimeType::from(self.format.as_str());
-        !(mime.is_doc()
-            || mime.is_docx()
-            || mime.is_epub()
-            || mime.is_odp()
-            || mime.is_ods()
-            || mime.is_odt()
-            || mime.is_pdf()
-            || mime.is_ppt()
-            || mime.is_powerpoint()
-            || mime.is_rtf())
+        self.has_pages()
+            || !(mime.is_doc()
+                || mime.is_docx()
+                || mime.is_epub()
+                || mime.is_odp()
+                || mime.is_ods()
+                || mime.is_odt()
+                || mime.is_pdf()
+                || mime.is_ppt()
+                || mime.is_powerpoint()
+                || mime.is_rtf())
     }
 }
 fn field_names_match(left: &str, right: &str) -> bool {

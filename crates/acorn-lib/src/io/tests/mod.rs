@@ -808,6 +808,15 @@ fn test_files_all() {
     assert_eq!(files.len(), 8);
     assert_eq!(files[0].file_name().unwrap().to_str().unwrap(), "a.json");
 }
+#[test]
+fn test_files_all_matches_extensions_case_insensitively() {
+    let temporary = tempfile::tempdir().unwrap();
+    let pdf = temporary.path().join("REPORT.PDF");
+    write(&pdf, b"%PDF-1.7\n").unwrap();
+    let files = files_all(temporary.path().to_path_buf(), Some(vec![MimeType::Pdf]));
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file_name(), pdf.file_name());
+}
 #[cfg(not(windows))]
 #[test]
 fn test_files_all_with_uri() {

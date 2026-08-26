@@ -376,7 +376,7 @@ pub struct Check {
     pub(crate) skip_verify_checksum: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Readability test to use
@@ -686,7 +686,7 @@ pub(crate) struct Export {
     pub(crate) reference: Option<PathBuf>,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Fail if conversion loses data (only for crosswalk exports)
@@ -694,12 +694,12 @@ pub(crate) struct Export {
     pub(crate) strict: bool,
     /// Metadata standard to use for source data inference (default: auto-detect)
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) from: Option<Standard>,
     /// Target metadata standard for crosswalk conversion
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
     #[command(flatten)]
@@ -742,7 +742,7 @@ pub(crate) struct Format {
     pub(crate) merge_request: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     #[command(flatten)]

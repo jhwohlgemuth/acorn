@@ -15,6 +15,9 @@ acorn check path/to/project/index.md
 # Check a Citation File Format file
 acorn check path/to/project/CITATION.cff
 
+# Check prose, readability, and links extracted from a PDF
+acorn check path/to/report.pdf
+
 # Check all research activity data in a directory
 acorn check path/to/project/
 
@@ -22,9 +25,21 @@ acorn check path/to/project/
 acorn check https://example.org/project.json
 ```
 
-HTTP and HTTPS inputs are downloaded to a temporary file and checked using the file extension in the URL. Remote inputs require network access and are rejected in global `--offline` mode.
+HTTP and HTTPS inputs are downloaded to a temporary file and checked using content-based format detection, with the URL extension as a fallback. This supports extensionless PDF URLs. Remote inputs require network access and are rejected in global `--offline` mode.
 
 ACORN recognizes `.md` and `.markdown` research activity files by their `schema: acorn/research-activity` YAML frontmatter discriminator. Legacy Markdown previously exported by ACORN is also accepted. Ordinary Markdown remains plain text and is not selected by RAD directory discovery.
+
+## Checking PDF documents
+
+PDF files are discovered in directories and Git changes and are automatically analyzed as document text. ACORN extracts each text-bearing page once, caches the result for the duration of the process, and applies prose, readability, link, and extraction-quality checks. Diagnostics rendered against extracted text include the original one-based PDF page number when the matched text can be located.
+
+The `document` standard can also be selected explicitly. The previous `docx` name and `pdf` are retained as aliases:
+
+```sh
+acorn check report.pdf --standard document
+```
+
+PDF extraction is limited to 100 MiB and 1,000 pages. Encrypted, malformed, and wholly image-based PDFs fail with a specific diagnostic. OCR is not bundled; when only some pages require OCR, ACORN checks the extractable pages and reports the skipped page numbers as quality warnings. Filenames are matched case-insensitively, including `.PDF`.
 
 ## Watch mode
 

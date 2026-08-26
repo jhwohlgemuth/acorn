@@ -13,7 +13,7 @@ use crate::io::{
     ArchiveExtraction, FromCommand, FromPath,
 };
 use crate::param;
-use crate::prelude::{Path, PathBuf};
+use crate::prelude::{OsStr, Path, PathBuf};
 use crate::util::*;
 use proptest::prelude::*;
 #[cfg(test)]
@@ -36,6 +36,10 @@ fn test_base32_crockford() {
     let value = 1234;
     let encoded = base32_crockford_encode(value);
     assert_eq!(base32_crockford_decode(&encoded), Some(value));
+}
+#[test]
+fn test_case_insensitive_glob() {
+    assert_eq!(case_insensitive_glob("Pdf-1"), "[pP][dD][fF]-1");
 }
 #[test]
 fn test_chunk_string() {
@@ -272,6 +276,8 @@ fn test_mimetype() {
     assert_eq!(MimeType::from("archive.tar.gz"), MimeType::Gzip);
     assert_eq!(MimeType::from("archive.7z"), MimeType::SevenZip);
     assert_eq!(MimeType::SevenZip.file_type(), "7z");
+    assert_eq!(MimeType::Pdf.as_ref(), OsStr::new("pdf"));
+    assert_eq!(MimeType::Vendor("custom".to_string()).as_ref(), OsStr::new("custom"));
 }
 #[test]
 fn test_mimetype_content_inference_prefers_semantic_documents() {
@@ -553,6 +559,7 @@ fn test_strip_suffixes() {
 #[test]
 fn test_to_ascii_alphanumeric() {
     assert_eq!(to_ascii_alphanumeric("NVIDIA-Nemotron_3 Super"), "nvidianemotron3super");
+    assert_eq!("NVIDIA-Nemotron_3 Super".to_ascii_alphanumeric(), "nvidianemotron3super");
 }
 #[test]
 fn test_markdown_input_output_normalize() {

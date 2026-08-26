@@ -5,16 +5,17 @@
 //!
 use crate::analyzer::error::DocumentTarget;
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+use crate::io::document::SourceDocument;
 #[cfg(feature = "std")]
 use crate::io::http::get;
 use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::prelude::{self, create_dir_all, remove_file, write, Arc, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
 use crate::schema::pid::raid;
-use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
+use crate::schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID};
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::standard::cff::{Cff, Identifier, IdentifierType, Reference};
-use crate::schema::standard::text::{Docx, Text};
+use crate::schema::standard::cff::{self, Cff, IdentifierType, Reference};
+use crate::schema::standard::text::{Document, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
@@ -193,7 +194,7 @@ impl Analysis for Cff {
                             .into_iter()
                             .flatten()
                             .enumerate()
-                            .filter_map(|(i, Identifier { kind, value, .. })| match kind {
+                            .filter_map(|(i, cff::Identifier { kind, value, .. })| match kind {
                                 | IdentifierType::Doi => {
                                     let maybe_doi = DOI::from_string(value).url();
                                     let url = if maybe_doi.is_empty() { value.to_owned() } else { maybe_doi };
@@ -596,9 +597,9 @@ impl Analysis for huwise::Dataset {
 }
 #[cfg(feature = "analysis")]
 #[async_trait]
-impl Analysis for Docx {
+impl Analysis for Document {
     fn standard() -> Standard {
-        Standard::Docx
+        Standard::Document
     }
     async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
@@ -606,14 +607,52 @@ impl Analysis for Docx {
     async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
+            .flat_map(|path| match SourceDocument::from_path(path) {
+                | Ok(document) if document.warnings().is_empty() => vec![check_ok!(CheckCategory::Quality, uri: path.file_name_with_parent())],
+                | Ok(document) => document
+                    .warnings()
+                    .iter()
+                    .map(|warning| {
+                        check!(
+                            CheckCategory::Quality,
+                            false,
+                            severity: CheckSeverity::Warning,
+                            message: warning.clone(),
+                            uri: path.file_name_with_parent()
+                        )
+                    })
+                    .collect(),
+                | Err(why) => vec![check_err!(
+                    CheckCategory::Quality,
+                    context: why.to_string(),
+                    uri: path.file_name_with_parent()
+                )],
             })
             .collect()
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
+    }
+    #[cfg(feature = "std")]
+    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.iter().map(|path| async move {
+            match Self::read(path) {
+                | Ok(document) => {
+                    Self::collect_checks(
+                        Identifier::find_all(&document.content)
+                            .into_iter()
+                            .filter_map(|identifier| (identifier.kind == PID::URL).then_some(identifier.value))
+                            .map(|url| link_check(Some(url), None)),
+                        path,
+                    )
+                    .await
+                }
+                | Err(why) => {
+                    vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))]
+                }
+            }
+        });
+        Self::flatten_checks(futures).await
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())

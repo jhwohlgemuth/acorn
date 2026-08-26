@@ -33,7 +33,10 @@ use crate::prelude::{symlink_dir, symlink_file};
 use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 #[cfg(windows)]
 use crate::util::file_extension;
-use crate::util::{generate_guid, suffix, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion, StringConversion, ToStrings};
+use crate::util::{
+    case_insensitive_glob, generate_guid, suffix, to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion,
+    StringConversion, ToStrings,
+};
 use crate::{args, cmd, Location};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt;
@@ -69,6 +72,7 @@ pub mod api;
 mod archive;
 pub use archive::{archive, extract, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
 pub mod bagit;
+pub mod cache;
 #[cfg(feature = "chart")]
 pub mod chart;
 pub mod config;
@@ -712,6 +716,9 @@ impl StringConversion for PathBuf {
     fn normalized(&self) -> String {
         self.to_string_lossy().as_ref().normalized()
     }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
+    }
     fn to_cross_platform_path(&self) -> String {
         self.cross_platform_display()
     }
@@ -726,6 +733,9 @@ impl StringConversion for String {
     fn normalized(&self) -> String {
         self.as_str().normalized()
     }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
+    }
     fn to_cross_platform_path(&self) -> String {
         Path::new(self).cross_platform_display()
     }
@@ -739,6 +749,9 @@ impl StringConversion for String {
 impl StringConversion for &str {
     fn normalized(&self) -> String {
         self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
     }
     fn to_cross_platform_path(&self) -> String {
         Path::new(self).cross_platform_display()
@@ -1013,7 +1026,7 @@ pub fn files_all_with_max_depth<T: FileExtension>(path: PathBuf, extensions: Opt
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
     }
     fn patterns(path: &PathBuf, extension: Option<&str>, max_depth: Option<usize>) -> Vec<String> {
-        let suffix = extension.map_or_else(|| "*".to_string(), |value| format!("*.{}", value.to_lowercase()));
+        let suffix = extension.map_or_else(|| "*".to_string(), |value| format!("*.{}", case_insensitive_glob(value)));
         match max_depth {
             | Some(value) => (1..=value)
                 .map(|depth| {

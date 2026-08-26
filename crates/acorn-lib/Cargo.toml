@@ -62,6 +62,7 @@ lychee-lib = { version = "0.23.0", default-features = false, optional = true }
 nanoid = { workspace = true, optional = true }
 nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"] , default-features = false }
 owo-colors = { workspace = true, optional = true }
+pdf-inspector = { workspace = true, optional = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
@@ -163,6 +164,7 @@ std = [
   "dep:nanoid",
   "dep:owo-colors",
   "dep:percy-dom",
+  "dep:pdf-inspector",
   "dep:rand",
   "dep:reqwest",
   "dep:ring",

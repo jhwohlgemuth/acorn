@@ -148,6 +148,24 @@ fn test_parses_dotted_and_indexed_paths() {
     assert_eq!(DocumentPath::parse("meta.doi[2]"), DocumentPath::parse("r#meta.doi[2]"));
 }
 #[test]
+fn test_pdf_extracts_text_and_maps_pages() {
+    let document = SourceDocument::from_path("../../tests/fixtures/gather/resume.pdf").unwrap();
+    let byte = document.content.find("SELECTED SYNTHETIC PUBLICATIONS").unwrap();
+    assert_eq!(document.page_number(byte), Some(2));
+    assert!(document.content.contains("CURRICULUM VITAE"));
+    let index = DocumentIndex::new(document);
+    assert_eq!(index.page_number(byte), Some(2));
+    assert!(matches!(
+        index.resolve(&DocumentQuery::new().with_needle("SELECTED SYNTHETIC PUBLICATIONS")),
+        DocumentMatch::Unique(_)
+    ));
+}
+#[test]
+fn test_pdf_limits_reject_oversized_documents_and_page_counts() {
+    assert!(validate_document_size(MAX_DOCUMENT_BYTES.saturating_add(1), "large.pdf").is_err());
+    assert!(validate_pdf_pages(MAX_PDF_PAGES.saturating_add(1), "long.pdf").is_err());
+}
+#[test]
 fn test_reports_ambiguous_text_without_guessing() {
     let index = DocumentIndex::new(document("value\nvalue\n", "input.yaml"));
     assert_eq!(index.resolve(&DocumentQuery::new().with_value("value")), DocumentMatch::Ambiguous);

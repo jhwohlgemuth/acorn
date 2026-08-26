@@ -51,6 +51,22 @@ fn test_check_diagnostics_remain_on_stdout() {
     assert!(!String::from_utf8_lossy(&output.stderr).contains("Deserialization error"));
 }
 
+#[test]
+fn test_check_pdf_as_document_text() {
+    Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "check",
+            &fixture("gather/resume.pdf").to_string_lossy(),
+            "--skip",
+            "prose,readability,schema",
+            "--all",
+        ])
+        .assert()
+        .success();
+}
+
 #[ignore = "Broken for reasons unknown"]
 #[test]
 fn test_dcat_check_valid_dataset() {

@@ -141,9 +141,9 @@ pub enum Standard {
     /// Data Catalog (DCAT)
     #[display("dcat")]
     Dcat,
-    /// DOCX-derived text
-    #[display("docx")]
-    Docx,
+    /// Document-derived text
+    #[display("document")]
+    Document,
     /// Dublin Core
     #[display("dublin-core")]
     DublinCore,
@@ -526,7 +526,19 @@ impl Check {
                 }
                 | None | Some(_) => {}
             },
-            | CheckCategory::Quality => {}
+            | CheckCategory::Quality => {
+                let title = uri.as_deref().unwrap_or_default();
+                if self.success {
+                    info!("=> {} {title} has {}", Label::pass(), "no quality issues".green().bold());
+                } else {
+                    let details = context.as_deref().unwrap_or(&message).to_string();
+                    let heading = uri.as_deref().map_or_else(
+                        || category.message().to_string(),
+                        |uri| format!("{} — {}", category.message(), uri.cyan().underline()),
+                    );
+                    print_unlocated(index, &severity, &heading, details);
+                }
+            }
             | CheckCategory::Readability => match &errors {
                 | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
                     let score = severity.colorize(&message);
@@ -686,7 +698,20 @@ impl fmt::Display for Check {
                 }
                 | None | Some(_) => write!(f, ""),
             },
-            | CheckCategory::Quality => write!(f, "unimplemented: Quality"),
+            | CheckCategory::Quality => {
+                let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
+                let severity = match self.success {
+                    | true => CheckSeverity::Info,
+                    | false => self.severity.clone(),
+                };
+                let details = self
+                    .context
+                    .as_ref()
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| (!self.message.is_empty()).then_some(&self.message))
+                    .map_or_else(|| "No quality issues".to_string(), Clone::clone);
+                f.write_str(&format_row(location, severity.colored(), details))
+            }
             | CheckCategory::Readability => {
                 let Check {
                     errors, message, severity, ..
@@ -1076,7 +1101,7 @@ impl Standard {
             | Standard::Dcat => print_schema::<dcat::Dataset>(format),
             | Standard::Huwise => print_schema::<huwise::Dataset>(format),
             | Standard::Invenio => print_schema::<invenio::Record>(format),
-            | Standard::Text | Standard::Docx => print_schema::<text::Text>(format),
+            | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
             | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
         }
     }
@@ -1199,17 +1224,18 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
 fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
     match document.resolve(query) {
         | DocumentMatch::Unique(span) => document.excerpt(&span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
+            let page = document.page_number(span.0.start);
             let DocumentSpan(span) = excerpt.span;
             let source = Source::from(excerpt.content);
+            let message = match page {
+                | Some(page) => format!("{} (PDF page {page})", report.message),
+                | None => report.message,
+            };
             let _ = Report::build(report.kind, (report.title, span.clone()))
                 .with_code(report.index)
                 .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
                 .with_message(report.heading)
-                .with_label(
-                    ariadne::Label::new((report.title, span))
-                        .with_message(report.message)
-                        .with_color(report.color),
-                )
+                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
                 .finish()
                 .print((report.title, source));
             true
@@ -1287,6 +1313,7 @@ pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
         CheckCategory::Schema,
         CheckCategory::Link,
         CheckCategory::Prose,
+        CheckCategory::Quality,
         CheckCategory::Readability,
         CheckCategory::Crosswalk,
     ]

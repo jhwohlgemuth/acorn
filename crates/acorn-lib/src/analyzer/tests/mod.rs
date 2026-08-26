@@ -818,7 +818,7 @@ fn test_standard_to_schema_does_not_panic() {
         Standard::Invenio,
         Standard::Raid,
         Standard::Text,
-        Standard::Docx,
+        Standard::Document,
     ];
     for standard in standards {
         standard.to_schema("json");

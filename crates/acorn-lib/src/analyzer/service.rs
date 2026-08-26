@@ -5,7 +5,7 @@ use crate::prelude::{Arc, HashMap, PathBuf};
 use crate::schema::pid::raid;
 use crate::schema::research_activity::{MarkdownParser, ResearchActivity};
 use crate::schema::standard::cff::Cff;
-use crate::schema::standard::text::{Docx, Text};
+use crate::schema::standard::text::{Document, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};
 use crate::util::{MimeType, StringConversion};
 use core::iter::once;
@@ -102,7 +102,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &CheckOptions) -> Analysi
             | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories).await,
             | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories).await,
             | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories).await,
-            | Standard::Docx => analyze::<Docx>(&paths, options, &categories).await,
+            | Standard::Document => analyze::<Document>(&paths, options, &categories).await,
             | Standard::Huwise => analyze::<huwise::Dataset>(&paths, options, &categories).await,
             | Standard::Invenio => analyze::<invenio::Record>(&paths, options, &categories).await,
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories).await,
@@ -120,7 +120,7 @@ pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPath
         let selected = if standard == Standard::ResearchActivityData {
             match MimeType::from(path.display().to_string()) {
                 | MimeType::Cff => Standard::CitationFileFormat,
-                | MimeType::Docx => Standard::Docx,
+                | MimeType::Docx | MimeType::Pdf => Standard::Document,
                 | MimeType::Markdown if ResearchActivity::is_markdown(path.as_path()) => Standard::ResearchActivityData,
                 | MimeType::Text | MimeType::Markdown => Standard::Text,
                 | _ => Standard::ResearchActivityData,
@@ -158,7 +158,6 @@ fn skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
         .skip
         .iter()
         .map(CheckCategory::from)
-        .chain(once(CheckCategory::Quality))
         .chain((options.offline || options.disable_website_checks).then_some(CheckCategory::Link))
         .collect()
 }
@@ -178,6 +177,7 @@ mod tests {
                 PathBuf::from("notes.md"),
                 PathBuf::from("activity.jsonc"),
                 PathBuf::from("report.docx"),
+                PathBuf::from("paper.pdf"),
                 PathBuf::from("activity.yaml"),
             ],
             Standard::ResearchActivityData,
@@ -202,8 +202,8 @@ mod tests {
                     paths: vec![PathBuf::from("notes.md")],
                 },
                 StandardPaths {
-                    standard: Standard::Docx,
-                    paths: vec![PathBuf::from("report.docx")],
+                    standard: Standard::Document,
+                    paths: vec![PathBuf::from("report.docx"), PathBuf::from("paper.pdf")],
                 },
             ]
         );

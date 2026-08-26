@@ -104,14 +104,14 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "datacite" => Ok(Standard::Datacite),
         | "dcat" => Ok(Standard::Dcat),
         | "dcmi" => Ok(Standard::DublinCore),
-        | "docx" => Ok(Standard::Docx),
+        | "document" | "docx" | "pdf" => Ok(Standard::Document),
         | "invenio" => Ok(Standard::Invenio),
         | "huwise" => Ok(Standard::Huwise),
         | "raid" => Ok(Standard::Raid),
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             rads, cff, datacite, dcat, dcmi, docx, invenio, huwise, raid, text"
+             rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text"
         )),
     }
 }

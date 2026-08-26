@@ -136,6 +136,8 @@ pub trait Searchable<T> {
 pub trait StringConversion {
     /// Collapse whitespace and convert text to lowercase.
     fn normalized(&self) -> String;
+    /// Normalize text to lowercase ASCII alphanumeric characters.
+    fn to_ascii_alphanumeric(&self) -> String;
     /// Render a path string using native separators without a Windows extended-length prefix
     fn to_cross_platform_path(&self) -> String;
     /// Return a string representation of the file_name with its parent folder (or just the folder name if it is a folder)
@@ -606,6 +608,12 @@ impl License {
         }
     }
 }
+#[cfg(feature = "std")]
+impl AsRef<OsStr> for MimeType {
+    fn as_ref(&self) -> &OsStr {
+        OsStr::new(self.file_type_ref())
+    }
+}
 impl From<&str> for MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -746,7 +754,10 @@ impl MimeType {
     /// let mime = MimeType::Cff;
     /// assert_eq!(mime.file_type(), "cff");
     /// ```
-    pub fn file_type(self) -> String {
+    pub fn file_type(&self) -> String {
+        self.file_type_ref().to_string()
+    }
+    fn file_type_ref(&self) -> &str {
         match self {
             | MimeType::Cff => "cff",
             | MimeType::Csv => "csv",
@@ -786,9 +797,9 @@ impl MimeType {
             | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",
             | MimeType::Zip => "zip",
+            | MimeType::Vendor(extension) => extension,
             | _ => "unknown-file-type",
         }
-        .to_string()
     }
 }
 impl Default for SemanticVersion {
@@ -989,6 +1000,16 @@ pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
                 | None => None,
             }
         })
+}
+/// Convert ASCII letters into a case-insensitive glob pattern.
+pub fn case_insensitive_glob(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| match character.is_ascii_alphabetic() {
+            | true => format!("[{}{}]", character.to_ascii_lowercase(), character.to_ascii_uppercase()),
+            | false => character.to_string(),
+        })
+        .collect()
 }
 /// Returns `true` if `a` and `b` have the same length and equal contents, without short-circuiting on the first
 /// differing byte. Suitable for comparing secrets where timing side-channels must be avoided.

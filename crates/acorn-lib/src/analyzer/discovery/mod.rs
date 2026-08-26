@@ -11,6 +11,7 @@ use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
 pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use crate::schema::pid::{self, Arxiv, Handle, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR, SWHID};
 use crate::schema::{ControlledVocabulary, Keyword};
+use crate::util::constants::RE_URL;
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::{check, check_err};
 use crate::{Location, Repository};
@@ -882,7 +883,7 @@ impl Identifier {
             })
             .collect::<Vec<_>>();
         let parsed = PID::iter()
-            .filter(|kind| kind.is_discoverable() && !kind.is_raid() && !kind.is_url())
+            .filter(|kind| kind.is_discoverable() && !kind.is_raid())
             .flat_map(|kind| kind.find_all(content))
             .filter(|identifier| identifier.kind != PID::DOI || !raid.iter().any(|value| value.value == identifier.value));
         raid.iter()
@@ -994,6 +995,15 @@ impl PID {
             | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::URL => RE_URL
+                .find_iter(content)
+                .filter_map(Result::ok)
+                .filter_map(|matched| {
+                    Identifier::new(matched.as_str())
+                        .normalized()
+                        .filter(|identifier| identifier.kind == PID::URL)
+                })
+                .collect(),
             | _ => Vec::new(),
         }
     }
@@ -1171,7 +1181,7 @@ impl Records {
             .quiet(quiet)
             .skip(vec!["prose".to_string(), "readability".to_string()])
             .standard(match standard.unwrap_or_default() {
-                | Standard::ResearchActivityData | Standard::Docx => Standard::Text,
+                | Standard::Document | Standard::ResearchActivityData => Standard::Text,
                 | value => value,
             })
             .build();
