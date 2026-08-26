@@ -1,25 +1,20 @@
 //! Embedded constant assets
 use crate::prelude::{format, String, Vec};
-
+use crate::schema::vocabulary;
 /// Embedded ACORN constant assets
 pub struct Constant;
 impl Constant {
     /// Read an embedded asset as UTF-8 text
     pub fn from_asset(file_name: &str) -> Option<String> {
-        match file_name {
+        vocabulary::from_asset(file_name).map(String::from).or_else(|| match file_name {
             | "accept.txt" => Some(String::from(include_str!("../../assets/constants/accept.txt"))),
             | "acronyms.csv" => Some(String::from(include_str!("../../assets/constants/acronyms.csv"))),
             | "application.json" => Some(String::from(include_str!("../../assets/constants/application.json"))),
             | "geonames.tsv" => Some(String::from(include_str!("../../assets/constants/geonames.tsv"))),
-            | "keywords.csv" => Some(String::from(include_str!("../../assets/constants/keywords.csv"))),
-            | "organization.json" => Some(String::from(include_str!("../../assets/constants/organization.json"))),
-            | "partners.csv" => Some(String::from(include_str!("../../assets/constants/partners.csv"))),
             | "reject.txt" => Some(String::from(include_str!("../../assets/constants/reject.txt"))),
-            | "sponsors.csv" => Some(String::from(include_str!("../../assets/constants/sponsors.csv"))),
-            | "technology.csv" => Some(String::from(include_str!("../../assets/constants/technology.csv"))),
             | "words.csv" => Some(String::from(include_str!("../../assets/constants/words.csv"))),
             | _ => None,
-        }
+        })
     }
     /// Return the last value from every non-empty CSV row
     pub fn last_values(file_name: &str) -> impl Iterator<Item = String> {

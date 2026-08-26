@@ -5,7 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use std::env::temp_dir;
+use ::std::env::temp_dir;
 
 use crate::io::api::{IntoBody, ParamStyle};
 use crate::io::{
@@ -20,6 +20,17 @@ use proptest::prelude::*;
 use similar_asserts::assert_eq;
 
 const FIXTURES: &str = "../../tests/fixtures";
+
+#[test]
+fn capability_modules_match_compatibility_exports() {
+    assert!(crate::util::core::constant_time_eq(b"acorn", b"acorn"));
+    assert_eq!(crate::util::alloc::file_extension("record.json"), Some("json".to_string()));
+    assert_eq!(crate::util::portable::file_extension("record.json"), file_extension("record.json"));
+    assert_eq!(
+        crate::util::std::is_uri_or_path("https://acorn.ornl.gov"),
+        is_uri_or_path("https://acorn.ornl.gov")
+    );
+}
 
 #[cfg(feature = "cmd")]
 mod cmd;
@@ -281,7 +292,7 @@ fn test_mimetype() {
 }
 #[test]
 fn test_mimetype_content_inference_prefers_semantic_documents() {
-    let docx = std::fs::read(PathBuf::from(FIXTURES).join("acorn.docx")).unwrap();
+    let docx = ::std::fs::read(PathBuf::from(FIXTURES).join("acorn.docx")).unwrap();
     assert_eq!(MimeType::infer(&docx), Some(MimeType::Docx));
     assert_eq!(MimeType::infer(b"PK\x03\x04generic zip payload"), Some(MimeType::Zip));
     assert_eq!(MimeType::infer(b"\x1f\x8b\x08\x00gzip payload"), Some(MimeType::Gzip));
@@ -617,15 +628,15 @@ fn test_file_name_with_parent() {
     let root = temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
     // Folder
     let directory = root.join("folder");
-    let created = std::fs::create_dir_all(&directory);
+    let created = ::std::fs::create_dir_all(&directory);
     assert!(created.is_ok());
     assert_eq!(file_name_with_parent(directory.clone()), "folder".to_string());
     // File
     let file = directory.join("example.txt");
-    let written = std::fs::write(&file, "content");
+    let written = ::std::fs::write(&file, "content");
     assert!(written.is_ok());
     assert_eq!(file_name_with_parent(file), "folder/example.txt".to_string());
-    let removed = std::fs::remove_dir_all(&root);
+    let removed = ::std::fs::remove_dir_all(&root);
     assert!(removed.is_ok());
 }
 #[test]

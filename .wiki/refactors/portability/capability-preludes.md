@@ -11,11 +11,11 @@ status: planned
 
 # Evidence
 
-`crates/acorn-lib/src/prelude.rs` has capability-dependent exports, while analyzer, utility, and I/O call sites still assume host APIs.
+`util` now has explicit core, alloc, and std ownership, while `crates/acorn-lib/src/prelude.rs` still combines capability-dependent exports and analyzer and I/O call sites still assume the flat prelude.
 
 # Recommendation
 
-Expose explicit `prelude::core`, `prelude::alloc`, and `prelude::std` modules and restrict imports according to each module's capability level.
+Mirror the utility ownership with explicit `prelude::core`, `prelude::alloc`, and `prelude::std` modules, preserve flat compatibility re-exports, and restrict new module imports according to capability level.
 
 # Acceptance criteria
 

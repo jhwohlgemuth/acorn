@@ -16,9 +16,9 @@ use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::{has_at_least_one_truthy, is_date, is_isni, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::schema::vocabulary;
 use crate::schema::Date;
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
-use crate::util::Constant;
 #[cfg(feature = "std")]
 use crate::util::Label;
 #[cfg(not(feature = "std"))]
@@ -101,7 +101,7 @@ impl<'a> Extractor<'a> {
                     | false => ["partners", "sponsors"],
                 };
                 let ror = organization.id.trim_end_matches('/').rsplit('/').next().unwrap_or(&organization.id);
-                vocabularies.iter().flat_map(Constant::csv).find_map(|row| match row.as_slice() {
+                vocabularies.iter().flat_map(vocabulary::csv).find_map(|row| match row.as_slice() {
                     | [name, _, value, ..] if value.eq_ignore_ascii_case(ror) => Some(name.clone()),
                     | _ => None,
                 })

@@ -20,7 +20,7 @@ use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::{Constant, LinkedData, MarkdownSupport, MimeType};
+use crate::util::{LinkedData, MarkdownSupport, MimeType};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
@@ -56,6 +56,7 @@ pub mod pid;
 pub mod research_activity;
 pub mod standard;
 pub mod validate;
+pub(crate) mod vocabulary;
 
 use graph::{node_from_label, node_name, node_parent};
 use namespaces::{bibo, foaf, schema_org};
@@ -829,8 +830,8 @@ impl Organization {
     }
     /// Returns a list of all organizations, loaded from the organization.json asset file
     pub fn load() -> Vec<Organization> {
-        Constant::from_asset("organization.json")
-            .and_then(|content| serde_json::from_str(&content).ok())
+        vocabulary::from_asset("organization.json")
+            .and_then(|content| serde_json::from_str(content).ok())
             .unwrap_or_default()
     }
     /// Finds the first organization in the hierarchy with the given label.

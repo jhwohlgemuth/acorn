@@ -10,19 +10,17 @@ status: in-progress
 priority: next
 ---
 
-# Context
-
-Pure JSON and JSONC detection no longer imports the std-gated I/O module, but broader analyzer and I/O boundaries still mix domain logic with host behavior.
-
 # Evidence
 
-`crates/acorn-lib/src/analyzer/mod.rs` still coordinates process, network, and filesystem-like behavior alongside transformations.
+- The no-default build still imports `std` for validator derive output.
+- `schema` still owns path-based `InputOutput` implementations, and `analyzer` still coordinates transformations with process, network, filesystem, document, and database services.
 
 # Recommendation
 
-1. Move host-heavy logic behind std adapters and keep pure transformations in portable modules.
-2. Keep schema parsing, validation, and formatting independent of command, process, and network concerns.
-3. Route host operations through explicit traits.
+1. Establish matching `prelude::core`, `prelude::alloc`, and `prelude::std` imports and resolve the validator derive dependency on `std`.
+2. Move schema path and file operations behind std adapters while retaining string/byte codecs with schema types.
+3. Separate analyzer models, readability, validation folds, and supplied-content traversal from Vale, HTTP, filesystem, document, and database adapters.
+4. Introduce focused host traits only where analysis or schema workflows must consume an external capability.
 
 # Validation
 
@@ -30,4 +28,4 @@ Run `cargo check -p acorn-lib --no-default-features` and the capability-specific
 
 # Acceptance criteria
 
-Portable modules compile without importing std-only services.
+Schemas do not own path or file access, and pure analysis compiles without concrete std services.

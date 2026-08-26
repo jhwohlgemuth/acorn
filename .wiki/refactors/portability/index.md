@@ -3,7 +3,6 @@
 ## Next
 
 - [Isolate std-only modules](isolate-std-only-modules.md) - Complete the separation between portable domain logic and host services.
-- [Utility module partitioning](utility-module-partitioning.md) - Move portable implementations out of the mixed root module.
 - [Dependency feature defaults](dependency-feature-defaults.md) - Finish classifying the portable dependency tree.
 
 ## Planned

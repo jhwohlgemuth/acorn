@@ -23,7 +23,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
 - Default, minimal, alloc, and `wasm32-unknown-unknown` checks now pass for the in-tree boundary, and the WASM dependency tree also excludes those presentation and generic asset packages.
 - Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
-- The current no-default build still imports `std` for schema derive output, and `util::portable` still re-exports definitions owned by the mixed root utility module. These are remaining Phase 1 portability boundaries rather than extraction work.
+- Utility implementations now have explicit core, alloc, and std ownership, with flat and `util::portable` compatibility re-exports. The current no-default build still imports `std` for schema derive output; this is the remaining Phase 1.1 portability boundary before schema and analyzer separation.
 - `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
 - `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
 - The `std` feature enables unrelated host capabilities, so consumers cannot select a narrow dependency graph.
@@ -199,7 +199,6 @@ Make `acorn-lib` re-export-only and map its existing feature names and default b
 - [Portability roadmap](portability/roadmap.md)
 - [Isolate std-only modules](portability/isolate-std-only-modules.md)
 - [Capability preludes](portability/capability-preludes.md)
-- [Utility module partitioning](portability/utility-module-partitioning.md)
 - [Host abstraction traits](portability/host-abstraction-traits.md)
 - [WASM feature path](portability/wasm-feature-path.md)
 - [no-std and WASM CI](portability/no-std-wasm-ci.md)

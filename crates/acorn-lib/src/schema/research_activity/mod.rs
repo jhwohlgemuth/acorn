@@ -15,6 +15,8 @@ use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifi
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::standard::text::Text;
 use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
+#[cfg(feature = "std")]
+use crate::schema::vocabulary;
 use crate::schema::{
     ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
 };
@@ -25,7 +27,7 @@ use crate::util::constants::{
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 #[cfg(feature = "std")]
-use crate::util::{Constant, Label};
+use crate::util::Label;
 use crate::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, StringConversion};
@@ -949,7 +951,7 @@ fn default_handle_context() -> String {
 }
 #[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
-    let data = Constant::csv(&name);
+    let data = vocabulary::csv(&name);
     resolve_from_list_of_lists(value, data, name)
 }
 #[cfg(not(feature = "std"))]
