@@ -18,10 +18,10 @@ use crate::io::oci::{
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, remove_fields, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair, Executor, Fingerprint,
-    InputOutput, PathConversion, PathExt, Remote, Source, SourceAction,
+    read_large_file, remove_fields, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair, Executor,
+    Fingerprint, InputOutput, PathConversion, PathExt, Remote, Source, SourceAction,
 };
-use crate::prelude::OsString;
+use crate::prelude::{OsString, MAIN_SEPARATOR};
 use crate::schema::agent::Quantization;
 use crate::util::constants::app::{
     ACORN_MODEL_LAYER, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CONFIG, MODELPACK_MANIFEST,
@@ -1170,6 +1170,50 @@ fn test_unique_file_extensions() {
     ];
     let extensions = unique_file_extensions(&paths);
     assert_eq!(extensions, vec!["json", "yaml"]);
+}
+#[test]
+fn test_slice_path() {
+    let separator = MAIN_SEPARATOR;
+    let short = PathBuf::from(format!("{separator}path{separator}to{separator}foo{separator}bar{separator}baz.txt"));
+    // Paths shorter than or equal to the cutoff remain unchanged.
+    assert_eq!(slice_path(&short, 100), short.display().to_string());
+    assert_eq!(
+        slice_path(&short, short.display().to_string().chars().count()),
+        short.display().to_string()
+    );
+    let model = PathBuf::from(format!(
+        "{separator}data{separator}projects{separator}.models{separator}unsloth{separator}NVIDIA-Nemotron-3-Super-120B-A12B-GGUF{separator}UD-Q4_K_M{separator}NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_M-00002-of-00003.gguf"
+    ));
+    // The cutoff rounds right without splitting a directory name.
+    assert_eq!(
+        slice_path(model, 20),
+        format!(
+            "{separator}data{separator}projects{separator}.models{separator}...{separator}NVIDIA-Nemotron-3-Super-120B-A12B-UD-Q4_K_M-00002-of-00003.gguf"
+        )
+    );
+    // A small cutoff still preserves the root folder and final child.
+    assert_eq!(slice_path(short, 5), format!("{separator}path{separator}...{separator}baz.txt"));
+    let direct_child = PathBuf::from(format!("{separator}path{separator}baz.txt"));
+    // A path without removable middle components remains unchanged.
+    assert_eq!(slice_path(&direct_child, 0), direct_child.display().to_string());
+    let folder = PathBuf::from(format!(
+        "{separator}résumé{separator}projects{separator}models{separator}latest{separator}"
+    ));
+    // Unicode folder names and a trailing separator are preserved.
+    assert_eq!(
+        slice_path(folder, 0),
+        format!("{separator}résumé{separator}...{separator}latest{separator}")
+    );
+    #[cfg(windows)]
+    {
+        // Windows drive and UNC roots are normalized while retaining their complete platform prefixes.
+        assert_eq!(slice_path(r"\\?\C:\Users\acorn\models\cache\model.gguf", 0), r"C:\Users\...\model.gguf");
+        assert_eq!(slice_path(r"C:\Users\acorn\models\cache\model.gguf", 0), r"C:\Users\...\model.gguf");
+        assert_eq!(
+            slice_path(r"\\server\share\models\cache\model.gguf", 0),
+            r"\\server\share\models\...\model.gguf"
+        );
+    }
 }
 #[test]
 fn test_path_conversion_uses_platform_string_paths() {

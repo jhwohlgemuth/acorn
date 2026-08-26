@@ -503,9 +503,9 @@ impl ModelDownloadPlan {
             | Some(identifier) => {
                 if !quiet {
                     info!(
-                        "=> {} GGUF fallback: searching for quantization repositories derived from '{}'",
+                        "=> {} Searching for quantization repositories derived from {}",
                         Label::run(),
-                        identifier
+                        identifier.yellow()
                     );
                 }
                 let search_options = huggingface::SearchOptions::init()

@@ -24,7 +24,7 @@ pub use crate::error::ApiResult;
 use crate::prelude;
 use crate::prelude::{
     absolute, canonicalize, consts, create_dir_all, current_dir, fs, io, temp_dir, var, var_os, write, BufReader, CommandOutput, Component, Cursor,
-    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read,
+    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read, MAIN_SEPARATOR,
 };
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
@@ -1003,6 +1003,51 @@ pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
         } else {
             format!("{parent_name}/{name}")
         }
+    }
+}
+/// Shortens an absolute path for display by replacing removable middle components with an ellipsis
+/// ### Note
+/// The character count is an approximate leading-prefix cutoff.
+/// The cutoff rounds right to the next component boundary while preserving the root folder and final child.
+pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
+    let displayed = path.as_ref().cross_platform_display();
+    let character_total = displayed.chars().count();
+    let separator_positions = displayed
+        .char_indices()
+        .enumerate()
+        .filter_map(|(character, (byte, value))| (value == MAIN_SEPARATOR).then_some((character, byte)))
+        .collect::<Vec<_>>();
+    let component_ranges = displayed
+        .split(MAIN_SEPARATOR)
+        .scan(0usize, |byte, component| {
+            let start = *byte;
+            *byte = byte.saturating_add(component.len()).saturating_add(MAIN_SEPARATOR.len_utf8());
+            Some((start, start.saturating_add(component.len()), component))
+        })
+        .filter(|(_, _, component)| !component.is_empty())
+        .collect::<Vec<_>>();
+    let has_drive_prefix = matches!(displayed.as_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic());
+    let first_folder_index = match (displayed.starts_with(r"\\"), has_drive_prefix) {
+        | (true, _) => 2,
+        | (false, true) => 1,
+        | (false, false) => 0,
+    };
+    let minimum_cutoff = component_ranges.get(first_folder_index).map(|(_, end, _)| *end);
+    let last_child_start = component_ranges.last().map(|(start, _, _)| *start);
+    match (character_total <= character_count, minimum_cutoff, last_child_start) {
+        | (true, _, _) | (_, None, _) | (_, _, None) => displayed,
+        | (false, Some(minimum), Some(last)) => separator_positions
+            .into_iter()
+            .find(|(character, byte)| *character >= character_count && *byte >= minimum && byte.saturating_add(MAIN_SEPARATOR.len_utf8()) < last)
+            .map_or(displayed.clone(), |(_, cutoff)| {
+                format!(
+                    "{}{}...{}{}",
+                    displayed.get(..cutoff).unwrap_or_default(),
+                    MAIN_SEPARATOR,
+                    MAIN_SEPARATOR,
+                    displayed.get(last..).unwrap_or_default()
+                )
+            }),
     }
 }
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.

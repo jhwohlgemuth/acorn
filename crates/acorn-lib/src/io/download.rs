@@ -1,8 +1,11 @@
 //! File download utilities
 use crate::io::api::huggingface;
-use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, ApiResult, ProgressType};
+use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, slice_path, ApiResult, ProgressType};
 use crate::prelude::{create_dir_all, remove_file, Path, PathBuf, Vec};
-use crate::util::constants::{app::DEFAULT_HUGGINGFACE_DOMAIN, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES};
+use crate::util::constants::{
+    app::{DEFAULT_HUGGINGFACE_DOMAIN, DISPLAY_PATH_CHARACTER_COUNT},
+    env::HUGGINGFACE_TOKEN_VARIABLE_NAMES,
+};
 use crate::util::Label;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
@@ -188,7 +191,8 @@ impl DownloadTask {
             | true => Err(eyre!("Model file path is unsafe: {}", self.item.path)),
             | false if self.item.is_complete_at(&self.target) => {
                 if !self.quiet {
-                    println!("=> {} Skipping existing model file {}", Label::pass(), self.target.display());
+                    let target_display = slice_path(&self.target, DISPLAY_PATH_CHARACTER_COUNT);
+                    println!("=> {} Skipping existing model file {target_display}", Label::pass());
                 }
                 Ok(())
             }
@@ -264,15 +268,16 @@ impl DownloadTask {
             | (false, Some(_)) => ProgressType::Bar,
             | (false, None) => ProgressType::Spinner,
         };
+        let target_display = slice_path(&target, DISPLAY_PATH_CHARACTER_COUNT);
         if !quiet {
-            info!("=> {} Downloading {}", Label::run(), target.display());
+            info!("=> {} Downloading {target_display}", Label::run());
         }
         let progress = create_progress_bar(item.size.and_then(|value| usize::try_from(value).ok()).unwrap_or_default(), progress_type);
         match item.size {
             | Some(_) => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10}/{total_bytes:<10} [{bar:40.green}] {msg}"),
             | None => apply_progress_style(&progress, "  {spinner:.green} {bytes:>10} {msg}"),
         }
-        progress.set_message(target.display().to_string());
+        progress.set_message(target_display.clone());
         let auth_error_message = item.auth_error_message();
         let result = http::download_with_progress(
             &item.url,
@@ -291,7 +296,7 @@ impl DownloadTask {
         match result.await {
             | Ok(_) => {
                 if !quiet {
-                    finish_progress_bar(&progress, format!("{}Downloaded {}", Label::CHECKMARK, target.display()));
+                    finish_progress_bar(&progress, format!("{}Downloaded {target_display}", Label::CHECKMARK));
                 }
                 Ok(())
             }

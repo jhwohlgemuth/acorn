@@ -26,7 +26,7 @@ mod std {
     pub use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     #[cfg(windows)]
     pub use std::os::windows::fs::{symlink_dir, symlink_file};
-    pub use std::path::{absolute, Component, Path, PathBuf};
+    pub use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
     pub use std::process::{exit, Command, ExitStatus, Output, Stdio};
     pub use std::sync::{Mutex, OnceLock};
     pub use triomphe::Arc;

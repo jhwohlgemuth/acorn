@@ -145,6 +145,8 @@ pub const DEFAULT_GOOSE_CONFIG_PATH: &str = ".config/goose/config.yaml";
 pub const DEFAULT_GOOSE_WINDOWS_CONFIG_PATH: &str = "Block/goose/config/config.yaml";
 /// Default directory under the user's home directory for downloaded models.
 pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
+/// Character cutoff used when shortening paths for display.
+pub const DISPLAY_PATH_CHARACTER_COUNT: usize = 20;
 /// Default model search result limit.
 pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
 /// Default minimum download count for Hugging Face fallback models.
