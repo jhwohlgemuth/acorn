@@ -25,13 +25,13 @@ use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, Te
 use crate::prelude::var;
 use crate::schema::pid::{PersistentIdentifierParse, ROR};
 use crate::util::{Label, Searchable};
+use crate::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::debug;
-use validator::Validate;
 
 /// ROR API options
 #[derive(Builder, Clone, Debug)]

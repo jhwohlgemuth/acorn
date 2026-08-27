@@ -21,12 +21,14 @@ use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
 use crate::util::Label;
 use crate::util::{LinkedData, MarkdownSupport, MimeType};
+use crate::validation::{Each, Validate, ValidationReport};
 use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
 use core::hash::Hash;
 use core::iter::once;
 use core::num::NonZeroU64;
+use core::slice::Iter;
 use derive_more::Display;
 #[cfg(feature = "std")]
 use nucleo_matcher::{
@@ -44,7 +46,6 @@ use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::{debug, error, trace};
-use validator::Validate;
 
 #[cfg(feature = "std")]
 pub mod agent;
@@ -60,7 +61,7 @@ pub(crate) mod vocabulary;
 
 use graph::{node_from_label, node_name, node_parent};
 use namespaces::{bibo, foaf, schema_org};
-use validate::{has_image_extension, is_date, is_orcid, is_phone_number};
+use validate::has_image_extension;
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -90,6 +91,16 @@ pub enum OneOrMany<T> {
     One(T),
     /// Multiple items.
     Many(Vec<T>),
+}
+impl<T> Each for OneOrMany<T> {
+    type Item = T;
+    type Iter<'a>
+        = Iter<'a, T>
+    where
+        T: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        self.iter()
+    }
 }
 /// U.S. Classified National Security Information Level
 ///
@@ -351,7 +362,7 @@ pub struct ContactPoint {
     /// ORCiD of contact point
     /// ### Example
     /// > "<https://orcid.org/0000-0002-2057-9115>"
-    #[validate(custom(function = "is_orcid"))]
+    #[validate(orcid)]
     #[serde(alias = "orcid")]
     pub identifier: Option<String>,
     /// Email address of contact point
@@ -364,7 +375,7 @@ pub struct ContactPoint {
     /// Phone number of contact point
     ///
     /// See <https://schema.org/telephone> for more information
-    #[validate(custom(function = "is_phone_number"))]
+    #[validate(phone)]
     #[builder(default = "123-456-7890".to_string())]
     #[serde(alias = "phone", deserialize_with = "string_trim")]
     pub telephone: String,
@@ -425,10 +436,10 @@ pub struct ControlledVocabulary(Vec<Keyword>);
 #[serde(rename_all = "camelCase")]
 pub struct Date {
     /// Start date as ISO 8601 date string (`YYYY-MM-DD`).
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub start_date: Option<String>,
     /// End date as ISO 8601 date string (`YYYY-MM-DD`).
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub end_date: Option<String>,
 }
 /// Image format media (e.g., PNG, JPEG, SVG, etc.)
@@ -753,7 +764,7 @@ impl<T> OneOrMany<T> {
         }
     }
     /// Iterate over contained items by reference.
-    pub fn iter(&self) -> core::slice::Iter<'_, T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         self.as_slice().iter()
     }
     /// Return the number of contained items.
@@ -802,7 +813,7 @@ impl<T> OneOrMany<T> {
 }
 impl<'a, T> IntoIterator for &'a OneOrMany<T> {
     type Item = &'a T;
-    type IntoIter = core::slice::Iter<'a, T>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -812,8 +823,16 @@ impl<T> Validate for OneOrMany<T>
 where
     T: Validate,
 {
-    fn validate(&self) -> Result<(), validator::ValidationErrors> {
-        self.iter().find_map(|value| value.validate().err()).map_or(Ok(()), Err)
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.iter()
+            .enumerate()
+            .fold(ValidationReport::new(), |mut report, (index, item)| {
+                if let Err(nested) = item.validate() {
+                    report.append_prefixed(&format!("[{index}]"), nested);
+                }
+                report
+            })
+            .finish()
     }
 }
 impl Organization {
@@ -982,7 +1001,7 @@ impl MarkdownSupport for Website {
     }
 }
 impl Validate for MediaObject {
-    fn validate(&self) -> Result<(), validator::ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         match self {
             | Self::Image(img) => img.validate(),
             | Self::Video(vid) => vid.validate(),

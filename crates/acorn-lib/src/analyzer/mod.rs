@@ -23,6 +23,7 @@ use crate::util::constants::vale::{
     CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
+use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
 use crate::{Location, Repository};
@@ -45,8 +46,6 @@ use tar::Archive;
 #[cfg(feature = "std")]
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
-use validator::Validate;
-use validator::ValidationErrorsKind;
 use which::which;
 
 pub mod check;
@@ -67,7 +66,7 @@ pub use service::{analyze_paths, classify_paths, AnalysisBatch, AnalysisReport, 
 
 #[cfg(feature = "analysis")]
 use check::{check_prose_for, check_readability_for};
-use error::{process, ErrorKind};
+use error::{ErrorKind, ValidatorIssues};
 use vale::{Vale, ValeConfig};
 
 /// Trait for static analyzers (e.g. Vale)
@@ -1304,15 +1303,16 @@ where
         .validate()
         .err()
         .into_iter()
-        .flat_map(|err| {
-            let kind = ValidationErrorsKind::Struct(Box::new(err));
-            process("", &kind).into_iter().map(|issue| {
-                let validator_error = validator::ValidationError {
-                    code: issue.code.to_string().into(),
-                    message: Some(issue.message.clone().into()),
-                    params: issue.params.clone().into_iter().map(|(key, value)| (key.into(), value)).collect(),
-                };
-                let errors = ValidationErrorsKind::Field(vec![validator_error]);
+        .flat_map(|report| {
+            ValidatorIssues::from(report).into_iter().map(|issue| {
+                let errors = ValidationReport::from_error(
+                    "",
+                    ValidationError {
+                        code: issue.code.to_string(),
+                        message: Some(issue.message.clone()),
+                        params: issue.params.clone().into_iter().collect(),
+                    },
+                );
                 let prefix = issue.path.clone().unwrap_or_else(|| issue.locator());
                 check_err!(
                     CheckCategory::Schema,

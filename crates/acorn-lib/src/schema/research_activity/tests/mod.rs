@@ -14,6 +14,7 @@ use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
 use crate::util::SemanticVersion;
+use crate::validation::Validate;
 use pretty_assertions::assert_eq;
 
 fn fixtures_dir() -> PathBuf {
@@ -148,18 +149,18 @@ fn test_metadata_validates_publication_identifiers() {
     let valid = ResearchActivityMetadata::init()
         .doi(vec!["10.1000/xyz123".to_string(), "arXiv:2106.09685v2".to_string()])
         .build();
-    assert!(validator::Validate::validate(&valid).is_ok());
+    assert!(valid.validate().is_ok());
     let invalid = ResearchActivityMetadata::init().doi(vec!["2106.09685".to_string()]).build();
-    assert!(validator::Validate::validate(&invalid).is_err());
+    assert!(invalid.validate().is_err());
 }
 #[test]
 fn test_metadata_validates_handles() {
     let valid = ResearchActivityMetadata::init()
         .handle(vec!["10013/epic.10033".to_string(), "https://hdl.handle.net/20.5000/example".to_string()])
         .build();
-    assert!(validator::Validate::validate(&valid).is_ok());
+    assert!(valid.validate().is_ok());
     let invalid = ResearchActivityMetadata::init().handle(vec!["not-a-handle".to_string()]).build();
-    assert!(validator::Validate::validate(&invalid).is_err());
+    assert!(invalid.validate().is_err());
     assert_eq!(
         ResearchActivityMetadataContext::default().handle,
         "https://codemeta.github.io/terms/identifier"

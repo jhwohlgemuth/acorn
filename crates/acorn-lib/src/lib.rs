@@ -10,9 +10,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-// validator 0.20 stores nested errors in std HashMaps and its derive emits ::std paths.
-#[cfg(not(feature = "std"))]
-extern crate std;
 
 #[doc(hidden)]
 #[cfg(feature = "cmd")]
@@ -38,6 +35,7 @@ pub mod io;
 pub mod prelude;
 pub mod schema;
 pub mod util;
+pub mod validation;
 #[cfg(all(feature = "std", feature = "analysis"))]
 use crate::analyzer::{link_check, Check};
 #[cfg(feature = "std")]
@@ -55,6 +53,7 @@ use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::Label;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
+pub use acorn_macros::Validate;
 pub use error::{AcornError, AcornResult};
 use strum::EnumIs;
 

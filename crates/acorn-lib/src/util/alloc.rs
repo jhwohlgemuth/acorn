@@ -16,6 +16,7 @@
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::fail;
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
+use crate::validation::{Validate, ValidationError};
 use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
 use bon::Builder;
@@ -31,7 +32,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIs;
-use validator::{Validate, ValidationError};
 
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
@@ -766,6 +766,31 @@ impl From<(u64, u64, u64)> for SemanticVersion {
     }
 }
 impl SemanticVersion {
+    /// Parse a canonical numeric semantic version with one to three components.
+    pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
+        let value = value.as_ref();
+        let parts = value.split('.').collect::<Vec<_>>();
+        let valid_component =
+            |part: &str| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()) && (part.len() == 1 || !part.starts_with('0'));
+        let parsed = match parts.as_slice() {
+            | [major] if valid_component(major) => major.parse::<u32>().ok().map(|major| (major, 0, 0)),
+            | [major, minor] if [major, minor].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .map(|(major, minor)| (major, minor, 0)),
+            | [major, minor, patch] if [major, minor, patch].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .zip(patch.parse::<u32>().ok())
+                .map(|((major, minor), patch)| (major, minor, patch)),
+            | _ => None,
+        };
+        parsed
+            .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
+            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version".into()))
+    }
     /// Parse the numeric components of a semantic version string
     pub fn from_string(value: impl AsRef<str>) -> Self {
         Self::from(value.as_ref())

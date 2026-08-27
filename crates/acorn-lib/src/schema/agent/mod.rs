@@ -19,6 +19,7 @@ use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::constants::HTTP_URL;
 use crate::util::{strip_suffixes, Label, MarkdownSupport, MimeType, SemanticVersion, StringInterpolation};
+use crate::validation::{Validate, ValidationError};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
@@ -32,7 +33,6 @@ use std::collections::HashMap;
 use strum::{EnumIter, IntoEnumIterator};
 use tera::{Context, Tera};
 use tracing::warn;
-use validator::{Validate, ValidationError};
 
 pub mod opencode;
 

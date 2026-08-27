@@ -30,6 +30,7 @@ use crate::util::constants::app::{
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::{MimeType, SemanticVersion, StringConversion};
+use crate::validation::Validate;
 use crate::{args, Location, Repository, Scheme};
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};
@@ -44,7 +45,6 @@ use std::fs::{create_dir_all, metadata, read, read_to_string, remove_dir_all, re
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use validator::Validate;
 use zip::ZipArchive;
 
 const ENDPOINTS: &str = r#"{

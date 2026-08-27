@@ -22,10 +22,11 @@ use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 use crate::schema::standard::validate::validate_person_or_org_identifier;
-use crate::schema::validate::{is_doi, is_iso_639_language_code, is_programming_language};
+use crate::schema::validate::{is_iso_639_language_code, is_programming_language};
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;
+use crate::validation::Validate;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]
@@ -35,7 +36,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 /// Collection of InvenioRDM records
 pub type Catalog = Vec<Record>;
@@ -230,7 +230,7 @@ pub struct Embargo {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate, PartialEq, Eq)]
 pub struct ExternalPersistentIdentifier {
     /// The identifier value (e.g., "10.1234/rdm.5678")
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub identifier: String,
     /// The provider's identifier used internally (e.g., "datacite")
     pub provider: String,

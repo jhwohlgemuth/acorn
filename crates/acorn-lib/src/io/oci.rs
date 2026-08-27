@@ -15,11 +15,11 @@ use crate::util::constants::app::{
     OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
 };
 use crate::util::{MimeType, SemanticVersion};
+use crate::validation::{Validate, ValidationError};
 use crate::Location;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use validator::{Validate, ValidationError};
 
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {

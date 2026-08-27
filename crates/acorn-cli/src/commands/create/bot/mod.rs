@@ -4,10 +4,10 @@ use acorn::io::{Executor, Remote};
 use acorn::prelude::OsString;
 use acorn::util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV};
 use acorn::util::Label;
+use acorn::validation::Validate;
 use acorn::{args, cmd};
 use color_eyre::eyre::{eyre, Report, Result};
 use tracing::{error, info};
-use validator::Validate;
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(

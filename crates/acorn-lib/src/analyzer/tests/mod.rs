@@ -6,7 +6,7 @@
     clippy::unwrap_used
 )]
 use crate::analyzer::check::Standard;
-use crate::analyzer::error::{process, DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue};
+use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
 use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::analyzer::{
     checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, StaticAnalyzer,
@@ -18,12 +18,12 @@ use crate::prelude::{create_dir_all, remove_file, write, Arc, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::crosswalk::ConversionWarning;
 use crate::test::utils::unique_path;
+use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{check, check_ok};
 use ariadne::Color;
 use ariadne::ReportKind;
 use jiff::SignedDuration;
 use serde_json::Value;
-use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 #[derive(Validate)]
 struct FieldModel {
@@ -518,7 +518,7 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
 }
 #[test]
 fn test_report_schema_with_missing_value_param_does_not_panic() {
-    let mut validation_errors = ValidationErrors::new();
+    let mut validation_errors = ValidationReport::new();
     let mut error = ValidationError::new("license");
     error.params.clear();
     validation_errors.add("license", error);
@@ -526,7 +526,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
         .index(0)
         .category(CheckCategory::Schema)
         .severity(CheckSeverity::Error)
-        .errors(ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(validation_errors))))
+        .errors(ErrorKind::Validator(validation_errors))
         .uri("fixtures/CITATION.cff")
         .build();
     issue.report();
@@ -663,9 +663,9 @@ fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_displa
 fn test_process_returns_field_issue_tuple() {
     let value = FieldModel { name: "x".to_string() };
     let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert!(matches!(issue.code, ErrorCode::Length));
     assert_eq!(issue.path.as_deref(), Some("name"));
     assert_eq!(issue.message, "length");
@@ -681,9 +681,9 @@ fn test_process_returns_nested_struct_path() {
         },
     };
     let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert!(matches!(issue.code, ErrorCode::Email));
     assert_eq!(issue.path.as_deref(), Some("child.email"));
     assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
@@ -701,9 +701,9 @@ fn test_process_returns_nested_list_index_path() {
         ],
     };
     let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert!(matches!(issue.code, ErrorCode::Email));
     assert_eq!(issue.path.as_deref(), Some("children[1].email"));
     assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
@@ -712,18 +712,16 @@ fn test_process_returns_nested_list_index_path() {
 fn test_process_returns_none_path_for_root_field_errors() {
     let value = FieldModel { name: "x".to_string() };
     let errors = value.validate().expect_err("expected validation failure");
-    let field_errors = errors
-        .into_errors()
-        .remove("name")
-        .and_then(|kind| match kind {
-            | ValidationErrorsKind::Field(errors) => Some(errors),
-            | _ => None,
-        })
-        .expect("expected field-level validation errors for name");
-    let kind = ValidationErrorsKind::Field(field_errors);
-    let issues = process("", &kind);
+    let issue = errors
+        .into_issues()
+        .into_iter()
+        .next()
+        .expect("expected field-level validation error for name");
+    let mut report = ValidationReport::new();
+    report.add("", issue.error);
+    let issues = ValidatorIssues::from(report);
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert!(matches!(issue.code, ErrorCode::Length));
     assert_eq!(issue.path.as_deref(), None);
     assert_eq!(issue.message, "length");
@@ -736,9 +734,9 @@ fn test_process_serializes_array_param_values() {
         tags: vec!["one".to_string(), "two".to_string()],
     };
     let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert!(matches!(issue.code, ErrorCode::Length));
     assert_eq!(issue.path.as_deref(), Some("tags"));
     assert_eq!(issue.message, "length");
@@ -764,9 +762,9 @@ fn test_process_preserves_non_wrapper_repeated_segment_paths() {
         },
     };
     let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(ValidationErrorsKind::Struct(Box::new(errors))).process("");
+    let issues = ErrorKind::Validator(errors).process("");
     assert_eq!(issues.len(), 1);
-    let issue = &issues[0];
+    let issue = issues.iter().next().expect("expected validator issue");
     assert_eq!(issue.path.as_deref(), Some("child.child.email"));
 }
 #[test]

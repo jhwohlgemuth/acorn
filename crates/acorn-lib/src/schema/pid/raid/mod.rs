@@ -12,10 +12,10 @@ use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::prelude::std::{vec, Error, PathBuf};
 #[cfg(feature = "std")]
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
-use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
+use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{has_at_least_one_truthy, is_date, is_isni, is_orcid, is_raid, is_ror, is_unix_epoch, is_year};
+use crate::schema::validate::{has_at_least_one_truthy, is_unix_epoch};
 use crate::schema::vocabulary;
 use crate::schema::Date;
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
@@ -25,6 +25,7 @@ use crate::util::Label;
 use crate::util::License;
 use crate::util::StringExt;
 use crate::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses};
+use crate::validation::{Validate, ValidationError};
 use alloc::collections::BTreeSet;
 use bon::Builder;
 use core::fmt;
@@ -36,7 +37,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::error;
-use validator::{Validate, ValidationError};
 
 /// Read normalized discovery values from a collection of RAiD metadata records.
 pub struct Extractor<'a> {
@@ -503,7 +503,7 @@ pub struct Access {
     /// <div class="warning">Embargo expiration dates may not lay more than 18 months from the date the RAiD was registered. Year, month, and day mush be specified.</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub embargo_expiry: Option<String>,
     /// Access statement
     ///
@@ -788,7 +788,7 @@ pub struct MetadataIdentifier {
     /// Unique alphanumeric character string that identifies a Research Activity Identifier (RAiD) name
     /// ### Format
     /// > `https://raid.org/prefix/suffix`
-    #[validate(required, custom(function = "is_raid"))]
+    #[validate(required, raid)]
     pub id: Option<String>,
     /// URI of the identifier scheme used to identify RAiDs
     /// ### Example
@@ -839,7 +839,7 @@ pub struct Organization {
     /// > `https://ror.org/01qz5mb56`
     ///
     /// <div class="warning">Should be <a href="https://ror.org">ROR</a>, if available</div>
-    #[validate(custom(function = "is_ror"))]
+    #[validate(ror)]
     pub id: String,
     /// URI of the organization identifier schema
     ///
@@ -875,7 +875,7 @@ pub struct Owner {
     /// *Default* ROR of the organization requesting the RAiD
     /// ### Example
     /// > `https://ror.org/01qz5mb56` (ORNL)
-    #[validate(custom(function = "is_ror"))]
+    #[validate(ror)]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
     /// ### Example
@@ -996,7 +996,7 @@ pub struct RegistrationAgency {
     /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
     ///
     /// *Default* ROR of the RAiD Registration Agency
-    #[validate(custom(function = "is_ror"))]
+    #[validate(ror)]
     pub id: String,
     /// URI of the identifier scheme used to identify RAiDs
     /// ### Example
@@ -1076,7 +1076,7 @@ pub struct Title {
     /// > [ISO 8601] standard date (e.g., `YYYY-MM-DD`)
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(required, custom(function = "is_date"))]
+    #[validate(required, date)]
     pub start_date: Option<String>,
     /// Date the project or activity title was changed or stopped being used
     /// ### Format
@@ -1087,7 +1087,7 @@ pub struct Title {
     /// <div class="warning">Listed as "recommended" (optional) and "required"</div>
     ///
     /// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
-    #[validate(custom(function = "is_year"))]
+    #[validate(year)]
     pub end_date: Option<String>,
 }
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices
@@ -1270,7 +1270,7 @@ impl From<ResearchActivity> for Metadata {
         let default_end_year = default_start_date.chars().take(4).collect::<String>();
         let raid_id = activity.meta.raid.as_ref().and_then(|raid| raid.first()).cloned().unwrap_or_default();
         let ror_id = activity.meta.ror.as_ref().and_then(|rors| rors.first()).cloned().unwrap_or_default();
-        let contributor_id = activity.contact.identifier.clone().filter(|id| is_orcid(id).is_ok()).unwrap_or_default();
+        let contributor_id = activity.contact.identifier.clone().filter(|id| id.is_orcid()).unwrap_or_default();
         let date = Date {
             start_date: Some(default_start_date.clone()),
             end_date: None,
@@ -1383,8 +1383,14 @@ fn has_start_date(value: &Date) -> Result<(), ValidationError> {
 }
 fn validate_contributor_identifier(value: &Contributor) -> Result<(), ValidationError> {
     match (value.id.as_deref(), value.schema_uri.as_deref().map(|uri| uri.trim_end_matches('/'))) {
-        | (Some(identifier), Some("https://orcid.org")) => is_orcid(identifier),
-        | (Some(identifier), Some("https://isni.org")) => is_isni(identifier),
+        | (Some(identifier), Some("https://orcid.org")) => identifier
+            .is_orcid()
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("ORCiD").with_message("Provide valid ORCiD value".into())),
+        | (Some(identifier), Some("https://isni.org")) => identifier
+            .is_isni()
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("ISNI").with_message("Provide valid ISNI value".into())),
         | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
             .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())),
         | _ => Ok(()),

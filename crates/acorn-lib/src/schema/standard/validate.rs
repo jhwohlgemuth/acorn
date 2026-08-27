@@ -2,7 +2,7 @@ use super::datacite::{Affiliation, FunderIdentifier, FunderIdentifierType, Fundi
 use super::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::prelude::alloc::String;
 use crate::schema::validate::{is_gnd, is_isni, is_orcid, is_ror};
-use validator::ValidationError;
+use crate::validation::ValidationError;
 
 fn identifier_validation_error(code: &'static str, message: impl Into<String>) -> ValidationError {
     ValidationError::new(code).with_message(message.into().into())
@@ -71,7 +71,7 @@ pub(super) fn validate_person_or_org_identifier(value: &PersonOrOrgIdentifier) -
     };
     result.map_err(|why| {
         let mut error = ValidationError::new("person_or_org_identifier")
-            .with_message(why.message.unwrap_or_else(|| "Identifier does not match its scheme".into()));
+            .with_message(why.message.unwrap_or_else(|| "Identifier does not match its scheme".into()).into());
         error.add_param("scheme".into(), &value.scheme);
         error.add_param("identifier".into(), &value.identifier);
         error

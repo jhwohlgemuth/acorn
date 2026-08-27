@@ -16,11 +16,11 @@ use crate::util::file_extension;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::{MarkdownSupport, ToProse, Unstructured};
+use crate::validation::Validate;
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
 /// Text document sourced from a supported document format or text-like content.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]

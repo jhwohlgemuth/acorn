@@ -1,0 +1,5 @@
+error: unknown validation argument
+ --> tests/ui/validate-invalid-argument.rs:5:23
+  |
+5 |     #[validate(length(minimum = 1))]
+  |                       ^^^^^^^^^^^

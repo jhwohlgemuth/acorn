@@ -13,6 +13,7 @@ use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, Pa
 use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::{text_diff_changes_with_color, Label};
+use crate::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -24,7 +25,6 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::info;
-use validator::Validate;
 
 pub mod goose;
 pub mod llama_swap;

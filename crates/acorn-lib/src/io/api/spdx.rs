@@ -7,12 +7,11 @@ use crate::io::api::{DatabasePersistence, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::io::database::schema::{LicenseRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{with_progress, ApiResult, ProgressType};
-use crate::schema::validate::{is_semantic_version, is_urls};
 use crate::util::{Label, Searchable};
+use crate::validation::Validate;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
 /// SPDX license metadata
 #[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
@@ -31,7 +30,7 @@ pub struct LicenseMetadata {
     /// Deprecated - this field is generated and is no longer in use
     pub reference_number: u32,
     /// Cross reference URL(s) pointing to additional copies of the license
-    #[validate(custom(function = "is_urls"))]
+    #[validate(each(url))]
     pub see_also: Vec<String>,
     /// Specifies whether the license is deprecated
     /// ### Note
@@ -53,7 +52,7 @@ pub struct LicenseMetadata {
 #[derive(Default)]
 pub struct LicensesResponse {
     /// Version of the SPDX License List
-    #[validate(custom(function = "is_semantic_version"))]
+    #[validate(version)]
     pub license_list_version: Option<String>,
     /// Licenses
     #[validate(nested)]

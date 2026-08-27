@@ -1,0 +1,5 @@
+error: recursive each validation is not supported
+ --> tests/ui/validate-recursive-each.rs:5:21
+  |
+5 |     #[validate(each(each(email)))]
+  |                     ^^^^^^^^^^^

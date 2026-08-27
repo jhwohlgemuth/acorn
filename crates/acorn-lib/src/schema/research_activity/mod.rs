@@ -14,7 +14,6 @@ use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAU
 use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::standard::text::Text;
-use crate::schema::validate::{is_doi, is_kebabcase, is_ror, is_urls};
 #[cfg(feature = "std")]
 use crate::schema::vocabulary;
 use crate::schema::{
@@ -31,6 +30,7 @@ use crate::util::Label;
 use crate::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 #[cfg(feature = "std")]
 use crate::util::{MimeType, StringConversion};
+use crate::validation::{Validate, ValidationError};
 use bon::Builder;
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
@@ -52,7 +52,6 @@ use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::{debug, trace};
-use validator::{Validate, ValidationError};
 
 pub mod aspect;
 mod markdown;
@@ -196,7 +195,7 @@ pub struct ResearchActivityMetadata {
     ///
     /// <div class="warning">Should be <a href="https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case">lower-kebab-case</a></div>
     ///
-    #[validate(custom(function = "is_kebabcase"))]
+    #[validate(kebabcase)]
     #[builder(default = "some-research-project".to_string())]
     #[serde(alias = "id", rename = "identifier", deserialize_with = "string_trim")]
     pub identifier: String,
@@ -218,11 +217,11 @@ pub struct ResearchActivityMetadata {
     #[serde(default)]
     pub patents: Option<Vec<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
-    #[validate(custom(function = "is_urls"))]
+    #[validate(each(url))]
     #[serde(default)]
     pub publications: Option<Vec<String>>,
     /// Research Activity Identifier (RAiD)
-    #[validate(custom(function = "is_attribute_doi_list"))]
+    #[validate(each(doi))]
     #[serde(default)]
     pub raid: Option<Vec<String>>,
     /// Software Hash Identifier(s) for software objects related to the research activity data
@@ -234,7 +233,7 @@ pub struct ResearchActivityMetadata {
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
-    #[validate(custom(function = "is_attribute_ror_list"))]
+    #[validate(each(ror))]
     #[serde(default)]
     pub ror: Option<Vec<String>>,
     /// Type of associated research activity data when directly associated with an organization
@@ -1110,15 +1109,6 @@ pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
         .map(|index| validation_error_with_index(CODE, "Every Handle should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
-/// Custom validator function for DOI-only identifier lists
-pub(crate) fn is_attribute_doi_list(value: &[String]) -> ValidationResult {
-    const CODE: &str = "meta.raid";
-    value
-        .iter()
-        .position(|identifier| is_doi(identifier).is_err())
-        .map(|index| validation_error_with_index(CODE, "Every DOI should be valid".to_string(), index))
-        .map_or(Ok(()), Err)
-}
 /// Custom validator for [`ResearchActivity`] software hash identifiers
 pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.swhid";
@@ -1126,15 +1116,6 @@ pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
         .iter()
         .position(|identifier| !SWHID::is_valid(identifier))
         .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
-        .map_or(Ok(()), Err)
-}
-/// Custom validator function for [`ResearchActivity`] [ror](ResearchActivityMetadata::ror)
-pub(crate) fn is_attribute_ror_list(value: &[String]) -> ValidationResult {
-    const CODE: &str = "meta.ror";
-    value
-        .iter()
-        .position(|x| is_ror(x).is_err())
-        .map(|index| validation_error_with_index(CODE, "Every ROR should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)

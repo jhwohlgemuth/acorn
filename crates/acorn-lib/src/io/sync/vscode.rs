@@ -5,6 +5,7 @@ use crate::prelude::PathBuf;
 use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_VSCODE_CONFIG_PATH;
 use crate::util::StringConversion;
+use crate::validation::Validate;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use color_eyre::eyre::eyre;
@@ -12,7 +13,6 @@ use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 /// Configuration for synchronizing models into VS Code.
 #[skip_serializing_none]

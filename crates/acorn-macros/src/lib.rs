@@ -1,7 +1,18 @@
 //! Procedural macros for ACORN database utilities
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, LitStr, Meta};
+use proc_macro_crate::{crate_name, FoundCrate};
+use quote::{format_ident, quote};
+use syn::{
+    parse_macro_input, punctuated::Punctuated, Data, DeriveInput, Expr, ExprLit, Fields, GenericArgument, Lit, LitStr, Meta, PathArguments, Token,
+    Type,
+};
+
+/// Derive deterministic, allocation-compatible ACORN validation.
+#[proc_macro_derive(Validate, attributes(validate))]
+pub fn derive_validate(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 
 /// Generates row metadata and query helpers for database row structs.
 ///
@@ -339,7 +350,554 @@ fn infer_table_name(name: &syn::Ident) -> String {
     }
     output
 }
-
+#[derive(Clone)]
+enum ValidationRule {
+    Required(RuleOptions),
+    Length(Box<LengthOptions>),
+    Range(Box<RangeOptions>),
+    Contains(Expr, RuleOptions),
+    Date(RuleOptions),
+    Url(RuleOptions),
+    Email(RuleOptions),
+    Custom(syn::Path, RuleOptions),
+    Nested,
+    Pid(syn::Ident, RuleOptions),
+    Scalar(syn::Ident, RuleOptions),
+    Version(RuleOptions),
+    Year(RuleOptions),
+    Each(Box<ValidationRule>),
+}
+#[derive(Clone, Default)]
+struct RuleOptions {
+    code: Option<LitStr>,
+    message: Option<LitStr>,
+}
+#[derive(Clone, Default)]
+struct LengthOptions {
+    min: Option<Expr>,
+    max: Option<Expr>,
+    equal: Option<Expr>,
+    rule: RuleOptions,
+}
+#[derive(Clone, Default)]
+struct RangeOptions {
+    min: Option<Expr>,
+    max: Option<Expr>,
+    rule: RuleOptions,
+}
+struct SchemaRule {
+    function: syn::Path,
+    skip_on_field_errors: bool,
+}
+fn acorn_path() -> proc_macro2::TokenStream {
+    match crate_name("acorn-lib") {
+        | Ok(FoundCrate::Itself) => quote! { crate },
+        | Ok(FoundCrate::Name(name)) => {
+            let name = match name.as_str() {
+                | "acorn_lib" => format_ident!("acorn"),
+                | _ => format_ident!("{name}"),
+            };
+            quote! { ::#name }
+        }
+        | Err(_) => quote! { ::acorn },
+    }
+}
+fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let acorn = acorn_path();
+    let name = &input.ident;
+    let fields = match &input.data {
+        | Data::Struct(data) => match &data.fields {
+            | Fields::Named(fields) => &fields.named,
+            | _ => return Err(syn::Error::new_spanned(input, "Validate only works with named structs")),
+        },
+        | _ => return Err(syn::Error::new_spanned(input, "Validate only works with structs")),
+    };
+    let schema_rules = input
+        .attrs
+        .iter()
+        .filter(|attribute| attribute.path().is_ident("validate"))
+        .flat_map(parse_validate_meta)
+        .map(|meta| parse_schema_rule(&meta))
+        .collect::<syn::Result<Vec<Option<SchemaRule>>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    let field_validations = fields
+        .iter()
+        .map(|field| {
+            let ident = field
+                .ident
+                .as_ref()
+                .ok_or_else(|| syn::Error::new_spanned(field, "Validate requires named fields"))?;
+            let path = ident.to_string().trim_start_matches("r#").to_string();
+            let rules = field
+                .attrs
+                .iter()
+                .filter(|attribute| attribute.path().is_ident("validate"))
+                .flat_map(parse_validate_meta)
+                .map(|meta| parse_rule(&meta, false))
+                .collect::<syn::Result<Vec<_>>>()?;
+            let statements = rules
+                .iter()
+                .map(|rule| expand_field_rule(&acorn, rule, ident, &field.ty, &path))
+                .collect::<syn::Result<Vec<_>>>()?;
+            Ok(quote! { #(#statements)* })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
+    let schema_validations = schema_rules.iter().map(|rule| {
+        let function = &rule.function;
+        let condition = if rule.skip_on_field_errors {
+            quote! { __report.is_empty() }
+        } else {
+            quote! { true }
+        };
+        quote! {
+            if #condition {
+                if let ::core::result::Result::Err(__error) = #function(self) {
+                    __report.add("", __error);
+                }
+            }
+        }
+    });
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    Ok(quote! {
+        impl #impl_generics #acorn::validation::Validate for #name #type_generics #where_clause {
+            fn validate(&self) -> ::core::result::Result<(), #acorn::validation::ValidationReport> {
+                let mut __report = #acorn::validation::ValidationReport::new();
+                #(#field_validations)*
+                #(#schema_validations)*
+                __report.finish()
+            }
+        }
+    })
+}
+fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
+    attribute
+        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+        .map(Punctuated::into_iter)
+        .map(Iterator::collect)
+        .unwrap_or_else(|_| {
+            vec![Meta::Path(syn::Path::from(syn::Ident::new(
+                "invalid_validate_attribute",
+                proc_macro2::Span::call_site(),
+            )))]
+        })
+}
+fn parse_schema_rule(meta: &Meta) -> syn::Result<Option<SchemaRule>> {
+    match meta {
+        | Meta::List(list) if list.path.is_ident("schema") => {
+            let nested = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+            ensure_keys(&nested, &["function", "skip_on_field_errors"])?;
+            let function = nested
+                .iter()
+                .find_map(|value| meta_string(value, "function"))
+                .ok_or_else(|| syn::Error::new_spanned(list, "schema requires function = \"path\""))?
+                .parse()?;
+            let skip_on_field_errors = nested.iter().find_map(|value| meta_bool(value, "skip_on_field_errors")).unwrap_or(true);
+            Ok(Some(SchemaRule {
+                function,
+                skip_on_field_errors,
+            }))
+        }
+        | _ => Err(syn::Error::new_spanned(meta, "only schema(...) is supported on a struct")),
+    }
+}
+fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
+    let path = meta.path();
+    if path.is_ident("required") {
+        Ok(ValidationRule::Required(parse_rule_options(meta)?))
+    } else if path.is_ident("length") {
+        Ok(ValidationRule::Length(Box::new(parse_length_options(meta)?)))
+    } else if path.is_ident("range") {
+        Ok(ValidationRule::Range(Box::new(parse_range_options(meta)?)))
+    } else if path.is_ident("contains") {
+        let nested = nested_meta(meta)?;
+        ensure_keys(&nested, &["pattern", "code", "message"])?;
+        let pattern = nested
+            .iter()
+            .find_map(|value| meta_value_expr(value, "pattern"))
+            .ok_or_else(|| syn::Error::new_spanned(meta, "contains requires pattern"))?;
+        Ok(ValidationRule::Contains(pattern, options_from_nested(&nested)))
+    } else if path.is_ident("date") {
+        Ok(ValidationRule::Date(parse_rule_options(meta)?))
+    } else if path.is_ident("url") {
+        Ok(ValidationRule::Url(parse_rule_options(meta)?))
+    } else if path.is_ident("email") {
+        Ok(ValidationRule::Email(parse_rule_options(meta)?))
+    } else if path.is_ident("custom") {
+        let nested = nested_meta(meta)?;
+        ensure_keys(&nested, &["function", "code", "message"])?;
+        let function = nested
+            .iter()
+            .find_map(|value| meta_string(value, "function"))
+            .ok_or_else(|| syn::Error::new_spanned(meta, "custom requires function = \"path\""))?
+            .parse()?;
+        Ok(ValidationRule::Custom(function, options_from_nested(&nested)))
+    } else if path.is_ident("nested") {
+        if inside_each {
+            Err(syn::Error::new_spanned(meta, "nested validation is not supported inside each"))
+        } else {
+            Ok(ValidationRule::Nested)
+        }
+    } else if path.is_ident("version") {
+        Ok(ValidationRule::Version(parse_rule_options(meta)?))
+    } else if path.is_ident("year") {
+        Ok(ValidationRule::Year(parse_rule_options(meta)?))
+    } else if path.is_ident("each") {
+        if inside_each {
+            return Err(syn::Error::new_spanned(meta, "recursive each validation is not supported"));
+        }
+        let nested = nested_meta(meta)?;
+        if nested.len() != 1 {
+            return Err(syn::Error::new_spanned(meta, "each accepts exactly one scalar rule"));
+        }
+        Ok(ValidationRule::Each(Box::new(parse_rule(&nested[0], true)?)))
+    } else {
+        let supported_pid = ["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "swhid"];
+        let supported_scalar = [
+            "phone",
+            "commit",
+            "latitude",
+            "longitude",
+            "state",
+            "kebabcase",
+            "camelCase",
+            "camelcase",
+            "snake_case",
+        ];
+        match path.get_ident() {
+            | Some(ident) if supported_pid.iter().any(|rule| ident == rule) => Ok(ValidationRule::Pid(ident.clone(), parse_rule_options(meta)?)),
+            | Some(ident) if supported_scalar.iter().any(|rule| ident == rule) => {
+                Ok(ValidationRule::Scalar(ident.clone(), parse_rule_options(meta)?))
+            }
+            | _ => Err(syn::Error::new_spanned(meta, "unknown validation rule")),
+        }
+    }
+}
+fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
+    match meta {
+        | Meta::List(list) => list
+            .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+            .map(Punctuated::into_iter)
+            .map(Iterator::collect),
+        | _ => Ok(Vec::new()),
+    }
+}
+fn parse_rule_options(meta: &Meta) -> syn::Result<RuleOptions> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(&nested, &["code", "message"])?;
+    Ok(options_from_nested(&nested))
+}
+fn options_from_nested(nested: &[Meta]) -> RuleOptions {
+    RuleOptions {
+        code: nested.iter().find_map(|value| meta_string(value, "code")),
+        message: nested.iter().find_map(|value| meta_string(value, "message")),
+    }
+}
+fn parse_length_options(meta: &Meta) -> syn::Result<LengthOptions> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(&nested, &["min", "max", "equal", "code", "message"])?;
+    Ok(LengthOptions {
+        min: nested.iter().find_map(|value| meta_expr(value, "min")),
+        max: nested.iter().find_map(|value| meta_expr(value, "max")),
+        equal: nested.iter().find_map(|value| meta_expr(value, "equal")),
+        rule: options_from_nested(&nested),
+    })
+}
+fn parse_range_options(meta: &Meta) -> syn::Result<RangeOptions> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(&nested, &["min", "max", "code", "message"])?;
+    Ok(RangeOptions {
+        min: nested.iter().find_map(|value| meta_expr(value, "min")),
+        max: nested.iter().find_map(|value| meta_expr(value, "max")),
+        rule: options_from_nested(&nested),
+    })
+}
+fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str]) -> syn::Result<()> {
+    nested.into_iter().try_for_each(|meta| {
+        allowed
+            .iter()
+            .any(|name| meta.path().is_ident(name))
+            .then_some(())
+            .ok_or_else(|| syn::Error::new_spanned(meta, "unknown validation argument"))
+    })
+}
+fn meta_expr(meta: &Meta, name: &str) -> Option<Expr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().ok(),
+            | expression => Some(expression.clone()),
+        },
+        | _ => None,
+    }
+}
+fn meta_value_expr(meta: &Meta, name: &str) -> Option<Expr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => Some(value.value.clone()),
+        | _ => None,
+    }
+}
+fn meta_string(meta: &Meta, name: &str) -> Option<LitStr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => Some(value.clone()),
+            | _ => None,
+        },
+        | _ => None,
+    }
+}
+fn meta_bool(meta: &Meta, name: &str) -> Option<bool> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Bool(value), .. }) => Some(value.value),
+            | _ => None,
+        },
+        | _ => None,
+    }
+}
+fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
+    match ty {
+        | Type::Path(value) => value
+            .path
+            .segments
+            .last()
+            .filter(|segment| segment.ident == wrapper)
+            .and_then(|segment| match &segment.arguments {
+                | PathArguments::AngleBracketed(arguments) => arguments.args.iter().find_map(|argument| match argument {
+                    | GenericArgument::Type(ty) => Some(ty),
+                    | _ => None,
+                }),
+                | _ => None,
+            }),
+        | _ => None,
+    }
+}
+fn is_collection(ty: &Type) -> bool {
+    match ty {
+        | Type::Array(_) | Type::Slice(_) => true,
+        | Type::Reference(reference) => is_collection(&reference.elem),
+        | _ => ["Vec", "OneOrMany", "BTreeMap"].iter().any(|name| type_argument(ty, name).is_some()),
+    }
+}
+fn expand_field_rule(
+    acorn: &proc_macro2::TokenStream,
+    rule: &ValidationRule,
+    ident: &syn::Ident,
+    ty: &Type,
+    path: &str,
+) -> syn::Result<proc_macro2::TokenStream> {
+    if matches!(rule, ValidationRule::Each(_)) {
+        let inner = type_argument(ty, "Option").unwrap_or(ty);
+        if !is_collection(inner) {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "each can only validate Vec, arrays, slices, OneOrMany, or optional wrappers",
+            ));
+        }
+    }
+    if let ValidationRule::Required(options) = rule {
+        let error = error_tokens(acorn, "required", options, quote! { "required" });
+        return match type_argument(ty, "Option") {
+            | Some(_) => Ok(quote! {
+                if self.#ident.is_none() {
+                    __report.add(#path, #error);
+                }
+            }),
+            | None => Err(syn::Error::new_spanned(ty, "required can only validate Option fields")),
+        };
+    }
+    let (value, inner_ty, wrapper) = match type_argument(ty, "Option") {
+        | Some(inner) => (
+            quote! { __value },
+            inner,
+            Some(quote! { if let ::core::option::Option::Some(__value) = self.#ident.as_ref() }),
+        ),
+        | None => (quote! { &self.#ident }, ty, None),
+    };
+    let body = expand_rule_body(acorn, rule, &value, inner_ty, path)?;
+    Ok(match wrapper {
+        | Some(wrapper) => quote! { #wrapper { #body } },
+        | None => body,
+    })
+}
+fn expand_rule_body(
+    acorn: &proc_macro2::TokenStream,
+    rule: &ValidationRule,
+    value: &proc_macro2::TokenStream,
+    ty: &Type,
+    path: &str,
+) -> syn::Result<proc_macro2::TokenStream> {
+    match rule {
+        | ValidationRule::Required(_) => Err(syn::Error::new_spanned(ty, "required cannot be nested in this rule")),
+        | ValidationRule::Nested => {
+            if is_collection(ty) {
+                Ok(quote! {
+                    #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
+                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
+                            __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                        }
+                    });
+                })
+            } else if type_argument(ty, "Box").is_some() {
+                Ok(quote! {
+                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(&**(#value)) {
+                        __report.append_prefixed(#path, __nested);
+                    }
+                })
+            } else {
+                Ok(quote! {
+                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(#value) {
+                        __report.append_prefixed(#path, __nested);
+                    }
+                })
+            }
+        }
+        | ValidationRule::Each(inner) => match inner.as_ref() {
+            | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Required(_) => {
+                Err(syn::Error::new_spanned(ty, "each accepts one non-nested scalar rule"))
+            }
+            | _ => {
+                let expression = scalar_expression(acorn, inner, quote! { __item })?;
+                Ok(quote! {
+                    #acorn::validation::apply_each(&mut __report, #path, #value, |__item| #expression);
+                })
+            }
+        },
+        | _ => {
+            let expression = scalar_expression(acorn, rule, value.clone())?;
+            Ok(quote! {
+                if let ::core::result::Result::Err(mut __error) = #expression {
+                    __error.add_param("value".into(), #value);
+                    __report.add(#path, __error);
+                }
+            })
+        }
+    }
+}
+fn scalar_expression(
+    acorn: &proc_macro2::TokenStream,
+    rule: &ValidationRule,
+    value: proc_macro2::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    match rule {
+        | ValidationRule::Length(options) => {
+            let min = options
+                .min
+                .as_ref()
+                .map(|min| quote! { __length < (#min) as usize })
+                .unwrap_or_else(|| quote! { false });
+            let max = options
+                .max
+                .as_ref()
+                .map(|max| quote! { __length > (#max) as usize })
+                .unwrap_or_else(|| quote! { false });
+            let equal = options
+                .equal
+                .as_ref()
+                .map(|equal| quote! { __length != (#equal) as usize })
+                .unwrap_or_else(|| quote! { false });
+            let error = error_tokens(acorn, "length", &options.rule, quote! { "length" });
+            let min_param = options.min.as_ref().map(|min| quote! { __error.add_param("min".into(), &(#min)); });
+            let max_param = options.max.as_ref().map(|max| quote! { __error.add_param("max".into(), &(#max)); });
+            let equal_param = options
+                .equal
+                .as_ref()
+                .map(|equal| quote! { __error.add_param("equal".into(), &(#equal)); });
+            Ok(quote! {{
+                let __length = (#value).len();
+                let __invalid = [#min, #max, #equal].into_iter().any(::core::convert::identity);
+                if __invalid {
+                    let mut __error = #error;
+                    #min_param
+                    #max_param
+                    #equal_param
+                    ::core::result::Result::Err(__error)
+                } else {
+                    ::core::result::Result::Ok(())
+                }
+            }})
+        }
+        | ValidationRule::Range(options) => {
+            let min = options
+                .min
+                .as_ref()
+                .map(|min| quote! { *(#value) < (#min) })
+                .unwrap_or_else(|| quote! { false });
+            let max = options
+                .max
+                .as_ref()
+                .map(|max| quote! { *(#value) > (#max) })
+                .unwrap_or_else(|| quote! { false });
+            let error = error_tokens(acorn, "range", &options.rule, quote! { "range" });
+            let min_param = options.min.as_ref().map(|min| quote! { __error.add_param("min".into(), &(#min)); });
+            let max_param = options.max.as_ref().map(|max| quote! { __error.add_param("max".into(), &(#max)); });
+            Ok(quote! {{
+                let __invalid = [#min, #max].into_iter().any(::core::convert::identity);
+                if __invalid {
+                    let mut __error = #error;
+                    #min_param
+                    #max_param
+                    ::core::result::Result::Err(__error)
+                } else {
+                    ::core::result::Result::Ok(())
+                }
+            }})
+        }
+        | ValidationRule::Contains(pattern, options) => {
+            let error = error_tokens(acorn, "contains", options, quote! { "contains" });
+            Ok(quote! {{
+                if (#value).contains(#pattern) {
+                    ::core::result::Result::Ok(())
+                } else {
+                    ::core::result::Result::Err(#error)
+                }
+            }})
+        }
+        | ValidationRule::Date(options) => override_error(quote! { #acorn::validation::rules::date((#value).as_ref()) }, options),
+        | ValidationRule::Url(options) => override_error(quote! { #acorn::validation::rules::url((#value).as_ref()) }, options),
+        | ValidationRule::Email(options) => override_error(quote! { #acorn::validation::rules::email((#value).as_ref()) }, options),
+        | ValidationRule::Version(options) => override_error(quote! { #acorn::validation::rules::version((#value).as_ref()) }, options),
+        | ValidationRule::Year(options) => override_error(quote! { #acorn::validation::rules::year(#value) }, options),
+        | ValidationRule::Custom(function, options) => override_error(quote! { #function(#value) }, options),
+        | ValidationRule::Pid(ident, options) => {
+            let function = syn::Ident::new(&format!("is_{ident}"), ident.span());
+            override_error(quote! { #acorn::schema::validate::#function((#value).as_ref()) }, options)
+        }
+        | ValidationRule::Scalar(ident, options) => {
+            let function = match ident.to_string().as_str() {
+                | "phone" => syn::Ident::new("is_phone_number", ident.span()),
+                | "camelCase" | "camelcase" => syn::Ident::new("is_camelcase", ident.span()),
+                | name => syn::Ident::new(&format!("is_{name}"), ident.span()),
+            };
+            override_error(quote! { #acorn::schema::validate::#function(#value) }, options)
+        }
+        | _ => Err(syn::Error::new(proc_macro2::Span::call_site(), "rule is not scalar")),
+    }
+}
+fn error_tokens(
+    acorn: &proc_macro2::TokenStream,
+    code: &str,
+    options: &RuleOptions,
+    default_message: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    let code = options.code.as_ref().map(|value| quote! { #value }).unwrap_or_else(|| quote! { #code });
+    let message = options.message.as_ref().map(|value| quote! { #value }).unwrap_or(default_message);
+    quote! { #acorn::validation::ValidationError::new(#code).with_message((#message).into()) }
+}
+fn override_error(expression: proc_macro2::TokenStream, options: &RuleOptions) -> syn::Result<proc_macro2::TokenStream> {
+    let code = options.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
+    let message = options
+        .message
+        .as_ref()
+        .map(|value| quote! { __error = __error.with_message((#value).into()); });
+    Ok(quote! {
+        (#expression).map_err(|mut __error| {
+            #code
+            #message
+            __error
+        })
+    })
+}
 #[cfg(test)]
 mod tests {
     #![allow(
@@ -452,6 +1010,18 @@ mod tests {
         };
         let error = expand_database_row(&input).expect_err("enum should fail");
         assert!(error.to_string().contains("only works with structs"));
+    }
+    #[test]
+    fn test_expand_validate_uses_only_portable_paths() {
+        let input: DeriveInput = parse_quote! {
+            struct Portable {
+                #[validate(length(min = 1), each(email))]
+                values: Vec<String>,
+            }
+        };
+        let tokens = expand_validate(&input).expect("validation derive should expand").to_string();
+        assert!(!tokens.contains(":: std"));
+        assert!(tokens.contains(":: acorn :: validation"));
     }
     #[test]
     fn test_cmd_words_rejects_double_quoted_splat() {

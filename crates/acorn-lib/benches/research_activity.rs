@@ -8,9 +8,9 @@
 )]
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::MarkdownSupport;
+use acorn::validation::Validate;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
-use validator::Validate;
 
 const VALID_PROJECT: &str = include_str!("../../../tests/fixtures/data/valid_project/index.json");
 

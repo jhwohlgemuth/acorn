@@ -16,11 +16,11 @@ use crate::io::{read_file, write_file, InputOutput};
 use crate::prelude::alloc::{vec, Box, String, ToString, Vec};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite::{self, RelationType};
-use crate::schema::validate::is_url;
 use crate::schema::{Date as PeriodOfTime, OneOrMany};
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::{Checksum, ToProse};
+use crate::validation::Validate;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]
@@ -28,10 +28,9 @@ use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 pub(crate) mod validate;
-use validate::{is_document_refs_urls, is_one_or_many_urls};
+use validate::is_document_refs_urls;
 
 /// A collection of datasets published separately but sharing characteristics (`dcat:DatasetSeries`)
 ///
@@ -87,7 +86,7 @@ pub struct Agent {
     pub name: Option<String>,
     /// Agent homepage URI (`foaf:homepage`)
     #[serde(default)]
-    #[validate(custom(function = "is_one_or_many_urls"))]
+    #[validate(each(url))]
     pub homepage: Option<OneOrMany<String>>,
     /// Agent email (`foaf:mbox`)
     pub email: Option<String>,
@@ -256,7 +255,7 @@ pub struct CatalogRecord {
 pub struct ConformsToStandard {
     /// JSON-LD node identifier.
     #[serde(rename = "@id")]
-    #[validate(custom(function = "is_url"))]
+    #[validate(url)]
     pub id: Option<String>,
     /// JSON-LD node type.
     #[serde(rename = "@type")]
@@ -356,7 +355,7 @@ pub struct DataService {
     pub qualified_relation: Option<Vec<Relationship>>,
     /// Root location or primary endpoint IRI(s) (`dcat:endpointURL`)
     #[serde(rename = "endpointURL")]
-    #[validate(custom(function = "is_one_or_many_urls"))]
+    #[validate(each(url))]
     pub endpoint_url: OneOrMany<String>,
     /// Endpoint description IRI(s) or documents (`dcat:endpointDescription`)
     #[serde(rename = "endpointDescription", default)]
@@ -532,14 +531,14 @@ pub struct Distribution {
     pub use_restriction: Option<String>,
     /// URL(s) providing access to this distribution (`dcat:accessURL`)
     #[serde(rename = "accessURL")]
-    #[validate(custom(function = "is_one_or_many_urls"))]
+    #[validate(each(url))]
     pub access_url: OneOrMany<String>,
     /// Data service IRI(s) giving access to this distribution (`dcat:accessService`)
     #[serde(rename = "accessService", default)]
     pub access_service: Option<OneOrMany<String>>,
     /// Direct download URL(s) (`dcat:downloadURL`)
     #[serde(rename = "downloadURL", default)]
-    #[validate(custom(function = "is_one_or_many_urls"))]
+    #[validate(each(url))]
     pub download_url: Option<OneOrMany<String>>,
     /// Size in bytes (`dcat:byteSize`)
     #[serde(rename = "byteSize")]
@@ -575,7 +574,7 @@ pub struct Distribution {
 pub struct Document {
     /// JSON-LD node identifier.
     #[serde(rename = "@id")]
-    #[validate(custom(function = "is_url"))]
+    #[validate(url)]
     pub id: Option<String>,
     /// JSON-LD node type.
     #[serde(rename = "@type")]
@@ -584,7 +583,7 @@ pub struct Document {
     pub title: Option<String>,
     /// URL used to access the document.
     #[serde(rename = "accessURL")]
-    #[validate(custom(function = "is_url"))]
+    #[validate(url)]
     pub access_url: Option<String>,
 }
 /// A vCard contact point (`vcard:Kind`) used by DCAT-US.
@@ -636,7 +635,7 @@ pub struct Relationship {
 pub struct UsOrganization {
     /// JSON-LD node identifier.
     #[serde(rename = "@id")]
-    #[validate(custom(function = "is_url"))]
+    #[validate(url)]
     pub id: Option<String>,
     /// JSON-LD node type.
     #[serde(rename = "@type")]

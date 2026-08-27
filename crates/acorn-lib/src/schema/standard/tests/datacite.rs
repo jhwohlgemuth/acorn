@@ -9,8 +9,8 @@ use crate::schema::standard::datacite::{
     Affiliation, Catalog, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier,
     NameType, Publisher, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
 };
+use crate::validation::Validate;
 use serde_json::Value;
-use validator::Validate;
 
 const FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.json";
 const XML_FIXTURE_PATH: &str = "../../tests/fixtures/schema/datacite.xml";

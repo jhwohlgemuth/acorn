@@ -1,0 +1,72 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> ⚠️ OFFLINE ACORN is running in offline mode
+[00] Error: contact.email
+    ╭─[ invalid_project_a/index.json:74:14 ]
+    │
+ 74 │     "email": "Not an email",
+    │              ───────┬──────  
+    │                     ╰──────── Email address must be in the format name@example.com
+────╯
+[01] Error: contact.telephone
+    ╭─[ invalid_project_a/index.json:75:14 ]
+    │
+ 75 │     "phone": "42",
+    │              ──┬─  
+    │                ╰─── Provide valid phone number
+────╯
+[02] Error: meta.doi[2]
+   ╭─[ invalid_project_a/index.json:9:7 ]
+   │
+ 9 │       "Not a DOI"
+   │       ─────┬─────  
+   │            ╰─────── Every publication identifier should be a valid DOI or arXiv identifier
+───╯
+[03] Error: meta.identifier
+   ╭─[ invalid_project_a/index.json:3:11 ]
+   │
+ 3 │     "id": "invalid_project_A",
+   │           ─────────┬─────────  
+   │                    ╰─────────── Provide ID in kebab-case format (e.g., invalid-project-a)
+───╯
+[04] Error: meta.media[0].content_url
+    ╭─[ invalid_project_a/index.json:28:23 ]
+    │
+ 28 │         "contentUrl": "00.invalid"
+    │                       ──────┬─────  
+    │                             ╰─────── Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension
+────╯
+[05] Error: meta.websites[1].url
+    ╭─[ invalid_project_a/index.json:18:16 ]
+    │
+ 18 │         "url": "Not a URL"
+    │                ─────┬─────  
+    │                     ╰─────── Provide valid URL
+────╯
+[06] Error: sections.impact[4]
+    ╭─[ invalid_project_a/index.json:59:7 ]
+    │
+ 59 │       "should use geospatial instead of geo-spatial."
+    │       ───────────────────────┬───────────────────────  
+    │                              ╰───────────────────────── Impact statements should begin with a capital letter
+────╯
+[07] Error: subtitle
+    ╭─[ invalid_project_a/index.json:46:15 ]
+    │
+ 46 │   "subtitle": "Subtitle for this project that is way too long and should trigger a validation error.",
+    │               ───────────────────────────────────────────┬───────────────────────────────────────────  
+    │                                                          ╰───────────────────────────────────────────── Subtitle is too long, reduce the length below 75 characters.
+────╯
+0,error,schema,invalid_project_a/index.json,meta.identifier,"Provide ID in kebab-case format (e.g., invalid-project-a)",meta.identifier
+1,error,schema,invalid_project_a/index.json,meta.doi[2],Every publication identifier should be a valid DOI or arXiv identifier,meta.doi
+2,error,schema,invalid_project_a/index.json,meta.media[0].content_url,"Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension",meta.media[0].content_url
+3,error,schema,invalid_project_a/index.json,meta.websites[1].url,Provide valid URL,meta.websites[1].url
+4,error,schema,invalid_project_a/index.json,subtitle,"Subtitle is too long, reduce the length below 75 characters.",subtitle
+5,error,schema,invalid_project_a/index.json,sections.impact[4],Impact statements should begin with a capital letter,sections.impact
+6,error,schema,invalid_project_a/index.json,contact.email,Email address must be in the format name@example.com,contact.email
+7,error,schema,invalid_project_a/index.json,contact.telephone,Provide valid phone number,contact.telephone
+stderr:

@@ -4,9 +4,9 @@ use crate::schema::namespaces::{ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIR
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::util::constants::{RE_ARXIV, RE_ARXIV_TEXT, RE_ARXIV_VALIDATION};
 use crate::util::regex_capture_lookup;
+use crate::validation::ValidationError;
 use bon::Builder;
 use core::fmt;
-use validator::ValidationError;
 
 /// arXiv identifier for an e-print
 ///

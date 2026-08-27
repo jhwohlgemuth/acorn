@@ -8,7 +8,7 @@
 use crate::schema::standard::invenio::{CodeMeta, Metadata, PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::test::utils::fixture_path;
 use crate::util::constants::env::DATABASE_PATH;
-use validator::Validate;
+use crate::validation::Validate;
 
 fn load_fixture_text() -> String {
     std::fs::read_to_string(fixture_path("schema/invenio.json")).expect("failed to read invenio.json fixture")

@@ -8,3 +8,13 @@
 `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs ([ACORN](https://acorn.ornl.gov)) tool.
 
 The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
+
+## Validation imports
+
+ACORN's pre-1.0 validation API is available from `acorn::validation`:
+
+```rust
+use acorn::validation::{Validate, ValidationError, ValidationReport};
+```
+
+The `Validate` derive macro is re-exported beside the trait and continues to use `#[validate(...)]` attributes. Code importing `validator::{Validate, ValidationError, ValidationErrors}` should migrate to the ACORN types above; `ValidationReport` is a deterministic flat collection whose issue paths use forms such as `field.subfield[2]`.

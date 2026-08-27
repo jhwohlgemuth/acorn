@@ -9,10 +9,10 @@ use crate::util::constants::gpu::{
     NVIDIA_CC_TESLA_12_PATTERNS, NVIDIA_CC_TESLA_12_QUADRO_SUFFIXES, NVIDIA_CC_TESLA_13_PATTERNS, NVIDIA_CC_TESLA_13_QUADRO_SUFFIXES,
 };
 use crate::util::{contains_any, contains_any_with_prefix};
+use crate::validation::{Validate, ValidationReport};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use validator::{Validate, ValidationErrors};
 
 /// Memory types and (de)serialization for hardware resources
 pub mod memory;
@@ -1954,7 +1954,7 @@ impl<'de> Deserialize<'de> for Resource {
     }
 }
 impl Validate for Resource {
-    fn validate(&self) -> Result<(), ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         validate_vendor(self)
     }
 }

@@ -9,6 +9,7 @@ use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
+use crate::validation::Validate;
 use alloc::string::{String, ToString};
 use color_eyre::eyre::eyre;
 #[cfg(target_os = "windows")]
@@ -16,7 +17,6 @@ use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 /// Configuration for synchronizing a local OpenAI-compatible model into Goose CLI.
 #[skip_serializing_none]

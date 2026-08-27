@@ -13,13 +13,13 @@ priority: next
 # Evidence
 
 - `prelude::core`, `prelude::alloc`, and `prelude::std` now expose explicit capability boundaries. Schema and portable utility modules import allocation-backed types directly, while host helpers import the std prelude.
-- The no-default build still imports `std` in one documented compatibility block because `validator` 0.20 stores nested errors in `std::collections::HashMap` and `validator_derive` emits absolute `::std` paths.
+- Phase 1.1 validation isolation is complete. `acorn::validation` provides alloc-compatible contracts, ordered flat reports, built-in scalar/PID/version rules, and indexed collection validation; the derive emits core/alloc paths and the no-default `extern crate std` compatibility block is gone.
 - `schema` still owns path-based `InputOutput` implementations, and `analyzer` still coordinates transformations with process, network, filesystem, document, and database services.
 
 # Recommendation
 
-1. Replace or adapt `validator` so its runtime and derive output use allocation-backed collections and core paths, then remove the no-default `extern crate std` compatibility block.
-2. Move schema path and file operations behind std adapters while retaining string/byte codecs with schema types.
+1. Completed: replace `validator` with ACORN-owned allocation-backed validation and remove the no-default compatibility block.
+2. Phase 1.2: move schema path and file operations behind std adapters while retaining string/byte codecs with schema types.
 3. Separate analyzer models, readability, validation folds, and supplied-content traversal from Vale, HTTP, filesystem, document, and database adapters.
 4. Introduce focused host traits only where analysis or schema workflows must consume an external capability.
 

@@ -15,6 +15,7 @@ use crate::schema::validate::*;
 use crate::schema::*;
 use crate::util::constants::env::DATABASE_PATH;
 use crate::util::{Constant, Searchable};
+use crate::validation::{rules, Validate};
 use glob::glob;
 use pretty_assertions::assert_eq;
 use proptest::prelude::*;
@@ -201,18 +202,18 @@ fn test_date_validation() {
         "2025/06/04",
     ];
     for x in valid.iter() {
-        assert!(is_date(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 date (YYYY-MM-DD)");
+        assert!(rules::date(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 date (YYYY-MM-DD)");
     }
     for x in invalid.iter() {
-        assert!(is_date(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 date (YYYY-MM-DD)");
+        assert!(rules::date(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 date (YYYY-MM-DD)");
     }
     let valid_years = ["2000", "2025", "1950", "0999"];
     let invalid_years = ["3000", "999", "42"];
     for x in valid_years.iter() {
-        assert!(is_year(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 year (YYYY)");
+        assert!(rules::year(x).is_ok(), "=> [REASON] \"{x}\" is NOT valid ISO 8601 year (YYYY)");
     }
     for x in invalid_years.iter() {
-        assert!(is_year(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 year (YYYY)");
+        assert!(rules::year(x).is_err(), "=> [REASON] \"{x}\" IS valid ISO 8601 year (YYYY)");
     }
     let valid_timestamps = [
         "2004-03-02/2005-06-02",
@@ -568,25 +569,6 @@ fn test_is_commit() {
     }
 }
 #[test]
-fn test_is_urls() {
-    let valid = [
-        "http://www.example.com".to_string(),
-        "https://example.com".to_string(),
-        "https://example.com#foo".to_string(),
-        "https://example.com:1337#foo?bar".to_string(),
-        "http://example.com:1337#foo?bar=42".to_string(),
-    ];
-    let invalid = [
-        "http://www.example_com".to_string(),
-        "https://examp*le.com".to_string(),
-        "https://example.com#foo bar".to_string(),
-        "https//example.com:1337#foo?bar".to_string(),
-    ];
-    assert!(is_urls(&valid).is_ok());
-    assert!(is_urls(&invalid).is_err());
-}
-
-#[test]
 fn test_dcat_url_field_validation() {
     let agent_valid = Agent {
         name: None,
@@ -883,11 +865,15 @@ fn test_is_ror() {
     }
 }
 #[test]
-fn test_is_attribute_ror_list() {
-    let valid = VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    assert!(is_attribute_ror_list(&valid).is_ok());
-    let invalid = ["https://doi.org/10.1000/182".to_string()];
-    assert!(is_attribute_ror_list(&invalid).is_err());
+fn test_metadata_ror_list_validation() {
+    let valid = ResearchActivityMetadata::init()
+        .ror(VALID_ROR_VALUES.into_iter().map(|x| x.to_string()).collect::<Vec<String>>())
+        .build();
+    assert!(valid.validate().is_ok());
+    let invalid = ResearchActivityMetadata::init()
+        .ror(vec!["https://doi.org/10.1000/182".to_string()])
+        .build();
+    assert!(invalid.validate().is_err());
 }
 #[test]
 fn test_is_country_code() {
@@ -1130,7 +1116,7 @@ fn test_scalar_enum_validation_helpers() {
     let invalid_month_values = [MonthValue::Number(0), MonthValue::Text("13".to_string())];
     invalid_month_values.iter().for_each(|value| {
         let errors = value.validate().expect_err("expected invalid month value to fail validation");
-        assert!(errors.errors().contains_key("month"));
+        assert!(errors.iter().any(|issue| issue.path == "month"));
     });
 }
 #[test]
@@ -1151,7 +1137,7 @@ fn test_validate_postal_code() {
     ];
     invalid_values.iter().for_each(|value| {
         let errors = value.validate().expect_err("expected postal code to fail validation");
-        assert!(errors.errors().contains_key("postal_code"));
+        assert!(errors.iter().any(|issue| issue.path == "postal_code"));
     });
 }
 #[test]

@@ -1,10 +1,10 @@
 //! Hardware vendor types, the [`Vendored`] trait, and vendor validation
 use super::{AcceleratorArchitecture, Architecture, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Resource};
 use crate::prelude::alloc::{format, String, ToString};
+use crate::validation::{ValidationError, ValidationReport};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use validator::{ValidationError, ValidationErrors};
 
 /// Trait for types that can report their associated hardware vendor.
 pub trait Vendored {
@@ -320,7 +320,7 @@ impl Vendored for Resource {
         }
     }
 }
-pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationErrors> {
+pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationReport> {
     let explicit_vendor = match resource {
         | Resource::ASIC { vendor, .. }
         | Resource::CPU { vendor, .. }
@@ -342,7 +342,7 @@ pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationError
                 | Some(arch_vendor) if arch_vendor != *vendor => {
                     let msg = format!("Architecture is not produced by vendor {vendor}");
                     let error = ValidationError::new("vendor_mismatch").with_message(msg.into());
-                    let mut errors = ValidationErrors::new();
+                    let mut errors = ValidationReport::new();
                     errors.add("vendor", error);
                     Err(errors)
                 }

@@ -13,7 +13,7 @@ use super::{
 };
 use crate::schema::research_activity::aspect::Modality as DataModality;
 use crate::schema::research_activity::ResearchActivityMetadata;
-use validator::Validate;
+use crate::validation::Validate;
 
 #[test]
 fn test_architecture_from_string() {
@@ -540,14 +540,10 @@ fn test_resource_validate_vendor() {
     let result = gpu.validate();
     assert!(result.is_err());
     let errors = result.unwrap_err();
-    assert_eq!(errors.errors().len(), 1);
-    assert!(errors.errors().contains_key("vendor"));
-    if let Some(validator::ValidationErrorsKind::Field(field_errors)) = errors.errors().get("vendor") {
-        assert_eq!(field_errors.len(), 1);
-        assert_eq!(field_errors[0].code, "vendor_mismatch");
-    } else {
-        panic!("expected Field errors for 'vendor'");
-    }
+    assert_eq!(errors.len(), 1);
+    let issue = errors.iter().next().expect("expected validation issue for vendor");
+    assert_eq!(issue.path, "vendor");
+    assert_eq!(issue.error.code, "vendor_mismatch");
     let gpu = Resource::GPU {
         architecture: Some(GpuArchitecture::Hopper),
         backend: None,

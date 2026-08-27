@@ -5,11 +5,11 @@ use crate::analyzer::vale::ValeOutputItem;
 use crate::io::document::{DocumentPath, DocumentQuery};
 use crate::prelude::alloc::HashMap;
 use crate::util::MarkdownSupport;
+use crate::validation::{join_path, ValidationReport};
 use bon::Builder;
 use core::fmt;
 use derive_more::Display;
 use serde_json::Value;
-use validator::{ValidationError, ValidationErrorsKind};
 
 /// Trait for findings that can identify their target within a source document.
 pub trait DocumentTarget {
@@ -20,12 +20,18 @@ pub trait DocumentTarget {
     /// Return format-neutral criteria for resolving the finding in its original document.
     fn query(&self) -> DocumentQuery;
 }
-/// Augmented list of validator crate error codes, with custom codes for ACORN-specific validation errors
+/// ACORN validation error codes used by analyzer diagnostics.
 #[derive(Clone, Debug, Display)]
 #[display(rename_all = "lowercase")]
 pub enum ErrorCode {
     /// Invalid ARK identifier
     Ark,
+    /// Invalid arXiv identifier
+    Arxiv,
+    /// Invalid camelCase string
+    CamelCase,
+    /// Invalid commit hash
+    Commit,
     /// Invalid ISO 8601 date
     Date,
     /// Invalid DOI
@@ -36,10 +42,14 @@ pub enum ErrorCode {
     Epoch,
     /// Unsupported image file extension
     Image,
+    /// Invalid Handle identifier
+    Handle,
     /// Invalid IPv6 address
     Ip6,
     /// Invalid ISBN
     Isbn,
+    /// Invalid ISNI
+    Isni,
     /// Invalid kebab-case string
     KebabCase,
     /// Invalid latitude
@@ -64,10 +74,18 @@ pub enum ErrorCode {
     Range,
     /// Invalid ROR identifier
     Ror,
+    /// Invalid Software Heritage identifier
+    Swhid,
     /// Research activity prose section (see [`schema::research_activity::Sections`])
     Section,
+    /// Invalid snake_case string
+    SnakeCase,
+    /// Invalid state or province abbreviation
+    State,
     /// Invalid URL
     Url,
+    /// Invalid semantic version
+    Version,
     /// Invalid ISO 8601 year
     Year,
 }
@@ -78,10 +96,8 @@ pub enum ErrorKind {
     Readability((f64, ReadabilityType)),
     /// Prose issue found by Vale
     Vale(Vec<ValeOutputItem>),
-    /// Schema validation issue found by [validator crate]
-    ///
-    /// [validator crate]: https://crates.io/crates/validator
-    Validator(ValidationErrorsKind),
+    /// Schema validation issues found by ACORN validation.
+    Validator(ValidationReport),
 }
 /// Flattened schema validation issue.
 #[derive(Builder, Clone, Debug)]
@@ -92,6 +108,9 @@ pub struct ValidatorIssue {
     pub(crate) message: String,
     pub(crate) params: HashMap<String, Value>,
 }
+/// Ordered analyzer representation of a portable validation report.
+#[derive(Clone, Debug, Default)]
+pub struct ValidatorIssues(Vec<ValidatorIssue>);
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:#?}", self)
@@ -101,13 +120,18 @@ impl From<&str> for ErrorCode {
     fn from(code: &str) -> Self {
         match code.to_lowercase().as_str() {
             | "ark" => Self::Ark,
+            | "arxiv" => Self::Arxiv,
+            | "camelcase" => Self::CamelCase,
+            | "commit" => Self::Commit,
             | "iso 8601 date" | "date" => Self::Date,
             | "doi" => Self::Doi,
             | "email" => Self::Email,
             | "epoch" | "unix epoch" => Self::Epoch,
             | "image" => Self::Image,
+            | "handle" => Self::Handle,
             | "ip6" => Self::Ip6,
             | "isbn" => Self::Isbn,
+            | "isni" => Self::Isni,
             | "kebabcase" => Self::KebabCase,
             | "latitude" => Self::Latitude,
             | "longitude" => Self::Longitude,
@@ -119,19 +143,23 @@ impl From<&str> for ErrorCode {
             | "raid" | "raìd" => Self::Raid,
             | "range" => Self::Range,
             | "ror" => Self::Ror,
+            | "swhid" => Self::Swhid,
             | "section" | "sections.approach" | "sections.areas" | "sections.capabilities" | "sections.impact" => Self::Section,
+            | "snake_case" => Self::SnakeCase,
+            | "state" => Self::State,
             | "url" | "urls" => Self::Url,
+            | "version" => Self::Version,
             | "year" => Self::Year,
             | _ => Self::Other,
         }
     }
 }
 impl ErrorKind {
-    /// Process errors to a list of `(code, path, message, params)` tuples.
-    pub fn process(self, prefix: &str) -> Vec<ValidatorIssue> {
+    /// Convert validation errors into ordered analyzer issues with `prefix` applied.
+    pub fn process(self, prefix: &str) -> ValidatorIssues {
         match self {
-            | ErrorKind::Validator(kind) => process(prefix, &kind),
-            | _ => vec![],
+            | ErrorKind::Validator(report) => ValidatorIssues::from(report).with_prefix(prefix),
+            | _ => ValidatorIssues::default(),
         }
     }
 }
@@ -174,58 +202,48 @@ impl DocumentTarget for ValidatorIssue {
         }
     }
 }
-/// Process validator errors into a more manageable form
-pub fn process(path: &str, kind: &ValidationErrorsKind) -> Vec<ValidatorIssue> {
-    let is_wrapper_field = |value: &str| matches!(value, "license" | "month" | "year" | "postal_code");
-    match kind {
-        | ValidationErrorsKind::Field(errors) => {
-            let result = errors
-                .iter()
-                .map(|error| {
-                    let ValidationError { code, message, params } = error.clone();
-                    let path = if path.is_empty() { None } else { Some(path.to_string()) };
-                    let message = message.map(|m| m.to_string()).unwrap_or_else(|| code.to_string());
-                    let params = params
-                        .into_iter()
-                        .map(|(key, value)| (key.to_string(), value))
-                        .collect::<HashMap<String, Value>>();
-                    ValidatorIssue::init()
-                        .code(ErrorCode::from(code.as_ref()))
-                        .maybe_path(path)
-                        .message(message)
-                        .params(params)
-                        .build()
-                })
-                .collect::<Vec<ValidatorIssue>>();
-            result
-        }
-        | ValidationErrorsKind::Struct(errors) => {
-            let result: Vec<ValidatorIssue> = errors
-                .clone()
-                .into_errors()
+impl ValidatorIssues {
+    pub(crate) fn with_prefix(mut self, prefix: &str) -> Self {
+        self.0.iter_mut().for_each(|issue| {
+            let path = join_path(prefix, issue.path.as_deref().unwrap_or_default());
+            issue.path = (!path.is_empty()).then_some(path);
+        });
+        self
+    }
+    /// Return the number of analyzer issues.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    /// Return whether there are no analyzer issues.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Iterate over analyzer issues in report order.
+    pub fn iter(&self) -> core::slice::Iter<'_, ValidatorIssue> {
+        self.0.iter()
+    }
+}
+impl From<ValidationReport> for ValidatorIssues {
+    fn from(report: ValidationReport) -> Self {
+        Self(
+            report
+                .into_issues()
                 .into_iter()
-                .flat_map(|(field, kind)| {
-                    let is_wrapper_recursion = matches!(kind, ValidationErrorsKind::Field(_)) && path == field && is_wrapper_field(field.as_ref());
-                    let next_path = match (path.is_empty(), field.is_empty(), is_wrapper_recursion) {
-                        | (true, false, _) => field.to_string(),
-                        | (_, true, _) | (false, false, true) => path.to_string(),
-                        | (false, false, false) => format!("{path}.{field}"),
-                    };
-                    process(&next_path, &kind)
+                .map(|issue| {
+                    let path = (!issue.path.is_empty()).then_some(issue.path);
+                    let code = ErrorCode::from(issue.error.code.as_str());
+                    let message = issue.error.message.unwrap_or(issue.error.code);
+                    let params = issue.error.params.into_iter().collect::<HashMap<String, Value>>();
+                    ValidatorIssue::init().code(code).maybe_path(path).message(message).params(params).build()
                 })
-                .collect();
-            result
-        }
-        | ValidationErrorsKind::List(errors) => {
-            let result: Vec<ValidatorIssue> = errors
-                .iter()
-                .flat_map(|(index, error)| {
-                    let prefix = if path.is_empty() { "".to_string() } else { path.to_string() };
-                    let kind = ValidationErrorsKind::Struct(error.clone());
-                    process(&format!("{prefix}[{index}]"), &kind)
-                })
-                .collect();
-            result
-        }
+                .collect(),
+        )
+    }
+}
+impl IntoIterator for ValidatorIssues {
+    type Item = ValidatorIssue;
+    type IntoIter = alloc::vec::IntoIter<ValidatorIssue>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }

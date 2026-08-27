@@ -11,7 +11,7 @@ use crate::schema::standard::text::{Document, Text};
 #[cfg(feature = "std")]
 use crate::test::utils::{fixture_path, unique_path};
 use crate::util::{MarkdownSupport, ToProse, Unstructured};
-use validator::Validate;
+use crate::validation::Validate;
 
 #[cfg(feature = "std")]
 #[test]

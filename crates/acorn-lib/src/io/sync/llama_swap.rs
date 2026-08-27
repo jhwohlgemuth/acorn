@@ -14,6 +14,7 @@ use crate::util::cmd::command_string;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
 use crate::util::StringConversion;
 use crate::util::ToStrings;
+use crate::validation::{Validate, ValidationError, ValidationReport};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -22,7 +23,6 @@ use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_norway::{Mapping, Number, Value};
 use serde_with::skip_serializing_none;
-use validator::{Validate, ValidationError, ValidationErrors};
 
 /// Human-readable alias for a synchronized model
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
@@ -357,10 +357,10 @@ impl<'a> From<(&'a Config, &'a [String])> for ModelValidation<'a> {
     }
 }
 impl Validate for Argument {
-    fn validate(&self) -> Result<(), ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         match self {
             | Self::Reserved(_) => {
-                let mut errors = ValidationErrors::new();
+                let mut errors = ValidationReport::new();
                 errors.add(
                     "argument",
                     ValidationError::new("reserved").with_message("Cannot contain --port, --model, or -m".into()),
@@ -372,7 +372,7 @@ impl Validate for Argument {
     }
 }
 impl Validate for ModelValidation<'_> {
-    fn validate(&self) -> Result<(), ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         self.config
             .models
             .as_ref()
@@ -496,8 +496,8 @@ fn merge_model(existing: Value, generated: Value) -> Value {
             .collect(),
     )
 }
-fn validation_errors(code: &'static str, message: String) -> ValidationErrors {
-    let mut errors = ValidationErrors::new();
+fn validation_errors(code: &'static str, message: String) -> ValidationReport {
+    let mut errors = ValidationReport::new();
     errors.add("models", ValidationError::new(code).with_message(message.into()));
     errors
 }

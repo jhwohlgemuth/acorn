@@ -8,6 +8,7 @@ use crate::io::{home_directory, read_file, ApiResult, CstValue, PathConversion};
 use crate::prelude::{current_dir, Path, PathBuf};
 use crate::schema::agent::opencode;
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
+use crate::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::string::ToString;
@@ -16,7 +17,6 @@ use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]

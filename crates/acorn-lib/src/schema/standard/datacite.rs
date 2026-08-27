@@ -20,12 +20,13 @@ use crate::schema::standard::validate::{
     validate_publisher_identifier,
 };
 use crate::schema::standard::{dcat, huwise, invenio};
-use crate::schema::validate::{is_doi, is_iso_639_1_language_code, is_latitude, is_longitude, is_polygon, is_rfc3339, is_semantic_version, is_year};
+use crate::schema::validate::{is_iso_639_1_language_code, is_polygon, is_rfc3339};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;
+use crate::validation::Validate;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]
@@ -34,7 +35,6 @@ use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 /// Collection of DataCite DOI records
 pub type Catalog = Vec<Record>;
@@ -505,7 +505,7 @@ pub struct AlternateIdentifier {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Attributes {
     /// DOI string (property 1)
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub doi: String,
     /// Publication event type
     pub event: Option<String>,
@@ -520,7 +520,7 @@ pub struct Attributes {
     /// Publication year per DataCite 4.6 property 5
     ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
-    #[validate(custom(function = "is_year"))]
+    #[validate(year)]
     #[serde(rename = "publicationYear")]
     pub publication_year: Option<i32>,
     /// Resource types (property 10)
@@ -559,7 +559,7 @@ pub struct Attributes {
     /// > Use file extension or MIME type where possible, e.g., PDF, XML, MPG or application/pdf, text/xml, video/mpeg
     pub formats: Option<Vec<String>>,
     /// Version (property 15)
-    #[validate(custom(function = "is_semantic_version"))]
+    #[validate(version)]
     pub version: Option<String>,
     /// Rights list (property 16)
     #[validate(nested)]
@@ -798,19 +798,19 @@ pub struct GeoLocation {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationBox {
     /// Western longitude
-    #[validate(custom(function = "is_longitude"))]
+    #[validate(longitude)]
     #[serde(rename = "westBoundLongitude")]
     pub west_bound_longitude: f64,
     /// Eastern longitude
-    #[validate(custom(function = "is_longitude"))]
+    #[validate(longitude)]
     #[serde(rename = "eastBoundLongitude")]
     pub east_bound_longitude: f64,
     /// Southern latitude
-    #[validate(custom(function = "is_latitude"))]
+    #[validate(latitude)]
     #[serde(rename = "southBoundLatitude")]
     pub south_bound_latitude: f64,
     /// Northern latitude
-    #[validate(custom(function = "is_latitude"))]
+    #[validate(latitude)]
     #[serde(rename = "northBoundLatitude")]
     pub north_bound_latitude: f64,
 }
@@ -818,11 +818,11 @@ pub struct GeoLocationBox {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationPoint {
     /// Longitude (-180 to 180)
-    #[validate(custom(function = "is_longitude"))]
+    #[validate(longitude)]
     #[serde(rename = "pointLongitude")]
     pub longitude: f64,
     /// Latitude (-90 to 90)
-    #[validate(custom(function = "is_latitude"))]
+    #[validate(latitude)]
     #[serde(rename = "pointLatitude")]
     pub latitude: f64,
 }
@@ -856,7 +856,7 @@ pub struct Identifier {
     #[serde(default = "default_identifier_type", rename = "@identifierType")]
     pub identifier_type: String,
     /// Identifier value
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     #[serde(rename = "$text")]
     pub value: String,
 }
@@ -924,7 +924,7 @@ pub struct Publisher {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Record {
     /// Unique DOI identifier
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub id: String,
     /// Record type (typically "dois")
     #[serde(rename = "type")]
@@ -993,7 +993,7 @@ pub struct Resource {
     /// Publication year per DataCite 4.6 property 5
     ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
-    #[validate(custom(function = "is_year"))]
+    #[validate(year)]
     #[serde(rename = "publicationYear")]
     pub publication_year: u32,
     /// Resource type (DataCite 4.6 property 10)
@@ -1022,7 +1022,7 @@ pub struct Resource {
     /// Version per DataCite 4.6 property 15
     ///
     /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/version/> for details
-    #[validate(custom(function = "is_semantic_version"))]
+    #[validate(version)]
     pub version: Option<String>,
     /// Rights list (DataCite 4.6 property 16)
     #[validate(nested)]

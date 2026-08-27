@@ -1,0 +1,24 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> ⚠️ OFFLINE ACORN is running in offline mode
+[00] Error: metas.dcat_ap.contact_email
+    ╭─[ schema/huwise-invalid-2-errors.json:15:24 ]
+    │
+ 15 │       "contact_email": "not-an-email"
+    │                        ───────┬──────  
+    │                               ╰──────── email
+────╯
+[01] Error: metas.default.license_url
+    ╭─[ schema/huwise-invalid-2-errors.json:11:22 ]
+    │
+ 11 │       "license_url": "not-a-url"
+    │                      ─────┬─────  
+    │                           ╰─────── url
+────╯
+0,error,schema,schema/huwise-invalid-2-errors.json,metas.default.license_url,url,metas.default.license_url
+1,error,schema,schema/huwise-invalid-2-errors.json,metas.dcat_ap.contact_email,email,metas.dcat_ap.contact_email
+stderr:

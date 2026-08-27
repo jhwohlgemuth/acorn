@@ -12,6 +12,7 @@ use crate::schema::standard::datacite;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;
+use crate::validation::Validate;
 #[cfg(feature = "std")]
 use crate::PathBuf;
 #[cfg(feature = "std")]
@@ -22,7 +23,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-use validator::Validate;
 
 #[cfg(not(feature = "std"))]
 fn clean(value: &str) -> String {

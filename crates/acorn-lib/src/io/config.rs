@@ -23,6 +23,7 @@ use crate::schema::{
 };
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE, SUPPORTED_RAD_FILETYPES};
 use crate::util::{detect_json, is_filetype, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
+use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
@@ -40,7 +41,6 @@ use serde_with::skip_serializing_none;
 use std::path::Component;
 use strum::EnumIs;
 use tracing::{error, info, warn};
-use validator::{Validate, ValidationError, ValidationErrors};
 
 /// Authentication requirement for a configured model download source
 #[derive(Clone, Debug, Default, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
@@ -1225,7 +1225,7 @@ impl FilterSet {
     }
 }
 impl Validate for RegistryProfile {
-    fn validate(&self) -> Result<(), ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         let location = Location::from(&self.endpoint);
         let scheme = location.scheme();
         let is_valid_scheme = scheme.is_https() || scheme.is_http() && self.plain_http;
@@ -1252,11 +1252,11 @@ impl Validate for RegistryProfile {
                 ("client_cert", ValidationError::new("paired").with_message(message))
             }),
         ];
-        let data = pairs.into_iter().flatten().fold(ValidationErrors::new(), |mut errors, (field, error)| {
+        let data = pairs.into_iter().flatten().fold(ValidationReport::new(), |mut errors, (field, error)| {
             errors.add(field, error);
             errors
         });
-        match data.errors().is_empty() {
+        match data.is_empty() {
             | true => Ok(()),
             | false => Err(data),
         }

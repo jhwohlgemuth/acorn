@@ -1,0 +1,29 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> ⚠️ OFFLINE ACORN is running in offline mode
+[00] Error: Deserialization error
+    @context.malformedContext: unknown field `malformedContext`, expected one of `meta`, `title`, `subtitle`, `sections`, `contact`, `notes` at line 8 column 26
+[01] Error: Deserialization error
+    @context: expected `,` or `}` at line 8 column 27
+╭─────────────────────────┬───────╮
+│                         ┆ Count │
+╞═════════════════════════╪═══════╡
+│ Schema items found      ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Link items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Prose items found       ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Quality items found     ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Readability items found ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Crosswalk items found   ┆ 0     │
+╰─────────────────────────┴───────╯
+0,error,schema,fixtures/malformed-rad.json,"","","@context.malformedContext: unknown field `malformedContext`, expected one of `meta`, `title`, `subtitle`, `sections`, `contact`, `notes` at line 8 column 26"
+1,error,schema,fixtures/malformed-rad.json,"","","@context: expected `,` or `}` at line 8 column 27"
+stderr:

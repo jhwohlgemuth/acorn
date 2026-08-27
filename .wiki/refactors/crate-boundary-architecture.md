@@ -23,7 +23,9 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
 - Default, minimal, alloc, and `wasm32-unknown-unknown` checks now pass for the in-tree boundary, and the WASM dependency tree also excludes those presentation and generic asset packages.
 - Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
-- Utility implementations now have explicit core, alloc, and std ownership, with flat and `util::portable` compatibility re-exports. The current no-default build still imports `std` for schema derive output; this is the remaining Phase 1.1 portability boundary before schema and analyzer separation.
+- Utility implementations now have explicit core, alloc, and std ownership, with flat and `util::portable` compatibility re-exports.
+- Phase 1.1 is complete: ACORN owns one alloc-compatible validation engine and derive, schema validation no longer resolves `validator` or `validator_derive`, generated validation uses core/alloc paths, and deterministic flat reports preserve nested and indexed paths.
+- Phase 1.2 is the next boundary: separate schema string/byte codecs from path, URL, and file adapters as tracked by the schema I/O validation handoff plan.
 - `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
 - `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
 - The `std` feature enables unrelated host capabilities, so consumers cannot select a narrow dependency graph.
@@ -112,13 +114,13 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 Do not create new crates during this phase. First make the intended boundaries explicit and acyclic inside `acorn-lib` so package extraction becomes a mechanical move rather than a simultaneous redesign.
 
-### 1.1. Enforce the portable dependency boundary
+### 1.1. Enforce the portable dependency boundary — complete
 
-Move portable implementations into capability-scoped modules and re-export them from legacy paths, rather than defining them in mixed modules and re-exporting them inward. Introduce strict core, alloc, and std preludes; remove the schema-derive `extern crate std` workaround; and audit the remaining entropy, process, and native-service dependencies in minimal and alloc configurations.
+Portable implementations now live in capability-scoped modules and are re-exported from legacy paths. Strict core, alloc, and std preludes are present; the schema-derive `extern crate std` workaround and third-party validation tree are removed.
 
-Move the now-WASM-safe immutable validation vocabularies under the schema boundary. Continue validating default, minimal, alloc, and WASM configurations throughout Phase 1. The facade retains its legacy feature names, but extracted portable crates expose only capabilities they implement.
+The validation engine remains in `acorn-lib::validation` until the planned schema extraction, with canonical PID delegates under `schema::validate`. Default, minimal, alloc, and WASM configurations remain Phase 1 gates. The facade retains its legacy feature names, but extracted portable crates expose only capabilities they implement.
 
-### 1.2. Separate schemas from host I/O
+### 1.2. Separate schemas from host I/O — next
 
 Keep parsing, serialization, validation, and crosswalks with schema types. Move path, URL, and file reads and writes behind host-owned extension traits or free functions. Preserve the existing `acorn::io::InputOutput` surface through compatibility re-exports.
 

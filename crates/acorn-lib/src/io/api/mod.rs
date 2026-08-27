@@ -9,6 +9,7 @@ use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
+use crate::validation::Validate;
 use crate::{Location, Repository, Scheme};
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue};
@@ -28,7 +29,6 @@ use serde_with::skip_serializing_none;
 use strum::EnumIs;
 use tera::{Context, Tera};
 use tracing::{debug, trace, warn};
-use validator::Validate;
 
 pub mod citeas;
 pub mod geonames;

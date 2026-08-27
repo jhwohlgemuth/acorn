@@ -6,8 +6,8 @@ use crate::prelude::{fs, remove_file, BufReader, File, HashSet, Path, PathBuf, R
 use crate::schema::agent::OciModelLayerRole;
 use crate::schema::agent::Quantization;
 use crate::util::constants::app::{MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD};
+use crate::validation::ValidationError;
 use color_eyre::eyre::eyre;
-use validator::ValidationError;
 
 pub(super) const MIME_TYPE: &str = "application/gguf";
 

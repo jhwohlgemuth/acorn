@@ -6,15 +6,14 @@ use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoin
 use crate::param;
 use crate::prelude::var;
 use crate::schema::pid::raid::Metadata;
-use crate::schema::validate::is_ror;
 use crate::util::constants::env::RAID_TOKEN_VARIABLE_NAMES;
 use crate::util::Label;
+use crate::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use dotenvy;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
-use validator::Validate;
 
 /// Server response for RAiD API errors
 /// ### Example JSON output
@@ -140,7 +139,7 @@ pub struct ServicePointResponse {
     /// Name of service point associated with response
     pub name: String,
     /// ROR of service point owner
-    #[validate(custom(function = "is_ror"))]
+    #[validate(ror)]
     #[serde(alias = "identifierOwner")]
     pub owner: String,
     /// Repository identifier

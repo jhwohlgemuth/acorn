@@ -1,5 +1,5 @@
 //! Check result types and helpers for analyzer output.
-use super::error::{process, DocumentTarget, ErrorKind};
+use super::error::{DocumentTarget, ErrorKind, ValidatorIssues};
 use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
@@ -46,7 +46,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use strum::{EnumIs, EnumIter, VariantNames};
 use tracing::{debug, error, info};
-use validator::ValidationErrorsKind;
 
 /// Utility type alias for a vector of [`ConversionWarning`]
 pub type ConversionWarnings = Vec<ConversionWarning>;
@@ -373,23 +372,6 @@ impl Check {
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
         Self { kind, ..self }
     }
-    /// Recursively count validation errors from a given ValidationErrorsKind
-    pub fn count_validation_errors(kind: &ValidationErrorsKind) -> usize {
-        match kind {
-            | ValidationErrorsKind::Field(_) => 1,
-            | ValidationErrorsKind::List(errors) => errors
-                .clone()
-                .into_values()
-                .map(|error| Self::count_validation_errors(&ValidationErrorsKind::Struct(error)))
-                .sum(),
-            | ValidationErrorsKind::Struct(errors) => errors
-                .clone()
-                .into_errors()
-                .into_values()
-                .map(|nested| Self::count_validation_errors(&nested))
-                .sum(),
-        }
-    }
     /// Returns whether this check represents a failure (not successful and severity warrants failure)
     pub fn is_failure(&self) -> bool {
         !self.success && self.severity.is_failure()
@@ -417,7 +399,7 @@ impl Check {
             | CheckCategory::Schema => {
                 if let Some(kind) = &self.errors {
                     match kind {
-                        | ErrorKind::Validator(kind) => Self::count_validation_errors(kind),
+                        | ErrorKind::Validator(content) => content.len(),
                         | _ => 0,
                     }
                 } else {
@@ -568,24 +550,28 @@ impl Check {
             | CheckCategory::Schema => {
                 let title = uri.clone().unwrap_or_default();
                 match &errors {
-                    | Some(ErrorKind::Validator(validator_kind)) => {
+                    | Some(ErrorKind::Validator(report)) => {
                         let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(&message);
-                        process(prefix, validator_kind).iter().enumerate().for_each(|(issue_index, issue)| {
-                            let locator = issue.locator();
-                            let query = issue.query();
-                            let report = DocumentReport::init()
-                                .title(&title)
-                                .index(index.saturating_add(issue_index))
-                                .kind(severity.clone().into())
-                                .heading(&locator)
-                                .message(issue.message.italic().to_string())
-                                .color(severity.clone().into())
-                                .build();
-                            let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
-                            if !rendered {
-                                print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
-                            }
-                        });
+                        ValidatorIssues::from(report.clone())
+                            .with_prefix(prefix)
+                            .iter()
+                            .enumerate()
+                            .for_each(|(issue_index, issue)| {
+                                let locator = issue.locator();
+                                let query = issue.query();
+                                let report = DocumentReport::init()
+                                    .title(&title)
+                                    .index(index.saturating_add(issue_index))
+                                    .kind(severity.clone().into())
+                                    .heading(&locator)
+                                    .message(issue.message.italic().to_string())
+                                    .color(severity.clone().into())
+                                    .build();
+                                let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                                if !rendered {
+                                    print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
+                                }
+                            });
                     }
                     | None if !self.success => {
                         let error_text = context.as_deref().unwrap_or(&message);
@@ -652,9 +638,13 @@ impl Check {
                     vec![document.locate(&query)]
                 }
                 | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_position(item)).collect(),
-                | (CheckCategory::Schema, _, Some(ErrorKind::Validator(kind))) => {
+                | (CheckCategory::Schema, _, Some(ErrorKind::Validator(report))) => {
                     let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
-                    process(prefix, kind).iter().map(|issue| document.locate(&issue.query())).collect()
+                    ValidatorIssues::from(report.clone())
+                        .with_prefix(prefix)
+                        .iter()
+                        .map(|issue| document.locate(&issue.query()))
+                        .collect()
                 }
                 | _ => Vec::new(),
             });
@@ -758,7 +748,7 @@ impl fmt::Display for Check {
                 }
             }
             | CheckCategory::Schema => match &self.errors {
-                | Some(ErrorKind::Validator(kind)) => {
+                | Some(ErrorKind::Validator(report)) => {
                     let Check {
                         context,
                         locator,
@@ -767,7 +757,7 @@ impl fmt::Display for Check {
                         ..
                     } = self;
                     let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
-                    let rows = process(prefix, kind);
+                    let rows = ValidatorIssues::from(report.clone()).with_prefix(prefix);
                     let last = rows.len().saturating_sub(1);
                     rows.iter().enumerate().try_for_each(|(index, issue)| {
                         let location = issue.locator();
@@ -1000,6 +990,27 @@ impl<'a> IntoRow<'a> for Check {
             &context.unwrap_or_default(),
         ];
         Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
+    }
+}
+impl DocumentIndex {
+    fn print(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
+        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
+            let page = self.page_number(span.0.start);
+            let DocumentSpan(span) = excerpt.span;
+            let source = Source::from(excerpt.content);
+            let message = match page {
+                | Some(page) => format!("{} (PDF page {page})", report.message),
+                | None => report.message,
+            };
+            let _ = Report::build(report.kind, (report.title, span.clone()))
+                .with_code(report.index)
+                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
+                .with_message(report.heading)
+                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
+                .finish()
+                .print((report.title, source));
+            true
+        })
     }
 }
 impl From<&Map<String, Value>> for Standard {
@@ -1255,27 +1266,6 @@ fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report
     match document.resolve(query) {
         | DocumentMatch::Unique(span) => document.print(&span, report),
         | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
-    }
-}
-impl DocumentIndex {
-    fn print(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
-        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
-            let page = self.page_number(span.0.start);
-            let DocumentSpan(span) = excerpt.span;
-            let source = Source::from(excerpt.content);
-            let message = match page {
-                | Some(page) => format!("{} (PDF page {page})", report.message),
-                | None => report.message,
-            };
-            let _ = Report::build(report.kind, (report.title, span.clone()))
-                .with_code(report.index)
-                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
-                .with_message(report.heading)
-                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
-                .finish()
-                .print((report.title, source));
-            true
-        })
     }
 }
 fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, message: String) {

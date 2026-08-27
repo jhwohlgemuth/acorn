@@ -1,0 +1,24 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> ⚠️ OFFLINE ACORN is running in offline mode
+[00] Error: metadata.publication_date
+   ╭─[ schema/invenio-invalid-2-errors.json:5:14 ]
+   │
+ 5 │     "title": "Invalid Invenio Fixture",
+   │              ────────────┬────────────  
+   │                          ╰────────────── required
+───╯
+[01] Error: metadata.resource_type
+   ╭─[ schema/invenio-invalid-2-errors.json:5:14 ]
+   │
+ 5 │     "title": "Invalid Invenio Fixture",
+   │              ────────────┬────────────  
+   │                          ╰────────────── required
+───╯
+0,error,schema,schema/invenio-invalid-2-errors.json,metadata.resource_type,required,metadata.resource_type
+1,error,schema,schema/invenio-invalid-2-errors.json,metadata.publication_date,required,metadata.publication_date
+stderr:

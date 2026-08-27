@@ -10,21 +10,18 @@ use crate::prelude::alloc::format;
 use crate::prelude::alloc::{String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::std::PathBuf;
-use crate::schema::validate::{
-    is_commit, is_country_code, is_date, is_doi, is_isbn, is_orcid, is_phone_number, is_semantic_version, is_states, IntegerOrString, MonthValue,
-    NumberOrString, PostalCode, YearValue,
-};
+use crate::schema::validate::{is_country_code, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue};
 #[cfg(not(feature = "std"))]
 use crate::util::License;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::{MarkdownSupport, ToProse};
+use crate::validation::{Validate, ValidationReport};
 #[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use validator::{Validate, ValidationErrors};
 
 /// Collection of CFF records
 pub type Catalog = Vec<Cff>;
@@ -196,10 +193,10 @@ pub struct Cff {
     #[eserde(compat)]
     pub contact: Option<Vec<Agent>>,
     /// Release date in YYYY-MM-DD format
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_released: Option<String>,
     /// Canonical DOI for the work
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub doi: Option<String>,
     /// Additional identifiers for the work
     #[validate(nested)]
@@ -243,7 +240,7 @@ pub struct Cff {
     #[validate(url)]
     pub url: Option<String>,
     /// Version identifier for the work
-    #[validate(custom(function = "is_semantic_version"))]
+    #[validate(version)]
     pub version: Option<String>,
 }
 impl Cff {
@@ -283,10 +280,10 @@ pub struct Entity {
     #[validate(custom(function = "is_country_code"))]
     pub country: Option<String>,
     /// Optional end date when the entity is time-bound
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_end: Option<String>,
     /// Optional start date when the entity is time-bound
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_start: Option<String>,
     /// Email address
     #[validate(email)]
@@ -298,7 +295,7 @@ pub struct Entity {
     /// Entity display name
     pub name: String,
     /// ORCID URI
-    #[validate(custom(function = "is_orcid"))]
+    #[validate(orcid)]
     pub orcid: Option<String>,
     /// Postal code value
     #[validate(nested)]
@@ -306,7 +303,7 @@ pub struct Entity {
     /// Region/state/province
     pub region: Option<String>,
     /// Telephone number
-    #[validate(custom(function = "is_phone_number"))]
+    #[validate(phone)]
     pub tel: Option<String>,
     /// Website URL
     #[validate(url)]
@@ -355,7 +352,7 @@ pub struct Person {
     /// Name suffix such as "Jr."
     pub name_suffix: Option<String>,
     /// ORCID URI
-    #[validate(custom(function = "is_orcid"))]
+    #[validate(orcid)]
     pub orcid: Option<String>,
     /// Postal code value
     #[validate(nested)]
@@ -363,7 +360,7 @@ pub struct Person {
     /// Region/state/province
     pub region: Option<String>,
     /// Telephone number
-    #[validate(custom(function = "is_phone_number"))]
+    #[validate(phone)]
     pub tel: Option<String>,
     /// Website URL
     #[validate(url)]
@@ -383,14 +380,14 @@ pub struct Reference {
     #[validate(nested)]
     pub authors: Vec<Agent>,
     /// DOI of a collection containing the work
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub collection_doi: Option<String>,
     /// Title of a collection or proceedings
     pub collection_title: Option<String>,
     /// Type of collection containing the work
     pub collection_type: Option<String>,
     /// Commit hash or revision number
-    #[validate(custom(function = "is_commit"))]
+    #[validate(commit)]
     pub commit: Option<String>,
     /// Conference where the work was presented
     #[validate(nested)]
@@ -407,22 +404,22 @@ pub struct Reference {
     /// Provider of the database storing or serving the work
     pub database_provider: Option<Entity>,
     /// Date the work was accessed
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_accessed: Option<String>,
     /// Date the work was downloaded
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_downloaded: Option<String>,
     /// Date the work was published
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_published: Option<String>,
     /// Date the work was released
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub date_released: Option<String>,
     /// Department where the work was produced
     // TODO: Map to research_activity::contact::organization
     pub department: Option<String>,
     /// DOI of the related work
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     pub doi: Option<String>,
     /// Edition of the work
     pub edition: Option<String>,
@@ -449,7 +446,7 @@ pub struct Reference {
     #[validate(nested)]
     pub institution: Option<Entity>,
     /// ISBN of the work
-    #[validate(custom(function = "is_isbn"))]
+    #[validate(isbn)]
     pub isbn: Option<String>,
     /// ISSN of the work
     // TODO: Create is_issn (8-digit string with optional hyphen)
@@ -457,7 +454,7 @@ pub struct Reference {
     /// Issue of a periodical containing the work
     pub issue: Option<NumberOrString>,
     /// Publication date of the periodical issue
-    #[validate(custom(function = "is_date"))]
+    #[validate(date)]
     pub issue_date: Option<String>,
     /// Title of the periodical issue
     pub issue_title: Option<String>,
@@ -499,7 +496,7 @@ pub struct Reference {
     /// Number of pages of the work
     pub pages: Option<IntegerOrString>,
     /// States for which a patent is granted
-    #[validate(custom(function = "is_states"))]
+    #[validate(each(state))]
     pub patent_states: Option<Vec<String>>,
     /// PMCID identifier
     pub pmcid: Option<String>,
@@ -548,7 +545,7 @@ pub struct Reference {
     #[validate(url)]
     pub url: Option<String>,
     /// Version of the related work
-    #[validate(custom(function = "is_semantic_version"))]
+    #[validate(version)]
     pub version: Option<String>,
     /// Volume of the periodical containing the work
     pub volume: Option<IntegerOrString>,
@@ -658,7 +655,7 @@ impl InputOutput for Cff {
     }
 }
 impl Validate for Agent {
-    fn validate(&self) -> Result<(), ValidationErrors> {
+    fn validate(&self) -> Result<(), ValidationReport> {
         match self {
             | Self::Entity(value) => value.validate(),
             | Self::Person(value) => value.validate(),

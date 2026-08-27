@@ -13,6 +13,7 @@ use crate::prelude::HashMap;
 use crate::schema::validate::is_iso_date_or_rfc3339_timestamp;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use crate::util::{Label, Searchable, SemanticVersion};
+use crate::validation::Validate;
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
@@ -25,7 +26,6 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumIs;
 use tracing::debug;
-use validator::Validate;
 
 pub mod bot;
 pub mod database;

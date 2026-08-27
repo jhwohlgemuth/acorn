@@ -1,0 +1,5 @@
+error: unknown validation rule
+ --> tests/ui/validate-unknown-rule.rs:5:16
+  |
+5 |     #[validate(unknown)]
+  |                ^^^^^^^
