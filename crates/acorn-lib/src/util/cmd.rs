@@ -2,8 +2,7 @@
 //!
 //! These are `#[doc(hidden)]` and not part of the public API.
 #[cfg(feature = "shell-lint")]
-use crate::prelude::env;
-use crate::prelude::{io, Command, ExitStatus, OsStr, OsString, Output, Path, Stdio, Write};
+use crate::prelude::std::{env, io, Command, ExitStatus, OsStr, OsString, Output, Path, Stdio, Write};
 #[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
 use crate::util::Label;

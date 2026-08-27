@@ -9,7 +9,7 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, CheckCategory};
 use crate::check_ok;
-use crate::prelude::HashMap;
+use crate::prelude::alloc::HashMap;
 use crate::util::Constant;
 #[cfg(test)]
 use pretty_assertions::assert_eq;

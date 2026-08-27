@@ -8,9 +8,9 @@ use crate::error::ApiResult;
 use crate::io::document::{DocumentFormat, SourceDocument};
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-use crate::prelude::*;
+use crate::prelude::alloc::{String, ToString};
 #[cfg(feature = "std")]
-use crate::prelude::{Path, PathBuf};
+use crate::prelude::std::{Path, PathBuf};
 #[cfg(feature = "std")]
 use crate::util::file_extension;
 #[cfg(feature = "std")]

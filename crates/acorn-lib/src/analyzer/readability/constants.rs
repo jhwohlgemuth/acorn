@@ -2,7 +2,7 @@
 //! # Readability constants, word lists, and regular expressions
 //!
 //! Used to inform and configure readability analysis
-use crate::prelude::HashMap;
+use crate::prelude::alloc::HashMap;
 use crate::util::Constant;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;

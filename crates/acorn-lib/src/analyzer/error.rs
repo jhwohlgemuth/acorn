@@ -3,7 +3,7 @@
 use super::readability::ReadabilityType;
 use crate::analyzer::vale::ValeOutputItem;
 use crate::io::document::{DocumentPath, DocumentQuery};
-use crate::prelude::HashMap;
+use crate::prelude::alloc::HashMap;
 use crate::util::MarkdownSupport;
 use bon::Builder;
 use core::fmt;

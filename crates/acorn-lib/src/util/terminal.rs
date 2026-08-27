@@ -1,5 +1,7 @@
 //! Terminal output helpers
-use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::alloc::Vec;
+use crate::prelude::alloc::{format, String, ToString};
 #[cfg(feature = "std")]
 use crate::skip;
 #[cfg(feature = "std")]

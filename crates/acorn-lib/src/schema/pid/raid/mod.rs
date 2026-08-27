@@ -7,9 +7,9 @@
 use crate::io::current_date;
 #[cfg(feature = "std")]
 use crate::io::{read_file, License};
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::{vec, Error, PathBuf};
+use crate::prelude::std::{vec, Error, PathBuf};
 #[cfg(feature = "std")]
 use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};

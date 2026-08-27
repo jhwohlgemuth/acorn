@@ -1,5 +1,5 @@
 //! Embedded controlled vocabularies owned by the schema boundary.
-use crate::prelude::{format, String, Vec};
+use crate::prelude::alloc::{format, String, Vec};
 pub(crate) fn from_asset(file_name: &str) -> Option<&'static str> {
     match file_name {
         | "keywords.csv" => Some(include_str!("../../assets/constants/keywords.csv")),

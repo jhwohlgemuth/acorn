@@ -1,7 +1,7 @@
 //! Error contracts for portable domain code and host integrations.
 //! Use [`AcornError`] for small, owned domain failures that must compile without host services, and [`AcornResult`] as its result shorthand.
 //! Under `std`, use `ApiResult` at I/O, API, and application boundaries that need a `color_eyre::eyre::Report` with rich diagnostic context.
-use crate::prelude::String;
+use crate::prelude::alloc::String;
 use core::fmt;
 
 /// Result returned by portable ACORN domain operations

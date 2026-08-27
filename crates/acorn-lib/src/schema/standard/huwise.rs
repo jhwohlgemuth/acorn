@@ -4,7 +4,9 @@
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::alloc::Box;
+use crate::prelude::alloc::{vec, String, ToString, Vec};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_huwise, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
 #[cfg(feature = "std")]

@@ -13,7 +13,7 @@
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-use crate::prelude::*;
+use crate::prelude::alloc::{vec, Box, String, ToString, Vec};
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_dcat, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite::{self, RelationType};
 use crate::schema::validate::is_url;

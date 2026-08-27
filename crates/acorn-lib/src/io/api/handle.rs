@@ -2,7 +2,7 @@
 use super::{Endpoint, RemoteResource};
 use crate::error::ApiResult;
 use crate::param;
-use crate::prelude::*;
+use crate::prelude::std::{vec, String, Vec};
 use crate::schema::pid::{Handle, PersistentIdentifier};
 use crate::util::constants::HTTP_URL;
 use alloc::collections::BTreeSet;

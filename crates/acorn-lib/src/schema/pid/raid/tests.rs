@@ -7,7 +7,7 @@
 )]
 
 use super::*;
-use crate::prelude::PathBuf;
+use crate::prelude::std::PathBuf;
 use crate::schema::pid::{PersistentIdentifierConvert, PID};
 use crate::schema::Validate;
 

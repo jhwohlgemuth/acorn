@@ -6,9 +6,9 @@
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::PathBuf;
-use crate::prelude::*;
+use crate::prelude::std::PathBuf;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};

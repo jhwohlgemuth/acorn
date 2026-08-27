@@ -4,8 +4,7 @@
 use crate::error::ApiResult;
 use crate::io::{parse_jsonc_cst, read_file, write_file, CstRootNode, FromPath, InputOutput};
 #[cfg(feature = "std")]
-use crate::prelude::Path;
-use crate::prelude::PathBuf;
+use crate::prelude::std::{Path, PathBuf};
 use crate::schema::agent::Provider;
 use crate::util::MimeType;
 use alloc::collections::BTreeMap;

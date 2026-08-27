@@ -13,7 +13,7 @@ use crate::io::{
     ArchiveExtraction, FromCommand, FromPath,
 };
 use crate::param;
-use crate::prelude::{OsStr, Path, PathBuf};
+use crate::prelude::std::{OsStr, Path, PathBuf};
 use crate::util::*;
 use proptest::prelude::*;
 #[cfg(test)]

@@ -2,7 +2,7 @@
 //!
 //! This module contains tools for assessing the quality of software.
 //!
-use crate::prelude::*;
+use crate::prelude::alloc::String;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

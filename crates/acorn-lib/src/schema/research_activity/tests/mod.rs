@@ -6,7 +6,7 @@
     clippy::unwrap_used
 )]
 use crate::io::InputOutput;
-use crate::prelude::PathBuf;
+use crate::prelude::std::PathBuf;
 use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};

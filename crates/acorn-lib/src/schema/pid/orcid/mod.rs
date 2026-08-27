@@ -1,5 +1,5 @@
 //! Open Researcher and Contributor Identifier parsing and formatting
-use crate::prelude::{format, vec, String, ToString, Vec};
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::schema::namespaces::DEFAULT_ORCID_SCHEMA_URI;
 use crate::schema::pid::{mod_11_2_check_digit, PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::{RE_ORCID, RE_ORCID_TEXT};

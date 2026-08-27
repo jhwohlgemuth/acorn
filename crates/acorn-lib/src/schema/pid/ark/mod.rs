@@ -1,5 +1,5 @@
 //! Archival Resource Key parsing and formatting
-use crate::prelude::{format, vec, String, ToString, Vec};
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::schema::pid::{noid_check_digit, Betanumeric, PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::{RE_ARK, RE_ARK_TEXT};
 use crate::util::regex_capture_lookup;

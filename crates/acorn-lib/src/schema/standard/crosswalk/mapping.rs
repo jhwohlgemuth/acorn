@@ -3,8 +3,7 @@
 //! Defines how fields are mapped from one schema to another,
 //! including transformation logic and rule composition.
 use super::CrosswalkError;
-use crate::prelude::HashMap;
-use crate::prelude::*;
+use crate::prelude::alloc::{format, vec, Box, HashMap, String, ToString, Vec};
 use core::fmt;
 use serde_json::Value;
 

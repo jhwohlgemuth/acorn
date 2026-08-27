@@ -10,8 +10,8 @@ use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::License;
 use crate::io::{ModelListFile, PathExt, Source};
-use crate::prelude::*;
-use crate::prelude::{Error, ErrorKind};
+use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
+use crate::prelude::std::{Error, ErrorKind, Path, PathBuf};
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::{is_digest, is_partial_date};

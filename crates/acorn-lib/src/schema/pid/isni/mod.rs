@@ -1,5 +1,5 @@
 //! International Standard Name Identifier parsing and formatting.
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::namespaces::DEFAULT_ISNI_SCHEMA_URI;
 use crate::schema::pid::{mod_11_2_check_digit, PersistentIdentifier, PersistentIdentifierParse, ORCID};
 use crate::util::constants::{RE_ISNI, RE_ISNI_TEXT};

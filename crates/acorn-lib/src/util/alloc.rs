@@ -15,8 +15,7 @@
 //!
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::fail;
-use crate::prelude::HashMap;
-use crate::prelude::*;
+use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
 use bon::Builder;

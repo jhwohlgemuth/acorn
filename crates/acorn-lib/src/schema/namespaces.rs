@@ -1,6 +1,6 @@
 //! # Schema constants
 //!
-use crate::prelude::*;
+use crate::prelude::alloc::{String, ToString};
 use lazy_static::lazy_static;
 use sophia::api::ns::Namespace;
 /// Default schema URI for ORCiD values

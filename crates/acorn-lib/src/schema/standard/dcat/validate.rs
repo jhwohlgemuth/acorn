@@ -1,6 +1,6 @@
 //! Custom validation implementations for DCAT untagged enums and helper functions.
 use super::{ConformsTo, ContactPoint, DocumentRef, OneOrMany, Publisher};
-use crate::prelude::*;
+use crate::prelude::alloc::String;
 use crate::schema::validate::{is_url, is_urls};
 use validator::{Validate, ValidationError, ValidationErrors};
 

@@ -198,7 +198,6 @@ Make `acorn-lib` re-export-only and map its existing feature names and default b
 - [Extract acorn-cmd](acorn-cmd-extraction.md)
 - [Portability roadmap](portability/roadmap.md)
 - [Isolate std-only modules](portability/isolate-std-only-modules.md)
-- [Capability preludes](portability/capability-preludes.md)
 - [Host abstraction traits](portability/host-abstraction-traits.md)
 - [WASM feature path](portability/wasm-feature-path.md)
 - [no-std and WASM CI](portability/no-std-wasm-ci.md)

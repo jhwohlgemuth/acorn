@@ -1,8 +1,7 @@
 use crate::args;
 use crate::cmd;
 use crate::io::command_exists;
-use crate::prelude::CommandOutput;
-use crate::prelude::OsString;
+use crate::prelude::std::{CommandOutput, OsString};
 use crate::test::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin};
 #[cfg(feature = "shell-lint")]
 use crate::util::cmd::Severity as CmdSeverity;

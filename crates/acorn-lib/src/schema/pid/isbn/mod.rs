@@ -1,5 +1,5 @@
 //! International Standard Book Number parsing and formatting
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::pid::{mod_10_or_11_check_digit, PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::util::constants::{RE_ISBN, RE_ISBN_10_COMPACT_TEXT, RE_ISBN_10_TEXT, RE_ISBN_13_TEXT};
 use crate::util::regex_capture_lookup;

@@ -1,6 +1,6 @@
 //! Data model for harware memory resources, including memory units and (de)serialization logic
 use crate::error::{AcornError, AcornResult};
-use crate::prelude::*;
+use crate::prelude::alloc::{format, ToString};
 use alloc::borrow::Cow;
 use core::{convert::TryInto, str::FromStr};
 use derive_more::Display;

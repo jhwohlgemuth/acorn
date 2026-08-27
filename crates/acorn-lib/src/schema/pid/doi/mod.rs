@@ -1,5 +1,5 @@
 //! Digital Object Identifier parsing and formatting
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::namespaces::{ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_DOI_SCHEMA_URI};
 use crate::schema::pid::{Arxiv, PersistentIdentifier, PersistentIdentifierParse, ISBN};
 use crate::util::constants::{RE_DOI, RE_DOI_TEXT};

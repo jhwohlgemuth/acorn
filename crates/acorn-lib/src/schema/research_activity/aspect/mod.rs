@@ -15,7 +15,7 @@
 //! In the context of technology, AI/ML and automation are the same.
 //!
 use crate::impl_to_markdown;
-use crate::prelude::*;
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::namespaces::schema_org;
 use crate::schema::TechnologyReadinessLevel;
 use crate::util::{LinkedData, MarkdownSupport};

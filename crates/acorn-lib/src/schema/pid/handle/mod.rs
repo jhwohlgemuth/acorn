@@ -1,5 +1,5 @@
 //! Handle identifier parsing and formatting
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::app::HANDLE_RESOLVER_URI;
 use crate::util::constants::RE_HANDLE;

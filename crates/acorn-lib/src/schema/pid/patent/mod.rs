@@ -1,6 +1,6 @@
 //! Data model for patent data
 use super::{PersistentIdentifier, PersistentIdentifierParse};
-use crate::prelude::{format, vec, String, ToString, Vec};
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
 use crate::util::regex_capture_lookup;
 use core::fmt;

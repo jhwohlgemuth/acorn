@@ -4,7 +4,8 @@ pub use super::cmd::*;
 pub use super::terminal::{
     print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
 };
-use crate::prelude::{OsStr, Path, String, Vec};
+use crate::prelude::alloc::{String, Vec};
+use crate::prelude::std::{OsStr, Path};
 use nanoid::nanoid;
 impl AsRef<OsStr> for MimeType {
     fn as_ref(&self) -> &OsStr {

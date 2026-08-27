@@ -9,9 +9,9 @@ use crate::io::database::{
 };
 #[cfg(feature = "std")]
 use crate::io::License;
+use crate::prelude::alloc::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::env;
-use crate::prelude::*;
+use crate::prelude::std::env;
 use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::pid::{Patent, PersistentIdentifierConvert};
 use crate::schema::standard::datacite::GeoLocationPoint;

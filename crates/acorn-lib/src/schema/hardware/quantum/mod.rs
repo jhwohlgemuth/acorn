@@ -1,5 +1,5 @@
 //! Quantum computing paradigms and hardware definitions
-use crate::prelude::*;
+use crate::prelude::alloc::String;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

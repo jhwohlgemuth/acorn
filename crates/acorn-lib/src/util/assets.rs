@@ -1,5 +1,5 @@
 //! Embedded constant assets
-use crate::prelude::{format, String, Vec};
+use crate::prelude::alloc::{format, String, Vec};
 use crate::schema::vocabulary;
 /// Embedded ACORN constant assets
 pub struct Constant;

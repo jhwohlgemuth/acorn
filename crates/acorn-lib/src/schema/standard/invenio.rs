@@ -15,7 +15,9 @@
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::alloc::Box;
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;

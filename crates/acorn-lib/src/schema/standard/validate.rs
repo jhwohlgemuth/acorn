@@ -1,6 +1,6 @@
 use super::datacite::{Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, NameIdentifier, Publisher};
 use super::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
-use crate::prelude::String;
+use crate::prelude::alloc::String;
 use crate::schema::validate::{is_gnd, is_isni, is_orcid, is_ror};
 use validator::ValidationError;
 

@@ -5,7 +5,9 @@ use super::{ResearchActivity, ResearchActivityContext, ResearchActivityMetadata,
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::document::{DocumentEntry, DocumentParser, SourceDocument};
-use crate::prelude::*;
+use crate::prelude::alloc::{format, String, ToString};
+#[cfg(feature = "std")]
+use crate::prelude::alloc::{HashMap, Vec};
 use crate::schema::research_activity::aspect::AspectFramework;
 use crate::schema::{ContactPoint, ContactPointContext, Other};
 use crate::util::constants::app::RAD_MARKDOWN_SCHEMA;

@@ -1,5 +1,5 @@
 //! arXiv identifier parsing and formatting
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::namespaces::{ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_ARXIV_SCHEMA_URI};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
 use crate::util::constants::{RE_ARXIV, RE_ARXIV_TEXT, RE_ARXIV_VALIDATION};

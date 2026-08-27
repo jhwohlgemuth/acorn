@@ -9,7 +9,9 @@ use crate::error::ApiResult;
 use crate::io::License;
 #[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
-use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::alloc::Box;
+use crate::prelude::alloc::{vec, String, ToString, Vec};
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
 use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};

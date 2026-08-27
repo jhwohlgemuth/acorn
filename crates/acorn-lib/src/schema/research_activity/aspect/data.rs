@@ -1,5 +1,7 @@
 use crate::impl_to_markdown;
-use crate::prelude::*;
+#[cfg(feature = "std")]
+use crate::prelude::alloc::Box;
+use crate::prelude::alloc::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::schema::agent::Model;
 use crate::schema::namespaces::{codemeta, schema_org};

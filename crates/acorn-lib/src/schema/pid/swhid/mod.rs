@@ -1,5 +1,5 @@
 //! Software Hash Identifier (SWHID) parsing and formatting.
-use crate::prelude::{format, vec, Box, String, ToString, Vec};
+use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::app::{IDENTIFIERS_ORG_URI, N2T_URI, SOFTWARE_HERITAGE_ARCHIVE_URI, SOFTWARE_HERITAGE_RESOLVER_URI, SWHID_SCHEMA_URI};
 use crate::util::constants::RE_SWHID;

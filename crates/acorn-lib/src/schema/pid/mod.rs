@@ -8,7 +8,7 @@
 //! - Access the sub parts of a persistent identifier
 //!
 //! [RAiDs]: https://www.raid.org/
-use crate::prelude::*;
+use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::util::constants::{HTTP_URL, RE_ARXIV};
 use crate::util::{base32_crockford_decode, trim_unmatched_trailing_parentheses};
 use bon::Builder;

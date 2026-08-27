@@ -10,7 +10,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-// Current schema derive macros emit `::std` paths even when host APIs are disabled.
+// validator 0.20 stores nested errors in std HashMaps and its derive emits ::std paths.
 #[cfg(not(feature = "std"))]
 extern crate std;
 
@@ -46,9 +46,9 @@ use crate::io::api::{github, gitlab, Configuration};
 use crate::io::http::get;
 #[cfg(feature = "std")]
 use crate::io::uri_to_path;
-use crate::prelude::{format, Box, String, ToString, Vec};
+use crate::prelude::alloc::{format, Box, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::{Path, PathBuf};
+use crate::prelude::std::{Path, PathBuf};
 #[cfg(feature = "std")]
 use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;

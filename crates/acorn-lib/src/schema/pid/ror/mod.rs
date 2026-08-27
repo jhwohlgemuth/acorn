@@ -1,5 +1,5 @@
 //! Research Organization Registry identifier parsing and formatting.
-use crate::prelude::{format, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, ToString, Vec};
 use crate::schema::namespaces::DEFAULT_ROR_SCHEMA_URI;
 use crate::schema::pid::{mod_97_10_check_digit, PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::{RE_ROR, RE_ROR_TEXT};
