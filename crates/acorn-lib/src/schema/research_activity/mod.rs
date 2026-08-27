@@ -55,11 +55,13 @@ use tracing::{debug, trace};
 
 pub mod aspect;
 mod markdown;
+pub mod output;
 pub mod s3a;
 use aspect::AspectFramework;
 use markdown::Document;
 #[cfg(feature = "std")]
 pub(crate) use markdown::MarkdownParser;
+pub use output::ResearchOutput;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
 #[derive(Debug, Display)]
@@ -220,6 +222,10 @@ pub struct ResearchActivityMetadata {
     #[validate(each(url))]
     #[serde(default)]
     pub publications: Option<Vec<String>>,
+    /// Structured publications, datasets, software, and other products of this research activity.
+    #[validate(nested)]
+    #[eserde(compat)]
+    pub outputs: Option<Vec<ResearchOutput>>,
     /// Research Activity Identifier (RAiD)
     #[validate(each(doi))]
     #[serde(default)]
@@ -309,6 +315,9 @@ pub struct ResearchActivityMetadataContext {
     pub identifier: String,
     /// Associated DOIs (also accepts arXiv identifiers)
     pub doi: String,
+    /// Structured research outputs.
+    #[serde(default = "default_outputs_context")]
+    pub outputs: String,
     /// Handle System identifier.
     #[serde(default = "default_handle_context")]
     pub handle: String,
@@ -446,6 +455,7 @@ impl Default for ResearchActivityMetadataContext {
             .status(schema_org("DefinedTerm"))
             .identifier(codemeta("identifier"))
             .doi(bibo("doi"))
+            .outputs(schema_org("CreativeWork"))
             .handle(codemeta("identifier"))
             .raid(DEFAULT_RAID_SCHEMA_URI)
             .swhid(codemeta("identifier"))
@@ -944,6 +954,9 @@ impl Vocabulary {
 }
 fn default_swhid_context() -> String {
     codemeta("identifier")
+}
+fn default_outputs_context() -> String {
+    schema_org("CreativeWork")
 }
 fn default_handle_context() -> String {
     codemeta("identifier")

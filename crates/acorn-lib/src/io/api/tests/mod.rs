@@ -21,6 +21,7 @@ use crate::{Location, Repository, Scheme};
 
 mod harbor;
 mod huggingface;
+mod openalex;
 
 #[test]
 fn test_endpoints_length() {

@@ -18,6 +18,10 @@ pub const CI_SERVER_HOST: &str = "CI_SERVER_HOST";
 pub const GITLAB_CONTAINER_ENV: [&str; 3] = ["GITLAB_TOKEN", "GITLAB_WEBHOOK_TOKEN", "GITLAB_WEBHOOK_SIGNING_TOKEN"];
 /// Environment variable used to disable local database use at runtime.
 pub const NO_LOCAL_DATABASE: &str = "ACORN_NO_LOCAL_DATABASE";
+/// Environment variable containing an OpenAlex API key.
+pub const OPENALEX_API_KEY: &str = "OPENALEX_API_KEY";
+/// Environment variable overriding the OpenAlex API host.
+pub const OPENALEX_API_HOST: &str = "OPENALEX_API_HOST";
 /// Environment variable used to select readability metric for readability checks at runtime.
 pub const READABILITY_METRIC: &str = "ACORN_READABILITY_METRIC";
 /// Environment variable used to set the Hugging Face fallback search limit.

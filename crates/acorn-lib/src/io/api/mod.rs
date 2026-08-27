@@ -39,6 +39,7 @@ pub mod harbor;
 pub mod huggingface;
 pub mod models_dev;
 pub mod openai;
+pub mod openalex;
 pub mod openapi;
 pub mod orcid;
 pub mod osti;

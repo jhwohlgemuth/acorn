@@ -66,8 +66,6 @@ Finish the existing implementation before declaring the feature complete. Keep a
 
 ## Validation
 
-- 2026-08-21: `make lint`, `make test` (1,211 passed), `make help`, and `make wasm` passed.
-- 2026-08-21: `make audit` completed dependency compilation but remains blocked by the existing `cargo-udeps` findings for `acorn-cli/keyring` and `acorn-lib/rmcp`. A direct RustSec scan prompted replacement of vulnerable `sevenz-rust` with maintained `sevenz-rust2`; the replacement has no reported advisory.
 - Exercise MIME precedence, unknown input, ZIP/TAR/TAR.GZ/7z round trips, traversal rejection, and complete BagIt manifests.
 - Exercise local and remote import policy, provenance, filtering, flattening, clobbering, and database ingestion.
 - Exercise BagIt output suffix inference, explicit overrides, conflicts, and re-import.

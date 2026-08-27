@@ -29,22 +29,6 @@ Advance the implemented `acorn download model oci://...` path from its initial a
 
 The remaining scope is pull-only. Pushing, deleting, retagging, registry administration, vulnerability scanning, recursive referrer downloads, and a native replacement for ORAS remain separate capabilities.
 
-## Implemented
-
-- Explicit `oci://` tag and digest references route through a typed `OciReference` without changing unqualified Hugging Face selectors.
-- Tags resolve to immutable manifest digests during planning; dry-run output and persisted model metadata retain requested and resolved identities.
-- `OciTransport` isolates the version-checked ORAS process adapter, credential input, manifest inspection, blob transfer, and digest-pinned pull behavior.
-- Registry profiles support Docker-compatible credentials, environment-sourced secrets over standard input, custom CA and client certificates, and explicit development-only plain HTTP.
-- OCI acceptance uses a dedicated GGUF policy while `MimeType::is_model_resource` remains broad. Annotated artifacts require safe declared GGUF paths, and extensionless application-store layouts are no longer accepted.
-- KitOps ModelKits may omit the top-level manifest media type. ACORN reads the ModelKit config and accepts its declared gzip-compressed model layer only when the logical model path and materialized content are GGUF.
-- Strict CNCF ModelPacks validate the artifact and config media types, select only model-weight roles, require declared GGUF paths for raw layers, and support raw, TAR, and gzip-compressed TAR layers. TAR+zstd fails with an actionable unsupported-compression error.
-- Resolution distinguishes transfer layers from known logical files, reports transfer and installed sizes separately, and marks archive inventories as deferred without downloading weights during dry runs.
-- Pulls fetch only selected blobs by digest, independently verify transfer size and SHA-256, safely extract archives, apply deferred filters, validate final inventory, and reject duplicate paths or conflicting descriptors.
-- GGUF validation checks magic, container version, bounded metadata, tensor declarations and bounds, primary/auxiliary roles, and split filename/metadata consistency without probing a runtime architecture allowlist.
-- OCI image indexes resolve only a single eligible model child, persist that child's digest, and reject ambiguity, nested indexes, unsupported descriptors, and mixed runnable/model candidates.
-- Downloads use a unique sibling staging directory, reject unsafe paths and symbolic links, validate the staged inventory, and atomically publish without leaving a partial destination.
-- Harbor v2 metadata enrichment, offline rejection, doctor reporting, model filters, provenance, activity logging, and synchronization integration are implemented and documented.
-
 ## Remaining work
 
 ### Transport and trust hardening
@@ -107,7 +91,6 @@ Exit condition: the supported format matrix passes on Windows and Linux against 
 - The implemented baseline is centered in `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, `crates/acorn-lib/src/io/config.rs`, and `crates/acorn-lib/src/io/api/harbor.rs`.
 - The focused fake-ORAS suite covers annotated GGUF, KitOps GGUF, raw and gzip ModelPack, deferred inventories, blob digest/size checks, single-child indexes, GGUF structural validation, and the generic-model-resource versus OCI-GGUF policy boundary.
 - Live GHCR dry runs on 2026-08-24 resolved `jozu-ai/phi3:3.8b-mini-instruct-4k-q4_K_M` to its immutable GGUF ModelKit digest and rejected `jozu-ai/all-minilm-l6-v2:safetensor` as outside the GGUF payload boundary before transferring weights.
-- Local validation on 2026-08-24: formatting, workspace checks, `make lint`, generated help, `make test` with 1,256 passing tests and 15 skipped tests, `make wasm`, and `make book` succeeded. `make audit` reached the established `keyring` and `rmcp` unused-dependency findings and exited nonzero; macOS emitted sandbox-only `xcrun` cache warnings without changing the successful checks.
 - The CNCF ModelPack specification requires `application/vnd.cncf.model.manifest.v1+json`, `application/vnd.cncf.model.config.v1+json`, and defined weight/config layer roles: <https://github.com/modelpack/model-spec/blob/main/docs/spec.md>.
 - ModelPack defines `org.cncf.model.filepath` and file-metadata layer annotations: <https://github.com/modelpack/model-spec/blob/main/docs/annotations.md>.
 - KitOps can produce ModelPack artifacts with `kit pack --use-model-pack`, providing one interoperability fixture source: <https://kitops.org/docs/integrations/modelpack/>.

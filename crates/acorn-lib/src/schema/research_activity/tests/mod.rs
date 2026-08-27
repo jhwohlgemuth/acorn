@@ -10,6 +10,7 @@ use crate::prelude::std::PathBuf;
 use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
+use crate::schema::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
 use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
@@ -1021,4 +1022,58 @@ fn test_malformed_jsonc_reports_error() {
     let value = result.unwrap();
     let rad = eserde::json::from_str::<ResearchActivity>(&serde_json::to_string(&value).unwrap());
     assert!(rad.is_err(), "JSONC with wrong types should fail schema validation");
+}
+
+#[test]
+fn test_research_output_roundtrip_and_validation() {
+    let output = ResearchOutput::init()
+        .identifier("https://openalex.org/W2741809807".to_string())
+        .doi("10.1038/nature12373".to_string())
+        .title("Structured research output".to_string())
+        .kind("article".to_string())
+        .publication_date("2024-01-31".to_string())
+        .contributors(vec![Contributor::init()
+            .name("Example Researcher")
+            .orcid("0000-0002-1825-0097".to_string())
+            .affiliations(vec![Affiliation::init()
+                .name("Oak Ridge National Laboratory")
+                .ror("https://ror.org/01qz5mb56".to_string())
+                .build()])
+            .build()])
+        .funding(vec![Funding::init()
+            .name("Example Funder")
+            .awards(vec![Award::init().identifier("AWARD-1").build()])
+            .build()])
+        .access(Access::init().open(true).status("gold").build())
+        .build();
+    let metadata = ResearchActivityMetadata::init().outputs(vec![output]).build();
+    let serialized = serde_json::to_string(&metadata).expect("research output metadata should serialize");
+    let parsed: ResearchActivityMetadata = serde_json::from_str(&serialized).expect("research output metadata should deserialize");
+    assert!(parsed.validate().is_ok());
+    assert_eq!(parsed.outputs.expect("outputs should be retained").len(), 1);
+}
+
+#[test]
+fn test_research_output_rejects_invalid_identifiers_and_date() {
+    let output = ResearchOutput::init()
+        .doi("not-a-doi".to_string())
+        .title("Invalid structured research output".to_string())
+        .publication_date("January 31".to_string())
+        .contributors(vec![Contributor::init()
+            .name("Example Researcher")
+            .orcid("not-an-orcid".to_string())
+            .affiliations(vec![Affiliation::init()
+                .name("Example Organization")
+                .ror("not-a-ror".to_string())
+                .build()])
+            .build()])
+        .build();
+    assert!(output.validate().is_err());
+}
+
+#[test]
+fn test_research_activity_metadata_without_outputs_remains_compatible() {
+    let serialized = serde_json::to_string(&ResearchActivityMetadata::default()).expect("default metadata should serialize");
+    let parsed: ResearchActivityMetadata = serde_json::from_str(&serialized).expect("metadata without outputs should deserialize");
+    assert!(parsed.outputs.is_none());
 }

@@ -16,6 +16,7 @@ Represent activity dates, credited contributors, licenses, and funding award ide
 # Current evidence
 
 - `crates/acorn-lib/src/schema/research_activity/mod.rs` has no dedicated activity lifecycle date, contributor list, license, or funding award field.
+- `crates/acorn-lib/src/schema/research_activity/output.rs` now represents those assertions when they belong to a specific research output; activity-level lifecycle, contributor, license, and award targets remain absent.
 - `crates/acorn-lib/src/io/api/osti.rs` receives `release_date`, developers, contributors, and sponsor `primary_award` values.
 - `crates/acorn-lib/src/schema/standard/cff.rs` receives release dates, contacts, authors, versions, and SPDX-compatible licenses.
 - `crates/acorn-lib/src/schema/pid/raid.rs` receives typed activity dates, ORCID contributors with positions and CRediT roles, and access metadata.
@@ -23,7 +24,7 @@ Represent activity dates, credited contributors, licenses, and funding award ide
 
 # Recommendation
 
-Add optional, backward-compatible research activity metadata fields for:
+Retain the new optional `ResearchOutput` collection for output-specific assertions. Add separate optional, backward-compatible research activity metadata fields for:
 
 - an activity lifecycle interval using the existing shared `Date` type;
 - contributors with stable identifiers, names, optional contact data, administrative positions, and CRediT roles, distinct from the single operational contact point;

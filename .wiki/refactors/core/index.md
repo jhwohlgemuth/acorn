@@ -8,7 +8,7 @@
 
 ## In Progress
 
-- [Remote create container targets](remote-create-container-targets.md) - Core implementation and focused coverage are present; preflight, rollback, cleanup, and live validation remain.
+- [Remote create container targets](remote-create-container-targets.md) - Add preflight, rollback, cleanup, and live validation for remote container creation.
 
 ## Planned
 

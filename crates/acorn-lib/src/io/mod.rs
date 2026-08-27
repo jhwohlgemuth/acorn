@@ -93,6 +93,7 @@ pub mod source;
 pub mod swhid;
 pub mod sync;
 mod temporary;
+pub mod workflow;
 
 pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
