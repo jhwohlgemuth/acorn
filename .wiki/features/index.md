@@ -8,4 +8,5 @@
 
 ## Planned
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Stage prompt hydration, ACP/OpenAI-compatible inference, structured fix suggestions, and verified deterministic remediation.
+- [Open Compute infrastructure schema alignment](ocp-infrastructure-schema-alignment.md) - Add portable infrastructure and OCP contribution, recognition, and management-profile models while consolidating schema validation and standard module layout.
 - [ZON serialization support](zon-format-support.md) - Add a pinned strict ZON codec and integrate `.zonf` with RAD I/O, CLI workflows, crosswalks, discovery, and GitLab review.
