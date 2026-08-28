@@ -29,6 +29,7 @@ use urlencoding::encode;
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
+pub mod enrichment;
 pub mod error;
 #[cfg(feature = "std")]
 pub mod io;

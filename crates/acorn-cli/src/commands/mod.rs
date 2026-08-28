@@ -328,13 +328,29 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 filter,
                 ignore,
                 dry_run,
+                enrich,
                 no_color,
+                provider,
                 merge_request,
                 verbose,
                 ..
             } = arguments.as_ref();
             initialize_database(config).await?;
-            format::run(path, branch, commit, filter, ignore, *dry_run, *no_color, merge_request, verbose, offline).await
+            format::run(
+                path,
+                branch,
+                commit,
+                filter,
+                ignore,
+                *dry_run,
+                *enrich,
+                *no_color,
+                provider,
+                merge_request,
+                verbose,
+                offline,
+            )
+            .await
         }),
         | Some(Commands::Gather(arguments)) => with_runtime(async {
             let arguments::Gather {
@@ -354,6 +370,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 limit,
                 offset,
                 all,
+                enrich,
                 resolve,
                 citation_format,
                 standard,
@@ -384,6 +401,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             let options = discovery::Options {
                 citation_format,
                 database_path: &config.database_path,
+                enrich: *enrich,
                 filter,
                 format: raw.then_some(GatherOutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
                 ignore,

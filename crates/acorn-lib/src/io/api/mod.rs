@@ -80,25 +80,6 @@ pub trait DatabasePersistence {
     /// Persist data to database
     async fn persist(self, database: Database<Table>) -> ApiResult<usize>;
 }
-/// Helper trait for converting parameter collections into HTTP request body
-pub trait IntoBody {
-    /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
-    fn into_body(self) -> serde_json::Value;
-}
-/// Helper trait for converting parameter collections into HTTP headers
-pub trait IntoHeaders {
-    /// Convert this value into a `HeaderMap`, using only header-style parameters
-    fn into_headers(self) -> HeaderMap;
-}
-/// Helper trait combining common bounds for API query field types
-pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
-/// Common repository file metadata exposed by provider APIs
-pub trait RepositoryFileMetadata {
-    /// Return the repository-relative path
-    fn path(&self) -> &str;
-    /// Return the reported file size when available
-    fn size(&self) -> Option<u64>;
-}
 /// Trait for types that can serve as a fallback error response parser
 ///
 /// When `handle_or` fails to parse the primary response type, it calls
@@ -121,6 +102,18 @@ pub trait FallbackResponse {
         })
     }
 }
+/// Helper trait for converting parameter collections into HTTP request body
+pub trait IntoBody {
+    /// Convert this value into a `serde_json::Value` for request body, using only body-style parameters.
+    fn into_body(self) -> serde_json::Value;
+}
+/// Helper trait for converting parameter collections into HTTP headers
+pub trait IntoHeaders {
+    /// Convert this value into a `HeaderMap`, using only header-style parameters
+    fn into_headers(self) -> HeaderMap;
+}
+/// Helper trait combining common bounds for API query field types
+pub trait QueryField: fmt::Display + for<'a> TryFrom<&'a str> {}
 /// Trait for working with request-response cycle using HTTP methods like GET, POST, PUT, PATCH, and DELETE
 /// against resource URLs that return structured data
 #[async_trait]
@@ -195,6 +188,13 @@ pub trait RemoteResource {
         Q: QueryField + ValueValidator,
         F: QueryField;
 }
+/// Common repository file metadata exposed by provider APIs
+pub trait RepositoryFileMetadata {
+    /// Return the repository-relative path
+    fn path(&self) -> &str;
+    /// Return the reported file size when available
+    fn size(&self) -> Option<u64>;
+}
 /// Trait to enable validation of field values
 pub trait ValueValidator {
     /// Verify associated field value is valid
@@ -252,23 +252,6 @@ pub enum ResponseContent {
     /// XML response content
     Xml(String),
 }
-impl fmt::Display for ResponseContent {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            | Self::Json(content) | Self::Raw(content) | Self::Yaml(content) | Self::Xml(content) => formatter.write_str(content),
-        }
-    }
-}
-/// Typed endpoint response with transport metadata preserved.
-#[derive(Clone, Debug)]
-pub struct TypedResponse<T> {
-    /// Deserialized response value.
-    pub value: T,
-    /// HTTP response headers.
-    pub headers: HeaderMap,
-    /// HTTP response status code.
-    pub status_code: u16,
-}
 /// Type for repository tree entry
 #[derive(Clone, Debug, Display, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 #[serde(rename_all = "lowercase")]
@@ -282,16 +265,6 @@ pub enum TreeEntryType {
     #[display("directory")]
     Directory,
 }
-/// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
-/// error response parser
-///
-/// ### Example
-/// ```ignore
-/// endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
-/// ```
-pub struct Fallback<T>(PhantomData<T>);
-/// Default pass-through fallback — no secondary parse is attempted
-pub struct NoFallback;
 /// Represents authentication credentials for accessing an API
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = init)]
@@ -335,6 +308,14 @@ pub struct Endpoint {
     #[builder(default = vec![])]
     pub resources: Vec<Resource>,
 }
+/// Wrapper that enables any `Deserialize + fmt::Debug` type as a fallback
+/// error response parser
+///
+/// ### Example
+/// ```ignore
+/// endpoint.handle_or::<Metadata, Fallback<ErrorResponse>>(response)
+/// ```
+pub struct Fallback<T>(PhantomData<T>);
 /// Generic API response containing a single identifier
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Identifier<T> {
@@ -342,6 +323,8 @@ pub struct Identifier<T> {
     #[serde(rename = "id", alias = "iid")]
     pub identifier: T,
 }
+/// Default pass-through fallback — no secondary parse is attempted
+pub struct NoFallback;
 /// Describes a parameter (path, query, header, etc.) for an API resource
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[builder(start_fn = of_type, finish_fn = with_key, on(String, into))]
@@ -423,6 +406,55 @@ pub struct TreeEntry {
     pub sha: Option<String>,
     /// Provider URL, when provided
     pub url: Option<String>,
+}
+/// Typed endpoint response with transport metadata preserved.
+#[derive(Clone, Debug)]
+pub struct TypedResponse<T> {
+    /// Deserialized response value.
+    pub value: T,
+    /// HTTP response headers.
+    pub headers: HeaderMap,
+    /// HTTP response status code.
+    pub status_code: u16,
+}
+impl fmt::Display for AuthenticationScheme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                | AuthenticationScheme::Bearer => "Bearer",
+                | AuthenticationScheme::Basic => "Basic",
+                | AuthenticationScheme::ApiKey => "ApiKey",
+                | AuthenticationScheme::OAuth2 => "OAuth2",
+                | AuthenticationScheme::AwsSignatureV4 => "AWS Signature V4",
+                | AuthenticationScheme::GoogleCloud => "Google Cloud",
+                | AuthenticationScheme::Custom(scheme) => scheme,
+            }
+        )
+    }
+}
+impl fmt::Display for EmptyField {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl TryFrom<&str> for EmptyField {
+    type Error = String;
+
+    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
+        Ok(EmptyField(value.to_string()))
+    }
+}
+impl ValueValidator for EmptyField {
+    fn is_valid(&self, _value: &str) -> bool {
+        true
+    }
+}
+impl Default for Endpoint {
+    fn default() -> Self {
+        Endpoint::at("example.com").scheme(Scheme::default()).build()
+    }
 }
 impl Endpoint {
     /// Create an endpoint from explicit domain, scheme, and port parts.
@@ -514,69 +546,127 @@ impl Endpoint {
         }
     }
 }
-impl Searchable<Endpoint> for Vec<Endpoint> {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
-        let name = value.into();
-        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
+impl From<Location> for Endpoint {
+    fn from(value: Location) -> Self {
+        let domain = value.host().unwrap_or_default();
+        let port = value.port();
+        Self::from_parts(domain, Some(value.scheme()), port)
     }
 }
-impl FallbackResponse for NoFallback {
-    fn into_error(_: &str) -> Option<eyre::Report> {
-        None
-    }
-    fn to_string(_: &str) -> Option<String> {
-        None
+impl From<Repository> for Endpoint {
+    fn from(value: Repository) -> Self {
+        value.location().into()
     }
 }
-impl<T> FallbackResponse for Fallback<T>
-where
-    T: for<'de> Deserialize<'de> + fmt::Debug,
-{
-    fn into_error(content: &str) -> Option<eyre::Report> {
-        serde_json::from_str::<T>(content).ok().map(|why| {
-            let message = Self::to_string(content).unwrap_or_else(|| format!("{why:#?}"));
-            eyre!("{message}")
-        })
-    }
-}
-impl Searchable<Resource> for Vec<Resource> {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
-        let name = value.into();
-        self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()
-    }
-}
-/// Blanket implementation for all types that satisfy the bounds
-impl<T> QueryField for T where T: fmt::Display + for<'a> TryFrom<&'a str> {}
-impl fmt::Display for AuthenticationScheme {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                | AuthenticationScheme::Bearer => "Bearer",
-                | AuthenticationScheme::Basic => "Basic",
-                | AuthenticationScheme::ApiKey => "ApiKey",
-                | AuthenticationScheme::OAuth2 => "OAuth2",
-                | AuthenticationScheme::AwsSignatureV4 => "AWS Signature V4",
-                | AuthenticationScheme::GoogleCloud => "Google Cloud",
-                | AuthenticationScheme::Custom(scheme) => scheme,
+#[async_trait]
+impl RemoteResource for Endpoint {
+    type Query = EmptyField;
+    type Field = EmptyField;
+
+    fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
+        let mut context = Context::new();
+        match data {
+            | Some(params) => {
+                let (query_params, other_params): (Vec<Param>, Vec<Param>) =
+                    params.into_iter().partition(|param| param.is_query() || param.style.is_key_value_pair());
+                let query = Param::to_query_string::<Q, F>(query_params);
+                context.insert("query", &query);
+                other_params.into_iter().for_each(|Param { name, style, values, .. }| {
+                    if style.is_template_value() {
+                        values.into_iter().for_each(|vec| {
+                            vec.into_iter().flatten().for_each(|value| {
+                                let key = name.clone();
+                                context.insert(&key, &value.clone());
+                            });
+                        });
+                    }
+                });
             }
-        )
+            | None => (),
+        }
+        context.insert("base", &self.base());
+        context
     }
-}
-impl fmt::Display for EmptyField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+    fn handle_or<R, E>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
+    where
+        R: for<'de> Deserialize<'de>,
+        E: FallbackResponse,
+    {
+        match response {
+            | Ok(content) => {
+                let raw_text = match &content {
+                    | ResponseContent::Json(s) | ResponseContent::Xml(s) | ResponseContent::Yaml(s) | ResponseContent::Raw(s) => s.clone(),
+                };
+                let result: ApiResult<R> = match content {
+                    | ResponseContent::Json(s) => parse_json(&s),
+                    | ResponseContent::Xml(s) => parse_xml(&s),
+                    | ResponseContent::Yaml(s) => parse_yaml(&s),
+                    | ResponseContent::Raw(s) => {
+                        let raw = TextResponse { content: s };
+                        serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
+                    }
+                };
+                result.map_err(|err| E::into_error(&raw_text).unwrap_or(err))
+            }
+            | Err(why) => Err(eyre!(why)),
+        }
     }
-}
-impl fmt::Display for TextResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.content)
+    /// Invoke an endpoint resource asynchronously with data and receive a response using [`EmptyField`] as the default query and field types.
+    /// ### Example
+    /// ```ignore
+    /// let ror = endpoints.find_by_name("ror");
+    /// let text = match &ror {
+    ///     | Some(endpoint) => {
+    ///         let response = endpoint.invoke("status", None).await;
+    ///         endpoint.handle::<api::TextResponse>(response)
+    ///     }
+    ///     | None => Err(eyre!("No ROR endpoint found")),
+    /// };
+    /// println!("ROR Status: {text:#?}");
+    /// ```
+    async fn invoke(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent> {
+        self.invoke_with::<Self::Query, Self::Field>(name, data).await
     }
-}
-impl Default for Endpoint {
-    fn default() -> Self {
-        Endpoint::at("example.com").scheme(Scheme::default()).build()
+    async fn invoke_response(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<HttpResponse> {
+        self.request_with::<Self::Query, Self::Field>(name, data).await
+    }
+    /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
+    /// ### Example
+    /// ```ignore
+    /// use acorn::io::api::{self, INCLUDED_ENDPOINTS};
+    /// use acorn::util::Searchable;
+    ///
+    /// let orcid = INCLUDED_ENDPOINTS.find_by_name("orcid");
+    /// let text = match &orcid {
+    ///     | Some(endpoint) => {
+    ///         let data = vec![
+    ///             param!(
+    ///                 QueryPair,
+    ///                 "q",
+    ///                 (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+    ///             ),
+    ///             param!(FieldList, "fl", "family-name"),
+    ///         ];
+    ///         let response = endpoint.invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data)).await;
+    ///         endpoint.handle::<api::orcid::SearchResponse>(response)
+    ///     }
+    ///     | None => Err(eyre!("No ORCiD endpoint found")),
+    /// };
+    /// println!("ORCiD Search Response: {text:#?}");
+    /// ```
+    async fn invoke_with<Q, F>(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>
+    where
+        Q: QueryField + ValueValidator,
+        F: QueryField,
+    {
+        match self.request_with::<Q, F>(name, data).await {
+            | Ok(response) => response_content(response),
+            | Err(why) => Err(why),
+        }
     }
 }
 impl<'a> From<Uri<&'a str>> for Endpoint {
@@ -590,16 +680,15 @@ impl<'a> From<Uri<&'a str>> for Endpoint {
         )
     }
 }
-impl From<Location> for Endpoint {
-    fn from(value: Location) -> Self {
-        let domain = value.host().unwrap_or_default();
-        let port = value.port();
-        Self::from_parts(domain, Some(value.scheme()), port)
-    }
-}
-impl From<Repository> for Endpoint {
-    fn from(value: Repository) -> Self {
-        value.location().into()
+impl<T> FallbackResponse for Fallback<T>
+where
+    T: for<'de> Deserialize<'de> + fmt::Debug,
+{
+    fn into_error(content: &str) -> Option<eyre::Report> {
+        serde_json::from_str::<T>(content).ok().map(|why| {
+            let message = Self::to_string(content).unwrap_or_else(|| format!("{why:#?}"));
+            eyre!("{message}")
+        })
     }
 }
 impl fmt::Display for HttpMethod {
@@ -615,6 +704,14 @@ impl fmt::Display for HttpMethod {
                 | HttpMethod::Delete => "DELETE",
             }
         )
+    }
+}
+impl FallbackResponse for NoFallback {
+    fn into_error(_: &str) -> Option<eyre::Report> {
+        None
+    }
+    fn to_string(_: &str) -> Option<String> {
+        None
     }
 }
 impl Param {
@@ -731,6 +828,17 @@ impl Params {
     pub fn with(self, param: Param) -> Self {
         Self(self.0.into_iter().chain(once(param)).collect())
     }
+    /// Add an `api_key` query parameter if the supplied key is non-empty.
+    pub fn with_api_key(self, api_key: &str) -> Self {
+        self.with_api_key_maybe(Some(api_key))
+    }
+    /// Add an `api_key` query parameter when an optional key is present and non-empty.
+    pub fn with_api_key_maybe(self, api_key: Option<&str>) -> Self {
+        match api_key.map(str::trim).filter(|value| !value.is_empty()) {
+            | Some(value) => self.with_keyvalue("api_key", Some(value)),
+            | None => self,
+        }
+    }
     /// Add an authentication header if `token` is non-empty.
     ///
     /// When `name` is `None`, adds `Authorization: Bearer {token}` (Bearer auth).
@@ -797,6 +905,40 @@ impl Params {
         }
     }
 }
+impl fmt::Display for ResponseContent {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Json(content) | Self::Raw(content) | Self::Yaml(content) | Self::Xml(content) => formatter.write_str(content),
+        }
+    }
+}
+/// Blanket implementation for all types that satisfy the bounds
+impl<T> QueryField for T where T: fmt::Display + for<'a> TryFrom<&'a str> {}
+impl fmt::Display for TextResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.content)
+    }
+}
+impl TreeEntry {
+    /// Whether this tree entry is a file
+    pub fn is_file(&self) -> bool {
+        self.entry_type == TreeEntryType::File
+    }
+    /// Whether this tree entry is a directory
+    pub fn is_directory(&self) -> bool {
+        self.entry_type == TreeEntryType::Directory
+    }
+    /// Consume the entry and return its repository-relative path
+    pub fn path(self) -> String {
+        self.path
+    }
+}
+impl Searchable<Endpoint> for Vec<Endpoint> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
+        let name = value.into();
+        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
+    }
+}
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
         let params: Vec<Param> = self.into_iter().filter(|Param { style, .. }| style.is_body()).collect();
@@ -855,156 +997,10 @@ impl IntoHeaders for Vec<Param> {
         headers
     }
 }
-#[async_trait]
-impl RemoteResource for Endpoint {
-    type Query = EmptyField;
-    type Field = EmptyField;
-
-    fn context_with<Q, F>(&self, data: Option<Vec<Param>>) -> Context
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
-        let mut context = Context::new();
-        match data {
-            | Some(params) => {
-                let (query_params, other_params): (Vec<Param>, Vec<Param>) =
-                    params.into_iter().partition(|param| param.is_query() || param.style.is_key_value_pair());
-                let query = Param::to_query_string::<Q, F>(query_params);
-                context.insert("query", &query);
-                other_params.into_iter().for_each(|Param { name, style, values, .. }| {
-                    if style.is_template_value() {
-                        values.into_iter().for_each(|vec| {
-                            vec.into_iter().flatten().for_each(|value| {
-                                let key = name.clone();
-                                context.insert(&key, &value.clone());
-                            });
-                        });
-                    }
-                });
-            }
-            | None => (),
-        }
-        context.insert("base", &self.base());
-        context
-    }
-    fn handle_or<R, E>(&self, response: ApiResult<ResponseContent>) -> ApiResult<R>
-    where
-        R: for<'de> Deserialize<'de>,
-        E: FallbackResponse,
-    {
-        match response {
-            | Ok(content) => {
-                let raw_text = match &content {
-                    | ResponseContent::Json(s) | ResponseContent::Xml(s) | ResponseContent::Yaml(s) | ResponseContent::Raw(s) => s.clone(),
-                };
-                let result: ApiResult<R> = match content {
-                    | ResponseContent::Json(s) => parse_json(&s),
-                    | ResponseContent::Xml(s) => parse_xml(&s),
-                    | ResponseContent::Yaml(s) => parse_yaml(&s),
-                    | ResponseContent::Raw(s) => {
-                        let raw = TextResponse { content: s };
-                        serde_json::to_string(&raw).map_err(|e| eyre!(e)).and_then(|json| parse_json(&json))
-                    }
-                };
-                result.map_err(|err| E::into_error(&raw_text).unwrap_or(err))
-            }
-            | Err(why) => Err(eyre!(why)),
-        }
-    }
-    /// Invoke an endpoint resource asynchronously with data and receive a response using [`EmptyField`] as the default query and field types.
-    /// ### Example
-    /// ```ignore
-    /// let ror = endpoints.find_by_name("ror");
-    /// let text = match &ror {
-    ///     | Some(endpoint) => {
-    ///         let response = endpoint.invoke("status", None).await;
-    ///         endpoint.handle::<api::TextResponse>(response)
-    ///     }
-    ///     | None => Err(eyre!("No ROR endpoint found")),
-    /// };
-    /// println!("ROR Status: {text:#?}");
-    /// ```
-    async fn invoke(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent> {
-        self.invoke_with::<Self::Query, Self::Field>(name, data).await
-    }
-    async fn invoke_response(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<HttpResponse> {
-        self.request_with::<Self::Query, Self::Field>(name, data).await
-    }
-    /// Invoke an endpoint resource asynchronously with data and receive a response using explicit query and field types.
-    /// ### Example
-    /// ```ignore
-    /// use acorn::io::api::{self, INCLUDED_ENDPOINTS};
-    /// use acorn::util::Searchable;
-    ///
-    /// let orcid = INCLUDED_ENDPOINTS.find_by_name("orcid");
-    /// let text = match &orcid {
-    ///     | Some(endpoint) => {
-    ///         let data = vec![
-    ///             param!(
-    ///                 QueryPair,
-    ///                 "q",
-    ///                 (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
-    ///             ),
-    ///             param!(FieldList, "fl", "family-name"),
-    ///         ];
-    ///         let response = endpoint.invoke_with::<api::orcid::SearchField, api::orcid::OutputColumn>("search", Some(data)).await;
-    ///         endpoint.handle::<api::orcid::SearchResponse>(response)
-    ///     }
-    ///     | None => Err(eyre!("No ORCiD endpoint found")),
-    /// };
-    /// println!("ORCiD Search Response: {text:#?}");
-    /// ```
-    async fn invoke_with<Q, F>(&self, name: impl Into<String> + Clone + Send, data: Option<Vec<Param>>) -> ApiResult<ResponseContent>
-    where
-        Q: QueryField + ValueValidator,
-        F: QueryField,
-    {
-        match self.request_with::<Q, F>(name, data).await {
-            | Ok(response) => response_content(response),
-            | Err(why) => Err(why),
-        }
-    }
-}
-fn response_content(response: HttpResponse) -> ApiResult<ResponseContent> {
-    match String::from_utf8(response.body) {
-        | Ok(text) => {
-            trace!("=> {} Response {text}", Label::using());
-            if detect_json(&text) {
-                Ok(ResponseContent::Json(text))
-            } else if detect_xml(&text) {
-                Ok(ResponseContent::Xml(text))
-            } else {
-                Ok(ResponseContent::Raw(text))
-            }
-        }
-        | Err(why) => Err(eyre!("HTTP response body is not valid UTF-8 — {why}")),
-    }
-}
-impl TryFrom<&str> for EmptyField {
-    type Error = String;
-
-    fn try_from(value: &str) -> eyre::Result<Self, Self::Error> {
-        Ok(EmptyField(value.to_string()))
-    }
-}
-impl ValueValidator for EmptyField {
-    fn is_valid(&self, _value: &str) -> bool {
-        true
-    }
-}
-impl TreeEntry {
-    /// Whether this tree entry is a file
-    pub fn is_file(&self) -> bool {
-        self.entry_type == TreeEntryType::File
-    }
-    /// Whether this tree entry is a directory
-    pub fn is_directory(&self) -> bool {
-        self.entry_type == TreeEntryType::Directory
-    }
-    /// Consume the entry and return its repository-relative path
-    pub fn path(self) -> String {
-        self.path
+impl Searchable<Resource> for Vec<Resource> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Resource> {
+        let name = value.into();
+        self.iter().find(|resource| resource.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
@@ -1029,6 +1025,24 @@ pub(crate) fn extract_template_keys(template: &str) -> Vec<String> {
 pub fn first_header<'a>(headers: &'a HeaderMap, names: &[&str]) -> Option<&'a str> {
     names.iter().filter_map(|name| headers.get(*name)).find_map(|value| value.to_str().ok())
 }
+/// Create a query string from a list of field values
+pub(crate) fn param_from_field_list<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+    let values: Vec<String> = fields
+        .into_iter()
+        .filter_map(|value: &str| {
+            let val = value;
+            match T::try_from(val) {
+                | Ok(column) => Some(column.to_string()),
+                | Err(_) => None,
+            }
+        })
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(format!("{key}={}", values.join(separator)))
+    }
+}
 /// Create a query string component from a key-value pair with key and value validation
 pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &str, value: &str) -> Option<String> {
     match T::try_from(key) {
@@ -1044,6 +1058,25 @@ pub(crate) fn param_from_key_value_pair<T: QueryField + ValueValidator>(key: &st
             warn!("=> {} Invalid key ({}{})", Label::using(), key.red(), format!("={value}").dimmed());
             None
         }
+    }
+}
+/// Create a boosted query string from a list of fields with weighted relevance
+pub(crate) fn param_from_query_fields<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
+    let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
+    if valid_fields.is_empty() {
+        None
+    } else {
+        let count = valid_fields.len();
+        Some(format!(
+            "{}={}",
+            key,
+            valid_fields
+                .into_iter()
+                .enumerate()
+                .map(|(i, field)| format!("{}{URL_ENCODED_CARAT}{}.0", field, count.saturating_add(1).saturating_sub(i)))
+                .collect::<Vec<String>>()
+                .join(separator),
+        ))
     }
 }
 /// Create a query string from a lookup table of key-value pairs with field validation
@@ -1078,43 +1111,6 @@ pub(crate) fn param_from_query_pairs<T: QueryField + ValueValidator>(key: &str, 
         None
     } else {
         Some(format!("{}={}", key, values.join(separator)))
-    }
-}
-/// Create a query string from a list of field values
-pub(crate) fn param_from_field_list<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
-    let values: Vec<String> = fields
-        .into_iter()
-        .filter_map(|value: &str| {
-            let val = value;
-            match T::try_from(val) {
-                | Ok(column) => Some(column.to_string()),
-                | Err(_) => None,
-            }
-        })
-        .collect();
-    if values.is_empty() {
-        None
-    } else {
-        Some(format!("{key}={}", values.join(separator)))
-    }
-}
-/// Create a boosted query string from a list of fields with weighted relevance
-pub(crate) fn param_from_query_fields<T: QueryField>(key: &str, separator: &str, fields: Vec<&str>) -> Option<String> {
-    let valid_fields: Vec<T> = fields.into_iter().filter_map(|value| T::try_from(value).ok()).collect();
-    if valid_fields.is_empty() {
-        None
-    } else {
-        let count = valid_fields.len();
-        Some(format!(
-            "{}={}",
-            key,
-            valid_fields
-                .into_iter()
-                .enumerate()
-                .map(|(i, field)| format!("{}{URL_ENCODED_CARAT}{}.0", field, count.saturating_add(1).saturating_sub(i)))
-                .collect::<Vec<String>>()
-                .join(separator),
-        ))
     }
 }
 pub(crate) fn parse_json<R>(content: &str) -> ApiResult<R>
@@ -1189,6 +1185,21 @@ pub(crate) fn require_non_empty_secret(secret: &str, path: &str, names: &[&str])
         Err(eyre!("Missing required token for {path} request. Set one of: {env_list}"))
     } else {
         Ok(value.to_string())
+    }
+}
+fn response_content(response: HttpResponse) -> ApiResult<ResponseContent> {
+    match String::from_utf8(response.body) {
+        | Ok(text) => {
+            trace!("=> {} Response {text}", Label::using());
+            if detect_json(&text) {
+                Ok(ResponseContent::Json(text))
+            } else if detect_xml(&text) {
+                Ok(ResponseContent::Xml(text))
+            } else {
+                Ok(ResponseContent::Raw(text))
+            }
+        }
+        | Err(why) => Err(eyre!("HTTP response body is not valid UTF-8 — {why}")),
     }
 }
 /// Normalize an external username into a stable path component

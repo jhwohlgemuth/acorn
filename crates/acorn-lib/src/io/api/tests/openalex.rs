@@ -1,6 +1,9 @@
 use crate::io::api::openalex::{self, Options, Work};
+use crate::io::api::Endpoint;
+use crate::io::workflow::EnrichmentResult;
 use crate::schema::research_activity::ResearchOutput;
 use crate::validation::Validate;
+use color_eyre::eyre::eyre;
 
 fn work() -> Work {
     serde_json::from_value(serde_json::json!({
@@ -49,15 +52,12 @@ fn work() -> Work {
 }
 
 #[test]
-fn test_endpoint_accepts_one_options_instance() {
-    let options = Options::init()
-        .domain("openalex.example")
-        .api_key("secret")
-        .identifier("https://doi.org/10.1038/nature12373")
-        .build();
-    let endpoint = openalex::endpoint(&options).expect("OpenAlex endpoint should render");
-    assert!(endpoint.starts_with("https://openalex.example/works/doi:10.1038%2Fnature12373?select="));
-    assert!(endpoint.ends_with("&api_key=secret"));
+fn test_endpoint_uses_application_configuration() {
+    let endpoint = Endpoint::from_template("openalex").expect("OpenAlex endpoint should be configured");
+    let resource = endpoint.resources.first().expect("OpenAlex should configure a work resource");
+    assert_eq!(endpoint.domain, "api.openalex.org");
+    assert_eq!(resource.name, "work");
+    assert_eq!(resource.template, "{{ base }}/works/doi:{{ identifier }}{{ query }}");
 }
 
 #[test]
@@ -70,8 +70,46 @@ fn test_work_maps_to_valid_structured_output() {
     assert_eq!(output.websites.as_ref().map(Vec::len), Some(2));
     assert_eq!(output.keywords, vec!["Research data".to_string()]);
 }
-
 #[test]
-fn test_endpoint_requires_doi() {
-    assert!(openalex::endpoint(&Options::init().build()).is_err());
+fn test_work_merges_missing_fields_into_existing_output() {
+    let existing = ResearchOutput::init()
+        .doi("10.1038/nature12373".to_string())
+        .title("Existing title".to_string())
+        .build();
+    let result = openalex::merge_work_result(
+        EnrichmentResult {
+            data: vec![existing],
+            conflicts: Vec::new(),
+            failures: Vec::new(),
+        },
+        "10.1038/nature12373".to_string(),
+        Ok(work()),
+    );
+    let output = result.data.first().expect("Merged output should be retained");
+    assert_eq!(output.title, "Existing title");
+    assert_eq!(output.identifier.as_deref(), Some("https://openalex.org/W2741809807"));
+    assert_eq!(output.contributors.as_ref().map(Vec::len), Some(1));
+    assert_eq!(output.funding.as_ref().map(Vec::len), Some(1));
+    assert!(result.failures.is_empty());
+}
+#[test]
+fn test_work_failure_preserves_previous_success() {
+    let first = openalex::merge_work_result(
+        EnrichmentResult {
+            data: Vec::new(),
+            conflicts: Vec::new(),
+            failures: Vec::new(),
+        },
+        "10.1038/nature12373".to_string(),
+        Ok(work()),
+    );
+    let result = openalex::merge_work_result(first, "10.1000/missing".to_string(), Err(eyre!("not found")));
+    assert_eq!(result.data.len(), 1);
+    assert_eq!(result.failures.len(), 1);
+    assert!(result.failures[0].contains("10.1000/missing"));
+}
+
+#[tokio::test]
+async fn test_work_requires_doi() {
+    assert!(openalex::work(&Options::init().build()).await.is_err());
 }

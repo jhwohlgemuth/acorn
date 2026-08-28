@@ -1,6 +1,8 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
+use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
+use acorn::schema::research_activity::ResearchActivity;
 use acorn::Location;
 use assert_cmd::Command;
 
@@ -272,4 +274,19 @@ fn test_osti_conflicts_with_schema_analysis_options() {
         .unwrap();
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("cannot be used with"));
+}
+#[tokio::test]
+async fn test_enrich_sources_emits_json_lines_without_rewriting_sources() {
+    let mut data = ResearchActivity::default();
+    data.contact.identifier = Some("0000-0002-1825-0097".to_string());
+    data.meta.ror = Some(vec!["https://ror.org/01qz5mb56".to_string()]);
+    let content = serde_json::to_string(&data).unwrap();
+    let source = SourceDocument::init().content(content).format("json").source("activity.json").build();
+    let (documents, enriched, failures) = SourceDocuments::from(vec![source]).enrich(true).await;
+    assert_eq!(documents.0.len(), 1);
+    assert_eq!(enriched.len(), 1);
+    assert!(failures.is_empty());
+    assert!(serde_json::from_str::<ResearchActivity>(&enriched[0]).is_ok());
+    let yaml = serde_norway::to_string(&data).unwrap();
+    assert!(ResearchActivity::parse(&yaml).is_some());
 }

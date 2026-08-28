@@ -584,7 +584,9 @@ Formats research activity data in place (inherently includes some elements of `a
 * `-b`, `--branch <BRANCH>` — Format files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
+* `--enrich` — Enrich research activity data before formatting it
 * `--no-color` — Disable color in dry-run output
+* `--provider <PROVIDER>` — Enrichment provider(s); may be repeated or comma-delimited
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process
 
    Only files matching the pattern will be processed
@@ -722,7 +724,8 @@ Directory inputs are searched recursively. Use `--max-depth 1` to search only di
   - `yaml`:
     YAML
 
-* `--raw` — Print discovered identifiers as plain text, one per line
+* `--raw` — Print identifiers as plain text, or enriched RAD candidates as JSON lines with `--enrich`
+* `--enrich` — Enrich gathered research activity data with all applicable providers
 * `-t`, `--terse` — Use compact check output and suppress the discovery table
 * `--resolve` — Resolve supported identifiers through their metadata providers
 * `--citation-format <FORMAT>` — Citation format used for resolved DOI lines

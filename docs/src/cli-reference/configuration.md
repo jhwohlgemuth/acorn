@@ -71,6 +71,8 @@ ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format f
 ## .env file and Environment Variables
 The ACORN CLI tool can also be configured using `.env` files and/or environment variables.
 
+Enrichment providers use optional API tokens and host overrides. See [Metadata enrichment](../concepts/enrichment.md#providers) for the complete provider-by-provider table and defaults.
+
 ### Example
 `.env` file
 ```env

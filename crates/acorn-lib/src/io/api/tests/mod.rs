@@ -25,7 +25,7 @@ mod openalex;
 
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 16);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 17);
 }
 #[test]
 fn test_tree_entry_type_deserializes_provider_aliases() {
@@ -336,6 +336,17 @@ fn test_with_auth_custom_header() {
 fn test_with_auth_custom_rejects_empty_token() {
     let params = Params::new().with_auth("   ", Some("PRIVATE-TOKEN")).build();
     assert!(params.is_empty());
+}
+#[test]
+fn test_with_api_key_adds_trimmed_query_parameter() {
+    let params = Params::new().with_api_key("  secret-key  ").build();
+    let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
+    assert_eq!(query, "?api_key=secret-key");
+}
+#[test]
+fn test_with_api_key_maybe_skips_missing_and_empty_values() {
+    assert!(Params::new().with_api_key_maybe(None).build().is_empty());
+    assert!(Params::new().with_api_key_maybe(Some("   ")).build().is_empty());
 }
 #[test]
 fn test_into_body() {

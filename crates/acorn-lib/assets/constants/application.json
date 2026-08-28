@@ -17,6 +17,17 @@
       ]
     },
     {
+      "name": "openalex",
+      "domain": "api.openalex.org",
+      "resources": [
+        {
+          "name": "work",
+          "method": "get",
+          "template": "{{ base }}/works/doi:{{ identifier }}{{ query }}"
+        }
+      ]
+    },
+    {
       "name": "geonames",
       "domain": "download.geonames.org",
       "resources": [

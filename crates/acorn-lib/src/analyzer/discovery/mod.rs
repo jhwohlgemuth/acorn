@@ -333,6 +333,8 @@ pub struct Options<'a> {
     pub citation_format: CitationFormat,
     /// Optional database path
     pub database_path: &'a Option<PathBuf>,
+    /// Whether gathered RAD documents should be enriched before analysis.
+    pub enrich: bool,
     /// Optional input inclusion pattern
     pub filter: &'a Option<String>,
     /// Report format

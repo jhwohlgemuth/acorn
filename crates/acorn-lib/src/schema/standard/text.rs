@@ -76,6 +76,12 @@ impl InputOutput for Text {
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
     }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        match mime {
+            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
+            | _ => Err(eyre!("Unsupported plain text workflow serialization mime type: {mime:?}")),
+        }
+    }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
         match MimeType::from(output.display().to_string()) {
@@ -115,6 +121,12 @@ impl InputOutput for Document {
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
         Self::read_text(path)
+    }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        match mime {
+            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
+            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
+        }
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();

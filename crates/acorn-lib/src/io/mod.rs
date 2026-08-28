@@ -79,6 +79,7 @@ pub mod config;
 pub mod database;
 pub mod document;
 pub mod download;
+pub mod enrichment;
 pub mod fingerprint;
 mod gguf;
 pub mod http;
@@ -130,6 +131,10 @@ pub trait FileExtension {
 }
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
+    /// Parse data from an in-memory representation when supported.
+    fn parse(_content: &str) -> Option<Self> {
+        None
+    }
     /// Read data from specified file path
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self>;
     /// Read data as CFF from specified path
@@ -148,6 +153,25 @@ pub trait InputOutput: Sized {
     }
     /// Read data from specified YAML file path
     fn read_yaml(path: PathBuf) -> ApiResult<Self>;
+    /// Normalize this value using optional filesystem context before workflow output.
+    fn format_with(self, _context: Option<PathBuf>) -> Self {
+        self
+    }
+    /// Serialize this value in a workflow source format.
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String>
+    where
+        Self: Serialize,
+    {
+        match mime {
+            | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON data — {why}")),
+            | MimeType::Cff | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML data — {why}")),
+            | _ => Err(eyre!("Unsupported workflow serialization mime type: {mime:?}")),
+        }
+    }
+    /// Serialize an optional linked-data companion artifact for a workflow.
+    fn linked_content(&self) -> ApiResult<Option<String>> {
+        Ok(None)
+    }
     /// Write data to specified path
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
     /// Write data as CFF to specified path

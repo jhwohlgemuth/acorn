@@ -1,10 +1,13 @@
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
+use acorn::io::enrichment::{Pipeline, Provider};
+use acorn::io::workflow::{self, Workflow};
 use acorn::io::{FromPath, InputOutput};
 use acorn::prelude::{write, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::{print_changes_with_color, Label, MimeType, StringConversion};
+use acorn::Location;
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
@@ -19,7 +22,9 @@ pub async fn run(
     filter: &Option<String>,
     ignore: &Option<String>,
     dry_run: bool,
+    enrich: bool,
     no_color: bool,
+    providers: &[Provider],
     merge_request: &bool,
     verbose: &Verbosity,
     offline: bool,
@@ -31,10 +36,47 @@ pub async fn run(
         .maybe_ignore(ignore.clone())
         .merge_request(*merge_request)
         .offline(offline)
+        .dry_run(dry_run)
+        .no_color(no_color)
+        .verbose(*verbose)
         .quiet(verbose.is_silent())
         .build();
     preflight!(&options);
-    resolve_paths(path, &options).await.and_then(|paths| {
+    match enrich && offline {
+        | true => Err(eyre!("--enrich cannot be used with --offline")),
+        | false => match format(path, &options).await {
+            | Ok(()) if enrich => run_with_enrich(path, &options, providers).await,
+            | result => result,
+        },
+    }
+}
+async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, providers: &[Provider]) -> Result<(), Report> {
+    let pipeline = match providers.is_empty() {
+        | true => Pipeline::default(),
+        | false => Pipeline::new(providers.to_vec()),
+    };
+    let workflow_options = workflow::Options::init()
+        .check(false)
+        .format(true)
+        .enrich(true)
+        .dry_run(options.dry_run)
+        .offline(options.offline)
+        .no_color(options.no_color)
+        .show_changes(options.verbose.log_level().is_some())
+        .build();
+    match resolve_paths(path, options).await {
+        | Ok(paths) => {
+            let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
+            match Workflow::<ResearchActivity>::plan(&sources, workflow_options.clone(), Some(&pipeline)).await {
+                | Ok(plan) => plan.apply_enriched(workflow_options),
+                | Err(why) => Err(why),
+            }
+        }
+        | Err(why) => Err(why),
+    }
+}
+async fn format(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
+    resolve_paths(path, options).await.and_then(|paths| {
         paths.par_iter().try_for_each(|path| -> Result<(), Report> {
             ResearchActivity::read(path.clone())
                 .map_err(|why| {
@@ -59,24 +101,24 @@ pub async fn run(
                                 .map(|new_content| (old_content, new_content))
                         })
                         .and_then(|(old_content, new_content)| {
-                            if dry_run {
+                            if options.dry_run {
                                 let path = path.clone().to_absolute_path();
-                                match no_color {
+                                match options.no_color {
                                     | true => println!("{} Format {path}", Label::DRY_RUN),
                                     | false => println!("{} Format {}", Label::dry_run(), path.yellow()),
                                 }
                             }
-                            match verbose.log_level() {
+                            match options.verbose.log_level() {
                                 | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
-                                    print_changes_with_color(&old_content, &new_content, !no_color);
+                                    print_changes_with_color(&old_content, &new_content, !options.no_color);
                                 }
                                 | _ => {
-                                    if dry_run {
-                                        print_changes_with_color(&old_content, &new_content, !no_color);
+                                    if options.dry_run {
+                                        print_changes_with_color(&old_content, &new_content, !options.no_color);
                                     }
                                 }
                             }
-                            if !dry_run {
+                            if !options.dry_run {
                                 write(path, new_content.as_bytes())
                                     .map_err(|why| {
                                         fail!("Write — {}", why);

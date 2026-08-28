@@ -3,6 +3,7 @@
 //! that existed solely to derive `ValueEnum`.
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
+use acorn::enrichment::Provider;
 use acorn::io::ApiResult;
 use acorn::io::{Executor, Remote};
 use acorn::util::MimeType;
@@ -75,6 +76,10 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
              virtual-machine, other"
         )),
     }
+}
+/// Parse an enrichment provider name.
+pub(crate) fn parse_enrichment_provider(value: &str) -> Result<Provider, String> {
+    value.parse::<Provider>().map_err(|why| why.to_string())
 }
 /// Parse an SSH URI used to target a remote Docker daemon.
 pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {

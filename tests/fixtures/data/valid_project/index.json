@@ -7,6 +7,50 @@
     "books": [
       "978-0-306-40620-1"
     ],
+    "outputs": [
+      {
+        "identifier": "https://openalex.org/W2741809807",
+        "doi": "10.1038/nature12373",
+        "title": "Structured research output",
+        "type": "article",
+        "publicationDate": "2024-01-31",
+        "contributors": [
+          {
+            "name": "Example Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "corresponding": true,
+            "position": "first",
+            "affiliations": [
+              {
+                "name": "Oak Ridge National Laboratory",
+                "ror": "https://ror.org/01qz5mb56"
+              }
+            ]
+          }
+        ],
+        "funding": [
+          {
+            "name": "Example Funder",
+            "awards": [
+              {
+                "identifier": "AWARD-1",
+                "url": "https://example.org/awards/AWARD-1"
+              }
+            ]
+          }
+        ],
+        "keywords": [
+          "research data",
+          "workflow automation"
+        ],
+        "access": {
+          "open": true,
+          "status": "gold",
+          "url": "https://example.org/outputs/W2741809807",
+          "license": "CC-BY-4.0"
+        }
+      }
+    ],
     "websites": [
       {
         "title": "Project Repository",

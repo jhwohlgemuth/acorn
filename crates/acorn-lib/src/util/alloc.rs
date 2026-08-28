@@ -21,7 +21,7 @@ use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
 use bon::Builder;
 use core::fmt;
-use core::iter::successors;
+use core::iter::{once, successors};
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
@@ -1128,6 +1128,15 @@ where
 /// Merge two sequences into sorted unique values
 pub fn merge_unique<T: Ord>(left: impl IntoIterator<Item = T>, right: impl IntoIterator<Item = T>) -> Vec<T> {
     left.into_iter().chain(right).collect::<BTreeSet<_>>().into_iter().collect()
+}
+/// Merge two sequences in first-seen order using a caller-defined equality predicate.
+pub fn merge_unique_by<T>(left: impl IntoIterator<Item = T>, right: impl IntoIterator<Item = T>, equal: impl Fn(&T, &T) -> bool) -> Vec<T> {
+    right.into_iter().fold(left.into_iter().collect::<Vec<_>>(), |values, value| {
+        match values.iter().any(|existing| equal(existing, &value)) {
+            | true => values,
+            | false => values.into_iter().chain(once(value)).collect(),
+        }
+    })
 }
 /// Helper function to create a lookup dictionary for regex captures
 /// ### Note

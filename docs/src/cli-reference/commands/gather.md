@@ -70,6 +70,18 @@ printf 'https://ror.org/01qz5mb56' | acorn gather
 
 Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
 
+## Enrich RAD inputs
+
+Use `--enrich` to enrich valid RAD inputs in memory before identifier discovery. Unlike `format --enrich`, gather does not rewrite source files. With `--raw --enrich`, enriched RAD candidates are emitted as JSON Lines for downstream processing.
+
+`--enrich` and `--resolve` operate at different stages: enrichment augments RAD documents before discovery, while resolution looks up identifiers discovered from any supported input. See [Metadata enrichment](../../concepts/enrichment.md) for provider configuration and the broader workflow.
+
+```sh
+acorn gather path/to/project --enrich
+acorn gather path/to/project --raw --enrich > enriched.jsonl
+acorn gather report.docx --resolve
+```
+
 ## Watch mode
 
 Use the global `--watch` flag to run immediately and gather again only when effective source content changes:

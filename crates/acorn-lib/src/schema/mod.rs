@@ -580,18 +580,20 @@ pub struct VideoObject {
 /// }
 /// ```
 ///
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate, JsonSchema)]
+#[builder(start_fn = at, on(String, into))]
 #[serde(deny_unknown_fields)]
 pub struct Website {
+    /// Associated website URL
+    #[builder(start_fn)]
+    #[validate(url(message = "Provide valid URL"))]
+    #[serde(deserialize_with = "string_trim")]
+    pub url: String,
     /// Brief description of webpage content
     ///
     /// See <https://schema.org/description> for more information
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
-    /// Associated website URL
-    #[validate(url(message = "Provide valid URL"))]
-    #[serde(deserialize_with = "string_trim")]
-    pub url: String,
 }
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data

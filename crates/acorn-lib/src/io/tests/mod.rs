@@ -6,9 +6,12 @@
     clippy::unwrap_used
 )]
 use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
+use crate::enrichment::Provider;
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::config::{ApplicationConfiguration, Bucket, FilterSet};
+use crate::io::document::{SourceDocument, SourceDocuments};
+use crate::io::enrichment::Enrich;
 use crate::io::http::policy::{http_timeout_layer, retry_delay, shared_http_policy};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::oci::{
@@ -45,6 +48,7 @@ use std::fs::{create_dir_all, metadata, read, read_to_string, remove_dir_all, re
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use strum::IntoEnumIterator;
 use zip::ZipArchive;
 
 const ENDPOINTS: &str = r#"{
@@ -166,6 +170,45 @@ fn fixtures_dir() -> PathBuf {
 fn test_builtin_endpoints() {
     let config = ApplicationConfiguration::parse(ENDPOINTS).unwrap();
     insta::assert_snapshot!("acorn__io__config__tests__builtin_endpoints", format!("{:#?}", config.endpoints));
+}
+#[test]
+fn test_enrichment_fields_and_provider_order_are_deterministic() {
+    assert_eq!(
+        crate::io::enrichment::ENRICHMENT_FIELDS,
+        ["title", "subtitle", "contact.identifier", "meta.doi", "meta.outputs", "meta.ror"]
+    );
+    assert_eq!(
+        Provider::iter().collect::<Vec<_>>(),
+        &[Provider::Osti, Provider::OpenAlex, Provider::CiteAs, Provider::Orcid, Provider::Ror]
+    );
+    assert_eq!("OPENALEX".parse::<Provider>(), Ok(Provider::OpenAlex));
+    assert!("unknown".parse::<Provider>().is_err());
+    let before = serde_json::json!({"title": "Existing", "meta": {}});
+    let after = serde_json::json!({"title": "Existing", "meta": {"ror": ["https://ror.org/01qz5mb56"]}});
+    let fields = crate::io::enrichment::ENRICHMENT_FIELDS
+        .into_iter()
+        .filter(|path| {
+            path.split('.').try_fold(&before, |value, component| value.get(component))
+                != path.split('.').try_fold(&after, |value, component| value.get(component))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(fields, ["meta.ror"]);
+}
+#[tokio::test]
+async fn test_source_document_enrichment_preserves_unsupported_content() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (enriched, content, failures) = document.enrich(()).await;
+    assert_eq!(enriched.content, "plain text");
+    assert!(content.is_none());
+    assert!(failures.is_empty());
+}
+#[tokio::test]
+async fn test_source_documents_enrichment_can_be_disabled() {
+    let document = SourceDocument::init().content("plain text").format("text").source("<text:1>").build();
+    let (documents, content, failures) = SourceDocuments::from(vec![document]).enrich(false).await;
+    assert_eq!(documents.0.len(), 1);
+    assert!(content.is_empty());
+    assert!(failures.is_empty());
 }
 #[test]
 fn test_bucket_config_json() {

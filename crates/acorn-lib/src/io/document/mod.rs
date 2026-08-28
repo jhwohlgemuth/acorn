@@ -93,10 +93,26 @@ pub struct SourceDocument {
     #[builder(default)]
     warnings: Vec<String>,
 }
+/// Ordered collection of loaded source documents.
+#[derive(Clone, Debug, Default)]
+pub struct SourceDocuments(
+    /// Documents in source order.
+    pub Vec<SourceDocument>,
+);
 impl From<Format> for DocumentFormat {
     fn from(value: Format) -> Self {
         #[allow(clippy::expect_used)]
         Self::try_from(&MimeType::from(value)).expect("anydoc formats always map to document formats")
+    }
+}
+impl From<Vec<SourceDocument>> for SourceDocuments {
+    fn from(value: Vec<SourceDocument>) -> Self {
+        Self(value)
+    }
+}
+impl From<SourceDocuments> for Vec<SourceDocument> {
+    fn from(value: SourceDocuments) -> Self {
+        value.0
     }
 }
 impl From<&Path> for DocumentCacheKey {

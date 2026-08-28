@@ -583,6 +583,7 @@ async fn test_analysis_materializes_source_content_without_discoveries() {
     let options = Options {
         citation_format: CitationFormat::default(),
         database_path: &database_path,
+        enrich: false,
         filter: &filter,
         format: Some(OutputFormat::Json),
         ignore: &ignore,

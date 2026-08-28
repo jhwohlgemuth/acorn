@@ -20,8 +20,9 @@ Make `acorn format --enrich` the primary enrichment interface and let `acorn gat
 - `crates/acorn-lib/src/schema/research_activity/output.rs` now provides a structured `ResearchOutput` target for publications, datasets, software, and other activity products, including work-level contributors, affiliations, funding, awards, locations, keywords, and access metadata.
 - `crates/acorn-lib/src/io/api/openalex.rs` now provides a typed DOI work lookup and implements the workflow enrichment capability. OpenAlex supports direct work lookup by external DOI and returns structured work, authorship, location, and open-access metadata ([API overview](https://developers.openalex.org/api-reference/introduction), [single-work reference](https://developers.openalex.org/api-reference/works/get-a-single-work)).
 - OpenAlex now recommends an API key for meaningful usage and accepts it as an `api_key` query parameter or bearer token; ACORN stores the relevant environment-variable names in `acorn::util::constants::env` ([authentication and pricing](https://developers.openalex.org/api-reference/authentication)).
-- `crates/acorn-lib/src/io/enrichment.rs` composes OSTI, OpenAlex, CiteAs, ORCID, and ROR in deterministic order, continues after provider failures, preserves existing values, and records metadata-level field provenance.
-- `acorn format --enrich` uses the workflow planner, supports repeated or comma-delimited `--provider`, and honors `--dry-run` for the combined enrichment and formatting change.
+- `crates/acorn-lib/src/io/enrichment.rs` composes OSTI, OpenAlex, CiteAs, ORCID, and ROR in deterministic order, continues after per-identifier provider failures without discarding earlier successes, preserves existing values, and records metadata-level field provenance.
+- OpenAlex merges missing structured metadata into an existing output with the same DOI instead of treating identifier presence as a fully enriched record.
+- `acorn format --enrich` uses the workflow planner, supports repeated or comma-delimited `--provider`, honors `--dry-run` for the combined enrichment and formatting change, and rejects offline enrichment before any formatting write.
 - `acorn gather --enrich` enriches valid RAD inputs in memory before discovery; `--raw --enrich` emits enriched candidates as JSON lines and never rewrites source files.
 - With no path, both commands search the current directory. They do not enumerate configured buckets because bucket configuration represents data intended to be downloaded or copied first.
 
@@ -38,9 +39,9 @@ Keep provider policy in the shared enrichment pipeline rather than in the workfl
 # Validation
 
 - Add mock HTTP coverage for OpenAlex success, not-found, authentication, rate-limit, malformed response, and retry behavior without relying on live network access.
-- CLI tests cover enrichment dry-run immutability and gathered JSONL enrichment without live network access.
-- `cargo test -p acorn-lib --lib` passes with 970 tests and 8 ignored tests.
-- Run `make lint`, `make test`, and `make wasm` after implementation.
+- CLI tests cover enrichment dry-run immutability, offline rejection without writes, and gathered JSONL enrichment without live network access.
+- OpenAlex unit tests cover merging missing fields into matching DOI outputs and retaining an earlier success after a later lookup failure.
+- `make lint` and `make wasm` pass. The full 1,312-test nextest run passes 1,311 tests; the unrelated retry-resume timeout passes when rerun alone.
 
 # Acceptance criteria
 
@@ -48,6 +49,7 @@ Keep provider policy in the shared enrichment pipeline rather than in the workfl
 - [x] `format --enrich --dry-run` previews the combined change without writing.
 - [x] `gather --enrich` enriches RAD input in memory and `--raw --enrich` emits JSON lines.
 - [x] ORCID and ROR use exact matching and disambiguation rather than selecting the first result.
-- [x] Existing values win and provider failures do not discard successful provider contributions.
+- [x] Existing output values win, missing fields are enriched by DOI, and per-identifier provider failures do not discard successful contributions.
+- [x] Offline format enrichment fails before source files are rewritten.
 - [x] Enriched field paths and lookup sources are recorded in RAD metadata provenance.
 - [x] No standalone `acorn enrich` command or configured-bucket enumeration is introduced.

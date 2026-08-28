@@ -584,10 +584,7 @@ fn test_to_prose() {
     let with_websites = ResearchActivity::init()
         .meta(
             ResearchActivityMetadata::init()
-                .websites(vec![Website {
-                    description: "Example".to_string(),
-                    url: "https://example.com".to_string(),
-                }])
+                .websites(vec![Website::at("https://example.com").description("Example").build()])
                 .build(),
         )
         .build();

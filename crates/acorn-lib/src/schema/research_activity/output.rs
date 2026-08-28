@@ -1,6 +1,6 @@
-//! Structured research outputs associated with a research activity.
+//! Structured research outputs associated with a research activity
 use crate::prelude::alloc::{String, Vec};
-use crate::schema::validate::{is_doi, is_orcid, is_partial_date, is_ror};
+use crate::schema::validate::is_partial_date;
 use crate::schema::{Keyword, Website};
 use crate::validation::Validate;
 use bon::Builder;
@@ -9,6 +9,102 @@ use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
 
+/// Open-access metadata for a research output.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Access {
+    /// Whether a free-to-read copy is known to exist.
+    pub open: bool,
+    /// Provider access classification, such as `gold`, `green`, or `closed`.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub status: Option<String>,
+    /// Best known open-access URL.
+    #[validate(url)]
+    pub url: Option<String>,
+    /// License identifier or URI asserted for the selected location.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub license: Option<String>,
+}
+/// An organization affiliation asserted for an output contributor.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Affiliation {
+    /// Organization display name.
+    #[validate(length(min = 1))]
+    #[serde(deserialize_with = "string_trim")]
+    pub name: String,
+    /// Research Organization Registry identifier.
+    #[validate(ror)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub ror: Option<String>,
+}
+/// A grant or other funding award associated with a research output.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Award {
+    /// Provider or funder identifier for the award.
+    #[serde(deserialize_with = "string_trim")]
+    pub identifier: String,
+    /// Award title when supplied by the source.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub title: Option<String>,
+    /// DOI assigned to the award.
+    #[validate(doi)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub doi: Option<String>,
+    /// Resolvable award URL.
+    #[validate(url)]
+    pub url: Option<String>,
+}
+/// A person credited on a research output.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Contributor {
+    /// Display name asserted for the contributor on this output.
+    #[validate(length(min = 1))]
+    #[serde(deserialize_with = "string_trim")]
+    pub name: String,
+    /// ORCID associated with the contributor.
+    #[validate(orcid)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub orcid: Option<String>,
+    /// Whether the source identifies this person as a corresponding author.
+    pub corresponding: Option<bool>,
+    /// Position in the output byline, such as `first`, `middle`, or `last`.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub position: Option<String>,
+    /// Work-specific affiliations asserted for the contributor.
+    #[validate(nested)]
+    #[builder(default)]
+    pub affiliations: Vec<Affiliation>,
+}
+/// Funding organization and awards associated with a research output.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Funding {
+    /// Funding organization display name.
+    #[validate(length(min = 1))]
+    #[serde(deserialize_with = "string_trim")]
+    pub name: String,
+    /// Research Organization Registry identifier for the funder.
+    #[validate(ror)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub ror: Option<String>,
+    /// Awards from this funding organization associated with the output.
+    #[validate(nested)]
+    #[builder(default)]
+    pub awards: Vec<Award>,
+}
 /// A publication, dataset, software package, or other product of a research activity.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
@@ -19,7 +115,7 @@ pub struct ResearchOutput {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub identifier: Option<String>,
     /// Digital Object Identifier for the output.
-    #[validate(custom(function = "is_doi"))]
+    #[validate(doi)]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub doi: Option<String>,
     /// Human-readable output title.
@@ -49,104 +145,29 @@ pub struct ResearchOutput {
     #[validate(nested)]
     pub access: Option<Access>,
 }
-
-/// A person credited on a research output.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Contributor {
-    /// Display name asserted for the contributor on this output.
-    #[validate(length(min = 1))]
-    #[serde(deserialize_with = "string_trim")]
-    pub name: String,
-    /// ORCID associated with the contributor.
-    #[validate(custom(function = "is_orcid"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub orcid: Option<String>,
-    /// Whether the source identifies this person as a corresponding author.
-    pub corresponding: Option<bool>,
-    /// Position in the output byline, such as `first`, `middle`, or `last`.
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub position: Option<String>,
-    /// Work-specific affiliations asserted for the contributor.
-    #[validate(nested)]
-    #[builder(default)]
-    pub affiliations: Vec<Affiliation>,
-}
-
-/// An organization affiliation asserted for an output contributor.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Affiliation {
-    /// Organization display name.
-    #[validate(length(min = 1))]
-    #[serde(deserialize_with = "string_trim")]
-    pub name: String,
-    /// Research Organization Registry identifier.
-    #[validate(custom(function = "is_ror"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub ror: Option<String>,
-}
-
-/// Funding organization and awards associated with a research output.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Funding {
-    /// Funding organization display name.
-    #[validate(length(min = 1))]
-    #[serde(deserialize_with = "string_trim")]
-    pub name: String,
-    /// Research Organization Registry identifier for the funder.
-    #[validate(custom(function = "is_ror"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub ror: Option<String>,
-    /// Awards from this funding organization associated with the output.
-    #[validate(nested)]
-    #[builder(default)]
-    pub awards: Vec<Award>,
-}
-
-/// A grant or other funding award associated with a research output.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Award {
-    /// Provider or funder identifier for the award.
-    #[serde(deserialize_with = "string_trim")]
-    pub identifier: String,
-    /// Award title when supplied by the source.
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub title: Option<String>,
-    /// DOI assigned to the award.
-    #[validate(custom(function = "is_doi"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub doi: Option<String>,
-    /// Resolvable award URL.
-    #[validate(url)]
-    pub url: Option<String>,
-}
-
-/// Open-access metadata for a research output.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct Access {
-    /// Whether a free-to-read copy is known to exist.
-    pub open: bool,
-    /// Provider access classification, such as `gold`, `green`, or `closed`.
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub status: Option<String>,
-    /// Best known open-access URL.
-    #[validate(url)]
-    pub url: Option<String>,
-    /// License identifier or URI asserted for the selected location.
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub license: Option<String>,
+impl ResearchOutput {
+    /// Merge candidate metadata into empty fields while preserving existing values.
+    pub fn merge(self, candidate: Self) -> Self {
+        Self {
+            identifier: self.identifier.filter(|value| !value.trim().is_empty()).or(candidate.identifier),
+            doi: self.doi.filter(|value| !value.trim().is_empty()).or(candidate.doi),
+            title: match self.title.trim().is_empty() {
+                | true => candidate.title,
+                | false => self.title,
+            },
+            kind: self.kind.filter(|value| !value.trim().is_empty()).or(candidate.kind),
+            publication_date: self
+                .publication_date
+                .filter(|value| !value.trim().is_empty())
+                .or(candidate.publication_date),
+            contributors: self.contributors.filter(|values| !values.is_empty()).or(candidate.contributors),
+            funding: self.funding.filter(|values| !values.is_empty()).or(candidate.funding),
+            websites: self.websites.filter(|values| !values.is_empty()).or(candidate.websites),
+            keywords: match self.keywords.is_empty() {
+                | true => candidate.keywords,
+                | false => self.keywords,
+            },
+            access: self.access.or(candidate.access),
+        }
+    }
 }

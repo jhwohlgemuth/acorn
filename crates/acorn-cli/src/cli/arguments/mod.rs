@@ -1,8 +1,11 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
-use super::parse::{parse_check_category, parse_executor, parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration};
+use super::parse::{
+    parse_check_category, parse_enrichment_provider, parse_executor, parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration,
+};
 use super::DownloadCommands;
 use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
+use acorn::enrichment::Provider;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
 use acorn::prelude::PathBuf;
@@ -720,9 +723,15 @@ pub(crate) struct Format {
     /// Run format without making changes to target file(s). Will print a diff of changes.
     #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+    /// Enrich research activity data after formatting it.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) enrich: bool,
     /// Disable color in dry-run output
     #[arg(long = "no-color", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) no_color: bool,
+    /// Enrichment provider(s); may be repeated or comma-delimited.
+    #[arg(long, requires = "enrich", value_delimiter = ',', value_parser = parse_enrichment_provider, value_name = "PROVIDER", help_heading = "OPTIONS")]
+    pub(crate) provider: Vec<Provider>,
     /// Regex pattern applied to absolute paths of files to include in formatting process
     ///
     /// Only files matching the pattern will be processed
@@ -804,9 +813,12 @@ pub(crate) struct Gather {
     /// Structured report format; defaults to console for terminals and JSON for pipes or files.
     #[arg(long, value_enum, help_heading = "OPTIONS")]
     pub(crate) format: Option<GatherOutputFormat>,
-    /// Print discovered identifiers as plain text, one per line.
+    /// Print identifiers as plain text, or enriched RAD candidates as JSON lines with `--enrich`.
     #[arg(long, conflicts_with = "format", help_heading = "FLAGS")]
     pub(crate) raw: bool,
+    /// Enrich gathered research activity data with all applicable providers.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) enrich: bool,
     /// Use compact check output and suppress the discovery table.
     #[arg(short = 't', long, conflicts_with_all = ["format", "output", "raw"], help_heading = "FLAGS")]
     pub(crate) terse: bool,

@@ -22,6 +22,12 @@ pub mod arguments;
 pub mod parse;
 use arguments::DatabaseBackend;
 
+const PRIMARY_COLOR: u8 = 135;
+const STYLES: Styles = Styles::styled()
+    .header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
+    .usage(Ansi256Color(PRIMARY_COLOR).on_default().bold())
+    .literal(AnsiColor::White.on_default())
+    .placeholder(Ansi256Color(183).on_default());
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
 /// Filesystem notification strategy used by watch mode.
@@ -45,12 +51,6 @@ pub struct WatchOptions {
     /// Whether any watched source requires network polling.
     pub network: bool,
 }
-const PRIMARY_COLOR: u8 = 135;
-const STYLES: Styles = Styles::styled()
-    .header(Ansi256Color(PRIMARY_COLOR).on_default().bold())
-    .usage(Ansi256Color(PRIMARY_COLOR).on_default().bold())
-    .literal(AnsiColor::White.on_default())
-    .placeholder(Ansi256Color(183).on_default());
 /// Container struct for working with subcommand run functions
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
@@ -83,6 +83,15 @@ pub struct CommandOptions {
     /// Flag used to indicate if ACORN is running in offline mode
     #[builder(default)]
     pub offline: bool,
+    /// Flag used to preview changes without writing files
+    #[builder(default)]
+    pub dry_run: bool,
+    /// Flag used to disable colored output
+    #[builder(default)]
+    pub no_color: bool,
+    /// Runtime output verbosity
+    #[builder(default)]
+    pub verbose: Verbosity,
     /// Flag used to disable local database access
     #[builder(default)]
     pub no_local_database: bool,

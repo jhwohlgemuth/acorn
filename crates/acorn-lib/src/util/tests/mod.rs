@@ -347,6 +347,15 @@ fn test_merge_trims_whitespace() {
     assert_eq!(result, vec!["a", "b", "c"]);
 }
 #[test]
+fn test_merge_unique_by_preserves_first_seen_values() {
+    let values = merge_unique_by(
+        vec!["10.1000/existing".to_string()],
+        vec!["10.1000/EXISTING".to_string(), "10.1000/new".to_string()],
+        |left, right| left.eq_ignore_ascii_case(right),
+    );
+    assert_eq!(values, vec!["10.1000/existing".to_string(), "10.1000/new".to_string()]);
+}
+#[test]
 fn test_param_body_shorthand_no_comma() {
     let body = "{\"title\":\"ACORN\"}";
     let body_param = param!(Body & body);

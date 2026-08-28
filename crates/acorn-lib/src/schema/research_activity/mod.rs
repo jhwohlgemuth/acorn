@@ -2,6 +2,7 @@
 //!
 //! Module that defines the research activity schema
 //!
+use crate::enrichment::Provider;
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
@@ -173,6 +174,9 @@ pub struct ResearchActivityMetadata {
     /// Linked data (e.g., JSON-LD) type for contact point
     #[serde(rename = "@type")]
     pub metadata_type: Option<String>,
+    /// Deterministic record of metadata added by enrichment providers.
+    #[eserde(compat)]
+    pub enrichment: Option<Vec<EnrichmentProvenance>>,
     /// Classification level of associated research activity data
     #[eserde(compat)]
     pub classification: Option<ClassificationLevel>,
@@ -295,6 +299,20 @@ pub struct ResearchActivityMetadata {
     /// the resources attribute should include GPU, but need not include CPU
     #[eserde(compat)]
     pub resources: Option<Vec<Resource>>,
+}
+/// Provenance for fields contributed by one enrichment provider.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct EnrichmentProvenance {
+    /// Provider that supplied the values.
+    pub provider: Provider,
+    /// Provider lookup value used to obtain the values.
+    pub source: Option<String>,
+    /// RAD field paths populated by the provider.
+    #[builder(default)]
+    pub fields: Vec<String>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata
 ///
@@ -568,6 +586,12 @@ impl Hash for ResearchActivity {
 }
 #[cfg(feature = "std")]
 impl InputOutput for ResearchActivity {
+    fn parse(content: &str) -> Option<Self> {
+        jsonc_parse_value(content)
+            .ok()
+            .and_then(|value| serde_json::from_value(value).ok())
+            .or_else(|| serde_norway::from_str(content).ok())
+    }
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into().clone();
         let result = match MimeType::from_path(&source) {
@@ -582,6 +606,17 @@ impl InputOutput for ResearchActivity {
             debug!("=> {} Research activity data = {:#?}", Label::using(), data.dimmed().cyan());
         }
         result
+    }
+    fn format_with(self, context: Option<PathBuf>) -> Self {
+        ResearchActivity::format_with(self, context)
+    }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        ResearchActivity::serialize_as(self, mime)
+    }
+    fn linked_content(&self) -> ApiResult<Option<String>> {
+        serde_json::to_string_pretty(&self.with_context())
+            .map(Some)
+            .map_err(|why| eyre!("Failed to serialize linked research activity data — {why}"))
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
@@ -765,6 +800,21 @@ impl ResearchActivity {
                 .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}"))),
             | _ => Err(eyre!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
+    }
+    /// Return the lookup source used by an enrichment provider.
+    pub fn source_from(&self, provider: Provider) -> Option<String> {
+        match provider {
+            | Provider::CiteAs | Provider::OpenAlex => self.meta.doi.as_ref().and_then(|values| values.first()).cloned(),
+            | Provider::Orcid => Some(format!("{} {}", self.contact.given_name, self.contact.family_name)),
+            | Provider::Osti => Some(self.meta.identifier.clone()),
+            | Provider::Ror => self
+                .contact
+                .affiliation
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| Some(self.contact.organization.clone())),
+        }
+        .filter(|value| !value.trim().is_empty())
     }
     /// Return whether Markdown content has an ACORN research activity shape.
     pub fn is_markdown<T>(source: T) -> bool

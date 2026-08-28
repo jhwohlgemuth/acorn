@@ -90,6 +90,10 @@ pub const ORGANIZATION: &str = "ornl";
 pub const QUALIFIER: &str = "org";
 /// Default Hugging Face domain
 pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
+/// Default OpenAlex API domain.
+pub const DEFAULT_OPENALEX_DOMAIN: &str = "api.openalex.org";
+/// OpenAlex work fields used for research-output enrichment.
+pub const OPENALEX_WORK_FIELDS: &str = "id,doi,title,type,publication_date,authorships,grants,open_access,primary_location,best_oa_location,keywords";
 /// Default Hugging Face repository revision used when none is specified.
 pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 /// Explicit URI prefix used to route model references through OCI.
