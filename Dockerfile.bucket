@@ -1,4 +1,5 @@
-FROM ubuntu:noble
+ARG DOCKER_HUB_REGISTRY=docker.io/library
+FROM ${DOCKER_HUB_REGISTRY}/ubuntu:noble
 #
 # %labels
 #

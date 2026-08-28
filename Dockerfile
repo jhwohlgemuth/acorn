@@ -1,5 +1,6 @@
 ARG RUST_VERSION=1.95.0
-FROM debian:trixie-slim AS browser-runtime
+ARG DOCKER_HUB_REGISTRY=docker.io/library
+FROM ${DOCKER_HUB_REGISTRY}/debian:trixie-slim AS browser-runtime
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes chromium fonts-liberation pax-utils \
     && mkdir /browser-libs \
@@ -12,7 +13,7 @@ RUN apt-get update \
         | xargs --no-run-if-empty cp --parents --dereference --target-directory=/browser-libs \
     && rm -rf /var/lib/apt/lists/*
 
-FROM rust:${RUST_VERSION}-slim AS build-env
+FROM ${DOCKER_HUB_REGISTRY}/rust:${RUST_VERSION}-slim AS build-env
 LABEL author="Jason Wohlgemuth"
 WORKDIR /app
 COPY . /app

@@ -47,6 +47,12 @@ If you would like to generously provide a pull request to correct a verified iss
 | Regenerate command-line help              | `make help`        |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
 
+Container image builds use `docker.io/library` for Docker Official Images by default. ORNL developers can avoid Docker Hub throttling by using the institutional proxy cache:
+
+```shell
+make acorn-image DOCKER_HUB_REGISTRY=regproxy.ornl.gov/hub_proxy
+```
+
 ### Benchmarking
 
 ACORN uses Criterion benchmarks for repeatable micro-performance measurements in `crates/acorn-lib/benches/`.
