@@ -14,7 +14,7 @@ use crate::util::constants::app::{
     OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
 };
 use crate::util::{MimeType, SemanticVersion};
-use crate::validation::{rules, Validate, ValidationError};
+use crate::validation::{rules, Validate, ValidationError, ValidationReport};
 use crate::Location;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -273,42 +273,50 @@ impl Descriptor {
     }
 }
 impl Index {
-    fn is_valid(index: &Self) -> Result<(), ValidationError> {
+    fn is_valid(index: &Self, _context: &()) -> Result<(), ValidationReport> {
         let unsupported_mime_type = index.schema_version == 2 && matches!(index.media_type.as_str(), OCI_IMAGE_INDEX | DOCKER_MANIFEST_LIST);
         let no_manifest = index.manifests.is_empty();
         match (unsupported_mime_type, no_manifest) {
-            | (false, _) => {
-                Err(ValidationError::new("media_type").with_message(format!("Unsupported OCI index media type '{}'", index.media_type).into()))
-            }
-            | (_, true) => Err(ValidationError::new("manifests").with_message("OCI model index has no manifests".into())),
+            | (false, _) => Err(ValidationError::new("media_type")
+                .with_message(format!("Unsupported OCI index media type '{}'", index.media_type).into())
+                .into_report("")),
+            | (_, true) => Err(ValidationError::new("manifests")
+                .with_message("OCI model index has no manifests".into())
+                .into_report("")),
             | _ => Ok(()),
         }
     }
 }
 impl Manifest {
-    fn is_valid(manifest: &Self) -> Result<(), ValidationError> {
-        Self::structure_valid(manifest).and_then(|()| match manifest.config.media_type.as_str() {
-            | OCI_IMAGE_CONFIG | DOCKER_IMAGE_CONFIG => {
-                Err(ValidationError::new("artifact_type").with_message("OCI reference identifies a runnable container image".into()))
-            }
+    fn is_valid(manifest: &Self, _context: &()) -> Result<(), ValidationReport> {
+        Self::structure_valid(manifest, &()).and_then(|()| match manifest.config.media_type.as_str() {
+            | OCI_IMAGE_CONFIG | DOCKER_IMAGE_CONFIG => Err(ValidationError::new("artifact_type")
+                .with_message("OCI reference identifies a runnable container image".into())
+                .into_report("")),
             | _ => Ok(()),
         })
     }
-    fn structure_valid(manifest: &Self) -> Result<(), ValidationError> {
+    fn structure_valid(manifest: &Self, _context: &()) -> Result<(), ValidationReport> {
         let is_manifest = manifest.schema_version == 2 && manifest.media_type == OCI_IMAGE_MANIFEST;
         let has_no_layers = manifest.layers.is_empty();
         let has_valid_config = manifest.config.validate().is_ok();
         let has_valid_layers = manifest.layers.iter().all(|layer| layer.validate().is_ok());
         match (is_manifest, has_no_layers, has_valid_config && has_valid_layers) {
-            | (false, _, _) => Err(ValidationError::new("media_type").with_message(
-                format!(
-                    "Unsupported OCI manifest media type '{}'; expected {OCI_IMAGE_MANIFEST}",
-                    manifest.media_type
+            | (false, _, _) => Err(ValidationError::new("media_type")
+                .with_message(
+                    format!(
+                        "Unsupported OCI manifest media type '{}'; expected {OCI_IMAGE_MANIFEST}",
+                        manifest.media_type
+                    )
+                    .into(),
                 )
-                .into(),
-            )),
-            | (_, true, _) => Err(ValidationError::new("layers").with_message("OCI model artifact has no files".into())),
-            | (_, _, false) => Err(ValidationError::new("descriptor").with_message("OCI manifest contains an invalid descriptor".into())),
+                .into_report("")),
+            | (_, true, _) => Err(ValidationError::new("layers")
+                .with_message("OCI model artifact has no files".into())
+                .into_report("")),
+            | (_, _, false) => Err(ValidationError::new("descriptor")
+                .with_message("OCI manifest contains an invalid descriptor".into())
+                .into_report("")),
             | _ => Ok(()),
         }
     }
@@ -341,11 +349,12 @@ impl From<Descriptor> for OciFile {
     }
 }
 impl OciFile {
-    fn is_valid(file: &Self) -> Result<(), ValidationError> {
+    fn is_valid(file: &Self, _context: &()) -> Result<(), ValidationReport> {
         Path::new(&file.path)
             .is_safe()
             .then_some(())
             .ok_or_else(|| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path).into()))
+            .map_err(|error| error.into_report(""))
     }
 }
 impl OciFiles {
@@ -480,7 +489,7 @@ impl OciReference {
     fn has_ambiguous_syntax(value: &str) -> bool {
         value.is_empty() || value.contains(['?', '#']) || value.contains('@') && value.matches('@').count() != 1
     }
-    fn is_valid(reference: &Self) -> Result<(), ValidationError> {
+    fn is_valid(reference: &Self, _context: &()) -> Result<(), ValidationReport> {
         let registry_uri = format!("https://{}", reference.registry);
         let registry_location = Location::from(registry_uri.as_str());
         let matches_registry = registry_location.registry().as_deref() == Some(reference.registry.as_str());
@@ -503,6 +512,7 @@ impl OciReference {
         (is_valid_registry && is_valid_repository && is_valid_reference)
             .then_some(())
             .ok_or_else(|| ValidationError::new("reference").with_message("Invalid registry, repository, tag, or digest".into()))
+            .map_err(|error| error.into_report(""))
     }
     /// Parse an explicit `oci://registry/repository:tag` or digest reference.
     pub fn parse(value: &str) -> ApiResult<Self> {
@@ -877,7 +887,7 @@ impl OrasTransport {
         self.invoke(args!["manifest", "fetch", resolved_reference])
             .and_then(|content| serde_json::from_str::<Manifest>(&content).map_err(|why| eyre!("Invalid OCI manifest — {why}")))
             .and_then(|manifest| {
-                Manifest::structure_valid(&manifest)
+                Manifest::structure_valid(&manifest, &())
                     .map_err(|why| eyre!("Invalid OCI manifest — {why}"))
                     .map(|()| manifest)
             })

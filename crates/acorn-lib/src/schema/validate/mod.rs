@@ -59,33 +59,38 @@ fn validate_typed_funder_identifier(identifier: &str, kind: Option<&FunderIdenti
         )),
     }
 }
-pub(in crate::schema) fn validate_affiliation_identifier(value: &Affiliation) -> Result<(), ValidationError> {
+pub(in crate::schema) fn validate_affiliation_identifier(value: &Affiliation, _context: &()) -> Result<(), ValidationReport> {
     validate_optional_named_identifier(
         value.affiliation_identifier.as_ref(),
         value.affiliation_identifier_scheme.as_ref(),
         "affiliation_identifier",
     )
+    .map_err(|error| error.into_report(""))
 }
-pub(in crate::schema) fn validate_name_identifier(value: &NameIdentifier) -> Result<(), ValidationError> {
+pub(in crate::schema) fn validate_name_identifier(value: &NameIdentifier, _context: &()) -> Result<(), ValidationReport> {
     validate_named_identifier(&value.name_identifier, value.name_identifier_scheme.as_deref(), "name_identifier")
+        .map_err(|error| error.into_report(""))
 }
-pub(in crate::schema) fn validate_publisher_identifier(value: &Publisher) -> Result<(), ValidationError> {
+pub(in crate::schema) fn validate_publisher_identifier(value: &Publisher, _context: &()) -> Result<(), ValidationReport> {
     validate_optional_named_identifier(
         value.publisher_identifier.as_ref(),
         value.publisher_identifier_scheme.as_ref(),
         "publisher_identifier",
     )
+    .map_err(|error| error.into_report(""))
 }
-pub(in crate::schema) fn validate_funder_identifier(value: &FunderIdentifier) -> Result<(), ValidationError> {
-    validate_typed_funder_identifier(&value.value, value.funder_identifier_type.as_ref())
+pub(in crate::schema) fn validate_funder_identifier(value: &FunderIdentifier, _context: &()) -> Result<(), ValidationReport> {
+    validate_typed_funder_identifier(&value.value, value.funder_identifier_type.as_ref()).map_err(|error| error.into_report(""))
 }
-pub(in crate::schema) fn validate_funding_reference_identifier(value: &FundingReference) -> Result<(), ValidationError> {
+pub(in crate::schema) fn validate_funding_reference_identifier(value: &FundingReference, _context: &()) -> Result<(), ValidationReport> {
     match value.funder_identifier.as_ref() {
-        | Some(identifier) => validate_typed_funder_identifier(identifier, value.funder_identifier_type.as_ref()),
+        | Some(identifier) => {
+            validate_typed_funder_identifier(identifier, value.funder_identifier_type.as_ref()).map_err(|error| error.into_report(""))
+        }
         | None => Ok(()),
     }
 }
-pub(in crate::schema) fn validate_person_or_org_identifier(value: &PersonOrOrgIdentifier) -> Result<(), ValidationError> {
+pub(in crate::schema) fn validate_person_or_org_identifier(value: &PersonOrOrgIdentifier, _context: &()) -> Result<(), ValidationReport> {
     let result = match value.scheme {
         | PersonOrOrgIdentifierScheme::Gnd => is_gnd(&value.identifier),
         | PersonOrOrgIdentifierScheme::Isni => rules::isni(&value.identifier),
@@ -97,7 +102,7 @@ pub(in crate::schema) fn validate_person_or_org_identifier(value: &PersonOrOrgId
             .with_message(why.message.unwrap_or_else(|| "Identifier does not match its scheme".into()).into());
         error.add_param("scheme".into(), &value.scheme);
         error.add_param("identifier".into(), &value.identifier);
-        error
+        error.into_report("")
     })
 }
 regex_validator!(is_gnd, RE_GND, "GND");

@@ -1,0 +1,5 @@
+error: unknown validation argument
+ --> tests/ui/validate-schema-unknown-argument.rs:4:39
+  |
+4 | #[validate(schema(function = "check", typo = "x"))]
+  |                                       ^^^^^^^^^^

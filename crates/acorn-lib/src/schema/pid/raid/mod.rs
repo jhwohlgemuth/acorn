@@ -15,7 +15,7 @@ use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{has_at_least_one_truthy, validate_license};
+use crate::schema::validate::validate_license;
 use crate::schema::vocabulary;
 use crate::schema::Date;
 use crate::schema::OneOrMany;
@@ -24,7 +24,7 @@ use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
 use crate::util::Label;
 use crate::util::StringExt;
 use crate::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses};
-use crate::validation::{Validate, ValidationError};
+use crate::validation::{report_of, Validate, ValidationError, ValidationReport};
 use alloc::collections::BTreeSet;
 use bon::Builder;
 use core::fmt;
@@ -1358,107 +1358,69 @@ impl From<ResearchActivity> for Metadata {
         }
     }
 }
-fn has_contact(value: &Vec<Contributor>) -> Result<(), ValidationError> {
-    has_at_least_one_truthy(
-        value.as_slice(),
-        Contributor::is_contact,
-        "contributors",
-        "Mark at least one contributor as contact",
-    )
-}
-fn has_leader(value: &Vec<Contributor>) -> Result<(), ValidationError> {
-    has_at_least_one_truthy(
-        value.as_slice(),
-        Contributor::is_leader,
-        "contributors",
-        "Mark at least one contributor as leader",
-    )
-}
 fn has_start_date(value: &Date) -> Result<(), ValidationError> {
     match value.start_date.as_ref() {
         | Some(start_date) if !start_date.trim().is_empty() => Ok(()),
         | _ => Err(ValidationError::new("date").with_message("Provide valid start date".into())),
     }
 }
-fn validate_contributor_identifier(value: &Contributor) -> Result<(), ValidationError> {
+fn validate_contributor_identifier(value: &Contributor, _context: &()) -> Result<(), ValidationReport> {
     match (value.id.as_deref(), value.schema_uri.as_deref().map(|uri| uri.trim_end_matches('/'))) {
         | (Some(identifier), Some("https://orcid.org")) => identifier
             .is_orcid()
             .then_some(())
-            .ok_or_else(|| ValidationError::new("ORCiD").with_message("Provide valid ORCiD value".into())),
+            .ok_or_else(|| ValidationError::new("ORCiD").with_message("Provide valid ORCiD value".into()))
+            .map_err(|error| error.into_report("")),
         | (Some(identifier), Some("https://isni.org")) => identifier
             .is_isni()
             .then_some(())
-            .ok_or_else(|| ValidationError::new("ISNI").with_message("Provide valid ISNI value".into())),
+            .ok_or_else(|| ValidationError::new("ISNI").with_message("Provide valid ISNI value".into()))
+            .map_err(|error| error.into_report("")),
         | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
-            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())),
+            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())
+            .into_report("")),
         | _ => Ok(()),
     }
 }
-fn validate_contributors(value: &Metadata) -> Result<(), ValidationError> {
-    match &value.contributor {
-        | Some(contributors) => {
-            let message = [
-                has_contact(contributors)
-                    .err()
-                    .map(|_| "Mark at least one contributor as contact".to_string()),
-                has_leader(contributors)
-                    .err()
-                    .map(|_| "Mark at least one contributor as leader".to_string()),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<String>>()
-            .join("; ");
-            match message.is_empty() {
-                | true => Ok(()),
-                | false => Err(ValidationError::new("contributors").with_message(message.into())),
-            }
-        }
-        | None => Ok(()),
-    }
+fn validate_contributors(value: &Metadata, _context: &()) -> Result<(), ValidationReport> {
+    value.contributor.as_ref().map_or(Ok(()), |contributors| {
+        let contact = match contributors.iter().any(Contributor::is_contact) {
+            | true => ValidationReport::default(),
+            | false => ValidationError::new("contact")
+                .with_message("Mark at least one contributor as contact".into())
+                .into_report("contributor.contact"),
+        };
+        let leader = match contributors.iter().any(Contributor::is_leader) {
+            | true => ValidationReport::default(),
+            | false => ValidationError::new("leader")
+                .with_message("Mark at least one contributor as leader".into())
+                .into_report("contributor.leader"),
+        };
+        contact.merge("", leader).finish()
+    })
 }
-fn validate_metadata(value: &Metadata) -> Result<(), ValidationError> {
-    let message = [
-        validate_contributors(value)
-            .err()
-            .map(|why| why.message.unwrap_or_else(|| "Invalid contributors".into()).to_string()),
-        validate_organization(value)
-            .err()
-            .map(|why| why.message.unwrap_or_else(|| "Invalid organization".into()).to_string()),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<String>>()
-    .join("; ");
-    match message.is_empty() {
-        | true => Ok(()),
-        | false => Err(ValidationError::new("metadata").with_message(message.into())),
-    }
+fn validate_metadata(value: &Metadata, context: &()) -> Result<(), ValidationReport> {
+    ValidationReport::default()
+        .merge("", report_of(validate_contributors(value, context)))
+        .merge("", report_of(validate_organization(value, context)))
+        .finish()
 }
-fn validate_organization(value: &Metadata) -> Result<(), ValidationError> {
-    match &value.organization {
-        | Some(organizations) => {
-            let lead_count = organizations
-                .iter()
-                .filter(|organization| organization.is_lead_research_organization())
-                .count();
-            let message = if organizations.is_empty() {
-                None
-            } else if lead_count == 0 {
-                Some("Mark one organization as lead research organization".to_string())
-            } else if lead_count > 1 {
-                Some("Only one organization can be lead research organization".to_string())
-            } else {
-                None
-            };
-            match message {
-                | Some(value) => Err(ValidationError::new("organization").with_message(value.into())),
-                | None => Ok(()),
-            }
+fn validate_organization(value: &Metadata, _context: &()) -> Result<(), ValidationReport> {
+    value.organization.as_ref().map_or(Ok(()), |organizations| {
+        let lead_count = organizations
+            .iter()
+            .filter(|organization| organization.is_lead_research_organization())
+            .count();
+        match (organizations.is_empty(), lead_count) {
+            | (true, _) | (_, 1) => Ok(()),
+            | (_, 0) => Err(ValidationError::new("organization")
+                .with_message("Mark one organization as lead research organization".into())
+                .into_report("organization")),
+            | _ => Err(ValidationError::new("organization")
+                .with_message("Only one organization can be lead research organization".into())
+                .into_report("organization")),
         }
-        | None => Ok(()),
-    }
+    })
 }
 #[cfg(test)]
 mod tests;

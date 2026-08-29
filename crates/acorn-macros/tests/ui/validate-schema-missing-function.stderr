@@ -1,0 +1,5 @@
+error: validation rule requires function = "path"
+ --> tests/ui/validate-schema-missing-function.rs:4:12
+  |
+4 | #[validate(schema(skip_on_field_errors = false))]
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

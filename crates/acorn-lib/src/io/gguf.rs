@@ -6,7 +6,7 @@ use crate::prelude::{fs, remove_file, BufReader, File, HashSet, Path, PathBuf, R
 use crate::schema::agent::OciModelLayerRole;
 use crate::schema::agent::Quantization;
 use crate::util::constants::app::{MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD};
-use crate::validation::ValidationError;
+use crate::validation::{ValidationError, ValidationReport};
 use color_eyre::eyre::eyre;
 
 pub(super) const MIME_TYPE: &str = "application/gguf";
@@ -313,13 +313,13 @@ impl OciFiles {
     }
 }
 impl OciLayer {
-    pub(super) fn is_valid(layer: &Self) -> Result<(), ValidationError> {
+    pub(super) fn is_valid(layer: &Self, _context: &()) -> Result<(), ValidationReport> {
         let path = layer.path.as_deref().map(Path::new);
         let has_valid_path = path.is_none_or(|path| path.is_safe() && path.is_gguf());
         let is_raw = path.is_some() && layer.extraction == OciExtraction::None && !layer.inventory_deferred;
         let is_tar = path.is_none() && layer.extraction == OciExtraction::Tar && layer.inventory_deferred;
         let is_tar_gzip = path.is_none() && layer.extraction == OciExtraction::TarGzip && layer.inventory_deferred;
-        match (has_valid_path, layer.media_type.as_str(), layer.role) {
+        let result = match (has_valid_path, layer.media_type.as_str(), layer.role) {
             | (false, _, _) => Err(ValidationError::new("path").with_message("ModelPack filepath must be a safe GGUF path".into())),
             | (true, MODELPACK_WEIGHT_RAW, OciModelLayerRole::ModelWeight) if is_raw => Ok(()),
             | (true, MODELPACK_WEIGHT_TAR, OciModelLayerRole::ModelWeight) if is_tar => Ok(()),
@@ -329,7 +329,8 @@ impl OciLayer {
             }
             | (true, _, OciModelLayerRole::Model) => Ok(()),
             | _ => Err(ValidationError::new("layer").with_message("Unsupported ModelPack weight layer shape".into())),
-        }
+        };
+        result.map_err(|error| error.into_report(""))
     }
 }
 pub(super) fn select_staged_files(staging: &Path, resolution: &OciResolution, origins: &[(String, String)]) -> ApiResult<Vec<OciFile>> {

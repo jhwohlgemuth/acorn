@@ -75,6 +75,47 @@ fn test_raid_contributor_accepts_orcid_and_isni() {
         .validate()
         .is_err());
 }
+fn validation_metadata(contributor: Option<Vec<Contributor>>, organization: Option<Vec<Organization>>) -> Metadata {
+    Metadata {
+        access: None,
+        contributor,
+        date: None,
+        identifier: None,
+        title: None,
+        alternate_identifier: None,
+        alternate_url: None,
+        description: None,
+        metadata: None,
+        organization,
+        related_object: None,
+        related_raid: None,
+        spatial_coverage: None,
+        subject: None,
+        traditional_knowledge_label: None,
+    }
+}
+#[test]
+fn metadata_accepts_non_contact_contributors_when_one_contact_exists() {
+    let contributor = |contact, leader| Contributor {
+        id: None,
+        schema_uri: None,
+        status: None,
+        status_message: None,
+        position: Vec::new(),
+        leader,
+        contact,
+        email: None,
+        role: None,
+        uuid: None,
+    };
+    let metadata = validation_metadata(Some(vec![contributor(true, true), contributor(false, false)]), None);
+    assert!(validate_contributors(&metadata, &()).is_ok());
+}
+#[test]
+fn metadata_accepts_an_empty_organization_list() {
+    let metadata = validation_metadata(None, Some(Vec::new()));
+    assert!(validate_organization(&metadata, &()).is_ok());
+}
 #[test]
 fn test_raid_metadatatools_cases() {
     [

@@ -1,0 +1,5 @@
+error: unexpected end of input, expected an expression
+ --> tests/ui/validate-schema-invalid-guard.rs:4:44
+  |
+4 | #[validate(schema(function = "check", if = "self.enabled &&"))]
+  |                                            ^^^^^^^^^^^^^^^^^

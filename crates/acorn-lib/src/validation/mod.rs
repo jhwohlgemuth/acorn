@@ -32,9 +32,78 @@
 //!
 //! `code = "..."` and `message = "..."` override a rule's diagnostic. Schema
 //! and async rules also accept `skip_on_field_errors = false`; the default is
-//! to skip them after an earlier field failure.
-//! When every `or` alternative fails, validation emits one `or` issue with the
-//! offending value rather than aggregating the alternatives' errors.
+//! to skip them after an earlier field failure. When every `or` alternative
+//! fails, validation emits one `or` issue with the offending value rather than
+//! aggregating the alternatives' errors.
+//!
+//! # Whole-value schema rules
+//!
+//! A `schema(...)` or whole-value `async(...)` validator returns
+//! [`Result<(), ValidationReport>`](ValidationReport) so it can report several
+//! ordered issues, each at its own sub-path. The generated call always forwards
+//! a context as a second argument: `#function(self, &__context)`. Supply a typed
+//! context with `context = "expr"` (default `&()`), remap every returned issue's
+//! code and message with `code = "..."` / `message = "..."`, and conditionally
+//! skip the whole check with `if = "bool_expression"`. Build reports
+//! immutably with [`ValidationError::into_report`], [`ValidationReport::merge`],
+//! and [`report_of`]:
+//!
+//! ```
+//! # mod validation { pub use acorn::validation::*; }
+//! # mod prelude { pub use acorn::prelude::*; }
+//! # mod schema { pub use acorn::schema::*; }
+//! use acorn::validation::{report_of, Validate, ValidationError, ValidationReport};
+//! use serde::Serialize;
+//!
+//! #[derive(Clone, Copy, Serialize)]
+//! struct Context;
+//!
+//! #[derive(Serialize, Validate)]
+//! #[validate(
+//!     schema(
+//!         function = "check_identity",
+//!         context = "self.ctx",
+//!         if = "self.enabled",
+//!         code = "identity",
+//!         skip_on_field_errors = false,
+//!     )
+//! )]
+//! struct Member {
+//!     enabled: bool,
+//!     ctx: Context,
+//!     #[validate(length(min = 1))]
+//!     id: String,
+//!     name: String,
+//! }
+//!
+//! fn validate_id(value: &Member, _ctx: &Context) -> Result<(), ValidationReport> {
+//!     (!value.id.is_empty())
+//!         .then_some(())
+//!         .ok_or_else(|| ValidationError::new("id"))
+//!         .map_err(|error| error.into_report("id"))
+//! }
+//!
+//! fn validate_name(value: &Member) -> Result<(), ValidationReport> {
+//!     (!value.name.is_empty())
+//!         .then_some(())
+//!         .ok_or_else(|| ValidationError::new("name"))
+//!         .map_err(|error| error.into_report("name"))
+//! }
+//!
+//! fn check_identity(value: &Member, ctx: &Context) -> Result<(), ValidationReport> {
+//!     ValidationReport::default()
+//!         .merge("", report_of(validate_id(value, ctx)))
+//!         .merge("", report_of(validate_name(value)))
+//!         .finish()
+//! }
+//!
+//! fn main() {
+//!     let active = Member { enabled: true, ctx: Context, id: String::new(), name: "A".into() };
+//!     assert!(active.validate().is_err());
+//!     let skipped = Member { enabled: false, ctx: Context, id: "id-1".into(), name: "A".into() };
+//!     assert!(skipped.validate().is_ok());
+//! }
+//! ```
 //!
 //! # Examples
 //!
@@ -85,7 +154,7 @@
 //! # mod validation { pub use acorn::validation::*; }
 //! # mod prelude { pub use acorn::prelude::*; }
 //! # mod schema { pub use acorn::schema::*; }
-//! use acorn::validation::{Validate, ValidationError};
+//! use acorn::validation::{Validate, ValidationError, ValidationReport};
 //! use serde::Serialize;
 //!
 //! #[derive(Serialize, Validate)]
@@ -94,8 +163,11 @@
 //!     score: u8,
 //! }
 //!
-//! fn has_children(value: &Parent) -> Result<(), ValidationError> {
-//!     (!value.children.is_empty()).then_some(()).ok_or_else(|| ValidationError::new("children"))
+//! fn has_children(value: &Parent, _context: &()) -> Result<(), ValidationReport> {
+//!     (!value.children.is_empty())
+//!         .then_some(())
+//!         .ok_or_else(|| ValidationError::new("children"))
+//!         .map_err(|error| error.into_report(""))
 //! }
 //!
 //! #[derive(Serialize, Validate)]
@@ -186,6 +258,10 @@ impl ValidationError {
             self.params.insert(name.into_owned(), value);
         }
     }
+    /// Convert a single scalar failure into a one-issue report at `path`.
+    pub fn into_report(self, path: impl Into<String>) -> ValidationReport {
+        ValidationReport::from_error(path, self)
+    }
 }
 impl ValidationIssue {
     /// Create an issue at a structured path.
@@ -230,6 +306,11 @@ impl ValidationReport {
             },
             error: issue.error,
         }));
+    }
+    /// Consume this report and append `other`, prefixing every one of its paths.
+    pub fn merge(mut self, prefix: &str, other: Self) -> Self {
+        self.append_prefixed(prefix, other);
+        self
     }
     /// Convert the report into its ordered issues.
     pub fn into_issues(self) -> Vec<ValidationIssue> {
@@ -388,6 +469,10 @@ pub fn join_path(prefix: &str, path: &str) -> String {
         | (_, _, true) => format!("{prefix}{path}"),
         | _ => format!("{prefix}.{path}"),
     }
+}
+/// Lift a whole-value validation result into an immutable report for chaining.
+pub fn report_of(result: Result<(), ValidationReport>) -> ValidationReport {
+    result.err().unwrap_or_default()
 }
 /// Built-in scalar validation rules used by the derive macro.
 pub mod rules {

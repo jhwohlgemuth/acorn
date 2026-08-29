@@ -1,4 +1,4 @@
-use super::{Validate, ValidationError, ValidationReport};
+use super::{report_of, Validate, ValidationError, ValidationReport};
 use crate::prelude::alloc::{Box, String, ToString, Vec};
 use crate::schema::OneOrMany;
 use crate::util::SemanticVersion;
@@ -18,14 +18,14 @@ async fn not_bad_async(value: &str) -> Result<(), ValidationError> {
         | _ => Ok(()),
     }
 }
-fn schema_sync(_: &MixedAsyncModel) -> Result<(), ValidationError> {
-    Err(ValidationError::new("schema_sync"))
+fn schema_sync(_: &MixedAsyncModel, _: &()) -> Result<(), ValidationReport> {
+    Err(ValidationError::new("schema_sync").into_report(""))
 }
-async fn schema_async(_: &MixedAsyncModel) -> Result<(), ValidationError> {
-    Err(ValidationError::new("schema_async"))
+async fn schema_async(_: &MixedAsyncModel, _: &()) -> Result<(), ValidationReport> {
+    Err(ValidationError::new("schema_async").into_report(""))
 }
-async fn skipped_schema_async(_: &SkippedAsyncSchema) -> Result<(), ValidationError> {
-    Err(ValidationError::new("should_be_skipped"))
+async fn skipped_schema_async(_: &SkippedAsyncSchema, _: &()) -> Result<(), ValidationReport> {
+    Err(ValidationError::new("should_be_skipped").into_report(""))
 }
 #[derive(Serialize, Validate)]
 #[validate(
@@ -47,6 +47,29 @@ struct MixedAsyncModel {
 struct SkippedAsyncSchema {
     #[validate(length(min = 4))]
     value: String,
+}
+#[derive(Serialize, Validate)]
+#[validate(schema(
+    function = "check_qualified",
+    context = "self.minimum",
+    if = "self.enabled",
+    code = "qualified",
+    skip_on_field_errors = false,
+))]
+struct Qualified {
+    enabled: bool,
+    minimum: u32,
+    #[validate(range(min = 1))]
+    score: u8,
+}
+fn check_qualified(value: &Qualified, minimum: &u32) -> Result<(), ValidationReport> {
+    if (value.score as u32) < *minimum {
+        Err(ValidationError::new("score")
+            .with_message("Below configured minimum".into())
+            .into_report("score"))
+    } else {
+        Ok(())
+    }
 }
 #[derive(Clone, Serialize, Validate)]
 struct AsyncChild {
@@ -265,6 +288,42 @@ async fn async_schema_validation_skips_after_field_errors_by_default() {
         .expect_err("field validation should fail");
     let codes = report.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>();
     assert_eq!(codes, ["length"]);
+}
+#[test]
+fn report_primitives_compose_immutably() {
+    let report = ValidationReport::from_error("a", ValidationError::new("code_a"))
+        .merge("prefix", report_of(Err(ValidationError::new("code_b").into_report("b"))));
+    let mut issues = report.into_issues().into_iter();
+    let first = issues.next().expect("first issue present");
+    assert_eq!(first.path, "a");
+    assert_eq!(first.error.code, "code_a");
+    let second = issues.next().expect("second issue present");
+    assert_eq!(second.path, "prefix.b");
+    assert_eq!(second.error.code, "code_b");
+    assert!(issues.next().is_none(), "exactly two issues expected");
+    assert!(report_of(Ok(())).is_empty());
+    assert_eq!(ValidationError::new("solo").into_report("field").len(), 1);
+}
+#[test]
+fn schema_rule_forwards_context_override_and_guard() {
+    let disabled = Qualified {
+        enabled: false,
+        minimum: 5,
+        score: 3,
+    };
+    assert!(disabled.validate().is_ok(), "guard must skip the whole-value check");
+    let active = Qualified {
+        enabled: true,
+        minimum: 5,
+        score: 3,
+    };
+    let report = active.validate().expect_err("configured minimum not met");
+    let issues = report.into_issues();
+    assert_eq!(issues.len(), 1, "only the schema issue should surface");
+    let issue = issues.first().expect("exactly one issue");
+    assert_eq!(issue.path, "score");
+    assert_eq!(issue.error.code, "qualified", "code override must remap every issue");
+    assert_eq!(issue.error.message.as_deref(), Some("Below configured minimum"));
 }
 #[tokio::test]
 async fn async_each_supports_all_collection_shapes_and_every_index() {

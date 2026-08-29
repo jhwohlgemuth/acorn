@@ -397,6 +397,10 @@ struct SchemaRule {
     function: syn::Path,
     skip_on_field_errors: bool,
     asynchronous: bool,
+    context: Option<Expr>,
+    code: Option<LitStr>,
+    message: Option<LitStr>,
+    guard: Option<Expr>,
 }
 impl ValidationRule {
     fn is_async(&self) -> bool {
@@ -480,41 +484,11 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
             Ok(quote! { #(#statements)* })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let schema_validations = schema_rules.iter().filter(|rule| !rule.asynchronous).map(|rule| {
-        let function = &rule.function;
-        let condition = if rule.skip_on_field_errors {
-            quote! { __report.is_empty() }
-        } else {
-            quote! { true }
-        };
-        quote! {
-            if #condition {
-                if let ::core::result::Result::Err(__error) = #function(self) {
-                    __report.add("", __error);
-                }
-            }
-        }
-    });
-    let async_schema_validations = schema_rules.iter().map(|rule| {
-        let function = &rule.function;
-        let condition = if rule.skip_on_field_errors {
-            quote! { __report.is_empty() }
-        } else {
-            quote! { true }
-        };
-        let call = if rule.asynchronous {
-            quote! { #function(self).await }
-        } else {
-            quote! { #function(self) }
-        };
-        quote! {
-            if #condition {
-                if let ::core::result::Result::Err(__error) = #call {
-                    __report.add("", __error);
-                }
-            }
-        }
-    });
+    let schema_validations = schema_rules
+        .iter()
+        .filter(|rule| !rule.asynchronous)
+        .map(|rule| expand_schema_rule(rule, false));
+    let async_schema_validations = schema_rules.iter().map(|rule| expand_schema_rule(rule, rule.asynchronous));
     let needs_async = schema_rules.iter().any(|rule| rule.asynchronous)
         || field_rules.iter().any(|(_, ty, _, rules)| {
             rules
@@ -560,21 +534,76 @@ fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
             )))]
         })
 }
+fn expand_schema_rule(rule: &SchemaRule, asynchronous: bool) -> proc_macro2::TokenStream {
+    let function = &rule.function;
+    let condition = if rule.skip_on_field_errors {
+        quote! { __report.is_empty() }
+    } else {
+        quote! { true }
+    };
+    let context = rule.context.as_ref().map(|expr| quote! { #expr }).unwrap_or_else(|| quote! { () });
+    let call = if asynchronous {
+        quote! { #function(self, &__context).await }
+    } else {
+        quote! { #function(self, &__context) }
+    };
+    let code = rule.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
+    let message = rule
+        .message
+        .as_ref()
+        .map(|value| quote! { __error = __error.with_message((#value).into()); });
+    let remap = if code.is_some() || message.is_some() {
+        quote! {
+            let mut __error = __issue.error;
+            #code
+            #message
+            __report.add(__issue.path, __error);
+        }
+    } else {
+        quote! { __report.add(__issue.path, __issue.error); }
+    };
+    let guard = rule.guard.as_ref().map(|expr| quote! { if #expr }).unwrap_or_else(|| quote! {});
+    quote! {
+        if #condition {
+            let __context = #context;
+            #guard {
+                if let ::core::result::Result::Err(__schema_report) = #call {
+                    for __issue in ::core::iter::IntoIterator::into_iter(__schema_report.into_issues()) {
+                        #remap
+                    }
+                }
+            }
+        }
+    }
+}
 fn parse_schema_rule(meta: &Meta) -> syn::Result<Option<SchemaRule>> {
     match meta {
         | Meta::List(list) if list.path.is_ident("schema") || is_path_ident(&list.path, "async") => {
             let nested = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
-            ensure_keys(&nested, &["function", "skip_on_field_errors"])?;
+            ensure_keys(&nested, &["function", "skip_on_field_errors", "context", "code", "message", "if"])?;
             let function = nested
                 .iter()
                 .find_map(|value| meta_string(value, "function"))
                 .ok_or_else(|| syn::Error::new_spanned(list, "validation rule requires function = \"path\""))?
                 .parse()?;
             let skip_on_field_errors = nested.iter().find_map(|value| meta_bool(value, "skip_on_field_errors")).unwrap_or(true);
+            let context = nested.iter().find_map(|value| meta_expr(value, "context"));
+            let code = nested.iter().find_map(|value| meta_string(value, "code"));
+            let message = nested.iter().find_map(|value| meta_string(value, "message"));
+            let guard = nested
+                .iter()
+                .find(|value| is_path_ident(value.path(), "if"))
+                .map(meta_guard)
+                .transpose()?
+                .flatten();
             Ok(Some(SchemaRule {
                 function,
                 skip_on_field_errors,
                 asynchronous: is_path_ident(&list.path, "async"),
+                context,
+                code,
+                message,
+                guard,
             }))
         }
         | _ => Err(syn::Error::new_spanned(meta, "only schema(...) and async(...) are supported on a struct")),
@@ -734,8 +763,9 @@ fn normalize_async_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::Toke
     tokens
         .into_iter()
         .map(|token| match token {
-            | proc_macro2::TokenTree::Ident(ident) if ident == "async" => {
-                proc_macro2::TokenTree::Ident(proc_macro2::Ident::new_raw("async", ident.span()))
+            | proc_macro2::TokenTree::Ident(ident) if ident == "async" || ident == "if" => {
+                let name = ident.to_string();
+                proc_macro2::TokenTree::Ident(proc_macro2::Ident::new_raw(&name, ident.span()))
             }
             | proc_macro2::TokenTree::Group(group) => {
                 let mut normalized = proc_macro2::Group::new(group.delimiter(), normalize_async_tokens(group.stream()));
@@ -780,10 +810,22 @@ fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str])
     nested.into_iter().try_for_each(|meta| {
         allowed
             .iter()
-            .any(|name| meta.path().is_ident(name))
+            .any(|name| meta.path().is_ident(name) || is_path_ident(meta.path(), name))
             .then_some(())
             .ok_or_else(|| syn::Error::new_spanned(meta, "unknown validation argument"))
     })
+}
+fn meta_guard(meta: &Meta) -> syn::Result<Option<Expr>> {
+    if !is_path_ident(meta.path(), "if") {
+        return Ok(None);
+    }
+    match meta {
+        | Meta::NameValue(value) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().map(Some),
+            | expression => Ok(Some(expression.clone())),
+        },
+        | _ => Err(syn::Error::new_spanned(meta, "if requires a boolean expression")),
+    }
 }
 fn meta_expr(meta: &Meta, name: &str) -> Option<Expr> {
     match meta {
