@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.75` on 2026-08-28.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.75` on 2026-08-29.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -87,7 +87,7 @@ The highest-value immediate slice is Phase 1.2. Its first commit moves the data-
 
 | Shared boundary | Plans that overlap | Coordination rule |
 |---|---|---|
-| `crates/acorn-lib/src/schema/` | Schema I/O, metadata alignment, OCP, SWHID, ZON, CKAN/DCAT | Land I/O separation first; feature plans target `acorn-schema` after extraction and must not reintroduce host access. |
+| `crates/acorn-lib/src/schema/` | Schema I/O, metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Land I/O separation first; feature plans target `acorn-schema` after extraction and must not reintroduce host access. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
 | `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
@@ -100,6 +100,7 @@ The highest-value immediate slice is Phase 1.2. Its first commit moves the data-
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
 - The current pre-extraction batch can combine the Phase 1.2 `License`/schema slice with typed scoring, remote-create leaf work, Python binding deduplication, OOXML leaf transformations, and a Hugging Face request-type leaf, subject to the locks in the [parallel execution guide](parallel-execution.md).
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
+- The [research activity changelog](features/research-activity-changelog.md) follows the RAD standards field-matrix and loss-reporting contract; its portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.
 
 ## Status interpretation
 
