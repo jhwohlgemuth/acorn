@@ -60,7 +60,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
 }
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
 where
-    T: Analysis,
+    T: Analysis + Send,
 {
     let path = fixture_path(path);
     let checks = T::check_schema(core::slice::from_ref(&path), None).await;

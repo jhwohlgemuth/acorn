@@ -12,7 +12,6 @@
 
 ## Planned
 
-- [Asynchronous validation rules](async-validation-rules.md) - Add ordered async custom rules to the portable `Validate` contract and derive.
 - [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.
 - [Shared interpolation primitives](interpolation-primitives.md) - Unify string and list placeholder behavior.
 - [Python binding deduplication](python-binding-deduplication.md) - Reduce repetitive PID wrappers.

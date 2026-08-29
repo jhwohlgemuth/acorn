@@ -2,7 +2,6 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
-//!
 use crate::analyzer::error::DocumentTarget;
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
 use crate::io::document::SourceDocument;
@@ -57,17 +56,27 @@ pub mod readability;
 mod service;
 pub mod vale;
 
-pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Checks, IntoChecks, OutputFormat, Render, Standard};
-
-#[cfg(feature = "analysis")]
-pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow};
-#[cfg(feature = "analysis")]
-pub use service::{analyze_paths, classify_paths, AnalysisBatch, AnalysisReport, CategoryChecks, StandardPaths};
-
 #[cfg(feature = "analysis")]
 use check::{check_prose_for, check_readability_for};
+#[cfg(feature = "analysis")]
+pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow, SchemaCheck};
+pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Checks, IntoChecks, OutputFormat, Render, Standard};
 use error::{ErrorKind, ValidatorIssues};
+#[cfg(feature = "analysis")]
+pub use service::{analyze_paths, classify_paths, AnalysisBatch, AnalysisReport, CategoryChecks, StandardPaths};
 use vale::{Vale, ValeConfig};
+
+macro_rules! impl_schema_check {
+    ($($schema:ty),+ $(,)?) => {
+        $(
+            impl SchemaCheck for $schema {
+                fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+                    Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
+                }
+            }
+        )+
+    };
+}
 
 /// Trait for static analyzers (e.g. Vale)
 #[async_trait]
@@ -117,6 +126,17 @@ pub trait StaticAnalyzerConfig {
     /// Resolve package source: convert bare package name to download URL or pass through existing URL/path
     fn resolve_package(value: impl AsRef<str>) -> String;
 }
+impl_schema_check!(
+    Cff,
+    Document,
+    Text,
+    datacite::Record,
+    dcat::Dataset,
+    invenio::Record,
+    huwise::Dataset,
+    ResearchActivity,
+    raid::Metadata
+);
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Cff {
@@ -137,26 +157,6 @@ impl Analysis for Cff {
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
-    }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
     }
     #[cfg(feature = "std")]
     async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -284,26 +284,6 @@ impl Analysis for datacite::Record {
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
-    }
     #[cfg(feature = "std")]
     async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
@@ -374,26 +354,6 @@ impl Analysis for dcat::Dataset {
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
-    }
     #[cfg(feature = "std")]
     async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
@@ -463,26 +423,6 @@ impl Analysis for invenio::Record {
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
-    }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
     }
     #[cfg(feature = "std")]
     async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -569,26 +509,6 @@ impl Analysis for huwise::Dataset {
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
-    }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -678,26 +598,6 @@ impl Analysis for ResearchActivity {
     async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    let data = Arc::new(data);
-                    collect_validation_checks(data.as_ref())
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
-            })
-            .collect()
-    }
     #[cfg(feature = "std")]
     async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
@@ -780,25 +680,6 @@ impl Analysis for raid::Metadata {
             .map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect()
-    }
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        paths
-            .par_iter()
-            .flat_map(|path| match Self::read(path.to_path_buf()) {
-                | Ok(data) => {
-                    let uri = Some(path.file_name_with_parent());
-                    collect_validation_checks(&data)
-                        .into_iter()
-                        .map(|issue| issue.with_uri(uri.clone()))
-                        .collect::<Vec<_>>()
-                }
-                | Err(why) => why
-                    .to_string()
-                    .lines()
-                    .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(Some(path.file_name_with_parent())))
-                    .collect(),
             })
             .collect()
     }
@@ -1295,12 +1176,32 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
-pub(crate) fn collect_validation_checks<T>(value: &T) -> Vec<Check>
+async fn check_schema_path<T, E>(path: PathBuf, document: Result<T, E>) -> Vec<Check>
+where
+    T: Validate + Send,
+    E: ToString + Send,
+{
+    let uri = Some(path.file_name_with_parent());
+    match document {
+        | Ok(data) => collect_validation_checks(&data)
+            .await
+            .into_iter()
+            .map(|issue| issue.with_uri(uri.clone()))
+            .collect(),
+        | Err(why) => why
+            .to_string()
+            .lines()
+            .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(uri.clone()))
+            .collect(),
+    }
+}
+pub(crate) async fn collect_validation_checks<T>(value: &T) -> Vec<Check>
 where
     T: Validate,
 {
     value
-        .validate()
+        .validate_async()
+        .await
         .err()
         .into_iter()
         .flat_map(|report| {

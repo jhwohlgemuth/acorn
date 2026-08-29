@@ -1,0 +1,5 @@
+error: async requires function = "path"
+ --> tests/ui/validate-async-missing-function.rs:5:16
+  |
+5 |     #[validate(async(code = "missing"))]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^

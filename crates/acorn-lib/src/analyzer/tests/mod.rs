@@ -122,15 +122,15 @@ fn test_standard_detection_uses_dcat_jsonld_type() {
     let object = value.as_object().unwrap();
     assert_eq!(Standard::from(object), Standard::Dcat);
 }
-#[test]
-fn test_cff_validation_issues_invalid_doi() {
+#[tokio::test]
+async fn test_cff_validation_issues_invalid_doi() {
     let cff = Cff {
         title: "Invalid DOI".to_string(),
         message: "Message".to_string(),
         doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let issues = collect_validation_checks(&cff);
+    let issues = collect_validation_checks(&cff).await;
     assert!(!issues.is_empty());
     assert_eq!(issues[0].category, CheckCategory::Schema);
 }
@@ -607,8 +607,8 @@ fn test_terse_output_includes_resolved_line_and_column() {
         .with_document(Arc::new(DocumentIndex::new(document)));
     assert!(check.terse().contains("path=index.json:2:11"));
 }
-#[test]
-fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
+#[tokio::test]
+async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
     #[derive(Validate)]
     struct ChildModel {
         #[validate(email)]
@@ -629,7 +629,7 @@ fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
             },
         ],
     };
-    let checks = collect_validation_checks(&value);
+    let checks = collect_validation_checks(&value).await;
     assert_eq!(checks.len(), 1);
     let rendered = format!("{}", checks[0]);
     assert!(
@@ -638,15 +638,35 @@ fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
     );
     assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
 }
-#[test]
-fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {
+#[tokio::test]
+async fn test_collect_validation_checks_awaits_async_rules() {
+    async fn reject(value: &str) -> Result<(), crate::validation::ValidationError> {
+        match value {
+            | "invalid" => Err(crate::validation::ValidationError::new("async_rejected")),
+            | _ => Ok(()),
+        }
+    }
+    #[derive(Validate)]
+    struct AsyncModel {
+        #[validate(async(function = "reject"))]
+        value: String,
+    }
+    let checks = collect_validation_checks(&AsyncModel {
+        value: "invalid".to_string(),
+    })
+    .await;
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].context.as_deref(), Some("value"));
+}
+#[tokio::test]
+async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {
     let cff = Cff {
         title: "Invalid License".to_string(),
         message: "Message".to_string(),
         license: Some(License::Single("not-a-license".to_string())),
         ..Cff::default()
     };
-    let checks = collect_validation_checks(&cff);
+    let checks = collect_validation_checks(&cff).await;
     let schema_check = checks
         .iter()
         .find(|check| check.category == CheckCategory::Schema)

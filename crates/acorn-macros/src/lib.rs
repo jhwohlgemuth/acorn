@@ -3,11 +3,14 @@ use proc_macro::TokenStream;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, punctuated::Punctuated, Data, DeriveInput, Expr, ExprLit, Fields, GenericArgument, Lit, LitStr, Meta, PathArguments, Token,
-    Type,
+    parse::Parser, parse_macro_input, punctuated::Punctuated, Data, DeriveInput, Expr, ExprLit, Fields, GenericArgument, Lit, LitStr, Meta,
+    PathArguments, Token, Type,
 };
 
 /// Derive deterministic, allocation-compatible ACORN validation.
+///
+/// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
+/// and `#[validate(each(async(function = "path")))]` on supported collections.
 #[proc_macro_derive(Validate, attributes(validate))]
 pub fn derive_validate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -360,6 +363,7 @@ enum ValidationRule {
     Url(RuleOptions),
     Email(RuleOptions),
     Custom(syn::Path, RuleOptions),
+    Async(syn::Path, RuleOptions),
     Nested,
     Pid(syn::Ident, RuleOptions),
     Scalar(syn::Ident, RuleOptions),
@@ -388,6 +392,16 @@ struct RangeOptions {
 struct SchemaRule {
     function: syn::Path,
     skip_on_field_errors: bool,
+    asynchronous: bool,
+}
+impl ValidationRule {
+    fn is_async(&self) -> bool {
+        match self {
+            | Self::Async(_, _) => true,
+            | Self::Each(inner) => inner.is_async(),
+            | _ => false,
+        }
+    }
 }
 fn acorn_path() -> proc_macro2::TokenStream {
     match crate_name("acorn-lib") {
@@ -422,7 +436,7 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
-    let field_validations = fields
+    let field_rules = fields
         .iter()
         .map(|field| {
             let ident = field
@@ -437,14 +451,31 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
                 .flat_map(parse_validate_meta)
                 .map(|meta| parse_rule(&meta, false))
                 .collect::<syn::Result<Vec<_>>>()?;
+            Ok((ident, &field.ty, path, rules))
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
+    let field_validations = field_rules
+        .iter()
+        .map(|(ident, ty, path, rules)| {
             let statements = rules
                 .iter()
-                .map(|rule| expand_field_rule(&acorn, rule, ident, &field.ty, &path))
+                .filter(|rule| !rule.is_async())
+                .map(|rule| expand_field_rule(&acorn, rule, ident, ty, path, false))
                 .collect::<syn::Result<Vec<_>>>()?;
             Ok(quote! { #(#statements)* })
         })
         .collect::<syn::Result<Vec<_>>>()?;
-    let schema_validations = schema_rules.iter().map(|rule| {
+    let async_field_validations = field_rules
+        .iter()
+        .map(|(ident, ty, path, rules)| {
+            let statements = rules
+                .iter()
+                .map(|rule| expand_field_rule(&acorn, rule, ident, ty, path, true))
+                .collect::<syn::Result<Vec<_>>>()?;
+            Ok(quote! { #(#statements)* })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
+    let schema_validations = schema_rules.iter().filter(|rule| !rule.asynchronous).map(|rule| {
         let function = &rule.function;
         let condition = if rule.skip_on_field_errors {
             quote! { __report.is_empty() }
@@ -459,6 +490,42 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
             }
         }
     });
+    let async_schema_validations = schema_rules.iter().map(|rule| {
+        let function = &rule.function;
+        let condition = if rule.skip_on_field_errors {
+            quote! { __report.is_empty() }
+        } else {
+            quote! { true }
+        };
+        let call = if rule.asynchronous {
+            quote! { #function(self).await }
+        } else {
+            quote! { #function(self) }
+        };
+        quote! {
+            if #condition {
+                if let ::core::result::Result::Err(__error) = #call {
+                    __report.add("", __error);
+                }
+            }
+        }
+    });
+    let needs_async = schema_rules.iter().any(|rule| rule.asynchronous)
+        || field_rules.iter().any(|(_, ty, _, rules)| {
+            rules
+                .iter()
+                .any(|rule| rule.is_async() || matches!(rule, ValidationRule::Nested) && !is_recursive_box(ty, name))
+        });
+    let async_method = needs_async.then(|| {
+        quote! {
+            async fn validate_async(&self) -> ::core::result::Result<(), #acorn::validation::ValidationReport> {
+                let mut __report = #acorn::validation::ValidationReport::new();
+                #(#async_field_validations)*
+                #(#async_schema_validations)*
+                __report.finish()
+            }
+        }
+    });
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
     Ok(quote! {
         impl #impl_generics #acorn::validation::Validate for #name #type_generics #where_clause {
@@ -468,12 +535,17 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
                 #(#schema_validations)*
                 __report.finish()
             }
+            #async_method
         }
     })
 }
 fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
-    attribute
-        .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+    let tokens = match &attribute.meta {
+        | Meta::List(list) => normalize_async_tokens(list.tokens.clone()),
+        | _ => proc_macro2::TokenStream::new(),
+    };
+    Punctuated::<Meta, Token![,]>::parse_terminated
+        .parse2(tokens)
         .map(Punctuated::into_iter)
         .map(Iterator::collect)
         .unwrap_or_else(|_| {
@@ -485,21 +557,22 @@ fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
 }
 fn parse_schema_rule(meta: &Meta) -> syn::Result<Option<SchemaRule>> {
     match meta {
-        | Meta::List(list) if list.path.is_ident("schema") => {
+        | Meta::List(list) if list.path.is_ident("schema") || is_path_ident(&list.path, "async") => {
             let nested = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
             ensure_keys(&nested, &["function", "skip_on_field_errors"])?;
             let function = nested
                 .iter()
                 .find_map(|value| meta_string(value, "function"))
-                .ok_or_else(|| syn::Error::new_spanned(list, "schema requires function = \"path\""))?
+                .ok_or_else(|| syn::Error::new_spanned(list, "validation rule requires function = \"path\""))?
                 .parse()?;
             let skip_on_field_errors = nested.iter().find_map(|value| meta_bool(value, "skip_on_field_errors")).unwrap_or(true);
             Ok(Some(SchemaRule {
                 function,
                 skip_on_field_errors,
+                asynchronous: is_path_ident(&list.path, "async"),
             }))
         }
-        | _ => Err(syn::Error::new_spanned(meta, "only schema(...) is supported on a struct")),
+        | _ => Err(syn::Error::new_spanned(meta, "only schema(...) and async(...) are supported on a struct")),
     }
 }
 fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
@@ -533,6 +606,15 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             .ok_or_else(|| syn::Error::new_spanned(meta, "custom requires function = \"path\""))?
             .parse()?;
         Ok(ValidationRule::Custom(function, options_from_nested(&nested)))
+    } else if is_path_ident(path, "async") {
+        let nested = nested_meta(meta)?;
+        ensure_keys(&nested, &["function", "code", "message"])?;
+        let function = nested
+            .iter()
+            .find_map(|value| meta_string(value, "function"))
+            .ok_or_else(|| syn::Error::new_spanned(meta, "async requires function = \"path\""))?
+            .parse()?;
+        Ok(ValidationRule::Async(function, options_from_nested(&nested)))
     } else if path.is_ident("nested") {
         if inside_each {
             Err(syn::Error::new_spanned(meta, "nested validation is not supported inside each"))
@@ -576,12 +658,31 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
 }
 fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
     match meta {
-        | Meta::List(list) => list
-            .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+        | Meta::List(list) => Punctuated::<Meta, Token![,]>::parse_terminated
+            .parse2(normalize_async_tokens(list.tokens.clone()))
             .map(Punctuated::into_iter)
             .map(Iterator::collect),
         | _ => Ok(Vec::new()),
     }
+}
+fn is_path_ident(path: &syn::Path, name: &str) -> bool {
+    path.get_ident().is_some_and(|ident| ident.to_string().trim_start_matches("r#") == name)
+}
+fn normalize_async_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    tokens
+        .into_iter()
+        .map(|token| match token {
+            | proc_macro2::TokenTree::Ident(ident) if ident == "async" => {
+                proc_macro2::TokenTree::Ident(proc_macro2::Ident::new_raw("async", ident.span()))
+            }
+            | proc_macro2::TokenTree::Group(group) => {
+                let mut normalized = proc_macro2::Group::new(group.delimiter(), normalize_async_tokens(group.stream()));
+                normalized.set_span(group.span());
+                proc_macro2::TokenTree::Group(normalized)
+            }
+            | token => token,
+        })
+        .collect()
 }
 fn parse_rule_options(meta: &Meta) -> syn::Result<RuleOptions> {
     let nested = nested_meta(meta)?;
@@ -672,6 +773,13 @@ fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
         | _ => None,
     }
 }
+fn is_recursive_box(ty: &Type, name: &syn::Ident) -> bool {
+    let inner = type_argument(ty, "Option").unwrap_or(ty);
+    type_argument(inner, "Box").is_some_and(|boxed| match boxed {
+        | Type::Path(path) => path.path.segments.last().is_some_and(|segment| segment.ident == *name),
+        | _ => false,
+    })
+}
 fn is_collection(ty: &Type) -> bool {
     match ty {
         | Type::Array(_) | Type::Slice(_) => true,
@@ -685,6 +793,7 @@ fn expand_field_rule(
     ident: &syn::Ident,
     ty: &Type,
     path: &str,
+    asynchronous: bool,
 ) -> syn::Result<proc_macro2::TokenStream> {
     if matches!(rule, ValidationRule::Each(_)) {
         let inner = type_argument(ty, "Option").unwrap_or(ty);
@@ -714,7 +823,7 @@ fn expand_field_rule(
         ),
         | None => (quote! { &self.#ident }, ty, None),
     };
-    let body = expand_rule_body(acorn, rule, &value, inner_ty, path)?;
+    let body = expand_rule_body(acorn, rule, &value, inner_ty, path, asynchronous)?;
     Ok(match wrapper {
         | Some(wrapper) => quote! { #wrapper { #body } },
         | None => body,
@@ -726,21 +835,46 @@ fn expand_rule_body(
     value: &proc_macro2::TokenStream,
     ty: &Type,
     path: &str,
+    asynchronous: bool,
 ) -> syn::Result<proc_macro2::TokenStream> {
     match rule {
         | ValidationRule::Required(_) => Err(syn::Error::new_spanned(ty, "required cannot be nested in this rule")),
         | ValidationRule::Nested => {
             if is_collection(ty) {
-                Ok(quote! {
-                    #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
-                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
-                            __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                if asynchronous {
+                    Ok(quote! {
+                        for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
+                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(__item).await {
+                                __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                            }
                         }
-                    });
-                })
+                    })
+                } else {
+                    Ok(quote! {
+                        #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
+                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
+                                __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                            }
+                        });
+                    })
+                }
             } else if type_argument(ty, "Box").is_some() {
+                if asynchronous {
+                    Ok(quote! {
+                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(&**(#value)).await {
+                            __report.append_prefixed(#path, __nested);
+                        }
+                    })
+                } else {
+                    Ok(quote! {
+                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(&**(#value)) {
+                            __report.append_prefixed(#path, __nested);
+                        }
+                    })
+                }
+            } else if asynchronous {
                 Ok(quote! {
-                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(&**(#value)) {
+                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(#value).await {
                         __report.append_prefixed(#path, __nested);
                     }
                 })
@@ -756,6 +890,17 @@ fn expand_rule_body(
             | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Required(_) => {
                 Err(syn::Error::new_spanned(ty, "each accepts one non-nested scalar rule"))
             }
+            | ValidationRule::Async(function, options) => {
+                let expression = override_error(quote! { #function(__item).await }, options)?;
+                Ok(quote! {
+                    for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
+                        if let ::core::result::Result::Err(mut __error) = #expression {
+                            __error.add_param("value".into(), __item);
+                            __report.add(#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __error);
+                        }
+                    }
+                })
+            }
             | _ => {
                 let expression = scalar_expression(acorn, inner, quote! { __item })?;
                 Ok(quote! {
@@ -763,6 +908,15 @@ fn expand_rule_body(
                 })
             }
         },
+        | ValidationRule::Async(function, options) => {
+            let expression = override_error(quote! { #function(#value).await }, options)?;
+            Ok(quote! {
+                if let ::core::result::Result::Err(mut __error) = #expression {
+                    __error.add_param("value".into(), #value);
+                    __report.add(#path, __error);
+                }
+            })
+        }
         | _ => {
             let expression = scalar_expression(acorn, rule, value.clone())?;
             Ok(quote! {
@@ -1015,13 +1169,18 @@ mod tests {
     fn test_expand_validate_uses_only_portable_paths() {
         let input: DeriveInput = parse_quote! {
             struct Portable {
-                #[validate(length(min = 1), each(email))]
+                #[validate(length(min = 1), each(email), async(function = "validate_value"))]
                 values: Vec<String>,
             }
         };
         let tokens = expand_validate(&input).expect("validation derive should expand").to_string();
         assert!(!tokens.contains(":: std"));
+        assert!(!tokens.contains("tokio"));
+        assert!(!tokens.contains("async_trait"));
+        assert!(!tokens.contains("Box :: pin"));
         assert!(tokens.contains(":: acorn :: validation"));
+        assert!(tokens.contains("validate_async"));
+        assert!(tokens.contains("validate_value") && tokens.contains("await"));
     }
     #[test]
     fn test_cmd_words_rejects_double_quoted_splat() {

@@ -528,6 +528,7 @@ pub struct ModelDetails {
     /// Version of the model
     pub version: Option<SemanticVersion>,
     /// Download sources for model weights
+    #[validate(nested)]
     pub weights: Option<Weights>,
 }
 /// A normalized model lookup value supplied by a user or model catalog.
@@ -688,11 +689,12 @@ pub struct TierInfo {
 }
 /// Source for downloading model weights
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
 pub struct Weight {
     /// Display label for the weight source
     pub label: String,
     /// URL to download the weights
+    #[validate(url)]
     pub url: String,
     /// Whether the weights are openly available
     pub is_open: Option<bool>,

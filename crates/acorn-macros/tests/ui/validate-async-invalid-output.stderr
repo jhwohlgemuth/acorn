@@ -1,0 +1,7 @@
+error[E0599]: no method named `map_err` found for type `bool` in the current scope
+  --> tests/ui/validate-async-invalid-output.rs:39:10
+   |
+39 | #[derive(Validate)]
+   |          ^^^^^^^^ method not found in `bool`
+   |
+   = note: this error originates in the derive macro `Validate` (in Nightly builds, run with -Z macro-backtrace for more info)

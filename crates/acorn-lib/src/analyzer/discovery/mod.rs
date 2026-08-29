@@ -1,6 +1,6 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
 use super::check::CheckKind;
-use super::{analyze_paths, link_check, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, OutputFormat, Render, Standard};
+use super::{analyze_paths, link_check, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, OutputFormat, Render, SchemaCheck, Standard};
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
@@ -1121,6 +1121,7 @@ impl From<&Check> for Record {
         }
     }
 }
+impl SchemaCheck for Records {}
 #[async_trait]
 impl Analysis for Records {
     fn standard() -> Standard {
@@ -1358,6 +1359,7 @@ impl RemoteMatch {
         once(found).chain(outcome).collect()
     }
 }
+impl SchemaCheck for RemoteMatch {}
 #[async_trait]
 impl Analysis for RemoteMatch {
     fn standard() -> Standard {

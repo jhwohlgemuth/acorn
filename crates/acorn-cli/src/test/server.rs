@@ -271,7 +271,7 @@ pub(crate) fn spawn_retry_resume_server(
         listener.set_nonblocking(true).expect("set nonblocking");
         let mut idle = 0;
         let mut completed = false;
-        while !completed && idle < 500 {
+        while !completed && idle < 3_000 {
             let mut stream = match listener.accept() {
                 | Ok((stream, _)) => {
                     idle = 0;

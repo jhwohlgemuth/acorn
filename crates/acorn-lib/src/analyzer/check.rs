@@ -31,7 +31,7 @@ use core::fmt;
 #[cfg(feature = "std")]
 use core::future::Future;
 use derive_more::Display;
-use futures::future::join_all;
+use futures::future::{join_all, BoxFuture};
 use jiff::SignedDuration;
 #[cfg(feature = "analysis")]
 use polars::{
@@ -51,15 +51,10 @@ use tracing::{debug, error, info};
 pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Collection of analyzer checks.
 pub type Checks = Vec<Check>;
-/// Render a collection of checks.
-pub trait Render {
-    /// Render checks in deterministic detailed or compact form.
-    fn render(&self, options: &CheckOptions);
-}
 /// Trait for adding analysis capabilities
 #[cfg(feature = "analysis")]
 #[async_trait]
-pub trait Analysis {
+pub trait Analysis: SchemaCheck {
     /// Run analysis for a given category
     async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
         match category {
@@ -83,9 +78,10 @@ pub trait Analysis {
     async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         Vec::new()
     }
-    /// Execute validation checks for a given item
-    async fn check_schema(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
-        Vec::new()
+    /// Execute validation checks for the given paths.
+    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+        let futures = paths.par_iter().filter_map(<Self as SchemaCheck>::check_schema_path).collect::<Vec<_>>();
+        join_all(futures).await.into_iter().flatten().collect()
     }
     /// Check if URLs links are valid and readable
     async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
@@ -123,6 +119,19 @@ pub trait IntoChecks {
 pub trait IntoRow<'a> {
     /// Convert to a (Polars) row
     fn to_row<T>(self) -> Row<'a>;
+}
+/// Render a collection of checks.
+pub trait Render {
+    /// Render checks in deterministic detailed or compact form.
+    fn render(&self, options: &CheckOptions);
+}
+/// Supplies schema checks to [`Analysis`] implementations.
+#[cfg(feature = "analysis")]
+pub trait SchemaCheck {
+    /// Read and validate one schema document when the implementing type supports it
+    fn check_schema_path(_path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+        None
+    }
 }
 /// Metadata standard used to gate processing behavior within commands
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq)]

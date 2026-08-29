@@ -1,4 +1,5 @@
 //! Structured research outputs associated with a research activity
+use crate::io::License;
 use crate::prelude::alloc::{String, Vec};
 use crate::schema::validate::is_partial_date;
 use crate::schema::{Keyword, Website};
@@ -24,8 +25,9 @@ pub struct Access {
     #[validate(url)]
     pub url: Option<String>,
     /// License identifier or URI asserted for the selected location.
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub license: Option<String>,
+    #[validate(nested)]
+    #[serde(default)]
+    pub license: Option<License>,
 }
 /// An organization affiliation asserted for an output contributor.
 #[skip_serializing_none]

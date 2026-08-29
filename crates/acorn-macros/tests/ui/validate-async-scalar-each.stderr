@@ -1,0 +1,5 @@
+error: each can only validate Vec, arrays, slices, OneOrMany, or optional wrappers
+ --> tests/ui/validate-async-scalar-each.rs:6:12
+  |
+6 |     value: String,
+  |            ^^^^^^

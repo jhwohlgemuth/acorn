@@ -4,6 +4,7 @@ pub use acorn_macros::Validate;
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
 use core::fmt;
+use core::future;
 use core::slice::Iter;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -21,8 +22,12 @@ pub trait Each {
 }
 /// Validate a value and return every issue in deterministic declaration order.
 pub trait Validate {
-    /// Validate this value.
+    /// Validate this value using synchronous rules only.
     fn validate(&self) -> Result<(), ValidationReport>;
+    /// Validate this value with all synchronous and asynchronous rules.
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        future::ready(self.validate())
+    }
 }
 /// A scalar or custom validation failure before its field path is attached.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -209,15 +214,24 @@ impl<T: Validate> Validate for Vec<T> {
     fn validate(&self) -> Result<(), ValidationReport> {
         validate_sequence(self.iter())
     }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        validate_sequence_async(self.iter())
+    }
 }
 impl<T: Validate, const N: usize> Validate for [T; N] {
     fn validate(&self) -> Result<(), ValidationReport> {
         validate_sequence(self.iter())
     }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        validate_sequence_async(self.iter())
+    }
 }
 impl<T: Validate + ?Sized> Validate for Box<T> {
     fn validate(&self) -> Result<(), ValidationReport> {
         (**self).validate()
+    }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        (**self).validate_async()
     }
 }
 fn validate_sequence<'a, T: Validate + 'a>(items: impl Iterator<Item = &'a T>) -> Result<(), ValidationReport> {
@@ -230,6 +244,15 @@ fn validate_sequence<'a, T: Validate + 'a>(items: impl Iterator<Item = &'a T>) -
             report
         })
         .finish()
+}
+async fn validate_sequence_async<'a, T: Validate + 'a>(items: impl Iterator<Item = &'a T>) -> Result<(), ValidationReport> {
+    let mut report = ValidationReport::new();
+    for (index, item) in items.enumerate() {
+        if let Err(nested) = item.validate_async().await {
+            report.append_prefixed(&format!("[{index}]"), nested);
+        }
+    }
+    report.finish()
 }
 /// Append all indexed failures produced by an `each` rule.
 #[doc(hidden)]
@@ -355,244 +378,4 @@ pub mod rules {
     }
 }
 #[cfg(test)]
-mod tests {
-    use super::{Validate, ValidationError};
-    use crate::prelude::alloc::{String, ToString, Vec};
-    use crate::schema::OneOrMany;
-    use crate::util::SemanticVersion;
-    use serde::Serialize;
-
-    fn not_bad(value: &str) -> Result<(), ValidationError> {
-        match value {
-            | "bad" => Err(ValidationError::new("custom_code").with_message("custom message".into())),
-            | _ => Ok(()),
-        }
-    }
-    #[derive(Serialize, Validate)]
-    struct EachModel {
-        #[validate(length(min = 1), each(custom(function = "not_bad")))]
-        values: Vec<String>,
-        #[validate(each(url))]
-        optional: Option<Vec<String>>,
-        #[validate(each(email))]
-        array: [String; 2],
-        #[validate(each(custom(function = "not_bad")))]
-        one_or_many: OneOrMany<String>,
-    }
-    #[derive(Serialize, Validate)]
-    struct Child {
-        #[validate(email)]
-        email: String,
-    }
-    #[derive(Serialize, Validate)]
-    struct Parent {
-        #[validate(nested)]
-        children: Vec<Child>,
-    }
-    #[derive(Serialize, Validate)]
-    struct DoiModel {
-        #[validate(doi)]
-        doi: String,
-    }
-    #[derive(Serialize, Validate)]
-    struct MultipleFailures {
-        #[validate(length(min = 10), email)]
-        value: String,
-    }
-    #[derive(Serialize, Validate)]
-    struct FirstClassRules {
-        #[validate(date)]
-        date: String,
-        #[validate(phone)]
-        phone: String,
-        #[validate(commit)]
-        commit: String,
-        #[validate(latitude)]
-        latitude: f64,
-        #[validate(longitude)]
-        longitude: f64,
-        #[validate(state)]
-        state: String,
-        #[validate(kebabcase)]
-        kebab: String,
-        #[validate(camelCase)]
-        camel: String,
-        #[validate(snake_case)]
-        snake: String,
-        #[validate(year)]
-        year: i32,
-    }
-    #[test]
-    fn each_reports_every_index_in_rule_order() {
-        let model = EachModel {
-            values: vec!["bad".to_string(), "ok".to_string(), "bad".to_string()],
-            optional: Some(vec!["invalid".to_string(), "https://example.org".to_string(), "also invalid".to_string()]),
-            array: ["valid@example.org".to_string(), "invalid".to_string()],
-            one_or_many: OneOrMany::Many(vec!["bad".to_string(), "bad".to_string()]),
-        };
-        let report = model.validate().expect_err("each rules should fail");
-        let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
-        assert_eq!(
-            paths,
-            [
-                "values[0]",
-                "values[2]",
-                "optional[0]",
-                "optional[2]",
-                "array[1]",
-                "one_or_many[0]",
-                "one_or_many[1]"
-            ]
-        );
-        let first = report.iter().next().expect("expected first issue");
-        assert_eq!(first.error.code, "custom_code");
-        assert_eq!(first.error.message.as_deref(), Some("custom message"));
-        assert_eq!(first.error.params.get("value").and_then(|value| value.as_str()), Some("bad"));
-    }
-    #[test]
-    fn empty_and_absent_each_collections_pass() {
-        let model = EachModel {
-            values: vec!["ok".to_string()],
-            optional: None,
-            array: ["first@example.org".to_string(), "second@example.org".to_string()],
-            one_or_many: OneOrMany::Many(Vec::new()),
-        };
-        assert!(model.validate().is_ok());
-    }
-    #[test]
-    fn nested_collection_paths_are_indexed() {
-        let parent = Parent {
-            children: vec![
-                Child {
-                    email: "valid@example.org".to_string(),
-                },
-                Child {
-                    email: "invalid".to_string(),
-                },
-                Child {
-                    email: "also-invalid".to_string(),
-                },
-            ],
-        };
-        let report = parent.validate().expect_err("nested children should fail");
-        let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
-        assert_eq!(paths, ["children[1].email", "children[2].email"]);
-    }
-    #[test]
-    fn report_display_and_serialization_are_deterministic() {
-        let parent = Parent {
-            children: vec![Child {
-                email: "invalid".to_string(),
-            }],
-        };
-        let report = parent.validate().expect_err("nested child should fail");
-        assert_eq!(report.to_string(), "children[0].email: email");
-        assert_eq!(
-            serde_json::to_string(&report).expect("report should serialize"),
-            r#"[{"path":"children[0].email","error":{"code":"email","message":null,"params":{"value":"invalid"}}}]"#
-        );
-    }
-    #[test]
-    fn multiple_failures_on_one_field_follow_rule_order() {
-        let report = MultipleFailures { value: "bad".to_string() }
-            .validate()
-            .expect_err("both field rules should fail");
-        let mut issues = report.iter();
-        let first = issues.next().expect("expected the length issue");
-        assert_eq!(first.path, "value");
-        assert_eq!(first.error.code, "length");
-        let second = issues.next().expect("expected the email issue");
-        assert_eq!(second.path, "value");
-        assert_eq!(second.error.code, "email");
-        assert!(issues.next().is_none());
-    }
-    #[test]
-    fn first_class_scalar_rules_delegate_to_schema_validation() {
-        let valid = FirstClassRules {
-            date: "2025-01-01".to_string(),
-            phone: "+1 865-576-7658".to_string(),
-            commit: "0123456789abcdef".to_string(),
-            latitude: 35.9,
-            longitude: -84.3,
-            state: "TN".to_string(),
-            kebab: "acorn-validation".to_string(),
-            camel: "acornValidation".to_string(),
-            snake: "acorn_validation".to_string(),
-            year: 2025,
-        };
-        assert!(valid.validate().is_ok());
-        let invalid = FirstClassRules {
-            date: "1949-01-01".to_string(),
-            phone: "not a phone".to_string(),
-            commit: "xyz".to_string(),
-            latitude: 91.0,
-            longitude: -181.0,
-            state: "Tennessee".to_string(),
-            kebab: "not_kebab".to_string(),
-            camel: "not-camel".to_string(),
-            snake: "not-snake".to_string(),
-            year: 3000,
-        };
-        let report = invalid.validate().expect_err("all first-class rules should fail");
-        let codes = report.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>();
-        assert_eq!(
-            codes,
-            [
-                "date",
-                "phone",
-                "commit",
-                "latitude",
-                "longitude",
-                "state",
-                "kebabcase",
-                "camelcase",
-                "snake_case",
-                "year"
-            ]
-        );
-    }
-    #[test]
-    fn exact_versions_accept_only_canonical_abbreviated_forms() {
-        ["0", "1", "1.2", "1.2.3", "4294967295.4294967295.4294967295"]
-            .into_iter()
-            .for_each(|value| assert!(SemanticVersion::parse_exact(value).is_ok(), "expected valid version {value}"));
-        [
-            "",
-            ".",
-            "1.",
-            ".1",
-            "1..2",
-            "1.2.3.4",
-            "+1",
-            "-1",
-            "01",
-            "1.02",
-            "v1.2.3",
-            "version 1.2.3",
-            "1.2.3-alpha",
-            "1.2.3+build",
-            "4294967296",
-            " 1.2.3 ",
-        ]
-        .into_iter()
-        .for_each(|value| assert!(SemanticVersion::parse_exact(value).is_err(), "expected invalid version {value}"));
-    }
-    #[test]
-    fn lossy_version_extraction_remains_available() {
-        assert_eq!(SemanticVersion::from("tool v1.2.3 (build 9)"), SemanticVersion::from((1, 2, 3)));
-    }
-    #[test]
-    fn pid_rules_delegate_to_canonical_validation() {
-        assert!(DoiModel {
-            doi: "https://doi.org/10.1000/182".to_string()
-        }
-        .validate()
-        .is_ok());
-        let report = DoiModel {
-            doi: "10/not-a-doi".to_string(),
-        }
-        .validate()
-        .expect_err("malformed DOI should fail");
-        assert_eq!(report.iter().next().map(|issue| issue.path.as_str()), Some("doi"));
-    }
-}
+mod tests;

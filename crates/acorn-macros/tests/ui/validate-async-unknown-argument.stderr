@@ -1,0 +1,5 @@
+error: unknown validation argument
+ --> tests/ui/validate-async-unknown-argument.rs:5:51
+  |
+5 |     #[validate(async(function = "validate_value", unknown = true))]
+  |                                                   ^^^^^^^^^^^^^^

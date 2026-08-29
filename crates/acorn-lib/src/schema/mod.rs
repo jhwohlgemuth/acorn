@@ -92,16 +92,6 @@ pub enum OneOrMany<T> {
     /// Multiple items.
     Many(Vec<T>),
 }
-impl<T> Each for OneOrMany<T> {
-    type Item = T;
-    type Iter<'a>
-        = Iter<'a, T>
-    where
-        T: 'a;
-    fn each_iter(&self) -> Self::Iter<'_> {
-        self.iter()
-    }
-}
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
@@ -499,7 +489,7 @@ pub struct Notes {
 ///
 /// See also [OrganizationType]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, Validate)]
 #[display("Organization ({additional_type}) - {name})")]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Organization {
@@ -511,6 +501,7 @@ pub struct Organization {
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
+    #[validate(ror)]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub ror: Option<String>,
     /// Organization alias (e.g., acronym or nickname)
@@ -835,6 +826,16 @@ where
                 report
             })
             .finish()
+    }
+}
+impl<T> Each for OneOrMany<T> {
+    type Item = T;
+    type Iter<'a>
+        = Iter<'a, T>
+    where
+        T: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        self.iter()
     }
 }
 impl Organization {
