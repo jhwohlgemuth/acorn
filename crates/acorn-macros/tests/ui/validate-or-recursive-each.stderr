@@ -1,0 +1,5 @@
+error: recursive each validation is not supported
+ --> tests/ui/validate-or-recursive-each.rs:5:26
+  |
+5 |     #[validate(or(email, each(url)))]
+  |                          ^^^^^^^^^

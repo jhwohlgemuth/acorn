@@ -5,21 +5,17 @@ use crate::error::ApiResult;
 use crate::io::api::AuthenticationScheme;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{Database, Operations, Row};
-#[cfg(not(feature = "std"))]
-use crate::io::License;
-#[cfg(feature = "std")]
-use crate::io::License;
 use crate::io::{ModelListFile, PathExt, Source};
 use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 use crate::prelude::std::{Error, ErrorKind, Path, PathBuf};
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
-use crate::schema::validate::{is_digest, is_partial_date};
+use crate::schema::validate::{is_partial_date, validate_license};
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::util::constants::HTTP_URL;
 use crate::util::{strip_suffixes, Label, MarkdownSupport, MimeType, SemanticVersion, StringInterpolation};
-use crate::validation::{Validate, ValidationError};
+use crate::validation::{Validate, ValidationError, ValidationReport};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
@@ -434,8 +430,8 @@ pub struct FrontMatter {
     /// Prompt configuration
     pub config: Option<PromptTemplateConfiguration>,
     /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
-    #[validate(nested)]
-    pub license: Option<License>,
+    #[validate(custom(function = "validate_license"))]
+    pub license: Option<OneOrMany<String>>,
     /// Intended product, system, packages, network access, etc.
     pub compatibility: Option<String>,
     /// Model used to generate prompt
@@ -580,7 +576,7 @@ pub struct OciModelLayer {
     #[schemars(with = "String")]
     pub media_type: MimeType,
     /// Descriptor digest.
-    #[validate(custom(function = "is_digest"))]
+    #[validate(digest)]
     pub digest: String,
     /// Compressed transfer size in bytes.
     #[validate(range(min = 0))]
@@ -724,6 +720,11 @@ pub struct WeightGroups(pub Vec<WeightGroup>);
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Weights(pub Vec<Weight>);
+impl Validate for Weights {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.0.validate()
+    }
+}
 impl MarkdownSupport for Benchmark {
     fn to_markdown(&self) -> String {
         Some(

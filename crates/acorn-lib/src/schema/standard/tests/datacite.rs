@@ -6,8 +6,8 @@
     clippy::unwrap_used
 )]
 use crate::schema::standard::datacite::{
-    Affiliation, Catalog, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier,
-    NameType, Publisher, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
+    Affiliation, Catalog, Date, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint,
+    NameIdentifier, NameType, Publisher, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
 };
 use crate::validation::Validate;
 use serde_json::Value;
@@ -22,6 +22,18 @@ fn load_fixture_text() -> String {
 fn load_xml_fixture_text() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(XML_FIXTURE_PATH);
     std::fs::read_to_string(path).expect("failed to read datacite.xml fixture")
+}
+
+#[test]
+fn test_datacite_date_requires_complete_timestamp() {
+    let date = |value: &str| Date {
+        date: value.to_string(),
+        date_type: DateType::Issued,
+        date_information: None,
+    };
+    assert!(date("2026-03-12T15:04:05Z").validate().is_ok());
+    assert!(date("2026-03-12").validate().is_err());
+    assert!(date("2026-03-12T15:04:05Z/2026-03-13T15:04:05Z").validate().is_err());
 }
 
 #[test]

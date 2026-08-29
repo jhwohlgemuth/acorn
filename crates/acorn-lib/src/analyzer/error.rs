@@ -32,10 +32,14 @@ pub enum ErrorCode {
     CamelCase,
     /// Invalid commit hash
     Commit,
+    /// Invalid ISO 3166-1 alpha-2 country code
+    Country,
     /// Invalid ISO 8601 date
     Date,
     /// Invalid DOI
     Doi,
+    /// Invalid content digest
+    Digest,
     /// Invalid email address
     Email,
     /// Invalid Unix epoch timestamp
@@ -58,6 +62,12 @@ pub enum ErrorCode {
     Longitude,
     /// Value exceeds allowed length
     Length,
+    /// Text contains no non-whitespace characters
+    Nonempty,
+    /// Value satisfies a forbidden validation rule
+    Not,
+    /// Value satisfies none of the alternative validation rules
+    Or,
     /// Invalid ORCiD
     Orcid,
     /// Other
@@ -82,6 +92,8 @@ pub enum ErrorCode {
     SnakeCase,
     /// Invalid state or province abbreviation
     State,
+    /// Invalid RFC 3339 timestamp
+    Timestamp,
     /// Invalid URL
     Url,
     /// Invalid semantic version
@@ -123,8 +135,10 @@ impl From<&str> for ErrorCode {
             | "arxiv" => Self::Arxiv,
             | "camelcase" => Self::CamelCase,
             | "commit" => Self::Commit,
+            | "country" => Self::Country,
             | "iso 8601 date" | "date" => Self::Date,
             | "doi" => Self::Doi,
+            | "digest" => Self::Digest,
             | "email" => Self::Email,
             | "epoch" | "unix epoch" => Self::Epoch,
             | "image" => Self::Image,
@@ -136,6 +150,9 @@ impl From<&str> for ErrorCode {
             | "latitude" => Self::Latitude,
             | "longitude" => Self::Longitude,
             | "length" => Self::Length,
+            | "nonempty" => Self::Nonempty,
+            | "not" => Self::Not,
+            | "or" => Self::Or,
             | "orcid" => Self::Orcid,
             | "patent" => Self::Patent,
             | "phone" => Self::Phone,
@@ -147,6 +164,7 @@ impl From<&str> for ErrorCode {
             | "section" | "sections.approach" | "sections.areas" | "sections.capabilities" | "sections.impact" => Self::Section,
             | "snake_case" => Self::SnakeCase,
             | "state" => Self::State,
+            | "timestamp" => Self::Timestamp,
             | "url" | "urls" => Self::Url,
             | "version" => Self::Version,
             | "year" => Self::Year,

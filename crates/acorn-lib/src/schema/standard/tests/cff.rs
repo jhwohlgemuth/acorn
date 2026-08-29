@@ -6,9 +6,9 @@
     clippy::unwrap_used
 )]
 use crate::io::InputOutput;
-use crate::io::License;
 use crate::schema::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
 use crate::schema::validate::{PostalCode, YearValue};
+use crate::schema::OneOrMany;
 use crate::test::utils::unique_path;
 use crate::util::{MarkdownSupport, ToProse};
 
@@ -110,7 +110,7 @@ fn test_cff_typical_json_round_trip() {
         .collect();
     assert_eq!(id_types, vec![IdentifierType::Doi, IdentifierType::Url]);
     match parsed.license {
-        | Some(License::Multiple(values)) => assert_eq!(values, vec!["Apache-2.0", "MIT"]),
+        | Some(OneOrMany::Many(values)) => assert_eq!(values, vec!["Apache-2.0", "MIT"]),
         | _ => panic!("expected multiple license values"),
     }
     let preferred = parsed.preferred_citation.as_ref().expect("preferred citation should exist");

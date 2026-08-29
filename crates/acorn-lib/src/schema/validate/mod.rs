@@ -7,81 +7,101 @@ use crate::io::database::{
     schema::{LicenseRow, ProgrammingLanguageRow},
     Row,
 };
-#[cfg(feature = "std")]
-use crate::io::License;
 use crate::prelude::alloc::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::std::env;
 use crate::regex_validator;
 use crate::schema::geonames::{CodeFormat, GeonamesParser};
-use crate::schema::pid::{Patent, PersistentIdentifierConvert};
-use crate::schema::standard::datacite::GeoLocationPoint;
+use crate::schema::standard::datacite::{
+    Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier, Publisher,
+};
+use crate::schema::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
+use crate::schema::OneOrMany;
 #[cfg(feature = "std")]
 use crate::util::constants::env::DATABASE_PATH;
-use crate::util::constants::{RE_FAKE_PHONE, RE_GND, RE_IMAGE_EXTENSION, RE_IP6, RE_PARTIAL_DATE, RE_PHONE, RE_UNIX_EPOCH};
+use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_IP6, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
-#[cfg(not(feature = "std"))]
-use crate::util::License;
-use crate::util::SemanticVersion;
 use crate::validation::{rules, Validate, ValidationError, ValidationReport};
-use convert_case::{Case, Casing};
-use core::borrow::Borrow;
 use core::iter::once;
-use jiff::{civil::Date, fmt::temporal::Pieces, tz::Offset, Timestamp};
+use jiff::{fmt::temporal::Pieces, tz::Offset, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-fn identifier_rule(valid: bool, code: &'static str) -> Result<(), ValidationError> {
-    valid
-        .then_some(())
-        .ok_or_else(|| ValidationError::new(code).with_message(format!("Provide valid {code} value").into()))
+fn identifier_validation_error(code: &'static str, message: impl Into<String>) -> ValidationError {
+    ValidationError::new(code).with_message(message.into().into())
 }
-/// Validate an ARK identifier with ACORN's canonical parser.
-pub fn is_ark(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_ark(), "ARK")
+fn validate_named_identifier(identifier: &str, scheme: Option<&str>, code: &'static str) -> Result<(), ValidationError> {
+    match scheme.map(str::trim).filter(|value| !value.is_empty()) {
+        | Some(value) if value.eq_ignore_ascii_case("ISNI") => rules::isni(identifier),
+        | Some(value) if value.eq_ignore_ascii_case("ORCID") => rules::orcid(identifier),
+        | Some(value) if value.eq_ignore_ascii_case("ROR") => rules::ror(identifier),
+        | Some(_) => Ok(()),
+        | None => Err(identifier_validation_error(
+            code,
+            "Provide an identifier scheme when an identifier is present",
+        )),
+    }
 }
-/// Validate an arXiv identifier with ACORN's canonical parser.
-pub fn is_arxiv(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_arxiv(), "arXiv")
+fn validate_optional_named_identifier(identifier: Option<&String>, scheme: Option<&String>, code: &'static str) -> Result<(), ValidationError> {
+    match identifier {
+        | Some(value) => validate_named_identifier(value, scheme.map(String::as_str), code),
+        | None => Ok(()),
+    }
 }
-/// Validate a DOI with ACORN's canonical parser.
-pub fn is_doi(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_doi(), "DOI")
+fn validate_typed_funder_identifier(identifier: &str, kind: Option<&FunderIdentifierType>) -> Result<(), ValidationError> {
+    match kind {
+        | Some(FunderIdentifierType::Isni) => rules::isni(identifier),
+        | Some(FunderIdentifierType::Ror) => rules::ror(identifier),
+        | Some(_) => Ok(()),
+        | None => Err(identifier_validation_error(
+            "funder_identifier",
+            "Provide a funder identifier type when a funder identifier is present",
+        )),
+    }
 }
-/// Validate a Handle identifier with ACORN's canonical parser.
-pub fn is_handle(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_handle(), "Handle")
+pub(in crate::schema) fn validate_affiliation_identifier(value: &Affiliation) -> Result<(), ValidationError> {
+    validate_optional_named_identifier(
+        value.affiliation_identifier.as_ref(),
+        value.affiliation_identifier_scheme.as_ref(),
+        "affiliation_identifier",
+    )
 }
-/// Validate an ISBN with ACORN's canonical parser.
-pub fn is_isbn(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_isbn(), "ISBN")
+pub(in crate::schema) fn validate_name_identifier(value: &NameIdentifier) -> Result<(), ValidationError> {
+    validate_named_identifier(&value.name_identifier, value.name_identifier_scheme.as_deref(), "name_identifier")
 }
-/// Validate an ISNI with ACORN's canonical parser.
-pub fn is_isni(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_isni(), "ISNI")
+pub(in crate::schema) fn validate_publisher_identifier(value: &Publisher) -> Result<(), ValidationError> {
+    validate_optional_named_identifier(
+        value.publisher_identifier.as_ref(),
+        value.publisher_identifier_scheme.as_ref(),
+        "publisher_identifier",
+    )
 }
-/// Validate an ORCID with ACORN's canonical parser.
-pub fn is_orcid(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_orcid(), "ORCiD")
+pub(in crate::schema) fn validate_funder_identifier(value: &FunderIdentifier) -> Result<(), ValidationError> {
+    validate_typed_funder_identifier(&value.value, value.funder_identifier_type.as_ref())
 }
-/// Validate a patent identifier with ACORN's canonical parser.
-pub fn is_patent(value: &str) -> Result<(), ValidationError> {
-    is_patent_identifier(value)
+pub(in crate::schema) fn validate_funding_reference_identifier(value: &FundingReference) -> Result<(), ValidationError> {
+    match value.funder_identifier.as_ref() {
+        | Some(identifier) => validate_typed_funder_identifier(identifier, value.funder_identifier_type.as_ref()),
+        | None => Ok(()),
+    }
 }
-/// Validate a ROR identifier with ACORN's canonical parser.
-pub fn is_ror(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_ror(), "ROR")
-}
-/// Validate an SWHID with ACORN's canonical parser.
-pub fn is_swhid(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_swhid(), "SWHID")
+pub(in crate::schema) fn validate_person_or_org_identifier(value: &PersonOrOrgIdentifier) -> Result<(), ValidationError> {
+    let result = match value.scheme {
+        | PersonOrOrgIdentifierScheme::Gnd => is_gnd(&value.identifier),
+        | PersonOrOrgIdentifierScheme::Isni => rules::isni(&value.identifier),
+        | PersonOrOrgIdentifierScheme::Orcid => rules::orcid(&value.identifier),
+        | PersonOrOrgIdentifierScheme::Ror => rules::ror(&value.identifier),
+    };
+    result.map_err(|why| {
+        let mut error = ValidationError::new("person_or_org_identifier")
+            .with_message(why.message.unwrap_or_else(|| "Identifier does not match its scheme".into()).into());
+        error.add_param("scheme".into(), &value.scheme);
+        error.add_param("identifier".into(), &value.identifier);
+        error
+    })
 }
 regex_validator!(is_gnd, RE_GND, "GND");
 regex_validator!(is_ip6, RE_IP6, "IP6");
-/// Validate a RAiD identifier.
-pub fn is_raid(value: &str) -> Result<(), ValidationError> {
-    identifier_rule(value.is_raid(), "RAiD")
-}
 regex_validator!(
     has_image_extension,
     RE_IMAGE_EXTENSION,
@@ -161,27 +181,8 @@ impl Validate for IntegerOrString {
         }
     }
 }
-impl Validate for License {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        let to_validation_errors = |why: ValidationError| {
-            once(why).fold(ValidationReport::new(), |mut acc, err| {
-                acc.add("license", err);
-                acc
-            })
-        };
-        #[cfg(feature = "std")]
-        {
-            let invalid = match self {
-                | License::Single(value) => is_license(value).err(),
-                | License::Multiple(values) => values.iter().find_map(|value| is_license(value).err()),
-            };
-            invalid.map_or(Ok(()), |why| Err(to_validation_errors(why)))
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            is_license(&self.to_string()).map_err(to_validation_errors)
-        }
-    }
+pub(in crate::schema) fn validate_license(value: &OneOrMany<String>) -> Result<(), ValidationError> {
+    value.iter().find_map(|value| is_license(value).err()).map_or(Ok(()), Err)
 }
 impl Validate for MonthValue {
     fn validate(&self) -> Result<(), ValidationReport> {
@@ -360,45 +361,6 @@ pub fn has_at_least_one_truthy<T>(values: &[T], method: fn(&T) -> bool, code: &'
         | false => Err(ValidationError::new(code).with_message(message.into())),
     }
 }
-/// Check if value is a valid commit hash
-pub fn is_commit(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "commit";
-    const MESSAGE: &str = "Provide valid commit hash (7-64 hexadecimal characters)";
-    let valid = (7..=64).contains(&value.len()) && value.chars().all(|character| character.is_ascii_hexdigit());
-    match valid {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid ISO 3166 country code
-///
-/// ISO 3166 is the International Standard for country codes and codes for their subdivisions
-///
-/// See <https://www.iso.org/iso-3166-country-codes.html> for more information
-pub fn is_country_code(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "country_code";
-    const MESSAGE: &str = "Provide valid ISO 3166-1 alpha-2 country code";
-    let x = value.to_string();
-    let valid = x.len() == 2 && Constant::country_codes(CodeFormat::Alpha2).contains(&x.to_lowercase());
-    match valid {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Validate a lowercase SHA-256 digest including its algorithm prefix.
-pub fn is_digest(value: &str) -> Result<(), ValidationError> {
-    let hash = value.strip_prefix("sha256:");
-    let valid = hash.is_some_and(|hash| {
-        let is_lowercase_hex = hash
-            .chars()
-            .all(|character| character.is_ascii_hexdigit() && !character.is_ascii_uppercase());
-        hash.len() == 64 && is_lowercase_hex
-    });
-    match valid {
-        | true => Ok(()),
-        | false => Err(ValidationError::new("digest").with_message("Provide a lowercase SHA-256 digest".into())),
-    }
-}
 /// Check if value is either an ISO 8601 date (`YYYY-MM-DD`) or an RFC3339 timestamp.
 pub fn is_iso_date_or_rfc3339_timestamp(value: &str) -> bool {
     rules::date(value).is_ok() || parse_rfc3339(value).is_some()
@@ -430,36 +392,6 @@ pub fn is_iso_639_1_language_code(value: &str) -> Result<(), ValidationError> {
     match valid {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid kebab-case (e.g. 'this-is-kebab-case')
-pub fn is_kebabcase(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "kebabcase";
-    let valid = value.to_case(Case::Kebab);
-    let message = format!("Provide ID in kebab-case format (e.g., {valid})");
-    match valid.eq(&value) {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(message.into())),
-    }
-}
-/// Check if value is valid camelCase (e.g. `thisIsCamelCase`).
-pub fn is_camelcase(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "camelcase";
-    let valid = value.to_case(Case::Camel);
-    let message = format!("Provide ID in camelCase format (e.g., {valid})");
-    match valid.eq(value) {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(message.into())),
-    }
-}
-/// Check if value is a valid latitude
-pub fn is_latitude(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "latitude";
-    const MESSAGE: &str = "Provide valid latitude (-90 to 90)";
-    let parsed = value.to_string().parse::<f64>().ok();
-    match parsed.filter(|x| (-90.0..=90.0).contains(x)) {
-        | Some(_) => Ok(()),
-        | None => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
 /// Check if value is a valid license
@@ -549,41 +481,6 @@ pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
         | false => Ok(()),
     }
 }
-/// Check if value is a valid longitude
-pub fn is_longitude<T>(value: T) -> Result<(), ValidationError>
-where
-    T: ToString,
-{
-    const CODE: &str = "longitude";
-    const MESSAGE: &str = "Provide valid longitude (-180 to 180)";
-    let parsed = value.to_string().parse::<f64>().ok();
-    match parsed.filter(|x| (-180.0..=180.0).contains(x)) {
-        | Some(_) => Ok(()),
-        | None => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid [`crate::schema::pid::Patent`]
-pub fn is_patent_identifier(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "patent";
-    const MESSAGE: &str = "Provide valid patent identifier";
-    match Patent::is_valid(value) {
-        | true => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid phone number
-///
-/// Uses same regex as `format_phone_number`
-pub fn is_phone_number(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "phone";
-    let is_fake = RE_FAKE_PHONE.is_match(value).unwrap_or(false);
-    let is_valid = RE_PHONE.is_match(value).unwrap_or(false);
-    match (is_valid, is_fake) {
-        | (true, false) => Ok(()),
-        | (_, true) => Err(ValidationError::new(CODE).with_message("Provide real phone number, not a placeholder".into())),
-        | _ => Err(ValidationError::new(CODE).with_message("Provide valid phone number".into())),
-    }
-}
 /// Check if list of locations depict a valid polygon
 pub fn is_polygon(value: &[GeoLocationPoint]) -> Result<(), ValidationError> {
     const CODE: &str = "polygon";
@@ -605,66 +502,6 @@ pub fn is_polygon(value: &[GeoLocationPoint]) -> Result<(), ValidationError> {
         }
     };
     result
-}
-/// Check if value is a valid RFC3339 timestamp (ISO 8601 compliant)
-/// ### Examples
-/// - `2026-03-12T15:04:05Z`
-/// - `2026-03-12T15:04:05+00:00`
-pub fn is_rfc3339(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "date";
-    const MESSAGE: &str = "Provide valid RFC 3339 timestamp (ISO 8601 compliant)";
-    let x = value.to_string();
-    let is_rfc3339 = parse_rfc3339(&x).is_some();
-    let valid_date = Date::strptime("%Y-%m-%d", &x).is_ok();
-    let is_supported_date_value = |value: &str| parse_rfc3339(value).is_some() || Date::strptime("%Y-%m-%d", value).is_ok();
-    let is_date_interval = x
-        .split_once('/')
-        .map(|(start, end)| is_supported_date_value(start) && is_supported_date_value(end))
-        .unwrap_or(false);
-    match is_rfc3339 || valid_date || is_date_interval {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is a valid semantic version (e.g., 1.2.3)
-///
-/// See [`crate::util::SemanticVersion`]
-pub fn is_semantic_version(value: &str) -> Result<(), ValidationError> {
-    const MESSAGE: &str = "Provide valid semantic version (e.g., 1.2.3)";
-    SemanticVersion::parse_exact(value)
-        .map(|_| ())
-        .map_err(|error| error.with_message(MESSAGE.into()))
-}
-/// Check if value is a valid state abbreviation (or Canada)
-pub fn is_state(value: impl ToString) -> Result<(), ValidationError> {
-    const CODE: &str = "state";
-    const MESSAGE: &str = "Provide valid US state or Canadian province abbreviation (e.g., CA, NY, ON)";
-    let x = value.to_string();
-    let valid = x.len() == 2 && x.chars().all(|c| c.is_ascii_alphabetic());
-    match valid {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
-}
-/// Check if value is valid snake_case (e.g. `this_is_snake_case`).
-pub fn is_snake_case(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "snake_case";
-    let valid = value.to_case(Case::Snake);
-    let message = format!("Provide ID in snake_case format (e.g., {valid})");
-    match valid.eq(value) {
-        | true => Ok(()),
-        | false => Err(ValidationError::new(CODE).with_message(message.into())),
-    }
-}
-/// Check if value is a valid Unix epoch timestamp
-pub fn is_unix_epoch(value: impl Borrow<usize>) -> Result<(), ValidationError> {
-    let value = *value.borrow();
-    const CODE: &str = "epoch";
-    const MESSAGE: &str = "Provide valid Unix epoch timestamp";
-    match RE_UNIX_EPOCH.is_match(&value.to_string()) {
-        | Ok(value) if value => Ok(()),
-        | _ => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
-    }
 }
 fn parse_rfc3339(value: &str) -> Option<(Timestamp, Offset)> {
     let pieces = Pieces::parse(value).ok();
@@ -692,3 +529,5 @@ fn has_compatible_offset(value: &str) -> bool {
                 })
             })
 }
+#[cfg(test)]
+mod tests;

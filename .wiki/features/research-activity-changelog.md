@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Coordinate the standards mappings with [RAD metadata standards alignment](rad-metadata-standards-alignment.md) and the distinction between activity dates and record timestamps with [research activity lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md). The [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) precedes module moves into `acorn-schema`.
+Coordinate the standards mappings with [RAD metadata standards alignment](rad-metadata-standards-alignment.md) and the distinction between activity dates and record timestamps with [research activity lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md). The built-in `timestamp` and `nonempty` rules, derive expansion, and analyzer mappings are implemented; this plan consumes them without re-adding them. The [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) precedes module moves into `acorn-schema`.
 
 # Goal
 
@@ -219,14 +219,14 @@ fn validate_changelog_identifiers(changelog: &Changelog) -> core::result::Result
 
 # Validation contract and built-in rules
 
-Add two portable built-in rules to the validation derive rather than leaving reusable timestamp and text checks in the changelog module:
+The portable validation contract provides the two built-in rules this section depends on, keeping reusable timestamp and text checks out of the changelog module:
 
 | Rule | Attribute | Contract | Stable error code |
 |---|---|---|---|
 | RFC 3339 instant | `#[validate(timestamp)]` | Accept a complete date and time with `Z` or a numeric UTC offset. Reject date-only values, intervals, time-zone annotations, missing offsets, and invalid calendar/time components. Parsing is deterministic and does not consult the clock or network. | `timestamp` |
 | Nonempty text | `#[validate(nonempty)]` | Accept a string containing at least one non-whitespace Unicode scalar value. Do not mutate the value; serde trimming remains a normalization concern. Support use within `each(nonempty)`. | `nonempty` |
 
-Implement both in `validation::rules`, add corresponding `ValidationRule` variants and derive expansion in `acorn-macros`, and map their codes to dedicated analyzer error kinds. Test direct fields, `Option<String>`, `each(...)`, custom message/code overrides, invalid macro syntax, default/alloc/WASM behavior, and deterministic validation paths.
+Their `validation::rules` implementations, derive expansion in `acorn-macros`, and analyzer code mappings are implemented and tested for direct fields, `Option<String>`, `each(...)`, custom message/code overrides, invalid macro syntax, default/alloc/WASM behavior, and deterministic validation paths. This plan consumes those rules and keeps its own cross-field schema-level functions (identifier uniqueness, origin/discovery) as documented below.
 
 Do not add generic `unique_by` or conditional-presence macro rules in this slice. Changelog identifier uniqueness and the `origin`/`discovery` relationship are cross-field domain invariants with no second demonstrated consumer, so the schema-level functions remain smaller and clearer.
 
@@ -292,7 +292,7 @@ Deliverable: a reviewed field matrix with examples and explicit non-goals.
 
 ## 2. Add the portable schema types
 
-- Add built-in `timestamp` and `nonempty` validation rules, derive-macro parsing and expansion, analyzer error-code mappings, unit tests, and compile-fail UI tests.
+- Consume the built-in `timestamp` and `nonempty` validation rules, their derive-macro parsing and expansion, and analyzer error-code mappings; verify them rather than re-adding them.
 - Create the changelog types in a dedicated leaf module.
 - Require a non-empty entry summary, category, state, a unique kebab-case identifier for every entry, and at least one entry when `changelog` is present.
 - Apply the built-in `timestamp` rule so changelog timestamps require an explicit offset and reject the date-only and interval forms supported by the broader legacy helper.
@@ -360,7 +360,7 @@ Deliverable: adapters explain all projection losses and never manufacture regist
 - Code and publication entries do not duplicate or override canonical `ResearchOutput` metadata.
 - The controlled category vocabulary includes `code`, and its documented meaning is distinct from `technical`.
 - JSON Schema exposes controlled category and state values plus nested validation.
-- Built-in `timestamp` and `nonempty` validators are documented, portable, usable through `each(...)` where applicable, and covered by derive UI tests.
+- The built-in `timestamp` and `nonempty` validators are documented, portable, usable through `each(...)` where applicable, and covered by derive UI tests.
 - Markdown/prose and export rendering is accessible and deterministic wherever the log is supported.
 - Every DataCite or RAiD field has an explicit mapping classification, and every omitted entry is visible through structured loss reporting.
 - DataCite Project export does not convert every entry into a new DOI, version, or free-text description.

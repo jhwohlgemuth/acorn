@@ -360,6 +360,8 @@ enum ValidationRule {
     Range(Box<RangeOptions>),
     Contains(Expr, RuleOptions),
     Date(RuleOptions),
+    Timestamp(RuleOptions),
+    Nonempty(RuleOptions),
     Url(RuleOptions),
     Email(RuleOptions),
     Custom(syn::Path, RuleOptions),
@@ -370,6 +372,8 @@ enum ValidationRule {
     Version(RuleOptions),
     Year(RuleOptions),
     Each(Box<ValidationRule>),
+    Not(Box<ValidationRule>, RuleOptions),
+    Or(Vec<ValidationRule>, RuleOptions),
 }
 #[derive(Clone, Default)]
 struct RuleOptions {
@@ -398,7 +402,8 @@ impl ValidationRule {
     fn is_async(&self) -> bool {
         match self {
             | Self::Async(_, _) => true,
-            | Self::Each(inner) => inner.is_async(),
+            | Self::Each(inner) | Self::Not(inner, _) => inner.is_async(),
+            | Self::Or(alternatives, _) => alternatives.iter().any(Self::is_async),
             | _ => false,
         }
     }
@@ -593,6 +598,10 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
         Ok(ValidationRule::Contains(pattern, options_from_nested(&nested)))
     } else if path.is_ident("date") {
         Ok(ValidationRule::Date(parse_rule_options(meta)?))
+    } else if path.is_ident("timestamp") {
+        Ok(ValidationRule::Timestamp(parse_rule_options(meta)?))
+    } else if path.is_ident("nonempty") {
+        Ok(ValidationRule::Nonempty(parse_rule_options(meta)?))
     } else if path.is_ident("url") {
         Ok(ValidationRule::Url(parse_rule_options(meta)?))
     } else if path.is_ident("email") {
@@ -634,11 +643,35 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             return Err(syn::Error::new_spanned(meta, "each accepts exactly one scalar rule"));
         }
         Ok(ValidationRule::Each(Box::new(parse_rule(&nested[0], true)?)))
+    } else if path.is_ident("not") {
+        let nested = nested_meta(meta)?;
+        ensure_keys(nested.iter().filter(|value| matches!(value, Meta::NameValue(_))), &["code", "message"])?;
+        let rules = nested.iter().filter(|value| !matches!(value, Meta::NameValue(_))).collect::<Vec<_>>();
+        if rules.len() != 1 {
+            return Err(syn::Error::new_spanned(meta, "not accepts exactly one scalar rule"));
+        }
+        let inner = parse_rule(rules[0], true)?;
+        if matches!(
+            inner,
+            ValidationRule::Required(_)
+                | ValidationRule::Nested
+                | ValidationRule::Each(_)
+                | ValidationRule::Not(_, _)
+                | ValidationRule::Or(_, _)
+                | ValidationRule::Async(_, _)
+        ) {
+            return Err(syn::Error::new_spanned(rules[0], "not accepts one synchronous scalar rule"));
+        }
+        Ok(ValidationRule::Not(Box::new(inner), options_from_nested(&nested)))
+    } else if path.is_ident("or") {
+        parse_or_rule(meta)
     } else {
         let supported_pid = ["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "swhid"];
         let supported_scalar = [
             "phone",
             "commit",
+            "country",
+            "digest",
             "latitude",
             "longitude",
             "state",
@@ -646,6 +679,7 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             "camelCase",
             "camelcase",
             "snake_case",
+            "unix_epoch",
         ];
         match path.get_ident() {
             | Some(ident) if supported_pid.iter().any(|rule| ident == rule) => Ok(ValidationRule::Pid(ident.clone(), parse_rule_options(meta)?)),
@@ -654,6 +688,34 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             }
             | _ => Err(syn::Error::new_spanned(meta, "unknown validation rule")),
         }
+    }
+}
+fn parse_or_rule(meta: &Meta) -> syn::Result<ValidationRule> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(nested.iter().filter(|value| matches!(value, Meta::NameValue(_))), &["code", "message"])?;
+    let alternatives = nested
+        .iter()
+        .filter(|value| !matches!(value, Meta::NameValue(_)))
+        .try_fold(Vec::new(), |mut alternatives, candidate| match parse_rule(candidate, true)? {
+            | ValidationRule::Or(_, options) if options.has_overrides() => {
+                Err(syn::Error::new_spanned(candidate, "nested or cannot override code or message"))
+            }
+            | ValidationRule::Or(nested, _) => {
+                alternatives.extend(nested);
+                Ok(alternatives)
+            }
+            | ValidationRule::Required(_) | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Async(_, _) => {
+                Err(syn::Error::new_spanned(candidate, "or accepts only synchronous scalar rules"))
+            }
+            | alternative => {
+                alternatives.push(alternative);
+                Ok(alternatives)
+            }
+        })?;
+    if alternatives.len() < 2 {
+        Err(syn::Error::new_spanned(meta, "or requires at least two scalar rules"))
+    } else {
+        Ok(ValidationRule::Or(alternatives, options_from_nested(&nested)))
     }
 }
 fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
@@ -1010,22 +1072,50 @@ fn scalar_expression(
         | ValidationRule::Date(options) => override_error(quote! { #acorn::validation::rules::date((#value).as_ref()) }, options),
         | ValidationRule::Url(options) => override_error(quote! { #acorn::validation::rules::url((#value).as_ref()) }, options),
         | ValidationRule::Email(options) => override_error(quote! { #acorn::validation::rules::email((#value).as_ref()) }, options),
+        | ValidationRule::Timestamp(options) => override_error(quote! { #acorn::validation::rules::timestamp((#value).as_ref()) }, options),
+        | ValidationRule::Nonempty(options) => override_error(quote! { #acorn::validation::rules::nonempty((#value).as_ref()) }, options),
         | ValidationRule::Version(options) => override_error(quote! { #acorn::validation::rules::version((#value).as_ref()) }, options),
         | ValidationRule::Year(options) => override_error(quote! { #acorn::validation::rules::year(#value) }, options),
         | ValidationRule::Custom(function, options) => override_error(quote! { #function(#value) }, options),
-        | ValidationRule::Pid(ident, options) => {
-            let function = syn::Ident::new(&format!("is_{ident}"), ident.span());
-            override_error(quote! { #acorn::schema::validate::#function((#value).as_ref()) }, options)
-        }
+        | ValidationRule::Pid(ident, options) => override_error(quote! { #acorn::validation::rules::#ident((#value).as_ref()) }, options),
         | ValidationRule::Scalar(ident, options) => {
             let function = match ident.to_string().as_str() {
-                | "phone" => syn::Ident::new("is_phone_number", ident.span()),
-                | "camelCase" | "camelcase" => syn::Ident::new("is_camelcase", ident.span()),
-                | name => syn::Ident::new(&format!("is_{name}"), ident.span()),
+                | "camelCase" => syn::Ident::new("camelcase", ident.span()),
+                | name => syn::Ident::new(name, ident.span()),
             };
-            override_error(quote! { #acorn::schema::validate::#function(#value) }, options)
+            override_error(quote! { #acorn::validation::rules::#function(#value) }, options)
+        }
+        | ValidationRule::Not(inner, options) => {
+            let nested = scalar_expression(acorn, inner, value)?;
+            let error = error_tokens(acorn, "not", options, quote! { "Value satisfies a forbidden validation rule" });
+            Ok(quote! {{
+                if (#nested).is_err() {
+                    ::core::result::Result::Ok(())
+                } else {
+                    ::core::result::Result::Err(#error)
+                }
+            }})
+        }
+        | ValidationRule::Or(alternatives, options) => {
+            let expressions = alternatives
+                .iter()
+                .map(|alternative| scalar_expression(acorn, alternative, value.clone()))
+                .collect::<syn::Result<Vec<_>>>()?;
+            let error = error_tokens(acorn, "or", options, quote! { "value matches none of the given rules" });
+            Ok(quote! {{
+                if false #(|| (#expressions).is_ok())* {
+                    ::core::result::Result::Ok(())
+                } else {
+                    ::core::result::Result::Err(#error)
+                }
+            }})
         }
         | _ => Err(syn::Error::new(proc_macro2::Span::call_site(), "rule is not scalar")),
+    }
+}
+impl RuleOptions {
+    fn has_overrides(&self) -> bool {
+        self.code.is_some() || self.message.is_some()
     }
 }
 fn error_tokens(

@@ -261,15 +261,6 @@ pub enum Executor {
     /// Custom or unspecified execution method
     Other(String),
 }
-/// Root-level or reference-level license declaration.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum License {
-    /// Multiple SPDX identifiers interpreted as OR.
-    Multiple(Vec<String>),
-    /// Single SPDX identifier.
-    Single(String),
-}
 /// Progress indicator types for with_progress
 #[derive(Clone, Copy, Debug, Default)]
 pub enum ProgressType {

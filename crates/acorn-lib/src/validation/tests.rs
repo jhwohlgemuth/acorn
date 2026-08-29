@@ -131,6 +131,10 @@ struct FirstClassRules {
     phone: String,
     #[validate(commit)]
     commit: String,
+    #[validate(country)]
+    country: String,
+    #[validate(digest)]
+    digest: String,
     #[validate(latitude)]
     latitude: f64,
     #[validate(longitude)]
@@ -145,6 +149,55 @@ struct FirstClassRules {
     snake: String,
     #[validate(year)]
     year: i32,
+    #[validate(unix_epoch)]
+    unix_epoch: usize,
+}
+#[derive(Serialize, Validate)]
+struct NewRules {
+    #[validate(timestamp)]
+    timestamp: String,
+    #[validate(timestamp)]
+    optional_timestamp: Option<String>,
+    #[validate(nonempty(code = "text", message = "text is required"))]
+    optional: Option<String>,
+    #[validate(each(timestamp))]
+    timestamps: Vec<String>,
+    #[validate(each(nonempty))]
+    labels: Vec<String>,
+}
+#[derive(Serialize, Validate)]
+struct NegatedRules {
+    #[validate(not(url))]
+    url: String,
+    #[validate(not(email))]
+    email: String,
+    #[validate(not(length(min = 3)))]
+    short: String,
+    #[validate(not(url))]
+    optional: Option<String>,
+    #[validate(not(custom(function = "not_bad"), code = "forbidden", message = "must be bad"))]
+    custom: String,
+    #[validate(each(not(url)))]
+    values: Vec<String>,
+}
+#[derive(Serialize, Validate)]
+struct AlternativeRules {
+    #[validate(or(url, email))]
+    value: String,
+    #[validate(each(or(url, email)))]
+    values: Vec<String>,
+    #[validate(or(url, email, code = "destination", message = "provide a URL or email"))]
+    overridden: String,
+}
+#[derive(Serialize, Validate)]
+struct FlatAlternativeRules {
+    #[validate(or(url, email, not(nonempty)))]
+    value: String,
+}
+#[derive(Serialize, Validate)]
+struct NestedAlternativeRules {
+    #[validate(or(url, or(email, not(nonempty))))]
+    value: String,
 }
 #[test]
 fn each_reports_every_index_in_rule_order() {
@@ -330,11 +383,13 @@ fn multiple_failures_on_one_field_follow_rule_order() {
     assert!(issues.next().is_none());
 }
 #[test]
-fn first_class_scalar_rules_delegate_to_schema_validation() {
+fn first_class_scalar_rules_use_builtin_validation() {
     let valid = FirstClassRules {
         date: "2025-01-01".to_string(),
         phone: "+1 865-576-7658".to_string(),
         commit: "0123456789abcdef".to_string(),
+        country: "US".to_string(),
+        digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
         latitude: 35.9,
         longitude: -84.3,
         state: "TN".to_string(),
@@ -342,12 +397,15 @@ fn first_class_scalar_rules_delegate_to_schema_validation() {
         camel: "acornValidation".to_string(),
         snake: "acorn_validation".to_string(),
         year: 2025,
+        unix_epoch: 1_759_017_645,
     };
     assert!(valid.validate().is_ok());
     let invalid = FirstClassRules {
         date: "1949-01-01".to_string(),
         phone: "not a phone".to_string(),
         commit: "xyz".to_string(),
+        country: "XX".to_string(),
+        digest: "sha256:ABCDEF".to_string(),
         latitude: 91.0,
         longitude: -181.0,
         state: "Tennessee".to_string(),
@@ -355,6 +413,7 @@ fn first_class_scalar_rules_delegate_to_schema_validation() {
         camel: "not-camel".to_string(),
         snake: "not-snake".to_string(),
         year: 3000,
+        unix_epoch: 42,
     };
     let report = invalid.validate().expect_err("all first-class rules should fail");
     let codes = report.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>();
@@ -364,15 +423,179 @@ fn first_class_scalar_rules_delegate_to_schema_validation() {
             "date",
             "phone",
             "commit",
+            "country",
+            "digest",
             "latitude",
             "longitude",
             "state",
             "kebabcase",
             "camelcase",
             "snake_case",
-            "year"
+            "year",
+            "epoch"
         ]
     );
+}
+#[test]
+fn timestamp_and_nonempty_cover_direct_optional_and_each_values() {
+    let valid = NewRules {
+        timestamp: "2026-08-29T12:30:00-04:00".to_string(),
+        optional_timestamp: None,
+        optional: None,
+        timestamps: vec!["2026-08-29T16:30:00Z".to_string()],
+        labels: vec!["ACORN".to_string(), "\u{2003}research".to_string()],
+    };
+    assert!(valid.validate().is_ok());
+    let report = NewRules {
+        timestamp: "2026-08-29T12:30:00[America/New_York]".to_string(),
+        optional_timestamp: Some("2026-08-29".to_string()),
+        optional: Some(" \u{2003}\n".to_string()),
+        timestamps: vec!["2026-08-29T16:30:00Z".to_string(), "2026-08-29T12:30:00".to_string()],
+        labels: vec!["valid".to_string(), "\t".to_string()],
+    }
+    .validate()
+    .expect_err("invalid timestamps and whitespace-only text should fail");
+    let issues = report.iter().collect::<Vec<_>>();
+    assert_eq!(
+        issues.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(),
+        ["timestamp", "optional_timestamp", "optional", "timestamps[1]", "labels[1]"]
+    );
+    assert_eq!(
+        issues.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
+        ["timestamp", "timestamp", "text", "timestamp", "nonempty"]
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "optional")
+            .and_then(|issue| issue.error.message.as_deref()),
+        Some("text is required")
+    );
+}
+#[test]
+fn timestamp_requires_a_complete_valid_instant_with_an_explicit_offset() {
+    ["2026-08-29T12:30:00Z", "2026-08-29T12:30:00+00:00", "2024-02-29T23:59:59.123-04:00"]
+        .into_iter()
+        .for_each(|value| assert!(super::rules::timestamp(value).is_ok(), "expected valid timestamp {value}"));
+    [
+        "2026-08-29",
+        "2026-08-29T12:30:00",
+        "2026-08-29T12:30:00+0000",
+        "2026-08-29T12:30:00Z[UTC]",
+        "2026-02-29T12:30:00Z",
+        "2026-08-29/2026-08-30",
+    ]
+    .into_iter()
+    .for_each(|value| assert!(super::rules::timestamp(value).is_err(), "expected invalid timestamp {value}"));
+}
+#[test]
+fn not_composes_scalar_rules_and_reports_values_at_stable_paths() {
+    let valid = NegatedRules {
+        url: "not a URL".to_string(),
+        email: "not an email".to_string(),
+        short: "ab".to_string(),
+        optional: None,
+        custom: "bad".to_string(),
+        values: vec!["plain text".to_string()],
+    };
+    assert!(valid.validate().is_ok());
+    let report = NegatedRules {
+        url: "https://example.org".to_string(),
+        email: "valid@example.org".to_string(),
+        short: "long".to_string(),
+        optional: Some("https://example.org/optional".to_string()),
+        custom: "good".to_string(),
+        values: vec!["plain text".to_string(), "https://example.org/item".to_string()],
+    }
+    .validate()
+    .expect_err("values satisfying negated rules should fail");
+    let issues = report.iter().collect::<Vec<_>>();
+    assert_eq!(
+        issues.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(),
+        ["url", "email", "short", "optional", "custom", "values[1]"]
+    );
+    assert_eq!(
+        issues.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
+        ["not", "not", "not", "not", "forbidden", "not"]
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "custom")
+            .and_then(|issue| issue.error.message.as_deref()),
+        Some("must be bad")
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "values[1]")
+            .and_then(|issue| issue.error.params.get("value"))
+            .and_then(|value| value.as_str()),
+        Some("https://example.org/item")
+    );
+}
+#[test]
+fn or_passes_any_alternative_and_reports_one_structured_failure() {
+    ["https://example.org", "research@example.org"].into_iter().for_each(|value| {
+        let model = AlternativeRules {
+            value: value.to_string(),
+            values: vec![value.to_string()],
+            overridden: value.to_string(),
+        };
+        assert!(model.validate().is_ok());
+    });
+    let report = AlternativeRules {
+        value: "plain text".to_string(),
+        values: vec![
+            "https://example.org".to_string(),
+            "plain text".to_string(),
+            "research@example.org".to_string(),
+        ],
+        overridden: "plain text".to_string(),
+    }
+    .validate()
+    .expect_err("values matching no alternative should fail");
+    let issues = report.iter().collect::<Vec<_>>();
+    assert_eq!(
+        issues.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(),
+        ["value", "values[1]", "overridden"]
+    );
+    assert_eq!(
+        issues.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
+        ["or", "or", "destination"]
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "value")
+            .and_then(|issue| issue.error.message.as_deref()),
+        Some("value matches none of the given rules")
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "overridden")
+            .and_then(|issue| issue.error.message.as_deref()),
+        Some("provide a URL or email")
+    );
+    assert_eq!(
+        issues
+            .iter()
+            .find(|issue| issue.path == "values[1]")
+            .and_then(|issue| issue.error.params.get("value"))
+            .and_then(|value| value.as_str()),
+        Some("plain text")
+    );
+}
+#[test]
+fn nested_or_is_equivalent_to_a_flat_or_and_allows_not() {
+    ["https://example.org", "research@example.org", "", "plain text"]
+        .into_iter()
+        .for_each(|value| {
+            let flat = FlatAlternativeRules { value: value.to_string() }.validate();
+            let nested = NestedAlternativeRules { value: value.to_string() }.validate();
+            assert_eq!(flat, nested);
+        });
 }
 #[test]
 fn exact_versions_accept_only_canonical_abbreviated_forms() {

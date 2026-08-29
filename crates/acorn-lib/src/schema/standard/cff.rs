@@ -4,15 +4,14 @@
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
-use crate::io::{read_file, write_file, InputOutput, License};
+use crate::io::{read_file, write_file, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::alloc::format;
 use crate::prelude::alloc::{String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::std::PathBuf;
-use crate::schema::validate::{is_country_code, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue};
-#[cfg(not(feature = "std"))]
-use crate::util::License;
+use crate::schema::validate::{validate_license, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue};
+use crate::schema::OneOrMany;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::{MarkdownSupport, ToProse};
@@ -205,9 +204,9 @@ pub struct Cff {
     /// Keywords describing the work
     pub keywords: Option<Vec<String>>,
     /// SPDX license identifier(s)
-    #[validate(nested)]
+    #[validate(custom(function = "validate_license"))]
     #[eserde(compat)]
-    pub license: Option<License>,
+    pub license: Option<OneOrMany<String>>,
     /// URL for non-standard license text
     #[validate(url)]
     pub license_url: Option<String>,
@@ -277,7 +276,7 @@ pub struct Entity {
     /// City name
     pub city: Option<String>,
     /// ISO 3166-1 alpha-2 country code
-    #[validate(custom(function = "is_country_code"))]
+    #[validate(country)]
     pub country: Option<String>,
     /// Optional end date when the entity is time-bound
     #[validate(date)]
@@ -336,7 +335,7 @@ pub struct Person {
     /// City name
     pub city: Option<String>,
     /// ISO 3166-1 alpha-2 country code
-    #[validate(custom(function = "is_country_code"))]
+    #[validate(country)]
     pub country: Option<String>,
     /// Email address
     #[validate(email)]
@@ -465,8 +464,8 @@ pub struct Reference {
     /// Languages of the work
     pub languages: Option<Vec<String>>,
     /// License declaration for the work
-    #[validate(nested)]
-    pub license: Option<License>,
+    #[validate(custom(function = "validate_license"))]
+    pub license: Option<OneOrMany<String>>,
     /// URL for non-standard license text
     #[validate(url)]
     pub license_url: Option<String>,

@@ -1,0 +1,5 @@
+error: not accepts exactly one scalar rule
+ --> tests/ui/validate-not-multiple.rs:5:16
+  |
+5 |     #[validate(not(email, url))]
+  |                ^^^^^^^^^^^^^^^

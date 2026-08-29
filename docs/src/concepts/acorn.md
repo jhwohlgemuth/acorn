@@ -2,6 +2,9 @@
 
 The research activity schema organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON/YAML form.
 
+> [!NOTE]
+> ACORN provides field-level support for selected representations from several ISO standards: ISO 8601 dates and years, ISO 3166-1 alpha-2 country codes, ISO 639-1 language codes (with schema-specific support for other ISO 639 forms), ISO 2108 ISBNs, and ISO 7064 checksums used by ISNI, ORCID, and ROR identifiers. ACORN also parses and validates RAiD identifiers, which are governed by ISO 23527. This support validates the forms used by ACORN schemas; it does not claim complete implementation of, or certification against, each standard. See [Persistent identifier lifecycle](persistent-identifiers.md) for the exact local identifier checks.
+
 <div style="height: 2rem" aria-hidden="true"></div>
 
 ```pikchr

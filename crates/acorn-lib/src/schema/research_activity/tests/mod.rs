@@ -1049,6 +1049,15 @@ fn test_research_output_roundtrip_and_validation() {
     assert!(parsed.validate().is_ok());
     assert_eq!(parsed.outputs.expect("outputs should be retained").len(), 1);
 }
+#[test]
+fn test_one_or_many_license_preserves_wire_shape() {
+    let license = OneOrMany::Many(vec!["Apache-2.0".to_string(), "MIT".to_string()]);
+    assert_eq!(serde_json::to_string(&license).unwrap(), r#"["Apache-2.0","MIT"]"#);
+    assert_eq!(
+        serde_json::from_str::<OneOrMany<String>>(r#""MIT""#).unwrap(),
+        OneOrMany::One("MIT".to_string())
+    );
+}
 
 #[test]
 fn test_research_output_rejects_invalid_identifiers_and_date() {

@@ -7,7 +7,6 @@ use crate::prelude::{
     create_dir, create_dir_all, env, fs, remove_dir_all, remove_file, rename, HashMap, HashSet, OsString, Path, PathBuf, String, ToString, Vec,
 };
 use crate::schema::agent::{OciModelLayerRole, Quantization};
-use crate::schema::validate::is_digest;
 use crate::util::cmd::{redact, run_output, run_output_with_stdin, try_from_output};
 use crate::util::constants::app::{
     ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION,
@@ -15,7 +14,7 @@ use crate::util::constants::app::{
     OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
 };
 use crate::util::{MimeType, SemanticVersion};
-use crate::validation::{Validate, ValidationError};
+use crate::validation::{rules, Validate, ValidationError};
 use crate::Location;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -61,7 +60,7 @@ pub enum OciReferenceValue {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Descriptor {
     pub(crate) media_type: String,
-    #[validate(custom(function = "is_digest"))]
+    #[validate(digest)]
     pub(crate) digest: String,
     pub(crate) size: u64,
     #[serde(default)]
@@ -127,7 +126,7 @@ pub struct OciLayer {
     /// Descriptor media type.
     pub media_type: String,
     /// Descriptor content digest.
-    #[validate(custom(function = "is_digest"))]
+    #[validate(digest)]
     pub digest: String,
     /// Compressed transfer size in bytes.
     #[validate(range(min = 0))]
@@ -520,7 +519,7 @@ impl OciReference {
                 match registry.is_empty() || remainder.is_empty() || registry.contains('@') || registry.contains(char::is_whitespace) {
                     | true => Err(eyre!("Invalid OCI registry or repository in '{value}'")),
                     | false => match remainder.rsplit_once('@') {
-                        | Some((repository, digest)) => is_digest(digest)
+                        | Some((repository, digest)) => rules::digest(digest)
                             .map_err(|why| eyre!(why))
                             .map(|()| OciReferenceValue::digest(digest))
                             .map(|reference| (registry, repository, reference)),
@@ -601,7 +600,7 @@ impl OciReferenceValue {
     fn is_valid(&self) -> bool {
         match self {
             | Self::Tag(tag) => Self::is_valid_tag(tag),
-            | Self::Digest(digest) => is_digest(digest).is_ok(),
+            | Self::Digest(digest) => rules::digest(digest).is_ok(),
         }
     }
     fn is_valid_tag(tag: &str) -> bool {

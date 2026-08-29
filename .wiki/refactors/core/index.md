@@ -1,11 +1,8 @@
 # Core Refactor Plans
 
-## Next
-
-- [Schema I/O validation handoff](schema-io-validation-handoff.md) - Split portable codecs from std path/file adapters and unblock `acorn-schema`.
-
 ## In Progress
 
+- [Schema I/O validation handoff](schema-io-validation-handoff.md) - Split portable codecs from std path/file adapters and unblock `acorn-schema`; the portable `License` slice is complete.
 - [Remote create container targets](remote-create-container-targets.md) - Add preflight, rollback, cleanup, and live validation for remote container creation.
 - [OOXML interpolation and slide-copy hardening](ooxml-interpolation-and-slide-copy.md) - Replace remaining fragile OOXML mutations.
 

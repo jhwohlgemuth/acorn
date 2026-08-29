@@ -1,0 +1,5 @@
+error: nested or cannot override code or message
+ --> tests/ui/validate-or-flatten.rs:5:26
+  |
+5 |     #[validate(or(email, or(url, nonempty, code = "nested")))]
+  |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

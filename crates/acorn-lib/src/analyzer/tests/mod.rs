@@ -13,10 +13,10 @@ use crate::analyzer::{
     StaticAnalyzerConfig,
 };
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
-use crate::io::License;
 use crate::prelude::{create_dir_all, remove_file, write, Arc, HashMap, PathBuf};
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::crosswalk::ConversionWarning;
+use crate::schema::OneOrMany;
 use crate::test::utils::unique_path;
 use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{check, check_ok};
@@ -663,7 +663,7 @@ async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_
     let cff = Cff {
         title: "Invalid License".to_string(),
         message: "Message".to_string(),
-        license: Some(License::Single("not-a-license".to_string())),
+        license: Some(OneOrMany::One("not-a-license".to_string())),
         ..Cff::default()
     };
     let checks = collect_validation_checks(&cff).await;
@@ -692,6 +692,16 @@ fn test_process_returns_field_issue_tuple() {
     assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
     assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
     assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
+}
+#[test]
+fn test_portable_validation_codes_map_to_dedicated_analyzer_kinds() {
+    assert!(matches!(ErrorCode::from("country"), ErrorCode::Country));
+    assert!(matches!(ErrorCode::from("digest"), ErrorCode::Digest));
+    assert!(matches!(ErrorCode::from("epoch"), ErrorCode::Epoch));
+    assert!(matches!(ErrorCode::from("nonempty"), ErrorCode::Nonempty));
+    assert!(matches!(ErrorCode::from("not"), ErrorCode::Not));
+    assert!(matches!(ErrorCode::from("or"), ErrorCode::Or));
+    assert!(matches!(ErrorCode::from("timestamp"), ErrorCode::Timestamp));
 }
 #[test]
 fn test_process_returns_nested_struct_path() {

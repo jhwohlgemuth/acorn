@@ -21,8 +21,7 @@ use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 use crate::schema::research_activity::s3a::Status;
 use crate::schema::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::schema::standard::datacite;
-use crate::schema::standard::validate::validate_person_or_org_identifier;
-use crate::schema::validate::{is_iso_639_language_code, is_programming_language};
+use crate::schema::validate::{is_iso_639_language_code, is_programming_language, validate_person_or_org_identifier};
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;

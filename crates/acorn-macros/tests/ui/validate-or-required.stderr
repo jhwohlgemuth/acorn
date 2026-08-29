@@ -1,0 +1,5 @@
+error: or accepts only synchronous scalar rules
+ --> tests/ui/validate-or-required.rs:5:26
+  |
+5 |     #[validate(or(email, required))]
+  |                          ^^^^^^^^

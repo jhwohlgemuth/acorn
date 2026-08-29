@@ -41,7 +41,7 @@ host abstraction traits      acorn-core + acorn-schema extraction
                no-std/WASM CI gates
 ```
 
-The highest-value immediate slice is Phase 1.2. Its first commit moves the data-only `License` enum out of std-gated `io` and re-exports it for compatibility, restoring the currently broken minimal, alloc, and WASM checks. The remainder removes path/file ownership from schema modules without changing the legacy `InputOutput` surface. This edge blocks both portable crate extraction and narrower host traits.
+The first Phase 1.2 slice moved the data-only `License` enum out of std-gated `io` and retained a compatibility re-export. The remainder removes path/file ownership from schema modules without changing the legacy `InputOutput` surface. This edge blocks both portable crate extraction and narrower host traits.
 
 ## Target ownership network
 
@@ -87,7 +87,7 @@ The highest-value immediate slice is Phase 1.2. Its first commit moves the data-
 
 | Shared boundary | Plans that overlap | Coordination rule |
 |---|---|---|
-| `crates/acorn-lib/src/schema/` | Schema I/O, metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Land I/O separation first; feature plans target `acorn-schema` after extraction and must not reintroduce host access. |
+| `crates/acorn-lib/src/schema/` | Schema I/O, metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Land I/O separation first; the portable validation-rule and derive-macro contract is already available to feature plans, which target `acorn-schema` after extraction and must not reintroduce host access. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
 | `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
@@ -98,9 +98,9 @@ The highest-value immediate slice is Phase 1.2. Its first commit moves the data-
 
 - Critical-path coordination plans are not implementation jobs. Schedule Phase 1.2 or a named extraction rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
-- The current pre-extraction batch can combine the Phase 1.2 `License`/schema slice with typed scoring, remote-create leaf work, Python binding deduplication, OOXML leaf transformations, and a Hugging Face request-type leaf, subject to the locks in the [parallel execution guide](parallel-execution.md).
+- The current pre-extraction batch can combine the remaining Phase 1.2 codec work with typed scoring, remote-create leaf work, Python binding deduplication, OOXML leaf transformations, and a Hugging Face request-type leaf, subject to the locks in the [parallel execution guide](parallel-execution.md).
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
-- The [research activity changelog](features/research-activity-changelog.md) follows the RAD standards field-matrix and loss-reporting contract; its portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.
+- The [research activity changelog](features/research-activity-changelog.md) and [OCP schema alignment](features/ocp-infrastructure-schema-alignment.md) consume the implemented `not` combinator, `timestamp`/`nonempty` primitives, and consolidated `schema::validate` module. The changelog follows the RAD standards field-matrix and loss-reporting contract; its portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.
 
 ## Status interpretation
 

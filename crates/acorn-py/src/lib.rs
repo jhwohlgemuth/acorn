@@ -1,7 +1,9 @@
 use acorn::io::InputOutput;
 use acorn::prelude::PathBuf;
 use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{Arxiv, Patent, PersistentIdentifier, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, ROR, SWHID};
+use acorn::schema::pid::{
+    Arxiv, Patent, PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, ROR, SWHID,
+};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use acorn::util::StringConversion;
@@ -657,15 +659,12 @@ fn format_swhid(value: &str) -> String {
 /// ```
 #[pyfunction]
 fn is_ark(value: &str) -> bool {
-    match schema::validate::is_ark(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    value.is_ark()
 }
 /// Check if a value is a valid arXiv identifier.
 #[pyfunction]
 fn is_arxiv(value: &str) -> bool {
-    schema::validate::is_arxiv(value).is_ok()
+    value.is_arxiv()
 }
 /// Check if value is a valid DOI
 /// ### Note
@@ -681,10 +680,7 @@ fn is_arxiv(value: &str) -> bool {
 /// ```
 #[pyfunction]
 fn is_doi(value: &str) -> bool {
-    match schema::validate::is_doi(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    value.is_doi()
 }
 /// Check if value is a valid IP6 address (e.g. "2001:0db8:85a3:0000:0000:8a2e:0370:7334")
 /// ### Example
@@ -712,25 +708,16 @@ fn is_ip6(value: &str) -> bool {
 /// ```
 #[pyfunction]
 fn is_orcid(value: &str) -> bool {
-    match schema::validate::is_orcid(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    value.is_orcid()
 }
 #[pyfunction]
 fn is_patent_identifier(value: &str) -> bool {
-    match schema::validate::is_patent_identifier(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    Patent::is_valid(value)
 }
 /// Check if value is a valid RAiD
 #[pyfunction]
 fn is_raid(value: &str) -> bool {
-    match schema::validate::is_raid(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    value.is_raid()
 }
 /// Check if value is a valid Research Organization Registry (ROR) value
 ///
@@ -744,13 +731,10 @@ fn is_raid(value: &str) -> bool {
 /// ```
 #[pyfunction]
 fn is_ror(value: &str) -> bool {
-    match schema::validate::is_ror(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+    value.is_ror()
 }
 /// Check if a value is a valid Software Hash Identifier.
 #[pyfunction]
 fn is_swhid(value: &str) -> bool {
-    schema::validate::is_swhid(value).is_ok()
+    value.is_swhid()
 }

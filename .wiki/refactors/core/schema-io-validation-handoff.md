@@ -6,8 +6,7 @@ difficulty: high
 impact: critical
 package: [acorn-cli, acorn-lib, acorn-schema, acorn-host]
 tags: [refactor, schema, validation, io]
-status: planned
-priority: next
+status: in-progress
 ---
 
 # Current evidence
@@ -16,7 +15,7 @@ priority: next
 - `crates/acorn-lib/src/schema/research_activity/mod.rs`
 - `crates/acorn-cli/src/commands/export/mod.rs`
 - Phase 1.1 portable validation is complete; this handoff is crate-boundary architecture Phase 1.2.
-- The 2026-08-28 feature-matrix check fails before path I/O is reached: `schema/research_activity/output.rs` imports the schema-facing `License` enum from std-gated `io/mod.rs`. Minimal, alloc, and WASM builds all fail with unresolved `crate::io`.
+- The first portability slice is complete: the data-only `License` enum lives in `schema`, `acorn::io::License` remains as a compatibility re-export, schema consumers use one representation in std and alloc builds, and alloc/WASM checks pass.
 - Path/file implementations currently live inside `schema/research_activity/mod.rs`, `schema/standard/{cff,datacite,dcat,huwise,invenio,text}.rs`, and `schema/pid/raid/mod.rs`, all coupled to `io::InputOutput`, `read_file`, `write_file`, or `PathBuf`.
 - String/byte parsing and serialization are mixed into those implementations, so moving whole modules would incorrectly move portable codecs into the host layer.
 
@@ -38,7 +37,7 @@ This is the sole Phase 1.2 integration owner. Its first atomic slice claims `sch
 
 # Recommendation
 
-First restore the portable matrix by moving the data-only `License` value into schema/core ownership and re-exporting it through `acorn::io` for compatibility. Then split serialization from materialization: schema-owned codecs parse/serialize strings or bytes and return portable errors; std adapters read/write paths and invoke those codecs plus validation. Make CLI consumers use the adapter boundary consistently while retaining the existing `InputOutput` API as a compatibility shim.
+Next split serialization from materialization: schema-owned codecs parse/serialize strings or bytes and return portable errors; std adapters read/write paths and invoke those codecs plus validation. Make CLI consumers use the adapter boundary consistently while retaining the existing `InputOutput` API as a compatibility shim.
 
 # Validation
 
@@ -46,7 +45,7 @@ Run focused schema and CLI tests, then `cargo check -p acorn-lib --no-default-fe
 
 # Acceptance criteria
 
-Minimal, alloc, and WASM builds pass; schema no longer imports `io`; and user-facing reads apply the same format and schema validation regardless of the invoking command.
+The `License` slice passes alloc and WASM checks. Completion still requires minimal coverage, removal of the remaining schema-to-`io` imports, and compatibility tests proving user-facing reads apply the same format and schema validation regardless of the invoking command.
 
 # Related plans
 

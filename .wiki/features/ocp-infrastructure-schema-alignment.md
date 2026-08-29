@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Align infrastructure metadata with Open Compute Project records"
-description: "Add portable infrastructure and OCP schema models while consolidating validation and converting existing standard modules to folder format."
+description: "Add portable infrastructure and OCP schema models while converting existing standard modules to folder format and using the consolidated portable validation contract."
 difficulty: high
 impact: high
 package: [acorn-lib, acorn-schema]
@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Land the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) and portable `acorn-schema` boundary before broad module moves. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
+Land the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) and portable `acorn-schema` boundary before broad module moves. The consolidated `schema::validate` folder module and portable rule primitives are already implemented; this plan consumes them without repeating the consolidation. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
 
 # Goal
 
@@ -28,7 +28,7 @@ The implementation must introduce exactly two new logical Rust modules:
 - `acorn::schema::infrastructure`
 - `acorn::schema::standard::ocp`
 
-Existing standard modules may move to folder-format entry points without changing their Rust paths. Generic standard-reference types remain in the existing `acorn::schema::standard` root. Existing schema validation is consolidated in the existing `acorn::schema::validate` module. Sustainability data models are outside this plan.
+Existing standard modules may move to folder-format entry points without changing their Rust paths. Generic standard-reference types remain in the existing `acorn::schema::standard` root. Schema validation is already consolidated in `acorn::schema::validate`. Sustainability data models are outside this plan.
 
 # Current evidence
 
@@ -143,15 +143,14 @@ Validate nested resources and claims. Restrict OCP Ready recognition to `Compute
 2. Record representative serialization snapshots and public import paths for CFF, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, text, crosswalk, and validation.
 3. Confirm default, no-default-features, alloc, and WASM schema configurations before structural changes.
 
-## 2. Consolidate validation in folder format
+## 2. Consume the consolidated validation module
 
-1. Move `schema/validate.rs` to `schema/validate/mod.rs`; keep the public `schema::validate` path unchanged.
-2. Move the contents of `schema/standard/validate.rs` into `schema/validate/mod.rs` and delete the former file.
-3. Remove `pub(crate) mod validate` from `schema/standard/mod.rs`.
-4. Replace imports from `schema::standard::validate` with `schema::validate` in DataCite and InvenioRDM.
-5. Replace the relocated functions' `pub(super)` visibility with `pub(in crate::schema)` so they remain internal to schema code.
-6. Adjust their relative imports to explicit `crate::schema::standard::{datacite, invenio}` paths.
-7. Preserve existing validation behavior and error codes; do not refactor unrelated validator implementations during the move.
+The folder-format `schema::validate` consolidation has landed. This plan relies on it without repeating the move:
+
+1. Confirm the consolidated `schema::validate` folder module is present with general and standard validators together.
+2. Reference the portable rule primitives (`nonempty`, URI checks) where new claim fields need them.
+3. Do not re-perform the move or re-create `schema/standard/validate.rs`.
+4. Preserve existing validation behavior and error codes from the consolidated module.
 
 ## 3. Convert existing standard modules to folder format
 
@@ -254,4 +253,3 @@ Also verify:
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [CKAN package to DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
 - [SWHID persistent-identifier support](swhid-persistent-identifier.md)
-

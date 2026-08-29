@@ -1,0 +1,5 @@
+error: or requires at least two scalar rules
+ --> tests/ui/validate-or-empty.rs:5:16
+  |
+5 |     #[validate(or(email))]
+  |                ^^^^^^^^^

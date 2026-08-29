@@ -31,8 +31,7 @@ use crate::io::ApiResult;
 use crate::param;
 use crate::prelude::var;
 use crate::schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
-use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierParse, ORCID};
-use crate::schema::validate::{is_orcid, is_ror};
+use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
 use crate::util::{Label, Searchable};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
@@ -298,8 +297,8 @@ impl ValueValidator for SearchField {
     /// Special validation is performed for `RorOrgId` and `Orcid` fields.
     fn is_valid(&self, value: &str) -> bool {
         match self {
-            | SearchField::RorOrgId => is_ror(value.replace("\"", "").as_str()).is_ok(),
-            | SearchField::Orcid => is_orcid(value).is_ok(),
+            | SearchField::RorOrgId => value.replace("\"", "").is_ror(),
+            | SearchField::Orcid => value.is_orcid(),
             | _ => true,
         }
     }

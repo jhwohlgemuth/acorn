@@ -6,8 +6,6 @@
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
 #[cfg(feature = "std")]
-use crate::io::License;
-#[cfg(feature = "std")]
 use crate::io::{read_file, write_file, InputOutput};
 #[cfg(feature = "std")]
 use crate::prelude::alloc::Box;
@@ -15,14 +13,14 @@ use crate::prelude::alloc::{vec, String, ToString, Vec};
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
 use crate::schema::standard::crosswalk::{self, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
-use crate::schema::standard::validate::{
+use crate::schema::standard::{dcat, huwise, invenio};
+use crate::schema::validate::validate_license;
+use crate::schema::validate::{is_iso_639_1_language_code, is_polygon};
+use crate::schema::validate::{
     validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_name_identifier,
     validate_publisher_identifier,
 };
-use crate::schema::standard::{dcat, huwise, invenio};
-use crate::schema::validate::{is_iso_639_1_language_code, is_polygon, is_rfc3339};
-#[cfg(not(feature = "std"))]
-use crate::util::License;
+use crate::schema::OneOrMany;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
 use crate::util::ToProse;
@@ -662,8 +660,8 @@ pub struct Creators {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Date {
-    /// Date value (YYYY, YYYY-MM-DD, or date range)
-    #[validate(custom(function = "is_rfc3339"))]
+    /// Complete RFC 3339 timestamp with an explicit UTC offset
+    #[validate(timestamp)]
     #[serde(alias = "$text")]
     pub date: String,
     /// Date type
@@ -1067,9 +1065,9 @@ pub struct Rights {
     #[serde(rename = "rightsURI", alias = "@rightsURI")]
     pub rights_uri: Option<String>,
     /// Rights identifier (e.g., CC-BY-4.0)
-    #[validate(nested)]
+    #[validate(custom(function = "validate_license"))]
     #[serde(rename = "rightsIdentifier", alias = "@rightsIdentifier")]
-    pub rights_identifier: Option<License>,
+    pub rights_identifier: Option<OneOrMany<String>>,
     /// Rights identifier scheme (e.g., SPDX)
     #[serde(rename = "rightsIdentifierScheme", alias = "@rightsIdentifierScheme")]
     pub rights_identifier_scheme: Option<String>,

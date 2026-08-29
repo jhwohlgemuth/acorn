@@ -1,0 +1,5 @@
+error: not accepts one synchronous scalar rule
+ --> tests/ui/validate-not-recursive.rs:5:20
+  |
+5 |     #[validate(not(not(email)))]
+  |                    ^^^^^^^^^^

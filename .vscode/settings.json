@@ -27,6 +27,7 @@
     },
     "peacock.color": "#215732",
     "files.exclude": {
+        "**/target": true,
         "**/*.vo": true,
         "**/*.vok": true,
         "**/*.vos": true,
@@ -38,6 +39,13 @@
         "**/.DS_Store": true,
         "**/Thumbs.db": true
     },
+    "files.watcherExclude": {
+        "**/target/**": true
+    },
+    "search.exclude": {
+        "**/target/**": true
+    },
+    "rust-analyzer.cargo.targetDir": true,
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
     "kiroAgent.configureMCP": "Disabled"

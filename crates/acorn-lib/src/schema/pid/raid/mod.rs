@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 use crate::io::current_date;
 #[cfg(feature = "std")]
-use crate::io::{read_file, License};
+use crate::io::read_file;
 use crate::prelude::alloc::{format, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::std::{vec, Error, PathBuf};
@@ -15,14 +15,13 @@ use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
 #[cfg(feature = "std")]
 use crate::schema::research_activity::ResearchActivity;
-use crate::schema::validate::{has_at_least_one_truthy, is_unix_epoch};
+use crate::schema::validate::{has_at_least_one_truthy, validate_license};
 use crate::schema::vocabulary;
 use crate::schema::Date;
+use crate::schema::OneOrMany;
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
 #[cfg(feature = "std")]
 use crate::util::Label;
-#[cfg(not(feature = "std"))]
-use crate::util::License;
 use crate::util::StringExt;
 use crate::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses};
 use crate::validation::{Validate, ValidationError};
@@ -807,8 +806,8 @@ pub struct MetadataIdentifier {
     /// The licence, or licence waiver, under which the RAiD metadata record associated with this Identifier has been issued
     ///
     /// <div class="warning">Only supports CC-0 (?)</div>
-    #[validate(required, nested)]
-    pub license: Option<License>,
+    #[validate(required, custom(function = "validate_license"))]
+    pub license: Option<OneOrMany<String>>,
     /// Version number of the RAiD
     #[validate(required, range(min = 0))]
     pub version: Option<u32>,
@@ -820,12 +819,12 @@ pub struct MetadataMetadata {
     /// Date and time the RAiD metadata record was created
     ///
     /// Should be Unix epoch timestamp
-    #[validate(custom(function = "is_unix_epoch"))]
+    #[validate(unix_epoch)]
     pub created: usize,
     /// Date and time the RAiD metadata record was last updated
     ///
     /// Should be Unix epoch timestamp
-    #[validate(custom(function = "is_unix_epoch"))]
+    #[validate(unix_epoch)]
     pub updated: usize,
 }
 /// Metadata schema block containing the organization associated with a RAiD and its associated properties
@@ -1329,7 +1328,7 @@ impl From<ResearchActivity> for Metadata {
                 id: ror_id,
                 schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
             }),
-            license: Some(License::Single("CC0-1.0".to_string())),
+            license: Some(OneOrMany::One("CC0-1.0".to_string())),
             version: Some(1),
         };
         let access = Access {
