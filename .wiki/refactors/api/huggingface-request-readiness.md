@@ -7,8 +7,21 @@ impact: high
 package: [acorn-lib, acorn-cli]
 tags: [refactor, api, huggingface, typestate, builder, download]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/api/huggingface.rs`, model import/download callers, CLI planning modules, public docs, and tests; later `acorn-api`/`acorn-service`.
+- **Create:** operation-specific repository-resolution and download request types.
+- **Delete:** legacy public `Options` and test-only long-signature wrappers after the complete call surface migrates.
+
+# Dependencies
+
+Coordinate request composition with [request parameters](request-parameter-composition.md) and durable transition semantics with [claimed operations](gitlab-claimed-operation-capabilities.md); preserve the API/service split.
+
+# Parallel execution
+
+Operation-specific request types and tests confined to `io/api/huggingface.rs` can run with Phase 1.2. Migration of shared CLI planners, `io/api/mod.rs`, manifests, public documentation, or shared snapshots waits for the API/CLI integration owner. Do not remove legacy `Options` until all dependent slices have rebased.
 
 # Goal
 

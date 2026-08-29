@@ -2,23 +2,23 @@
 
 ## Next
 
-- [GitLab CI runner pools](ci-runner-pools.md) - Isolate Rust, fuzz, and Python tests on dedicated runner registrations and build storage.
-- [Hugging Face request readiness](api/huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
-- [OOXML interpolation and slide-copy hardening](core/ooxml-interpolation-and-slide-copy.md) - Finish parser-backed and structured OOXML mutations.
-- [OOXML slide-list fuzzing](core/ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
-- [Shared export context](core/export-context.md) - Extract export fields once for every renderer.
+- [Schema I/O validation handoff](core/schema-io-validation-handoff.md) - Split portable string/byte codecs from std path/file adapters; this is crate-architecture Phase 1.2.
+
+## In progress
+
+- [Crate boundary architecture](crate-boundary-architecture.md) - Split `acorn-lib` into portable domains, adapters, services, and a compatibility facade.
+- [Portability roadmap](portability/roadmap.md) - Coordinate the critical feature, extraction, adapter, WASM, and CI path.
 - [Isolate std-only modules](portability/isolate-std-only-modules.md) - Complete the portable-domain boundary.
-
-## In Progress
-
+- [Dependency feature defaults](portability/dependency-feature-defaults.md) - Classify the minimal dependency tree and narrow capability wiring.
 - [Refactor initiative](initiative.md) - Overall goals, phases, risks, scope, and completion criteria.
 
-## Planned
+## Planned groups and independent work
 
-- [Crate boundary architecture](crate-boundary-architecture.md) - Split acorn-lib into portable domain crates, capability adapters, services, and a compatibility facade.
-- [GitLab claimed-operation capabilities](api/gitlab-claimed-operation-capabilities.md) - Consume queue claims through guarded single-settlement transitions.
+- [Portability](portability/) - Host traits, WASM adapters, portable CI, and size work downstream of the critical path.
 - [Core refactors](core/) - Export, CLI, schema, path, interpolation, and binding boundaries.
-- [Portability](portability/) - no-std and WASM capability work.
-- [Analyzer](analyzer/) - Composable analysis and validation abstractions.
-- [API](api/) - Shared API-client contracts and reusable provider utilities.
-- [acorn-cmd extraction](acorn-cmd-extraction.md) - Extract command macros and runtime helpers into a standalone crate.
+- [Analyzer](analyzer/) - Composable analysis and validation abstractions that prepare `acorn-analysis`.
+- [API](api/) - Shared API-client contracts that prepare `acorn-api`.
+- [acorn-cmd extraction](acorn-cmd-extraction.md) - Extract command macros and runtime helpers after portable shared values have a home.
+- [GitLab CI runner pools](ci-runner-pools.md) - Isolate Rust, fuzz, and Python test workloads without blocking portability.
+
+See the [plan dependency network](../plan-network.md) for execution edges, target crate ownership, and shared-file collisions.

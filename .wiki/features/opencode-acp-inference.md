@@ -9,6 +9,16 @@ tags: [feature, roadmap, agentic, acp, opencode, openai-compatible, prompts, inf
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/agent/`, `src/io/api/openai.rs`, `src/io/mcp/`, `src/doctor/`, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, assets, and focused tests.
+- **Create:** the prompt, inference-port, ACP transport, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
+- **Delete:** no current integration; remove the `doctor --fix` not-implemented path only when the shared planner is functional.
+
+# Dependencies
+
+This is downstream of portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. It must not define the crate boundaries it consumes; see the [plan dependency network](../plan-network.md).
+
 # Goal
 
 Let ACORN hydrate embedded prompt templates with typed configuration and serializable data, then run them through either an Agent Client Protocol (ACP) agent or an OpenAI-compatible HTTP API. Use that inference capability to turn structured `Check` results into validated, reviewable `Fix` suggestions without applying changes automatically. OpenCode is the first ACP adapter, while Codex, Goose, Pi, and other ACP agents or bridges remain straightforward extensions.

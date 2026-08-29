@@ -4,10 +4,20 @@ title: "Add first-class ZON serialization support"
 description: "Implement a pinned strict ZON codec and integrate .zonf with RAD I/O, CLI workflows, crosswalks, discovery, and GitLab review."
 difficulty: high
 impact: high
-package: [acorn-lib, acorn-cli]
+package: [acorn-lib, acorn-cli, acorn-schema, acorn-host]
 tags: [feature, serialization, zon, zonf, rad, cli, crosswalk, gitlab]
 status: planned
 ---
+
+# Project code boundaries
+
+- **Update:** portable MIME/format values, ResearchActivity codecs, standard crosswalk parsing/serialization, CLI discovery/export/format/check dispatch, GitLab review classification, fixtures, benchmarks, docs, and help.
+- **Create:** a pure ZON codec under the schema boundary (initially in-tree, later `acorn-schema`), conformance fixtures, property tests, and std-only path adapters through the existing I/O compatibility surface.
+- **Delete:** no existing format; do not add or later retain a second std-only codec under `io`.
+
+# Dependencies
+
+Implement after the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) defines codec versus path ownership. ZON must not reintroduce schema-to-host coupling while `acorn-schema` is being extracted.
 
 # Goal
 
@@ -18,15 +28,15 @@ Add dependency-free support for the ZON JSON-data-model serialization format usi
 - ACORN currently recognizes JSON, JSONC, YAML, and Markdown RAD inputs through `MimeType`, `InputOutput`, `ResearchActivity`, CLI path discovery, and structured export dispatch, but has no ZON MIME type or codec.
 - Crosswalk parsing, serialization, and source-standard inference currently accept only JSON and YAML.
 - GitLab merge-request review has an explicit supported-file list that does not include `.zonf`.
-- `serde_json` is already an `acorn-lib` dependency, and the existing `io` module is gated behind `std`, so a `serde_json::Value` codec requires no new runtime dependency and does not expand the minimal or WASM surface.
+- `serde_json` is already an alloc-capable `acorn-lib` dependency, so a `serde_json::Value` codec requires no new runtime dependency and can remain in the portable schema/WASM surface.
 - The published ZON page labels itself version 1.3.0, describes its normative status as v1.1.0, and includes labeled v2 syntax. ACORN will therefore pin conformance to upstream commit [`1b5917dbbf254ba11fb217a378d8ea05a17598d2`](https://github.com/ZON-Format/zon-TS/commit/1b5917dbbf254ba11fb217a378d8ea05a17598d2) rather than claim broad "ZON 1.x" compatibility.
 
 # Recommendation
 
 ## Codec and public interface
 
-- Add public `acorn::io::zon::{encode, decode, decode_value}` functions returning `ApiResult`, with generic Serde bounds and conversion through `serde_json::Value`.
-- Build the encoder and decoder from small pure functions. Keep the implementation inside `acorn-lib`; do not shell out, add a runtime dependency, or create a separate crate.
+- Add public schema-codec functions for `encode`, `decode`, and `decode_value`, returning portable typed results with generic Serde bounds and conversion through `serde_json::Value`; retain any `acorn::io::zon` path only as a facade re-export.
+- Build the encoder and decoder from small pure functions. Keep the initial implementation inside the portable `acorn-lib` schema boundary and move it mechanically to `acorn-schema`; do not shell out or add a runtime dependency.
 - Implement the pinned strict core profile: JSON primitives, canonical numbers, flat and grouped nested objects, root and nested arrays, compound irregular arrays, and uniform-object tables.
 - Emit `T`/`F`, `null`, literal UTF-8, specification quoting and escaping, CSV-aware table cells, alphabetically sorted object keys and columns, LF line endings, no trailing whitespace, and no final newline. Preserve array order and produce deterministic bytes.
 - Accept LF and CRLF input. Reject BOMs, malformed syntax and numbers, invalid escapes, unterminated strings, malformed table headers, and row or field count mismatches. Preserve upstream `E001` through `E304` identifiers in contextual diagnostics.

@@ -9,6 +9,16 @@ tags: [refactor, analyzer, links, resolution, offline]
 status: in-progress
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/analyzer/{check,service}.rs`, discovery/resolution producers, `io/http/`, gather/check CLI consumers, and focused tests.
+- **Create:** shared link evidence/evaluation contracts in `acorn-analysis`, orchestration in `acorn-service`, and native evaluator implementation in `acorn-host` after extraction.
+- **Delete:** direct provider-to-`Check` conversion and duplicate resolution streams after all producers use the shared contract.
+
+# Dependencies
+
+Use [check options context](check-options-context.md), [check batch monoid](check-batch-monoid.md), and consumer-owned host traits. This plan supplies the portable/native seam used by SWHID and other resolver features.
+
 # Goal
 
 Represent website reachability and persistent-identifier resolution as one link-analysis capability that produces `CheckCategory::Link` results through the existing structured analysis report.

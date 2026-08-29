@@ -9,6 +9,16 @@ tags: [feature, pid, swhid, software-heritage, software, discovery, resolution, 
 status: in-progress
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/pid/swhid/`, `src/io/{swhid,api/swhid}.rs`, discovery and CFF/RAD adapters, `crates/acorn-cli/src/commands/swhid/`, fixtures, and focused tests.
+- **Create:** pinned conformance/differential vectors and resolver/filesystem/repository fixtures; after extraction, parsing remains in `acorn-schema`, protocol DTOs move to `acorn-api`, and native calculation/resolution moves to `acorn-host`.
+- **Delete:** no public SWHID surface; remove duplicated resolver-to-check conversion only after the shared link contract owns it.
+
+# Dependencies
+
+Coordinate resolver outcomes with [link resolution checks](../refactors/analyzer/link-resolution-checks.md) and preserve the portable schema boundary from [crate extraction](../refactors/crate-boundary-architecture.md).
+
 # Goal
 
 Finish hardening ACORN's first-class Software Hash Identifier (SWHID) support against the [ISO/IEC 18670:2025 standard](https://www.iso.org/standard/89985.html) and the [canonical SWHID v1.2 specification](https://www.swhid.org/specification/v1.2/).

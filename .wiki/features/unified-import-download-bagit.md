@@ -16,6 +16,16 @@ tags:
 status: in-progress
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/{archive,bagit,download,source,workflow}.rs`, `crates/acorn-cli/src/commands/{import,download,export}/`, CLI arguments/help, Cargo feature wiring, fixtures, tests, and user documentation.
+- **Create:** malformed/security fixtures and remote-stream integration cases under existing test roots; after extraction, archive/BagIt transforms belong in `acorn-host` unless a byte-only portable core is proven.
+- **Delete:** test-only long-signature model/bucket wrappers after typed request equivalence tests land.
+
+# Dependencies
+
+Keep `sevenz-rust2`, filesystem, remote I/O, and databases behind `std`; this plan must preserve [dependency feature defaults](../refactors/portability/dependency-feature-defaults.md) and may proceed independently of portable schema extraction.
+
 # Unified import and download with BagIt archives
 
 ## Goal

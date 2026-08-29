@@ -7,8 +7,17 @@ impact: high
 package: [workspace]
 tags: [ci, gitlab, runners, reliability, isolation]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `.gitlab-ci.yml`, runner registration/configuration outside the repository, and CI operations documentation.
+- **Create:** dedicated runner registrations and isolated build/cache storage for Rust/fuzz and Python jobs; no new product code.
+- **Delete:** the shared `tests` resource group only after tag routing and storage isolation are verified; do not remove recovery cleanup prematurely.
+
+# Dependencies
+
+Coordinate with [acorn-py extraction](../migrations/acorn-py-repository-extraction.md) so Python jobs are not migrated twice. Portable feature jobs from [no-std/WASM CI](portability/no-std-wasm-ci.md) use the Rust pool once available.
 
 # Goal
 

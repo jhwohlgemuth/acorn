@@ -9,6 +9,16 @@ tags: [refactor, api, requests, parsing]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** repeated request/parse paths in `crates/acorn-lib/src/io/api/` and provider tests; later `acorn-api` plus transport ports.
+- **Create:** one composable invocation wrapper over an injected transport and provider parser.
+- **Delete:** duplicated send/status/body/deserialize sequences at migrated providers.
+
+# Dependencies
+
+Requires endpoint/auth/request contracts and feeds health/error normalization; concrete HTTP remains in `acorn-host`.
+
 # Evidence
 
 Provider functions repeat parameter construction followed by `invoke` or `invoke_with` and `handle` or `handle_or` parsing.

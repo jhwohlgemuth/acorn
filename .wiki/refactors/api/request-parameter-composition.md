@@ -6,12 +6,22 @@ difficulty: low
 impact: high
 package: [acorn-lib]
 tags: [refactor, api, validation, requests]
-status: planned
+status: in-progress
 ---
+
+# Project code boundaries
+
+- **Update:** query/body parameter construction across `crates/acorn-lib/src/io/api/` and snapshots/tests; later `acorn-api`.
+- **Create:** pure required/optional parameter combinators or typed request builders.
+- **Delete:** repeated mutable vectors/maps and empty-value filtering at migrated providers.
+
+# Dependencies
+
+Follow endpoint resolution and precede invoke/parse wrappers and operation-specific request migrations.
 
 # Evidence
 
-Provider modules repeat non-empty identifier and body validation, token-plus-template/body parameter sets, and optional query insertion.
+`Params` now provides immutable `with_auth`, `with_api_key`, `with_template`, `with_keyvalue`, and body builders, and shared tests cover empty-value omission. `require_non_empty_secret` is shared by RAiD and GitLab. CiteAs, Handle, Hugging Face, and some provider-specific request paths still construct raw `Vec<Param>` values, so migration and required identifier/body validation remain incomplete.
 
 # Recommendation
 

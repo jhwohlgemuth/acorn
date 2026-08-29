@@ -9,6 +9,16 @@ tags: [migration, repository, python, pyo3, maturin, gitlab, ci, release]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-py/`, workspace `Cargo.toml`, `.gitlab-ci.yml`, release/docs references, `xtask` workspace assumptions, and the already-provisioned external repository.
+- **Create:** standalone manifest, CI/release configuration, documentation, and history-bearing source tree in the external repository.
+- **Delete:** `crates/acorn-py/` and monorepo Python CI/release wiring only after the external build, publish, permissions, and consumer cutover are verified.
+
+# Dependencies
+
+Complete [Python binding deduplication](../refactors/core/python-binding-deduplication.md) before copying the final source. Coordinate manifest/release order with [crate boundaries](../refactors/crate-boundary-architecture.md), [thiserror](thiserror-adoption.md), and [runner pools](../refactors/ci-runner-pools.md).
+
 # Goal
 
 Make [`research-enablement/acorn-py`](https://code.ornl.gov/research-enablement/acorn-py) the canonical source, development, CI, documentation, and release repository for the `acorn-py` Python package. Keep ACORN as the canonical home of `acorn-lib` and its Rust release lifecycle, with only an overview of and links to the separately maintained Python bindings.

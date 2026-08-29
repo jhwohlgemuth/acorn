@@ -7,8 +7,17 @@ impact: high
 package: [acorn-lib, acorn-cli]
 tags: [feature, api, gitlab, bot, webhook, citation]
 status: in-progress
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/api/gitlab/`, `src/analyzer/service.rs`, bot command modules in `crates/acorn-cli`, fixtures, and mocked API/store tests.
+- **Create:** protocol/client pieces in `acorn-api`, operation persistence in `acorn-store`, workflow orchestration in `acorn-service`, and composition in CLI/host after extraction.
+- **Delete:** GitLab workflow orchestration from provider client modules once service use cases own it; keep protocol compatibility paths through the facade.
+
+# Dependencies
+
+Requires [claimed-operation capabilities](gitlab-claimed-operation-capabilities.md), stable API request/response/error contracts, and the analyzer service boundary. It is downstream of the portability crate split, not a prerequisite for `acorn-core`/`acorn-schema`.
 
 # Goal
 

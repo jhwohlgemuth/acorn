@@ -9,6 +9,16 @@ tags: [refactor, api, gitlab, bot, typestate, database, concurrency]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/api/gitlab/{database,service,bot,webhook}.rs`, durable operation tests, and later `acorn-store`/`acorn-service`.
+- **Create:** a guarded claimed-operation capability with explicit single-settlement transitions and fake-store tests.
+- **Delete:** public or cloneable multi-settlement handles and unguarded completion/failure paths after migration.
+
+# Dependencies
+
+Stabilize this before remaining [GitLab bot workflows](gitlab-webhook-bot-workflows.md) move into `acorn-service`; persistence implementation belongs in `acorn-store`.
+
 # Goal
 
 Represent a claimed GitLab bot operation as an owned capability that can be settled exactly once by local Rust code, while retaining database state as the authority for recovery and cross-process concurrency.

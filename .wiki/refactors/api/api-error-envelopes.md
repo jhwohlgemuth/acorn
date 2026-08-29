@@ -9,6 +9,16 @@ tags: [refactor, api, errors]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** error parsing in `crates/acorn-lib/src/io/api/{mod,openai,openapi,raid,orcid,osti,ror,huggingface,harbor}.rs` and provider tests; later `acorn-api`.
+- **Create:** lightweight provider error-envelope DTOs and redaction-aware conversion helpers.
+- **Delete:** duplicated untyped error-body parsing at migrated providers.
+
+# Dependencies
+
+Follow stable [response DTO](response-dtos.md) and [invoke/parse](invoke-and-parse-wrappers.md) conventions; use owned errors from the crate boundary.
+
 # Evidence
 
 GitLab, RAiD, and OpenAI return different error response shapes.

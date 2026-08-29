@@ -9,6 +9,16 @@ tags: [refactor, cli, startup]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-cli/src/main.rs`, `src/cli/`, logging/runtime/bootstrap helpers, and binary tests.
+- **Create:** focused startup/configuration functions or modules within `acorn-cli`.
+- **Delete:** orchestration details from `main.rs` after equivalent tests cover initialization order.
+
+# Dependencies
+
+Use [parse/execution models](cli-parse-execution-models.md); exposes the seam for [CLI error boundary](cli-error-boundary.md) and API environment bootstrap.
+
 # Evidence
 
 `crates/acorn-cli/src/main.rs` configures logging, the runtime and thread pool, database state, preflight checks, and command dispatch.

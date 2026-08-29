@@ -19,6 +19,16 @@ tags:
 status: in-progress
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/{oci,config}.rs`, `src/io/api/harbor.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, adjacent tests, CLI help, and model-download documentation.
+- **Create:** OCI/ModelPack fixtures and local-registry integration coverage under existing test directories; after extraction, protocol DTOs move to `acorn-api` and native pulls to `acorn-host`.
+- **Delete:** test-only compatibility wrappers after typed request coverage replaces them; no existing Hugging Face route is removed.
+
+# Dependencies
+
+Keep protocol parsing separate from registry transport so the [crate boundary architecture](../refactors/crate-boundary-architecture.md) can move them independently. This feature does not block the portability critical path.
+
 # OCI model artifact downloads
 
 ## Goal

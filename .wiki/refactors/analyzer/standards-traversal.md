@@ -9,6 +9,16 @@ tags: [refactor, analyzer, standards]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** repeated standard implementations in `crates/acorn-lib/src/analyzer/mod.rs`, schema traversal hooks, and analyzer tests; later `acorn-analysis`.
+- **Create:** one data-driven traversal/fold over supplied schema content.
+- **Delete:** near-isomorphic per-standard traversal bodies after compatibility tests prove identical output ordering.
+
+# Dependencies
+
+Follow [check batch monoid](check-batch-monoid.md), consume the existing flat validation report, and land after schema codec ownership is stable.
+
 # Evidence
 
 `crates/acorn-lib/src/analyzer/mod.rs` has near-isomorphic check flows for CFF, Research Activity, DOCX, and text inputs.
@@ -24,4 +34,3 @@ Standard implementations retain only reading and extraction differences while co
 # Related plans
 
 - [Check batch monoid](check-batch-monoid.md)
-- [Validation error tree fold](validation-error-tree-fold.md)

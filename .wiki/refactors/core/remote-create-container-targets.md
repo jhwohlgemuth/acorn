@@ -9,6 +9,20 @@ tags: [feature, cli, create, docker, ssh, reliability, rollback]
 status: in-progress
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-cli/src/commands/create/`, CLI argument/execution models, Docker/SSH helpers, tests, and operations documentation.
+- **Create:** explicit remote target, preflight, rollback journal, and fake-runner/live-test fixtures.
+- **Delete:** disposable test containers/volumes on only the explicitly targeted host; remove legacy long-signature orchestration after typed requests migrate.
+
+# Dependencies
+
+Use [CLI parse/execution models](cli-parse-execution-models.md). Host process/network implementations ultimately belong in `acorn-host`, while target policy remains in the interface/service boundary.
+
+# Parallel execution
+
+Preflight, rollback, and fake-runner work confined to `commands/create/` can run with Phase 1.2 and non-CLI lanes. Any change to shared CLI parser types, startup, generated help, or host abstraction contracts is a separate integration slice and requires the corresponding lock.
+
 # Goal
 
 Harden bot and GitLab runner creation on an SSH-accessible Docker host with side-effect-free preflight, ownership-aware cleanup, per-runner rollback, and live validation without changing the user's active Docker context:

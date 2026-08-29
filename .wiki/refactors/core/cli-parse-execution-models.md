@@ -9,6 +9,16 @@ tags: [refactor, cli, clap]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-cli/src/cli/{mod,parse,arguments/}.rs`, command run signatures/callers, tests, and generated help.
+- **Create:** immutable execution option/request values separate from clap parser types.
+- **Delete:** command-layer dependence on clap-only wrappers after all callers migrate; retain public CLI syntax.
+
+# Dependencies
+
+Precedes [startup separation](cli-startup-separation.md), large new command surfaces, and remote-create cleanup.
+
 # Evidence
 
 - `crates/acorn-cli/src/cli/mod.rs`

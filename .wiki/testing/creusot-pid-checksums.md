@@ -7,8 +7,17 @@ impact: medium
 package: [acorn-lib]
 tags: [testing, verification, creusot, pid, checksum, why3]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** checksum cores and callers under `crates/acorn-lib/src/schema/pid/{ark,isbn,isni,orcid,ror}/`, shared PID tests, `Makefile`, and CI.
+- **Create:** a narrow proof target/contracts and pinned Creusot/Why3/solver setup outside production runtime dependencies.
+- **Delete:** no executable checksum implementation; remove duplicated proof-only copies if wrapper lemmas can target shared pure cores.
+
+# Dependencies
+
+Preserve portable PID ownership during `acorn-schema` extraction. Coordinate curated vectors with [Miri](miri-quality.md), but neither verification tool blocks the portability critical path.
 
 # Goal
 

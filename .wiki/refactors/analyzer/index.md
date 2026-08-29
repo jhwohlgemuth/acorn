@@ -5,8 +5,7 @@ These plans prepare the pure analysis boundary defined by the [crate boundary ar
 ## Recommended first
 
 - [Check batch monoid](check-batch-monoid.md) - Reduce repeated asynchronous collection assembly.
-- [Validation error tree fold](validation-error-tree-fold.md) - Centralize recursive error flattening.
-- [Standards traversal](standards-traversal.md) - Deduplicate near-isomorphic standard analysis flows after smaller abstractions stabilize.
+- [Standards traversal](standards-traversal.md) - Deduplicate near-isomorphic standard analysis flows after check batching stabilizes; portable validation is already flat.
 
 ## Additional plans
 

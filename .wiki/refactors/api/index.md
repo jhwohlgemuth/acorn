@@ -7,7 +7,6 @@
 - [Hugging Face request readiness](huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
 - [GitLab claimed-operation capabilities](gitlab-claimed-operation-capabilities.md) - Consume queue claims through guarded single-settlement transitions.
 - [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.
-- [Authentication headers](authentication-headers.md) - Share bearer and custom-token parameter construction.
 - [Request parameter composition](request-parameter-composition.md) - Normalize required and optional inputs.
 - [Invoke-and-parse wrappers](invoke-and-parse-wrappers.md) - Combine repeated request execution and parsing.
 - [Environment bootstrap](environment-bootstrap.md) - Apply consistent configuration precedence.

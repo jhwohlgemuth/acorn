@@ -7,8 +7,17 @@ impact: high
 package: [acorn-cli, acorn-lib]
 tags: [refactor, export, html, powerpoint]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-cli/src/template/mod.rs`, export commands, `crates/acorn-lib/src/io/powerpoint/`, renderer tests, and later `acorn-export`.
+- **Create:** one immutable export context and pure projection from validated schema values.
+- **Delete:** renderer-specific repeated field extraction after all consumers use the context.
+
+# Dependencies
+
+Follow [interpolation primitives](interpolation-primitives.md); precedes `acorn-export` extraction and coordinates with OOXML hardening.
 
 # Evidence
 

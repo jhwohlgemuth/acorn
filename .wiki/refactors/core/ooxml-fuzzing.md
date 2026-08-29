@@ -7,8 +7,17 @@ impact: high
 package: [acorn-lib, acorn-fuzz]
 tags: [testing, fuzzing, export, powerpoint, ooxml]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/powerpoint/ooxml.rs`, its unit tests, `fuzz/Cargo.toml`, and CI fuzz-smoke configuration.
+- **Create:** focused fuzz targets/corpora under `fuzz/` for slide-list and relationship transformations.
+- **Delete:** obsolete corpus entries only when minimization preserves the triggering behavior.
+
+# Dependencies
+
+Begin after [OOXML hardening](ooxml-interpolation-and-slide-copy.md) exposes deterministic parser-backed transforms; preserve the future `acorn-export` ownership.
 
 # Goal
 

@@ -9,6 +9,16 @@ tags: [feature, schema, infrastructure, hardware, open-compute-project, ocp, red
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/hardware/`, `src/schema/research_activity/mod.rs`, portable validation and adjacent schema tests/fixtures; target `acorn-schema` after extraction.
+- **Create:** OCP/standard claim modules and fixtures under the schema boundary described by this plan.
+- **Delete:** superseded single-file standard modules only when folder conversions preserve public re-exports; no schema field is deleted.
+
+# Dependencies
+
+Land the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) and portable `acorn-schema` boundary before broad module moves. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
+
 # Goal
 
 Represent how a research activity requires and uses compute infrastructure, and connect that infrastructure to authoritative Open Compute Project (OCP) contributions, recognition records, and management profiles without turning ACORN into a hardware controller or certification authority.

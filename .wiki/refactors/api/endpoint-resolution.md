@@ -9,6 +9,16 @@ tags: [refactor, api, endpoints]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** endpoint/configuration logic in `crates/acorn-lib/src/io/api/mod.rs`, provider modules, `src/io/config.rs`, and tests; later `acorn-api`.
+- **Create:** pure template/domain resolution values and validation helpers.
+- **Delete:** duplicated provider endpoint interpolation and fallback branches.
+
+# Dependencies
+
+Precedes authentication, request composition, and OpenAPI endpoint validation; environment reads stay in host composition.
+
 # Evidence
 
 Provider modules repeat template lookup followed by domain substitution.

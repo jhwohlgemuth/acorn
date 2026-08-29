@@ -9,6 +9,16 @@ tags: [schema, research-activity, enrichment, provenance]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/research_activity/{mod,output}.rs`, `src/schema/pid/raid/mod.rs`, `src/schema/standard/cff.rs`, OSTI/discovery enrichment adapters, fixtures, and tests; target `acorn-schema`.
+- **Create:** typed lifecycle, contributor-role, license, and award fields plus compatibility/defaulting tests.
+- **Delete:** enrichment notes used solely as placeholders after structured fields preserve the same information and provenance.
+
+# Dependencies
+
+Coordinate with [metadata standards alignment](../../features/rad-metadata-standards-alignment.md) and land after schema I/O ownership is portable.
+
 # Goal
 
 Represent activity dates, credited contributors, licenses, and funding award identifiers as typed research activity data so provider enrichment remains lossless and queryable.
@@ -19,7 +29,7 @@ Represent activity dates, credited contributors, licenses, and funding award ide
 - `crates/acorn-lib/src/schema/research_activity/output.rs` now represents those assertions when they belong to a specific research output; activity-level lifecycle, contributor, license, and award targets remain absent.
 - `crates/acorn-lib/src/io/api/osti.rs` receives `release_date`, developers, contributors, and sponsor `primary_award` values.
 - `crates/acorn-lib/src/schema/standard/cff.rs` receives release dates, contacts, authors, versions, and SPDX-compatible licenses.
-- `crates/acorn-lib/src/schema/pid/raid.rs` receives typed activity dates, ORCID contributors with positions and CRediT roles, and access metadata.
+- `crates/acorn-lib/src/schema/pid/raid/mod.rs` receives typed activity dates, ORCID contributors with positions and CRediT roles, and access metadata.
 - `crates/acorn-lib/src/analyzer/discovery/mod.rs` persists provider descriptions as free-form notes but deliberately leaves lifecycle, credit, license, and award values in provenance because no lossless schema target exists.
 
 # Recommendation

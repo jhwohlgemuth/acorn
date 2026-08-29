@@ -16,9 +16,21 @@ status: planned
 # Current evidence
 
 - `make wasm` runs `cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown`.
-- The current `wasm` facade feature selects the allocation-capable portable surface and compiles for `wasm32-unknown-unknown` without host reporting, terminal formatting, or generic constant-asset embedding dependencies.
+- The current `wasm` facade feature selects the allocation-capable portable surface, but compilation presently fails because `schema/research_activity/output.rs` imports `License` from std-gated `io`. Before that source-level regression, its dependency tree excluded host reporting, terminal formatting, and generic constant-asset embedding dependencies.
 - The check does not link a `.wasm` artifact, generate JavaScript bindings, or provide browser HTTP and storage adapters.
 - Public build instructions live in [`docs/src/packages/acorn-web.md`](../../../docs/src/packages/acorn-web.md); this plan remains authoritative for the unfinished architecture.
+- No `crates/acorn-wasm/` package, `wasm-bindgen` dependency, JavaScript bindings, or browser adapter implementation exists today.
+
+# Project code boundaries
+
+- **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`, `docs/src/packages/acorn-web.md`, and the `acorn-lib` compatibility feature mapping.
+- **Create:** `crates/acorn-wasm/Cargo.toml`, `crates/acorn-wasm/src/lib.rs`, browser HTTP/storage adapter modules, JS-facing DTO conversions, integration tests, and package-generation configuration.
+- **Delete:** the documentation caveat that the target check is the complete web surface once a consumable artifact exists; no native adapter is moved into this crate.
+
+# Dependencies
+
+- **Prerequisites:** portable `acorn-core` and `acorn-schema` boundaries plus meaningful consumer-owned traits from [host abstraction traits](host-abstraction-traits.md).
+- **Follow-on:** expand [no-std and WASM CI](no-std-wasm-ci.md) from facade compilation to artifact and browser-adapter checks.
 
 # Recommendation
 
@@ -38,3 +50,7 @@ cargo tree -p acorn-lib --no-default-features --features wasm --target wasm32-un
 # Acceptance criteria
 
 The WASM target compiles with only its intended dependencies, `acorn-wasm` is the only browser-binding owner, supported service use cases run through explicit browser adapters, and the public developer guide documents how to build and consume the resulting package.
+
+# Related plans
+
+- [Plan dependency network](../../plan-network.md)

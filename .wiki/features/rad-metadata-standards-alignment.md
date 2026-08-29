@@ -9,6 +9,16 @@ tags: [feature, research-activity, schema, datacite, raid, dcat, crosswalk, meta
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/research_activity/{mod,output}.rs`, `src/schema/pid/raid/mod.rs`, `src/schema/standard/{datacite,dcat,crosswalk}/`, analyzers/crosswalk CLI consumers, fixtures, and docs; target `acorn-schema` after extraction.
+- **Create:** reusable contributor, relation, funding, lifecycle, license, and loss-reporting types plus conformance fixtures under the schema boundary.
+- **Delete:** duplicated or lossy field adapters only after compatibility migrations and round-trip tests; no existing serialized field is removed implicitly.
+
+# Dependencies
+
+The [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) precedes major module moves. [Standards traversal](../refactors/analyzer/standards-traversal.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md) consume the stabilized schema/crosswalk contracts.
+
 # Goal
 
 Make the research activity data (RAD) schema a standards-aligned activity model with explicit, testable interchange profiles. Use RAiD for activity-level semantics, DataCite for research outputs and DOI exchange, DCAT for dataset distributions, established persistent-identifier schemes for identity, and CRediT for output contributor roles.
@@ -191,7 +201,6 @@ Deliverable: existing documents continue to load without delaying the standards-
 
 # Related concepts
 
-- [Research workflow enrichment](research-data-bucket-workflow.md)
 - [SWHID persistent-identifier support](swhid-persistent-identifier.md)
 - [Schema I/O and validation handoff](../refactors/core/schema-io-validation-handoff.md)
 - [Standards traversal](../refactors/analyzer/standards-traversal.md)

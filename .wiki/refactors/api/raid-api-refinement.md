@@ -9,6 +9,16 @@ tags: [refactor, api, raid]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/api/raid.rs`, RAiD schema adapters/tests, and future service callers; later `acorn-api`.
+- **Create:** validated service-point and record request/response DTOs plus fixture-backed tests.
+- **Delete:** remnants of the removed CLI prototype and any unvalidated duplicate request route.
+
+# Dependencies
+
+Use shared endpoint/auth/request/invoke/error contracts before extraction; coordinate record models with `acorn-schema`.
+
 # Goal
 
 Provide focused, testable RAiD API operations without embedding API experiments in unrelated CLI commands.

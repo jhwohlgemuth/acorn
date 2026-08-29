@@ -9,6 +9,20 @@ tags: [refactor, python, bindings]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-py/src/lib.rs`, binding tests/docs, and macros only if repeated stable shapes justify them.
+- **Create:** narrowly scoped wrapper-generation helpers inside `acorn-py`.
+- **Delete:** repeated PID wrapper implementations replaced by generated/shared code; no Python-visible type or method without an explicit compatibility decision.
+
+# Dependencies
+
+Complete before [acorn-py repository extraction](../../migrations/acorn-py-repository-extraction.md); coordinate direct dependencies with the crate split.
+
+# Parallel execution
+
+Wrapper deduplication confined to `crates/acorn-py/src/lib.rs` and binding tests is orthogonal to Phase 1.2. Do not change workspace/crate manifests or depend on new facade paths in the concurrent slice; those changes wait for the workspace-graph integration owner.
+
 # Evidence
 
 `crates/acorn-py/src/lib.rs` repeats wrapper patterns for PID-backed data.

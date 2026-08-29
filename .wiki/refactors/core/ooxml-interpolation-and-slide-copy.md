@@ -7,8 +7,21 @@ impact: critical
 package: [acorn-cli, acorn-lib]
 tags: [refactor, export, powerpoint, ooxml]
 status: in-progress
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/io/powerpoint/{mod,ooxml}.rs`, `crates/acorn-cli/src/commands/export/powerpoint.rs`, fixtures/snapshots, and later `acorn-export`.
+- **Create:** centralized structured XML/relationship mutation helpers and regression fixtures.
+- **Delete:** remaining regex-based paragraph/bullet selection and ad hoc slide-copy mutations after parity tests.
+
+# Dependencies
+
+Consume [interpolation primitives](interpolation-primitives.md); precede [OOXML fuzzing](ooxml-fuzzing.md) and extraction of pure export transforms.
+
+# Parallel execution
+
+Parser-backed transformations and dedicated PowerPoint tests can run with Phase 1.2 when confined to `io/powerpoint/` and `commands/export/powerpoint.rs`. Shared export dispatch, templates, snapshots, interpolation utilities, manifests, and module indexes remain integration locks.
 
 # Context
 

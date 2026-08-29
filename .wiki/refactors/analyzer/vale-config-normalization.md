@@ -9,6 +9,16 @@ tags: [refactor, analyzer, vale]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** Vale configuration logic in `crates/acorn-lib/src/analyzer/{mod,vale}.rs`, native adapter callers, and tests.
+- **Create:** pure normalization functions in `acorn-analysis` and native file/process materialization in `acorn-host` after extraction.
+- **Delete:** mutation-heavy duplicated normalization branches at migrated call sites.
+
+# Dependencies
+
+Separate pure configuration values from Vale process/file execution under [std-only isolation](../portability/isolate-std-only-modules.md).
+
 # Evidence
 
 `crates/acorn-lib/src/analyzer/mod.rs` resolves packages and mutates `ValeConfig` through multiple steps.

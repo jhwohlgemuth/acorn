@@ -9,6 +9,16 @@ tags: [testing, miri, undefined-behavior, ci, rust, pid]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** portable tests under `crates/acorn-lib/src/schema/pid/`, `Makefile`, and `.gitlab-ci.yml`; later the owning extracted crate.
+- **Create:** `crates/acorn-lib/tests/miri.rs` or an equivalent curated integration target only if inline public-API tests cannot be selected reliably.
+- **Delete:** unsupported std/network/process cases from the Miri target, not from the native suite.
+
+# Dependencies
+
+Track module moves into `acorn-core`/`acorn-schema`; share vectors with [Creusot](creusot-pid-checksums.md) without coupling either tool to production code.
+
 # Goal
 
 Introduce a focused Miri suite for `acorn-lib` to detect undefined behavior in exercised code and dependencies. Keep the initial suite deterministic, in-memory, portable, and informational in GitLab CI. Exercise checksum-bearing PIDs through their public trait implementations without exposing private helpers introduced by the PID refactor.

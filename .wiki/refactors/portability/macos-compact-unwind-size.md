@@ -9,6 +9,16 @@ tags: [refactor, macos, linker, binary-size, dependencies, features, build-profi
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** workspace/profile configuration in `Cargo.toml`, `crates/acorn-{lib,cli}/Cargo.toml`, feature selection, benchmark tooling, and CI measurement jobs.
+- **Create:** reproducible size-measurement scripts/results only when needed to compare feature/profile changes.
+- **Delete:** no linker diagnostics or required test coverage; remove experimental profile overrides that fail the acceptance threshold.
+
+# Dependencies
+
+Measure after [dependency feature defaults](dependency-feature-defaults.md) classify heavy stacks; crate extraction may change attribution but is not itself evidence of size reduction.
+
 # Goal
 
 Eliminate the macOS linker warning that reports an oversized `__eh_frame` section by reducing the amount of unwind-producing code linked into ACORN's debug and test binaries. Preserve command behavior, panic backtraces, crash reporting, foreign-exception safety, and useful linker diagnostics.

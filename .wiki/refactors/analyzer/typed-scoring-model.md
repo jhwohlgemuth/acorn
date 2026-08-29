@@ -9,6 +9,20 @@ tags: [refactor, analyzer, readability, scoring]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/analyzer/readability/`, check/report score consumers, and tests; later `acorn-analysis`.
+- **Create:** constrained score/severity value types and pure combination functions.
+- **Delete:** raw numeric score interpretation duplicated at migrated call sites.
+
+# Dependencies
+
+Can follow extraction of portable readability logic; does not block schema/core extraction.
+
+# Parallel execution
+
+The value types, pure combination functions, and tests under `analyzer/readability/` are orthogonal to Phase 1.2. Claim only that leaf directory in the initial slice. Defer `analyzer/mod.rs`, shared `check.rs` report wiring, and public re-exports to the analyzer integration owner.
+
 # Evidence
 
 `crates/acorn-lib/src/analyzer/readability/mod.rs` and `check.rs` map scores and severity through ad hoc conditionals.

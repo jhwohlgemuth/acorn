@@ -8,6 +8,8 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Contents
 
+- [Plan dependency network](plan-network.md) - Current execution order, crate ownership, and cross-plan blockers.
+- [Parallel execution guide](parallel-execution.md) - Orthogonal work lanes, single-writer integration locks, and safe concurrent batches.
 - [Feature plans](features/) - New user-facing capabilities and integrations.
 - [Refactor plans](refactors/) - Reliability, maintainability, extensibility, and portability work.
 - [Migration plans](migrations/) - Changes that replace an existing dependency, architecture, or workflow.
@@ -19,8 +21,10 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 2. Add `type: Plan`, `title`, `description`, `difficulty`, `impact`, a non-empty `package` list, `tags`, and `status` to its YAML frontmatter.
 3. Use `low`, `medium`, `high`, `mixed`, or `not-assessed` for difficulty; use `low`, `medium`, `high`, `critical`, `mixed`, or `not-assessed` for impact.
 4. Use `planned` or `in-progress` for status. Add `priority: next` when the plan is an immediate candidate.
-5. Document the goal, current evidence, recommendation, validation, and acceptance criteria. Add citations for externally sourced claims.
-6. Link related concepts with relative Markdown links and add the new concept to the nearest directory index.
+5. Document the goal, current evidence, project code boundaries, dependencies, recommendation, validation, and acceptance criteria. Add citations for externally sourced claims.
+6. In project code boundaries, identify existing files or directories to update, planned files or directories to create, and files to delete. Write `None` when a category is intentionally empty.
+7. Link related concepts with relative Markdown links, distinguish prerequisites from follow-on work, and add the new concept to the nearest directory index and the [plan dependency network](plan-network.md).
+8. Assign the plan to a lane in the [parallel execution guide](parallel-execution.md). Before implementation, narrow broad directory boundaries to an atomic write set and name every shared integration file.
 
 ## Maintaining plans
 
@@ -31,3 +35,5 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 5. Keep external claims cited and verify that internal links resolve.
 6. Preserve OKF frontmatter and the reserved `index.md` and `log.md` filename conventions.
 7. After changes, check frontmatter, required fields, links, legacy references, and whitespace.
+8. Reconcile every plan's code boundaries, dependency edges, lane, and integration locks whenever modules move or a plan completes.
+9. Treat umbrella roadmaps as coordination records, not independently schedulable implementation tasks.

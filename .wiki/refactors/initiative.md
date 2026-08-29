@@ -21,14 +21,29 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 | Phase | Status | Focus | Outcome |
 |---|---|---|---|
-| Boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
+| Portable boundary hardening | In progress | Schema I/O, dependency features, std isolation | `acorn-core` and `acorn-schema` become mechanical extractions |
+| Export boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
 | Shared abstractions | Planned | Export context, safe paths, interpolation | Duplicated mappings and path logic are replaced |
 | Structural modularization | Planned | CLI startup, API clients, schema I/O | Boundaries become explicit and testable |
 | Refinement | Planned | Bindings and portability | Repetition decreases and build targets broaden |
 
+# Project code boundaries
+
+- **Update:** all files named by child plans; the initiative itself does not authorize code outside those explicit boundaries.
+- **Create:** only files and crates named by accepted child plans, led by the portability critical path in the [plan dependency network](../plan-network.md).
+- **Delete:** completed plan files and implementation explicitly superseded by a child plan; no unscheduled cleanup.
+
+# Dependencies
+
+The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating implementation plan. Its immediate path is dependency classification -> std isolation -> schema I/O separation -> `acorn-core`/`acorn-schema` extraction. Reliability work may proceed in parallel only when it does not rename the same modules.
+
+# Parallel execution
+
+This initiative is coordination-only and must never be assigned as one implementation task. Schedule an atomic child plan with an exact write set. The coordinator owns shared manifests, module indexes, CLI roots, generated artifacts, and CI/build integration as defined by the [parallel execution guide](../parallel-execution.md).
+
 # Prioritization
 
-Prioritize reliability, security, and correctness impact first, then difficulty within each impact tier.
+Prioritize the portability critical path first, then reliability, security, and correctness impact, then difficulty within each impact tier.
 
 # Risks
 
@@ -53,3 +68,4 @@ Prioritize reliability, security, and correctness impact first, then difficulty 
 - [Portability](portability/)
 - [Analyzer refactors](analyzer/)
 - [API refactors](api/)
+- [Plan dependency network](../plan-network.md)

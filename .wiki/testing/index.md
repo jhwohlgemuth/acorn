@@ -21,20 +21,21 @@ Criterion results from every semantic version tag and relevant default-branch pi
 
 | Command | Tests | Coverage | Priority |
 |---------|-------|----------|----------|
-| download | 64 | Excellent | — |
-| check | 14 | Good | — |
+| download | 103 | Excellent | — |
+| check | 17 inline + 6 integration | Good | — |
 | doctor | 9 | Good | — |
-| export | 9 | Moderate | — |
-| sync | 5 | Moderate | — |
-| format | 4 | Moderate | — |
-| import | 4 | Minimal | — |
+| export | 17 | Good | — |
+| sync | 11 | Good | — |
+| format | 6 | Moderate | — |
+| import | 17 | Good | — |
 | link | 0 | None | Phase 1 |
-| create | 0 | None | Phase 2 |
+| create | 8 | Moderate | — |
 | serve | 0 | None | Phase 2 |
-| gather | 0 | None | Phase 2 |
+| gather | 18 | Good | — |
+| swhid | 0 | None | Phase 2 |
 | skill | 0 | None | Phase 3 |
 | tui | 0 | None | Phase 3 |
-| Binary (`assert_cmd`) | 2 active, 3 ignored | Near zero | Phase 1 |
+| Binary (`assert_cmd`) | 27 `cargo_bin` call sites | Moderate | Phase 1 gaps only |
 
 # Testing conventions
 
@@ -137,7 +138,7 @@ Never use `#[ignore]` for broken or unknown failures — fix or delete instead.
 
 # Phases
 
-- [Phase 1](cli-coverage-phase-1.md) — High priority: link command, assert_cmd stabilization, error paths
+- [Phase 1](cli-coverage-phase-1.md) — High priority: link command coverage and the remaining binary/error-path gaps
 - Phase 2 — Medium priority: remaining flag coverage, binary tests for all commands
 - Phase 3 — Low priority: edge cases, verbose modes, platform-gated tests
 

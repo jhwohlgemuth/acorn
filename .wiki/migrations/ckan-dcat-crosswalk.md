@@ -7,8 +7,17 @@ impact: high
 package: [acorn-lib, acorn-cli]
 tags: [ckan, dcat, dcat-us, crosswalk, metadata, fixtures]
 status: planned
-priority: next
 ---
+
+# Project code boundaries
+
+- **Update:** `crates/acorn-lib/src/schema/standard/{dcat,crosswalk}/`, `src/analyzer/check.rs`, `crates/acorn-cli/src/{cli/parse.rs,commands/export/mod.rs}`, and schema/crosswalk tests.
+- **Create:** CKAN source types and meaningful fixtures under `tests/fixtures/schema/{ckan,dcat}/`; target `acorn-schema` after extraction.
+- **Delete:** lossy placeholder fixture assertions and any duplicate CKAN conversion route after the direct crosswalk is authoritative.
+
+# Dependencies
+
+Requires stabilized DCAT/loss contracts from [metadata standards alignment](../features/rad-metadata-standards-alignment.md) and must respect the [schema I/O handoff](../refactors/core/schema-io-validation-handoff.md).
 
 # Goal
 

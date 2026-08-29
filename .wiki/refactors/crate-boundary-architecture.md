@@ -21,7 +21,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 - `schema` types still implement the host-facing `InputOutput` trait and import filesystem operations, preventing a portable schema boundary.
 - The portable foundation now exists inside `acorn-lib`: `AcornError` and `AcornResult` are independent of host reporting, schema result ownership no longer points through `io`, and utility code exposes a portable surface separate from terminal output while legacy paths remain available.
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
-- Default, minimal, alloc, and `wasm32-unknown-unknown` checks now pass for the in-tree boundary, and the WASM dependency tree also excludes those presentation and generic asset packages.
+- Default builds remain available, but minimal, alloc, and `wasm32-unknown-unknown` checks currently fail because `schema/research_activity/output.rs` imports data-only `License` from std-gated `io`. The dependency tree excludes the earlier presentation/generic-asset leakage, but Phase 1.2 must restore compilation before extraction.
 - Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
 - Utility implementations now have explicit core, alloc, and std ownership, with flat and `util::portable` compatibility re-exports.
 - Phase 1.1 is complete: ACORN owns one alloc-compatible validation engine and derive, schema validation no longer resolves `validator` or `validator_derive`, generated validation uses core/alloc paths, and deterministic flat reports preserve nested and indexed paths.
@@ -94,6 +94,23 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 
 Individual schemas, providers, commands, doctor checks, and generic utility collections do not become separate crates. They remain modules within the package that owns their policy.
 
+# Project code boundaries
+
+- **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`; all current manifests; `crates/acorn-lib/src/{lib,prelude,error}.rs`, `validation/`, `schema/`, `analyzer/`, `io/`, `doctor/`, and `util/`; first-party crate imports; package/release documentation and `xtask` workspace assumptions.
+- **Create:** the ten planned packages under `crates/` in dependency order, with focused unit/compatibility tests and explicit feature contracts. The first new packages are `acorn-core` and `acorn-schema`, only after Phase 1.2 is green in-tree.
+- **Delete:** implementation from `acorn-lib` after each module becomes a facade re-export; obsolete facade dependencies/features after compatibility mappings exist; no current crate or public import path is deleted by this plan.
+
+# Plan dependencies
+
+- **Immediate prerequisites:** [dependency feature defaults](portability/dependency-feature-defaults.md), [std-only isolation](portability/isolate-std-only-modules.md), and [schema I/O validation handoff](core/schema-io-validation-handoff.md).
+- **Boundary inputs:** analyzer plans prepare `acorn-analysis`; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; [acorn-cmd extraction](acorn-cmd-extraction.md) prepares `acorn-cmd`.
+- **Downstream:** [host traits](portability/host-abstraction-traits.md), [WASM](portability/wasm-feature-path.md), and [portable CI](portability/no-std-wasm-ci.md) expand as packages appear.
+- The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
+
+# Parallel execution
+
+This architecture plan is coordination-only except when a named migration phase is scheduled. Before assigning work, divide the phase into contract, leaf migration, and integration slices. One integration owner holds workspace manifests, `acorn-lib` roots, module indexes, facade re-exports, and feature-matrix validation; leaf agents may move disjoint modules only after the target contract is frozen. See the [parallel execution guide](../parallel-execution.md).
+
 # Boundary rules
 
 1. Dependencies must not point from a portable layer to a host or service layer.
@@ -122,7 +139,7 @@ The validation engine remains in `acorn-lib::validation` until the planned schem
 
 ### 1.2. Separate schemas from host I/O — next
 
-Keep parsing, serialization, validation, and crosswalks with schema types. Move path, URL, and file reads and writes behind host-owned extension traits or free functions. Preserve the existing `acorn::io::InputOutput` surface through compatibility re-exports.
+First move `License` from `io` to schema/core ownership and preserve `acorn::io::License` through a compatibility re-export, restoring minimal, alloc, and WASM compilation. Then keep parsing, serialization, validation, and crosswalks with schema types. Move path, URL, and file reads and writes behind host-owned extension traits or free functions. Preserve the existing `acorn::io::InputOutput` surface through compatibility re-exports.
 
 ### 1.3. Separate analysis from host adapters
 

@@ -9,6 +9,16 @@ tags: [rust, errors, thiserror, diagnostics, portability]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** workspace and crate manifests; owned error definitions beginning at `crates/acorn-lib/src/error.rs` and boundary-specific errors in analyzer, API, schema, store, export, host, service, and interfaces.
+- **Create:** one focused error module per extracted crate when needed; conversion tests at facade and application boundaries.
+- **Delete:** handwritten `Display`/`Error` implementations replaced mechanically; never delete `color-eyre` from CLI/host reporting boundaries in this migration.
+
+# Dependencies
+
+This migration is incremental and must not block Phase 1.2. Every new crate in the [crate boundary architecture](../refactors/crate-boundary-architecture.md) starts with owned portable errors, while existing modules convert only when touched for an accepted boundary.
+
 # Goal
 
 Use `thiserror` to define ACORN-owned error types with consistent `Display`, `Error`, `source`, and conversion behavior. Preserve `color-eyre` reports for executable, I/O, API, and orchestration boundaries where callers need rich diagnostic context rather than a closed error enum.

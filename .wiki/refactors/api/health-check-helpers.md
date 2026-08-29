@@ -9,6 +9,16 @@ tags: [refactor, api, health]
 status: planned
 ---
 
+# Project code boundaries
+
+- **Update:** provider health/status functions across `crates/acorn-lib/src/io/api/` and tests; later `acorn-api`.
+- **Create:** shared status classification over transport-neutral response metadata.
+- **Delete:** duplicated status-code interpretation after provider migration.
+
+# Dependencies
+
+Build after invoke/parse and error-envelope contracts establish what response metadata is available.
+
 # Evidence
 
 ORCID, ROR, and CiteAs expose similar status-to-health wrappers.
