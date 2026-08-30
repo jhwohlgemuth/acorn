@@ -4,7 +4,7 @@ expression: normalized_process(&args)
 ---
 status: 0
 stdout:
-=> ⚠️ OFFLINE ACORN is running in offline mode
+=> !!! OFFLINE ACORN is running in offline mode
 0,error,schema,invalid_project_a/index.json,meta.identifier,"Provide ID in kebab-case format (e.g., invalid-project-a)",meta.identifier
 1,error,schema,invalid_project_a/index.json,meta.doi[2],Every publication identifier should be a valid DOI or arXiv identifier,meta.doi
 2,error,schema,invalid_project_a/index.json,meta.media[0].content_url,"Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension",meta.media[0].content_url

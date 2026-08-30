@@ -4,7 +4,7 @@ expression: normalized_process(&args)
 ---
 status: 0
 stdout:
-=> ⚠️ OFFLINE ACORN is running in offline mode
+=> !!! OFFLINE ACORN is running in offline mode
 [00] Error: Deserialization error
     @context.malformedContext: unknown field `malformedContext`, expected one of `meta`, `title`, `subtitle`, `sections`, `contact`, `notes` at line 8 column 26
 [01] Error: Deserialization error

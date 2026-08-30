@@ -6,7 +6,7 @@
     clippy::unwrap_used
 )]
 use crate::io::InputOutput;
-use crate::prelude::std::PathBuf;
+use crate::prelude::std::{read, write, PathBuf};
 use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
@@ -61,31 +61,77 @@ fn test_alias_migration_accepts_canonical_fields() {
     assert!(parsed.validate().is_ok());
 }
 #[test]
-fn test_alias_migration_rejects_removed_fields() {
+fn test_alias_migration_accepts_deprecated_fields_with_canonical_output() {
     ["href", "url"].into_iter().for_each(|field| {
         let mut value = serde_json::json!({"caption": "Caption"});
         value[field] = serde_json::json!("image.png");
-        assert!(serde_json::from_value::<ImageObject>(value).is_err());
+        let image: ImageObject = serde_json::from_value(value).expect("deprecated image URL should deserialize");
+        let serialized = serde_json::to_value(image).expect("image should serialize");
+        assert_eq!(serialized["contentUrl"], "image.png");
+        assert!(serialized.get(field).is_none());
     });
     ["href", "url"].into_iter().for_each(|field| {
-        let mut value = serde_json::json!({
-            "contentSize": null,
-            "description": "Description",
-            "duration": null,
-            "height": null,
-            "width": null
-        });
+        let mut value = serde_json::json!({"description": "Description"});
         value[field] = serde_json::json!("https://example.com/video.mp4");
-        assert!(serde_json::from_value::<VideoObject>(value).is_err());
+        let video: VideoObject = serde_json::from_value(value).expect("deprecated video URL should deserialize");
+        let serialized = serde_json::to_value(video).expect("video should serialize");
+        assert_eq!(serialized["contentUrl"], "https://example.com/video.mp4");
+        assert!(serialized.get(field).is_none());
     });
     let mut contact = serde_json::to_value(ContactPoint::init().build()).expect("contact should serialize");
     contact.as_object_mut().expect("contact is an object").remove("url");
     contact["profile"] = serde_json::json!("https://example.com");
-    assert!(serde_json::from_value::<ContactPoint>(contact).is_err());
+    let contact: ContactPoint = serde_json::from_value(contact).expect("deprecated contact profile should deserialize");
+    let contact = serde_json::to_value(contact).expect("contact should serialize");
+    assert_eq!(contact["url"], "https://example.com");
+    assert!(contact.get("profile").is_none());
     let mut sections = serde_json::to_value(Sections::init().build()).expect("sections should serialize");
     let impact = sections.as_object_mut().expect("sections is an object").remove("impact");
     sections["outcomes"] = impact.expect("serialized sections contain impact");
-    assert!(serde_json::from_value::<Sections>(sections).is_err());
+    let sections: Sections = serde_json::from_value(sections).expect("deprecated outcomes should deserialize");
+    let sections = serde_json::to_value(sections).expect("sections should serialize");
+    assert!(sections.get("impact").is_some());
+    assert!(sections.get("outcomes").is_none());
+}
+#[test]
+fn test_field_migrations_detect_deprecated_rad_paths() {
+    let value = serde_json::json!({
+        "meta": {"media": [{"href": "image.png"}, {"url": "video.mp4"}]},
+        "contact": {"profile": "https://example.com"},
+        "sections": {"outcomes": ["Outcome"]}
+    });
+    assert_eq!(
+        ResearchActivity::field_migrations(&value),
+        vec![
+            ("meta.media[].href", "meta.media[].contentUrl"),
+            ("meta.media[].url", "meta.media[].contentUrl"),
+            ("contact.profile", "contact.url"),
+            ("sections.outcomes", "sections.impact")
+        ]
+    );
+}
+#[test]
+fn test_migrate_allows_strict_read() {
+    let mut value = serde_json::to_value(ResearchActivity::default()).expect("default RAD should serialize");
+    value["meta"]["media"] = serde_json::json!([{"caption": "Caption", "href": "image.png"}]);
+    let impact = value["sections"].as_object_mut().expect("sections is an object").remove("impact");
+    value["sections"]["outcomes"] = impact.expect("serialized sections contain impact");
+    let directory = tempfile::tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("legacy.json");
+    write(&path, serde_json::to_vec(&value).expect("legacy RAD should serialize")).expect("legacy RAD fixture should be written");
+    assert!(ResearchActivity::read(path.clone()).is_ok());
+    let why = ResearchActivity::read_strict(path.clone()).expect_err("strict reads should reject deprecated fields");
+    assert!(why.to_string().contains("meta.media[].href"));
+    assert!(why.to_string().contains("meta.media[].contentUrl"));
+    assert!(ResearchActivity::migrate(path.clone()).expect("legacy RAD should migrate"));
+    assert!(ResearchActivity::read_strict(path.clone()).is_ok());
+    let canonical: serde_json::Value =
+        serde_json::from_slice(&read(&path).expect("canonical RAD should be read")).expect("canonical RAD should deserialize as JSON");
+    assert_eq!(canonical["meta"]["media"][0]["contentUrl"], "image.png");
+    assert!(canonical["meta"]["media"][0].get("href").is_none());
+    assert!(canonical["sections"].get("impact").is_some());
+    assert!(canonical["sections"].get("outcomes").is_none());
+    assert!(!ResearchActivity::migrate(path).expect("canonical RAD should remain unchanged"));
 }
 #[test]
 fn test_alias_migration_retains_established_compatibility_fields() {

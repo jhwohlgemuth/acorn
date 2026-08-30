@@ -17,17 +17,6 @@
       ]
     },
     {
-      "name": "openalex",
-      "domain": "api.openalex.org",
-      "resources": [
-        {
-          "name": "work",
-          "method": "get",
-          "template": "{{ base }}/works/doi:{{ identifier }}{{ query }}"
-        }
-      ]
-    },
-    {
       "name": "geonames",
       "domain": "download.geonames.org",
       "resources": [
@@ -35,17 +24,6 @@
           "name": "countries",
           "method": "get",
           "template": "{{ base }}/export/dump/countryInfo.txt"
-        }
-      ]
-    },
-    {
-      "name": "handle",
-      "domain": "hdl.handle.net",
-      "resources": [
-        {
-          "name": "record",
-          "method": "get",
-          "template": "{{ base }}/api/handles/{{ identifier }}"
         }
       ]
     },
@@ -78,54 +56,20 @@
       ]
     },
     {
-      "name": "huggingface::api",
-      "domain": "huggingface.co",
-      "root": "api",
-      "resources": [
-        {
-          "name": "model",
-          "method": "get",
-          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
-        },
-        {
-          "name": "models",
-          "method": "get",
-          "template": "{{ base }}/models{{ query }}"
-        },
-        {
-          "name": "tree",
-          "method": "get",
-          "template": "{{ base }}/models/{{ identifier }}/tree/{{ revision }}{{ query }}"
-        }
-      ]
-    },
-    {
-      "name": "harbor::api",
-      "domain": "harbor.example.org",
-      "root": "api/v2.0",
-      "resources": [
-        {
-          "name": "health",
-          "method": "get",
-          "template": "{{ base }}/health"
-        },
-        {
-          "name": "artifact",
-          "method": "get",
-          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts/{{ reference }}"
-        },
-        {
-          "name": "artifacts",
-          "method": "get",
-          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts{{ query }}"
-        }
-      ]
-    },
-    {
       "name": "gitlab::api",
       "domain": "gitlab.com",
       "root": "api/v4",
       "resources": [
+        {
+          "name": "commit-status",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/statuses/{{ sha }}"
+        },
+        {
+          "name": "current-user",
+          "method": "get",
+          "template": "{{ base }}/user"
+        },
         {
           "name": "events",
           "method": "get",
@@ -140,6 +84,16 @@
           "name": "groups",
           "method": "get",
           "template": "{{ base }}/groups/{{ identifier }}/descendant_groups{{ query }}"
+        },
+        {
+          "name": "hook::create",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/hooks"
+        },
+        {
+          "name": "hook::update",
+          "method": "put",
+          "template": "{{ base }}/projects/{{ identifier }}/hooks/{{ hook_id }}"
         },
         {
           "name": "hooks",
@@ -167,16 +121,6 @@
           "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}/notes{{ query }}"
         },
         {
-          "name": "hook::create",
-          "method": "post",
-          "template": "{{ base }}/projects/{{ identifier }}/hooks"
-        },
-        {
-          "name": "hook::update",
-          "method": "put",
-          "template": "{{ base }}/projects/{{ identifier }}/hooks/{{ hook_id }}"
-        },
-        {
           "name": "jobs",
           "method": "get",
           "template": "{{ base }}/runners/{{ identifier }}/jobs{{ query }}"
@@ -190,6 +134,11 @@
           "name": "member",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/members/all/{{ user_id }}"
+        },
+        {
+          "name": "merge-request-diffs",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/diffs{{ query }}"
         },
         {
           "name": "merge-request-note",
@@ -207,29 +156,9 @@
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/notes{{ query }}"
         },
         {
-          "name": "merge-request-diffs",
-          "method": "get",
-          "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/diffs{{ query }}"
-        },
-        {
           "name": "merge-requests",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
-        },
-        {
-          "name": "repository-file",
-          "method": "get",
-          "template": "{{ base }}/projects/{{ identifier }}/repository/files/{{ file_path }}{{ query }}"
-        },
-        {
-          "name": "commit-status",
-          "method": "post",
-          "template": "{{ base }}/projects/{{ identifier }}/statuses/{{ sha }}"
-        },
-        {
-          "name": "current-user",
-          "method": "get",
-          "template": "{{ base }}/user"
         },
         {
           "name": "projects",
@@ -240,6 +169,11 @@
           "name": "releases",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/releases{{ query }}"
+        },
+        {
+          "name": "repository-file",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/files/{{ file_path }}{{ query }}"
         },
         {
           "name": "runner",
@@ -282,6 +216,72 @@
           "name": "languages",
           "method": "get",
           "template": "{{ base }}/-/raw/master/vendor/languages.yml"
+        }
+      ]
+    },
+    {
+      "name": "handle",
+      "domain": "hdl.handle.net",
+      "resources": [
+        {
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/api/handles/{{ identifier }}"
+        }
+      ]
+    },
+    {
+      "name": "harbor::api",
+      "domain": "harbor.example.org",
+      "root": "api/v2.0",
+      "resources": [
+        {
+          "name": "health",
+          "method": "get",
+          "template": "{{ base }}/health"
+        },
+        {
+          "name": "artifact",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts/{{ reference }}"
+        },
+        {
+          "name": "artifacts",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ project }}/repositories/{{ repository }}/artifacts{{ query }}"
+        }
+      ]
+    },
+    {
+      "name": "huggingface::api",
+      "domain": "huggingface.co",
+      "root": "api",
+      "resources": [
+        {
+          "name": "model",
+          "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}{{ query }}"
+        },
+        {
+          "name": "models",
+          "method": "get",
+          "template": "{{ base }}/models{{ query }}"
+        },
+        {
+          "name": "tree",
+          "method": "get",
+          "template": "{{ base }}/models/{{ identifier }}/tree/{{ revision }}{{ query }}"
+        }
+      ]
+    },
+    {
+      "name": "models-dev",
+      "domain": "models.dev",
+      "resources": [
+        {
+          "name": "catalog",
+          "method": "get",
+          "template": "{{ base }}/catalog.json"
         }
       ]
     },
@@ -339,6 +339,17 @@
           "name": "image-edit",
           "method": "post",
           "template": "{{ base }}/images/edits"
+        }
+      ]
+    },
+    {
+      "name": "openalex",
+      "domain": "api.openalex.org",
+      "resources": [
+        {
+          "name": "work",
+          "method": "get",
+          "template": "{{ base }}/works/doi:{{ identifier }}{{ query }}"
         }
       ]
     },
@@ -422,17 +433,6 @@
           "name": "licenses",
           "method": "get",
           "template": "{{ base }}/licenses/licenses.json"
-        }
-      ]
-    },
-    {
-      "name": "models-dev",
-      "domain": "models.dev",
-      "resources": [
-        {
-          "name": "catalog",
-          "method": "get",
-          "template": "{{ base }}/catalog.json"
         }
       ]
     }

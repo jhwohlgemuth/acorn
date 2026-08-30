@@ -385,6 +385,8 @@ Download research activity data from buckets or model weights for local inferenc
   Default value: `./content`
 * `-f`, `--flatten` — Save downloaded files directly beneath the output directory
 * `-C`, `--clobber` — Replace existing files or directories at selected output paths
+* `--strict` — Reject deprecated research activity fields during database ingestion
+* `--canonicalize` — Rewrite deprecated research activity fields before database ingestion
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -584,7 +586,7 @@ Formats research activity data in place (inherently includes some elements of `a
 * `-b`, `--branch <BRANCH>` — Format files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
-* `--enrich` — Enrich research activity data before formatting it
+* `--enrich` — Enrich research activity data after formatting it
 * `--no-color` — Disable color in dry-run output
 * `--provider <PROVIDER>` — Enrichment provider(s); may be repeated or comma-delimited
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process

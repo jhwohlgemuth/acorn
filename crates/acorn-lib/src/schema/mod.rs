@@ -52,6 +52,10 @@ pub mod agent;
 pub mod discovery;
 pub mod geonames;
 pub mod graph;
+#[cfg(feature = "std")]
+pub mod migrate;
+#[cfg(feature = "std")]
+pub use migrate::{FieldMigration, Migration};
 pub mod namespaces;
 pub mod pid;
 pub mod research_activity;
@@ -374,7 +378,7 @@ pub struct ContactPoint {
     /// > Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
     #[validate(url(message = "Profile URL must be in the format https://example.com"))]
     #[builder(default = "https://example.com".to_string())]
-    #[serde(deserialize_with = "string_trim")]
+    #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
     /// Organization of contact point
     ///
@@ -456,6 +460,7 @@ pub struct ImageObject {
     pub content_size: Option<NonZeroU64>,
     /// Content URL
     #[validate(custom(function = "has_image_extension"))]
+    #[serde(alias = "href", alias = "url")]
     pub content_url: Option<String>,
     /// Image height (in pixels)
     ///
@@ -534,6 +539,7 @@ pub struct VideoObject {
     pub content_size: Option<NonZeroU64>,
     /// Video URL
     #[validate(url)]
+    #[serde(alias = "href", alias = "url")]
     pub content_url: Option<String>,
     /// Video description
     ///

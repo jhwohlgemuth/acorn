@@ -4,7 +4,7 @@ expression: normalized_process(&args)
 ---
 status: 0
 stdout:
-=> ⚠️ OFFLINE ACORN is running in offline mode
+=> !!! OFFLINE ACORN is running in offline mode
 [00] Error: distribution[0].access_url[0]
    ╭─[ schema/dcat-invalid-2-errors.json:8:21 ]
    │

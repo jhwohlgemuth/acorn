@@ -220,6 +220,12 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Download(arguments)) if arguments.clobber && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
             Err(eyre::eyre!("--clobber is only supported for bucket downloads"))
         }
+        | Some(Commands::Download(arguments)) if arguments.strict && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+            Err(eyre::eyre!("--strict is only supported for bucket downloads"))
+        }
+        | Some(Commands::Download(arguments)) if arguments.canonicalize && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+            Err(eyre::eyre!("--canonicalize is only supported for bucket downloads"))
+        }
         | Some(Commands::Download(arguments)) => with_runtime(async {
             match initialize_database(config).await {
                 | Ok(()) => match &arguments.command {
@@ -247,6 +253,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                             &arguments.output,
                             arguments.flatten,
                             arguments.clobber,
+                            arguments.strict,
+                            arguments.canonicalize,
                             &config.database_path,
                             threads,
                             &arguments.verbose,

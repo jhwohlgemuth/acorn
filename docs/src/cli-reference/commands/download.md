@@ -38,7 +38,12 @@ Use `--flatten` to discard repository directory components and save every select
 
 By default, a bucket transfer also fails rather than overwrite an existing destination. Add `--clobber` to replace files, symlinks, or directories that conflict with selected output paths. ACORN obtains the replacement content before removing an existing destination, preserves unrelated contents beneath the output directory, and does not clear the output directory itself. This flag applies only to bucket downloads; the model subcommand's existing `--force` flag retains its synchronization-specific meaning.
 
-If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence.
+If a transferred RAD file cannot be parsed or persisted, the files already written to the output directory are preserved and the command fails. Deprecated RAD fields are accepted with warnings and serialized under their canonical names in the database. Pass `--canonicalize` to rewrite deprecated fields in transferred files before ingestion, or `--strict` to reject them. Combining both flags canonicalizes first and then verifies the rewritten files with strict ingestion. Global `--no-local-database` performs the transfer but skips RAD parsing and candidate persistence; `--canonicalize` still rewrites deprecated fields when database access is disabled.
+
+```sh
+# Rewrite deprecated RAD aliases in downloaded files, then require canonical ingestion
+acorn download --config /path/to/.acorn.json --canonicalize --strict
+```
 
 ```sh
 # Transfer bucket files without creating or updating local candidates

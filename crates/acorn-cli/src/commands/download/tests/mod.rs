@@ -598,6 +598,8 @@ async fn test_download_rejects_local_source() {
         &Some(PathBuf::from("unused")),
         false,
         false,
+        false,
+        false,
         &None,
         TEST_THREADS,
         &Verbosity::new(0, 1),
@@ -728,6 +730,38 @@ fn test_download_clobber_rejects_model_subcommand() {
         .expect("run model download with bucket-only flag");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("--clobber is only supported for bucket downloads"));
+    assert!(!database_path.exists());
+}
+#[test]
+fn test_download_strict_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_strict_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let database_path = temp_dir.join("acorn.db");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--strict", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--strict is only supported for bucket downloads"));
+    assert!(!database_path.exists());
+}
+#[test]
+fn test_download_canonicalize_rejects_model_subcommand() {
+    let temp_dir = temp_test_dir("download_canonicalize_model_rejection");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let database_path = temp_dir.join("acorn.db");
+    let output = Command::cargo_bin("acorn")
+        .expect("locate acorn binary")
+        .arg("--database-path")
+        .arg(&database_path)
+        .args(["download", "--canonicalize", "model", "acme/model", "--dry-run"])
+        .output()
+        .expect("run model download with bucket-only flag");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--canonicalize is only supported for bucket downloads"));
     assert!(!database_path.exists());
 }
 #[test]

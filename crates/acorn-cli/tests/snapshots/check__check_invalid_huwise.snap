@@ -4,7 +4,7 @@ expression: normalized_process(&args)
 ---
 status: 0
 stdout:
-=> ⚠️ OFFLINE ACORN is running in offline mode
+=> !!! OFFLINE ACORN is running in offline mode
 [00] Error: metas.dcat_ap.contact_email
     ╭─[ schema/huwise-invalid-2-errors.json:15:24 ]
     │

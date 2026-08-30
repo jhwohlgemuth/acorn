@@ -126,6 +126,22 @@ fn test_download_clobber_argument() {
     });
 }
 #[test]
+fn test_download_strict_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", "--strict"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => assert!(arguments.strict),
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
+fn test_download_canonicalize_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "download", "https://github.com/user/repository", "--canonicalize"]).unwrap();
+    match arguments.command {
+        | Some(Commands::Download(arguments)) => assert!(arguments.canonicalize),
+        | other => panic!("unexpected command: {other:?}"),
+    }
+}
+#[test]
 fn test_watch_arguments_are_global() {
     let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--poll-interval", "2s", "check"])
         .expect("parse watch arguments before command");

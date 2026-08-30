@@ -23,6 +23,8 @@ pub async fn run(
     output: &Option<PathBuf>,
     flatten: bool,
     clobber: bool,
+    strict: bool,
+    canonicalize: bool,
     database_path: &Option<PathBuf>,
     threads: usize,
     verbose: &Verbosity,
@@ -48,6 +50,8 @@ pub async fn run(
                 .ignore(ignore.to_vec())
                 .flatten(flatten)
                 .clobber(clobber)
+                .strict(strict)
+                .canonicalize(canonicalize)
                 .quiet(quiet)
                 .threads(threads)
                 .build();

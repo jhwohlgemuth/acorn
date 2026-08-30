@@ -14,12 +14,12 @@ use crate::io::{
     CstValue, Executor, FromPath, InputOutput, ProgressType, Source, TemporaryDirectory,
 };
 use crate::prelude::{self, env, exit, Arc, ErrorKind, HashMap, HashSet, Mutex, Path, PathBuf};
-use crate::schema::pid::{Identifier, PID};
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::OneOrMany;
 use crate::schema::{
     agent::{ModelDetails, Quantization},
     hardware::memory::Memory,
+    pid::{Identifier, PID},
+    research_activity::ResearchActivity,
+    Migration, OneOrMany,
 };
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE, SUPPORTED_RAD_FILETYPES};
 use crate::util::{detect_json, is_filetype, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
@@ -309,6 +309,12 @@ pub struct BucketOptions {
     /// Disable ingestion into the local activity database
     #[builder(default)]
     pub no_local_database: bool,
+    /// Reject deprecated research activity fields during ingestion
+    #[builder(default)]
+    pub strict: bool,
+    /// Rewrite deprecated research activity fields before ingestion
+    #[builder(default)]
+    pub canonicalize: bool,
     /// Disable remote bucket operations
     #[builder(default)]
     pub offline: bool,
@@ -841,7 +847,8 @@ impl Bucket {
                 };
                 let count = manifest.count();
                 manifest
-                    .ingest(options, &options.database_path, options.no_local_database)
+                    .canonicalize(options)
+                    .and_then(|manifest| manifest.ingest(options))
                     .map(|()| count)
             }),
         }
@@ -1164,6 +1171,8 @@ impl Default for BucketOptions {
             output: None,
             database_path: None,
             no_local_database: false,
+            strict: false,
+            canonicalize: false,
             offline: false,
             threads: 10,
             quiet: false,
@@ -1444,12 +1453,39 @@ impl TransferManifest {
         let paths = self.files.iter().map(|path| path.display().to_string()).collect::<Vec<_>>();
         count_json_files(&paths).saturating_add(count_image_files(&paths))
     }
+    fn canonicalize(self, options: &BucketOptions) -> ApiResult<Self> {
+        let BucketOptions { canonicalize, output, .. } = options;
+        match canonicalize {
+            | false => Ok(self),
+            | true => {
+                let output = output.clone().unwrap_or_default();
+                let canonicalized = self
+                    .files
+                    .iter()
+                    .filter(is_filetype(SUPPORTED_RAD_FILETYPES))
+                    .try_fold((), |(), relative| {
+                        let path = output.join(relative);
+                        ResearchActivity::migrate(path.clone())
+                            .map(|_| ())
+                            .map_err(|why| eyre!("Failed to canonicalize transferred RAD {} — {why}", path.display()))
+                    });
+                canonicalized.map(|()| self)
+            }
+        }
+    }
     /// Ingest transferred RAD files into the canonical research activity table.
-    pub fn ingest(&self, options: &BucketOptions, database_path: &Option<PathBuf>, no_local_database: bool) -> ApiResult<()> {
+    pub fn ingest(&self, options: &BucketOptions) -> ApiResult<()> {
+        let BucketOptions {
+            database_path,
+            no_local_database,
+            output,
+            strict,
+            ..
+        } = options;
         match no_local_database {
             | true => Ok(()),
             | false => {
-                let output = options.output.clone().unwrap_or_default();
+                let output = output.clone().unwrap_or_default();
                 let database = Database::<Table>::from_path(database_path.clone());
                 self.files
                     .iter()
@@ -1460,13 +1496,16 @@ impl TransferManifest {
                     })
                     .try_fold((), |(), relative| {
                         let path = output.join(relative);
-                        ResearchActivity::read(path.clone())
-                            .and_then(|rad| {
-                                serde_json::to_value(&rad)
-                                    .map_err(Report::from)
-                                    .and_then(|rad_json| database.create_or_enrich(self.candidate(&rad, rad_json, relative)).map(|_| ()))
-                            })
-                            .map_err(|why| eyre!("Failed to ingest transferred RAD {} — {why}", path.display()))
+                        match strict {
+                            | true => ResearchActivity::read_strict(path.clone()),
+                            | false => ResearchActivity::read(path.clone()),
+                        }
+                        .and_then(|rad| {
+                            serde_json::to_value(&rad)
+                                .map_err(Report::from)
+                                .and_then(|rad_json| database.create_or_enrich(self.candidate(&rad, rad_json, relative)).map(|_| ()))
+                        })
+                        .map_err(|why| eyre!("Failed to ingest transferred RAD {} — {why}", path.display()))
                     })
             }
         }

@@ -439,6 +439,12 @@ pub(crate) struct Download {
     /// Replace existing files or directories at selected output paths
     #[arg(short = 'C', long, help_heading = "FLAGS")]
     pub(crate) clobber: bool,
+    /// Reject deprecated research activity fields during database ingestion
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) strict: bool,
+    /// Rewrite deprecated research activity fields before database ingestion
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) canonicalize: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

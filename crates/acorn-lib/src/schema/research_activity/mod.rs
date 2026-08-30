@@ -17,6 +17,8 @@ use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Perso
 use crate::schema::standard::text::Text;
 #[cfg(feature = "std")]
 use crate::schema::vocabulary;
+#[cfg(feature = "std")]
+use crate::schema::Migration;
 use crate::schema::{
     ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
 };
@@ -56,6 +58,8 @@ use tracing::{debug, trace};
 
 pub mod aspect;
 mod markdown;
+#[cfg(feature = "std")]
+mod migrate;
 pub mod output;
 pub mod s3a;
 use aspect::AspectFramework;
@@ -75,6 +79,20 @@ enum Vocabulary {
     Sponsors,
     #[display("technology")]
     Technology,
+}
+/// Provenance for fields contributed by one enrichment provider.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct EnrichmentProvenance {
+    /// Provider that supplied the values.
+    pub provider: Provider,
+    /// Provider lookup value used to obtain the values.
+    pub source: Option<String>,
+    /// RAD field paths populated by the provider.
+    #[builder(default)]
+    pub fields: Vec<String>,
 }
 /// Overview of research focus and areas
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
@@ -300,20 +318,6 @@ pub struct ResearchActivityMetadata {
     #[eserde(compat)]
     pub resources: Option<Vec<Resource>>,
 }
-/// Provenance for fields contributed by one enrichment provider.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct EnrichmentProvenance {
-    /// Provider that supplied the values.
-    pub provider: Provider,
-    /// Provider lookup value used to obtain the values.
-    pub source: Option<String>,
-    /// RAD field paths populated by the provider.
-    #[builder(default)]
-    pub fields: Vec<String>,
-}
 /// Linked data (e.g., JSON-LD) context for metadata
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
@@ -412,7 +416,7 @@ pub struct Sections {
     /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
     #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "is_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
-    #[serde(deserialize_with = "vec_string_trim")]
+    #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
     /// Notable recognition or awards given to the research team, organization, or research products
     /// ### Examples
@@ -441,59 +445,6 @@ pub struct Sections {
     #[validate(nested)]
     #[builder(default = Research::init().build())]
     pub research: Research,
-}
-impl Default for ResearchActivity {
-    fn default() -> Self {
-        ResearchActivity::init().build()
-    }
-}
-impl Default for ResearchActivityContext {
-    fn default() -> Self {
-        ResearchActivityContext::init()
-            .meta(schema_org("CreativeWork"))
-            .title(dcterms("title"))
-            .subtitle(schema_org("alternativeHeadline"))
-            .sections(schema_org("CreativeWork"))
-            .contact(dcat("contactPoint"))
-            .notes(schema_org("Text"))
-            .build()
-    }
-}
-impl Default for ResearchActivityMetadata {
-    fn default() -> Self {
-        ResearchActivityMetadata::init().build()
-    }
-}
-impl Default for ResearchActivityMetadataContext {
-    fn default() -> Self {
-        ResearchActivityMetadataContext::init()
-            .classification(schema_org("DefinedTerm"))
-            .archive(schema_org("Boolean"))
-            .draft(schema_org("Boolean"))
-            .status(schema_org("DefinedTerm"))
-            .identifier(codemeta("identifier"))
-            .doi(bibo("doi"))
-            .outputs(schema_org("CreativeWork"))
-            .handle(codemeta("identifier"))
-            .raid(DEFAULT_RAID_SCHEMA_URI)
-            .swhid(codemeta("identifier"))
-            .ror(DEFAULT_ROR_SCHEMA_URI)
-            .additional_type(schema_org("additionalType"))
-            .media(schema_org("MediaObject"))
-            .websites(schema_org("WebSite"))
-            .keywords(dcat("keyword"))
-            .technology(schema_org("DefinedTerm"))
-            .sponsors(codemeta("sponsor"))
-            .partners(schema_org("Text"))
-            .related(schema_org("Text"))
-            .resources(schema_org("DefinedTerm"))
-            .build()
-    }
-}
-impl Default for Sections {
-    fn default() -> Self {
-        Sections::init().build()
-    }
 }
 impl From<&ResearchActivity> for Cff {
     fn from(rad: &ResearchActivity) -> Self {
@@ -579,6 +530,26 @@ impl From<ResearchActivity> for Cff {
         Cff::from(&rad)
     }
 }
+impl MarkdownSupport for Research {
+    fn to_markdown(&self) -> String {
+        let Research { focus, areas } = self;
+        let focus = focus.to_markdown_text();
+        let areas = areas.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        format!(
+            r#"
+## Focus
+{focus}
+
+## Areas{}"#,
+            areas.to_markdown(),
+        )
+    }
+}
+impl Default for ResearchActivity {
+    fn default() -> Self {
+        ResearchActivity::init().build()
+    }
+}
 impl Hash for ResearchActivity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.meta.identifier.hash(state);
@@ -620,6 +591,11 @@ impl InputOutput for ResearchActivity {
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
+            serde_json::from_str::<serde_json::Value>(&content)
+                .ok()
+                .as_ref()
+                .into_iter()
+                .for_each(Self::print_migration_warnings);
             eserde::json::from_str::<Self>(&content).map_err(|errors| {
                 let details: Vec<String> = errors
                     .iter()
@@ -632,6 +608,7 @@ impl InputOutput for ResearchActivity {
     fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone()).and_then(|content| {
             jsonc_parse_value(&content).and_then(|value| {
+                Self::print_migration_warnings(&value);
                 serde_json::to_string(&value)
                     .map_err(|why| eyre!("JSONC conversion error — {why}"))
                     .and_then(|json| {
@@ -650,7 +627,14 @@ impl InputOutput for ResearchActivity {
         read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("{why}")))
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}")))
+        read_file(path.clone()).and_then(|content| {
+            serde_norway::from_str::<serde_json::Value>(&content)
+                .ok()
+                .as_ref()
+                .into_iter()
+                .for_each(Self::print_migration_warnings);
+            serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}"))
+        })
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
@@ -700,30 +684,6 @@ impl LinkedData for ResearchActivity {
         }
     }
 }
-impl LinkedData for ResearchActivityMetadata {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityMetadataContext::default()),
-            metadata_type: None,
-            ..self.clone()
-        }
-    }
-}
-impl MarkdownSupport for Research {
-    fn to_markdown(&self) -> String {
-        let Research { focus, areas } = self;
-        let focus = focus.to_markdown_text();
-        let areas = areas.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        format!(
-            r#"
-## Focus
-{focus}
-
-## Areas{}"#,
-            areas.to_markdown(),
-        )
-    }
-}
 impl MarkdownSupport for ResearchActivity {
     fn to_markdown(&self) -> String {
         Document::from(self).to_markdown()
@@ -735,53 +695,6 @@ impl MarkdownSupport for ResearchActivity {
     #[cfg(not(feature = "std"))]
     fn from_markdown(_content: &str) -> Result<Self, String> {
         Err("Markdown parsing requires the std feature".to_string())
-    }
-}
-impl MarkdownSupport for Sections {
-    fn to_markdown(&self) -> String {
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            achievement,
-            capabilities,
-            research,
-        } = self;
-        let mission = mission.to_markdown_text();
-        let challenge = challenge.to_markdown_text();
-        let approach = approach.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        let impact = impact.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
-        let achievement = achievement
-            .as_ref()
-            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
-            .map(|values| format!("\n\n## Achievement{}", values.to_markdown()))
-            .unwrap_or_default();
-        let capabilities = capabilities
-            .as_ref()
-            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
-            .map(|values| format!("\n\n## Capabilities{}", values.to_markdown()))
-            .unwrap_or_default();
-        format!(
-            r#"
-## Mission
-{}
-
-## Challenge
-{}
-
-## Approach{}
-
-## Impact{}{}{}
-{}"#,
-            mission,
-            challenge,
-            approach.to_markdown(),
-            impact.to_markdown(),
-            achievement,
-            capabilities,
-            research.to_markdown(),
-        )
     }
 }
 impl ResearchActivity {
@@ -880,6 +793,61 @@ impl ResearchActivity {
         .format()
     }
 }
+impl ToProse for ResearchActivity {
+    fn to_prose(&self) -> String {
+        let websites = self
+            .meta
+            .websites
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|website| website.to_markdown())
+            .collect::<Vec<String>>()
+            .join("\n");
+        let sections = self.sections.to_markdown();
+        match &self.subtitle {
+            | Some(subtitle) => format!(
+                r#"{title}
+{subtitle}
+{sections}
+{websites}"#,
+                title = self.title
+            ),
+            | None => format!(
+                r#"{title}
+{sections}
+{websites}"#,
+                title = self.title
+            ),
+        }
+    }
+}
+impl Default for ResearchActivityContext {
+    fn default() -> Self {
+        ResearchActivityContext::init()
+            .meta(schema_org("CreativeWork"))
+            .title(dcterms("title"))
+            .subtitle(schema_org("alternativeHeadline"))
+            .sections(schema_org("CreativeWork"))
+            .contact(dcat("contactPoint"))
+            .notes(schema_org("Text"))
+            .build()
+    }
+}
+impl Default for ResearchActivityMetadata {
+    fn default() -> Self {
+        ResearchActivityMetadata::init().build()
+    }
+}
+impl LinkedData for ResearchActivityMetadata {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityMetadataContext::default()),
+            metadata_type: None,
+            ..self.clone()
+        }
+    }
+}
 impl ResearchActivityMetadata {
     pub(crate) fn first_image(self) -> Option<MediaObject> {
         match self.media {
@@ -967,33 +935,82 @@ impl ResearchActivityMetadata {
         Self { media, ..self }.format()
     }
 }
-impl ToProse for ResearchActivity {
-    fn to_prose(&self) -> String {
-        let websites = self
-            .meta
-            .websites
-            .clone()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|website| website.to_markdown())
-            .collect::<Vec<String>>()
-            .join("\n");
-        let sections = self.sections.to_markdown();
-        match &self.subtitle {
-            | Some(subtitle) => format!(
-                r#"{title}
-{subtitle}
-{sections}
-{websites}"#,
-                title = self.title
-            ),
-            | None => format!(
-                r#"{title}
-{sections}
-{websites}"#,
-                title = self.title
-            ),
-        }
+impl Default for ResearchActivityMetadataContext {
+    fn default() -> Self {
+        ResearchActivityMetadataContext::init()
+            .classification(schema_org("DefinedTerm"))
+            .archive(schema_org("Boolean"))
+            .draft(schema_org("Boolean"))
+            .status(schema_org("DefinedTerm"))
+            .identifier(codemeta("identifier"))
+            .doi(bibo("doi"))
+            .outputs(schema_org("CreativeWork"))
+            .handle(codemeta("identifier"))
+            .raid(DEFAULT_RAID_SCHEMA_URI)
+            .swhid(codemeta("identifier"))
+            .ror(DEFAULT_ROR_SCHEMA_URI)
+            .additional_type(schema_org("additionalType"))
+            .media(schema_org("MediaObject"))
+            .websites(schema_org("WebSite"))
+            .keywords(dcat("keyword"))
+            .technology(schema_org("DefinedTerm"))
+            .sponsors(codemeta("sponsor"))
+            .partners(schema_org("Text"))
+            .related(schema_org("Text"))
+            .resources(schema_org("DefinedTerm"))
+            .build()
+    }
+}
+impl Default for Sections {
+    fn default() -> Self {
+        Sections::init().build()
+    }
+}
+impl MarkdownSupport for Sections {
+    fn to_markdown(&self) -> String {
+        let Sections {
+            mission,
+            challenge,
+            approach,
+            impact,
+            achievement,
+            capabilities,
+            research,
+        } = self;
+        let mission = mission.to_markdown_text();
+        let challenge = challenge.to_markdown_text();
+        let approach = approach.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let impact = impact.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>();
+        let achievement = achievement
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Achievement{}", values.to_markdown()))
+            .unwrap_or_default();
+        let capabilities = capabilities
+            .as_ref()
+            .map(|values| values.iter().map(MarkdownSupport::to_markdown_text).collect::<Vec<_>>())
+            .map(|values| format!("\n\n## Capabilities{}", values.to_markdown()))
+            .unwrap_or_default();
+        format!(
+            r#"
+## Mission
+{}
+
+## Challenge
+{}
+
+## Approach{}
+
+## Impact{}{}{}
+{}"#,
+            mission,
+            challenge,
+            approach.to_markdown(),
+            impact.to_markdown(),
+            achievement,
+            capabilities,
+            research.to_markdown(),
+        )
     }
 }
 impl Vocabulary {
@@ -1002,90 +1019,14 @@ impl Vocabulary {
         ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
     }
 }
-fn default_swhid_context() -> String {
+fn default_handle_context() -> String {
     codemeta("identifier")
 }
 fn default_outputs_context() -> String {
     schema_org("CreativeWork")
 }
-fn default_handle_context() -> String {
+fn default_swhid_context() -> String {
     codemeta("identifier")
-}
-#[cfg(feature = "std")]
-pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
-    let data = vocabulary::csv(&name);
-    resolve_from_list_of_lists(value, data, name)
-}
-#[cfg(not(feature = "std"))]
-pub(crate) fn resolve_from_csv_asset(_name: String, value: String) -> Option<String> {
-    Some(value)
-}
-#[cfg(feature = "std")]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
-    fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
-        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
-        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-        pattern.match_list(values.clone(), &mut matcher)
-    }
-    fn print_resolution(output: Option<String>, value: String, name: String) {
-        let label = name.to_case(Case::Title);
-        match output {
-            | Some(resolved) => {
-                if resolved.eq(&value.to_string()) {
-                    trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
-                } else {
-                    debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
-                }
-            }
-            | None => {
-                debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
-            }
-        };
-    }
-    let output = data
-        .into_iter()
-        .flat_map(|values| {
-            let sanitized = value.normalize();
-            let matched = match_list(sanitized, values.clone().into_iter().take(4));
-            trace!("{} => {:?}", value.clone(), matched.clone());
-            if matched.clone().is_empty() {
-                None
-            } else {
-                match values.first() {
-                    | Some(x) => {
-                        if value.eq(x) {
-                            Some((x.into(), 10000))
-                        } else {
-                            let score = matched.into_iter().map(|(_, score)| score).max();
-                            match score {
-                                | Some(value) if value > 0 => Some((x.to_string(), value)),
-                                | Some(_) | None => None,
-                            }
-                        }
-                    }
-                    | None => None,
-                }
-            }
-        })
-        .max_by_key(|(_, score)| *score)
-        .map(|(x, _)| x.to_string());
-    print_resolution(output.clone(), value, name);
-    output
-}
-#[cfg(not(feature = "std"))]
-#[allow(dead_code)]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
-    Some(value)
-}
-fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
-    let mut err = ValidationError::new(code).with_message(message.into());
-    err.add_param("index".into(), &index);
-    err
-}
-fn validation_error_with_index_and_length(code: &'static str, message: String, index: usize, length: usize) -> ValidationError {
-    let mut err = validation_error_with_index(code, message, index);
-    err.add_param("length".into(), &length);
-    err
 }
 /// Custom validator function for [approach](Sections::approach)
 pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
@@ -1148,21 +1089,6 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
         })
         .map_or(Ok(()), Err)
 }
-/// Custom validator for [`ResearchActivity`] publication identifiers in [`ResearchActivityMetadata::doi`]
-pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> ValidationResult {
-    const CODE: &str = "meta.doi";
-    value
-        .iter()
-        .position(|identifier| matches!(PublicationIdentifierType::from(identifier.as_str()), PublicationIdentifierType::Unknown))
-        .map(|index| {
-            validation_error_with_index(
-                CODE,
-                "Every publication identifier should be a valid DOI or arXiv identifier".to_string(),
-                index,
-            )
-        })
-        .map_or(Ok(()), Err)
-}
 /// Custom validator for [`ResearchActivity`] Handle identifiers.
 pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.handle";
@@ -1170,15 +1096,6 @@ pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
         .iter()
         .position(|identifier| !Handle::is_valid(identifier))
         .map(|index| validation_error_with_index(CODE, "Every Handle should be valid".to_string(), index))
-        .map_or(Ok(()), Err)
-}
-/// Custom validator for [`ResearchActivity`] software hash identifiers
-pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
-    const CODE: &str = "meta.swhid";
-    value
-        .iter()
-        .position(|identifier| !SWHID::is_valid(identifier))
-        .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
@@ -1225,6 +1142,106 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
                 .map(|index| validation_error_with_index(CODE, "Impact statements should begin with a capital letter".to_string(), index))
         })
         .map_or(Ok(()), Err)
+}
+/// Custom validator for [`ResearchActivity`] publication identifiers in [`ResearchActivityMetadata::doi`]
+pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> ValidationResult {
+    const CODE: &str = "meta.doi";
+    value
+        .iter()
+        .position(|identifier| matches!(PublicationIdentifierType::from(identifier.as_str()), PublicationIdentifierType::Unknown))
+        .map(|index| {
+            validation_error_with_index(
+                CODE,
+                "Every publication identifier should be a valid DOI or arXiv identifier".to_string(),
+                index,
+            )
+        })
+        .map_or(Ok(()), Err)
+}
+/// Custom validator for [`ResearchActivity`] software hash identifiers
+pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
+    const CODE: &str = "meta.swhid";
+    value
+        .iter()
+        .position(|identifier| !SWHID::is_valid(identifier))
+        .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
+        .map_or(Ok(()), Err)
+}
+#[cfg(not(feature = "std"))]
+pub(crate) fn resolve_from_csv_asset(_name: String, value: String) -> Option<String> {
+    Some(value)
+}
+#[cfg(feature = "std")]
+pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
+    let data = vocabulary::csv(&name);
+    resolve_from_list_of_lists(value, data, name)
+}
+#[cfg(not(feature = "std"))]
+#[allow(dead_code)]
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
+    Some(value)
+}
+#[cfg(feature = "std")]
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
+    fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
+        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+        let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+        pattern.match_list(values.clone(), &mut matcher)
+    }
+    fn print_resolution(output: Option<String>, value: String, name: String) {
+        let label = name.to_case(Case::Title);
+        match output {
+            | Some(resolved) => {
+                if resolved.eq(&value.to_string()) {
+                    trace!("=> {} {} = \"{}\"", Label::using(), label, value.clone());
+                } else {
+                    debug!(input = value.clone(), resolved, "=> {} {}", Label::found(), label);
+                }
+            }
+            | None => {
+                debug!(value = value.clone(), "=> {} {}", Label::not_found(), label);
+            }
+        };
+    }
+    let output = data
+        .into_iter()
+        .flat_map(|values| {
+            let sanitized = value.normalize();
+            let matched = match_list(sanitized, values.clone().into_iter().take(4));
+            trace!("{} => {:?}", value.clone(), matched.clone());
+            if matched.clone().is_empty() {
+                None
+            } else {
+                match values.first() {
+                    | Some(x) => {
+                        if value.eq(x) {
+                            Some((x.into(), 10000))
+                        } else {
+                            let score = matched.into_iter().map(|(_, score)| score).max();
+                            match score {
+                                | Some(value) if value > 0 => Some((x.to_string(), value)),
+                                | Some(_) | None => None,
+                            }
+                        }
+                    }
+                    | None => None,
+                }
+            }
+        })
+        .max_by_key(|(_, score)| *score)
+        .map(|(x, _)| x.to_string());
+    print_resolution(output.clone(), value, name);
+    output
+}
+fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
+    let mut err = ValidationError::new(code).with_message(message.into());
+    err.add_param("index".into(), &index);
+    err
+}
+fn validation_error_with_index_and_length(code: &'static str, message: String, index: usize, length: usize) -> ValidationError {
+    let mut err = validation_error_with_index(code, message, index);
+    err.add_param("length".into(), &length);
+    err
 }
 
 #[cfg(test)]

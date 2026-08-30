@@ -7,7 +7,8 @@
 )]
 use super::*;
 use crate::io::api::gitlab::{
-    handle_tree_paths_response, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
+    handle_tree_paths_response, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse,
+    ProgrammingLanguagesResponse, TreeResponse,
 };
 use crate::io::api::{self, sluggify};
 use crate::param;
@@ -147,6 +148,57 @@ fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
     let html = "<!doctype html><html><body>403 Forbidden</body></html>";
     let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
     assert!(why.to_string().contains("expected value"));
+}
+#[tokio::test]
+async fn test_repository_tree_treats_later_page_empty_403_as_terminal() {
+    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
+    let response = repository_tree(&options).await.expect("later-page forbidden should be terminal");
+    assert!(response.paths.is_empty());
+    assert_eq!(response.entry_count, 0);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_tree_reports_first_page_empty_403_status() {
+    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let why = repository_tree(&options).await.expect_err("first-page forbidden should fail");
+    assert!(why.to_string().contains("HTTP 403"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_tree_reports_later_page_403_with_reason() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/repository/tree",
+        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
+    let why = repository_tree(&options)
+        .await
+        .expect_err("later-page forbidden with a reason should fail");
+    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_file_reports_non_json_error_status() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/repository/files/activity.json",
+        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("")
+        .domain(&server.base_url)
+        .identifier("30")
+        .path("activity.json")
+        .sha("HEAD")
+        .build();
+    let why = repository_file(&options).await.expect_err("forbidden repository file should fail");
+    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
+    assert!(!why.to_string().contains("missing field `file_path`"));
+    server.stop().await.unwrap();
 }
 #[tokio::test]
 async fn test_project_webhook_registration_uses_signing_token_on_gitlab_19() {

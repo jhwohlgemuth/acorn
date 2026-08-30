@@ -21,7 +21,10 @@ fn normalized_process(args: &[String]) -> String {
     let normalize = |bytes: &[u8]| {
         let text = String::from_utf8_lossy(bytes).replace('\r', "").replace('\\', "/");
         let workspace = fixture("").parent().unwrap().parent().unwrap().to_string_lossy().replace('\\', "/");
-        let without_workspace = text.replace(workspace.as_str(), "<WORKSPACE>");
+        let emoji = [("\u{26a0}\u{fe0f} ", "!!! "), ("\u{2705} ", "☑ "), ("\u{1f504} ", "RE-RUN ")];
+        let without_workspace = emoji
+            .iter()
+            .fold(text.replace(workspace.as_str(), "<WORKSPACE>"), |acc, (from, to)| acc.replace(from, to));
         let mut escaped = false;
         without_workspace
             .chars()
