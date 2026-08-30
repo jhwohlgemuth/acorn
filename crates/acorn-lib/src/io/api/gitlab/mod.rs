@@ -729,6 +729,15 @@ pub struct ProjectMember {
     /// Effective GitLab access level
     pub access_level: u64,
 }
+/// Minimal GitLab project metadata used for repository resolution
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProjectDetails {
+    /// Numeric project identifier
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Default branch name
+    pub default_branch: Option<String>,
+}
 /// GitLab project webhook metadata used for idempotent registration
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProjectWebhook {

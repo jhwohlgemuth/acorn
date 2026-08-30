@@ -40,8 +40,8 @@ pub trait Migration: InputOutput {
     fn print_migration_warnings(value: &serde_json::Value) {
         Self::field_migrations(value).into_iter().for_each(|(deprecated, replacement)| {
             warn!(
-                "=> {} Deprecated {} field {}; use {}",
-                Label::warning(),
+                "=> {}Deprecated {} field {}; use {}",
+                Label::CAUTION,
                 Self::STANDARD,
                 deprecated.red(),
                 replacement.green()

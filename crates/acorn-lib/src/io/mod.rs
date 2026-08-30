@@ -39,6 +39,8 @@ use crate::util::{
 };
 use crate::{args, cmd, Location};
 use color_eyre::eyre::{eyre, Report};
+#[cfg(feature = "std")]
+use console::{measure_text_width, strip_ansi_codes};
 use core::fmt;
 use core::iter::once;
 use core::pin::Pin;
@@ -65,7 +67,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
+use urlencoding::encode;
 use which::which;
 
 pub mod api;
@@ -732,6 +735,9 @@ impl StringConversion for PathBuf {
     fn normalized(&self) -> String {
         self.to_string_lossy().as_ref().normalized()
     }
+    fn percent_encode(&self) -> String {
+        self.to_string_lossy().as_ref().percent_encode()
+    }
     fn to_ascii_alphanumeric(&self) -> String {
         to_ascii_alphanumeric(self.to_string_lossy().as_ref())
     }
@@ -749,6 +755,9 @@ impl StringConversion for String {
     fn normalized(&self) -> String {
         self.as_str().normalized()
     }
+    fn percent_encode(&self) -> String {
+        self.as_str().percent_encode()
+    }
     fn to_ascii_alphanumeric(&self) -> String {
         to_ascii_alphanumeric(self)
     }
@@ -765,6 +774,9 @@ impl StringConversion for String {
 impl StringConversion for &str {
     fn normalized(&self) -> String {
         self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn percent_encode(&self) -> String {
+        encode(self).into_owned()
     }
     fn to_ascii_alphanumeric(&self) -> String {
         to_ascii_alphanumeric(self)
@@ -1066,6 +1078,43 @@ pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
             }),
     }
 }
+/// Print `text` inside a single-cell rounded border with an optional embedded title
+///
+/// The border is rendered with UTF-8 rounded corners and correctly measures ANSI escape sequences and emoji width via `console`.
+/// When `title` is `Some`, it is embedded in the top border as `╭─ {title} ─…─╮`.
+#[cfg(feature = "std")]
+pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
+    let inner = text.to_string();
+    let title_string = title.map(|value| value.to_string());
+    let inner_width = measure_text_width(&strip_ansi_codes(&inner));
+    let horizontal_pad: usize = 2;
+    let inner_padded_width = inner_width.saturating_add(horizontal_pad.saturating_mul(2));
+    let base_width = inner_padded_width.saturating_add(2);
+    let total_width = match &title_string {
+        | Some(value) => {
+            let title_width = measure_text_width(&strip_ansi_codes(value));
+            let min_title_width = title_width.saturating_add(5);
+            base_width.max(min_title_width)
+        }
+        | None => base_width,
+    };
+    let inner_dash = total_width.saturating_sub(2);
+    let top = match title_string {
+        | Some(value) => {
+            let title_width = measure_text_width(&strip_ansi_codes(&value));
+            let reserved = 5usize.saturating_add(title_width);
+            let dash_len = total_width.saturating_sub(reserved).max(1);
+            format!("╭─ {} {}╮", value, "─".repeat(dash_len))
+        }
+        | None => format!("╭{}╮", "─".repeat(inner_dash)),
+    };
+    let empty = format!("│{}│", " ".repeat(inner_dash));
+    let content_width = total_width.saturating_sub(2);
+    let right_pad = content_width.saturating_sub(inner_width).saturating_sub(2);
+    let content = format!("│  {inner}{}│", " ".repeat(right_pad));
+    let bottom = format!("╰{}╯", "─".repeat(inner_dash));
+    println!("\n{top}\n{empty}\n{content}\n{empty}\n{bottom}\n");
+}
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///
 /// # Arguments
@@ -1331,11 +1380,13 @@ pub fn filter_ignored_with_root(paths: Vec<PathBuf>, ignore: Option<String>, roo
         | None => Ok(paths),
     }
 }
-/// Finishes a progress bar with a message, applying appropriate final style
+/// Finishes a progress bar and retains its completion message in terminal output.
 pub fn finish_progress_bar(progress: &ProgressBar, message: String) {
-    #[allow(clippy::unwrap_used)]
-    progress.set_style(ProgressStyle::with_template("  {msg}").unwrap());
-    progress.finish_with_message(message);
+    match progress.is_hidden() {
+        | true => info!("{message}"),
+        | false => progress.println(format!("  {message}")),
+    }
+    progress.finish_and_clear();
 }
 /// Returns the value of the first environment variable in the list that is set
 ///

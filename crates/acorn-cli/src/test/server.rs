@@ -11,6 +11,7 @@ use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
+use std::sync::mpsc::{self, TryRecvError};
 use std::thread::{self, JoinHandle};
 
 struct ParsedRequest {
@@ -170,36 +171,45 @@ pub(crate) fn spawn_huggingface_model_search_server(
     (endpoint, handle)
 }
 /// Spawn a local Hugging Face API server for the basic model download configuration snapshot.
-pub(crate) fn spawn_basic_model_config_server() -> (String, JoinHandle<()>) {
+pub(crate) fn spawn_basic_model_config_server() -> (String, mpsc::Sender<()>, JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind basic model config server");
+    listener.set_nonblocking(true).expect("configure basic model config server");
     let endpoint = format!("http://{}", listener.local_addr().expect("basic model config server address"));
-    let handle = thread::spawn(move || {
-        for stream in listener.incoming().take(7) {
-            let mut stream = stream.expect("accept basic model config request");
-            let parsed = parse_request(&mut stream);
-            let response = if parsed.path.contains("/api/models/openai/gpt-oss-2b")
-                || parsed.path.contains("/api/models/nvidia/nemotron-3-super-120b-a12b")
-            {
-                response_401()
-            } else {
-                let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
-                    r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
-                } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
-                    r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-20b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
-                } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
-                    r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-120b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
-                } else if parsed.path.starts_with("/api/models?") {
-                    "[]".to_string()
-                } else {
-                    let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
-                    format!(r#"{{"id":"{model}","siblings":[]}}"#)
-                };
-                response_200_with_body(body.as_bytes())
-            };
-            stream.write_all(&response).expect("write basic model config response");
+    let (shutdown, shutdown_rx) = mpsc::channel();
+    let handle = thread::spawn(move || loop {
+        match shutdown_rx.try_recv() {
+            | Ok(()) | Err(TryRecvError::Disconnected) => break,
+            | Err(TryRecvError::Empty) => match listener.accept() {
+                | Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).expect("configure basic model config connection");
+                    let parsed = parse_request(&mut stream);
+                    let response = if parsed.path.contains("/api/models/openai/gpt-oss-2b")
+                        || parsed.path.contains("/api/models/nvidia/nemotron-3-super-120b-a12b")
+                    {
+                        response_401()
+                    } else {
+                        let body = if parsed.path.contains("/api/models/mozilla/test-llama") {
+                            r#"{"id":"mozilla/test-llama","siblings":[{"rfilename":"tiny-llama.gguf"}]}"#.to_string()
+                        } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-20b") {
+                            r#"[{"id":"unsloth/gpt-oss-20b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-20b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                        } else if parsed.path.starts_with("/api/models?") && parsed.path.contains("search=gpt-oss-120b") {
+                            r#"[{"id":"unsloth/gpt-oss-120b-GGUF","downloads":142,"tags":["base_model:quantized:openai/gpt-oss-120b"],"siblings":[{"rfilename":"model-Q4_K_M.gguf"}]}]"#.to_string()
+                        } else if parsed.path.starts_with("/api/models?") {
+                            "[]".to_string()
+                        } else {
+                            let model = parsed.path.trim_start_matches("/api/models/").split('?').next().unwrap_or_default();
+                            format!(r#"{{"id":"{model}","siblings":[]}}"#)
+                        };
+                        response_200_with_body(body.as_bytes())
+                    };
+                    stream.write_all(&response).expect("write basic model config response");
+                }
+                | Err(why) if why.kind() == ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(1)),
+                | Err(why) => panic!("accept basic model config request: {why}"),
+            },
         }
     });
-    (endpoint, handle)
+    (endpoint, shutdown, handle)
 }
 /// Spawn a local HTTP server that supports HEAD plus full and range GET responses for `/model.gguf`.
 pub(crate) fn spawn_range_server(content: Vec<u8>) -> (String, JoinHandle<()>) {

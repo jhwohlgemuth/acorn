@@ -8,10 +8,11 @@ use crate::io::api::{github, gitlab, Configuration, Endpoint};
 use crate::io::bagit::Bag;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{resolve_database_path, Database, Provenance, ResearchActivityCandidate, Row};
-use crate::io::http::download_with_progress;
+use crate::io::download::{DownloadItem, DownloadTask};
+use crate::io::http::{self, download_with_progress};
 use crate::io::{
-    files_all, parse_jsonc_cst, read_file, sync, uri_to_path, with_progress, write_file, write_file_bytes, ApiResult, ArchiveCandidate, CstRootNode,
-    CstValue, Executor, FromPath, InputOutput, ProgressType, Source, TemporaryDirectory,
+    files_all, first_env_var, parse_jsonc_cst, read_file, sync, uri_to_path, with_progress, write_file, write_file_bytes, ApiResult,
+    ArchiveCandidate, CstRootNode, CstValue, Executor, FromPath, InputOutput, ProgressType, TemporaryDirectory,
 };
 use crate::prelude::{self, env, exit, Arc, ErrorKind, HashMap, HashSet, Mutex, Path, PathBuf};
 use crate::schema::{
@@ -21,7 +22,8 @@ use crate::schema::{
     research_activity::ResearchActivity,
     Migration, OneOrMany,
 };
-use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, IGNORE, SUPPORTED_RAD_FILETYPES};
+use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_PRIVATE_TOKEN_HEADER, IGNORE, SUPPORTED_RAD_FILETYPES};
+use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use crate::util::{detect_json, is_filetype, suffix, text_diff_changes_with_color, Label, MimeType, StringConversion};
 use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{Location, Repository, Scheme};
@@ -457,9 +459,17 @@ pub struct RunnerDetails {
     pub token: Option<String>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct TransferItem {
-    source: PathBuf,
-    destination: PathBuf,
+pub(super) struct TransferItem {
+    pub(super) source: PathBuf,
+    pub(super) destination: PathBuf,
+}
+pub(super) struct DownloadOptions<'a> {
+    pub(super) repository: &'a Repository,
+    pub(super) output: &'a Path,
+    pub(super) source: &'a Path,
+    pub(super) destination: &'a Path,
+    pub(super) branch: Option<&'a str>,
+    pub(super) clobber: bool,
 }
 /// Files successfully transferred from one configured bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -552,7 +562,7 @@ impl ApplicationConfiguration {
             .and_then(|()| self.with_models(options.entries))
             .and_then(|configuration| configuration.write_or_preview(&path, options.dry_run, options.no_color))
     }
-    fn with_models(&self, entries: &[ModelEntry]) -> ApiResult<Self> {
+    pub(super) fn with_models(&self, entries: &[ModelEntry]) -> ApiResult<Self> {
         self.models
             .clone()
             .unwrap_or_default()
@@ -587,7 +597,7 @@ impl ApplicationConfiguration {
                 }
             })
     }
-    fn write_or_preview(&self, path: &Path, dry_run: bool, no_color: bool) -> ApiResult<()> {
+    pub(super) fn write_or_preview(&self, path: &Path, dry_run: bool, no_color: bool) -> ApiResult<()> {
         let before = path
             .is_file()
             .then(|| read_file(path))
@@ -880,7 +890,7 @@ impl Bucket {
             | Err(why) => Err(eyre!("Failed to inspect existing output path {} — {why}", path.display())),
         }
     }
-    fn prepare_destination(output: &Path, destination: &Path) -> ApiResult<PathBuf> {
+    pub(super) fn prepare_destination(output: &Path, destination: &Path) -> ApiResult<PathBuf> {
         let target = output.join(destination);
         destination
             .parent()
@@ -903,7 +913,7 @@ impl Bucket {
             .and_then(|()| Self::remove_destination(&target))
             .map(|()| target)
     }
-    async fn write_file<F, Fut, E>(output: &Path, destination: &Path, clobber: bool, write_lock: &Mutex<()>, get_bytes: F) -> ApiResult<()>
+    pub(super) async fn write_file<F, Fut, E>(output: &Path, destination: &Path, clobber: bool, write_lock: &Mutex<()>, get_bytes: F) -> ApiResult<()>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Vec<u8>, E>>,
@@ -1002,61 +1012,161 @@ impl Bucket {
     ///
     /// Ignores files listed in [`IGNORE`]
     ///
-    /// Downloads files concurrently using buffered streams
+    /// Downloads files concurrently using streaming, resumable transfers for remote
+    /// repositories. GitLab buckets stream from the repository-files raw API on the resolved
+    /// default branch, falling back to the buffered repository-file API when streaming fails.
     pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<TransferManifest> {
         let BucketOptions { filter, ignore, .. } = options;
         match FilterSet::compile(ignore, filter) {
-            | Ok(filters) => {
-                let name = self.name.clone();
-                let code_repository = self.code_repository.clone();
-                match self.file_paths("").await {
-                    | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), options.flatten) {
-                        | Ok(items) => {
-                            let repository = code_repository.location().to_string();
-                            let clobber = options.clobber;
-                            let write_lock = Arc::new(Mutex::new(()));
-                            let operation = {
-                                let code_repository = Arc::new(code_repository);
-                                let output = Arc::new(options.output.clone().unwrap_or_default());
-                                let write_lock = Arc::clone(&write_lock);
-                                move |item: TransferItem| {
-                                    let output = Arc::clone(&output);
-                                    let repository = Arc::clone(&code_repository);
-                                    let write_lock = Arc::clone(&write_lock);
-                                    async move {
-                                        let source = item.source.display().to_string();
-                                        let bytes = match repository.as_ref() {
-                                            | Repository::GitLab { .. } => match (repository.domain(), repository.project_path()) {
-                                                | (Some(domain), Some(identifier)) => {
-                                                    let options = gitlab::Options::from_env()
-                                                        .with_domain(domain)
-                                                        .with_identifier(identifier)
-                                                        .with_path(source)
-                                                        .with_sha("HEAD");
-                                                    gitlab::repository_file(&options).await.and_then(|file| file.decoded_content())
-                                                }
-                                                | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
-                                            },
-                                            | _ => match repository.raw_url(source) {
-                                                | Some(url) => Source::read_bytes(&url, false).await,
-                                                | None => Err(eyre!("Failed to build raw URL for repository path")),
-                                            },
-                                        };
-                                        Self::write_file(output.as_path(), &item.destination, clobber, write_lock.as_ref(), || async { bytes }).await
+            | Ok(filters) => match self.file_paths("").await {
+                | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), options.flatten) {
+                    | Ok(items) => {
+                        let clobber = options.clobber;
+                        match self.resolve_branch().await {
+                            | Ok(branch) => {
+                                let repository_location = self.code_repository.location().to_string();
+                                let operation = {
+                                    let output = Arc::new(options.output.clone().unwrap_or_default());
+                                    let repository = Arc::new(self.code_repository);
+                                    let branch = Arc::new(branch);
+                                    move |item: TransferItem| {
+                                        let output = Arc::clone(&output);
+                                        let repository = Arc::clone(&repository);
+                                        let branch = Arc::clone(&branch);
+                                        async move {
+                                            let options = DownloadOptions {
+                                                repository: repository.as_ref(),
+                                                output: output.as_path(),
+                                                source: &item.source,
+                                                destination: &item.destination,
+                                                branch: branch.as_deref(),
+                                                clobber,
+                                            };
+                                            match Self::download_file(&options).await {
+                                                | Ok(()) => Ok(()),
+                                                | Err(stream_error) => match repository.as_ref() {
+                                                    | Repository::GitLab { .. } => match Self::download_gitlab_via_api(&options).await {
+                                                        | Ok(()) => Ok(()),
+                                                        | Err(fallback_error) => Err(eyre!(
+                                                            "{stream_error}; and the buffered GitLab API fallback also failed — {fallback_error}"
+                                                        )),
+                                                    },
+                                                    | _ => Err(stream_error),
+                                                },
+                                            }
+                                        }
                                     }
-                                }
-                            };
-                            transfer_bucket_files(name, repository, items, options, "Downloading", operation).await
+                                };
+                                transfer_bucket_files(self.name, repository_location, items, options, "Downloading", operation).await
+                            }
+                            | Err(why) => Err(why),
                         }
+                    }
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => {
+                    error!("=> {} Get file paths for download — {why}", Label::fail());
+                    Err(why)
+                }
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    /// Resolve a repository's default branch, falling back to `None` when unavailable.
+    async fn resolve_branch(&self) -> ApiResult<Option<String>> {
+        match &self.code_repository {
+            | Repository::GitLab { .. } => match (self.code_repository.domain(), self.code_repository.id()) {
+                | (Some(domain), Some(identifier)) => {
+                    let options = gitlab::Options::from_env().with_domain(domain).with_identifier(identifier);
+                    match gitlab::project_details(&options).await {
+                        | Ok(details) => Ok(details.default_branch.filter(|value| !value.is_empty())),
+                        | Err(why) => {
+                            warn!("=> {} Resolve GitLab default branch — {why}", Label::fail());
+                            Ok(None)
+                        }
+                    }
+                }
+                | _ => Ok(None),
+            },
+            | Repository::GitHub { .. } => Ok(Some("main".to_string())),
+            | _ => Ok(None),
+        }
+    }
+    /// Build a streaming download item for a bucket file, resolving the provider-specific raw URL and credentials.
+    pub(super) fn download_item(options: &DownloadOptions<'_>) -> ApiResult<DownloadItem> {
+        let path = options.source.display().to_string();
+        let request = match options.repository {
+            | Repository::GitLab { .. } => {
+                let branch = options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD");
+                let branch_ref = branch.percent_encode();
+                let encoded_path = path.percent_encode();
+                let headers = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
+                    .filter(|value| !value.trim().is_empty())
+                    .map(|token| http::headers([(GITLAB_PRIVATE_TOKEN_HEADER, token.as_str())]));
+                match (options.repository.domain(), options.repository.id()) {
+                    | (Some(domain), Some(identifier)) => Ok((
+                        format!("https://{domain}/api/v4/projects/{identifier}/repository/files/{encoded_path}/raw?ref={branch_ref}"),
+                        headers,
+                    )),
+                    | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
+                }
+            }
+            | _ => options
+                .repository
+                .raw_url(path)
+                .map(|url| (url, None))
+                .ok_or_else(|| eyre!("Failed to build raw URL for repository path")),
+        };
+        request.map(|(url, headers)| DownloadItem {
+            url,
+            path: options.destination.display().to_string(),
+            size: None,
+            sha: None,
+            headers,
+        })
+    }
+    /// Stream a bucket file to disk with `.part` resume and atomic finalization.
+    ///
+    /// Existing files are left untouched unless `clobber` is set, in which case the
+    /// destination is removed before the transfer starts.
+    pub(super) async fn download_file(options: &DownloadOptions<'_>) -> ApiResult<()> {
+        match Self::download_item(options) {
+            | Ok(item) => {
+                let target = options.output.join(options.destination);
+                match (options.clobber, item.is_complete_at(&target)) {
+                    | (false, true) => Ok(()),
+                    | (true, _) => match Self::remove_destination(&target) {
+                        | Ok(()) => DownloadTask::new(item, options.output, true, true).download().await,
                         | Err(why) => Err(why),
                     },
-                    | Err(why) => {
-                        error!("=> {} Get file paths for download — {why}", Label::fail());
-                        Err(why)
-                    }
+                    | _ => DownloadTask::new(item, options.output, true, true).download().await,
                 }
             }
             | Err(why) => Err(why),
+        }
+    }
+    /// Fall back to the buffered GitLab repository-file API for a bucket file.
+    async fn download_gitlab_via_api(options: &DownloadOptions<'_>) -> ApiResult<()> {
+        match (options.repository.domain(), options.repository.id()) {
+            | (Some(domain), Some(identifier)) => {
+                let request = gitlab::Options::from_env()
+                    .with_domain(domain)
+                    .with_identifier(identifier)
+                    .with_path(options.source.display().to_string())
+                    .with_sha(options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD"));
+                match gitlab::repository_file(&request).await.and_then(|file| file.decoded_content()) {
+                    | Ok(bytes) if options.clobber => {
+                        let write_lock = Mutex::new(());
+                        Self::write_file(options.output, options.destination, true, &write_lock, || async {
+                            Ok::<_, Report>(bytes)
+                        })
+                        .await
+                    }
+                    | Ok(bytes) => write_file_bytes(options.output.join(options.destination), || async { Ok::<_, Report>(bytes) }).await,
+                    | Err(why) => Err(why),
+                }
+            }
+            | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
         }
     }
     async fn file_paths(&self, directory: &str) -> ApiResult<Vec<String>> {
@@ -1329,7 +1439,7 @@ impl ModelEntry {
                 .collect()
         })
     }
-    fn resolution_failure_reason(why: &impl fmt::Display, fallbacks_enabled: bool, fallbacks: &[String]) -> String {
+    pub(super) fn resolution_failure_reason(why: &impl fmt::Display, fallbacks_enabled: bool, fallbacks: &[String]) -> String {
         match (fallbacks_enabled, fallbacks.is_empty()) {
             | (true, true) => format!("({why}; no fallback repositories found in the local model database)"),
             | _ => format!("({why})"),
@@ -1407,7 +1517,7 @@ impl From<&Path> for TransferItem {
     }
 }
 impl TransferItem {
-    fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
+    pub(super) fn collect(paths: Vec<String>, flatten: bool) -> ApiResult<Vec<Self>> {
         let items = paths
             .into_iter()
             .map(PathBuf::from)
@@ -1561,10 +1671,10 @@ fn bag_root(root: &Path) -> ApiResult<PathBuf> {
             }),
     }
 }
-fn count_image_files(paths: &[String]) -> usize {
+pub(super) fn count_image_files(paths: &[String]) -> usize {
     paths.iter().filter(|&x| has_image_extension(x)).count()
 }
-fn count_json_files(paths: &[String]) -> usize {
+pub(super) fn count_json_files(paths: &[String]) -> usize {
     paths.iter().filter(|&path| path.to_lowercase().ends_with(".json")).count()
 }
 fn default_docker_image() -> String {
@@ -1580,18 +1690,18 @@ fn filter_paths(paths: Vec<String>, filters: &FilterSet) -> Vec<String> {
         .collect()
 }
 #[allow(clippy::ptr_arg)]
-fn has_image_extension(path: &String) -> bool {
+pub(super) fn has_image_extension(path: &String) -> bool {
     path.to_lowercase().ends_with(".png") || path.to_lowercase().ends_with(".jpg")
 }
-fn is_filtered_path(path: &str, filter: &[Regex]) -> bool {
+pub(super) fn is_filtered_path(path: &str, filter: &[Regex]) -> bool {
     filter.is_empty() || filter.iter().any(|pattern| pattern.is_match(path).unwrap_or(false))
 }
-fn is_ignored_path(path: &str, ignore: &[Regex]) -> bool {
+pub(super) fn is_ignored_path(path: &str, ignore: &[Regex]) -> bool {
     let is_builtin_ignored = IGNORE.iter().any(|value| path.ends_with(value));
     let is_regex_ignored = ignore.iter().any(|pattern| pattern.is_match(path).unwrap_or(false));
     is_builtin_ignored || is_regex_ignored
 }
-fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
+pub(super) fn operations_complete_message(name: Option<String>, json_count: usize, image_count: usize) -> String {
     let total = json_count.saturating_add(image_count);
     let message = if json_count != image_count {
         let recommendation = if json_count > image_count {
@@ -1657,371 +1767,4 @@ where
             repository,
             files,
         })
-}
-#[cfg(test)]
-mod tests {
-    #![allow(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing,
-        clippy::arithmetic_side_effects
-    )]
-    use super::*;
-    use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write};
-
-    fn temp_resolve_dir(name: &str) -> PathBuf {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or(core::time::Duration::from_nanos(0))
-            .as_nanos();
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .join("target")
-            .join("test_artifacts")
-            .join(format!("{name}-{nanos}"))
-    }
-
-    #[tokio::test]
-    async fn test_clobber_preserves_destination_when_source_read_fails() {
-        let output = temp_resolve_dir("clobber-source-failure-output");
-        create_dir_all(&output).unwrap();
-        write(output.join("index.json"), "old").unwrap();
-        let write_lock = Mutex::new(());
-        let result = Bucket::write_file(&output, Path::new("index.json"), true, &write_lock, || async {
-            Err::<Vec<u8>, Report>(eyre!("source failure"))
-        })
-        .await;
-        assert!(result.is_err());
-        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
-        let _ = remove_dir_all(output);
-    }
-    #[tokio::test]
-    async fn test_copy_files_clobbers_selected_path_conflicts_only() {
-        let source = temp_resolve_dir("clobber-enabled-source");
-        let output = temp_resolve_dir("clobber-enabled-output");
-        create_dir_all(source.join("nested")).unwrap();
-        create_dir_all(output.join("directory.json")).unwrap();
-        write(source.join("existing.json"), "new file").unwrap();
-        write(source.join("directory.json"), "new directory replacement").unwrap();
-        write(source.join("nested/index.json"), "new nested file").unwrap();
-        write(source.join("nested/other.json"), "new sibling file").unwrap();
-        write(output.join("existing.json"), "old file").unwrap();
-        write(output.join("directory.json/old.json"), "old directory content").unwrap();
-        write(output.join("nested"), "old parent file").unwrap();
-        write(output.join("unrelated.json"), "keep").unwrap();
-        let bucket = Bucket::init()
-            .code_repository(Repository::Git {
-                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-            })
-            .build();
-        let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
-        let result = bucket.copy_files(&options).await;
-        assert!(result.is_ok());
-        assert_eq!(read_to_string(output.join("existing.json")).unwrap(), "new file");
-        assert_eq!(read_to_string(output.join("directory.json")).unwrap(), "new directory replacement");
-        assert_eq!(read_to_string(output.join("nested/index.json")).unwrap(), "new nested file");
-        assert_eq!(read_to_string(output.join("nested/other.json")).unwrap(), "new sibling file");
-        assert_eq!(read_to_string(output.join("unrelated.json")).unwrap(), "keep");
-        let _ = remove_dir_all(source);
-        let _ = remove_dir_all(output);
-    }
-    #[tokio::test]
-    async fn test_copy_files_flattens_destinations_and_manifest() {
-        let source = temp_resolve_dir("flatten-source");
-        let output = temp_resolve_dir("flatten-output");
-        create_dir_all(source.join("docs/quest")).unwrap();
-        write(source.join("docs/quest/index.json"), "{}").unwrap();
-        write(source.join("docs/quest/image.png"), "image").unwrap();
-        let bucket = Bucket::init()
-            .code_repository(Repository::Git {
-                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-            })
-            .build();
-        let options = BucketOptions::init().output(output.clone()).quiet(true).flatten(true).build();
-        let manifest = bucket.copy_files(&options).await.unwrap();
-        assert_eq!(manifest.files.len(), 2);
-        assert!(manifest.files.contains(&PathBuf::from("index.json")));
-        assert!(manifest.files.contains(&PathBuf::from("image.png")));
-        assert!(output.join("index.json").is_file());
-        assert!(output.join("image.png").is_file());
-        assert!(!output.join("docs").exists());
-        let _ = remove_dir_all(source);
-        let _ = remove_dir_all(output);
-    }
-    #[tokio::test]
-    async fn test_copy_files_preserves_existing_destination_without_clobber() {
-        let source = temp_resolve_dir("clobber-disabled-source");
-        let output = temp_resolve_dir("clobber-disabled-output");
-        create_dir_all(&source).unwrap();
-        create_dir_all(&output).unwrap();
-        write(source.join("index.json"), "new").unwrap();
-        write(output.join("index.json"), "old").unwrap();
-        let bucket = Bucket::init()
-            .code_repository(Repository::Git {
-                location: Box::new(Location::Simple(format!("file:{}", source.display()))),
-            })
-            .build();
-        let options = BucketOptions::init().output(output.clone()).quiet(true).build();
-        assert!(bucket.copy_files(&options).await.is_err());
-        assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
-        let _ = remove_dir_all(source);
-        let _ = remove_dir_all(output);
-    }
-    #[test]
-    fn test_count_image_files_counts_supported_extensions() {
-        let paths = vec![
-            "content/plot.png".to_string(),
-            "content/photo.jpg".to_string(),
-            "content/photo.jpeg".to_string(),
-            "content/index.json".to_string(),
-        ];
-        assert_eq!(count_image_files(&paths), 2);
-    }
-    #[test]
-    fn test_count_json_files_counts_case_insensitive_json_paths() {
-        let paths = vec![
-            "content/index.json".to_string(),
-            "content/README.md".to_string(),
-            "content/data.JSON".to_string(),
-        ];
-        assert_eq!(count_json_files(&paths), 2);
-    }
-    #[test]
-    fn test_extensionless_config_is_last_and_read_as_jsonc() {
-        assert_eq!(DEFAULT_CONFIG_FILENAMES.last(), Some(&".acorn"));
-        let directory = temp_resolve_dir("extensionless-jsonc");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let extensionless = directory.join(".acorn");
-        write(&extensionless, "{\n  // Comment\n}\n").unwrap();
-        let config = ApplicationConfiguration::read(extensionless.clone()).unwrap();
-        assert!(config.write(extensionless).is_ok());
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_has_image_extension_matches_png_and_jpg() {
-        assert!(has_image_extension(&"image.png".to_string()));
-        assert!(has_image_extension(&"photo.JPG".to_string()));
-        assert!(!has_image_extension(&"graphic.jpeg".to_string()));
-    }
-    #[test]
-    fn test_is_filtered_path() {
-        let filter = FilterSet::compile(&[], &[r"\.json$".to_string(), r"img/".to_string()]).unwrap().filter;
-        assert!(is_filtered_path("/tmp/data.json", &filter));
-        assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
-        assert!(!is_filtered_path("/tmp/README.md", &filter));
-        let invalid = FilterSet::compile(&[], &["[".to_string()]);
-        assert!(invalid.is_err());
-        let filter: Vec<Regex> = vec![];
-        assert!(is_filtered_path("/tmp/README.md", &filter));
-    }
-    #[test]
-    fn test_is_ignored_path() {
-        let ignore = FilterSet::compile(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()], &[])
-            .unwrap()
-            .ignore;
-        assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
-        assert!(is_ignored_path("/tmp/notes.txt", &ignore));
-        assert!(!is_ignored_path("/tmp/index.json", &ignore));
-        let invalid = FilterSet::compile(&["[".to_string()], &[]);
-        assert!(invalid.is_err());
-        let ignore: Vec<Regex> = vec![];
-        assert!(is_ignored_path("/tmp/README.md", &ignore));
-    }
-    #[test]
-    fn test_load_rejects_missing_explicit_path() {
-        let missing = temp_resolve_dir("load-missing").join("missing.json");
-        let result = ApplicationConfiguration::load(&Some(missing.clone()));
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            format!("Configuration file does not exist — {}", missing.display())
-        );
-    }
-    #[test]
-    fn test_model_update_preserves_jsonc_comments_and_dry_run() {
-        let directory = temp_resolve_dir("sync-acorn-config");
-        create_dir_all(&directory).unwrap();
-        let path = directory.join("config.jsonc");
-        let before = "{\n  // Keep this comment\n  \"models\": [\"acme/existing\"]\n}\n";
-        write(&path, before).unwrap();
-        let configuration = ApplicationConfiguration::read(path.clone()).unwrap();
-        let entries = vec![ModelEntry::Selector("acme/added".to_string())];
-        let updated = configuration.with_models(&entries).unwrap();
-        updated.write_or_preview(&path, true, true).unwrap();
-        assert_eq!(read_file(&path).unwrap(), before);
-        updated.write_or_preview(&path, false, true).unwrap();
-        let content = read_file(&path).unwrap();
-        assert_eq!(
-            content,
-            "{\n  // Keep this comment\n  \"models\": [\n    \"acme/existing\",\n    \"acme/added\"\n  ]\n}\n"
-        );
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_operations_complete_message_includes_bucket_name_and_guidance() {
-        let message = operations_complete_message(Some("acorn".to_string()), 2, 1);
-        assert!(message.contains("Obtained"));
-        assert!(message.contains("ACORN"));
-        assert!(message.contains(" bucket"));
-        assert!(message.contains("data file"));
-        assert!(message.contains("image"));
-        assert!(message.contains("Do you need to add some images?"));
-    }
-    #[test]
-    fn test_operations_complete_message_uses_url_placeholder_without_name() {
-        let message = operations_complete_message(None, 0, 0);
-        assert!(message.contains("Obtained"));
-        assert!(message.contains("<URL>"));
-    }
-    #[test]
-    fn test_parse_supports_yaml_flow_mapping_when_json_detection_fails() {
-        let content = "{endpoints: []}";
-        let result = ApplicationConfiguration::parse(content);
-        assert!(result.is_ok());
-    }
-    #[cfg(unix)]
-    #[test]
-    fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
-        let output = temp_resolve_dir("clobber-symlink-output");
-        let external = temp_resolve_dir("clobber-symlink-external");
-        create_dir_all(&output).unwrap();
-        create_dir_all(&external).unwrap();
-        write(external.join("index.json"), "outside").unwrap();
-        crate::prelude::symlink(&external, output.join("linked")).unwrap();
-        let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
-        assert_eq!(target, output.join("linked/index.json"));
-        assert!(output.join("linked").is_dir());
-        assert!(!output.join("linked").symlink_metadata().unwrap().file_type().is_symlink());
-        assert_eq!(read_to_string(external.join("index.json")).unwrap(), "outside");
-        let _ = remove_dir_all(output);
-        let _ = remove_dir_all(external);
-    }
-    #[test]
-    fn test_resolution_failure_reason_reports_fallback_lookup_status() {
-        assert_eq!(
-            ModelEntry::resolution_failure_reason(&"missing", true, &[]),
-            "(missing; no fallback repositories found in the local model database)"
-        );
-        assert_eq!(ModelEntry::resolution_failure_reason(&"missing", false, &[]), "(missing)");
-        assert_eq!(
-            ModelEntry::resolution_failure_reason(&"missing", true, &["fallback/model".to_string()]),
-            "(missing)"
-        );
-    }
-
-    #[test]
-    fn test_resolve_falls_back_to_default_when_provided_path_missing() {
-        let directory = temp_resolve_dir("resolve-fallback");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let default = directory.join(".acorn.yml");
-        write(&default, "{}\n").unwrap();
-        let resolved = ApplicationConfiguration::resolve_in(&Some(directory.join("missing.json")), &directory);
-        assert_eq!(resolved, Some(default));
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_resolve_returns_explicit_existing_path() {
-        let directory = temp_resolve_dir("resolve-explicit");
-        create_dir_all(&directory).unwrap();
-        let directory = directory.canonicalize().unwrap();
-        let provided = directory.join("config.yaml");
-        let default = directory.join(".acorn.json");
-        write(&provided, "{}\n").unwrap();
-        write(&default, "{}\n").unwrap();
-        let resolved = ApplicationConfiguration::resolve(&Some(provided.clone()));
-        assert_eq!(resolved, Some(provided));
-        let _ = remove_dir_all(directory);
-    }
-    #[test]
-    fn test_transfer_item_collect_preserves_or_flattens_paths() {
-        let paths = vec!["docs/quest/index.json".to_string(), "docs/quest/image.png".to_string()];
-        let preserved = TransferItem::collect(paths.clone(), false).unwrap();
-        let flattened = TransferItem::collect(paths, true).unwrap();
-        assert_eq!(
-            preserved.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
-            vec![PathBuf::from("docs/quest/index.json"), PathBuf::from("docs/quest/image.png")]
-        );
-        assert_eq!(
-            flattened.iter().map(|item| item.destination.clone()).collect::<Vec<_>>(),
-            vec![PathBuf::from("index.json"), PathBuf::from("image.png")]
-        );
-    }
-    #[test]
-    fn test_transfer_item_collect_rejects_flattened_filename_collisions() {
-        let result = TransferItem::collect(vec!["one/index.json".to_string(), "two/index.json".to_string()], true);
-        let message = result.unwrap_err().to_string();
-        assert!(message.contains("index.json"));
-        assert!(message.contains("one/index.json"));
-        assert!(message.contains("two/index.json"));
-    }
-    #[test]
-    fn test_transfer_item_collect_rejects_unsafe_destination() {
-        let result = TransferItem::collect(vec!["../outside.json".to_string()], false);
-        assert!(result.unwrap_err().to_string().contains("unsafe"));
-    }
-    #[test]
-    fn test_with_models_keeps_unique_identifiers() {
-        let configuration = ApplicationConfiguration::parse(r#"{"models":["acme/existing","acme/existing"]}"#).unwrap();
-        let entries = vec![
-            ModelEntry::Selector("acme/existing".to_string()),
-            ModelEntry::Selector("acme/added".to_string()),
-            ModelEntry::Selector("acme/added".to_string()),
-        ];
-        let updated = configuration.with_models(&entries).unwrap();
-        let identifiers = updated
-            .models
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|entry| match entry {
-                | ModelEntry::Selector(identifier) => Some(identifier),
-                | ModelEntry::Entry(_) => None,
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(identifiers, vec!["acme/existing", "acme/added"]);
-    }
-    #[test]
-    fn test_oci_registry_profile_and_model_source_parse() {
-        let configuration = ApplicationConfiguration::parse(
-            r#"{
-                "registries": {
-                    "internal": {
-                        "kind": "harbor",
-                        "endpoint": "https://harbor.example.org",
-                        "credentialEnv": "ACORN_HARBOR_TOKEN"
-                    }
-                },
-                "models": [{
-                    "name": "nemotron-oci",
-                    "source": {
-                        "provider": "oci",
-                        "location": "oci://harbor.example.org/ai/models/nemotron:v1",
-                        "registry": "internal"
-                    }
-                }]
-            }"#,
-        )
-        .unwrap();
-        let profiles = configuration.registry_lookup().unwrap();
-        assert_eq!(profiles.get("internal").map(|profile| &profile.kind), Some(&RegistryKind::Harbor));
-        assert!(matches!(
-            configuration.models.as_deref(),
-            Some([ModelEntry::Entry(ModelEntryOptions {
-                source: Repository::OCI { registry: Some(name), .. },
-                ..
-            })]) if name == "internal"
-        ));
-    }
-    #[test]
-    fn test_oci_registry_profile_rejects_plaintext_secret_and_insecure_endpoint() {
-        assert!(
-            ApplicationConfiguration::parse(r#"{"registries":{"bad":{"endpoint":"https://registry.example.org","password":"secret"}}}"#).is_err()
-        );
-        let configuration =
-            ApplicationConfiguration::parse(r#"{"registries":{"bad":{"endpoint":"http://registry.example.org","credentialEnv":"bad-name"}}}"#)
-                .unwrap();
-        assert!(configuration.registry_lookup().is_err());
-    }
 }

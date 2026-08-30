@@ -10,6 +10,10 @@ pub const DATABASE_BACKEND: &str = "ACORN_DATABASE_BACKEND";
 pub const DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 /// Environment variable used to set the minimum download count for model fallbacks.
 pub const MINIMUM_DOWNLOAD_COUNT: &str = "ACORN_MINIMUM_DOWNLOAD_COUNT";
+/// Environment variable used to set the maximum HTTP retry count for outbound requests.
+pub const HTTP_MAX_RETRIES: &str = "ACORN_HTTP_MAX_RETRIES";
+/// Environment variable used to set the maximum time a streaming download may idle without new bytes, in seconds.
+pub const HTTP_STALL_TIMEOUT: &str = "ACORN_HTTP_STALL_TIMEOUT";
 /// Environment variable used to set the model download whitelist.
 pub const MODEL_WHITELIST: &str = "ACORN_MODEL_WHITELIST";
 /// GitLab CI server hostname environment variable

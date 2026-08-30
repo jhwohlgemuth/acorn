@@ -28,7 +28,7 @@ use acorn::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, W
 use acorn::schema::hardware::memory::Memory;
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::OneOrMany;
-use acorn::util::constants::env::MODEL_WHITELIST;
+use acorn::util::constants::env::{HUGGINGFACE_TOKEN_VARIABLE_NAMES, MODEL_WHITELIST};
 use acorn::util::{merge, MarkdownSupport};
 use alloc::sync::Arc;
 use assert_cmd::Command;
@@ -40,7 +40,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Mutex;
 use std::thread;
-use temp_env::with_var;
+use temp_env::{with_var, with_vars};
 use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
@@ -109,14 +109,26 @@ fn test_download_zero_items_prints_warning() {
         .expect("run zero-item bucket download");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("WARNING"));
-    assert!(!stdout.contains("SUCCESS"));
-    assert!(stdout.contains("Processed"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}{stderr}");
+    assert!(combined.contains("CAUTION"));
+    assert!(!combined.contains("SUCCESS"));
+    assert!(combined.contains("Download complete"));
+    assert!(combined.contains("0") && combined.contains("processed"));
+    assert!(combined.contains("hint:"));
 }
 
 fn with_hf_endpoint<T>(endpoint: String, test: impl FnOnce() -> T) -> T {
     let guard = HF_ENDPOINT_TEST_LOCK.lock().expect("lock Hugging Face endpoint tests");
-    let result = with_var("HF_ENDPOINT", Some(endpoint), test);
+    let result = with_vars(
+        [
+            ("HF_ENDPOINT", Some(endpoint.as_str())),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[0], Some("")),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[1], Some("")),
+            (HUGGINGFACE_TOKEN_VARIABLE_NAMES[2], Some("")),
+        ],
+        test,
+    );
     drop(guard);
     result
 }
@@ -356,15 +368,19 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
             r#"["openai/gpt-oss-20b", "openai/gpt-oss-120b"]"#,
         );
     write(&config_path, config).expect("write deterministic basic model config");
-    let (endpoint, handle) = spawn_basic_model_config_server();
-    let output = Command::cargo_bin("acorn")
-        .expect("locate acorn binary")
+    let (endpoint, shutdown, handle) = spawn_basic_model_config_server();
+    let mut command = Command::cargo_bin("acorn").expect("locate acorn binary");
+    for variable in HUGGINGFACE_TOKEN_VARIABLE_NAMES {
+        command.env(variable, "");
+    }
+    let output = command
         .env("HF_ENDPOINT", endpoint)
         .args(["-vv", "download", "model", "--config"])
         .arg(config_path)
         .arg("--dry-run")
         .output()
         .expect("run model download dry run");
+    shutdown.send(()).expect("stop basic model config server");
     handle.join().expect("join basic model config server");
     assert!(
         output.status.success(),
@@ -582,6 +598,7 @@ fn test_download_item_checksum_mismatch_returns_incomplete_download_error() {
         path: "model.gguf".to_string(),
         size: Some(3),
         sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        headers: None,
     };
     let result = item.verify_checksum(&file_path, false);
     assert!(result.is_err());
@@ -1911,6 +1928,7 @@ async fn test_download_items_with_progress_are_concurrent() {
             path: path.to_string(),
             size: Some(1),
             sha: None,
+            headers: None,
         })
         .collect();
     let result = DownloadItems::new(&destination, items, false, false).download().await;
@@ -1931,6 +1949,7 @@ async fn test_download_task_restarts_partial_file_without_http_range_support() {
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
         sha: None,
+        headers: None,
     };
     let part = item.partial_path(&destination);
     write(&part, b"stale").expect("seed stale partial file");
@@ -1960,6 +1979,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
         sha: None,
+        headers: None,
     };
     let part = item.partial_path(&destination);
     if let Some(parent) = part.parent() {
@@ -1999,6 +2019,7 @@ async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
         sha: None,
+        headers: None,
     };
     let task = DownloadTask::new(item, &destination, true, false);
     let result = task.download().await;
@@ -2020,6 +2041,7 @@ async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
         sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        headers: None,
     };
     let part = item.partial_path(&destination);
     write(&part, &payload[..4]).expect("seed partial file");
@@ -2070,6 +2092,7 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
         path: "model.gguf".to_string(),
         size: Some(model_bytes.len() as u64),
         sha: Some(served_digest),
+        headers: None,
     };
     let task = DownloadTask::new(item, &destination, true, false);
     let result = task.download().await;
@@ -2097,6 +2120,7 @@ async fn test_download_task_truncates_when_range_request_returns_200() {
         path: "model.gguf".to_string(),
         size: Some(payload.len() as u64),
         sha: None,
+        headers: None,
     };
     let part = item.partial_path(&destination);
     write(&part, &payload[..4]).expect("seed partial file");

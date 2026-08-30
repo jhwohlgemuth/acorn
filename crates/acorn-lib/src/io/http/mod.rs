@@ -10,12 +10,15 @@ use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::Timestamp;
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
 
 pub mod policy;
+#[cfg(test)]
+mod tests;
 
 #[derive(Builder)]
 #[builder(start_fn = init)]
@@ -265,6 +268,45 @@ async fn stream_request_with_policy(
     error_message: Option<&str>,
     auth_error_message: Option<&str>,
 ) -> ApiResult<()> {
+    let anonymous = anonymous_request(&request);
+    let url = request.url.clone();
+    let result = stream_request_attempts(client.clone(), request, output, progress, resume_from, error_message, auth_error_message).await;
+    match (result, anonymous) {
+        | (
+            Err(DownloadError {
+                status_code: Some(status_code @ (401 | 403)),
+                report,
+                ..
+            }),
+            Some(request),
+        ) => {
+            let follow_up_action = "(retrying download without authentication)".dimmed();
+            warn!(status_code, url, "=> {} Rejected HTTP credentials {follow_up_action}", Label::using(),);
+            match stream_request_attempts(client, request, output, progress, resume_from, error_message, None).await {
+                | Ok(()) => Ok(()),
+                | Err(anonymous_error) => {
+                    let combined = eyre!("{report}; anonymous fallback also failed — {}", anonymous_error.report);
+                    warn!(url, "=> {} HTTP download failed — {combined}", Label::fail());
+                    Err(combined)
+                }
+            }
+        }
+        | (Ok(()), _) => Ok(()),
+        | (Err(why), _) => {
+            warn!(url, "=> {} HTTP download — {}", Label::fail(), why.report);
+            Err(why.report)
+        }
+    }
+}
+async fn stream_request_attempts(
+    client: reqwest::Client,
+    request: HttpRequest,
+    output: &Path,
+    progress: &mut impl FnMut(u64, Option<u64>),
+    resume_from: Option<u64>,
+    error_message: Option<&str>,
+    auth_error_message: Option<&str>,
+) -> Result<(), DownloadError> {
     let policy = policy::shared_http_policy();
     let method = request.method.clone();
     let url = request.url.clone();
@@ -308,8 +350,11 @@ async fn stream_request_with_policy(
                     );
                     sleep(delay.unsigned_abs()).await;
                 } else {
-                    warn!(attempt, elapsed_ms, url, "=> {} HTTP download failed — {report}", Label::fail());
-                    outcome = Some(Err(report));
+                    outcome = Some(Err(DownloadError {
+                        status_code,
+                        retry_headers,
+                        report,
+                    }));
                     break;
                 }
             }
@@ -317,7 +362,7 @@ async fn stream_request_with_policy(
     }
     match outcome {
         | Some(result) => result,
-        | None => Err(eyre!("HTTP download failed after retry attempts")),
+        | None => Err(DownloadError::init().report(eyre!("HTTP download failed after retry attempts")).build()),
     }
 }
 async fn stream_request_once(
@@ -359,18 +404,25 @@ async fn stream_request_once(
                     let resumed = if append { resume_from.unwrap_or_default() } else { 0 };
                     let total = response.content_length().map(|value| value.saturating_add(resumed));
                     let mut downloaded = resumed;
+                    let stall_timeout = policy::shared_http_policy().stall_timeout.unsigned_abs();
                     progress(downloaded, total);
                     loop {
-                        match response.chunk().await {
-                            | Ok(Some(chunk)) => match file.write_all(&chunk) {
+                        match timeout(stall_timeout, response.chunk()).await {
+                            | Ok(Ok(Some(chunk))) => match file.write_all(&chunk) {
                                 | Ok(_) => {
                                     downloaded = downloaded.saturating_add(chunk.len() as u64);
                                     progress(downloaded, total);
                                 }
                                 | Err(why) => break Err(eyre!("{error_message} — failed to write download chunk — {why}")),
                             },
-                            | Ok(None) => break Ok(()),
-                            | Err(why) => break Err(eyre!("{error_message} — {why}")),
+                            | Ok(Ok(None)) => break Ok(()),
+                            | Ok(Err(why)) => break Err(eyre!("{error_message} — {why}")),
+                            | Err(_) => {
+                                break Err(eyre!(
+                                    "{error_message} — download stalled for {} seconds without new bytes",
+                                    stall_timeout.as_secs()
+                                ))
+                            }
                         }
                     }
                 }
@@ -390,6 +442,32 @@ async fn stream_request_once(
     }
 }
 async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+    let anonymous = anonymous_request(&request);
+    let result = execute_with_policy_attempts(client.clone(), request).await;
+    match (result, anonymous) {
+        | (Ok(response), Some(request)) if matches!(response.status_code, 401 | 403) => {
+            let credential_status = response.status_code;
+            warn!(
+                status_code = credential_status,
+                url = request.url.as_str(),
+                "=> {} Configured HTTP credentials were rejected; retrying without authentication",
+                Label::using()
+            );
+            match execute_with_policy_attempts(client, request).await {
+                | Ok(response) if matches!(response.status_code, 401 | 403) => Err(eyre!(
+                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed (HTTP {})",
+                    response.status_code
+                )),
+                | Err(why) => Err(eyre!(
+                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed — {why}"
+                )),
+                | result => result,
+            }
+        }
+        | (result, _) => result,
+    }
+}
+async fn execute_with_policy_attempts(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
     let policy = policy::shared_http_policy();
     let method = request.method.clone();
     let url = request.url.clone();
@@ -461,11 +539,26 @@ async fn execute_with_timeout(client: reqwest::Client, request: HttpRequest) -> 
 pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> HeaderMap {
     values.into_iter().fold(HeaderMap::new(), |mut headers, (name, value)| {
         if let (Ok(name), Ok(mut value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
-            value.set_sensitive(name == AUTHORIZATION);
+            value.set_sensitive(is_credential_header(&name));
             headers.append(name, value);
         }
         headers
     })
+}
+fn anonymous_request(request: &HttpRequest) -> Option<HttpRequest> {
+    let headers = request
+        .headers
+        .iter()
+        .filter(|(name, value)| !(value.is_sensitive() && is_credential_header(name)))
+        .fold(HeaderMap::new(), |mut headers, (name, value)| {
+            headers.append(name.clone(), value.clone());
+            headers
+        });
+    (headers.len() < request.headers.len()).then(|| HttpRequest { headers, ..request.clone() })
+}
+fn is_credential_header(name: &HeaderName) -> bool {
+    let name = name.as_str();
+    name == AUTHORIZATION.as_str() || name.ends_with("-token") || name.ends_with("-key") || name == "apikey"
 }
 /// Build a one-entry header map, skipping invalid names or values.
 pub fn header(name: &str, value: &str) -> HeaderMap {

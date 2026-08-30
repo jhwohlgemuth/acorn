@@ -7,6 +7,7 @@ impact: high
 package: [acorn-lib, acorn-schema]
 tags: [feature, schema, infrastructure, hardware, open-compute-project, ocp, redfish, standards, validation]
 status: planned
+priority: next
 ---
 
 # Project code boundaries
@@ -34,9 +35,9 @@ Existing standard modules may move to folder-format entry points without changin
 
 - `ResearchActivityMetadata::resources` describes minimum hardware or compute requirements and stores `Option<Vec<Resource>>` in `crates/acorn-lib/src/schema/research_activity/mod.rs`.
 - `Resource` already models ASIC, CPU, DPU, DSP, FPGA, GPU, NPU, neuromorphic, quantum, sensor, and TPU requirements in `crates/acorn-lib/src/schema/hardware/mod.rs`.
-- `Resource` implements `Validate`, but `ResearchActivityMetadata::resources` does not currently request nested validation, so complete RAD validation does not exercise the resource validator through that field.
+- `Resource` currently derives only `Clone, Debug, Serialize, JsonSchema` and does not implement `Validate`; no `#[validate(...)]` attribute appears within `schema::hardware` (including `memory.rs`, `vendor.rs`, and the `quantum` submodule), and `ResearchActivityMetadata::resources` carries only `#[eserde(compat)]` without `#[validate(nested)]`. Resource requirements are therefore not validated through a complete RAD value today; this plan must add the `Validate` derive to `Resource` and its nested hardware types and request nested validation on the metadata field.
 - `schema::standard` exposes CFF, crosswalk, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, and text models. `dcat` and `crosswalk` are already folder-format modules; `cff`, `datacite`, `dublin_core`, `huwise`, `invenio`, and `text` remain root `.rs` entry files.
-- `schema::validate` contains general schema validators and already depends on `standard::datacite::GeoLocationPoint`. The private `standard::validate` module contains DataCite and Invenio identifier validators and delegates canonical PID checks back to `schema::validate`; retaining both locations divides one validation concern without providing a public boundary.
+- `schema::validate` is already a folder-format module (`crates/acorn-lib/src/schema/validate/mod.rs`, exported as `pub mod validate` from `crates/acorn-lib/src/schema/mod.rs`) that co-locates general and standard-specific validators, importing `standard::datacite::GeoLocationPoint` and other DataCite types plus `standard::invenio::PersonOrOrgIdentifier` and geonames helpers. No `standard::validate` module exists; the only remaining internal helper is `standard::dcat::validate` (`pub(crate)` in `crates/acorn-lib/src/schema/standard/dcat/mod.rs`), which is scoped to DCAT views and separate from the consolidated contract.
 - No `schema::infrastructure` or `schema::standard::ocp` module currently exists.
 - The planned crate boundary assigns standards, hardware data models, validation, and crosswalks to portable `acorn-schema`; network resolution and provider DTOs remain adapter concerns ([crate boundary architecture](../refactors/crate-boundary-architecture.md)).
 - OCP applies open collaboration to scalable compute infrastructure and organizes contributions around efficiency, impact, openness, scalability, and sustainability, but OCP describes itself as a community that develops technology norms rather than a conventional standards body ([OCP history, mission, and tenets](https://www.opencompute.org/about), [OCP home](https://www.opencompute.org/)).
@@ -147,7 +148,7 @@ Validate nested resources and claims. Restrict OCP Ready recognition to `Compute
 
 The folder-format `schema::validate` consolidation has landed. This plan relies on it without repeating the move:
 
-1. Confirm the consolidated `schema::validate` folder module is present with general and standard validators together.
+1. The consolidated `schema::validate` folder module is already present with general and standard validators together (see Current evidence); re-confirm it before moving files.
 2. Reference the portable rule primitives (`nonempty`, URI checks) where new claim fields need them.
 3. Do not re-perform the move or re-create `schema/standard/validate.rs`.
 4. Preserve existing validation behavior and error codes from the consolidated module.
@@ -178,7 +179,7 @@ Leave `standard/dcat`, `standard/crosswalk`, and `standard/tests` in their exist
 
 1. Create `schema/infrastructure/mod.rs` with platform, facility, and compute-environment types.
 2. Export the module and its primary types from the existing schema facade as appropriate.
-3. Keep `ResearchActivityMetadata::resources` unchanged in representation and meaning, but add nested validation so resource validation executes through a complete RAD value.
+3. Derive `Validate` on `Resource` and its nested hardware types (none currently derives it), keep `ResearchActivityMetadata::resources` unchanged in representation and meaning, and add `#[validate(nested)]` so resource validation executes through a complete RAD value.
 4. Add an optional `infrastructure: Option<Vec<ComputeEnvironment>>` field to research-activity metadata.
 5. Add the corresponding optional linked-data context term using established predicates such as `dcterms:conformsTo`, `dcterms:identifier`, `dcterms:source`, `dcterms:hasVersion`, `schema:manufacturer`, and `schema:location` where their semantics fit.
 6. Do not invent an OCP RDF namespace; use canonical OCP record URLs as identifiers.

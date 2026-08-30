@@ -36,7 +36,7 @@ bat = { version = "0.26.0", features = ["regex-onig"], default-features = false,
 bon = { version = "3.8.1", default-features = false }
 jiff = { workspace = true }
 color-eyre = { workspace = true, optional = true }
-comfy-table = { version = "7.1.4", default-features = false, optional = true }
+comfy-table = { version = "7.1.4", default-features = false, features = ["tty", "custom_styling"], optional = true }
 console = { version = "0.16.1", features = ["ansi-parsing"], default-features = false, optional = true }
 convert_case = { version = "0.11.0", default-features = false }
 data-encoding = { workspace = true }

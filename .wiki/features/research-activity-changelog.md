@@ -7,6 +7,7 @@ impact: high
 package: [acorn-lib, acorn-macros, acorn-cli]
 tags: [feature, research-activity, schema, changelog, timeline, provenance, discovery, code, software, datacite, raid]
 status: planned
+priority: next
 ---
 
 # Project code boundaries
@@ -31,9 +32,9 @@ The changelog records domain developments. It is not a replayable stream of JSON
 
 - `ResearchActivity` contains authored `sections`, one contact, and `notes` but no `changelog` or ordered event collection (`crates/acorn-lib/src/schema/research_activity/mod.rs`).
 - `ResearchActivityMetadata` has one current `Status` value (`active`, `paused`, `completed`, or `canceled`) and structured outputs, but it cannot say when a milestone occurred or distinguish completed, current, and upcoming update entries.
-- The shared `Date` type represents a start/end interval at day granularity. It does not represent an instant and should not be reused for a timestamped entry.
-- `EnrichmentProvenance` records which provider populated field paths; it does not record research developments or document revision history.
-- The portable `Provider` enum already identifies OSTI, OpenAlex, CiteAs, ORCID, and ROR enrichment sources. A changelog discovery block can reuse that identity without coupling the schema to network access (`crates/acorn-lib/src/enrichment.rs`).
+- The shared `Date` type (`crates/acorn-lib/src/schema/mod.rs`) represents a start/end interval at day granularity. It does not represent an instant and should not be reused for a timestamped entry.
+- `EnrichmentProvenance` records which provider populated which field paths (recorded under `ResearchActivityMetadata::enrichment` in `crates/acorn-lib/src/schema/research_activity/mod.rs`); it does not record research developments or document revision history.
+- The portable `Provider` enum already identifies OSTI, OpenAlex, CiteAs, ORCID, and ROR enrichment sources (`crates/acorn-lib/src/enrichment.rs`). A changelog discovery block can reuse that identity without coupling the schema to network access. Do not conflate it with the distinct `Provider` type in `crates/acorn-lib/src/schema/agent/mod.rs`, which models AI/cloud model providers rather than enrichment sources.
 - DataCite 4.7 is designed for citation and discovery metadata rather than discipline-specific complete descriptions. Its repeatable Date property includes `Updated`, and its relation properties can connect separately identified versions or related outputs ([DataCite 4.7 overview](https://datacite-metadata-schema.readthedocs.io/en/4.7/), [Date](https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/date/), [RelatedIdentifier](https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/relatedidentifier/)).
 - RAiD represents the activity interval, record-created and record-updated metadata, dated contributor and organization roles, and related objects. It does not define a general narrative event stream ([RAiD schema](https://metadata.raid.org/en/latest/), [activity dates](https://metadata.raid.org/en/latest/core/dates.html), [related objects](https://metadata.raid.org/en/latest/core/relatedObjects.html)).
 
@@ -286,7 +287,7 @@ DataCite 4.7 adds RAiD and SWHID as controlled `relatedIdentifierType` values pl
 - Confirm manual entry creation as the default workflow and discovery as an attributable candidate-producing extension.
 - Confirm stable, changelog-local entry identifiers and deterministic collision behavior.
 - Approve the required category and state vocabularies, their definitions, aliases, and extension policy.
-- Decide whether timestamps must always be instants or whether date-only historical entries are required. Prefer one required RFC 3339 representation for the first slice.
+- Decide whether timestamps must always be instants or whether date-only historical entries are required. The built-in `timestamp` rule already resolves this: it accepts only complete RFC 3339 instants with an explicit offset, so the first slice uses that representation; verify it against the implemented rule rather than reconsidering it.
 
 Deliverable: a reviewed field matrix with examples and explicit non-goals.
 

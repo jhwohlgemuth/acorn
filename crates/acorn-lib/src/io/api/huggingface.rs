@@ -500,7 +500,13 @@ impl HuggingFaceRepository for HuggingFaceRepositoryFiles {
                             .map(|HuggingFaceRepositoryFile { path, size, .. }| {
                                 let sha = lookup.get(&path).cloned();
                                 let url = format!("https://huggingface.co/{identifier}/resolve/{revision}/{path}");
-                                DownloadItem { path, sha, size, url }
+                                DownloadItem {
+                                    path,
+                                    sha,
+                                    size,
+                                    url,
+                                    headers: None,
+                                }
                             })
                             .collect::<Vec<_>>();
                         DownloadItems::new(Path::new(output), items, *quiet, *skip_verify_checksum)

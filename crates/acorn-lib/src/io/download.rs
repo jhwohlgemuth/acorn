@@ -7,9 +7,11 @@ use crate::util::constants::{
     env::HUGGINGFACE_TOKEN_VARIABLE_NAMES,
 };
 use crate::util::Label;
+use axum::http::HeaderMap;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::future::join_all;
+use futures::{stream, StreamExt};
 use std::fs::rename;
 use std::path::Component;
 use tracing::info;
@@ -25,6 +27,8 @@ pub struct DownloadItem {
     pub size: Option<u64>,
     /// Expected SHA-256 checksum (hex-encoded, lowercase)
     pub sha: Option<String>,
+    /// Optional HTTP headers to send with the request (for example, credentials)
+    pub headers: Option<HeaderMap>,
 }
 /// A batch of [`DownloadItem`]s destined for a single output directory.
 #[derive(Clone, Debug)]
@@ -37,6 +41,8 @@ pub struct DownloadItems {
     pub quiet: bool,
     /// Skip SHA-256 verification after download
     pub skip_verify_checksum: bool,
+    /// Maximum number of concurrent downloads; `None` runs all items concurrently
+    pub concurrency: Option<usize>,
 }
 /// Internal task that pairs a [`DownloadItem`] with its resolved paths.
 #[derive(Clone, Debug)]
@@ -54,7 +60,7 @@ pub struct DownloadTask {
 }
 impl DownloadItem {
     const PART_EXTENSION: &'static str = "part";
-    const MODEL_ERROR_MESSAGE: &'static str = "Failed to download model file";
+    const DOWNLOAD_ERROR_MESSAGE: &'static str = "Failed to download file";
     const HUGGINGFACE_HOST: &'static str = DEFAULT_HUGGINGFACE_DOMAIN;
     const HUGGINGFACE_ERROR_MESSAGE: &'static str = "Failed to download Hugging Face file";
     const HUGGINGFACE_AUTH_ERROR_MESSAGE: &'static str =
@@ -98,18 +104,26 @@ impl DownloadItem {
     pub fn error_message(&self) -> &'static str {
         match self.is_huggingface() {
             | true => Self::HUGGINGFACE_ERROR_MESSAGE,
-            | false => Self::MODEL_ERROR_MESSAGE,
+            | false => Self::DOWNLOAD_ERROR_MESSAGE,
         }
     }
     /// Returns an auth-related error message, if applicable.
     pub fn auth_error_message(&self) -> Option<String> {
-        match (self.is_huggingface(), huggingface::has_auth_token()) {
-            | (true, true) => Some(Self::HUGGINGFACE_AUTH_ERROR_MESSAGE.into()),
-            | _ => Some(format!(
+        match self.is_huggingface() {
+            | true if huggingface::has_auth_token() => Some(Self::HUGGINGFACE_AUTH_ERROR_MESSAGE.into()),
+            | true => Some(format!(
                 "Model download requires authentication; set {}",
                 HUGGINGFACE_TOKEN_VARIABLE_NAMES.join(", ")
             )),
+            | false => None,
         }
+    }
+    /// Resolves request headers with a Hugging Face credential fallback.
+    fn request_headers_with_huggingface_fallback(&self) -> Option<HeaderMap> {
+        self.headers
+            .clone()
+            .filter(|headers| !headers.is_empty())
+            .or_else(|| self.is_huggingface().then(huggingface::auth_headers))
     }
     /// Returns `true` if the file at `target` exists and matches the expected size.
     pub fn is_complete_at(&self, target: &Path) -> bool {
@@ -156,21 +170,27 @@ impl DownloadItems {
             items,
             quiet,
             skip_verify_checksum,
+            concurrency: None,
         }
     }
-    /// Downloads all items concurrently and returns the first error encountered.
+    /// Downloads all items concurrently (bounded by [`Self::concurrency`] when set) and returns the first error encountered.
     pub async fn download(self) -> ApiResult<()> {
         let DownloadItems {
             destination,
             items,
             quiet,
             skip_verify_checksum,
+            concurrency,
         } = self;
-        let tasks = items
+        let futures = items
             .into_iter()
             .map(|item| DownloadTask::new(item, &destination, quiet, skip_verify_checksum))
+            .map(DownloadTask::download)
             .collect::<Vec<_>>();
-        let results = join_all(tasks.into_iter().map(DownloadTask::download)).await;
+        let results = match concurrency {
+            | Some(limit) => stream::iter(futures).buffer_unordered(limit.max(1)).collect::<Vec<_>>().await,
+            | None => join_all(futures).await,
+        };
         results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))
     }
 }
@@ -239,7 +259,7 @@ impl DownloadTask {
                         let part_size = data.len();
                         match self.item.size {
                             | Some(expected) if part_size > 0 && part_size < expected => {
-                                let headers = self.item.is_huggingface().then(huggingface::auth_headers);
+                                let headers = self.item.request_headers_with_huggingface_fallback();
                                 let supports_ranges = http::supports_byte_ranges(&self.item.url, headers).await.unwrap_or(false);
                                 if supports_ranges {
                                     Ok(Some(part_size))
@@ -288,7 +308,7 @@ impl DownloadTask {
                 }
                 progress.set_position(downloaded);
             },
-            item.is_huggingface().then(huggingface::auth_headers),
+            item.request_headers_with_huggingface_fallback(),
             Some(item.error_message()),
             auth_error_message.as_deref(),
             resume_from,

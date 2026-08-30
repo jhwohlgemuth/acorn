@@ -7,8 +7,8 @@
 )]
 use super::*;
 use crate::io::api::gitlab::{
-    handle_tree_paths_response, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails, ProgrammingLanguageUseResponse,
-    ProgrammingLanguagesResponse, TreeResponse,
+    handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
+    ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
 };
 use crate::io::api::{self, sluggify};
 use crate::param;
@@ -199,6 +199,39 @@ async fn test_repository_file_reports_non_json_error_status() {
     assert!(why.to_string().contains("HTTP 403: Access is restricted"));
     assert!(!why.to_string().contains("missing field `file_path`"));
     server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_details_resolves_identifier_and_default_branch() {
+    let router = Router::new().route(
+        "/api/v4/projects/30",
+        get(|| async { Json(serde_json::json!({"id": 30, "default_branch": "main", "path_with_namespace": "group/quest"})) }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let details = project_details(&options).await.expect("project details should resolve");
+    assert_eq!(details.identifier, 30);
+    assert_eq!(details.default_branch.as_deref(), Some("main"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_details_accepts_missing_default_branch() {
+    let router = Router::new().route("/api/v4/projects/30", get(|| async { Json(serde_json::json!({"id": 30})) }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let details = project_details(&options)
+        .await
+        .expect("project details without default branch should resolve");
+    assert_eq!(details.identifier, 30);
+    assert_eq!(details.default_branch, None);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_details_requires_identifier() {
+    let options = Options::with_token("").domain("gitlab.com").build();
+    let why = project_details(&options)
+        .await
+        .expect_err("project details without identifier should fail");
+    assert!(why.to_string().contains("project identifier is required"));
 }
 #[tokio::test]
 async fn test_project_webhook_registration_uses_signing_token_on_gitlab_19() {

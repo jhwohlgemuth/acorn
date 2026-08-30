@@ -584,6 +584,9 @@ impl Repository {
         }
     }
     /// Get URL for raw data of a file at a given path
+    ///
+    /// GitLab repositories resolve to `None`; GitLab buckets build authenticated repository-files
+    /// API URLs through [`Bucket::download_item`](crate::io::config::Bucket::download_item).
     pub fn raw_url(&self, path: String) -> Option<String> {
         match self {
             | Repository::GitHub { location, .. } => match location.path() {
@@ -593,8 +596,7 @@ impl Repository {
                     None
                 }
             },
-            | Repository::GitLab { location, .. } => Some(format!("{location}/-/raw/main/{path}")),
-            | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
+            | Repository::GitLab { .. } | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
         }
     }
 }

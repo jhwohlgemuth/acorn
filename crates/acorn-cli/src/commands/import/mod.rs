@@ -69,7 +69,7 @@ pub(crate) async fn run(
                     }
                 }
                 if !options.quiet {
-                    print_result(total);
+                    print_result(total, options.output.as_ref());
                 }
             }),
         | Err(why) => Err(why),

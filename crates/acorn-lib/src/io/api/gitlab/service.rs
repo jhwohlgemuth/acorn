@@ -1,11 +1,11 @@
 //! GitLab API service operations.
 
 use super::{
-    eyre, first_env_var, require_non_empty_secret, ApiResult, BoxFuture, CommitStatus, CommitStatusState, Configuration, EmptyField, Endpoint,
-    ErrorResponse, EventFilterKey, EventsResponse, Fallback, FutureExt, GitLabIdentity, GroupsResponse, InstanceVersion, MergeRequestDetails,
+    eyre, require_non_empty_secret, ApiResult, BoxFuture, CommitStatus, CommitStatusState, Configuration, EmptyField, Endpoint, ErrorResponse,
+    EventFilterKey, EventsResponse, Fallback, FutureExt, GitLabIdentity, GroupsResponse, InstanceVersion, MergeRequestDetails,
     MergeRequestDiffsResponse, Note, NoteMetadata, NotesResponse, Options, PaginationKey, Params, ProgrammingLanguageUseResponse,
-    ProgrammingLanguagesResponse, ProjectMember, ProjectWebhook, ProjectWebhookRequest, ProjectWebhooksResponse, RemoteResource, RepositoryFile,
-    ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
+    ProgrammingLanguagesResponse, ProjectDetails, ProjectMember, ProjectWebhook, ProjectWebhookRequest, ProjectWebhooksResponse, RemoteResource,
+    RepositoryFile, ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
     WebhookRegistration, WorkItem, GITLAB_TOKEN_VARIABLE_NAMES, INCLUDED_ENDPOINTS,
 };
 use crate::util::constants::app::GITLAB_PRIVATE_TOKEN_HEADER;
@@ -407,10 +407,37 @@ pub async fn publish_commit_status(
         | Err(why) => Err(why),
     }
 }
+/// Fetch minimal GitLab project metadata, including the default branch name
+///
+/// The project identifier must be a numeric ID or a URL-encoded project path (see [`Repository::id`](crate::Repository::id)).
+/// An authentication token is optional for public projects and required for private ones.
+///
+/// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
+pub async fn project_details(options: &Options) -> ApiResult<ProjectDetails> {
+    let template = "gitlab::api";
+    let action = "projects";
+    let identifier = options.identifier();
+    match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
+        | Ok(endpoint) => match identifier {
+            | Some(project_identifier) => {
+                let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
+                let params = Params::new()
+                    .with_template("identifier", Some(project_identifier))
+                    .with_auth_maybe(token, Some(GITLAB_PRIVATE_TOKEN_HEADER))
+                    .build();
+                let response = endpoint.invoke_response(action, Some(params)).await;
+                endpoint.handle_response::<ProjectDetails>(response).map(|response| response.value)
+            }
+            | None => Err(eyre!("GitLab project identifier is required")),
+        },
+        | Err(why) => Err(why),
+    }
+}
 /// Fetch the configured repository file at an exact commit SHA
 pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
+    let template = "gitlab::api";
     let action = "repository-file";
-    let endpoint = Endpoint::from_template("gitlab::api").map(|endpoint| endpoint.with_domain(options.domain()));
+    let endpoint = Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain()));
     let identifier = options.identifier();
     let path = options.path();
     let sha = options.sha();
@@ -418,10 +445,7 @@ pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
         | (Ok(endpoint), Some(project_identifier), Ok(file_path), Ok(sha)) => {
             let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_path = urlencoding::encode(file_path);
-            let fallback = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES);
-            let token = (!options.token.trim().is_empty())
-                .then_some(options.token.as_str())
-                .or(fallback.as_deref());
+            let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
             let params = Params::new()
                 .with_template("identifier", Some(encoded_identifier.as_ref()))
                 .with_template("file_path", Some(encoded_path.as_ref()))
@@ -444,10 +468,7 @@ pub(crate) async fn repository_tree(options: &Options) -> ApiResult<TreeResponse
     let action = "tree";
     match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
         | Ok(endpoint) => {
-            let fallback = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES);
-            let token = (!options.token.trim().is_empty())
-                .then_some(options.token.as_str())
-                .or(fallback.as_deref());
+            let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
             let params = Params::new()
                 .with_template("identifier", options.identifier())
                 .with_keyvalue("per_page", Some("100"))

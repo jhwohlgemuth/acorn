@@ -1,6 +1,7 @@
 //! Shared HTTP policy utilities for outbound and inbound service middleware
 use crate::io::http::HttpMethod;
 use crate::util::constants::app::{HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS, HTTP_RETRY_MAX_BACKOFF_SECONDS};
+use crate::util::constants::env::{HTTP_MAX_RETRIES, HTTP_STALL_TIMEOUT};
 use axum::http::header::RETRY_AFTER;
 use axum::http::HeaderMap;
 use jiff::{SignedDuration, Timestamp};
@@ -17,6 +18,8 @@ pub struct HttpPolicy {
     pub connect_timeout: SignedDuration,
     /// Number of retry attempts after the first request.
     pub max_retries: usize,
+    /// Maximum time a streaming download may wait between bytes before aborting.
+    pub stall_timeout: SignedDuration,
 }
 impl HttpPolicy {
     /// Returns the total number of attempts including the initial request.
@@ -30,6 +33,7 @@ impl Default for HttpPolicy {
             timeout: SignedDuration::from_secs(30),
             connect_timeout: SignedDuration::from_secs(10),
             max_retries: 2,
+            stall_timeout: SignedDuration::from_secs(60),
         }
     }
 }
@@ -60,8 +64,22 @@ pub(crate) fn retry_delay(headers: Option<&HeaderMap>, attempt: usize, now: Time
         .min(SignedDuration::from_secs(HTTP_RETRY_MAX_BACKOFF_SECONDS))
 }
 /// Creates the shared HTTP policy used by IO services.
+///
+/// The retry count and streaming stall timeout can be overridden at runtime via the
+/// `ACORN_HTTP_MAX_RETRIES` and `ACORN_HTTP_STALL_TIMEOUT` environment variables.
 pub fn shared_http_policy() -> HttpPolicy {
-    HttpPolicy::default()
+    let mut policy = HttpPolicy::default();
+    if let Ok(value) = dotenvy::var(HTTP_MAX_RETRIES) {
+        if let Ok(retries) = value.trim().parse::<usize>() {
+            policy.max_retries = retries;
+        }
+    }
+    if let Ok(value) = dotenvy::var(HTTP_STALL_TIMEOUT) {
+        if let Ok(seconds) = value.trim().parse::<i64>() {
+            policy.stall_timeout = SignedDuration::from_secs(seconds.max(1));
+        }
+    }
+    policy
 }
 /// Returns true when a request should be retried for the given method and status.
 pub fn should_retry(method: &HttpMethod, status_code: Option<u16>) -> bool {

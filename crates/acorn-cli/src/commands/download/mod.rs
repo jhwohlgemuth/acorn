@@ -3,9 +3,9 @@ use crate::commands::preflight;
 use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions, Buckets, TransferPolicy};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
-use acorn::io::InputOutput;
+use acorn::io::{print_with_border, slice_path, InputOutput};
 use acorn::prelude::PathBuf;
-use acorn::util::constants::app::DEFAULT_CONFIG_FILENAMES;
+use acorn::util::constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT};
 use acorn::util::{suffix, Label, StringConversion};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
@@ -100,10 +100,13 @@ fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> 
             log_activity("download", path.to_absolute_path(), &options.database_path, true);
         }
     }
-    if !options.quiet {
-        print_result(total);
+    match options.quiet {
+        | true => Ok(()),
+        | false => {
+            print_result(total, options.output.as_ref());
+            Ok(())
+        }
     }
-    Ok(())
 }
 pub(crate) fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<PathBuf>, success: bool) {
     let database = Database::<Table>::from_path(database_path.clone());
@@ -117,12 +120,33 @@ pub(crate) fn log_activity(command: &str, path: impl Into<String>, database_path
         error!("=> {} Save {command} activity — {why}", Label::fail());
     }
 }
-pub(crate) fn print_result(total: usize) {
-    let (label, count) = match total {
-        | 0 => (Label::warning(), total.yellow().to_string()),
-        | _ => (Label::pass(), total.green().to_string()),
+pub(crate) fn print_result(total: usize, output: Option<&PathBuf>) {
+    let dest = output
+        .map(|path| slice_path(path, DISPLAY_PATH_CHARACTER_COUNT * 3))
+        .unwrap_or_else(|| ".".to_string());
+    let dest_styled = dest.cyan().to_string();
+    let message = match total {
+        | 0 => format!(
+            "{} No items matched — 0 processed to {}",
+            format!("{}CAUTION", Label::CAUTION).yellow(),
+            dest_styled
+        ),
+        | n => format!(
+            "{} Downloaded {} item{} to {}",
+            Label::pass(),
+            n.to_string().green().bold(),
+            suffix(n),
+            dest_styled
+        ),
     };
-    println!("\n\n   => {label} Processed {count} item{}\n", suffix(total));
+    print_with_border(message, Some("Download complete"));
+    if total == 0 {
+        eprintln!(
+            "  {} {}",
+            "hint:".dimmed(),
+            "no files passed --filter/--ignore or bucket was empty; try without --filter or check .acorn.json buckets".dimmed()
+        );
+    }
 }
 #[cfg(test)]
 mod tests;

@@ -143,6 +143,7 @@ async fn download_remote_model(options: CommandOptions) -> ApiResult<String> {
                 path: filename,
                 size: None,
                 sha: None,
+                headers: None,
             };
             DownloadItems::new(&destination, vec![item], quiet, skip_verify_checksum)
                 .download()

@@ -117,6 +117,8 @@ pub trait Searchable<T> {
 pub trait StringConversion {
     /// Collapse whitespace and convert text to lowercase.
     fn normalized(&self) -> String;
+    /// Percent-encode the string for use in a URL component.
+    fn percent_encode(&self) -> String;
     /// Normalize text to lowercase ASCII alphanumeric characters.
     fn to_ascii_alphanumeric(&self) -> String;
     /// Render a path string using native separators without a Windows extended-length prefix
