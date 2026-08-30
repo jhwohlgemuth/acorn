@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-The [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) precedes major module moves. [Standards traversal](../refactors/analyzer/standards-traversal.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md) consume the stabilized schema/crosswalk contracts. The [research activity changelog](research-activity-changelog.md) consumes the mapping and loss-reporting contract while remaining canonical RAD content.
+[Standards traversal](../refactors/analyzer/standards-traversal.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md) consume the stabilized schema/crosswalk contracts. The [research activity changelog](research-activity-changelog.md) consumes the mapping and loss-reporting contract while remaining canonical RAD content.
 
 # Goal
 
@@ -204,5 +204,4 @@ Deliverable: existing documents continue to load without delaying the standards-
 # Related concepts
 
 - [SWHID persistent-identifier support](swhid-persistent-identifier.md)
-- [Schema I/O and validation handoff](../refactors/core/schema-io-validation-handoff.md)
 - [Standards traversal](../refactors/analyzer/standards-traversal.md)

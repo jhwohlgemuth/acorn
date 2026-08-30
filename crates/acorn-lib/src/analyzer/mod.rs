@@ -134,9 +134,13 @@ impl_schema_check!(
     dcat::Dataset,
     invenio::Record,
     huwise::Dataset,
-    ResearchActivity,
-    raid::Metadata
+    ResearchActivity
 );
+impl SchemaCheck for raid::Metadata {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+        Some(check_schema_path(path.clone(), Self::try_from(path.to_path_buf())).boxed())
+    }
+}
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Cff {
@@ -677,7 +681,7 @@ impl Analysis for raid::Metadata {
     async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match Self::read(path.to_path_buf()) {
+            .map(|path| match Self::try_from(path.to_path_buf()) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })

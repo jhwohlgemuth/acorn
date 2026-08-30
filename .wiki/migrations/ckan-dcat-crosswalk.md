@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Requires stabilized DCAT/loss contracts from [metadata standards alignment](../features/rad-metadata-standards-alignment.md) and must respect the [schema I/O handoff](../refactors/core/schema-io-validation-handoff.md).
+Requires stabilized DCAT/loss contracts from [metadata standards alignment](../features/rad-metadata-standards-alignment.md) and must preserve the schema/adapter boundary in the [crate boundary architecture](../refactors/crate-boundary-architecture.md).
 
 # Goal
 

@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-Coordinate the standards mappings with [RAD metadata standards alignment](rad-metadata-standards-alignment.md) and the distinction between activity dates and record timestamps with [research activity lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md). The built-in `timestamp` and `nonempty` rules, derive expansion, and analyzer mappings are implemented; this plan consumes them without re-adding them. The [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) precedes module moves into `acorn-schema`.
+Coordinate the standards mappings with [RAD metadata standards alignment](rad-metadata-standards-alignment.md) and the distinction between activity dates and record timestamps with [research activity lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md). The built-in `timestamp` and `nonempty` rules, derive expansion, and analyzer mappings are implemented; this plan consumes them without re-adding them.
 
 # Goal
 
@@ -387,4 +387,3 @@ Deliverable: adapters explain all projection losses and never manufacture regist
 
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md)
 - [Research activity lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md)
-- [Schema I/O and validation handoff](../refactors/core/schema-io-validation-handoff.md)

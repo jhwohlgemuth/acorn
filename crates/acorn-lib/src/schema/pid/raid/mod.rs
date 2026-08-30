@@ -3,25 +3,13 @@
 //! See <https://metadata.raid.org/en/v1.6/index.html> for official documentation on reference schema.
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
-#[cfg(feature = "std")]
-use crate::io::current_date;
-#[cfg(feature = "std")]
-use crate::io::read_file;
 use crate::prelude::alloc::{format, String, ToString, Vec};
-#[cfg(feature = "std")]
-use crate::prelude::std::{vec, Error, PathBuf};
-#[cfg(feature = "std")]
-use crate::schema::namespaces::{DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
-#[cfg(feature = "std")]
-use crate::schema::research_activity::ResearchActivity;
 use crate::schema::validate::validate_license;
 use crate::schema::vocabulary;
 use crate::schema::Date;
 use crate::schema::OneOrMany;
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
-#[cfg(feature = "std")]
-use crate::util::Label;
 use crate::util::StringExt;
 use crate::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses};
 use crate::validation::{report_of, Validate, ValidationError, ValidationReport};
@@ -34,8 +22,6 @@ use schemars::schema_for;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-#[cfg(feature = "std")]
-use tracing::error;
 
 /// Read normalized discovery values from a collection of RAiD metadata records.
 pub struct Extractor<'a> {
@@ -1225,27 +1211,6 @@ impl Metadata {
         };
         println!("{output}");
     }
-    /// Read RAiD metadata from a file
-    #[cfg(feature = "std")]
-    pub fn read(path: PathBuf) -> Result<Metadata, Error> {
-        match read_file(path) {
-            | Ok(data) => match eserde::json::from_str::<Metadata>(&data) {
-                | Ok(value) => Ok(value),
-                | Err(errors) => {
-                    let details: Vec<String> = errors
-                        .iter()
-                        .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                        .collect();
-                    Err(Error::other(details.join("\n")))
-                }
-            },
-            | Err(why) => {
-                let msg = format!("Read RAiD metadata file - {why}");
-                error!("=> {} {}", Label::fail(), msg);
-                Err(Error::other(msg))
-            }
-        }
-    }
 }
 impl Contributor {
     fn is_contact(&self) -> bool {
@@ -1260,102 +1225,6 @@ impl Organization {
         self.role
             .iter()
             .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
-    }
-}
-#[cfg(feature = "std")]
-impl From<ResearchActivity> for Metadata {
-    fn from(activity: ResearchActivity) -> Self {
-        let default_start_date = current_date();
-        let default_end_year = default_start_date.chars().take(4).collect::<String>();
-        let raid_id = activity.meta.raid.as_ref().and_then(|raid| raid.first()).cloned().unwrap_or_default();
-        let ror_id = activity.meta.ror.as_ref().and_then(|rors| rors.first()).cloned().unwrap_or_default();
-        let contributor_id = activity.contact.identifier.clone().filter(|id| id.is_orcid()).unwrap_or_default();
-        let date = Date {
-            start_date: Some(default_start_date.clone()),
-            end_date: None,
-        };
-        let contributor_position = ContributorPosition::init()
-            .id(PositionType::PrincipalInvestigator)
-            .date(date.clone())
-            .build();
-        let contributor = Contributor {
-            id: Some(contributor_id),
-            schema_uri: Some(DEFAULT_ORCID_SCHEMA_URI.to_string()),
-            status: Some("active".to_string()),
-            status_message: None,
-            position: vec![contributor_position],
-            leader: true,
-            contact: true,
-            email: Some(activity.contact.email.clone()),
-            role: None,
-            uuid: None,
-        };
-        let org_role = OrganizationRole {
-            id: OrganizationRoleType::LeadResearchOrganization,
-            schema_uri: None,
-            date: date.clone(),
-        };
-        let organization = Organization {
-            id: ror_id.clone(),
-            schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
-            role: vec![org_role],
-        };
-        let title = Title {
-            text: Some(activity.title.clone()),
-            title_type: Some(TitleIdentifier::init().id(TitleType::Primary).build()),
-            language: None,
-            start_date: Some(default_start_date.clone()),
-            end_date: Some(default_end_year.clone()),
-        };
-        let description = Description {
-            text: Some(activity.sections.mission.clone()),
-            description_type: Some(DescriptionIdentifier {
-                id: DescriptionType::Primary,
-                schema_uri: "https://vocabulary.raid.org/description.type.schema/318".to_string(),
-            }),
-            language: None,
-        };
-        let identifier = MetadataIdentifier {
-            id: Some(raid_id),
-            schema_uri: Some("https://raid.org/".to_string()),
-            owner: Some(Owner {
-                id: ror_id.clone(),
-                schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
-                service_point: 0,
-            }),
-            raid_agency_url: Some("https://raid.org/".to_string()),
-            registration_agency: Some(RegistrationAgency {
-                id: ror_id,
-                schema_uri: Some(DEFAULT_ROR_SCHEMA_URI.to_string()),
-            }),
-            license: Some(OneOrMany::One("CC0-1.0".to_string())),
-            version: Some(1),
-        };
-        let access = Access {
-            access_type: Some(AccessIdentifier {
-                id: AccessType::OpenAccess,
-                schema_uri: "https://vocabularies.coar-repositories.org/access_rights/".to_string(),
-            }),
-            embargo_expiry: None,
-            statement: None,
-        };
-        Metadata {
-            access: Some(access),
-            contributor: Some(vec![contributor]),
-            date: None,
-            description: Some(vec![description]),
-            metadata: None,
-            title: Some(vec![title]),
-            identifier: Some(identifier),
-            alternate_identifier: None,
-            alternate_url: None,
-            organization: Some(vec![organization]),
-            related_object: None,
-            related_raid: None,
-            spatial_coverage: None,
-            subject: None,
-            traditional_knowledge_label: None,
-        }
     }
 }
 fn has_start_date(value: &Date) -> Result<(), ValidationError> {

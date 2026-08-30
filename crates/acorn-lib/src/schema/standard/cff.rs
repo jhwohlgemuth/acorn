@@ -1,23 +1,11 @@
 //! Module with data model and utilities for parsing and working with CITATION File Format (CFF) files
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
-#[cfg(feature = "std")]
-use crate::error::ApiResult;
-#[cfg(feature = "std")]
-use crate::io::{read_file, write_file, InputOutput};
-#[cfg(feature = "std")]
-use crate::prelude::alloc::format;
 use crate::prelude::alloc::{String, ToString, Vec};
-#[cfg(feature = "std")]
-use crate::prelude::std::PathBuf;
 use crate::schema::validate::{validate_license, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue};
 use crate::schema::OneOrMany;
-#[cfg(feature = "std")]
-use crate::util::MimeType;
 use crate::util::{MarkdownSupport, ToProse};
 use crate::validation::{Validate, ValidationReport};
-#[cfg(feature = "std")]
-use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -596,61 +584,6 @@ impl ToProse for Cff {
             .flatten()
             .collect::<Vec<String>>()
             .join("\n\n")
-    }
-}
-#[cfg(feature = "std")]
-impl InputOutput for Cff {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Cff | MimeType::Yaml => Cff::read_yaml(source),
-            | MimeType::Json => Cff::read_json(source),
-            | _ => Err(eyre!("Unsupported CFF data file extension")),
-        }
-    }
-    fn read_cff(path: impl Into<PathBuf>) -> ApiResult<Cff> {
-        Cff::read_yaml(path.into())
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| {
-            eserde::json::from_str::<Cff>(&content).map_err(|errors| {
-                let details: Vec<String> = errors
-                    .iter()
-                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                    .collect();
-                eyre!("{}", details.join("\n"))
-            })
-        })
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Cff> {
-        read_file(path.clone()).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML CFF — {why}")))
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Cff => self.write_cff(output),
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported CFF data file extension for writing")),
-        }
-    }
-    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("cff");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize CFF — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON CFF — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML CFF — {why}"))
-            .and_then(|content| write_file(output, content))
     }
 }
 impl Validate for Agent {

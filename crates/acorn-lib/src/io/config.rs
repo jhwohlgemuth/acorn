@@ -4,6 +4,7 @@
 //!
 //! The ACORN configuration file configures what buckets should be downloaded, readability analysis, <span title="Large Language Model">LLM</span> settings, and more.
 //!
+use crate::io::adapter::migrate::Migration;
 use crate::io::api::{github, gitlab, Configuration, Endpoint};
 use crate::io::bagit::Bag;
 use crate::io::database::schema::{ModelRow, Table};
@@ -20,7 +21,7 @@ use crate::schema::{
     hardware::memory::Memory,
     pid::{Identifier, PID},
     research_activity::ResearchActivity,
-    Migration, OneOrMany,
+    OneOrMany,
 };
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_PRIVATE_TOKEN_HEADER, IGNORE, SUPPORTED_RAD_FILETYPES};
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;

@@ -27,7 +27,7 @@ Host reporting, terminal formatting, diff, and generic embedded-asset dependenci
 
 # Parallel execution
 
-Dependency investigation is read-only and can run with any lane. Manifest edits acquire the workspace-graph lock and serialize with Phase 1.2 integration, crate extraction, WASM, macOS size work, acorn-py cutover, and dependency-adding features. Prefer a separate manifest-only commit so leaf agents can rebase once and continue.
+Dependency investigation is read-only and can run with any lane. Manifest edits acquire the workspace-graph lock and serialize with std isolation, crate extraction, WASM, macOS size work, acorn-py cutover, and dependency-adding features. Prefer a separate manifest-only commit so leaf agents can rebase once and continue.
 
 # Recommendation
 

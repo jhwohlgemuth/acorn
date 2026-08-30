@@ -52,10 +52,6 @@ pub mod agent;
 pub mod discovery;
 pub mod geonames;
 pub mod graph;
-#[cfg(feature = "std")]
-pub mod migrate;
-#[cfg(feature = "std")]
-pub use migrate::{FieldMigration, Migration};
 pub mod namespaces;
 pub mod pid;
 pub mod research_activity;

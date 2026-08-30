@@ -1,9 +1,5 @@
 # Refactor Plans
 
-## Next
-
-- [Schema I/O validation handoff](core/schema-io-validation-handoff.md) - Split portable string/byte codecs from std path/file adapters; this is crate-architecture Phase 1.2.
-
 ## In progress
 
 - [Crate boundary architecture](crate-boundary-architecture.md) - Split `acorn-lib` into portable domains, adapters, services, and a compatibility facade.

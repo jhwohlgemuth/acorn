@@ -21,7 +21,7 @@ Coordinate request composition with [request parameters](request-parameter-compo
 
 # Parallel execution
 
-Operation-specific request types and tests confined to `io/api/huggingface.rs` can run with Phase 1.2. Migration of shared CLI planners, `io/api/mod.rs`, manifests, public documentation, or shared snapshots waits for the API/CLI integration owner. Do not remove legacy `Options` until all dependent slices have rebased.
+Operation-specific request types and tests confined to `io/api/huggingface.rs` can run with portability work. Migration of shared CLI planners, `io/api/mod.rs`, manifests, public documentation, or shared snapshots waits for the API/CLI integration owner. Do not remove legacy `Options` until all dependent slices have rebased.
 
 # Goal
 

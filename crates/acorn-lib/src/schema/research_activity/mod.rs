@@ -5,8 +5,6 @@
 use crate::enrichment::Provider;
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
-#[cfg(feature = "std")]
-use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
 use crate::prelude::alloc::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
 use crate::prelude::std::PathBuf;
@@ -17,8 +15,6 @@ use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Perso
 use crate::schema::standard::text::Text;
 #[cfg(feature = "std")]
 use crate::schema::vocabulary;
-#[cfg(feature = "std")]
-use crate::schema::Migration;
 use crate::schema::{
     ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
 };
@@ -30,9 +26,9 @@ use crate::util::constants::{
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 #[cfg(feature = "std")]
 use crate::util::Label;
-use crate::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 #[cfg(feature = "std")]
-use crate::util::{MimeType, StringConversion};
+use crate::util::MimeType;
+use crate::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 use crate::validation::{Validate, ValidationError};
 use bon::Builder;
 #[cfg(feature = "std")]
@@ -46,8 +42,6 @@ use nucleo_matcher::{
     Config, Matcher,
 };
 #[cfg(feature = "std")]
-use owo_colors::OwoColorize;
-#[cfg(feature = "std")]
 use schemars::schema_for;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -58,8 +52,6 @@ use tracing::{debug, trace};
 
 pub mod aspect;
 mod markdown;
-#[cfg(feature = "std")]
-mod migrate;
 pub mod output;
 pub mod s3a;
 use aspect::AspectFramework;
@@ -555,124 +547,6 @@ impl Hash for ResearchActivity {
         self.meta.identifier.hash(state);
     }
 }
-#[cfg(feature = "std")]
-impl InputOutput for ResearchActivity {
-    fn parse(content: &str) -> Option<Self> {
-        jsonc_parse_value(content)
-            .ok()
-            .and_then(|value| serde_json::from_value(value).ok())
-            .or_else(|| serde_norway::from_str(content).ok())
-    }
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into().clone();
-        let result = match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-            | MimeType::Markdown => Self::read_markdown(source.clone()),
-            | MimeType::Yaml => Self::read_yaml(source.clone()),
-            | _ => Err(eyre!("Unsupported research activity data file extension")),
-        };
-        if let Ok(data) = &result {
-            debug!(path = source.to_string_lossy().to_string(), "=> {}", Label::using());
-            debug!("=> {} Research activity data = {:#?}", Label::using(), data.dimmed().cyan());
-        }
-        result
-    }
-    fn format_with(self, context: Option<PathBuf>) -> Self {
-        ResearchActivity::format_with(self, context)
-    }
-    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        ResearchActivity::serialize_as(self, mime)
-    }
-    fn linked_content(&self) -> ApiResult<Option<String>> {
-        serde_json::to_string_pretty(&self.with_context())
-            .map(Some)
-            .map_err(|why| eyre!("Failed to serialize linked research activity data — {why}"))
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| {
-            serde_json::from_str::<serde_json::Value>(&content)
-                .ok()
-                .as_ref()
-                .into_iter()
-                .for_each(Self::print_migration_warnings);
-            eserde::json::from_str::<Self>(&content).map_err(|errors| {
-                let details: Vec<String> = errors
-                    .iter()
-                    .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                    .collect();
-                eyre!("{}", details.join("\n"))
-            })
-        })
-    }
-    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| {
-            jsonc_parse_value(&content).and_then(|value| {
-                Self::print_migration_warnings(&value);
-                serde_json::to_string(&value)
-                    .map_err(|why| eyre!("JSONC conversion error — {why}"))
-                    .and_then(|json| {
-                        eserde::json::from_str::<Self>(&json).map_err(|errors| {
-                            let details: Vec<String> = errors
-                                .iter()
-                                .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                                .collect();
-                            eyre!("{}", details.join("\n"))
-                        })
-                    })
-            })
-        })
-    }
-    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("{why}")))
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| {
-            serde_norway::from_str::<serde_json::Value>(&content)
-                .ok()
-                .as_ref()
-                .into_iter()
-                .for_each(Self::print_migration_warnings);
-            serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML RAD — {why}"))
-        })
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        let mime = MimeType::from_path(&output);
-        match mime {
-            | MimeType::Cff => self.write_cff(output),
-            | MimeType::Json | MimeType::Jsonc => self.write_json(output),
-            | MimeType::Markdown => self.write_markdown(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported research activity data file extension for writing")),
-        }
-    }
-    fn write_cff(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("cff");
-        let data: Cff = self.into();
-        serde_norway::to_string(&data)
-            .map_err(|why| eyre!("Failed to serialize RAD CITATION.cff — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        serde_json::to_string_pretty(&self)
-            .map_err(|why| eyre!("Failed to serialize JSON RAD — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("md");
-        let content = self.to_markdown();
-        write_file(output, content)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_json::to_value(self)
-            .map_err(|why| eyre!("Failed to convert RAD to value for YAML serialization — {why}"))
-            .and_then(|value| serde_norway::to_string(&value).map_err(|why| eyre!("Failed to serialize YAML RAD — {why}")))
-            .and_then(|content| write_file(output, content))
-    }
-}
 impl LinkedData for ResearchActivity {
     fn with_context(&self) -> Self {
         Self {
@@ -897,42 +771,6 @@ impl ResearchActivityMetadata {
             sponsors,
             ..self
         }
-    }
-    /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
-    #[cfg(feature = "std")]
-    pub fn format_with(self, path: Option<PathBuf>) -> Self {
-        let path_parent = match path {
-            | Some(value) => parent(value),
-            | None => PathBuf::from("."),
-        };
-        debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
-        let name = match image_paths(&path_parent) {
-            | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
-            | _ => None,
-        };
-        let media = match name {
-            | Some(value) => {
-                debug!(value, "=> {} First image", Label::using());
-                let first_graphic = match self.media.clone() {
-                    | Some(values) if !values.is_empty() => {
-                        let caption = self.clone().first_image_caption();
-                        let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                    | Some(_) | None => {
-                        let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                };
-                let rest = match self.clone().media {
-                    | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                    | Some(_) | None => vec![],
-                };
-                Some([vec![first_graphic], rest].concat())
-            }
-            | None => self.media.clone(),
-        };
-        Self { media, ..self }.format()
     }
 }
 impl Default for ResearchActivityMetadataContext {

@@ -15,7 +15,7 @@ Add CI checks for the minimal build, alloc build, and WASM composition target. C
 
 # Current evidence
 
-`Makefile` exposes the local WASM check, but `.gitlab-ci.yml` does not yet enforce the complete minimal/alloc/WASM matrix or dependency-deny policy. On 2026-08-28, all three local checks failed on the same schema-to-std import (`output.rs` -> `io::License`), demonstrating that the current matrix is not protected. Future package jobs cannot be added until the corresponding crates exist.
+`Makefile` exposes the local WASM check, and the minimal, alloc, and WASM checks pass locally. `.gitlab-ci.yml` does not yet enforce that complete matrix or the dependency-deny policy. Future package jobs cannot be added until the corresponding crates exist.
 
 # Project code boundaries
 

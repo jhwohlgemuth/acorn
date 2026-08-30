@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This migration is incremental and must not block Phase 1.2. Every new crate in the [crate boundary architecture](../refactors/crate-boundary-architecture.md) starts with owned portable errors, while existing modules convert only when touched for an accepted boundary.
+This migration is incremental and must not block portable extraction. Every new crate in the [crate boundary architecture](../refactors/crate-boundary-architecture.md) starts with owned portable errors, while existing modules convert only when touched for an accepted boundary.
 
 # Goal
 

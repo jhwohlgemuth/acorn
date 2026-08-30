@@ -135,11 +135,11 @@ fn test_raid_metadatatools_cases() {
 #[test]
 fn test_raid_read() {
     let path = PathBuf::from(FIXTURES).join("raid/response_01.json");
-    let data = Metadata::read(path);
+    let data = Metadata::try_from(path);
     assert!(data.is_ok());
     let _ = data.unwrap().validate();
     let path = PathBuf::from(FIXTURES).join("raid/response_02.json");
-    let data = Metadata::read(path);
+    let data = Metadata::try_from(path);
     assert!(data.is_ok());
     let _ = data.unwrap().validate();
 }

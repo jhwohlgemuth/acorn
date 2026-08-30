@@ -2,23 +2,9 @@
 //!
 //! Primary use case is to leverage prose analysis and readability metrics on unstructured text content, such as abstracts or descriptions.
 
-#[cfg(feature = "std")]
-use crate::error::ApiResult;
-#[cfg(feature = "std")]
-use crate::io::document::{DocumentFormat, SourceDocument};
-#[cfg(feature = "std")]
-use crate::io::{read_file, write_file, InputOutput};
 use crate::prelude::alloc::{String, ToString};
-#[cfg(feature = "std")]
-use crate::prelude::std::{Path, PathBuf};
-#[cfg(feature = "std")]
-use crate::util::file_extension;
-#[cfg(feature = "std")]
-use crate::util::MimeType;
 use crate::util::{MarkdownSupport, ToProse, Unstructured};
 use crate::validation::Validate;
-#[cfg(feature = "std")]
-use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -46,104 +32,6 @@ impl From<&str> for Text {
 impl From<String> for Text {
     fn from(content: String) -> Self {
         Self { content }
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<&Path> for Text {
-    type Error = color_eyre::Report;
-
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        Self::read(path.to_path_buf())
-    }
-}
-#[cfg(feature = "std")]
-impl InputOutput for Text {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Markdown | MimeType::Text => Self::read_text(source),
-            | MimeType::Json => Self::read_json(source),
-            | MimeType::Yaml => Self::read_yaml(source),
-            | _ => Err(eyre!("Unsupported plain text file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        match mime {
-            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
-            | _ => Err(eyre!("Unsupported plain text workflow serialization mime type: {mime:?}")),
-        }
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Markdown | MimeType::Text => self.write_text(output),
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported plain text file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
-    }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
-    }
-}
-#[cfg(feature = "std")]
-impl InputOutput for Document {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
-            | Ok(_) => Self::read_document(source),
-            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
-                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => Self::read_text(source),
-                | _ => Err(eyre!("Unsupported document file extension")),
-            },
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
-    }
-    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        match mime {
-            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
-            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
-        }
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match file_extension(output.display().to_string()).as_deref() {
-            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => self.write_text(output),
-            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
-            | _ => Err(eyre!("Unsupported document file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
-    }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
     }
 }
 impl MarkdownSupport for Document {
@@ -174,26 +62,5 @@ impl Unstructured for Document {
 impl Unstructured for Text {
     fn content(&self) -> &str {
         &self.content
-    }
-}
-#[cfg(feature = "std")]
-impl Document {
-    fn read_document(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        SourceDocument::at(path).extract().map(|content| Self { content })
-    }
-    fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        read_file(path.into()).map(|content| Self { content })
-    }
-    fn write_text(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_file(path, self.content().to_string())
-    }
-}
-#[cfg(feature = "std")]
-impl Text {
-    fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        read_file(path.into()).map(|content| Self { content })
-    }
-    fn write_text(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_file(path, self.content().to_string())
     }
 }

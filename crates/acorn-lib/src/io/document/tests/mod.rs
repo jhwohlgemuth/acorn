@@ -1,3 +1,4 @@
+mod docx;
 use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::*;
 use crate::schema::research_activity::MarkdownParser;

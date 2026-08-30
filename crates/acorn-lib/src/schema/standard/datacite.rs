@@ -3,12 +3,6 @@
 //! These types model the DataCite Metadata Schema 4.6 structure, including
 //! DOI records, creators, contributors, related identifiers, funding
 //! references, geolocation, rights, and other metadata properties
-#[cfg(feature = "std")]
-use crate::error::ApiResult;
-#[cfg(feature = "std")]
-use crate::io::{read_file, write_file, InputOutput};
-#[cfg(feature = "std")]
-use crate::prelude::alloc::Box;
 use crate::prelude::alloc::{vec, String, ToString, Vec};
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::{dcat_to_datacite, huwise_to_datacite, invenio_to_datacite};
@@ -21,14 +15,8 @@ use crate::schema::validate::{
     validate_publisher_identifier,
 };
 use crate::schema::OneOrMany;
-#[cfg(feature = "std")]
-use crate::util::MimeType;
 use crate::util::ToProse;
 use crate::validation::Validate;
-#[cfg(feature = "std")]
-use crate::PathBuf;
-#[cfg(feature = "std")]
-use color_eyre::eyre::eyre;
 use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1354,83 +1342,6 @@ impl ToProse for Record {
             .chain(self.attributes.subjects.iter().flatten().map(|value| value.subject.clone()))
             .collect::<Vec<String>>()
             .join("\n\n")
-    }
-}
-#[cfg(feature = "std")]
-impl InputOutput for Record {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Record> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => Record::read_json(source),
-            | MimeType::Yaml => Record::read_yaml(source),
-            | _ => Err(eyre!("Unsupported DataCite data file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Record> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum JsonInput {
-            One(Box<Record>),
-            Many(Vec<Record>),
-        }
-
-        read_file(path).and_then(|content| {
-            serde_json::from_str::<JsonInput>(&content)
-                .map_err(|why| eyre!("Failed to parse JSON DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | JsonInput::One(record) => Ok(*record),
-                    | JsonInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Record> {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum YamlInput {
-            One(Box<Record>),
-            Many(Vec<Record>),
-        }
-
-        read_file(path).and_then(|content| {
-            serde_norway::from_str::<YamlInput>(&content)
-                .map_err(|why| eyre!("Failed to parse YAML DataCite record — {why}"))
-                .and_then(|value| match value {
-                    | YamlInput::One(record) => Ok(*record),
-                    | YamlInput::Many(records) => match records.len() {
-                        | 1 => records
-                            .into_iter()
-                            .next()
-                            .ok_or_else(|| eyre!("Expected one DataCite record but found none")),
-                        | len => Err(eyre!("Expected one DataCite record but found {len}")),
-                    },
-                })
-        })
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize JSON DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        serde_norway::to_string(self)
-            .map_err(|why| eyre!("Failed to serialize YAML DataCite record — {why}"))
-            .and_then(|content| write_file(output, content))
     }
 }
 fn default_identifier_type() -> String {

@@ -21,7 +21,7 @@ Consume [interpolation primitives](interpolation-primitives.md); precede [OOXML 
 
 # Parallel execution
 
-Parser-backed transformations and dedicated PowerPoint tests can run with Phase 1.2 when confined to `io/powerpoint/` and `commands/export/powerpoint.rs`. Shared export dispatch, templates, snapshots, interpolation utilities, manifests, and module indexes remain integration locks.
+Parser-backed transformations and dedicated PowerPoint tests can run with portability work when confined to `io/powerpoint/` and `commands/export/powerpoint.rs`. Shared export dispatch, templates, snapshots, interpolation utilities, manifests, and module indexes remain integration locks.
 
 # Context
 

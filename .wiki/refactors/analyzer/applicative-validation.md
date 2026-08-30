@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Build directly on the existing flat, ordered portable validation report; do not precede schema I/O separation on the portability critical path.
+Build directly on the existing flat, ordered portable validation report.
 
 # Evidence
 

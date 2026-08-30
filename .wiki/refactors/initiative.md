@@ -21,10 +21,10 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 | Phase | Status | Focus | Outcome |
 |---|---|---|---|
-| Portable boundary hardening | In progress | Schema I/O, dependency features, std isolation | `acorn-core` and `acorn-schema` become mechanical extractions |
+| Portable boundary hardening | In progress | Remaining schema/analyzer host couplings, dependency features, std isolation | `acorn-core` and `acorn-schema` become mechanical extractions |
 | Export boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
 | Shared abstractions | Planned | Export context, safe paths, interpolation | Duplicated mappings and path logic are replaced |
-| Structural modularization | Planned | CLI startup, API clients, schema I/O | Boundaries become explicit and testable |
+| Structural modularization | Planned | CLI startup and API clients | Boundaries become explicit and testable |
 | Refinement | Planned | Bindings and portability | Repetition decreases and build targets broaden |
 
 # Project code boundaries
@@ -35,7 +35,7 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 # Dependencies
 
-The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating implementation plan. Its immediate path is dependency classification -> std isolation -> schema I/O separation -> `acorn-core`/`acorn-schema` extraction. Reliability work may proceed in parallel only when it does not rename the same modules.
+The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating implementation plan. Its immediate path is dependency classification and std isolation -> `acorn-core`/`acorn-schema` extraction. Reliability work may proceed in parallel only when it does not rename the same modules.
 
 # Parallel execution
 

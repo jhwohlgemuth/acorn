@@ -6,15 +6,15 @@
     clippy::unwrap_used
 )]
 use crate::analyzer::readability::flesch_kincaid_grade_level;
-use crate::io::docx::extract_text_from_path;
-use crate::prelude::{write, File, PathBuf, Write};
-use crate::test::utils::{cleanup, fixture_path, temp_file};
+use crate::io::document::to_markdown;
+use crate::prelude::{PathBuf, Write};
+use crate::test::utils::fixture_path;
+use tempfile::{Builder, NamedTempFile};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
-fn write_docx(document_xml: &str) -> PathBuf {
-    let path = temp_file();
-    let file = File::create(&path).unwrap();
+fn write_docx(document_xml: &str) -> NamedTempFile {
+    let file = Builder::new().suffix(".docx").tempfile().unwrap();
     let mut archive = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
     let content_types = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -39,18 +39,17 @@ fn write_docx(document_xml: &str) -> PathBuf {
     archive.write_all(document_xml.as_bytes()).unwrap();
     archive.start_file("word/_rels/document.xml.rels", options).unwrap();
     archive.write_all(document_rels.as_bytes()).unwrap();
-    archive.finish().unwrap();
-    path
+    archive.finish().unwrap()
 }
 
 #[test]
 fn test_extract_sample_fixture() {
-    let result = extract_text_from_path(fixture_path("sample.docx"));
+    let result = to_markdown(fixture_path("sample.docx"));
     assert!(result.is_err(), "Sample fixture should currently fail parsing");
 }
 #[test]
 fn test_extract_acorn_fixture() {
-    let result = extract_text_from_path(fixture_path("acorn.docx"));
+    let result = to_markdown(fixture_path("acorn.docx"));
     assert!(result.is_ok(), "Acorn fixture should parse");
     let text = result.unwrap();
     assert!(text.contains("ACORN"), "Acorn fixture text should contain ACORN");
@@ -61,44 +60,42 @@ fn test_extract_acorn_fixture() {
 }
 #[test]
 fn test_extract_acorn_fixture_readability() {
-    let text = extract_text_from_path(fixture_path("acorn.docx")).unwrap();
+    let text = to_markdown(fixture_path("acorn.docx")).unwrap();
     let grade = flesch_kincaid_grade_level(&text);
-    assert!((grade - 17.34).abs() < 0.2, "Expected readability near 17.34, got {grade}");
+    assert!((grade - 17.12).abs() < 0.2, "Expected readability near 17.12, got {grade}");
 }
 #[test]
 fn test_extract_nonexistent_file() {
     // Test: Should return error when file doesn't exist
     let nonexistent_path = PathBuf::from("/nonexistent/path/to/file.docx");
-    let result = extract_text_from_path(&nonexistent_path);
+    let result = to_markdown(&nonexistent_path);
     assert!(result.is_err(), "Should fail for nonexistent file");
 }
 #[test]
 fn test_extract_invalid_docx() {
     // Test: Should return error when file is not a valid DOCX
-    let temp_path = temp_file();
-    write(&temp_path, b"Not a valid DOCX file").unwrap();
-    let result = extract_text_from_path(&temp_path);
+    let mut temporary = Builder::new().suffix(".docx").tempfile().unwrap();
+    temporary.write_all(b"Not a valid DOCX file").unwrap();
+    let result = to_markdown(temporary.path());
     assert!(result.is_err(), "Should fail for invalid DOCX format");
-    cleanup(&temp_path);
 }
 #[test]
 fn test_extract_empty_zip() {
     // Test: Should handle DOCX-like structure gracefully
-    let temp_path = temp_file();
+    let mut temporary = Builder::new().suffix(".docx").tempfile().unwrap();
     // Write minimal ZIP header (PK signature)
-    write(&temp_path, [0x50, 0x4b, 0x03, 0x04]).unwrap();
-    let result = extract_text_from_path(&temp_path);
+    temporary.write_all(&[0x50, 0x4b, 0x03, 0x04]).unwrap();
+    let result = to_markdown(temporary.path());
     // Should either succeed with empty string or return error - both are acceptable
     // The important thing is it doesn't panic
     let _ = result;
-    cleanup(&temp_path);
 }
 #[test]
 fn test_extract_function_signature() {
     // Test: Verify the function can be called with different path types
     // This tests the impl Into<PathBuf> trait
     let nonexistent = "/fake/path.docx";
-    let result = extract_text_from_path(nonexistent);
+    let result = to_markdown(nonexistent);
     assert!(result.is_err(), "Should accept &str and return error for missing file");
 }
 #[test]
@@ -126,14 +123,17 @@ fn test_extract_generated_docx_paragraph_children() {
         </w:p>
     </w:body>
 </w:document>"#;
-    let path = write_docx(document_xml);
-    let result = extract_text_from_path(&path);
+    let document = write_docx(document_xml);
+    let result = to_markdown(document.path());
     assert!(result.is_ok(), "Generated DOCX should parse");
     let text = result.unwrap();
-    assert!(text.contains("Alpha\tBeta\nInstrLinkInsertTextDeleteTextMovedText\nAfterCarriageReturn"));
-    assert!(!text.contains("GhostText"));
+    ["Alpha", "Beta", "Link", "InsertText", "MovedText", "AfterCarriageReturn"]
+        .into_iter()
+        .for_each(|expected| assert!(text.contains(expected), "Expected extracted text to contain {expected}: {text:?}"));
+    ["Instr", "DeleteText", "GhostText"]
+        .into_iter()
+        .for_each(|excluded| assert!(!text.contains(excluded), "Expected extracted text to omit {excluded}: {text:?}"));
     assert!(text.contains("Tail"));
-    cleanup(&path);
 }
 #[test]
 fn test_extract_generated_docx_table_children() {
@@ -156,11 +156,10 @@ fn test_extract_generated_docx_table_children() {
         </w:tbl>
     </w:body>
 </w:document>"#;
-    let path = write_docx(document_xml);
-    let result = extract_text_from_path(&path);
+    let document = write_docx(document_xml);
+    let result = to_markdown(document.path());
     assert!(result.is_ok(), "Generated table DOCX should parse");
     let text = result.unwrap();
     assert!(text.contains("CellOne"));
     assert!(text.contains("NestedCell"));
-    cleanup(&path);
 }

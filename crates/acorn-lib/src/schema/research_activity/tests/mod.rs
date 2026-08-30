@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use crate::io::adapter::migrate::Migration;
 use crate::io::InputOutput;
 use crate::prelude::std::{read, write, PathBuf};
 use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};

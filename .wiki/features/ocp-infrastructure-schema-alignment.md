@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-Land the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) and portable `acorn-schema` boundary before broad module moves. The consolidated `schema::validate` folder module and portable rule primitives are already implemented; this plan consumes them without repeating the consolidation. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
+Land the portable `acorn-schema` boundary before broad module moves. The consolidated `schema::validate` folder module and portable rule primitives are already implemented; this plan consumes them without repeating the consolidation. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
 
 # Goal
 

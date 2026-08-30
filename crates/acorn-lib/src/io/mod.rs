@@ -71,6 +71,8 @@ use tracing::{debug, error, info, trace, warn};
 use urlencoding::encode;
 use which::which;
 
+#[cfg(feature = "std")]
+pub mod adapter;
 pub mod api;
 mod archive;
 pub use archive::{archive, extract, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
@@ -1078,43 +1080,6 @@ pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
             }),
     }
 }
-/// Print `text` inside a single-cell rounded border with an optional embedded title
-///
-/// The border is rendered with UTF-8 rounded corners and correctly measures ANSI escape sequences and emoji width via `console`.
-/// When `title` is `Some`, it is embedded in the top border as `╭─ {title} ─…─╮`.
-#[cfg(feature = "std")]
-pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
-    let inner = text.to_string();
-    let title_string = title.map(|value| value.to_string());
-    let inner_width = measure_text_width(&strip_ansi_codes(&inner));
-    let horizontal_pad: usize = 2;
-    let inner_padded_width = inner_width.saturating_add(horizontal_pad.saturating_mul(2));
-    let base_width = inner_padded_width.saturating_add(2);
-    let total_width = match &title_string {
-        | Some(value) => {
-            let title_width = measure_text_width(&strip_ansi_codes(value));
-            let min_title_width = title_width.saturating_add(5);
-            base_width.max(min_title_width)
-        }
-        | None => base_width,
-    };
-    let inner_dash = total_width.saturating_sub(2);
-    let top = match title_string {
-        | Some(value) => {
-            let title_width = measure_text_width(&strip_ansi_codes(&value));
-            let reserved = 5usize.saturating_add(title_width);
-            let dash_len = total_width.saturating_sub(reserved).max(1);
-            format!("╭─ {} {}╮", value, "─".repeat(dash_len))
-        }
-        | None => format!("╭{}╮", "─".repeat(inner_dash)),
-    };
-    let empty = format!("│{}│", " ".repeat(inner_dash));
-    let content_width = total_width.saturating_sub(2);
-    let right_pad = content_width.saturating_sub(inner_width).saturating_sub(2);
-    let content = format!("│  {inner}{}│", " ".repeat(right_pad));
-    let bottom = format!("╰{}╯", "─".repeat(inner_dash));
-    println!("\n{top}\n{empty}\n{content}\n{empty}\n{bottom}\n");
-}
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
 ///
 /// # Arguments
@@ -1600,6 +1565,43 @@ pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstR
                     .map(|config| (config, cst))
             })
         })
+}
+/// Print `text` inside a single-cell rounded border with an optional embedded title
+///
+/// The border is rendered with UTF-8 rounded corners and correctly measures ANSI escape sequences and emoji width via `console`.
+/// When `title` is `Some`, it is embedded in the top border as `╭─ {title} ─…─╮`.
+#[cfg(feature = "std")]
+pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
+    let inner = text.to_string();
+    let title_string = title.map(|value| value.to_string());
+    let inner_width = measure_text_width(&strip_ansi_codes(&inner));
+    let horizontal_pad: usize = 2;
+    let inner_padded_width = inner_width.saturating_add(horizontal_pad.saturating_mul(2));
+    let base_width = inner_padded_width.saturating_add(2);
+    let total_width = match &title_string {
+        | Some(value) => {
+            let title_width = measure_text_width(&strip_ansi_codes(value));
+            let min_title_width = title_width.saturating_add(5);
+            base_width.max(min_title_width)
+        }
+        | None => base_width,
+    };
+    let inner_dash = total_width.saturating_sub(2);
+    let top = match title_string {
+        | Some(value) => {
+            let title_width = measure_text_width(&strip_ansi_codes(&value));
+            let reserved = 5usize.saturating_add(title_width);
+            let dash_len = total_width.saturating_sub(reserved).max(1);
+            format!("╭─ {} {}╮", value, "─".repeat(dash_len))
+        }
+        | None => format!("╭{}╮", "─".repeat(inner_dash)),
+    };
+    let empty = format!("│{}│", " ".repeat(inner_dash));
+    let content_width = total_width.saturating_sub(2);
+    let right_pad = content_width.saturating_sub(inner_width).saturating_sub(2);
+    let content = format!("│  {inner}{}│", " ".repeat(right_pad));
+    let bottom = format!("╰{}╯", "─".repeat(inner_dash));
+    println!("\n{top}\n{empty}\n{content}\n{empty}\n{bottom}\n");
 }
 /// Returns the shared progress renderer used by ACORN I/O operations.
 pub fn progress_renderer() -> MultiProgress {

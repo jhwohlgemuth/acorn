@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Implement after the [schema I/O validation handoff](../refactors/core/schema-io-validation-handoff.md) defines codec versus path ownership. ZON must not reintroduce schema-to-host coupling while `acorn-schema` is being extracted.
+Follow the codec-versus-path ownership in the [crate boundary architecture](../refactors/crate-boundary-architecture.md). ZON must not reintroduce schema-to-host coupling while `acorn-schema` is being extracted.
 
 # Goal
 

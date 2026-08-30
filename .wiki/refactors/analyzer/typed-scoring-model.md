@@ -21,7 +21,7 @@ Can follow extraction of portable readability logic; does not block schema/core 
 
 # Parallel execution
 
-The value types, pure combination functions, and tests under `analyzer/readability/` are orthogonal to Phase 1.2. Claim only that leaf directory in the initial slice. Defer `analyzer/mod.rs`, shared `check.rs` report wiring, and public re-exports to the analyzer integration owner.
+The value types, pure combination functions, and tests under `analyzer/readability/` are orthogonal to portable extraction. Claim only that leaf directory in the initial slice. Defer `analyzer/mod.rs`, shared `check.rs` report wiring, and public re-exports to the analyzer integration owner.
 
 # Evidence
 

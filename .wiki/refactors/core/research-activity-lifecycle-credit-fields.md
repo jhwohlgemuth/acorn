@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Coordinate with [metadata standards alignment](../../features/rad-metadata-standards-alignment.md) and land after schema I/O ownership is portable.
+Coordinate with [metadata standards alignment](../../features/rad-metadata-standards-alignment.md).
 
 # Goal
 

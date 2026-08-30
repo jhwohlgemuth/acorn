@@ -21,7 +21,7 @@ Complete before [acorn-py repository extraction](../../migrations/acorn-py-repos
 
 # Parallel execution
 
-Wrapper deduplication confined to `crates/acorn-py/src/lib.rs` and binding tests is orthogonal to Phase 1.2. Do not change workspace/crate manifests or depend on new facade paths in the concurrent slice; those changes wait for the workspace-graph integration owner.
+Wrapper deduplication confined to `crates/acorn-py/src/lib.rs` and binding tests is orthogonal to portable extraction. Do not change workspace/crate manifests or depend on new facade paths in the concurrent slice; those changes wait for the workspace-graph integration owner.
 
 # Evidence
 

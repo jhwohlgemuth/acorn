@@ -17,9 +17,9 @@ Retain the existing `core`, `alloc`, `std`, and `wasm` feature names on the comp
 # Current evidence
 
 - `acorn-lib` is already `no_std` when `std` is disabled and exposes `core`, `alloc`, `wasm`, and `std` features.
-- Minimal, alloc, and `wasm32-unknown-unknown` checks currently fail because `schema/research_activity/output.rs` imports the data-only `License` enum from std-gated `io`. This regression is the first Phase 1.2 blocker. `schema` also retains other std-gated path/file implementations, and `analyzer` is entirely gated behind `analysis -> std`.
+- Portable string/byte codecs live on schema types, while path/file behavior lives in the std-only `io::adapter` module. Minimal, alloc, and WASM checks pass. `schema/mod.rs` still uses `prelude::std::PathBuf` in a handful of std-gated signatures, and `analyzer` remains entirely gated behind `analysis -> std`.
 - Only the existing product crates (`acorn-lib`, `acorn-cli`, `acorn-macros`, `acorn-py`, and `acorn-tui`) exist. None of the target boundary crates has been created.
-- The unresolved critical edge is Phase 1.2 of the [crate boundary architecture](../crate-boundary-architecture.md): schema codecs and validation must stop depending on host I/O ownership.
+- The unresolved critical edge in the [crate boundary architecture](../crate-boundary-architecture.md) is isolating the remaining std-only schema and analyzer capabilities before extracting portable crates.
 
 # Project code boundaries
 
@@ -29,18 +29,17 @@ Retain the existing `core`, `alloc`, `std`, and `wasm` feature names on the comp
 
 # Dependencies
 
-This roadmap is governed by the [crate boundary architecture](../crate-boundary-architecture.md) and detailed in the [plan dependency network](../../plan-network.md). Dependency classification and std isolation run first; schema I/O separation is the immediate implementation slice; host traits follow proven seams; WASM adapters follow portable domains; CI expands continuously as each package appears.
+This roadmap is governed by the [crate boundary architecture](../crate-boundary-architecture.md) and detailed in the [plan dependency network](../../plan-network.md). Dependency classification and std isolation run first; host traits follow proven seams; WASM adapters follow portable domains; CI expands continuously as each package appears.
 
 # Parallel execution
 
-This roadmap coordinates work and does not own a concurrent implementation branch. Phase 1.2 holds the library-root/schema-I/O integration lock. Orthogonal leaf work may proceed in analyzer readability, remote create, Python bindings, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
+This roadmap coordinates work and does not own a concurrent implementation branch. Active std-isolation or extraction work holds the library-root and module-index integration locks. Orthogonal leaf work may proceed in analyzer readability, remote create, Python bindings, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
 
 # Implementation order
 
-1. Restore the portable build by moving `License` to schema/core ownership and re-exporting it from `io`, then separate the remaining portable domain transformations from std adapters and establish capability-scoped preludes.
-2. Introduce consumer-owned host traits and native implementations, then refactor selected analyzer and API call sites to accept injected capabilities.
-3. Complete target-specific WASM dependency wiring and implement browser capabilities in `acorn-wasm`.
-4. Add CI gates for the supported feature combinations.
+1. Isolate the remaining std-gated schema and analyzer capabilities, introduce consumer-owned host traits and native implementations, and refactor selected analyzer and API call sites to accept injected capabilities.
+2. Complete target-specific WASM dependency wiring and implement browser capabilities in `acorn-wasm`.
+3. Add CI gates for the supported feature combinations.
 
 # Dependency boundaries
 

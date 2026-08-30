@@ -21,7 +21,7 @@ Use [CLI parse/execution models](cli-parse-execution-models.md). Host process/ne
 
 # Parallel execution
 
-Preflight, rollback, and fake-runner work confined to `commands/create/` can run with Phase 1.2 and non-CLI lanes. Any change to shared CLI parser types, startup, generated help, or host abstraction contracts is a separate integration slice and requires the corresponding lock.
+Preflight, rollback, and fake-runner work confined to `commands/create/` can run with portability and non-CLI lanes. Any change to shared CLI parser types, startup, generated help, or host abstraction contracts is a separate integration slice and requires the corresponding lock.
 
 # Goal
 
