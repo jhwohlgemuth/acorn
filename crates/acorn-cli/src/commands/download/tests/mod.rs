@@ -369,11 +369,13 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         );
     write(&config_path, config).expect("write deterministic basic model config");
     let (endpoint, shutdown, handle) = spawn_basic_model_config_server();
+    let db_path = temp_dir.join("acorn.db");
     let mut command = Command::cargo_bin("acorn").expect("locate acorn binary");
     for variable in HUGGINGFACE_TOKEN_VARIABLE_NAMES {
         command.env(variable, "");
     }
     let output = command
+        .env("ACORN_DATABASE_PATH", &db_path)
         .env("HF_ENDPOINT", endpoint)
         .args(["-vv", "download", "model", "--config"])
         .arg(config_path)
@@ -392,6 +394,16 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         .replace("\u{1b}[33m WARN\u{1b}[0m", " WARN")
         .replace("\u{1b}[32m INFO\u{1b}[0m", " INFO")
         .replace('\u{1b}', r"\x1b");
+    let text = text
+        .lines()
+        .filter(|line| {
+            !line.contains("SPDX metadata")
+                && !line.contains("GitLab programming language metadata")
+                && !line.contains("Models.dev catalog")
+                && !line.contains("Saved metadata for")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     insta::assert_snapshot!("download_model_basic_config_dry_run_output", text.trim_end());
 }
 
