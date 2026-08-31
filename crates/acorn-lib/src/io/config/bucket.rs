@@ -1,14 +1,13 @@
 //! Bucket transfer and local copy logic
-use crate::io::api::{github, gitlab, Configuration};
+use crate::io::api::{github, gitlab, Authenticator, Configuration, Credential};
 use crate::io::bagit::Bag;
 use crate::io::config::transfer::{transfer_bucket_files, DownloadOptions, TransferItem, TransferManifest, TransferPolicy};
 use crate::io::config::{filter_paths, FilterSet};
 use crate::io::download::{DownloadItem, DownloadTask};
 use crate::io::http::{self, download_with_progress};
-use crate::io::{files_all, first_env_var, uri_to_path, write_file_bytes, ApiResult, ArchiveCandidate, TemporaryDirectory};
+use crate::io::{files_all, uri_to_path, write_file_bytes, ApiResult, ArchiveCandidate, TemporaryDirectory};
 use crate::prelude::{self, exit, Arc, ErrorKind, Mutex, Path, PathBuf};
-use crate::util::constants::app::GITLAB_PRIVATE_TOKEN_HEADER;
-use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use crate::util::constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS;
 use crate::util::{Label, MimeType, StringConversion};
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
@@ -364,9 +363,9 @@ impl Bucket {
                 let branch = options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD");
                 let branch_ref = branch.percent_encode();
                 let encoded_path = path.percent_encode();
-                let headers = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
-                    .filter(|value| !value.trim().is_empty())
-                    .map(|token| http::headers([(GITLAB_PRIVATE_TOKEN_HEADER, token.as_str())]));
+                let headers = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
+                    .map(Credential::into_header_pair)
+                    .map(|(header, token)| http::headers([(header, token.as_str())]));
                 match (options.repository.domain(), options.repository.id()) {
                     | (Some(domain), Some(identifier)) => Ok((
                         format!("https://{domain}/api/v4/projects/{identifier}/repository/files/{encoded_path}/raw?ref={branch_ref}"),

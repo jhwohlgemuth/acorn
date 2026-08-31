@@ -35,7 +35,7 @@ pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
 /// Environment variable used to select the terminal user-interface theme.
 pub const TUI_THEME: &str = "ACORN_TUI_THEME";
 /// Environment variable names used to resolve GitLab API tokens.
-pub const GITLAB_TOKEN_VARIABLE_NAMES: [&str; 3] = ["CI_JOB_TOKEN", "GITLAB_TOKEN", "PRIVATE_TOKEN"];
+pub const GITLAB_TOKEN_VARIABLE_NAMES: [&str; 3] = ["GITLAB_TOKEN", "PRIVATE_TOKEN", "CI_JOB_TOKEN"];
 /// Environment variable names used to resolve Hugging Face API tokens.
 pub const HUGGINGFACE_TOKEN_VARIABLE_NAMES: [&str; 3] = ["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"];
 /// Hugging Face Hub cache locations in resolution order.

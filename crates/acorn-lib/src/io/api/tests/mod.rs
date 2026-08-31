@@ -8,8 +8,8 @@
 use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
-    self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Configuration, Endpoint, IntoBody, IntoHeaders, Param, ParamStyle,
-    Params, RemoteResource, Resource, ResponseContent, TreeEntry, TreeEntryType, INCLUDED_ENDPOINTS,
+    self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Authenticator, Configuration, Credential, Endpoint, IntoBody,
+    IntoHeaders, Param, ParamStyle, Params, RemoteResource, Resource, ResponseContent, TreeEntry, TreeEntryType, INCLUDED_ENDPOINTS,
 };
 use crate::io::http::{HttpResponse, HttpResponseError};
 use crate::io::read_file;
@@ -22,6 +22,54 @@ use crate::{Location, Repository, Scheme};
 mod harbor;
 mod huggingface;
 mod openalex;
+
+#[test]
+fn test_credential_from_env_uses_precedence_and_trims_values() {
+    temp_env::with_vars(
+        [
+            ("ACORN_TEST_PRIMARY_TOKEN", Some(" primary-token ")),
+            ("ACORN_TEST_FALLBACK_TOKEN", Some("fallback-token")),
+        ],
+        || {
+            let credential = Credential::from_env(&[
+                ("ACORN_TEST_PRIMARY_TOKEN", "PRIMARY-TOKEN"),
+                ("ACORN_TEST_FALLBACK_TOKEN", "FALLBACK-TOKEN"),
+            ])
+            .expect("the primary credential should resolve");
+            assert_eq!(credential.token, "primary-token");
+            assert_eq!(credential.header, "PRIMARY-TOKEN");
+        },
+    );
+}
+#[test]
+fn test_credential_from_env_skips_empty_values() {
+    temp_env::with_vars(
+        [
+            ("ACORN_TEST_EMPTY_TOKEN", Some("  ")),
+            ("ACORN_TEST_NONEMPTY_TOKEN", Some("fallback-token")),
+        ],
+        || {
+            let credential = Credential::from_env(&[("ACORN_TEST_EMPTY_TOKEN", "EMPTY-TOKEN"), ("ACORN_TEST_NONEMPTY_TOKEN", "NONEMPTY-TOKEN")])
+                .expect("the non-empty credential should resolve");
+            assert_eq!(credential.token, "fallback-token");
+            assert_eq!(credential.header, "NONEMPTY-TOKEN");
+        },
+    );
+}
+#[test]
+fn test_credential_from_env_returns_none_when_unconfigured() {
+    temp_env::with_vars([("ACORN_TEST_MISSING_TOKEN", None::<&str>)], || {
+        assert_eq!(Credential::from_env(&[("ACORN_TEST_MISSING_TOKEN", "MISSING-TOKEN")]), None);
+    });
+}
+#[test]
+fn test_credential_into_header_pair() {
+    let credential = Credential {
+        header: "TEST-TOKEN",
+        token: String::from("secret"),
+    };
+    assert_eq!(credential.into_header_pair(), ("TEST-TOKEN", String::from("secret")));
+}
 
 #[test]
 fn test_endpoints_length() {

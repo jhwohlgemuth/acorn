@@ -1,17 +1,17 @@
 //! Module for interacting with GitLab API
 //!
 use crate::io::api::{
-    require_non_empty_secret, Configuration, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param, Params, RemoteResource,
-    RepositoryFileMetadata, ResponseContent, TreeEntry, ValueValidator, INCLUDED_ENDPOINTS,
+    require_non_empty_secret, Authenticator, Configuration, Credential, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param,
+    Params, RemoteResource, RepositoryFileMetadata, ResponseContent, TreeEntry, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
 use crate::io::database::schema::{ProgrammingLanguageRow, Table};
 use crate::io::database::{Database, Operations};
-use crate::io::{first_env_var, with_progress, ApiResult, ProgressType};
+use crate::io::{with_progress, ApiResult, ProgressType};
 use crate::prelude::var;
 use crate::prelude::HashMap;
 use crate::schema::validate::is_iso_date_or_rfc3339_timestamp;
-use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use crate::util::constants::app::{GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_PRIVATE_TOKEN_HEADER};
 use crate::util::{Label, Searchable, SemanticVersion};
 use crate::validation::Validate;
 use async_trait::async_trait;
@@ -648,6 +648,9 @@ pub struct Options {
     /// Authentication token
     #[builder(start_fn)]
     pub token: String,
+    /// HTTP header used to send the authentication token.
+    #[builder(default = GITLAB_PRIVATE_TOKEN_HEADER)]
+    pub token_header: &'static str,
     /// Request body payload
     pub body: Option<String>,
     /// GitLab domain (defaults to gitlab.com)
@@ -1240,6 +1243,10 @@ impl Note {
     }
 }
 impl Options {
+    /// Return the HTTP header used to send the authentication token.
+    pub fn token_header(&self) -> &str {
+        self.token_header
+    }
     /// Return a copy of options with an internal resource identifier set
     pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
         Self {
@@ -1296,7 +1303,7 @@ impl Options {
 }
 impl Configuration for Options {
     /// Build options from common GitLab CI environment variables.
-    /// - `CI_JOB_TOKEN` or `GITLAB_TOKEN` -> `token`
+    /// - `GITLAB_TOKEN`, `PRIVATE_TOKEN`, or `CI_JOB_TOKEN` -> `token`
     /// - `CI_PROJECT_ID` -> `identifier`
     /// - `CI_MERGE_REQUEST_IID` -> `internal_identifier`
     /// - `CI_SERVER_HOST` -> `domain` (defaults to gitlab.com when unset)
@@ -1306,8 +1313,12 @@ impl Configuration for Options {
         if let Err(why) = dotenvy::from_filename(".env") {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
+        let (token_header, token) = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
+            .map(Credential::into_header_pair)
+            .unwrap_or_else(|| (GITLAB_PRIVATE_TOKEN_HEADER, String::new()));
         Self {
-            token: first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES).unwrap_or_default(),
+            token,
+            token_header,
             identifier: var("CI_PROJECT_ID").ok(),
             internal_identifier: var("CI_MERGE_REQUEST_IID").ok(),
             sha: var("CI_COMMIT_SHA").ok(),

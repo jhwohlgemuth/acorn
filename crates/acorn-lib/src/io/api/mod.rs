@@ -7,6 +7,7 @@ use crate::io::database::{schema::Table, Database};
 use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
 use crate::io::ApiResult;
 use crate::param;
+use crate::prelude::var;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
 use crate::validation::Validate;
@@ -51,6 +52,13 @@ pub mod swhid;
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration
     pub static ref INCLUDED_ENDPOINTS: Vec<Endpoint> = Constant::json::<ApplicationConfiguration>("application").endpoints.unwrap_or_default();
+}
+/// Resolves an API credential from ordered environment-variable and header pairs
+pub trait Authenticator {
+    /// Return the first configured non-empty credential in `variables` precedence order
+    fn from_env(variables: &[(&str, &'static str)]) -> Option<Self>
+    where
+        Self: Sized;
 }
 /// Trait to standardize configuration loading from environment variables and modification with new values
 pub trait Configuration {
@@ -276,6 +284,14 @@ pub struct Authentication {
     #[builder(default)]
     pub scheme: AuthenticationScheme,
 }
+/// An API token paired with the HTTP header required to send it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Credential {
+    /// HTTP header used to authenticate the request.
+    pub header: &'static str,
+    /// Token value sent in the authentication header.
+    pub token: String,
+}
 /// Empty struct used for cases where no query fields are needed
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -432,6 +448,23 @@ impl fmt::Display for AuthenticationScheme {
                 | AuthenticationScheme::Custom(scheme) => scheme,
             }
         )
+    }
+}
+impl Authenticator for Credential {
+    fn from_env(variables: &[(&str, &'static str)]) -> Option<Self> {
+        variables.iter().find_map(|(name, header)| {
+            var(name)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(|token| Self { header: *header, token })
+        })
+    }
+}
+impl Credential {
+    /// Consume the credential and return its HTTP header and token
+    pub fn into_header_pair(self) -> (&'static str, String) {
+        (self.header, self.token)
     }
 }
 impl fmt::Display for EmptyField {

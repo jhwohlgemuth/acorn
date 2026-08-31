@@ -6,13 +6,13 @@
     clippy::unwrap_used
 )]
 use super::*;
+use crate::io::api::{Authenticator, Credential};
 use crate::io::config::transfer::{
     count_image_files, count_json_files, has_image_extension, operations_complete_message, DownloadOptions, TransferItem,
 };
-use crate::io::{first_env_var, read_file, InputOutput};
+use crate::io::{read_file, InputOutput};
 use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write, Mutex, Path, PathBuf};
-use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
-use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS};
 use crate::{Location, Repository};
 use color_eyre::eyre::eyre;
 use color_eyre::Report;
@@ -364,11 +364,16 @@ async fn test_download_item_gitlab_raw_url_uses_resolved_branch_and_encodes_path
     );
     assert_eq!(item.path, "index.json");
     assert!(item.size.is_none());
-    let expected_headers = first_env_var(&GITLAB_TOKEN_VARIABLE_NAMES)
-        .filter(|value| !value.is_empty())
-        .map(|_| 1)
-        .unwrap_or(0);
-    assert_eq!(item.headers.as_ref().map(|headers| headers.len()).unwrap_or(0), expected_headers);
+    match Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS) {
+        | Some(credential) => assert_eq!(
+            item.headers
+                .as_ref()
+                .and_then(|headers| headers.get(credential.header))
+                .and_then(|value| value.to_str().ok()),
+            Some(credential.token.as_str())
+        ),
+        | None => assert!(item.headers.is_none()),
+    }
 }
 #[test]
 fn test_extensionless_config_is_last_and_read_as_jsonc() {

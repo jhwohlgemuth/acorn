@@ -10,11 +10,14 @@ use crate::io::api::gitlab::{
     handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
     ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
 };
-use crate::io::api::{self, sluggify};
+use crate::io::api::{self, sluggify, IntoHeaders};
 use crate::param;
 use crate::prelude::{HashMap, Mutex};
 use crate::test::server::TestServer;
-use crate::util::constants::app::MERGE_REQUEST_REPORT_MARKER;
+use crate::util::constants::app::{
+    GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_JOB_TOKEN_HEADER, GITLAB_PRIVATE_TOKEN_HEADER, MERGE_REQUEST_REPORT_MARKER,
+};
+use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use alloc::sync::Arc;
 use axum::extract::{Request, State};
 use axum::routing::{get, post, put};
@@ -25,6 +28,32 @@ struct MergeRequestWorkflowState {
     statuses: Arc<Mutex<Vec<serde_json::Value>>>,
     notes: Arc<Mutex<Vec<serde_json::Value>>>,
     file_queries: Arc<Mutex<Vec<String>>>,
+}
+
+#[test]
+fn test_gitlab_credential_variables_match_precedence_and_headers() {
+    assert_eq!(
+        GITLAB_CREDENTIAL_VARIABLE_PAIRS,
+        [
+            ("GITLAB_TOKEN", GITLAB_PRIVATE_TOKEN_HEADER),
+            ("PRIVATE_TOKEN", GITLAB_PRIVATE_TOKEN_HEADER),
+            ("CI_JOB_TOKEN", GITLAB_JOB_TOKEN_HEADER),
+        ]
+    );
+    assert_eq!(GITLAB_CREDENTIAL_VARIABLE_PAIRS.map(|(name, _)| name), GITLAB_TOKEN_VARIABLE_NAMES);
+}
+#[test]
+fn test_options_send_configured_token_header() {
+    let options = Options::with_token("job-token").token_header(GITLAB_JOB_TOKEN_HEADER).build();
+    let headers = Params::new()
+        .with_auth(options.token(), Some(options.token_header()))
+        .build()
+        .into_headers();
+    assert_eq!(
+        headers.get(GITLAB_JOB_TOKEN_HEADER).and_then(|value| value.to_str().ok()),
+        Some("job-token")
+    );
+    assert!(!headers.contains_key(GITLAB_PRIVATE_TOKEN_HEADER));
 }
 
 #[test]

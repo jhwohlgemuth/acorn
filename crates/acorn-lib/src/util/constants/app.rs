@@ -74,6 +74,14 @@ pub const IDENTIFIERS_ORG_URI: &str = "https://identifiers.org";
 pub const N2T_URI: &str = "https://n2t.net";
 /// Header used to authenticate GitLab API requests with a private token.
 pub const GITLAB_PRIVATE_TOKEN_HEADER: &str = "PRIVATE-TOKEN";
+/// Header used to authenticate GitLab API requests with a CI job token.
+pub const GITLAB_JOB_TOKEN_HEADER: &str = "JOB-TOKEN";
+/// GitLab token environment variables paired with their authentication headers in resolution order.
+pub const GITLAB_CREDENTIAL_VARIABLE_PAIRS: [(&str, &str); 3] = [
+    ("GITLAB_TOKEN", GITLAB_PRIVATE_TOKEN_HEADER),
+    ("PRIVATE_TOKEN", GITLAB_PRIVATE_TOKEN_HEADER),
+    ("CI_JOB_TOKEN", GITLAB_JOB_TOKEN_HEADER),
+];
 /// Maximum file size accepted by merge request analysis
 pub const MAX_ANALYSIS_FILE_BYTES: u64 = 1_048_576;
 /// Maximum number of durable GitLab operation attempts

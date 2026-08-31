@@ -6,7 +6,7 @@ difficulty: low
 impact: medium
 package: [acorn-lib]
 tags: [refactor, api, environment, configuration]
-status: planned
+status: in-progress
 ---
 
 # Project code boundaries
@@ -21,7 +21,9 @@ Follow endpoint and authentication contracts; coordinate CLI bootstrap with [sta
 
 # Evidence
 
-OpenAI, RAiD, and GitLab options repeat environment loading and fallback rules. Application path discovery now lives in `io/config/application.rs`; GitLab bucket-token discovery remains in `io/config/bucket.rs`, so an implementation slice must claim the relevant leaf instead of the entire config module.
+OpenAI, RAiD, and GitLab options repeat environment loading and fallback rules. Application path discovery now lives in `io/config/application.rs`.
+
+The GitLab slice now resolves `GITLAB_TOKEN`, `PRIVATE_TOKEN`, then `CI_JOB_TOKEN` through the shared `io::api::Authenticator` and `Credential` abstractions, preserves whether the credential requires `PRIVATE-TOKEN` or `JOB-TOKEN`, and shares that result between API options and bucket downloads. OpenAI, RAiD, and the remaining application bootstrap are still pending.
 
 # Recommendation
 
@@ -31,7 +33,9 @@ Provide one bootstrap helper that distinguishes required from optional values an
 
 - Add precedence and missing-secret tests beside each migrated provider and retain bucket token coverage under `io::config::tests`.
 - Run `cargo test -p acorn-lib io::config::tests --lib`, focused API tests, `make lint`, and `make test`.
+- GitLab validation completed on 2026-08-31: focused credential and bucket tests passed, `make lint` passed, and all 1,369 tests in `make test` passed with 15 skipped.
 
 # Acceptance criteria
 
-Provider configuration uses documented, deterministic precedence and consistent missing-secret errors without coupling application-file I/O, bucket transfer policy, and provider bootstrap in one module.
+- GitLab access and job tokens use documented, deterministic precedence and token-specific HTTP headers across API and bucket requests.
+- Remaining providers use consistent missing-secret errors without coupling application-file I/O, bucket transfer policy, and provider bootstrap in one module.
