@@ -173,7 +173,9 @@ acorn-image:
 	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:$(VERSION)
 	@docker tag acorn:$(VERSION) ghcr.io/jhwohlgemuth/acorn:latest
 
-acorn-push: acorn-push-docker acorn-push-ghcr
+acorn-push: acorn-push-savannah acorn-push-docker acorn-push-ghcr
+
+acorn-push-savannah:
 	@docker push $(REGISTRY)/acorn/runner:$(VERSION)
 	@docker push $(REGISTRY)/acorn/runner:latest
 
@@ -249,7 +251,8 @@ endif
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
-DOCKER_HUB_REGISTRY = docker.io/library
+DOCKER_HUB_REGISTRY = mirror.gcr.io/library
+ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
 REGISTRY = savannah.ornl.gov/research-enablement
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
