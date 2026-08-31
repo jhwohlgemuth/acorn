@@ -21,7 +21,7 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/{oci,config}.rs`, `src/io/api/harbor.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, adjacent tests, CLI help, and model-download documentation.
+- **Update:** `crates/acorn-lib/src/io/oci.rs`, `src/io/config/mod.rs`, `src/io/api/harbor.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, adjacent tests, CLI help, and model-download documentation.
 - **Create:** OCI/ModelPack fixtures and local-registry integration coverage under existing test directories; after extraction, protocol DTOs move to `acorn-api` and native pulls to `acorn-host`.
 - **Delete:** test-only compatibility wrappers after typed request coverage replaces them; no existing Hugging Face route is removed.
 
@@ -98,7 +98,8 @@ Exit condition: the supported format matrix passes on Windows and Linux against 
 
 ## Evidence
 
-- The implemented baseline is centered in `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, `crates/acorn-lib/src/io/config.rs`, and `crates/acorn-lib/src/io/api/harbor.rs`.
+- The implemented baseline is centered in `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, `crates/acorn-lib/src/io/config/mod.rs`, and `crates/acorn-lib/src/io/api/harbor.rs`. The config refactor left OCI model entries and registry profiles in `config/mod.rs`; bucket and transfer leaves are not part of this plan's normal write set.
+- The refactored config surface passed `make lint`, `make test`, and `make cover` on 2026-08-31, with 66.71% line coverage reported for the workspace.
 - The focused fake-ORAS suite covers annotated GGUF, KitOps GGUF, raw and gzip ModelPack, deferred inventories, blob digest/size checks, single-child indexes, GGUF structural validation, and the generic-model-resource versus OCI-GGUF policy boundary.
 - Live GHCR dry runs on 2026-08-24 resolved `jozu-ai/phi3:3.8b-mini-instruct-4k-q4_K_M` to its immutable GGUF ModelKit digest and rejected `jozu-ai/all-minilm-l6-v2:safetensor` as outside the GGUF payload boundary before transferring weights.
 - The CNCF ModelPack specification requires `application/vnd.cncf.model.manifest.v1+json`, `application/vnd.cncf.model.config.v1+json`, and defined weight/config layer roles: <https://github.com/modelpack/model-spec/blob/main/docs/spec.md>.

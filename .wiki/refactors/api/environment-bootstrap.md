@@ -11,7 +11,7 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** environment/config bootstrap in `crates/acorn-lib/src/io/{config,api/mod}.rs`, CLI startup, and tests; later `acorn-host` composition.
+- **Update:** environment/config bootstrap in `crates/acorn-lib/src/io/api/mod.rs`, provider modules, `src/io/config/{application,bucket}.rs`, CLI startup, and tests; later `acorn-host` composition.
 - **Create:** an immutable resolved API configuration input consumed by `acorn-api` clients.
 - **Delete:** provider-local environment reads after callers inject resolved configuration.
 
@@ -21,12 +21,17 @@ Follow endpoint and authentication contracts; coordinate CLI bootstrap with [sta
 
 # Evidence
 
-OpenAI, RAiD, and GitLab options repeat environment loading and fallback rules.
+OpenAI, RAiD, and GitLab options repeat environment loading and fallback rules. Application path discovery now lives in `io/config/application.rs`; GitLab bucket-token discovery remains in `io/config/bucket.rs`, so an implementation slice must claim the relevant leaf instead of the entire config module.
 
 # Recommendation
 
 Provide one bootstrap helper that distinguishes required from optional values and accepts an explicit precedence list.
 
+# Validation
+
+- Add precedence and missing-secret tests beside each migrated provider and retain bucket token coverage under `io::config::tests`.
+- Run `cargo test -p acorn-lib io::config::tests --lib`, focused API tests, `make lint`, and `make test`.
+
 # Acceptance criteria
 
-Provider configuration uses documented, deterministic precedence and consistent missing-secret errors.
+Provider configuration uses documented, deterministic precedence and consistent missing-secret errors without coupling application-file I/O, bucket transfer policy, and provider bootstrap in one module.

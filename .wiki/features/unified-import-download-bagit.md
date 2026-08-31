@@ -18,7 +18,7 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/{archive,bagit,download,source,workflow}.rs`, `crates/acorn-cli/src/commands/{import,download,export}/`, CLI arguments/help, Cargo feature wiring, fixtures, tests, and user documentation.
+- **Update:** `crates/acorn-lib/src/io/{archive,bagit,download,source,workflow}.rs`, `crates/acorn-lib/src/io/config/{bucket,transfer}.rs`, `crates/acorn-cli/src/commands/{import,download,export}/`, CLI arguments/help, Cargo feature wiring, fixtures, tests, and user documentation.
 - **Create:** malformed/security fixtures and remote-stream integration cases under existing test roots; after extraction, archive/BagIt transforms belong in `acorn-host` unless a byte-only portable core is proven.
 - **Delete:** test-only long-signature model/bucket wrappers after typed request equivalence tests land.
 
@@ -39,6 +39,7 @@ Complete archive-format parity by adding 7z inference, creation, extraction, CLI
 - `MimeType` recognizes and infers semantic document containers before generic ZIP, TAR, and gzip signatures.
 - Archive creation and guarded extraction share an `ArchiveFormat` implementation for 7z, ZIP, TAR, and TAR.GZ; inference reads at most 8 KiB.
 - Bucket import and download call one transfer executor with explicit local/offline policy.
+- The former single-file config module is split: `config/bucket.rs` owns `Bucket`, `BucketOptions`, repository/archive orchestration, and local/remote transfer entry points; `config/transfer.rs` owns `TransferPolicy`, `TransferManifest`, safe destination planning, ingestion, and transfer summaries; focused tests and snapshots live under `config/tests/`.
 - Model commands flatten shared source, resolution, and synchronization argument groups into distinct executors.
 - `sevenz-rust2` 0.21 is an optional, maintained pure-Rust Apache-2.0 dependency confined to the `std` feature; it replaces the vulnerable, unmaintained `sevenz-rust` line.
 - Extraction rejects traversal, unsupported TAR entries, duplicate paths, excessive entry/expanded-size limits, and pre-existing symlink components; archive creation rejects outputs inside the source tree.
@@ -80,11 +81,13 @@ Finish the existing implementation before declaring the feature complete. Keep a
 - Exercise local and remote import policy, provenance, filtering, flattening, clobbering, and database ingestion.
 - Exercise BagIt output suffix inference, explicit overrides, conflicts, and re-import.
 - Run `make lint`, `make test`, `make help`, `make wasm`, and `make audit`.
+- The config split passed `make lint`, `make test`, and `make cover` on 2026-08-31; the focused `io::config::tests` suite passed all 42 tests and workspace coverage was 66.71% (19,208/28,795 lines).
 
 ## Acceptance criteria
 
 - ZIP, TAR, TAR.GZ, and 7z BagIt archives round-trip through export and import.
 - Unsafe archive entries and incomplete or incorrect manifests fail before payload ingestion.
 - Top-level download rejects local/offline bucket requests without changing model behavior.
+- Bucket orchestration and transfer primitives remain separate modules with stable `io::config` re-exports and colocated regression tests.
 - CLI help and user documentation describe the supported formats and policy split.
 - The standard lint, test, help, WASM, and audit targets have accepted results.

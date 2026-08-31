@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.75` on 2026-08-30.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.75` on 2026-08-30; config-module ownership was reconciled again after the module split on 2026-08-31.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -91,6 +91,7 @@ Schema path/file ownership now sits behind the std-only `io` adapter without cha
 | `crates/acorn-lib/src/schema/` | Std isolation, metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Preserve the codec/adapter boundary; the portable validation-rule and derive-macro contract is available to feature plans, which target `acorn-schema` after extraction and must not reintroduce host access. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
 | `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
+| `crates/acorn-lib/src/io/config/` | API endpoint/environment, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
 | `crates/acorn-cli/src/main.rs` and `cli/` | CLI model/startup/error plans, ACP inference | Complete parse/execution separation before adding a large new command surface. |
 | Workspace manifests and CI | Crate extraction, feature defaults, Python extraction, CI pools, WASM gates | Change one graph concern per merge and validate all supported feature combinations after each manifest move. |

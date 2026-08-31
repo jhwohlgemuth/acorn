@@ -1,5 +1,6 @@
 ---
-source: crates/acorn-lib/src/io/tests/mod.rs
+source: crates/acorn-lib/src/io/config/tests/mod.rs
+assertion_line: 612
 expression: "format!(\"{:#?}\", config.runners)"
 ---
 Some(

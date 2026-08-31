@@ -1,6 +1,6 @@
 ---
-source: crates/acorn-lib/src/io/tests/mod.rs
-assertion_line: 86
+source: crates/acorn-lib/src/io/config/tests/mod.rs
+assertion_line: 173
 expression: "format!(\"{:#?}\", config.endpoints)"
 ---
 Some(
