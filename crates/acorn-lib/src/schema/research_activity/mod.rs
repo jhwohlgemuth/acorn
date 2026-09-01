@@ -610,6 +610,21 @@ impl ResearchActivity {
     {
         Text::try_from(source).ok().is_some_and(|text| Document::recognizes(text.content()))
     }
+    /// Return whether content has a YAML research activity shape.
+    pub fn is_yaml(content: &str) -> bool {
+        serde_norway::from_str::<serde_json::Value>(content)
+            .ok()
+            .is_some_and(|value| match value {
+                | serde_json::Value::Object(fields) => {
+                    ["contact", "meta", "sections", "title"]
+                        .iter()
+                        .filter(|field| fields.contains_key(**field))
+                        .count()
+                        >= 2
+                }
+                | _ => false,
+            })
+    }
     /// Print research activity schema as JSON or YAML schema
     #[cfg(feature = "std")]
     pub fn to_schema(format: &str) {

@@ -16,7 +16,7 @@ use acorn::io::filter_ignored_with_root;
 use acorn::prelude::{Path, PathBuf};
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::env::CHROME_PATH;
-use acorn::util::MarkdownSupport;
+use acorn::util::{MarkdownSupport, MimeType};
 use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
 use std::fs::{create_dir_all, write};
@@ -32,6 +32,26 @@ fn fixture_content_root() -> PathBuf {
 }
 
 #[test]
+fn test_check_format_argument() {
+    ["cff", "datacite", "dcat", "dcmi", "document", "huwise", "invenio", "raid", "rads", "text"]
+        .into_iter()
+        .flat_map(|standard| {
+            ["cff", "json", "jsonc", "markdown", "text", "yaml"]
+                .into_iter()
+                .map(move |format| (standard, format))
+        })
+        .for_each(|(standard, format)| {
+            assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--standard", standard, "--format", format]).is_ok());
+        });
+    let arguments = Arguments::try_parse_from(["acorn", "check", "--paste", "--format", "md"]).expect("parse Markdown alias");
+    match arguments.command {
+        | Some(Commands::Check(arguments)) => assert_eq!(arguments.format, Some(MimeType::Markdown)),
+        | _ => panic!("expected check arguments"),
+    }
+    assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--format", "pdf"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "check", "notes.json", "--format", "json"]).is_err());
+}
+#[test]
 fn test_cli() {
     Arguments::command().debug_assert();
     assert!(Arguments::try_parse_from(["acorn", "-V"]).is_err());
@@ -43,6 +63,16 @@ fn test_cli() {
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]valid.json$,[/]draft.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--filter", "[/]valid.json$,[/]draft.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "check", "/path/to", "--ignore", "[/]draft.json$", "--filter", "[/]valid.json$"]).is_ok());
+    let paste = Arguments::try_parse_from(["acorn", "check", "--paste"]).expect("parse clipboard input");
+    match paste.command {
+        | Some(Commands::Check(arguments)) => {
+            assert!(arguments.paste);
+            assert!(arguments.path.is_none());
+        }
+        | _ => panic!("expected check arguments"),
+    }
+    assert!(Arguments::try_parse_from(["acorn", "check", "notes.txt", "--paste"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "check", "--paste", "--branch", "main"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "download", "--filter", "\\.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "download", "--ignore", "\\.png$", "--filter", "\\.json$"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "download", "https://github.com/user/one,https://github.com/user/two"]).is_ok());
@@ -172,6 +202,11 @@ fn test_ignore_sync_failure_requires_check_watch_mode() {
     assert!(crate::commands::validate_watch_arguments(&without_watch).is_err());
     assert!(Arguments::try_parse_from(["acorn", "--watch", "gather", "--ignore-sync-failure"]).is_err());
     assert!(Arguments::try_parse_from(["acorn", "--watch", "check", "--ignore-vale-sync-failure"]).is_err());
+}
+#[test]
+fn test_paste_rejects_watch_mode() {
+    let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--paste"]).expect("parse before watch validation");
+    assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
 }
 #[test]
 fn test_gather_lab_parses_acronyms_case_insensitively() {

@@ -243,6 +243,15 @@ pub enum Commands {
     ///     Check file(s) that were changed in latest Git commit
     ///     $> acorn check --commit HEAD
     ///
+    ///     Check text provided through standard input
+    ///     $> echo 'Text to check' | acorn check
+    ///
+    ///     Check text copied to the clipboard
+    ///     $> acorn check --paste
+    ///
+    ///     Check YAML copied to the clipboard as RAD
+    ///     $> acorn check --paste --format yaml --standard rads
+    ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     #[command(visible_alias = "lint")]
     Check(Box<arguments::Check>),

@@ -1,7 +1,7 @@
 //! # Input / Output Handling
 //!
 //! This module contains functions for handling input and output from the terminal such as handling input passed via `stdin` (e.g., `cat file.txt | acorn`).
-use acorn::prelude::{io, BufRead, PathBuf, Write};
+use acorn::prelude::{io, PathBuf, Read, Write};
 use acorn::util::constants::app::APPLICATION;
 use directories::BaseDirs;
 use is_terminal::IsTerminal;
@@ -40,12 +40,9 @@ pub fn read_stdin() -> Option<String> {
     match stdin_piped_status() {
         | InputOutputStreamState::Piped => {
             let stdin = io::stdin();
-            let reader = stdin.lock();
-            reader
-                .lines()
-                .collect::<core::result::Result<Vec<_>, _>>()
-                .ok()
-                .map(|lines| lines.join("\n"))
+            let mut reader = stdin.lock();
+            let mut content = String::new();
+            reader.read_to_string(&mut content).ok().map(|_| content)
         }
         | InputOutputStreamState::NotPiped => None,
     }

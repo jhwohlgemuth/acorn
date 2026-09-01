@@ -73,6 +73,7 @@ dependencies = [
  "aho-corasick",
  "ammonia",
  "anydoc",
+ "arboard",
  "ariadne",
  "async-trait",
  "axum",

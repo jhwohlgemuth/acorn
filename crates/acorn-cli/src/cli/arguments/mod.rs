@@ -1,6 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{
-    parse_check_category, parse_enrichment_provider, parse_executor, parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration,
+    parse_check_category, parse_check_format, parse_enrichment_provider, parse_executor, parse_readability, parse_ssh_remote, parse_standard,
+    parse_watch_duration,
 };
 use super::DownloadCommands;
 use acorn::analyzer::discovery::CitationFormat;
@@ -312,9 +313,12 @@ pub enum Target {
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub struct Check {
-    /// Local path or HTTP(S) URI to check
-    #[arg(default_value = "./", required = false, value_name = "LOCATION", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
+    /// Local path or HTTP(S) URI to check; piped standard input is used when omitted
+    #[arg(required = false, value_name = "LOCATION", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
     pub(crate) path: Option<PathBuf>,
+    /// Check text copied to the system clipboard
+    #[arg(long, conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"], value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) paste: bool,
     /// Check files that were changed in a given Git branch
     #[arg(short, long, value_name = "BRANCH", help_heading = "OPTIONS")]
     pub(crate) branch: Option<String>,
@@ -348,6 +352,11 @@ pub struct Check {
     /// Only files matching at least one pattern will be processed
     #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
     pub(crate) filter: Vec<String>,
+    /// Force the file format used for standard input or clipboard text
+    ///
+    /// Supported formats: cff, json, jsonc, markdown, text, yaml
+    #[arg(long, value_name = "FORMAT", value_parser = parse_check_format, help_heading = "OPTIONS", conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"])]
+    pub(crate) format: Option<MimeType>,
     /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
     ///
     /// Only applies to `--path` values that point to a directory

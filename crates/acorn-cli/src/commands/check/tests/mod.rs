@@ -15,24 +15,103 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
-use crate::commands::check::run;
+use super::{run, PrepareText};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{Analysis, Check, CheckCategory, Standard};
-use acorn::prelude::{read, PathBuf};
+use acorn::analyzer::{classify_paths, Analysis, Check, CheckCategory, Standard};
+use acorn::io::TextOrigin;
+use acorn::prelude::{read, read_to_string, PathBuf};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::MimeType;
+use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use jiff::SignedDuration;
 
 const OFFLINE: bool = true;
 
+#[test]
+fn test_text_input_format_is_inferred_and_cleaned_up() {
+    [
+        ("Text to check.\n".to_string(), "stdin.txt", Standard::Text),
+        (
+            read_to_string(fixture_path("data/invalid_project_a/index.json")).expect("read JSON fixture"),
+            "stdin.json",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/valid_project/index.jsonc")).expect("read JSONC fixture"),
+            "stdin.jsonc",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/invalid_project_b/index.yaml")).expect("read YAML fixture"),
+            "stdin.yaml",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/invalid_project_c/index.md")).expect("read Markdown fixture"),
+            "stdin.md",
+            Standard::ResearchActivityData,
+        ),
+    ]
+    .into_iter()
+    .for_each(|(content, filename, standard)| {
+        let prepared = TextOrigin::Stdin.prepare(&content, None).expect("prepare standard input");
+        let path = prepared.value.paths[0].clone();
+        let input = path.parent().expect("temporary input parent").to_path_buf();
+        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
+        assert_eq!(input.file_name().and_then(|value| value.to_str()), Some("input"));
+        assert_eq!(read_to_string(&path).expect("read temporary input"), content);
+        assert_eq!(classify_paths(core::slice::from_ref(&path), Standard::default())[0].standard, standard);
+        drop(prepared.value);
+        assert!(!input.exists());
+    });
+    [
+        (MimeType::Cff, "clipboard.cff"),
+        (MimeType::Json, "clipboard.json"),
+        (MimeType::Jsonc, "clipboard.jsonc"),
+        (MimeType::Markdown, "clipboard.md"),
+        (MimeType::Text, "clipboard.txt"),
+        (MimeType::Yaml, "clipboard.yaml"),
+    ]
+    .into_iter()
+    .for_each(|(format, filename)| {
+        let prepared = TextOrigin::Clipboard
+            .prepare("forced format", Some(&format))
+            .expect("prepare forced clipboard format");
+        let path = prepared.value.paths[0].clone();
+        let input = path.parent().expect("temporary input parent").to_path_buf();
+        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
+        drop(prepared.value);
+        assert!(!input.exists());
+    });
+}
+#[test]
+fn test_check_accepts_piped_text() {
+    let output = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args([
+            "--offline",
+            "--no-local-database",
+            "check",
+            "--all",
+            "--skip",
+            "prose,link,crosswalk,schema,quality",
+        ])
+        .write_stdin("Text supplied through standard input. It has several words and another sentence.\n")
+        .output()
+        .expect("run check with standard input");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
+}
+
 async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
     let path = Some(fixture_path(path));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -53,6 +132,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}");
@@ -83,6 +163,7 @@ async fn test_check_valid_project() -> Result<()> {
     let path = Some(fixture_path("data/valid_project/index.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -103,6 +184,7 @@ async fn test_check_valid_project() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Valid project should pass check");
@@ -115,6 +197,7 @@ async fn test_check_remote_project() -> Result<()> {
     let path = Some(PathBuf::from(url));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -135,6 +218,7 @@ async fn test_check_remote_project() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Remote project should be checked: {result:?}");
@@ -146,6 +230,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
     let path = Some(PathBuf::from("https://example.invalid/project.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -166,6 +251,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_err());
@@ -176,6 +262,7 @@ async fn test_check_valid_highlight() -> Result<()> {
     let path = Some(fixture_path("data/valid_highlight/index.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -196,6 +283,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check");
@@ -206,6 +294,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
     let path = Some(fixture_path("data/invalid_project_a/index.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -226,6 +315,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -236,6 +326,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
     let path = Some(fixture_path("data/valid_project/index.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -256,6 +347,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check with skip categories should succeed");
@@ -268,6 +360,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
     for metric in [ReadabilityType::FKGL, ReadabilityType::ARI, ReadabilityType::CLI] {
         let result = run(
             &path,
+            &false,
             &None,
             &None,
             &[],
@@ -288,6 +381,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             None,
             false,
             SignedDuration::from_secs(1),
+            &None,
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -299,6 +393,7 @@ async fn test_check_terse_mode() -> Result<()> {
     let path = Some(fixture_path("data/valid_project/index.json"));
     let result = run(
         &path,
+        &false,
         &None,
         &None,
         &[],
@@ -319,6 +414,7 @@ async fn test_check_terse_mode() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");

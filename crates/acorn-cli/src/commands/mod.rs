@@ -105,9 +105,11 @@ pub(crate) fn resolve_poll_interval(args: &Arguments) -> SignedDuration {
 pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
     let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
     let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
-    match (args.watch, watch_supported, ignore_sync_failure) {
-        | (true, false, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
-        | (false, _, true) => Err(eyre!("--ignore-sync-failure requires --watch")),
+    let paste = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.paste);
+    match (args.watch, watch_supported, ignore_sync_failure, paste) {
+        | (true, false, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | (false, _, true, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
+        | (true, _, _, true) => Err(eyre!("Clipboard text cannot be used with --watch")),
         | _ => Ok(()),
     }
 }
@@ -116,9 +118,11 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Check(arguments)) => with_runtime(async {
             let arguments::Check {
                 path,
+                paste,
                 branch,
                 commit,
                 filter,
+                format,
                 ignore,
                 skip,
                 disable_website_checks,
@@ -138,6 +142,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             initialize_database(config).await?;
             check::run(
                 path,
+                paste,
                 branch,
                 commit,
                 filter,
@@ -158,6 +163,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 watch,
                 *ignore_sync_failure,
                 resolve_poll_interval(args),
+                format,
             )
             .await
         }),

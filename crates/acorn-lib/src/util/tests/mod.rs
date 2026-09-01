@@ -299,6 +299,15 @@ fn test_mimetype_content_inference_prefers_semantic_documents() {
     assert_eq!(MimeType::infer(b"not a known binary format"), None);
 }
 #[test]
+fn test_mimetype_text_inference_uses_supported_check_formats() {
+    let markdown = ::std::fs::read_to_string(PathBuf::from(FIXTURES).join("data/invalid_project_c/index.md")).unwrap();
+    assert_eq!(MimeType::infer_from(r#"{"title":"RAD"}"#), MimeType::Json);
+    assert_eq!(MimeType::infer_from("{\n  // comment\n  \"title\": \"RAD\"\n}"), MimeType::Jsonc);
+    assert_eq!(MimeType::infer_from(&markdown), MimeType::Markdown);
+    assert_eq!(MimeType::infer_from("meta:\n  identifier: example\ntitle: Example\n"), MimeType::Yaml);
+    assert_eq!(MimeType::infer_from("Note: ordinary prose"), MimeType::Text);
+}
+#[test]
 fn test_merge_chain_positional_only() {
     let positional = vec!["a".to_string(), "b".to_string()];
     let result = merge(&positional, None::<&[String]>);

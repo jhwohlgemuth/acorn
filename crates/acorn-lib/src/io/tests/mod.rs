@@ -20,8 +20,8 @@ use crate::io::oci::{
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, remove_fields, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair, Executor,
-    Fingerprint, PathConversion, PathExt, Remote, Source, SourceAction,
+    read_large_file, remove_fields, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair,
+    Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, Source, SourceAction, TextOrigin,
 };
 use crate::prelude::{OsString, MAIN_SEPARATOR};
 use crate::schema::agent::Quantization;
@@ -945,6 +945,92 @@ fn test_source_local_action_metadata() {
         | Source::Local { action, .. } => assert_eq!(action, Some(SourceAction::Copy)),
         | _ => panic!("model selector should be local"),
     }
+}
+#[test]
+fn test_source_selection_explicit_path_wins_without_reading_stdin_or_clipboard() {
+    let path = Some(PathBuf::from("notes.txt"));
+    let source = select_source(
+        &path,
+        false,
+        true,
+        false,
+        || panic!("stdin should not be read"),
+        || panic!("clipboard should not be read"),
+    )
+    .expect("select explicit path");
+    match source {
+        | InputSource::Location(Location::Simple(value)) => assert_eq!(value, "notes.txt"),
+        | _ => panic!("expected explicit location"),
+    }
+}
+#[test]
+fn test_source_selection_clipboard_wins_without_reading_stdin() {
+    let source = select_source(
+        &None,
+        true,
+        false,
+        false,
+        || panic!("stdin should not be read"),
+        || Ok("Clipboard text\n".to_string()),
+    )
+    .expect("select clipboard text");
+    match source {
+        | InputSource::Text { content, origin } => {
+            assert_eq!(content, "Clipboard text\n");
+            assert_eq!(origin, TextOrigin::Clipboard);
+        }
+        | _ => panic!("expected clipboard text"),
+    }
+}
+#[test]
+fn test_source_selection_stdin_preserves_content_and_rejects_watch_mode() {
+    let content = "First line\nSecond line\n";
+    let source = select_source(
+        &None,
+        false,
+        false,
+        false,
+        || Some(content.to_string()),
+        || panic!("clipboard should not be read"),
+    )
+    .expect("select standard input");
+    match source {
+        | InputSource::Text { content: selected, origin } => {
+            assert_eq!(selected, content);
+            assert_eq!(origin, TextOrigin::Stdin);
+        }
+        | _ => panic!("expected standard input text"),
+    }
+    assert!(select_source(
+        &None,
+        false,
+        false,
+        true,
+        || Some(content.to_string()),
+        || panic!("clipboard should not be read")
+    )
+    .is_err());
+}
+#[test]
+fn test_source_selection_blank_implicit_stdin_falls_back_to_current_directory() {
+    let source = select_source(
+        &None,
+        false,
+        false,
+        false,
+        || Some(" \n".to_string()),
+        || panic!("clipboard should not be read"),
+    )
+    .expect("fall back to current directory");
+    match source {
+        | InputSource::Location(Location::Simple(value)) => assert_eq!(value, "./"),
+        | _ => panic!("expected current directory"),
+    }
+}
+#[test]
+fn test_source_selection_empty_or_unavailable_clipboard_is_an_error() {
+    assert!(select_source(&None, true, false, false, || None, || Ok(" \n".to_string())).is_err());
+    assert!(select_source(&None, true, false, false, || None, || Err(color_eyre::eyre::eyre!("unavailable"))).is_err());
 }
 #[test]
 fn test_should_retry_get_for_retryable_status_codes() {

@@ -134,18 +134,26 @@ Perform static analysis on research activity data and apply standardized best pr
     Check file(s) that were changed in latest Git commit
     $> acorn check --commit HEAD
 
+    Check text provided through standard input
+    $> echo 'Text to check' | acorn check
+
+    Check text copied to the clipboard
+    $> acorn check --paste
+
+    Check YAML copied to the clipboard as RAD
+    $> acorn check --paste --format yaml --standard rads
+
 **Usage:** `acorn-cli check [OPTIONS] [LOCATION]`
 
 **Command Alias:** `lint`
 
 ###### **Arguments:**
 
-* `<LOCATION>` — Local path or HTTP(S) URI to check
-
-  Default value: `./`
+* `<LOCATION>` — Local path or HTTP(S) URI to check; piped standard input is used when omitted
 
 ###### **Options:**
 
+* `--paste` — Check text copied to the system clipboard
 * `-b`, `--branch <BRANCH>` — Check files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Check files that were changed in a given Git commit or commit range
 
@@ -162,6 +170,9 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--filter <LIST>` — Regular expression pattern(s) applied to absolute paths of files to include during checks
 
    Only files matching at least one pattern will be processed
+* `--format <FORMAT>` — Force the file format used for standard input or clipboard text
+
+   Supported formats: cff, json, jsonc, markdown, text, yaml
 * `-i`, `--ignore <LIST>` — Regular expression pattern(s) applied to absolute paths of files to exclude from checking
 
    Only applies to `--path` values that point to a directory

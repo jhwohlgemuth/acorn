@@ -1,14 +1,27 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
 use crate::io::{http, symlink, uri_to_path, ApiResult};
-use crate::prelude::{copy, read, Path, PathBuf};
+use crate::prelude::{copy, read, Path, PathBuf, String};
 use crate::schema::agent::ModelDetails;
-use crate::util::Label;
+use crate::util::{Label, MimeType};
 use crate::{Location, Repository, Scheme};
+use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use strum::EnumIs;
 use tracing::error;
 
+/// Runtime input selected from a persistent location or one-shot text.
+pub enum InputSource {
+    /// File, directory, or remote location input.
+    Location(Location),
+    /// One-shot text input and its user-facing origin.
+    Text {
+        /// Original text content.
+        content: String,
+        /// Origin used for diagnostics and temporary filenames.
+        origin: TextOrigin,
+    },
+}
 /// **Operational/transient** source — a one-shot parse-and-read type for I/O operations.
 ///
 /// This is the complementary counterpart to [`Location`]: whereas `Location` is a descriptive
@@ -49,39 +62,17 @@ pub enum SourceAction {
     /// Create a symlink to the source in the output directory
     Symlink,
 }
-impl SourceAction {
-    /// Resolve CLI `--copy` / `--symlink` flags into a source action.
-    pub fn from_options(copy: bool, symlink: bool) -> Option<Self> {
-        match (copy, symlink) {
-            | (true, false) => Some(Self::Copy),
-            | (false, true) => Some(Self::Symlink),
-            | _ => None,
-        }
-    }
-    /// Materialize ("reify" or "persist") source path locally according to a given action
-    pub fn materialize(self, path: &Path, target: &Path, name: &str) -> ApiResult<String> {
-        let result = match self {
-            | SourceAction::Copy if target.exists() => Ok(format!("Skipping copy - '{name}' already exists at {}", target.display())),
-            | SourceAction::Copy => match copy(path, target) {
-                | Ok(_) => Ok(format!("Copied local model '{name}' -> {}", target.display())),
-                | Err(why) => {
-                    error!("=> {} Copy local model '{}' to {} - {why}", Label::fail(), name, target.display());
-                    Err(why.into())
-                }
-            },
-            | SourceAction::Symlink if target.exists() || target.symlink_metadata().map(|metadata| metadata.is_symlink()).unwrap_or(false) => {
-                Ok(format!("Skipping symlink - '{name}' already exists at {}", target.display()))
-            }
-            | SourceAction::Symlink => match symlink(path, target) {
-                | Ok(_) => Ok(format!("Symlinked local model '{name}' -> {}", target.display())),
-                | Err(why) => {
-                    error!("=> {} Symlink local model '{}' to {} - {why}", Label::fail(), name, target.display());
-                    Err(why)
-                }
-            },
-            | SourceAction::Reference => Ok(format!("Local model '{name}' referenced in place at {}", path.display())),
-        };
-        result
+/// Origin of one-shot text input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TextOrigin {
+    /// Text copied from the system clipboard.
+    Clipboard,
+    /// Text read from standard input.
+    Stdin,
+}
+impl From<ModelDetails> for Option<Source> {
+    fn from(details: ModelDetails) -> Self {
+        details.weights.and_then(|weights| weights.to_source(details.name.or(details.id)))
     }
 }
 impl Source {
@@ -192,6 +183,21 @@ impl fmt::Display for Source {
         }
     }
 }
+impl From<&Repository> for Source {
+    fn from(repository: &Repository) -> Self {
+        match repository {
+            | Repository::HuggingFace { location } => Self::Remote {
+                name: None,
+                identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
+            },
+            | Repository::OCI { location, .. } => Self::Remote {
+                name: None,
+                identifier: location.uri().unwrap_or_default(),
+            },
+            | _ => Self::from(repository.location()),
+        }
+    }
+}
 impl From<&str> for Source {
     fn from(selector: &str) -> Self {
         let trimmed = selector.trim();
@@ -226,23 +232,107 @@ impl From<Location> for Source {
         }
     }
 }
-impl From<&Repository> for Source {
-    fn from(repository: &Repository) -> Self {
-        match repository {
-            | Repository::HuggingFace { location } => Self::Remote {
-                name: None,
-                identifier: repository.id().unwrap_or_else(|| location.uri().unwrap_or_default()),
+impl SourceAction {
+    /// Resolve CLI `--copy` / `--symlink` flags into a source action.
+    pub fn from_options(copy: bool, symlink: bool) -> Option<Self> {
+        match (copy, symlink) {
+            | (true, false) => Some(Self::Copy),
+            | (false, true) => Some(Self::Symlink),
+            | _ => None,
+        }
+    }
+    /// Materialize ("reify" or "persist") source path locally according to a given action
+    pub fn materialize(self, path: &Path, target: &Path, name: &str) -> ApiResult<String> {
+        let result = match self {
+            | SourceAction::Copy if target.exists() => Ok(format!("Skipping copy - '{name}' already exists at {}", target.display())),
+            | SourceAction::Copy => match copy(path, target) {
+                | Ok(_) => Ok(format!("Copied local model '{name}' -> {}", target.display())),
+                | Err(why) => {
+                    error!("=> {} Copy local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                    Err(why.into())
+                }
             },
-            | Repository::OCI { location, .. } => Self::Remote {
-                name: None,
-                identifier: location.uri().unwrap_or_default(),
+            | SourceAction::Symlink if target.exists() || target.symlink_metadata().map(|metadata| metadata.is_symlink()).unwrap_or(false) => {
+                Ok(format!("Skipping symlink - '{name}' already exists at {}", target.display()))
+            }
+            | SourceAction::Symlink => match symlink(path, target) {
+                | Ok(_) => Ok(format!("Symlinked local model '{name}' -> {}", target.display())),
+                | Err(why) => {
+                    error!("=> {} Symlink local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                    Err(why)
+                }
             },
-            | _ => Self::from(repository.location()),
+            | SourceAction::Reference => Ok(format!("Local model '{name}' referenced in place at {}", path.display())),
+        };
+        result
+    }
+}
+impl TextOrigin {
+    /// Return the filename used when materializing this input based on its format.
+    pub fn filename(self, format: &MimeType) -> &'static str {
+        match (self, format) {
+            | (Self::Clipboard, MimeType::Cff) => "clipboard.cff",
+            | (Self::Clipboard, MimeType::Json) => "clipboard.json",
+            | (Self::Clipboard, MimeType::Jsonc) => "clipboard.jsonc",
+            | (Self::Clipboard, MimeType::Markdown) => "clipboard.md",
+            | (Self::Clipboard, MimeType::Yaml) => "clipboard.yaml",
+            | (Self::Clipboard, _) => "clipboard.txt",
+            | (Self::Stdin, MimeType::Cff) => "stdin.cff",
+            | (Self::Stdin, MimeType::Json) => "stdin.json",
+            | (Self::Stdin, MimeType::Jsonc) => "stdin.jsonc",
+            | (Self::Stdin, MimeType::Markdown) => "stdin.md",
+            | (Self::Stdin, MimeType::Yaml) => "stdin.yaml",
+            | (Self::Stdin, _) => "stdin.txt",
+        }
+    }
+    /// Return the user-facing origin label.
+    pub fn label(self) -> &'static str {
+        match self {
+            | Self::Clipboard => "<clipboard>",
+            | Self::Stdin => "<stdin>",
+        }
+    }
+    /// Convert non-empty content into a one-shot input source.
+    pub fn source(self, content: String) -> ApiResult<InputSource> {
+        match content.trim().is_empty() {
+            | true => Err(eyre!("No text received from {}", self.label())),
+            | false => Ok(InputSource::Text { content, origin: self }),
         }
     }
 }
-impl From<ModelDetails> for Option<Source> {
-    fn from(details: ModelDetails) -> Self {
-        details.weights.and_then(|weights| weights.to_source(details.name.or(details.id)))
+/// Read UTF-8 text from the system clipboard.
+pub fn read_clipboard() -> ApiResult<String> {
+    Clipboard::new()
+        .and_then(|mut clipboard| clipboard.get_text())
+        .map_err(|why| eyre!("Cannot read clipboard text — {why}"))
+}
+/// Select an explicit location, clipboard text, piped text, or the current directory.
+pub fn select_source<ReadStdin, ReadClipboard>(
+    path: &Option<PathBuf>,
+    paste: bool,
+    filesystem_selected: bool,
+    watching: bool,
+    read_stdin: ReadStdin,
+    read_clipboard: ReadClipboard,
+) -> ApiResult<InputSource>
+where
+    ReadStdin: FnOnce() -> Option<String>,
+    ReadClipboard: FnOnce() -> ApiResult<String>,
+{
+    let location = || {
+        let input = path
+            .as_ref()
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_else(|| "./".to_string());
+        InputSource::Location(Location::from(input.as_str()))
+    };
+    match (filesystem_selected, paste) {
+        | (true, _) => Ok(location()),
+        | (false, true) => read_clipboard().and_then(|content| TextOrigin::Clipboard.source(content)),
+        | (false, false) => match read_stdin().filter(|content| !content.trim().is_empty()) {
+            | Some(_) if watching => Err(eyre!("Standard input cannot be used with --watch")),
+            | Some(content) => TextOrigin::Stdin.source(content),
+            | None => Ok(location()),
+        },
     }
 }

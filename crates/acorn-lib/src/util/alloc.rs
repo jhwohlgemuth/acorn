@@ -16,6 +16,7 @@
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::fail;
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
+use crate::schema::research_activity::ResearchActivity;
 use crate::validation::{Validate, ValidationError};
 use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
@@ -650,6 +651,16 @@ impl From<String> for MimeType {
     }
 }
 impl MimeType {
+    /// Infer a supported textual file type from in-memory content.
+    pub fn infer_from(content: &str) -> Self {
+        match serde_json::from_str::<Value>(content).is_ok() {
+            | true => Self::Json,
+            | false if detect_json(content) => Self::Jsonc,
+            | false if ResearchActivity::is_markdown(content) => Self::Markdown,
+            | false if ResearchActivity::is_yaml(content) => Self::Yaml,
+            | false => Self::Text,
+        }
+    }
     /// Return whether this file type is accepted as OCI model content.
     pub fn is_model_resource(&self) -> bool {
         match self {

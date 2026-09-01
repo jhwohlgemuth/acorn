@@ -58,6 +58,20 @@ pub(crate) fn parse_check_category(s: &str) -> Result<analyzer::CheckCategory, S
             )
         })
 }
+/// Parse a textual check input format.
+pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
+    match s.to_lowercase().as_str() {
+        | "cff" => Ok(MimeType::Cff),
+        | "json" => Ok(MimeType::Json),
+        | "jsonc" => Ok(MimeType::Jsonc),
+        | "markdown" | "md" => Ok(MimeType::Markdown),
+        | "text" | "txt" => Ok(MimeType::Text),
+        | "yaml" | "yml" => Ok(MimeType::Yaml),
+        | _ => Err(format!(
+            "unknown check format '{s}' — expected one of: cff, json, jsonc, markdown, text, yaml"
+        )),
+    }
+}
 /// Parse a CLI executor name into an `Executor` variant.
 pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
     match s.to_lowercase().as_str() {

@@ -23,11 +23,36 @@ acorn check path/to/project/
 
 # Check a remote document
 acorn check https://example.org/project.json
+
+# Check text from standard input
+printf 'Text to check' | acorn check
+
+# Check text copied to the system clipboard
+acorn check --paste
+
+# Force clipboard content to YAML and validate it as RAD
+acorn check --paste --format yaml --standard rads
 ```
 
 HTTP and HTTPS inputs are downloaded to a temporary file and checked using content-based format detection, with the URL extension as a fallback. This supports extensionless PDF URLs. Remote inputs require network access and are rejected in global `--offline` mode.
 
 ACORN recognizes `.md` and `.markdown` research activity files by their `schema: acorn/research-activity` YAML frontmatter discriminator. Legacy Markdown previously exported by ACORN is also accepted. Ordinary Markdown remains plain text and is not selected by RAD directory discovery.
+
+## Checking text from standard input or the clipboard
+
+When no file, directory, Git selector, filter, or ignore pattern is supplied, `acorn check` reads non-empty piped standard input automatically. Use `--paste` to read text from the system clipboard instead. ACORN infers JSON, JSONC, RAD Markdown, and RAD YAML; other content is checked as plain text.
+
+Use `--format` to override inference with `cff`, `json`, `jsonc`, `markdown`, `text`, or `yaml`. Combine it with `--standard` to select the schema or analyzer independently:
+
+```sh
+cat metadata.jsonc | acorn check --format jsonc --standard datacite
+acorn check --paste --format cff --standard cff
+printf '# Notes\n\nText to check.' | acorn check --format markdown --standard text
+```
+
+The aliases `md`, `txt`, and `yml` are accepted. `--format` applies only to piped standard input and clipboard content and conflicts with filesystem, Git, filter, and merge-request selectors.
+
+An explicit filesystem selection or `--paste` takes precedence over piped standard input. Empty implicit standard input preserves the existing behavior of checking the current directory. Clipboard input must contain non-whitespace text, and clipboard or standard-input checks cannot be combined with `--watch`.
 
 ## Checking PDF documents
 

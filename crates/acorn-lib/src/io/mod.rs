@@ -104,7 +104,7 @@ pub mod workflow;
 pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
 pub use model::ModelListFile;
-pub use source::{Source, SourceAction};
+pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 pub use temporary::TemporaryDirectory;
 
 lazy_static! {

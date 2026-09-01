@@ -29,6 +29,7 @@ ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
 anydoc = { workspace = true, optional = true }
+arboard = { workspace = true, optional = true }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
 async-trait = { workspace = true }
 axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
@@ -147,6 +148,7 @@ std = [
   "alloc",
   "dep:ammonia",
   "dep:anydoc",
+  "dep:arboard",
   "dep:color-eyre",
   "jiff/std",
   "dep:axum",
