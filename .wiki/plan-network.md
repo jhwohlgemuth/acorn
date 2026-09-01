@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.76` on 2026-08-31.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.76` on 2026-09-01.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -74,7 +74,7 @@ acorn-schema extraction   host abstraction traits
 - [Check batch monoid](refactors/analyzer/check-batch-monoid.md) reduces duplicated assembly before [standards traversal](refactors/analyzer/standards-traversal.md); validation tree flattening is already complete through the portable ordered `ValidationReport`.
 - [Check options context](refactors/analyzer/check-options-context.md) and [link resolution checks](refactors/analyzer/link-resolution-checks.md) establish the injected analysis boundary used by `acorn-analysis` and `acorn-host`.
 - [API roadmap](refactors/api/roadmap.md) records completed shared authentication builders and orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
-- [GitLab claimed-operation capabilities](refactors/api/gitlab-claimed-operation-capabilities.md) must stabilize durable settlement before the remaining [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) move into `acorn-service`.
+- [GitLab claimed-operation capabilities](refactors/api/gitlab-claimed-operation-capabilities.md) must stabilize durable settlement before [reusable webhook transport](refactors/api/webhook-transport-abstraction.md) extracts provider-neutral delivery mechanics; the remaining [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) then consume both boundaries before moving into `acorn-service`.
 
 ### Export and interfaces
 
@@ -89,7 +89,8 @@ acorn-schema extraction   host abstraction traits
 |---|---|---|
 | `crates/acorn-lib/src/schema/` | Std isolation, metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Preserve the codec/adapter boundary; the portable validation-rule and derive-macro contract is available to feature plans, which target `acorn-schema` after extraction and must not reintroduce host access. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
-| `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
+| `crates/acorn-lib/src/io/api/` | API roadmap children, reusable webhooks, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
+| `crates/acorn-lib/src/io/http/mod.rs` | Reusable webhooks, API invocation, transfer/download hardening | Serialize request logging, retry, redaction, and service-injection changes; webhook callback URLs may contain credentials in query parameters. |
 | `crates/acorn-lib/src/io/config/` | API endpoint/environment, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
 | `crates/acorn-cli/src/main.rs` and `cli/` | CLI model/startup/error plans, ACP inference | Complete parse/execution separation before adding a large new command surface. |

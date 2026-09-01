@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Strengthen the shared API-client contract"
-description: "Coordinate reusable authentication, endpoint, request, response, and provider capability boundaries."
+description: "Coordinate reusable authentication, endpoint, request, response, webhook, and provider capability boundaries."
 difficulty: medium
 impact: medium
 package: [acorn-lib]
@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication builders are complete. The remaining order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs; provider-specific refinements follow. See the [plan dependency network](../../plan-network.md).
+This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication builders are complete. The remaining order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs; the reusable [webhook transport](webhook-transport-abstraction.md) follows a stable GitLab settlement contract, and provider-specific refinements follow. See the [plan dependency network](../../plan-network.md).
 
 # Parallel execution
 
@@ -25,7 +25,7 @@ This roadmap is coordination-only. Shared `io/api/mod.rs` and `io/config/mod.rs`
 
 # Goal
 
-Expand the common API surface for health, authentication, endpoint rendering, request validation, invocation, and error normalization without erasing provider-specific behavior.
+Expand the common API surface for health, authentication, endpoint rendering, request validation, invocation, webhook delivery, and error normalization without erasing provider-specific behavior.
 
 # Implementation order
 
@@ -33,7 +33,8 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 2. Finish endpoint resolution and required/optional request-parameter migration.
 3. Introduce invocation and parse helpers with explicit fallback behavior.
 4. Normalize environment bootstrap and health checks.
-5. Add response, validation, generation, and capability layers only where they reduce current duplication.
+5. Extract reusable webhook verification, typed delivery, safe callback dispatch, and transport errors after GitLab queue settlement stabilizes.
+6. Add response, validation, generation, and capability layers only where they reduce current duplication.
 
 # Evidence
 
@@ -58,3 +59,4 @@ Shared mechanics live at the API root, provider modules retain only provider-spe
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
+- [Reusable webhook transport](webhook-transport-abstraction.md)
