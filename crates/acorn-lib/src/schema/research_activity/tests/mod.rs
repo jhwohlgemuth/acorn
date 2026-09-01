@@ -248,6 +248,29 @@ fn test_markdown_recognizes_quoted_schema_discriminator() {
     assert!(ResearchActivity::from_markdown(&markdown).is_ok());
 }
 #[test]
+fn test_markdown_normalizes_empty_required_frontmatter_lists() {
+    let canonical = ResearchActivity::default().to_markdown();
+    for replacement in ["", " null"] {
+        let markdown = canonical
+            .replace("  keywords: []", &format!("  keywords:{replacement}"))
+            .replace("  technology: []", &format!("  technology:{replacement}"));
+        let parsed = ResearchActivity::from_markdown(&markdown).expect("empty required frontmatter lists should parse");
+        assert!(parsed.meta.keywords.is_empty());
+        assert!(parsed.meta.technology.is_empty());
+        let serialized = parsed.to_markdown();
+        assert!(serialized.contains("  keywords: []"));
+        assert!(serialized.contains("  technology: []"));
+    }
+}
+#[test]
+fn test_markdown_rejects_non_list_required_frontmatter_value() {
+    let markdown = ResearchActivity::default()
+        .to_markdown()
+        .replace("  technology: []", "  technology: Rust");
+    let error = ResearchActivity::from_markdown(&markdown).expect_err("non-list technology should fail");
+    assert!(error.contains("invalid type: string \"Rust\", expected a sequence"));
+}
+#[test]
 fn test_markdown_rejects_malformed_optional_section() {
     let markdown = ResearchActivity::default()
         .to_markdown()

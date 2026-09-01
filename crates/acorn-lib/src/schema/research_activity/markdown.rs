@@ -344,13 +344,40 @@ impl Document {
         })
     }
     #[cfg(feature = "std")]
+    fn normalize_empty_required_lists(value: serde_json::Value) -> serde_json::Value {
+        let defaults = serde_json::to_value(Document::from(&ResearchActivity::default()).frontmatter).unwrap_or_default();
+        Self::normalize_empty_lists(value, &defaults)
+    }
+    #[cfg(feature = "std")]
+    fn normalize_empty_lists(value: serde_json::Value, defaults: &serde_json::Value) -> serde_json::Value {
+        match (value, defaults) {
+            | (serde_json::Value::Null, serde_json::Value::Array(_)) => serde_json::Value::Array(Vec::new()),
+            | (serde_json::Value::Object(values), serde_json::Value::Object(defaults)) => serde_json::Value::Object(
+                values
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let value = match defaults.get(&key) {
+                            | Some(default) => Self::normalize_empty_lists(value, default),
+                            | None => value,
+                        };
+                        (key, value)
+                    })
+                    .collect(),
+            ),
+            | (value, _) => value,
+        }
+    }
+    #[cfg(feature = "std")]
     fn parse_frontmatter(content: &str) -> ApiResult<(Header, String)> {
         let normalized = content.replace("\r\n", "\n");
         let (frontmatter, body) = frontmatter_and_body(&normalized);
         frontmatter
             .ok_or_else(|| eyre!("Markdown RAD requires YAML frontmatter delimited by '---'"))
             .and_then(|frontmatter| {
-                Header::from_front_matter(&frontmatter)
+                serde_norway::from_str::<serde_json::Value>(&frontmatter)
+                    .map(Self::normalize_empty_required_lists)
+                    .map_err(|why| why.to_string())
+                    .and_then(|value| serde_json::from_value::<Header>(value).map_err(|why| why.to_string()))
                     .map_err(|why| eyre!("Failed to decode Markdown RAD frontmatter — {why}"))
                     .and_then(|parsed| {
                         (parsed.schema == RAD_MARKDOWN_SCHEMA)
