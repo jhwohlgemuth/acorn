@@ -5,6 +5,7 @@ expression: normalized_process(&args)
 status: 0
 stdout:
 => !!! OFFLINE ACORN is running in offline mode
+
 [00] Error: distribution[0].access_url[0]
    ╭─[ schema/dcat-invalid-2-errors.json:8:21 ]
    │
@@ -14,6 +15,7 @@ stdout:
 ───╯
 [01] Error: landing_page
     url
+
 0,error,schema,schema/dcat-invalid-2-errors.json,landing_page,url,landing_page
 1,error,schema,schema/dcat-invalid-2-errors.json,distribution[0].access_url[0],url,distribution[0].access_url[0]
 stderr:

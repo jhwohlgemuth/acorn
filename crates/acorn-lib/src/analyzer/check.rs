@@ -888,6 +888,9 @@ impl Render for Checks {
                 check.locator.clone().unwrap_or_default().to_lowercase(),
             )
         });
+        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
+            println!();
+        }
         match (options.quiet, options.format, options.terse) {
             | (false, OutputFormat::Console, true) => sorted_checks.iter().for_each(|check| println!("{}", check.terse())),
             | (false, OutputFormat::Console, false) => sorted_checks
@@ -1283,7 +1286,7 @@ fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, messag
     let colorized_code = severity.colorize(code);
     let colorized_name = severity.colorize(name);
     println!("{colorized_code} {colorized_name}: {heading}");
-    println!("    {}", message.italic());
+    println!("    {}\n", message.trim_end().italic());
 }
 /// Print JSON or YAML schema for type `T` to stdout
 #[cfg(feature = "std")]
