@@ -32,7 +32,7 @@ aho-corasick = { version = "1.1.4", default-features = false }
 anydoc = { workspace = true, optional = true }
 arboard = { workspace = true, optional = true }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
-async-trait = { workspace = true }
+async-trait = { workspace = true, optional = true }
 axum = { workspace = true, features = ["http1", "json", "tokio"], optional = true }
 bat = { version = "0.26.0", features = ["regex-onig"], default-features = false, optional = true }
 bon = { version = "3.8.1", default-features = false }
@@ -48,8 +48,8 @@ dotenvy = { workspace = true, optional = true }
 duckdb = { workspace = true, features = ["bundled"], default-features = false, optional = true }
 fancy-regex = { workspace = true }
 flate2 = { version = "1.1.5", default-features = false, optional = true }
-futures = { workspace = true }
-glob = { workspace = true }
+futures = { workspace = true, optional = true }
+glob = { workspace = true, optional = true }
 hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
 httpdate = { workspace = true, optional = true }
 human-units = { version = "0.5.3", default-features = false }
@@ -74,7 +74,7 @@ rmcp = { workspace = true, optional = true }
 reqwest = { version = "0.13.2", features = ["rustls", "json"], default-features = false, optional = true }
 resvg = { version = "0.45.1", optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
-shell-words = { workspace = true }
+shell-words = { workspace = true, optional = true }
 shuck-linter = { version = "0.0.41", optional = true }
 shuck-parser = { version = "0.0.41", optional = true }
 rand = { version = "0.8", features = ["std_rng"], optional = true }
@@ -151,6 +151,7 @@ std = [
   "dep:ammonia",
   "dep:anydoc",
   "dep:arboard",
+  "dep:async-trait",
   "dep:color-eyre",
   "jiff/std",
   "dep:axum",
@@ -158,6 +159,9 @@ std = [
   "dep:console",
   "dep:directories",
   "dep:dotenvy",
+  "dep:flate2",
+  "dep:futures",
+  "dep:glob",
   "dep:httpdate",
   "dep:indicatif",
   "dep:infer",
@@ -174,8 +178,8 @@ std = [
   "dep:rust-embed",
   "dep:rusqlite",
   "dep:sevenz-rust2",
+  "dep:shell-words",
   "dep:similar",
-  "dep:flate2",
   "dep:tar",
   "dep:tera",
   "dep:tokio",
