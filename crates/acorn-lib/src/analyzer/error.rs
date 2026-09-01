@@ -1,7 +1,7 @@
 //! Error module for handling check errors
 //!
 use super::readability::ReadabilityType;
-use crate::analyzer::vale::ValeOutputItem;
+use crate::analyzer::model::ValeOutputItem;
 use crate::io::document::{DocumentPath, DocumentQuery};
 use crate::prelude::alloc::HashMap;
 use crate::util::MarkdownSupport;

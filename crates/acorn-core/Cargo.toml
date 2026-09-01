@@ -1,0 +1,40 @@
+[package]
+edition = "2021"
+name = "acorn-core"
+version.workspace = true
+description = "Portable foundation types and utilities for ACORN"
+authors.workspace = true
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aho-corasick = { version = "1.1.4", default-features = false }
+anydoc = { workspace = true, optional = true }
+bon = { version = "3.9.2", default-features = false }
+derive_more = { workspace = true }
+fancy-regex = { workspace = true }
+fluent-uri = { workspace = true }
+hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
+jiff = { workspace = true }
+jsonc-parser = { workspace = true }
+quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
+infer = { workspace = true, optional = true }
+ring = { version = "0.17.14", default-features = false, optional = true }
+schemars = { version = "1.2.1", features = ["derive"], default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_norway = { workspace = true }
+strum = { workspace = true }
+triomphe = { workspace = true }
+urlencoding = { version = "2.1.3", default-features = false }
+
+[features]
+default = ["std"]
+core = []
+alloc = ["core", "serde/alloc", "jiff/alloc"]
+std = ["alloc", "jiff/std", "dep:anydoc", "dep:infer", "dep:ring"]
+
+[lints]
+workspace = true

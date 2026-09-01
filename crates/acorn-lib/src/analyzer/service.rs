@@ -1,9 +1,9 @@
 //! Structured, reusable file analysis service.
 use super::{Analysis, Check, CheckCategory, CheckOptions, Standard};
-use crate::io::document::{DocumentIndex, SourceDocument};
+use crate::io::document::{DocumentIndex, MarkdownParser, SourceDocument};
 use crate::prelude::{Arc, HashMap, PathBuf};
 use crate::schema::pid::raid;
-use crate::schema::research_activity::{MarkdownParser, ResearchActivity};
+use crate::schema::research_activity::ResearchActivity;
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::text::{Document, Text};
 use crate::schema::standard::{datacite, dcat, huwise, invenio};

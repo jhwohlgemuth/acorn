@@ -3,11 +3,9 @@
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
 use crate::error::ApiResult;
 use crate::io::api::AuthenticationScheme;
-use crate::io::database::schema::{ModelRow, Table};
-use crate::io::database::{Database, Operations, Row};
 use crate::io::{ModelListFile, PathExt, Source};
 use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
-use crate::prelude::std::{Error, ErrorKind, Path, PathBuf};
+use crate::prelude::std::{Error, ErrorKind, Path};
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::{is_partial_date, validate_license};
@@ -1502,44 +1500,6 @@ impl Weights {
                 .collect(),
             )),
             | _ => Some(self),
-        }
-    }
-    /// Refresh file-level weights for a model while preserving repository-level sources.
-    pub fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
-        let lookup = ModelRow::init()
-            .model_id(model_id.to_string())
-            .build()
-            .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id));
-        match lookup {
-            | Ok(Some(row)) => {
-                let existing = row
-                    .weights
-                    .as_deref()
-                    .and_then(|value| serde_json::from_str::<Weights>(value).ok())
-                    .unwrap_or_default();
-                let refreshed = Weights(
-                    existing
-                        .0
-                        .into_iter()
-                        .filter(|weight| !(weight.quantization.is_some() && weight.url.contains("/resolve/")))
-                        .chain(self.0)
-                        .collect(),
-                );
-                refreshed.serialize().and_then(|weights| {
-                    ModelRow {
-                        weights: Some(weights),
-                        ..row
-                    }
-                    .update_weights(database_path)
-                    .map(|_| ())
-                })
-            }
-            | Ok(None) => self.serialize().and_then(|weights| {
-                Database::<Table>::from_path(database_path)
-                    .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
-                    .map(|_| ())
-            }),
-            | Err(why) => Err(why),
         }
     }
     /// Serialize model weight metadata for database persistence.

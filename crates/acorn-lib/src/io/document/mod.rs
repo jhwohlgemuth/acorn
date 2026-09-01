@@ -18,9 +18,11 @@ use serde::{Deserialize, Serialize};
 
 mod index;
 mod matching;
+mod research_activity;
 
 pub(crate) use index::{DocumentEntry, DocumentParser};
 pub use index::{DocumentExcerpt, DocumentIndex, DocumentMatch, DocumentPath, DocumentPathSegment, DocumentPosition, DocumentQuery, DocumentSpan};
+pub(crate) use research_activity::MarkdownParser;
 
 static DOCUMENT_CACHE: OnceLock<Cache<DocumentCacheKey, SourceDocument>> = OnceLock::new();
 

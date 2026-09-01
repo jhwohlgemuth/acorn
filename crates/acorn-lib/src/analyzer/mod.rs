@@ -25,7 +25,7 @@ use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConver
 use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
-use crate::{Location, Repository};
+use crate::{Location, Repository, RepositoryExt};
 use async_trait::async_trait;
 #[cfg(feature = "analysis")]
 use bat::PrettyPrinter;
@@ -51,6 +51,7 @@ pub mod check;
 #[cfg(feature = "analysis")]
 pub mod discovery;
 pub mod error;
+pub mod model;
 pub mod readability;
 #[cfg(feature = "analysis")]
 mod service;

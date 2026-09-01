@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.75` on 2026-08-30; config-module ownership was reconciled again after the module split on 2026-08-31.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.1.76` on 2026-08-31.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -16,39 +16,38 @@ dependency feature defaults
           v
 isolate std-only modules
           |
-          +-------------+-------------+
-          v                           v
-host abstraction traits      acorn-core + acorn-schema extraction
-          |                           |
-          +-------------+-------------+
-                        v
-       analyzer/API/export boundary stabilization
-                        |
-                        v
-          remaining crate extractions
-                        |
-             +----------+----------+
-             v                     v
-       acorn-host              acorn-wasm
-             \                     /
-              +---------+---------+
-                        v
-                acorn-service
-                        |
-                        v
-               acorn-lib facade only
-                        |
-                        v
-               no-std/WASM CI gates
+          +--------------------+
+          v                    v
+acorn-schema extraction   host abstraction traits
+          |                    |
+          +----------+---------+
+                     v
+   analyzer/API/export boundary stabilization
+                     |
+                     v
+       remaining acorn-* extractions
+                     |
+          +----------+----------+
+          v                     v
+    acorn-host              acorn-wasm
+          \                     /
+           +---------+---------+
+                     v
+             acorn-service
+                     |
+                     v
+            acorn-lib facade only
+                     |
+                     v
+            no-std/WASM CI gates
 ```
 
-Schema path/file ownership now sits behind the std-only `io` adapter without changing the legacy `InputOutput` surface. The active portability work tightens the remaining std-gated schema/analyzer couplings (`schema` `PathBuf` signatures, `schema/agent`, `schema/validate`, `research_activity/markdown.rs`, and the `analysis -> std`-gated analyzer).
+`acorn-core` is extracted and the facade preserves root/error/utility paths. Schema path/file ownership, model persistence, contextual RAD formatting, and RAD Markdown document indexing sit behind std-only adapters; schema validation no longer reads environment/database state. Active portability work now tightens remaining agent/template/CST and analyzer document/rendering/service couplings before `acorn-schema` and `acorn-analysis` extraction.
 
 ## Target ownership network
 
 | Target package | Source boundary to prepare now | Direct prerequisites | Plans unlocked |
 |---|---|---|---|
-| `acorn-core` | `error.rs`, portable root values, `util/{core,alloc,portable}.rs` | Dependency defaults; std isolation | `acorn-schema`, `acorn-analysis`, `acorn-cmd` |
 | `acorn-schema` | `validation/`, `schema/`, string/byte codecs | `acorn-core`; std isolation | Schema features, standards crosswalks, `acorn-analysis` |
 | `acorn-analysis` | `analyzer/{check,error,readability}.rs` over supplied content | Host isolation; analyzer algebra plans | Service extraction and portable checks |
 | `acorn-api` | `io/api/` protocol, endpoint, request, response, and auth logic | API roadmap contracts | `acorn-service`, `acorn-host`, provider features |
@@ -65,9 +64,9 @@ Schema path/file ownership now sits behind the std-only `io` adapter without cha
 ### Portability and crate boundaries
 
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
-- [Isolate std-only modules](refactors/portability/isolate-std-only-modules.md) is the immediate boundary prerequisite for `acorn-core` and `acorn-schema`.
+- [Isolate std-only modules](refactors/portability/isolate-std-only-modules.md) and [dependency feature defaults](refactors/portability/dependency-feature-defaults.md) are the active implementation prerequisites for the [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md).
 - [Host abstraction traits](refactors/portability/host-abstraction-traits.md) follows domain/adapter separation; traits are introduced at actual consumer seams, not speculatively.
-- [Crate boundary architecture](refactors/crate-boundary-architecture.md) consumes the analyzer, API, export, command, and portability boundary plans and governs extraction order.
+- [Crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates the analyzer, API, export, command, and portability boundaries; schedule the named extraction plan rather than the umbrella.
 - [WASM feature path](refactors/portability/wasm-feature-path.md) requires portable crates and consumer-owned ports. [no-std and WASM CI](refactors/portability/no-std-wasm-ci.md) begins with current facade checks and expands as crates appear.
 
 ### Analyzer and API
@@ -100,7 +99,8 @@ Schema path/file ownership now sits behind the std-only `io` adapter without cha
 
 - Critical-path coordination plans are not implementation jobs. Schedule a std-isolation slice or named extraction rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
-- The current pre-extraction batch can combine remaining std isolation with typed scoring, remote-create leaf work, Python binding deduplication, OOXML leaf transformations, and a Hugging Face request-type leaf, subject to the locks in the [parallel execution guide](parallel-execution.md).
+- The current critical-path batch is the remaining schema std isolation plus dependency classification. After its exit gate, [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md) takes the workspace-graph, library-root, schema-index, and CI/build locks.
+- Typed scoring, remote-create leaf work, Python binding deduplication, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed beside the isolation slice when they obey the locks in the [parallel execution guide](parallel-execution.md); they pause for the extraction integration window if they need shared manifests or roots.
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
 - The [research activity changelog](features/research-activity-changelog.md) and [OCP schema alignment](features/ocp-infrastructure-schema-alignment.md) consume the implemented `not` combinator, `timestamp`/`nonempty` primitives, and consolidated `schema::validate` module. The changelog follows the RAD standards field-matrix and loss-reporting contract; its portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.
 

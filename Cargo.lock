@@ -66,9 +66,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "acorn-core"
+version = "0.1.76"
+dependencies = [
+ "aho-corasick",
+ "anydoc",
+ "bon",
+ "derive_more",
+ "fancy-regex 0.17.0",
+ "fluent-uri",
+ "hashbrown 0.17.1",
+ "infer",
+ "jiff",
+ "jsonc-parser",
+ "quick-xml 0.39.4",
+ "ring",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "strum 0.28.0",
+ "triomphe",
+ "urlencoding",
+]
+
+[[package]]
 name = "acorn-lib"
 version = "0.1.76"
 dependencies = [
+ "acorn-core",
  "acorn-macros",
  "aho-corasick",
  "ammonia",

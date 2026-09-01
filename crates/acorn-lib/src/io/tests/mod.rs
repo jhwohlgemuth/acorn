@@ -34,6 +34,7 @@ use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::{MimeType, SemanticVersion, StringConversion};
 use crate::validation::Validate;
 use crate::{args, Location, Repository, Scheme};
+use crate::{LocationExt, RepositoryExt};
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};
 use color_eyre::Report;

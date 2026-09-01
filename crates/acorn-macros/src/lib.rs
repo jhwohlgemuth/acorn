@@ -422,7 +422,14 @@ fn acorn_path() -> proc_macro2::TokenStream {
             };
             quote! { ::#name }
         }
-        | Err(_) => quote! { ::acorn },
+        | Err(_) => match crate_name("acorn-core") {
+            | Ok(FoundCrate::Itself) => quote! { crate },
+            | Ok(FoundCrate::Name(name)) => {
+                let name = format_ident!("{}", name.replace('-', "_"));
+                quote! { ::#name }
+            }
+            | Err(_) => quote! { ::acorn },
+        },
     }
 }
 fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {

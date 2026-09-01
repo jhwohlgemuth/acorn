@@ -9,6 +9,7 @@ use crate::io::{files_all, uri_to_path, write_file_bytes, ApiResult, ArchiveCand
 use crate::prelude::{self, exit, Arc, ErrorKind, Mutex, Path, PathBuf};
 use crate::util::constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS;
 use crate::util::{Label, MimeType, StringConversion};
+use crate::LocationExt;
 use crate::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};

@@ -8,12 +8,7 @@
 //! Shared test utilities for `acorn-lib` unit tests.
 use crate::cmd;
 use crate::io::command_exists;
-use crate::io::database::{
-    schema::{ProgrammingLanguageRow, Table},
-    Database, Operations,
-};
-use crate::io::ApiResult;
-use crate::prelude::{create_dir_all, CommandOutput, PathBuf};
+use crate::prelude::{CommandOutput, PathBuf};
 use core::time::Duration;
 use data_encoding::BASE64;
 use jiff::Timestamp;
@@ -45,36 +40,6 @@ pub fn fixture_path(path: &str) -> PathBuf {
         .join("tests")
         .join("fixtures")
         .join(path)
-}
-/// Create a temporary database, run migrations, and populate the licenses table.
-///
-/// Returns the database path so tests can set `ACORN_DATABASE_PATH` as needed.
-pub(crate) async fn temp_database_with_licenses() -> ApiResult<PathBuf> {
-    let timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or(Duration::from_nanos(0))
-        .as_nanos();
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join("target")
-        .join("test_artifacts")
-        .join(format!("licenses-{timestamp}.db"));
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent)?;
-    }
-    let database = Database::<Table>::from_path(Some(path.clone()));
-    database.migrate()?;
-    let _ = database.populate(Table::Licenses).await?;
-    Ok(path)
-}
-/// Create a temporary database containing representative programming languages.
-pub(crate) fn temp_database_with_programming_languages() -> ApiResult<PathBuf> {
-    let path = unique_path("programming-languages", "db");
-    let database = Database::<Table>::from_path(Some(path.clone()));
-    database
-        .migrate()
-        .and_then(|_| database.insert(ProgrammingLanguageRow::init().name("Rust").language_type("programming").build()))
-        .map(|_| path)
 }
 /// Build a unique temporary directory path under `target/test_artifacts`.
 pub(crate) fn temp_dir(name: &str) -> PathBuf {

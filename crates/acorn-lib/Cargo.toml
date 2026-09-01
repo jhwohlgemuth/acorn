@@ -25,6 +25,7 @@ bench = false
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+acorn-core = { version = "0.1.76", path = "../acorn-core", default-features = false }
 ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
@@ -133,8 +134,8 @@ name = "document"
 harness = false
 
 [features]
-core = []
-alloc = ["core", "serde/alloc", "jiff/alloc"]
+core = ["acorn-core/core"]
+alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc"]
 unicode = ["std", "console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
@@ -146,6 +147,7 @@ duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
 std = [
   "alloc",
+  "acorn-core/std",
   "dep:ammonia",
   "dep:anydoc",
   "dep:arboard",

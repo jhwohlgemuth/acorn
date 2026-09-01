@@ -663,7 +663,7 @@ async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_
     let cff = Cff {
         title: "Invalid License".to_string(),
         message: "Message".to_string(),
-        license: Some(OneOrMany::One("not-a-license".to_string())),
+        license: Some(OneOrMany::One(" ".to_string())),
         ..Cff::default()
     };
     let checks = collect_validation_checks(&cff).await;

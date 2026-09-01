@@ -12,7 +12,6 @@ pub use hardware::{
 };
 
 #[cfg(feature = "std")]
-use crate::prelude::std::PathBuf;
 #[cfg(feature = "std")]
 use crate::schema::validate::format_phone_number;
 #[cfg(feature = "std")]
@@ -660,12 +659,6 @@ impl ContactPoint {
     /// Fix, resolve, and augment contact point data
     pub fn format(self) -> Self {
         self
-    }
-    /// Fix, resolve, and augment research activity metadata with access to filesystem and/or remote resources
-    #[cfg(feature = "std")]
-    pub fn format_with(self, _context: Option<PathBuf>) -> Self {
-        // TODO: Resolve ORCiD identifier from first, last, and email
-        self.format()
     }
 }
 impl ControlledVocabulary {

@@ -15,6 +15,14 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 - [Migration plans](migrations/) - Changes that replace an existing dependency, architecture, or workflow.
 - [Testing plans](testing/) - CLI test coverage, integration testing, and quality assurance work.
 
+## Next execution phase
+
+1. Finish [std-only isolation](refactors/portability/isolate-std-only-modules.md) while keeping [dependency feature defaults](refactors/portability/dependency-feature-defaults.md) green.
+2. Run the [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md) with one owner for manifests, facade roots, module indexes, and build integration.
+3. Isolate analyzer models from host document/rendering/service state, then plan the `acorn-analysis` extraction against the accepted schema package.
+
+The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
+
 ## Adding a plan
 
 1. Create one semantically named Markdown file for one atomic topic.

@@ -1,7 +1,7 @@
 mod docx;
 use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::*;
-use crate::schema::research_activity::MarkdownParser;
+use crate::io::document::MarkdownParser;
 
 fn document(content: &str, source: &str) -> SourceDocument {
     SourceDocument::init().content(content).format("text").source(source).build()

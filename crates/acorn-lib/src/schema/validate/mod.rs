@@ -2,14 +2,7 @@
 //!
 //! Generic validation functions and custom ACORN rules for validating schema data.
 //!
-#[cfg(feature = "std")]
-use crate::io::database::{
-    schema::{LicenseRow, ProgrammingLanguageRow},
-    Row,
-};
 use crate::prelude::alloc::{format, String, ToString, Vec};
-#[cfg(feature = "std")]
-use crate::prelude::std::env;
 use crate::regex_validator;
 use crate::schema::geonames::{CodeFormat, GeonamesParser};
 use crate::schema::standard::datacite::{
@@ -17,8 +10,6 @@ use crate::schema::standard::datacite::{
 };
 use crate::schema::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::schema::OneOrMany;
-#[cfg(feature = "std")]
-use crate::util::constants::env::DATABASE_PATH;
 use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_IP6, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
 use crate::validation::{rules, Validate, ValidationError, ValidationReport};
@@ -399,87 +390,22 @@ pub fn is_iso_639_1_language_code(value: &str) -> Result<(), ValidationError> {
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE.into())),
     }
 }
-/// Check if value is a valid license
-/// ### Note
-/// Value is validated against local database
-#[cfg(feature = "std")]
+/// Check if a value is a non-empty SPDX license identifier string.
 pub fn is_license(value: &str) -> Result<(), ValidationError> {
     const CODE: &str = "license";
     const MESSAGE: &str = "Provide valid SPDX license identifier";
-    let candidate = value.trim().to_string();
-    let normalized = candidate.to_ascii_lowercase();
-    let validation_error = |message: String| {
-        let mut why = ValidationError::new(CODE).with_message(message.into());
-        why.add_param("value".into(), &candidate);
-        why
-    };
-    let predicate = |row: &LicenseRow| {
-        let LicenseRow { identifier, name, .. } = row;
-        let is_valid_identifier = identifier.as_ref().map(|id| id.eq_ignore_ascii_case(&normalized)).unwrap_or(false);
-        let is_valid_name = name.as_ref().map(|name| name.eq_ignore_ascii_case(&normalized)).unwrap_or(false);
-        is_valid_identifier || is_valid_name
-    };
-    if normalized.is_empty() {
-        Err(validation_error(format!("{MESSAGE} (cannot be empty)")))
-    } else {
-        match env::var(DATABASE_PATH) {
-            | Ok(path) => {
-                let exists = LicenseRow::default().select(Some(path.into()), predicate).map(|row| row.is_some());
-                match exists {
-                    | Ok(true) => Ok(()),
-                    | Ok(false) => Err(validation_error(MESSAGE.to_string())),
-                    | Err(_) => Err(validation_error("Failed to access local database for license validation".to_string())),
-                }
-            }
-            | Err(_) => Err(validation_error("Failed to access local database for license validation".to_string())),
-        }
-    }
-}
-#[cfg(not(feature = "std"))]
-/// Check if value is a non-empty SPDX license identifier string in no-std mode.
-pub fn is_license(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "license";
-    const MESSAGE: &str = "Provide valid SPDX license identifier";
-    let value = value.trim();
-    if value.is_empty() {
-        Err(ValidationError::new(CODE).with_message(format!("{MESSAGE} (cannot be empty)").into()))
-    } else {
-        Ok(())
-    }
-}
-/// Check whether a value exists in the local programming-language catalog
-#[cfg(feature = "std")]
-pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
-    const CODE: &str = "programming_language";
-    const MESSAGE: &str = "Provide valid programming language";
     let candidate = value.trim().to_string();
     let validation_error = |message: String| {
         let mut why = ValidationError::new(CODE).with_message(message.into());
         why.add_param("value".into(), &candidate);
         why
     };
-    let predicate = |row: &ProgrammingLanguageRow| row.name.as_ref().is_some_and(|name| name.eq_ignore_ascii_case(&candidate));
     match candidate.is_empty() {
         | true => Err(validation_error(format!("{MESSAGE} (cannot be empty)"))),
-        | false => match env::var(DATABASE_PATH) {
-            | Ok(path) => match ProgrammingLanguageRow::default()
-                .select(Some(path.into()), predicate)
-                .map(|row| row.is_some())
-            {
-                | Ok(true) => Ok(()),
-                | Ok(false) => Err(validation_error(MESSAGE.to_string())),
-                | Err(_) => Err(validation_error(
-                    "Failed to access local database for programming language validation".to_string(),
-                )),
-            },
-            | Err(_) => Err(validation_error(
-                "Failed to access local database for programming language validation".to_string(),
-            )),
-        },
+        | false => Ok(()),
     }
 }
-#[cfg(not(feature = "std"))]
-/// Check whether a programming-language value is non-empty without database access
+/// Check whether a programming-language value is non-empty.
 pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
     match value.trim().is_empty() {
         | true => Err(ValidationError::new("programming_language").with_message("Provide valid programming language (cannot be empty)".into())),

@@ -182,6 +182,7 @@
 //! }
 //! ```
 use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
+use crate::util::Checksum;
 pub use acorn_macros::Validate;
 use alloc::borrow::Cow;
 use alloc::collections::BTreeMap;
@@ -233,6 +234,11 @@ pub struct ValidationIssue {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ValidationReport(Vec<ValidationIssue>);
+impl Validate for Checksum {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        Ok(())
+    }
+}
 impl ValidationError {
     /// Create an error with a stable code.
     pub fn new(code: impl Into<String>) -> Self {

@@ -7,7 +7,6 @@
 )]
 use crate::schema::standard::invenio::{CodeMeta, Metadata, PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::test::utils::fixture_path;
-use crate::util::constants::env::DATABASE_PATH;
 use crate::validation::Validate;
 
 fn load_fixture_text() -> String {
@@ -98,20 +97,16 @@ fn test_person_or_org_identifier_schemes() {
 }
 #[test]
 fn test_codemeta_programming_language_validation() {
-    let path = crate::test::utils::temp_database_with_programming_languages().expect("failed to initialize temporary programming-language database");
-    let path_string = path.to_string_lossy().to_string();
-    temp_env::with_vars([(DATABASE_PATH, Some(path_string.as_str()))], || {
-        let valid = CodeMeta {
-            code_repository: None,
-            programming_language: Some("Rust".to_string()),
-            development_status: None,
-        };
-        assert!(valid.validate().is_ok());
-        assert!(CodeMeta {
-            programming_language: Some("Not A Language".to_string()),
-            ..valid
-        }
-        .validate()
-        .is_err());
-    });
+    let valid = CodeMeta {
+        code_repository: None,
+        programming_language: Some("Rust".to_string()),
+        development_status: None,
+    };
+    assert!(valid.validate().is_ok());
+    assert!(CodeMeta {
+        programming_language: Some(String::new()),
+        ..valid
+    }
+    .validate()
+    .is_err());
 }

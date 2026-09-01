@@ -2,6 +2,7 @@
 //!
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
+pub use super::model::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::analyzer::error::DocumentTarget;
 use crate::io::document::DocumentQuery;
 use crate::prelude::PathBuf;
@@ -12,32 +13,8 @@ use ariadne::{Color, ReportKind};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
-use serde::{Deserialize, Serialize};
 use tracing::{error, trace};
 
-/// Vale output severity
-///
-/// See <https://vale.sh/docs/keys/minalertlevel> for more information
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ValeOutputItemSeverity {
-    /// Warning
-    ///
-    /// Should strongly consider fixing
-    #[display("warning")]
-    Warning,
-    /// Error
-    ///
-    /// Should fix
-    #[display("error")]
-    Error,
-    /// Suggestion
-    ///
-    /// Should consider fixing or changing
-    #[default]
-    #[display("suggestion")]
-    Suggestion,
-}
 /// Vale installation details
 #[derive(Builder, Clone, Debug, Default, Display)]
 #[display("{:?}", version)]
@@ -75,45 +52,6 @@ pub struct ValeConfig {
     /// See <https://vale.sh/docs/styles#rules> for more information
     #[builder(default = Vec::<String>::new())]
     pub disabled: Vec<String>,
-}
-/// Vale output
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ValeOutput {
-    /// List of output items
-    pub items: Vec<ValeOutputItem>,
-}
-/// Vale output item
-///
-/// The primary purpose of this struct is to enable presenting a custom view of Vale output
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ValeOutputItem {
-    pub(crate) action: ValeOutputItemAction,
-    /// Name of Vale check
-    /// ### Example
-    /// `Vale.Spelling`
-    pub check: String,
-    pub(crate) description: String,
-    /// Line number
-    pub line: u32,
-    pub(crate) link: String,
-    /// Text describing the issue and/or providing suggestions
-    pub message: String,
-    /// Severity of the issue (e.g., warning, error, suggestion)
-    pub severity: ValeOutputItemSeverity,
-    /// Span of the issue (e.g., starting and ending characters of issue location in context)
-    pub span: Vec<u32>,
-    #[serde(rename = "Match")]
-    pub(crate) word_match: String,
-}
-/// Vale output item action
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ValeOutputItemAction {
-    /// Action name
-    pub(crate) name: String,
-    /// Action parameters
-    pub(crate) params: Option<Vec<String>>,
 }
 impl ValeOutput {
     /// Parse Vale output

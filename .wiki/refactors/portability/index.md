@@ -2,9 +2,13 @@
 
 ## Next
 
-- [Portability roadmap](roadmap.md) - Coordinate the active critical path and feature matrix.
 - [Isolate std-only modules](isolate-std-only-modules.md) - Complete the separation between portable domain logic and host services.
 - [Dependency feature defaults](dependency-feature-defaults.md) - Finish classifying the portable dependency tree.
+- [Extract acorn-schema](acorn-schema-extraction.md) - Move the first remaining portable domain into its own package after the isolation gate.
+
+## Coordination
+
+- [Portability roadmap](roadmap.md) - Coordinate the active critical path and feature matrix; schedule its atomic child plans rather than the roadmap itself.
 
 ## Planned
 

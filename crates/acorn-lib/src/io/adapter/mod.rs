@@ -5,21 +5,149 @@
 pub mod migrate;
 use self::migrate::Migration;
 use crate::error::ApiResult;
+use crate::io::database::schema::{ModelRow, Table};
+use crate::io::database::{Database, Operations, Row};
 use crate::io::document::{DocumentFormat, SourceDocument};
 use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
 use crate::prelude::alloc::{vec, Vec};
 use crate::prelude::std::{Error, Path, PathBuf};
+use crate::schema::agent::{opencode, Weights};
 use crate::schema::pid::raid::Metadata;
 use crate::schema::pid::PersistentIdentifierConvert;
 use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use crate::schema::standard::cff::Cff;
 use crate::schema::standard::text::Text;
 use crate::schema::standard::{datacite, dcat, huwise, invenio, text};
-use crate::schema::{ImageObject, MediaObject, OneOrMany};
+use crate::schema::{ContactPoint, ImageObject, MediaObject, OneOrMany};
 use crate::util::{file_extension, Label, LinkedData, MarkdownSupport, MimeType, StringConversion, Unstructured};
 use color_eyre::eyre::eyre;
+use directories::BaseDirs;
 use owo_colors::OwoColorize;
 use tracing::{debug, error};
+
+impl opencode::Config {
+    /// Load OpenCode configuration from a path or return an empty configuration.
+    pub fn load(path: impl AsRef<Path>) -> Self {
+        path.as_ref()
+            .is_file()
+            .then(|| Self::read(path.as_ref()).ok())
+            .flatten()
+            .unwrap_or_default()
+    }
+    /// Load OpenCode configuration from a JSON or JSONC file path.
+    pub fn from_path(path: impl AsRef<Path>) -> ApiResult<Self> {
+        Self::read(path.as_ref())
+    }
+    /// Discover OpenCode configuration in project and user configuration locations.
+    pub fn resolve() -> Option<Self> {
+        let home = BaseDirs::new().map(|dirs| dirs.config_dir().to_path_buf());
+        [
+            Some(PathBuf::from("opencode.jsonc")),
+            Some(PathBuf::from("opencode.json")),
+            home.as_ref().map(|path| path.join("opencode").join("opencode.jsonc")),
+            home.as_ref().map(|path| path.join("opencode").join("opencode.json")),
+        ]
+        .into_iter()
+        .flatten()
+        .find_map(|path| path.is_file().then(|| Self::read(&path).ok()).flatten())
+    }
+}
+impl InputOutput for opencode::Config {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+        }
+        .map(|config| Self {
+            path: Some(source),
+            ..config
+        })
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone())
+            .and_then(|content| Self::parse_json(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
+    }
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone())
+            .and_then(|content| Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why)))
+    }
+    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let target = path.into();
+        match MimeType::from_path(&target) {
+            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.to_jsonc_string().and_then(|content| write_file(path.into(), content))
+    }
+    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
+    }
+}
+impl Weights {
+    /// Refresh file-level weights for a model while preserving repository-level sources.
+    pub fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
+        ModelRow::init()
+            .model_id(model_id.to_string())
+            .build()
+            .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id))
+            .and_then(|lookup| match lookup {
+                | Some(row) => {
+                    let existing = row
+                        .weights
+                        .as_deref()
+                        .and_then(|value| serde_json::from_str::<Weights>(value).ok())
+                        .unwrap_or_default();
+                    Weights(
+                        existing
+                            .0
+                            .into_iter()
+                            .filter(|weight| !(weight.quantization.is_some() && weight.url.contains("/resolve/")))
+                            .chain(self.0)
+                            .collect(),
+                    )
+                    .serialize()
+                    .and_then(|weights| {
+                        ModelRow {
+                            weights: Some(weights),
+                            ..row
+                        }
+                        .update_weights(database_path)
+                        .map(|_| ())
+                    })
+                }
+                | None => self.serialize().and_then(|weights| {
+                    Database::<Table>::from_path(database_path)
+                        .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
+                        .map(|_| ())
+                }),
+            })
+    }
+}
+impl ContactPoint {
+    /// Fix, resolve, and augment contact data with host context.
+    pub fn format_with(self, _context: Option<PathBuf>) -> Self {
+        self.format()
+    }
+}
+impl ResearchActivity {
+    /// Format research activity data with filesystem and remote-resource context.
+    pub fn format_with(self, context: Option<PathBuf>) -> Self {
+        let Self { meta, contact, .. } = self.clone();
+        Self {
+            meta: meta.format_with(context.clone()),
+            contact: contact.format_with(context),
+            ..self
+        }
+        .format()
+    }
+}
 
 impl InputOutput for Cff {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {

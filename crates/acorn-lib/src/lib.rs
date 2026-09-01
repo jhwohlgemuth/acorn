@@ -1,12 +1,6 @@
-//! # 🌱 ACORN Library
-//! > "Plant an ACORN and grow your research"
+//! # ACORN compatibility library
 //!
-//! `acorn-lib` is a one-stop-shop for everything related to building and maintaining research activity data (RAD)-related technology, including the Accessible Content Optimization for Research Needs (ACORN) tool.
-//! The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
-//!
-// Policy: `wasm` marks portable allocation-capable APIs. Cargo feature
-// unification means tooling such as `--all-features` may combine it with `std`;
-// wasm-specific code should use `#[cfg(all(feature = "wasm", not(feature = "std")))]`.
+//! This crate exposes ACORN schemas, services, and host adapters while preserving the established `acorn::...` public paths.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -14,16 +8,6 @@ extern crate alloc;
 #[doc(hidden)]
 #[cfg(feature = "cmd")]
 pub use acorn_macros::cmd_sh_words;
-
-use core::convert::Infallible;
-use core::str::FromStr;
-use derive_more::Display;
-use fluent_uri::{Uri, UriRef};
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-use tracing::debug;
-use tracing::{error, trace, warn};
-use urlencoding::encode;
 
 #[cfg(feature = "analysis")]
 pub mod analyzer;
@@ -37,223 +21,64 @@ pub mod prelude;
 pub mod schema;
 pub mod util;
 pub mod validation;
-#[cfg(all(feature = "std", feature = "analysis"))]
-use crate::analyzer::{link_check, Check};
+
+pub use acorn_core::{Location, Release, Repository, Scheme};
+pub use acorn_macros::Validate;
+pub use error::{AcornError, AcornResult};
+
 #[cfg(feature = "std")]
 use crate::io::api::{github, gitlab, Configuration};
 #[cfg(feature = "std")]
 use crate::io::http::get;
 #[cfg(feature = "std")]
-use crate::io::uri_to_path;
-use crate::prelude::alloc::{format, Box, String, ToString, Vec};
+use crate::prelude::alloc::{format, String, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::std::{Path, PathBuf};
+use crate::prelude::std::PathBuf;
 #[cfg(feature = "std")]
 use crate::schema::ControlledVocabulary;
-use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
-use crate::util::Label;
 #[cfg(feature = "std")]
 use crate::util::MimeType;
-pub use acorn_macros::Validate;
-pub use error::{AcornError, AcornResult};
-use strum::EnumIs;
+#[cfg(all(feature = "std", feature = "analysis"))]
+use analyzer::{link_check, Check};
+#[cfg(feature = "std")]
+use tracing::{debug, error, trace, warn};
 
-/// **Descriptive/persistent** location reference for use in configuration (buckets, repositories, etc.).
-///
-/// This is a **data type** meant for storage and serialization — use [`io::Source`] when you
-/// actually need to **read** bytes from a local path or URL at runtime.
-///
-/// Supports both raw URI strings (`Simple`) and structured scheme+URI pairs (`Detailed`).
-///
-/// See [`io::Source`] for the complementary **operational/transient** type that handles I/O.
-#[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum Location {
-    /// Just the URI string (assumes remote location)
-    Simple(String),
-    /// Location defined by URI and scheme - intended for use with remote or local locations
-    #[display("{uri}")]
-    Detailed {
-        /// URI Scheme
-        ///
-        /// See [RFC 8089] for more information
-        ///
-        /// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-        scheme: Scheme,
-        /// Full URI value
-        uri: String,
-        /// Optional branch, tag, or revision for versioned locations
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        revision: Option<String>,
-    },
-}
-/// Git hosting repository data
-#[derive(Clone, Debug, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "provider", rename_all = "lowercase")]
-pub enum Repository {
-    /// Generic Git repository
-    /// ### Note
-    /// > This repository type should be used for local and offline repositories. Having the associated data be version controlled by Git is recommended, but not required.
-    #[display("git")]
-    Git {
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Box<Location>,
-    },
-    /// GitHub
-    ///
-    /// See <https://docs.github.com/en/rest/reference/repos>
-    #[display("github")]
-    GitHub {
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Box<Location>,
-    },
-    /// GitLab
-    ///
-    /// See <https://docs.gitlab.com/api/repositories/#list-repository-tree>
-    #[display("gitlab")]
-    GitLab {
-        /// Integer ID of GitLab project
-        ///
-        /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information
-        id: Option<u64>,
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Box<Location>,
-    },
-    /// Hugging Face
-    ///
-    /// See <https://huggingface.co/docs/hub/repositories-getting-started>
-    #[display("huggingface")]
-    HuggingFace {
-        /// Repository location information
-        #[serde(alias = "uri")]
-        location: Box<Location>,
-    },
-    /// Open Container Initiative artifact registry.
-    #[display("oci")]
-    OCI {
-        /// Explicit `oci://` artifact location.
-        #[serde(alias = "uri")]
-        location: Box<Location>,
-        /// Optional named registry profile from application configuration.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        registry: Option<String>,
-    },
-}
-/// URI Scheme
-///
-/// See [RFC 8089] for more information
-///
-/// [RFC 8089]: https://datatracker.ietf.org/doc/rfc8089/
-#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Scheme {
-    /// Secure HTTP
-    #[default]
-    #[display("https")]
-    HTTPS,
-    /// Insecure HTTP included primarily for contexts necessitating its use (ex., local development)
-    #[display("http")]
-    HTTP,
-    /// Local file or folder
-    #[display("file")]
-    File,
-    /// Unsupported scheme (e.g., insecure, not implemented, etc.)
-    Unsupported,
-}
-/// Struct for release data from GitLab or GitHub
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Release {
-    /// Name of release
-    pub name: String,
-    /// Tag name of release
-    /// ### Example
-    /// > `v1.0.0`
-    pub tag_name: String,
-    /// Prose description of release
-    #[serde(alias = "body")]
-    pub description: String,
-    /// Date of release creation
-    pub created_at: String,
-    /// Date of release publication
-    #[serde(alias = "published_at")]
-    pub released_at: String,
-    /// Release response message
-    pub message: Option<String>,
-}
-impl FromStr for Location {
-    type Err = Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(s))
-    }
-}
-impl From<&str> for Location {
-    fn from(s: &str) -> Self {
-        match UriRef::parse(s).ok().and_then(|uri| uri.scheme()) {
-            | Some(scheme) => Location::Detailed {
-                scheme: Scheme::from(scheme.as_str()),
-                uri: s.to_string(),
-                revision: None,
-            },
-            | None => Location::Simple(s.to_string()),
-        }
-    }
-}
-impl From<&String> for Location {
-    fn from(value: &String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl<'a> From<&'a Location> for &'a str {
-    fn from(value: &'a Location) -> Self {
-        match value {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value.as_str(),
-        }
-    }
-}
-impl Location {
-    /// Return whether this location uses HTTP or HTTPS.
-    pub fn is_http_or_https(&self) -> bool {
-        matches!(self.scheme(), Scheme::HTTP | Scheme::HTTPS)
-    }
-    /// Returns true when a source string points to a local filesystem path.
-    pub fn is_local(&self) -> bool {
-        let value = match self {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value.trim(),
-        };
-        let is_file_scheme = match self {
-            | Location::Detailed { scheme, .. } => scheme.is_file(),
-            | Location::Simple(_) => false,
-        };
-        let is_local_path = value.starts_with("file:") || value.starts_with("./") || value.starts_with("../") || {
-            #[cfg(feature = "std")]
-            {
-                Path::new(value).is_absolute()
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                false
-            }
-        };
-        is_file_scheme || is_local_path
-    }
+/// Native filesystem and content-detection operations for [`Location`].
+#[cfg(feature = "std")]
+pub trait LocationExt {
     /// Convert the location URI to a normalized filesystem path.
-    #[cfg(feature = "std")]
-    pub fn uri_as_path(&self) -> PathBuf {
-        uri_to_path(self.uri().unwrap_or_default())
+    fn uri_as_path(&self) -> PathBuf;
+    /// Return the path when this location identifies an available local source.
+    fn local_path(&self) -> Option<PathBuf>;
+    /// Resolve a source file type from content, falling back to the location path.
+    fn resolve_file_type(&self, content: &[u8]) -> MimeType;
+    /// Check whether this location is reachable.
+    #[cfg(feature = "analysis")]
+    fn exists(self) -> impl core::future::Future<Output = bool> + Send;
+}
+/// Native provider operations for [`Repository`].
+#[cfg(feature = "std")]
+pub trait RepositoryExt {
+    /// Get metadata for the latest repository release.
+    fn latest_release(self) -> impl core::future::Future<Output = Option<Release>> + Send;
+    /// Fetch canonical programming-language names for the first supported repository.
+    fn technology(repositories: &[Self], options: Option<gitlab::Options>) -> impl core::future::Future<Output = Option<Vec<String>>> + Send
+    where
+        Self: Sized;
+    /// Get all releases supplied by the repository provider.
+    #[doc(hidden)]
+    fn releases(self) -> impl core::future::Future<Output = Vec<Release>> + Send;
+}
+#[cfg(feature = "std")]
+impl LocationExt for Location {
+    fn uri_as_path(&self) -> PathBuf {
+        io::uri_to_path(self.uri().unwrap_or_default())
     }
-    /// Return the normalized path when the location identifies an available local source.
-    #[cfg(feature = "std")]
-    pub fn local_path(&self) -> Option<PathBuf> {
+    fn local_path(&self) -> Option<PathBuf> {
         let path = self.uri_as_path();
         (self.is_local() || path.exists()).then_some(path)
     }
-    /// Resolve a source file type from its content, falling back to the location path.
-    #[cfg(feature = "std")]
-    pub fn resolve_file_type(&self, content: &[u8]) -> MimeType {
+    fn resolve_file_type(&self, content: &[u8]) -> MimeType {
         MimeType::infer(content).unwrap_or_else(|| {
             self.path()
                 .as_deref()
@@ -262,242 +87,33 @@ impl Location {
                 .unwrap_or(MimeType::Json)
         })
     }
-    /// Get associated location hash
-    /// > Useful for standardizing file path handling across local and remote contexts
-    /// ### Example
-    /// ```rust
-    /// use acorn::Location;
-    ///
-    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
-    /// assert_eq!(location.hash(), "code_ornl_gov_research-enablement_buckets_nssd");
-    /// ```
-    pub fn hash(&self) -> String {
-        let host = self.host().unwrap_or_default().replace('.', "_");
-        let segments = self
-            .path()
-            .map(|p| {
-                p.split('/')
-                    .filter(|s| !(s.is_empty() || *s == "."))
-                    .map(|s| s.to_string())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        [host, segments.join("_").to_lowercase()]
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .collect::<Vec<String>>()
-            .join("_")
-    }
-    /// Get associated location value scheme (e.g., https, file, etc.)
-    /// ### Example
-    /// ```rust
-    /// use acorn::{Location, Scheme};
-    ///
-    /// let location = Location::Simple("https://code.ornl.gov/research-enablement/buckets/nssd".to_string());
-    /// assert_eq!(location.scheme(), Scheme::HTTPS);
-    /// let location = Location::Simple("file://localhost/buckets/nssd".to_string());
-    /// assert_eq!(location.scheme(), Scheme::File);
-    /// ```
-    pub fn scheme(&self) -> Scheme {
-        match self {
-            | Location::Simple(value) => Uri::parse(value.as_str())
-                .map(|uri| Scheme::from(uri.scheme().as_str()))
-                .unwrap_or(Scheme::Unsupported),
-            | Location::Detailed { scheme, .. } => scheme.clone(),
-        }
-    }
-    /// Check if a location exists (i.e., is reachable and accessible)
-    #[cfg(all(feature = "std", feature = "analysis"))]
-    pub async fn exists(self) -> bool {
+    #[cfg(feature = "analysis")]
+    async fn exists(self) -> bool {
         let uri = self.uri();
         let scheme = self.scheme();
         if scheme == Scheme::HTTP {
-            warn!("=> {} HTTP is supported but only advised in local development scenarios", Label::skip());
+            warn!("HTTP is supported but only advised in local development scenarios");
         }
         match scheme {
             | Scheme::HTTPS | Scheme::HTTP => match uri {
-                | Some(uri) => match link_check(Some(uri), None).await {
-                    | Check { success, .. } if success => true,
-                    | _ => false,
-                },
+                | Some(uri) => matches!(link_check(Some(uri), None).await, Check { success: true, .. }),
                 | None => false,
             },
-            | Scheme::File => match uri {
-                | Some(_) => PathBuf::from(self.path().unwrap_or_default()).exists(),
-                | None => false,
-            },
+            | Scheme::File => uri.is_some_and(|_| PathBuf::from(self.path().unwrap_or_default()).exists()),
             | Scheme::Unsupported => false,
         }
     }
-    /// Extract and return URI string from a location value
-    pub fn uri(&self) -> Option<String> {
-        match self {
-            | Location::Simple(value) => Some(value.clone()),
-            | Location::Detailed { scheme, uri, .. } => match Uri::parse(uri.as_str()) {
-                | Ok(parsed) => {
-                    let authority = parsed.authority().map(|auth| auth.as_str().to_string());
-                    let path = parsed.path().to_string();
-                    let query = parsed.query().map(|q| format!("?{q}")).unwrap_or_default();
-                    let fragment = parsed.fragment().map(|f| format!("#{f}")).unwrap_or_default();
-                    Some(match authority {
-                        | Some(auth) if !auth.is_empty() => format!("{scheme}://{auth}{path}{query}{fragment}"),
-                        | _ => format!("{scheme}:{path}{query}{fragment}"),
-                    })
-                }
-                | Err(_) => {
-                    warn!("=> {} Parse URI - {uri}", Label::fail());
-                    Some(format!("{scheme}://{uri}"))
-                }
-            },
-        }
-    }
-    /// Get host from location URI
-    pub fn host(&self) -> Option<String> {
-        match self.uri() {
-            | Some(value) => Uri::parse(value.as_str())
-                .ok()
-                .and_then(|uri| uri.authority().map(|auth| auth.host().to_string())),
-            | None => None,
-        }
-    }
-    /// Get the registry authority, preserving an explicit port and IPv6 brackets.
-    pub fn registry(&self) -> Option<String> {
-        self.host().map(|host| match self.port() {
-            | Some(port) if host.starts_with('[') => format!("{host}:{port}"),
-            | Some(port) if host.contains(':') => format!("[{host}]:{port}"),
-            | Some(port) => format!("{host}:{port}"),
-            | None if host.starts_with('[') => host,
-            | None if host.contains(':') => format!("[{host}]"),
-            | None => host,
-        })
-    }
-    /// Get path from location URI
-    pub fn path(&self) -> Option<String> {
-        match self.uri() {
-            | Some(value) => Uri::parse(value.as_str()).ok().map(|uri| uri.path().to_string()),
-            | None => None,
-        }
-    }
-    /// Get port from location URI
-    pub fn port(&self) -> Option<u16> {
-        match self.uri() {
-            | Some(value) => Uri::parse(value.as_str())
-                .ok()
-                .and_then(|uri| uri.authority().and_then(|auth| auth.port_to_u16().ok()).flatten()),
-            | None => None,
-        }
-    }
 }
-impl Default for Repository {
-    fn default() -> Self {
-        Self::Git {
-            location: Box::new(Location::Simple("file:///".to_string())),
-        }
+#[cfg(feature = "std")]
+impl RepositoryExt for Repository {
+    async fn latest_release(self) -> Option<Release> {
+        self.releases()
+            .await
+            .into_iter()
+            .next()
+            .inspect(|release| trace!(?release, "Latest release"))
     }
-}
-impl Repository {
-    /// Classify a remote repository URL using its overt provider domain
-    pub fn from_remote(value: &str, domain: &str) -> Option<Self> {
-        let location = Location::from(value);
-        let host = location.host().map(|host| host.trim_start_matches("www.").to_ascii_lowercase());
-        let configured_url = if domain.contains("://") {
-            domain.to_string()
-        } else {
-            format!("https://{domain}")
-        };
-        let configured = Location::from(configured_url.as_str());
-        let is_gitlab = configured.host() == location.host() && configured.port() == location.port();
-        match (location.scheme(), host.as_deref()) {
-            | (Scheme::HTTP | Scheme::HTTPS, Some("github.com")) => Some(Self::GitHub {
-                location: Box::new(location),
-            }),
-            | (Scheme::HTTP | Scheme::HTTPS, Some(host)) if host == DEFAULT_HUGGINGFACE_DOMAIN => Some(Self::HuggingFace {
-                location: Box::new(location),
-            }),
-            | (Scheme::HTTP | Scheme::HTTPS, Some(_)) if is_gitlab => Some(Self::GitLab {
-                id: None,
-                location: Box::new(location),
-            }),
-            | _ => None,
-        }
-    }
-    /// Get repository domain (e.g., "github.com" or "code.ornl.gov")
-    pub fn domain(&self) -> Option<String> {
-        self.location().host()
-    }
-    /// Return whether or not the associated URI for a repository is local (e.g., has "file" scheme)
-    pub fn is_local(&self) -> bool {
-        self.location().is_local()
-    }
-    /// Get metadata for latest release of a Gitlab or GitHub repository
-    #[cfg(feature = "std")]
-    pub async fn latest_release(self) -> Option<Release> {
-        match self.releases().await {
-            | releases if releases.is_empty() => None,
-            | releases => match releases.into_iter().next() {
-                | Some(release) => {
-                    trace!("=> {} Latest {:#?}", Label::using(), release);
-                    Some(release)
-                }
-                | None => None,
-            },
-        }
-    }
-    /// Get repository location
-    pub fn location(&self) -> Location {
-        match self.clone() {
-            | Repository::Git { location, .. }
-            | Repository::GitHub { location, .. }
-            | Repository::GitLab { location, .. }
-            | Repository::HuggingFace { location, .. }
-            | Repository::OCI { location, .. } => *location,
-        }
-    }
-    /// Get repository ID
-    pub fn id(&self) -> Option<String> {
-        match self {
-            | Repository::Git { .. } | Repository::GitHub { .. } | Repository::OCI { .. } => None,
-            | Repository::HuggingFace { location } => location.path().map(|path| path.trim_start_matches('/').to_string()),
-            | Repository::GitLab { id, location } => match id {
-                | Some(value) => Some(value.to_string()),
-                | None => match location.path() {
-                    | Some(path) => match path.strip_prefix('/') {
-                        | Some(stripped) if !stripped.is_empty() => {
-                            let encoded = encode(stripped).to_string();
-                            trace!(encoded, "=> {} ID", Label::using());
-                            Some(encoded)
-                        }
-                        | _ => None,
-                    },
-                    | None => {
-                        warn!("=> {} Parse GitLab URI", Label::fail());
-                        None
-                    }
-                },
-            },
-        }
-    }
-    /// Return the provider-native repository path or identifier.
-    pub fn project_path(&self) -> Option<String> {
-        match self {
-            | Repository::GitHub { location } | Repository::HuggingFace { location } => location.path().and_then(|path| {
-                let mut segments = path.trim_matches('/').split('/');
-                segments
-                    .next()
-                    .zip(segments.next())
-                    .map(|(owner, repository)| format!("{owner}/{}", repository.trim_end_matches(".git")))
-            }),
-            | Repository::GitLab { id: Some(id), .. } => Some(id.to_string()),
-            | Repository::GitLab { id: None, location } => location.path().and_then(|path| {
-                let project_path = path.trim_matches('/').split("/-/").next().unwrap_or_default().trim_end_matches(".git");
-                (project_path.split('/').count() >= 2).then(|| project_path.to_string())
-            }),
-            | Repository::Git { .. } | Repository::OCI { .. } => None,
-        }
-    }
-    /// Fetch canonical programming-language names for the first supported repository.
-    #[cfg(feature = "std")]
-    pub async fn technology(repositories: &[Self], options: Option<gitlab::Options>) -> Option<Vec<String>> {
+    async fn technology(repositories: &[Self], options: Option<gitlab::Options>) -> Option<Vec<String>> {
         let options = options.unwrap_or_else(gitlab::Options::from_env);
         match repositories.iter().find(|repository| repository.is_git_hub()) {
             | Some(repository) => github::languages(repository.project_path()?)
@@ -517,196 +133,41 @@ impl Repository {
             },
         }
     }
-    #[cfg(feature = "std")]
     async fn releases(self) -> Vec<Release> {
         let maybe_url = match &self {
             | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
-            | Repository::GitHub { location } => {
-                let host = location.host();
-                let path = location.path();
-                match (host, path) {
-                    | (Some(host), Some(path)) => Some(format!("https://api.{host}/repos{path}/releases")),
-                    | (None, _) => {
-                        error!("=> {} Parse GitHub URI host", Label::fail());
-                        None
-                    }
-                    | (_, None) => {
-                        error!("=> {} Parse GitHub URI", Label::fail());
-                        None
-                    }
-                }
-            }
-            | Repository::GitLab { location, .. } => match self.id() {
-                | Some(id) => match location.host() {
-                    | Some(host) => Some(format!("https://{host}/api/v4/projects/{id}/releases")),
-                    | None => {
-                        error!("=> {} Parse GitLab URI host", Label::fail());
-                        None
-                    }
-                },
-                | None => None,
-            },
+            | Repository::GitHub { location } => location
+                .host()
+                .zip(location.path())
+                .map(|(host, path)| format!("https://api.{host}/repos{path}/releases")),
+            | Repository::GitLab { location, .. } => self
+                .id()
+                .zip(location.host())
+                .map(|(id, host)| format!("https://{host}/api/v4/projects/{id}/releases")),
         };
-        if let Some(url) = maybe_url {
-            debug!(url, "=> {}", Label::using());
-            match get(url).send().await {
-                | Ok(response) => {
-                    let text = response.text().await;
-                    match text {
-                        | Ok(text) => {
-                            if text.contains("API rate limit exceeded") {
-                                error!("=> {} GitHub API rate limit exceeded", Label::fail());
-                                vec![]
-                            } else {
-                                let releases: Vec<Release> = match serde_json::from_str(&text) {
-                                    | Ok(values) => values,
-                                    | Err(why) => {
-                                        error!("=> {} Parse {} API JSON response - {why}", self, Label::fail());
-                                        vec![]
-                                    }
-                                };
-                                releases
-                            }
+        match maybe_url {
+            | Some(url) => {
+                debug!(url, "Resolve releases");
+                match get(url).send().await {
+                    | Ok(response) => match response.text().await {
+                        | Ok(text) if text.contains("API rate limit exceeded") => {
+                            error!("GitHub API rate limit exceeded");
+                            Vec::new()
                         }
+                        | Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
                         | Err(why) => {
-                            error!("=> {} Parse {} API text response - {why}", self, Label::fail());
-                            vec![]
+                            error!("Parse release response: {why}");
+                            Vec::new()
                         }
+                    },
+                    | Err(why) => {
+                        error!("Download releases: {why}");
+                        Vec::new()
                     }
                 }
-                | Err(why) => {
-                    error!("=> {} Download {} releases - {why}", self, Label::fail());
-                    vec![]
-                }
             }
-        } else {
-            vec![]
+            | None => Vec::new(),
         }
-    }
-    /// Get URL for raw data of a file at a given path
-    ///
-    /// GitLab repositories resolve to `None`; GitLab buckets build authenticated repository-files
-    /// API URLs through [`Bucket::download_item`](crate::io::config::Bucket::download_item).
-    pub fn raw_url(&self, path: String) -> Option<String> {
-        match self {
-            | Repository::GitHub { location, .. } => match location.path() {
-                | Some(ref value) => Some(format!("https://raw.githubusercontent.com{value}/refs/heads/main/{path}")),
-                | None => {
-                    error!("=> {} Parse GitHub URI", Label::fail());
-                    None
-                }
-            },
-            | Repository::GitLab { .. } | Repository::Git { .. } | Repository::HuggingFace { .. } | Repository::OCI { .. } => None,
-        }
-    }
-}
-impl From<&str> for Scheme {
-    fn from(value: &str) -> Self {
-        match value.to_ascii_lowercase().as_str() {
-            | "https" => Scheme::HTTPS,
-            | "http" => Scheme::HTTP,
-            | "file" => Scheme::File,
-            | _ => Scheme::Unsupported,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(
-        clippy::arithmetic_side_effects,
-        clippy::expect_used,
-        clippy::indexing_slicing,
-        clippy::panic,
-        clippy::unwrap_used
-    )]
-    use super::{Location, Repository, Scheme};
-    #[cfg(feature = "std")]
-    use crate::prelude::PathBuf;
-
-    #[test]
-    fn test_scheme_from_str() {
-        assert_eq!(Scheme::from("https"), Scheme::HTTPS);
-        assert_eq!(Scheme::from("HTTP"), Scheme::HTTP);
-        assert_eq!(Scheme::from("file"), Scheme::File);
-        assert_eq!(Scheme::from("ssh"), Scheme::Unsupported);
-    }
-    #[cfg(feature = "std")]
-    #[test]
-    fn test_location_uri_as_path_normalizes_file_uri() {
-        assert_eq!(
-            Location::from("file:./models/qwen.gguf").uri_as_path(),
-            PathBuf::from("./models/qwen.gguf")
-        );
-    }
-    #[cfg(feature = "std")]
-    #[test]
-    fn test_location_local_path_filters_remote_sources() {
-        assert_eq!(Location::from("./Cargo.toml").local_path(), Some(PathBuf::from("./Cargo.toml")));
-        assert_eq!(Location::from("https://example.com/input.json").local_path(), None);
-    }
-    #[test]
-    fn test_location_registry_preserves_ports_and_ipv6_brackets() {
-        assert_eq!(
-            Location::from("https://registry.example.org:5000").registry().as_deref(),
-            Some("registry.example.org:5000")
-        );
-        assert_eq!(
-            Location::from("https://[2001:db8::1]:5000").registry().as_deref(),
-            Some("[2001:db8::1]:5000")
-        );
-    }
-    #[test]
-    fn test_location_identifies_http_sources() {
-        assert!(Location::from("https://example.org/model.gguf").is_http_or_https());
-        assert!(Location::from("http://localhost:8080/model.gguf").is_http_or_https());
-        assert!(!Location::from("file:///models/model.gguf").is_http_or_https());
-    }
-    #[test]
-    fn test_repository_default_is_local_git() {
-        let repository = Repository::default();
-        assert!(repository.is_local());
-        match repository {
-            | Repository::Git { location } => {
-                assert_eq!(location.to_string(), "file:///");
-            }
-            | _ => panic!("Repository default should be Git with local file URI"),
-        }
-    }
-    #[test]
-    fn test_repository_from_remote_requires_overt_provider_domain() {
-        let github = Repository::from_remote("https://www.github.com/openai/codex/tree/main", "gitlab.com").unwrap();
-        assert!(github.is_git_hub());
-        assert_eq!(github.project_path(), Some("openai/codex".to_string()));
-        let gitlab = Repository::from_remote("https://code.ornl.gov/group/project/-/tree/main", "code.ornl.gov").unwrap();
-        assert!(gitlab.is_git_lab());
-        assert_eq!(gitlab.project_path(), Some("group/project".to_string()));
-        assert_eq!(Repository::from_remote("https://example.org/group/project", "gitlab.com"), None);
-        assert_eq!(Repository::from_remote("git@github.com:openai/codex.git", "gitlab.com"), None);
-    }
-    #[test]
-    fn test_repository_id_prefers_explicit_gitlab_id() {
-        let repository = Repository::GitLab {
-            id: Some(16689),
-            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string())),
-        };
-        assert_eq!(repository.id(), Some("16689".to_string()));
-    }
-    #[test]
-    fn test_repository_id_falls_back_to_encoded_gitlab_path() {
-        let repository = Repository::GitLab {
-            id: None,
-            location: Box::new(Location::Simple("https://code.ornl.gov/research-enablement/acorn".to_string())),
-        };
-        assert_eq!(repository.id(), Some("research-enablement%2Facorn".to_string()));
-    }
-    #[test]
-    fn test_repository_id_returns_none_without_gitlab_id_or_valid_uri() {
-        let repository = Repository::GitLab {
-            id: None,
-            location: Box::new(Location::Simple("not a uri".to_string())),
-        };
-        assert_eq!(repository.id(), None);
     }
 }
 

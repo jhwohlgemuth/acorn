@@ -9,6 +9,7 @@ use crate::io::api::{gitlab, orcid, osti, Configuration};
 use crate::io::ApiResult;
 use crate::schema::discovery::{Person, ProjectOrganization};
 use crate::schema::pid::{PersistentIdentifierParse, DOI, PID};
+use crate::RepositoryExt;
 use color_eyre::eyre::Report as EyreReport;
 use futures::future::join_all;
 use itertools::Itertools;

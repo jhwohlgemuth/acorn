@@ -6,8 +6,6 @@ use crate::enrichment::Provider;
 #[cfg(feature = "std")]
 use crate::error::ApiResult;
 use crate::prelude::alloc::{format, vec, String, ToString, Vec};
-#[cfg(feature = "std")]
-use crate::prelude::std::PathBuf;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
@@ -56,8 +54,6 @@ pub mod output;
 pub mod s3a;
 use aspect::AspectFramework;
 use markdown::Document;
-#[cfg(feature = "std")]
-pub(crate) use markdown::MarkdownParser;
 pub use output::ResearchOutput;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
@@ -666,20 +662,6 @@ impl ResearchActivity {
             contact: contact.format(),
             ..self
         }
-    }
-    /// Formats research activity data with context of filesystem and/or remote resources
-    /// ### Actions
-    /// - Resolves URL of first media object (if found) and add empty caption
-    /// - Resolves ORCiD identifier from contact first name, last name, and email (if found)
-    #[cfg(feature = "std")]
-    pub fn format_with(self, context: Option<PathBuf>) -> ResearchActivity {
-        let Self { meta, contact, .. } = self.clone();
-        Self {
-            meta: meta.format_with(context.clone()),
-            contact: contact.format_with(context.clone()),
-            ..self
-        }
-        .format()
     }
 }
 impl ToProse for ResearchActivity {

@@ -24,6 +24,7 @@ use acorn::io::TextOrigin;
 use acorn::prelude::{read, read_to_string, PathBuf};
 use acorn::schema::standard::{datacite, dcat, huwise, invenio};
 use acorn::util::MimeType;
+use acorn::LocationExt;
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;

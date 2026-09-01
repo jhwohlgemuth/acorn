@@ -7,25 +7,31 @@ impact: critical
 package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
-priority: next
 ---
 
 # Goal
 
 Replace the current all-purpose `acorn-lib` package with a directed set of crates whose dependencies follow domain, adapter, service, and interface layers. Retain `acorn-lib` as the supported feature-gated compatibility facade while first-party applications adopt direct dependencies where doing so avoids unrelated capabilities.
 
+# Current priority
+
+This plan is coordination-only. The next schedulable work is the remaining [std-only schema isolation](portability/isolate-std-only-modules.md), followed by the atomic [`acorn-schema` extraction](portability/acorn-schema-extraction.md). Analyzer host isolation proceeds behind that boundary and prepares `acorn-analysis`; other packages wait for their named in-tree contracts.
+
 # Current evidence
 
 - `acorn-lib` currently exposes analyzer, I/O, schema, utility, and doctor modules from one package.
+- `crates/acorn-core` now owns portable errors, location/repository values, MIME/checksum/version values, and core/alloc utility implementations. `acorn-lib` preserves the established root and `util` paths through re-exports and host extension traits.
 - Module dependencies are cyclic: schemas use I/O and utility services, I/O uses schemas and analyzers, and analyzers use I/O, schemas, and utilities.
 - Schema string/byte codecs remain with schema types, while their path/file `InputOutput` implementations and migration machinery live in the std-only `io::adapter` module.
-- The portable foundation now exists inside `acorn-lib`: `AcornError` and `AcornResult` are independent of host reporting, schema result ownership no longer points through `io`, and utility code exposes a portable surface separate from terminal output while legacy paths remain available.
+- The portable foundation is extracted: `AcornError` and `AcornResult` are independent of host reporting, and utility implementations expose explicit core/alloc ownership while legacy facade paths remain available.
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
 - Default, minimal, alloc, and `wasm32-unknown-unknown` checks pass. The dependency tree excludes the earlier presentation/generic-asset leakage.
 - Existing ACORN product crates now live under `crates/`; repository-only tooling such as `xtask` and `fuzz` remains at the workspace root. New packages in this plan have a stable nested destination before extraction begins.
 - Utility implementations now have explicit core, alloc, and std ownership, with flat and `util::portable` compatibility re-exports.
 - ACORN owns one alloc-compatible validation engine and derive; schema validation no longer resolves `validator` or `validator_derive`, generated validation uses core/alloc paths, and deterministic flat reports preserve nested and indexed paths.
-- Remaining schema host couplings are concentrated in `schema/agent`, `schema/validate`, `research_activity/markdown.rs`, and std-gated path signatures in `schema/mod.rs`.
+- OpenCode path I/O, model-weight persistence, RAD Markdown document indexing, and contextual RAD formatting now live in host adapter modules. Schema license and programming-language validation no longer reads process environment or databases.
+- Remaining schema host couplings are concentrated in agent source resolution, templates/CST path state, presentation side effects, and other feature-dependent transformations.
+- Analyzer Vale output DTOs are separated from Vale runtime configuration, but path analysis, rendering, discovery, and `analysis -> std` remain host-coupled.
 - `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
 - `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
 - The `std` feature enables unrelated host capabilities, so consumers cannot select a narrow dependency graph.
@@ -64,7 +70,7 @@ crates/
 ├── acorn-macros
 ├── acorn-py
 ├── acorn-tui
-├── acorn-core       (planned)
+├── acorn-core
 ├── acorn-schema     (planned)
 ├── acorn-analysis   (planned)
 ├── acorn-api        (planned)
@@ -97,12 +103,12 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 # Project code boundaries
 
 - **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`; all current manifests; `crates/acorn-lib/src/{lib,prelude,error}.rs`, `validation/`, `schema/`, `analyzer/`, `io/`, `doctor/`, and `util/`; first-party crate imports; package/release documentation and `xtask` workspace assumptions.
-- **Create:** the ten planned packages under `crates/` in dependency order, with focused unit/compatibility tests and explicit feature contracts. The first new packages are `acorn-core` and `acorn-schema` after their remaining in-tree portability boundaries are green.
+- **Create:** the remaining planned packages under `crates/` in dependency order, beginning with `acorn-schema` after its in-tree boundaries are green, with focused unit/compatibility tests and explicit feature contracts.
 - **Delete:** implementation from `acorn-lib` after each module becomes a facade re-export; obsolete facade dependencies/features after compatibility mappings exist; no current crate or public import path is deleted by this plan.
 
 # Plan dependencies
 
-- **Immediate prerequisites:** [dependency feature defaults](portability/dependency-feature-defaults.md) and [std-only isolation](portability/isolate-std-only-modules.md).
+- **Immediate prerequisites:** [dependency feature defaults](portability/dependency-feature-defaults.md) and [std-only isolation](portability/isolate-std-only-modules.md) feed the [`acorn-schema` extraction](portability/acorn-schema-extraction.md).
 - **Boundary inputs:** analyzer plans prepare `acorn-analysis`; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; [acorn-cmd extraction](acorn-cmd-extraction.md) prepares `acorn-cmd`.
 - **Downstream:** [host traits](portability/host-abstraction-traits.md), [WASM](portability/wasm-feature-path.md), and [portable CI](portability/no-std-wasm-ci.md) expand as packages appear.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
@@ -125,36 +131,26 @@ This architecture plan is coordination-only except when a named migration phase 
 10. Browser dependencies are target-specific to `acorn-wasm`; portable crates must not gain a `wasm-bindgen` or `js-sys` dependency merely because they compile for a WASM target.
 11. New ACORN packages are created as `crates/<package-name>`; product crates must not return to the workspace root.
 
-# Migration sequence
+# Current migration sequence
 
-## 1. Prepare remaining boundaries inside acorn-lib
+## 1. Finish std isolation and extract acorn-schema
 
-Do not create new crates during this phase. First make the intended boundaries explicit and acyclic inside `acorn-lib` so package extraction becomes a mechanical move rather than a simultaneous redesign.
-
-### 1.1. Separate analysis from host adapters
-
-Keep checks, scoring, summaries, readability, validation folds, and traversal over supplied content in the pure analysis boundary. Move Vale execution, HTTP link checking, document loading, database discovery, and filesystem handling into adapters. Supply immutable inputs or focused capability traits to analysis functions.
-
-### 1.2. Separate workflows from provider clients
-
-Keep endpoint, authentication, request, response, and provider protocol mechanics in the API boundary. Move GitLab bot decisions, persistence coordination, analysis invocation, and report publication into a service boundary.
+Move remaining agent source resolution, embedded templates, OpenCode CST/path state, and presentation behavior behind std-only adapters. Freeze the portable schema/validation/codec contract, then execute the [`acorn-schema` extraction](portability/acorn-schema-extraction.md) with facade re-exports. Target selection alone must not enable browser dependencies; retain the facade's legacy `wasm` feature as compatibility wiring.
 
 ### Phase 1 exit gate
 
-- `schema` no longer imports `io`.
-- Pure analysis does not instantiate filesystem, network, process, document, or database services.
-- Provider API modules do not orchestrate bot workflows.
+- `acorn-schema` does not import `acorn-lib`, concrete I/O, host reporting, terminal, database, process, native HTTP, async-runtime, or generic embedded-asset dependencies.
+- String/byte codecs remain domain-owned; path and URL I/O remains adapter-owned.
 - Existing public paths, feature behavior, formats, offline behavior, and diagnostics remain compatible.
-- Minimal and alloc dependency trees exclude host reporting, terminal, database, process, native HTTP, async-runtime, and generic embedded-asset dependencies.
-- Focused tests, `cargo check -p acorn-lib --no-default-features`, `cargo check -p acorn-lib --no-default-features --features alloc`, `cargo check -p acorn-lib --no-default-features --target wasm32-unknown-unknown --features wasm`, `make lint`, and `make test` pass.
+- Minimal, alloc, supported std, and WASM checks plus focused tests, `make lint`, and `make test` pass.
 
-## 2. Extract the portable foundation
+## 2. Extract acorn-analysis and acorn-cmd
 
-Create `crates/acorn-core`, followed by `crates/acorn-schema`. Preserve existing `acorn::schema`, root type, and utility paths through facade re-exports. Give each crate an explicit core, alloc, and std contract; target selection alone must not enable browser dependencies. Retain the facade's legacy `wasm` feature as compatibility wiring.
+Keep checks, scoring, summaries, readability, validation folds, and traversal over supplied content in `acorn-analysis`. Move Vale execution, HTTP link checking, document loading, rendering, database discovery, and filesystem handling into adapters. Extract `acorn-cmd` independently after its command contracts stabilize. Neither package may depend on the compatibility facade.
 
-## 3. Extract domain capabilities
+## 3. Stabilize protocol and export boundaries
 
-Extract `acorn-analysis` after analyzer result and traversal contracts stabilize. Complete the linked `acorn-cmd` extraction independently. Neither package may depend on the compatibility facade.
+Keep endpoint, authentication, request, response, and provider protocol mechanics in the API boundary. Move GitLab bot decisions, persistence coordination, analysis invocation, and report publication into a service boundary. Make export transformations return in-memory artifacts before extracting provider, store, and export packages.
 
 ## 4. Extract adapters
 
@@ -180,7 +176,7 @@ Make `acorn-lib` re-export-only and map its existing feature names and default b
 # Validation
 
 1. Run focused tests after each boundary change and extraction, followed by `make lint` and `make test`.
-2. Compile the in-tree Phase 1 boundaries, then `acorn-core` and `acorn-schema`, without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
+2. Compile the in-tree Phase 1 boundaries and `acorn-schema` without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
 3. Inspect resolved feature trees and confirm foundational crates do not contain HTTP, database, process, terminal, embedded-asset, or async-runtime dependencies.
 4. Add facade compatibility tests for representative root types, schema paths, analyzer paths, I/O extension traits, API paths, and utility paths.
 5. Build and smoke-test the CLI, TUI, Python bindings, and JS/WASM bindings against their direct dependencies and composition roots.
@@ -207,6 +203,7 @@ Make `acorn-lib` re-export-only and map its existing feature names and default b
 - [Extract acorn-cmd](acorn-cmd-extraction.md)
 - [Portability roadmap](portability/roadmap.md)
 - [Isolate std-only modules](portability/isolate-std-only-modules.md)
+- [Extract acorn-schema](portability/acorn-schema-extraction.md)
 - [Host abstraction traits](portability/host-abstraction-traits.md)
 - [WASM feature path](portability/wasm-feature-path.md)
 - [no-std and WASM CI](portability/no-std-wasm-ci.md)

@@ -4,10 +4,9 @@ title: "Portability roadmap"
 description: "Coordinate capability features, module separation, host adapters, WASM enablement, and dependency isolation."
 difficulty: mixed
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-host, acorn-wasm]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host, acorn-wasm]
 tags: [refactor, roadmap, no-std, wasm]
 status: in-progress
-priority: next
 ---
 
 # Target feature model
@@ -17,14 +16,16 @@ Retain the existing `core`, `alloc`, `std`, and `wasm` feature names on the comp
 # Current evidence
 
 - `acorn-lib` is already `no_std` when `std` is disabled and exposes `core`, `alloc`, `wasm`, and `std` features.
-- Portable string/byte codecs live on schema types, while path/file behavior lives in the std-only `io::adapter` module. Minimal, alloc, and WASM checks pass. `schema/mod.rs` still uses `prelude::std::PathBuf` in a handful of std-gated signatures, and `analyzer` remains entirely gated behind `analysis -> std`.
-- Only the existing product crates (`acorn-lib`, `acorn-cli`, `acorn-macros`, `acorn-py`, and `acorn-tui`) exist. None of the target boundary crates has been created.
-- The unresolved critical edge in the [crate boundary architecture](../crate-boundary-architecture.md) is isolating the remaining std-only schema and analyzer capabilities before extracting portable crates.
+- `acorn-core` is extracted under `crates/` and compiles in minimal, alloc, default, and facade WASM configurations. `acorn-lib` maps its legacy features to the new package and preserves root/error/utility paths through re-exports.
+- Portable string/byte codecs live on schema types, while path/file behavior lives in the std-only `io::adapter` and `io::document` modules. OpenCode I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing have moved outward.
+- Schema validation no longer reads `ACORN_DATABASE_PATH`; license and programming-language catalog membership is a host-service concern rather than derive-time schema policy.
+- Analyzer result DTOs no longer depend on Vale runtime configuration, but analyzer path/service/rendering code remains gated behind `analysis -> std`.
+- The unresolved critical edge is completing the remaining schema and analyzer isolation before `acorn-schema` and `acorn-analysis` extraction.
 
 # Project code boundaries
 
 - **Update:** workspace `Cargo.toml`, `Makefile`, `.gitlab-ci.yml`, `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/lib.rs`, `prelude.rs`, `error.rs`, `schema/`, `validation/`, `analyzer/`, and `io/`; first-party manifests and imports as each extraction lands.
-- **Create:** `crates/acorn-core/`, `crates/acorn-schema/`, `crates/acorn-analysis/`, `crates/acorn-api/`, `crates/acorn-store/`, `crates/acorn-export/`, `crates/acorn-host/`, `crates/acorn-wasm/`, `crates/acorn-service/`, and `crates/acorn-cmd/`, one accepted boundary at a time.
+- **Create:** `crates/acorn-schema/`, `crates/acorn-analysis/`, `crates/acorn-api/`, `crates/acorn-store/`, `crates/acorn-export/`, `crates/acorn-host/`, `crates/acorn-wasm/`, `crates/acorn-service/`, and `crates/acorn-cmd/`, one accepted boundary at a time.
 - **Delete:** implementation modules from `acorn-lib` only after their compatibility paths re-export extracted code; no public facade path is deleted by this plan.
 
 # Dependencies
@@ -37,9 +38,10 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Implementation order
 
-1. Isolate the remaining std-gated schema and analyzer capabilities, introduce consumer-owned host traits and native implementations, and refactor selected analyzer and API call sites to accept injected capabilities.
-2. Complete target-specific WASM dependency wiring and implement browser capabilities in `acorn-wasm`.
-3. Add CI gates for the supported feature combinations.
+1. Finish the named schema std-isolation blockers and execute the [`acorn-schema` extraction](acorn-schema-extraction.md).
+2. Separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services; extract `acorn-analysis`.
+3. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
+4. Complete target-specific browser wiring in `acorn-wasm`, native implementations in `acorn-host`, and CI gates for every supported feature combination.
 
 # Dependency boundaries
 
@@ -58,6 +60,7 @@ Check the default, no-default, alloc, std, and WASM target configurations indepe
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
 - [Isolate std-only modules](isolate-std-only-modules.md)
+- [Extract acorn-schema](acorn-schema-extraction.md)
 - [Host abstraction traits](host-abstraction-traits.md)
 - [WASM feature path](wasm-feature-path.md)
 - [no-std and WASM CI](no-std-wasm-ci.md)

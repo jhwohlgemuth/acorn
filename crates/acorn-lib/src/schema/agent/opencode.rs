@@ -2,14 +2,11 @@
 //!
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
 use crate::error::ApiResult;
-use crate::io::{parse_jsonc_cst, read_file, write_file, CstRootNode, FromPath, InputOutput};
-#[cfg(feature = "std")]
-use crate::prelude::std::{Path, PathBuf};
+use crate::io::{parse_jsonc_cst, CstRootNode};
+use crate::prelude::std::PathBuf;
 use crate::schema::agent::Provider;
-use crate::util::MimeType;
 use alloc::collections::BTreeMap;
 use color_eyre::eyre::eyre;
-use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
@@ -547,15 +544,6 @@ pub struct WatcherConfig {
     pub ignore: Option<Vec<String>>,
 }
 impl Config {
-    /// Load OpenCode configuration from a path or return an empty configuration.
-    #[cfg(feature = "std")]
-    pub fn load(path: impl AsRef<Path>) -> Self {
-        path.as_ref()
-            .is_file()
-            .then(|| Self::read(path.as_ref()).ok())
-            .flatten()
-            .unwrap_or_default()
-    }
     /// Replace the configured providers and return the updated configuration.
     pub fn with_provider(self, provider: StringMap<Value>) -> Self {
         Self {
@@ -568,7 +556,7 @@ impl Config {
         Self { model: Some(model), ..self }
     }
     /// Parse OpenCode configuration from a JSON string
-    fn parse_json(content: impl AsRef<str>) -> ApiResult<Self> {
+    pub(crate) fn parse_json(content: impl AsRef<str>) -> ApiResult<Self> {
         serde_json::from_str(content.as_ref()).map_err(|why| eyre!("JSON parse error — {why}"))
     }
     /// Parse OpenCode configuration from a JSONC string
@@ -581,89 +569,11 @@ impl Config {
             config
         })
     }
-    /// Load OpenCode configuration from a JSONC file path
-    #[cfg(feature = "std")]
-    pub fn from_path(path: impl AsRef<Path>) -> ApiResult<Self> {
-        Self::read(path.as_ref())
-    }
-    /// Discover OpenCode configuration in standard locations
-    /// ### Note
-    /// Search order is (in order of precedence):
-    /// 1. `opencode.jsonc` in the working directory (per-project)
-    /// 2. `opencode.json` in the working directory (per-project)
-    /// 3. `~/.config/opencode/opencode.jsonc` (user-level)
-    /// 4. `~/.config/opencode/opencode.json` (user-level)
-    ///
-    /// Returns the first successfully parsed configuration, or `None` if not found.
-    #[cfg(feature = "std")]
-    pub fn resolve() -> Option<Self> {
-        let home = BaseDirs::new().map(|dirs| dirs.config_dir().to_path_buf());
-        let candidates = [
-            Some(PathBuf::from("opencode.jsonc")),
-            Some(PathBuf::from("opencode.json")),
-            home.as_ref().map(|p| p.join("opencode").join("opencode.jsonc")),
-            home.as_ref().map(|p| p.join("opencode").join("opencode.json")),
-        ];
-        candidates
-            .into_iter()
-            .flatten()
-            .find_map(|path| if path.is_file() { Self::read(&path).ok() } else { None })
-    }
     /// Serialize to JSONC string, preserving comments from the original parse if available
-    fn to_jsonc_string(&self) -> ApiResult<String> {
+    pub(crate) fn to_jsonc_string(&self) -> ApiResult<String> {
         match &self.cst {
             | Some(cst) => Ok(cst.to_string()),
             | None => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSONC config — {why}")),
         }
-    }
-}
-impl InputOutput for Config {
-    /// Read and parse OpenCode configuration file (JSON or JSONC)
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
-        }
-        .map(|config| Self {
-            path: Some(source),
-            ..config
-        })
-    }
-    /// Read OpenCode configuration from a JSON file
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone())
-            .and_then(|content| Self::parse_json(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
-    }
-    /// Read OpenCode configuration from a JSONC file
-    ///
-    /// Supports comments (`//` and `/* */`) and trailing commas.
-    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone())
-            .and_then(|content| Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why)))
-    }
-    /// Read OpenCode configuration from a YAML file — not supported for OpenCode configs
-    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
-    }
-    /// Write OpenCode configuration to specified path (detects JSON or JSONC from extension)
-    ///
-    /// JSONC files are written as strict JSON (no comments generated).
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        match MimeType::from_path(&target) {
-            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
-        }
-    }
-    /// Write OpenCode configuration as JSON to specified path
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        self.to_jsonc_string().and_then(|content| write_file(target.clone(), content))
-    }
-    /// Not supported for OpenCode configs
-    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
 }

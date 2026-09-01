@@ -10,6 +10,7 @@ use crate::prelude::{Box, PathBuf, String, Vec};
 use crate::util::{print_changes_with_color, Label, MimeType, StringConversion};
 use crate::validation::Validate;
 use crate::Location;
+use crate::LocationExt;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;

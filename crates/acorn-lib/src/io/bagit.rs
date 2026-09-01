@@ -298,14 +298,6 @@ impl Save for BagInfo {
         self.save(destination)
     }
 }
-impl From<ChecksumAlgorithm> for &'static ring::digest::Algorithm {
-    fn from(value: ChecksumAlgorithm) -> Self {
-        match value {
-            | ChecksumAlgorithm::Sha512 => &ring::digest::SHA512,
-            | _ => &ring::digest::SHA256,
-        }
-    }
-}
 fn verify_manifest(base: &Path, name: &str, algorithm: ChecksumAlgorithm) -> ApiResult<()> {
     let expected_length = match algorithm {
         | ChecksumAlgorithm::Sha256 => Ok(64),

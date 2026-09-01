@@ -11,6 +11,7 @@ use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerpr
 use acorn::prelude::{create_dir_all, remove_dir_all, remove_file, temp_dir, write, PathBuf};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, regex_join, suffix, Label, MimeType};
+use acorn::LocationExt;
 use acorn::{fail, skip, Location};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};

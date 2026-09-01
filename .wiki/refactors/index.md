@@ -1,11 +1,15 @@
 # Refactor Plans
 
-## In progress
+## Next
+
+- [Isolate std-only modules](portability/isolate-std-only-modules.md) - Remove the remaining schema host state and prepare analyzer model isolation.
+- [Dependency feature defaults](portability/dependency-feature-defaults.md) - Keep the portable dependency tree narrow during extraction.
+- [Extract acorn-schema](portability/acorn-schema-extraction.md) - Create the next portable package after its std-isolation gate passes.
+
+## Coordination
 
 - [Crate boundary architecture](crate-boundary-architecture.md) - Split `acorn-lib` into portable domains, adapters, services, and a compatibility facade.
 - [Portability roadmap](portability/roadmap.md) - Coordinate the critical feature, extraction, adapter, WASM, and CI path.
-- [Isolate std-only modules](portability/isolate-std-only-modules.md) - Complete the portable-domain boundary.
-- [Dependency feature defaults](portability/dependency-feature-defaults.md) - Classify the minimal dependency tree and narrow capability wiring.
 - [Refactor initiative](initiative.md) - Overall goals, phases, risks, scope, and completion criteria.
 
 ## Planned groups and independent work

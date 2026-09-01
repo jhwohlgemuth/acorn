@@ -4,14 +4,14 @@ okf_version: "0.1"
 
 # Parallel execution guide
 
-This guide turns the dependency network into a scheduling contract for concurrent agents. It was verified against all active plan boundaries and the workspace layout on 2026-08-29; config-module ownership and overlapping lanes were reconciled again after the module split on 2026-08-31.
+This guide turns the dependency network into a scheduling contract for concurrent agents. It was reconciled against the active plan boundaries and workspace layout at version `0.1.76` on 2026-08-31.
 
 ## Verification result
 
-- All 61 active plans are assigned to at least one work lane.
-- Four umbrella plans are explicitly coordination-only and cannot masquerade as concurrent implementation tasks.
-- Nine shared integration surfaces have single-writer locks.
-- Six current pre-extraction slices have verified disjoint primary write sets.
+- Every active plan is assigned to at least one work lane.
+- Umbrella plans are explicitly coordination-only and cannot masquerade as concurrent implementation tasks.
+- Shared integration surfaces have single-writer locks.
+- The next schema isolation and extraction phases have explicit landing order and lock ownership.
 - Broad plans are not considered concurrency-ready until an agent replaces directory/glob ownership with an exact atomic write set.
 
 This verifies that the wiki can produce a safe concurrent batch; it does not claim every pair of plans is orthogonal. Orthogonality is a property of concrete implementation slices on a shared baseline, not of plan titles.
@@ -60,7 +60,7 @@ Plans within one lane generally serialize unless the notes define leaf-module sh
 
 | Lane | Plans | Primary write surface | Parallel rule |
 |---|---|---|---|
-| Portable schema boundary | [std isolation](refactors/portability/isolate-std-only-modules.md), [dependency defaults](refactors/portability/dependency-feature-defaults.md) | `acorn-lib` schema/I/O roots and manifests | One critical-path owner; manifest and shared module-root changes serialize. |
+| Portable schema boundary | [std isolation](refactors/portability/isolate-std-only-modules.md), [dependency defaults](refactors/portability/dependency-feature-defaults.md), [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md) | `acorn-lib` schema/I/O roots, `acorn-schema`, facade roots, and manifests | Finish isolation first; extraction then takes the workspace-graph, library-root, schema-index, and CI/build locks. |
 | Schema features | [OCP](features/ocp-infrastructure-schema-alignment.md), [RAD standards](features/rad-metadata-standards-alignment.md), [changelog](features/research-activity-changelog.md), [ZON](features/zon-format-support.md), [CKAN/DCAT](migrations/ckan-dcat-crosswalk.md), [lifecycle/credit](refactors/core/research-activity-lifecycle-credit-fields.md) | `schema/research_activity`, `schema/standard`, `validation`, `acorn-macros`, crosswalks | The portable validation-rule and derive-macro contract is implemented, and whole-value validators now use the report form; OCP and changelog consume it. Serialize changes to ResearchActivity/output types, contexts, renderers, crosswalk registry, validation, and serialized fixtures. |
 | PID/SWHID | [SWHID](features/swhid-persistent-identifier.md), [Creusot](testing/creusot-pid-checksums.md), [Miri](testing/miri-quality.md) | `schema/pid`, SWHID host/API modules, verification wiring | Proof/test work can run beside unrelated lanes. SWHID and proof agents must not edit the same PID leaf; Makefile/CI wiring uses the integration lock. |
 | Analyzer | [Applicative validation](refactors/analyzer/applicative-validation.md), [check batch](refactors/analyzer/check-batch-monoid.md), [check context](refactors/analyzer/check-options-context.md), [link checks](refactors/analyzer/link-resolution-checks.md), [result boundaries](refactors/analyzer/result-boundary-normalization.md), [standards traversal](refactors/analyzer/standards-traversal.md), [summary](refactors/analyzer/summary-monoid.md), [typed scoring](refactors/analyzer/typed-scoring-model.md), [Vale normalization](refactors/analyzer/vale-config-normalization.md) | `analyzer/` | `typed-scoring` (`readability/`) and a Vale leaf can run independently. Plans touching `mod.rs`, `check.rs`, or `service.rs` serialize in the documented dependency order. |
@@ -71,10 +71,10 @@ Plans within one lane generally serialize unless the notes define leaf-module sh
 | Transfer/archive | [BagIt/import](features/unified-import-download-bagit.md), [OCI models](features/oci-model-artifact-downloads.md), [safe path](refactors/core/safe-path.md) | `io/{archive,bagit,download,source,oci}.rs`, `io/config/{bucket,transfer}.rs`, import/download/export commands | Library leaf work can shard by module. `config/bucket.rs` is shared with API environment work; CLI download/export integration, path policy, `config/mod.rs`, shared snapshots, and manifests are locks. |
 | CLI composition | [Parse/execution](refactors/core/cli-parse-execution-models.md), [startup](refactors/core/cli-startup-separation.md), [error boundary](refactors/core/cli-error-boundary.md), [remote create](refactors/core/remote-create-container-targets.md), [CLI coverage](testing/cli-coverage-phase-1.md), [ACP inference](features/opencode-acp-inference.md) | CLI root/parse plus command leaf modules | Root/parse/error plans serialize. Remote-create and command-local tests can run concurrently if they do not touch shared arguments/help. ACP waits for the composition contracts. |
 | Python/repository | [Python deduplication](refactors/core/python-binding-deduplication.md), [acorn-py extraction](migrations/acorn-py-repository-extraction.md) | `crates/acorn-py`, workspace/CI during cutover | Deduplicate first; repository extraction follows. Python leaf work is orthogonal to portable extraction until manifests or facade imports change. |
-| Crate/host adapters | [acorn-cmd](refactors/acorn-cmd-extraction.md), [host traits](refactors/portability/host-abstraction-traits.md), [WASM](refactors/portability/wasm-feature-path.md), [thiserror](migrations/thiserror-adoption.md) | New crates, facade roots, manifests | Wait for the relevant in-tree boundary. Extract one package at a time; provider-specific adapter leaves can parallel only after contracts land. Apply thiserror within the owning slice, not as a workspace-wide concurrent rewrite. |
+| Crate/host adapters | [acorn-cmd](refactors/acorn-cmd-extraction.md), [host traits](refactors/portability/host-abstraction-traits.md), [WASM](refactors/portability/wasm-feature-path.md), [thiserror](migrations/thiserror-adoption.md) | New crates, facade roots, manifests | Wait for `acorn-schema` and the relevant in-tree boundary. Extract one package at a time; provider-specific adapter leaves can parallel only after contracts land. Apply thiserror within the owning slice, not as a workspace-wide concurrent rewrite. |
 | Build/CI/performance | [Portable CI](refactors/portability/no-std-wasm-ci.md), [runner pools](refactors/ci-runner-pools.md), [macOS size](refactors/portability/macos-compact-unwind-size.md), [Miri](testing/miri-quality.md), [Creusot](testing/creusot-pid-checksums.md), [OOXML fuzzing](refactors/core/ooxml-fuzzing.md) | manifests, Makefile, GitLab CI | Measurement/tool scripts may be prepared independently; CI and Makefile integration serialize through one owner. |
 
-## Verified concurrent batch before crate extraction
+## Concurrent batch before acorn-schema extraction
 
 The following slices have disjoint primary write sets on the current tree. They can run at the same time if each obeys the named lock restriction:
 
@@ -88,10 +88,10 @@ The following slices have disjoint primary write sets on the current tree. They 
 
 The CLI link coverage plan may join this batch when it adds only a dedicated test module and avoids shared CLI roots.
 
-## Contract-first extraction fan-out
+## Contract-first acorn-schema extraction
 
-1. Freeze the existing codec/adapter contracts for the extraction batch.
-2. Create `acorn-core`, then move portable schema codecs into `acorn-schema` in leaf-sized slices.
+1. Finish the named schema std-isolation blockers and freeze the schema/validation/codec and adapter contracts.
+2. Create `acorn-schema`, then move portable schema modules into it in coherent leaf-sized slices.
 3. Give one integration owner `schema/mod.rs`, `io/mod.rs`, feature wiring, facade re-exports, and shared compatibility tests.
 4. Merge leaf slices and run the full feature matrix before beginning the next package extraction.
 

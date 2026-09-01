@@ -14,7 +14,7 @@ use crate::schema::{ControlledVocabulary, Keyword};
 use crate::util::constants::RE_URL;
 use crate::util::{merge_unique, values_as_table, Label, StringConversion};
 use crate::{check, check_err};
-use crate::{Location, Repository};
+use crate::{Location, LocationExt, Repository, RepositoryExt};
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use bon::Builder;

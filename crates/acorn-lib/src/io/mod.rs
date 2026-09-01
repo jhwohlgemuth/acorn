@@ -59,7 +59,7 @@ use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
 use lazy_static::lazy_static;
 use nanoid::nanoid;
 use rand::rngs::OsRng;
-use ring::digest::{Context, SHA256, SHA512};
+use ring::digest::{Context, SHA256};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
@@ -333,15 +333,6 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
-impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
-    fn from(algorithm: &'static ring::digest::Algorithm) -> Self {
-        if core::ptr::eq(algorithm, &SHA512) {
-            Self::Sha512
-        } else {
-            Self::Sha256
-        }
-    }
-}
 impl From<CstValue<'_>> for CstInputValue {
     fn from(value: CstValue<'_>) -> Self {
         match value.0 {
@@ -390,9 +381,14 @@ impl From<&str> for Executor {
         }
     }
 }
-impl<T: AsRef<str>> FileExtension for T {
+impl FileExtension for String {
     fn extension(&self) -> String {
-        self.as_ref().to_ascii_lowercase()
+        self.to_ascii_lowercase()
+    }
+}
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
     }
 }
 impl FileExtension for MimeType {
