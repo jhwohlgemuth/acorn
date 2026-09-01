@@ -17,7 +17,7 @@ priority: next
 - Portable string/byte codecs remain on schema types, while path/file `InputOutput` implementations, migration machinery, RAiD read/conversion, and `format_with` live in the std-only `io::adapter` module.
 - `acorn-core` owns portable errors, location/repository values, and core/alloc utility implementations. `acorn-lib` supplies native `LocationExt` and `RepositoryExt` adapters.
 - OpenCode `InputOutput`, model-weight persistence, RAD contextual formatting, and RAD Markdown document indexing have moved out of schema modules. License/programming-language schema validation is deterministic and database-independent.
-- Remaining schema host coupling includes agent source resolution, embedded prompt rendering, OpenCode CST/path state, and presentation side effects.
+- Agent source resolution, embedded prompt rendering (`tera`), OpenCode CST/path state (`CstRootNode`/`PathBuf`), and presentation (`owo_colors`) are now `alloc`/`std`-gated: `schema/agent` is `#[cfg(feature="alloc")]` (`schema/mod.rs:49`) with host imports and `PromptTemplate::render`/`Source`/`Path`/`Embed` behind `std`; `schema/agent/opencode.rs:243` `Config::cst`/`path` split `std`/`alloc`, host JSONC helpers behind `std`. No `io/` file touched.
 - `analyzer/mod.rs`, `check.rs`, `error.rs`, and `service.rs` still coordinate transformations with processes, async sleep, network checks, files, documents, and databases. The entire analyzer feature currently implies `std`.
 - Vale output DTOs now have analyzer-model ownership and are re-exported from the existing `analyzer::vale` path; Vale runtime/configuration remains host-owned.
 

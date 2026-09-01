@@ -1,11 +1,17 @@
 //! OpenCode configuration data model
 //!
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
+#[cfg(feature = "std")]
 use crate::error::ApiResult;
+#[cfg(feature = "std")]
 use crate::io::{parse_jsonc_cst, CstRootNode};
+#[cfg(feature = "std")]
 use crate::prelude::std::PathBuf;
 use crate::schema::agent::Provider;
 use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -236,11 +242,21 @@ pub struct AttachmentConfig {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// CST root for JSONC comment-preserving round-trips
+    #[cfg(feature = "std")]
     #[serde(skip)]
     pub cst: Option<CstRootNode>,
+    /// CST root for JSONC comment-preserving round-trips
+    #[cfg(not(feature = "std"))]
+    #[serde(skip)]
+    pub cst: Option<()>,
     /// Source path used to load this configuration
+    #[cfg(feature = "std")]
     #[serde(skip)]
     pub path: Option<PathBuf>,
+    /// Source path used to load this configuration
+    #[cfg(not(feature = "std"))]
+    #[serde(skip)]
+    pub path: Option<()>,
     /// Named agent configurations
     pub agent: Option<StringMap<AgentConfig>>,
     /// Attachment processing configuration
@@ -556,6 +572,7 @@ impl Config {
         Self { model: Some(model), ..self }
     }
     /// Parse OpenCode configuration from a JSON string
+    #[cfg(feature = "std")]
     pub(crate) fn parse_json(content: impl AsRef<str>) -> ApiResult<Self> {
         serde_json::from_str(content.as_ref()).map_err(|why| eyre!("JSON parse error — {why}"))
     }
@@ -563,6 +580,7 @@ impl Config {
     /// ### Note
     /// Supports JavaScript-style comments (`//` and `/* */`) and trailing commas.
     /// Comments are preserved in the CST and restored on write.
+    #[cfg(feature = "std")]
     pub fn parse_jsonc(content: &str) -> ApiResult<Self> {
         parse_jsonc_cst::<Config>(content).map(|(mut config, cst)| {
             config.cst = Some(cst);
@@ -570,6 +588,7 @@ impl Config {
         })
     }
     /// Serialize to JSONC string, preserving comments from the original parse if available
+    #[cfg(feature = "std")]
     pub(crate) fn to_jsonc_string(&self) -> ApiResult<String> {
         match &self.cst {
             | Some(cst) => Ok(cst.to_string()),

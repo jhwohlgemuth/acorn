@@ -46,7 +46,7 @@ use serde_with::skip_serializing_none;
 #[cfg(feature = "std")]
 use tracing::{debug, error, trace};
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub mod agent;
 pub mod discovery;
 pub mod geonames;

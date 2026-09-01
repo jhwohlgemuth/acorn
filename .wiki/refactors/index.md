@@ -3,7 +3,6 @@
 ## Next
 
 - [Isolate std-only modules](portability/isolate-std-only-modules.md) - Remove the remaining schema host state and prepare analyzer model isolation.
-- [Dependency feature defaults](portability/dependency-feature-defaults.md) - Keep the portable dependency tree narrow during extraction.
 - [Extract acorn-schema](portability/acorn-schema-extraction.md) - Create the next portable package after its std-isolation gate passes.
 
 ## Coordination

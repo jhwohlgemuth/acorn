@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-1. Finish [std-only isolation](refactors/portability/isolate-std-only-modules.md) while keeping [dependency feature defaults](refactors/portability/dependency-feature-defaults.md) green.
+1. Finish [std-only isolation](refactors/portability/isolate-std-only-modules.md) — `dependency-feature-defaults` is green (`async-trait`/`futures`/`glob`/`shell-words` optional behind `std`; `sophia` retained as portable).
 2. Run the [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md) with one owner for manifests, facade roots, module indexes, and build integration.
 3. Isolate analyzer models from host document/rendering/service state, then plan the `acorn-analysis` extraction against the accepted schema package.
 

@@ -1,30 +1,40 @@
 //! Structured model for working with prompt files (body text and front-matter metadata)
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
+#[cfg(feature = "std")]
 use crate::error::ApiResult;
+#[cfg(feature = "std")]
 use crate::io::api::AuthenticationScheme;
+#[cfg(feature = "std")]
 use crate::io::{ModelListFile, PathExt, Source};
 use crate::prelude::alloc::{format, vec, Box, String, ToString, Vec};
+#[cfg(feature = "std")]
 use crate::prelude::std::{Error, ErrorKind, Path};
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::{is_partial_date, validate_license};
 use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
+#[cfg(feature = "std")]
 use crate::util::constants::HTTP_URL;
 use crate::util::{strip_suffixes, Label, MarkdownSupport, MimeType, SemanticVersion, StringInterpolation};
 use crate::validation::{Validate, ValidationError, ValidationReport};
 use bon::Builder;
+#[cfg(feature = "std")]
 use color_eyre::eyre::{eyre, Report};
-use core::{convert::Infallible, fmt, str::from_utf8, str::FromStr};
+#[cfg(feature = "std")]
+use core::str::from_utf8;
+use core::{convert::Infallible, fmt, str::FromStr};
 use derive_more::Display;
+#[cfg(feature = "std")]
 use owo_colors::OwoColorize;
+#[cfg(feature = "std")]
 use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::collections::HashMap;
 use strum::{EnumIter, IntoEnumIterator};
+#[cfg(feature = "std")]
 use tera::{Context, Tera};
 use tracing::warn;
 
@@ -591,8 +601,12 @@ pub struct OciModelLayer {
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
+#[cfg(feature = "std")]
 #[derive(Embed)]
 #[folder = "assets/prompts/"]
+pub struct PromptTemplate;
+/// Struct for using and sharing prompt templates
+#[cfg(not(feature = "std"))]
 pub struct PromptTemplate;
 /// Prompt configuration
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
@@ -639,7 +653,11 @@ pub struct PromptTemplateConfiguration {
 #[builder(start_fn = init, on(String, into))]
 pub struct ProviderDetails {
     /// Supported authentication methods
+    #[cfg(feature = "std")]
     pub authentication: Option<Vec<AuthenticationScheme>>,
+    /// Supported authentication methods
+    #[cfg(not(feature = "std"))]
+    pub authentication: Option<Vec<()>>,
     /// Provider description
     pub description: Option<String>,
     /// Documentation URL
@@ -959,12 +977,14 @@ impl ModelDetails {
     ///
     /// Returns `(primary, optional_context)` where primary is the model identifier
     /// and context is a fallback annotation when applicable.
+    #[cfg(feature = "std")]
     pub fn report(&self) -> (String, Option<String>) {
         let id = self.id.as_deref().unwrap_or("unknown").to_string();
         let context = self.fallback.as_ref().map(|fb| format!("{} {fb}", "fallback from".italic()));
         (id, context)
     }
     /// Return a Hugging Face repository selector or explain why one cannot be resolved.
+    #[cfg(feature = "std")]
     pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
         let repository = Option::<Source>::from(self.clone())
             .map(|source| source.identifier())
@@ -1059,9 +1079,11 @@ impl ModelSelectors {
         self.0.iter()
     }
     /// Parse selectors from plain text, JSON, or YAML model-list content.
+    #[cfg(feature = "std")]
     pub fn parse(content: String) -> ApiResult<Self> {
         Self::try_from(content)
     }
+    #[cfg(feature = "std")]
     fn require_non_empty(self) -> ApiResult<Self> {
         match self.is_empty() {
             | true => Err(eyre!("Model list file cannot be empty")),
@@ -1069,6 +1091,7 @@ impl ModelSelectors {
         }
     }
     /// Merge selectors read from an optional local or remote model-list source.
+    #[cfg(feature = "std")]
     pub async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
         match source {
             | Some(source) => Source::read(source, offline)
@@ -1079,6 +1102,7 @@ impl ModelSelectors {
         }
     }
 }
+#[cfg(feature = "std")]
 impl TryFrom<String> for ModelSelectors {
     type Error = Report;
 
@@ -1160,6 +1184,7 @@ impl From<String> for PromptFileAsset {
         Self::from(value.as_str())
     }
 }
+#[cfg(feature = "std")]
 impl PromptTemplate {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     pub fn from_asset(file_name: &str) -> Option<String> {
@@ -1236,6 +1261,7 @@ impl From<&str> for Provider {
         }
     }
 }
+#[cfg(feature = "std")]
 impl MarkdownSupport for ProviderDetails {
     fn to_markdown(&self) -> String {
         let lines = [
@@ -1503,6 +1529,7 @@ impl Weights {
         }
     }
     /// Serialize model weight metadata for database persistence.
+    #[cfg(feature = "std")]
     pub fn serialize(self) -> ApiResult<String> {
         serde_json::to_string(&self).map_err(|why| eyre!("Failed to serialize model weights — {why}"))
     }
@@ -1526,7 +1553,7 @@ where
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum Models {
-        Map(HashMap<String, ModelDetails>),
+        Map(alloc::collections::BTreeMap<String, ModelDetails>),
         Vec(Vec<ModelDetails>),
     }
     match Option::<Models>::deserialize(deserializer)? {
