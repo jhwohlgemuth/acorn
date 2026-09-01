@@ -5,12 +5,13 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, CheckCategory};
 use crate::check_ok;
 use crate::prelude::alloc::HashMap;
-use crate::util::Constant;
+use crate::util::{is_finite_and_greater_than, Constant};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -46,12 +47,33 @@ the Flesch Kincaid score checker to optimize readability for grant and business 
 "#;
 
 #[test]
+fn test_automated_readability_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(1.39, automated_readability_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(6.62, automated_readability_index(text));
+}
+#[test]
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
     assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+}
+#[test]
+fn test_coleman_liau_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.78, coleman_liau_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(10.31, coleman_liau_index(text));
+}
+#[test]
+fn test_complex_word_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(0, complex_word_count(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(2, complex_word_count(text));
 }
 #[test]
 fn test_expand_acronyms() {
@@ -61,34 +83,6 @@ fn test_expand_acronyms() {
     ]);
     let text = "ACORN is a CLI for HPC workloads.";
     let expected = "ACORN is a Command Line Interface for High Performance Computing workloads.";
-    assert_eq!(expected, expand_acronyms(text, &acronyms));
-}
-#[test]
-fn test_expand_acronyms_case_insensitive_and_preserves_unknown_terms() {
-    let acronyms = HashMap::from([("cli".to_string(), "Command Line Interface".to_string())]);
-    let text = "cli, CLI, and NASA are terms.";
-    let expected = "Command Line Interface, Command Line Interface, and NASA are terms.";
-    assert_eq!(expected, expand_acronyms(text, &acronyms));
-}
-#[test]
-fn test_expand_acronyms_with_empty_map() {
-    let acronyms = HashMap::new();
-    let text = "No replacements should happen here.";
-    assert_eq!(text, expand_acronyms(text, &acronyms));
-}
-#[test]
-fn test_expand_acronyms_large_map_uses_same_word_boundary_behavior() {
-    let mut acronyms = HashMap::from([
-        ("CLI".to_string(), "Command Line Interface".to_string()),
-        ("HPC".to_string(), "High Performance Computing".to_string()),
-    ]);
-    (0..40).for_each(|index| {
-        let key = format!("A{index}");
-        let value = format!("Expansion {index}");
-        acronyms.insert(key, value);
-    });
-    let text = "CLI and HPC are used. preCLIx should stay, CLI! should expand.";
-    let expected = "Command Line Interface and High Performance Computing are used. preCLIx should stay, Command Line Interface! should expand.";
     assert_eq!(expected, expand_acronyms(text, &acronyms));
 }
 #[test]
@@ -122,6 +116,71 @@ fn test_expand_acronyms_aho_branch_respects_token_boundaries_on_long_text() {
     assert_eq!(expected, expand_acronyms(&text, &acronyms));
 }
 #[test]
+fn test_expand_acronyms_case_insensitive_and_preserves_unknown_terms() {
+    let acronyms = HashMap::from([("cli".to_string(), "Command Line Interface".to_string())]);
+    let text = "cli, CLI, and NASA are terms.";
+    let expected = "Command Line Interface, Command Line Interface, and NASA are terms.";
+    assert_eq!(expected, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_large_map_uses_same_word_boundary_behavior() {
+    let mut acronyms = HashMap::from([
+        ("CLI".to_string(), "Command Line Interface".to_string()),
+        ("HPC".to_string(), "High Performance Computing".to_string()),
+    ]);
+    (0..40).for_each(|index| {
+        let key = format!("A{index}");
+        let value = format!("Expansion {index}");
+        acronyms.insert(key, value);
+    });
+    let text = "CLI and HPC are used. preCLIx should stay, CLI! should expand.";
+    let expected = "Command Line Interface and High Performance Computing are used. preCLIx should stay, Command Line Interface! should expand.";
+    assert_eq!(expected, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_expand_acronyms_with_empty_map() {
+    let acronyms = HashMap::new();
+    let text = "No replacements should happen here.";
+    assert_eq!(text, expand_acronyms(text, &acronyms));
+}
+#[test]
+fn test_flesch_kincaid_grade_level() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(2.34, flesch_kincaid_grade_level(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(7.59, flesch_kincaid_grade_level(text));
+    let text = ACORN_SAMPLE_TEXT;
+    assert_eq!(17.12, flesch_kincaid_grade_level(text));
+}
+#[test]
+fn test_flesch_reading_ease_score() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(94.30, flesch_reading_ease_score(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(56.70, flesch_reading_ease_score(text));
+}
+#[test]
+fn test_gunning_fog_index() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.60, gunning_fog_index(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(12.49, gunning_fog_index(text));
+}
+#[test]
+fn test_lix() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(9.0, lix(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(31.22, lix(text));
+}
+#[test]
+fn test_long_word_count() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(0, long_word_count(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(2, long_word_count(text));
+}
+#[test]
 fn test_readability_type() {
     assert_eq!(String::from(ReadabilityType::ARI), "ari");
     let value: ReadabilityType = "ari".into();
@@ -130,6 +189,149 @@ fn test_readability_type() {
     assert_eq!(ReadabilityType::from_string("automated readability index"), ReadabilityType::ARI);
     assert_eq!(ReadabilityType::from_string("automated-readability-index"), ReadabilityType::ARI);
     assert_eq!(ReadabilityType::from_string("not a real index name"), ReadabilityType::FKGL);
+}
+#[test]
+fn test_sample_text() {
+    let text = SAMPLE_TEXT;
+    assert_eq!(84, word_count(text));
+    assert_eq!(4, sentence_count(text));
+    // Expected Syllable count = 147 (per fleschkincaidcalculator.com)
+    assert_eq!(148, syllable_count(text));
+    assert_eq!(22, complex_word_count(text));
+    // Expected FKGL = 13.3 (per fleschkincaidcalculator.com)
+    assert_eq!(13.39, flesch_kincaid_grade_level(text));
+    // Expected FRES = 37.0 (per fleschkincaidcalculator.com)
+    assert_eq!(36.46, flesch_reading_ease_score(text));
+    // Expected SMOG = 16.5 (per fleschkincaidcalculator.com)
+    assert_eq!(16.53, smog(text));
+    // Expected CLI = 14.6 (per fleschkincaidcalculator.com)
+    assert_eq!(13.94, coleman_liau_index(text));
+    // Expected ARI = 14.6 (per fleschkincaidcalculator.com)
+    assert_eq!(14.02, automated_readability_index(text));
+}
+#[test]
+fn test_score_above_threshold_is_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, 12.01, 12.0);
+    assert!(score.is_excessive());
+    assert_eq!(score.severity(), ReadabilitySeverity::Fail);
+}
+#[test]
+fn test_score_at_threshold_is_not_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, 12.0, 12.0);
+    assert!(!score.is_excessive());
+    assert_eq!(score.severity(), ReadabilitySeverity::Pass);
+}
+#[test]
+fn test_score_below_threshold_is_not_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, 11.99, 12.0);
+    assert!(!score.is_excessive());
+}
+#[test]
+fn test_score_fres_above_floor_is_not_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FRES, 60.0, 50.0);
+    assert!(!score.is_excessive());
+    assert_eq!(score.severity(), ReadabilitySeverity::Pass);
+}
+#[test]
+fn test_score_fres_at_floor_is_not_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FRES, 50.0, 50.0);
+    assert!(!score.is_excessive());
+    assert_eq!(score.severity(), ReadabilitySeverity::Pass);
+}
+#[test]
+fn test_score_fres_below_floor_is_excessive() {
+    let score = ReadabilityScore::new(ReadabilityType::FRES, 40.0, 50.0);
+    assert!(score.is_excessive());
+    assert_eq!(score.severity(), ReadabilitySeverity::Fail);
+}
+#[test]
+fn test_score_display_matches_existing_message() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, 13.39, 12.0);
+    assert_eq!(score.to_string(), "FKGL = 13.39/12");
+    let fres = ReadabilityScore::new(ReadabilityType::FRES, 94.3, 50.0);
+    assert_eq!(fres.to_string(), "FRES = 94.3/50");
+}
+#[test]
+fn test_score_just_above_and_below_epsilon() {
+    let below = ReadabilityScore::new(ReadabilityType::ARI, 17.99, 18.0);
+    let above = ReadabilityScore::new(ReadabilityType::ARI, 18.01, 18.0);
+    assert!(!below.is_excessive());
+    assert!(above.is_excessive());
+}
+#[test]
+fn test_score_non_finite_construction_is_stable() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, f64::NAN, 12.0);
+    assert!(!score.is_excessive());
+    assert_eq!(score, score);
+}
+#[test]
+fn test_score_non_finite_values_are_not_excessive() {
+    assert!(!is_finite_and_greater_than(f64::NAN, 12.0));
+    assert!(!is_finite_and_greater_than(13.0, f64::INFINITY));
+    assert!(!is_finite_and_greater_than(f64::NEG_INFINITY, 12.0));
+}
+#[test]
+fn test_score_normalization_rounds_to_two_decimals() {
+    let score = ReadabilityScore::new(ReadabilityType::CLI, 3.784, 12.0);
+    assert_eq!(score.value(), 3.78);
+    let score = ReadabilityScore::new(ReadabilityType::CLI, 3.785, 12.0);
+    assert_eq!(score.value(), 3.79);
+}
+#[test]
+fn test_score_severity_combination() {
+    let ok = ReadabilityScore::new(ReadabilityType::FKGL, 10.0, 12.0);
+    let warn = ReadabilityScore::new(ReadabilityType::FKGL, 13.0, 12.0);
+    let severity = [ok, warn].into_iter().map(ReadabilityScore::severity).max();
+    assert_eq!(severity, Some(ReadabilitySeverity::Fail));
+    assert_eq!(ok, ReadabilityScore::new(ReadabilityType::FKGL, 10.0, 12.0));
+    assert_ne!(ok, warn);
+}
+#[test]
+fn test_score_threshold_env_override() {
+    assert_eq!(
+        ReadabilityScore::from_text(ReadabilityType::FKGL, SAMPLE_TEXT, Some(10.0)).threshold(),
+        10.0
+    );
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::FKGL, SAMPLE_TEXT, None).threshold(), 12.0);
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::FRES, SAMPLE_TEXT, None).threshold(), 50.0);
+}
+#[test]
+fn test_score_threshold_per_metric_defaults() {
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::ARI, SAMPLE_TEXT, None).threshold(), 18.0);
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::GFI, SAMPLE_TEXT, None).threshold(), 12.0);
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::Lix, SAMPLE_TEXT, None).threshold(), 50.0);
+    assert_eq!(ReadabilityScore::from_text(ReadabilityType::SMOG, SAMPLE_TEXT, None).threshold(), 13.0);
+}
+// | Case | Example | Expected |
+// |---|---|---|
+// | Empty/no terminator | "" / "No terminal punctuation here" | 0 |
+// | Basic punctuation | "One! Two? Three." | 3 |
+// | Abbreviations/decimals | "Dr. ..." / "i.e. ..." / "3.14." | sentence boundaries are preserved |
+// | Wrappers/ellipsis | "(go now!)." / "Wait..." | counts current tokenizer behavior |
+#[test]
+fn test_sentence_count() {
+    let text = "";
+    assert_eq!(0, sentence_count(text));
+    let text = "No terminal punctuation here";
+    assert_eq!(0, sentence_count(text));
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(1, sentence_count(text));
+    let text = "One! Two? Three.";
+    assert_eq!(3, sentence_count(text));
+    let text = "Dr. Smith arrived. He left.";
+    assert_eq!(2, sentence_count(text));
+    let text = "Use i.e. precise wording. Keep it short.";
+    assert_eq!(2, sentence_count(text));
+    let text = "The value is 3.14. Next sentence.";
+    assert_eq!(2, sentence_count(text));
+    let text = "Wait... what happened? Fine.";
+    assert_eq!(2, sentence_count(text));
+    let text = "He said (go now!). Then left.";
+    assert_eq!(3, sentence_count(text));
+    let text = "Examples include e.g. common abbreviations, etc. They should not create extra sentences.";
+    assert_eq!(2, sentence_count(text));
+    let text = ACORN_SAMPLE_TEXT;
+    assert_eq!(4, sentence_count(text));
 }
 #[test]
 fn test_singular_form() {
@@ -153,6 +355,13 @@ fn test_singular_form() {
     assert_eq!("vertex", singular_form("vertices"));
 }
 #[test]
+fn test_smog() {
+    let text = "The quick brown fox jumps over the lazy dog.";
+    assert_eq!(3.13, smog(text));
+    let text = "The alacritous brown fox jumps over the lethargic dog.";
+    assert_eq!(11.21, smog(text));
+}
+#[test]
 fn test_syllable_count_simple() {
     assert_eq!(0, syllable_count(""));
     const SINGLE_SYLLABLE_WORDS: [&str; 7] = ["a", "and", "is", "of", "Foo", "the", "wine"];
@@ -169,29 +378,6 @@ fn test_syllable_count_simple() {
     assert_eq!(4, syllable_count("Innovation"));
     assert_eq!(4, syllable_count("innovation"));
     assert_eq!(4, syllable_count("alacritous"));
-}
-#[test]
-fn test_syllables_count_problematic() {
-    assert_eq!(3, syllable_count("business"));
-    assert_eq!(1, syllable_count("queue"));
-    assert_eq!(3, syllable_count("anyone"));
-    assert_eq!(2, syllable_count("maybe"));
-    assert_eq!(2, syllable_count("phoebe"));
-    assert_eq!(3, syllable_count("simile"));
-    assert_eq!(3, syllable_count("distractions"));
-    assert_eq!(5, syllable_count("preoccupation"));
-}
-#[test]
-fn test_syllables_count_hyphenated() {
-    assert_eq!(3, syllable_count("good-natured"));
-    assert_eq!(3, syllable_count("ninety-nine"));
-}
-#[test]
-fn test_syllables_count_accented() {
-    assert_eq!(2, syllable_count("cafés"));
-    assert_eq!(3, syllable_count("resumé"));
-    assert_eq!(2, syllable_count("Zoë"));
-    assert_eq!(2, syllable_count("zoë"));
 }
 // | Capability | Example | Expected syllables |
 // |---|---|---|
@@ -217,6 +403,29 @@ fn test_syllable_count_use_cases() {
         let actual = syllable_count(input);
         assert_eq!(expected, actual, "=> [REASON] use case `{label}` failed for input `{input}`");
     });
+}
+#[test]
+fn test_syllables_count_accented() {
+    assert_eq!(2, syllable_count("cafés"));
+    assert_eq!(3, syllable_count("resumé"));
+    assert_eq!(2, syllable_count("Zoë"));
+    assert_eq!(2, syllable_count("zoë"));
+}
+#[test]
+fn test_syllables_count_hyphenated() {
+    assert_eq!(3, syllable_count("good-natured"));
+    assert_eq!(3, syllable_count("ninety-nine"));
+}
+#[test]
+fn test_syllables_count_problematic() {
+    assert_eq!(3, syllable_count("business"));
+    assert_eq!(1, syllable_count("queue"));
+    assert_eq!(3, syllable_count("anyone"));
+    assert_eq!(2, syllable_count("maybe"));
+    assert_eq!(2, syllable_count("phoebe"));
+    assert_eq!(3, syllable_count("simile"));
+    assert_eq!(3, syllable_count("distractions"));
+    assert_eq!(5, syllable_count("preoccupation"));
 }
 #[ignore] // Takes too long (less than 30 seconds)
 #[test]
@@ -256,124 +465,9 @@ fn test_syllables_count_word_list() {
     }
 }
 #[test]
-fn test_complex_word_count() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(0, complex_word_count(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(2, complex_word_count(text));
-}
-#[test]
-fn test_long_word_count() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(0, long_word_count(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(2, long_word_count(text));
-}
-#[test]
 fn test_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
     assert_eq!(9, word_count(text));
-}
-// | Case | Example | Expected |
-// |---|---|---|
-// | Empty/no terminator | "" / "No terminal punctuation here" | 0 |
-// | Basic punctuation | "One! Two? Three." | 3 |
-// | Abbreviations/decimals | "Dr. ..." / "i.e. ..." / "3.14." | sentence boundaries are preserved |
-// | Wrappers/ellipsis | "(go now!)." / "Wait..." | counts current tokenizer behavior |
-#[test]
-fn test_sentence_count() {
-    let text = "";
-    assert_eq!(0, sentence_count(text));
-    let text = "No terminal punctuation here";
-    assert_eq!(0, sentence_count(text));
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(1, sentence_count(text));
-    let text = "One! Two? Three.";
-    assert_eq!(3, sentence_count(text));
-    let text = "Dr. Smith arrived. He left.";
-    assert_eq!(2, sentence_count(text));
-    let text = "Use i.e. precise wording. Keep it short.";
-    assert_eq!(2, sentence_count(text));
-    let text = "The value is 3.14. Next sentence.";
-    assert_eq!(2, sentence_count(text));
-    let text = "Wait... what happened? Fine.";
-    assert_eq!(2, sentence_count(text));
-    let text = "He said (go now!). Then left.";
-    assert_eq!(3, sentence_count(text));
-    let text = "Examples include e.g. common abbreviations, etc. They should not create extra sentences.";
-    assert_eq!(2, sentence_count(text));
-    let text = ACORN_SAMPLE_TEXT;
-    assert_eq!(4, sentence_count(text));
-}
-#[test]
-fn test_automated_readability_index() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(1.39, automated_readability_index(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(6.62, automated_readability_index(text));
-}
-#[test]
-fn test_coleman_liau_index() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(3.78, coleman_liau_index(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(10.31, coleman_liau_index(text));
-}
-#[test]
-fn test_sample_text() {
-    let text = SAMPLE_TEXT;
-    assert_eq!(84, word_count(text));
-    assert_eq!(4, sentence_count(text));
-    // Expected Syllable count = 147 (per fleschkincaidcalculator.com)
-    assert_eq!(148, syllable_count(text));
-    assert_eq!(22, complex_word_count(text));
-    // Expected FKGL = 13.3 (per fleschkincaidcalculator.com)
-    assert_eq!(13.39, flesch_kincaid_grade_level(text));
-    // Expected FRES = 37.0 (per fleschkincaidcalculator.com)
-    assert_eq!(36.46, flesch_reading_ease_score(text));
-    // Expected SMOG = 16.5 (per fleschkincaidcalculator.com)
-    assert_eq!(16.53, smog(text));
-    // Expected CLI = 14.6 (per fleschkincaidcalculator.com)
-    assert_eq!(13.94, coleman_liau_index(text));
-    // Expected ARI = 14.6 (per fleschkincaidcalculator.com)
-    assert_eq!(14.02, automated_readability_index(text));
-}
-#[test]
-fn test_flesch_kincaid_grade_level() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(2.34, flesch_kincaid_grade_level(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(7.59, flesch_kincaid_grade_level(text));
-    let text = ACORN_SAMPLE_TEXT;
-    assert_eq!(17.12, flesch_kincaid_grade_level(text));
-}
-#[test]
-fn test_flesch_reading_ease_score() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(94.30, flesch_reading_ease_score(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(56.70, flesch_reading_ease_score(text));
-}
-#[test]
-fn test_gunning_fog_index() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(3.60, gunning_fog_index(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(12.49, gunning_fog_index(text));
-}
-#[test]
-fn test_lix() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(9.0, lix(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(31.22, lix(text));
-}
-#[test]
-fn test_smog() {
-    let text = "The quick brown fox jumps over the lazy dog.";
-    assert_eq!(3.13, smog(text));
-    let text = "The alacritous brown fox jumps over the lethargic dog.";
-    assert_eq!(11.21, smog(text));
 }
 #[test]
 fn bench_readability() {

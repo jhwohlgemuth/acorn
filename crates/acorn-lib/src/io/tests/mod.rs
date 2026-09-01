@@ -14,7 +14,8 @@ use crate::io::enrichment::Enrich;
 use crate::io::http::policy::{http_timeout_layer, retry_delay};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::oci::{
-    Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransportOptions, OrasTransport,
+    Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport, OciTransportOptions,
+    OrasTransport,
 };
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,

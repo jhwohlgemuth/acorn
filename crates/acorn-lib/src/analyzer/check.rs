@@ -1,5 +1,6 @@
 //! Check result types and helpers for analyzer output.
 use super::error::{DocumentTarget, ErrorKind, ValidatorIssues};
+use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
 use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
@@ -533,7 +534,7 @@ impl Check {
                 }
             }
             | CheckCategory::Readability => match &errors {
-                | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
+                | Some(ErrorKind::Readability(_)) => {
                     let score = severity.colorize(&message);
                     let heading = uri.as_deref().map_or_else(
                         || category.message().to_string(),
@@ -746,7 +747,7 @@ impl fmt::Display for Check {
                     errors, message, severity, ..
                 } = self;
                 match &errors {
-                    | Some(ErrorKind::Readability((_readability_index, _readability_type))) => {
+                    | Some(ErrorKind::Readability(_)) => {
                         let details = format!("Simplify language for a general audience {}", message.dimmed());
                         f.write_fmt(format_args!(
                             "{}",
@@ -1213,7 +1214,6 @@ where
         .flat_map(|path| match T::read(path) {
             | Ok(data) => {
                 let content = data.to_prose();
-                let calculated_index = readability_metric.calculate(&content);
                 let maximum = match readability_metric.maximum_allowed_from_env() {
                     | Some(value) => {
                         debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
@@ -1221,24 +1221,31 @@ where
                     }
                     | None => readability_metric.maximum_allowed(),
                 };
-                debug!(value = calculated_index, "=> {} Readability index", Label::using());
-                let score = format!("{} = {calculated_index}/{maximum}", readability_metric.to_string().to_uppercase());
-                if calculated_index > maximum {
-                    let errors = ErrorKind::Readability((calculated_index, readability_metric));
+                let calculated = readability_metric.calculate(&content);
+                debug!(calculated, "=> {} Readability index", Label::using());
+                let assessment = ReadabilityScore::new(readability_metric, calculated, maximum);
+                let message = assessment.to_string();
+                let uri = path.file_name_with_parent();
+                if assessment.is_excessive() {
+                    let errors = ErrorKind::Readability(assessment);
+                    let severity = match assessment.severity() {
+                        | ReadabilitySeverity::Fail => CheckSeverity::Warning,
+                        | ReadabilitySeverity::Pass => CheckSeverity::Info,
+                    };
                     vec![check!(
                         CheckCategory::Readability,
                         false,
-                        severity: CheckSeverity::Warning,
-                        uri: path.file_name_with_parent(),
+                        severity: severity,
+                        uri: uri,
                         errors: errors,
-                        message: score,
+                        message: message,
                         data: content
                     )]
                 } else {
                     vec![check_ok!(
                         CheckCategory::Readability,
-                        uri: path.file_name_with_parent(),
-                        message: score,
+                        uri: uri,
+                        message: message,
                         data: content
                     )]
                 }

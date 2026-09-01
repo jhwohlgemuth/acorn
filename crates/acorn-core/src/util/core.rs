@@ -1,4 +1,8 @@
 //! Allocation-free utility functions
+/// Returns `true` when both values are finite and `left` is greater than `right`.
+pub fn is_finite_and_greater_than(left: f64, right: f64) -> bool {
+    left.is_finite() && right.is_finite() && left > right
+}
 /// Returns `true` if `a` and `b` have the same length and equal contents, without short-circuiting on the first differing byte.
 pub fn constant_time_eq<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> bool {
     let (a, b) = (a.as_ref(), b.as_ref());

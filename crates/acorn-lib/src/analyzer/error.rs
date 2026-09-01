@@ -1,6 +1,6 @@
 //! Error module for handling check errors
 //!
-use super::readability::ReadabilityType;
+use super::readability::score::ReadabilityScore;
 use crate::analyzer::model::ValeOutputItem;
 use crate::io::document::{DocumentPath, DocumentQuery};
 use crate::prelude::alloc::HashMap;
@@ -107,7 +107,7 @@ pub enum ErrorCode {
 #[derive(Clone, Debug)]
 pub enum ErrorKind {
     /// Readability issue where calculated index exceeds threshold of associated metric
-    Readability((f64, ReadabilityType)),
+    Readability(ReadabilityScore),
     /// Prose issue found by Vale
     Vale(Vec<ValeOutputItem>),
     /// Schema validation issues found by ACORN validation.

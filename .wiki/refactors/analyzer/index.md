@@ -15,4 +15,3 @@ These plans prepare the pure analysis boundary defined by the [crate boundary ar
 - [Applicative validation](applicative-validation.md) - Accumulate independent failures.
 - [Check options context](check-options-context.md) - Stop repeatedly threading derived options.
 - [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.
-- [Typed scoring model](typed-scoring-model.md) - Make score combination and severity interpretation explicit.

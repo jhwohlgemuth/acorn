@@ -16,11 +16,13 @@ use tracing::warn;
 use tracing::{debug, trace};
 
 pub mod constants;
+pub mod score;
 use constants::{
     ACRONYM_TOKEN, DOUBLE, DOUBLE_SYLLABIC_FOUR, DOUBLE_SYLLABIC_ONE, DOUBLE_SYLLABIC_THREE, DOUBLE_SYLLABIC_TWO, IRREGULAR_NOUNS,
     IRREGULAR_NOUNS_INVERTED, NEED_TO_BE_FIXED, NON_ALPHABETIC, PLURAL_TO_SINGULAR, PROBLEMATIC_WORDS, SAME_SINGULAR_PLURAL, SINGLE,
     SINGLE_SYLLABIC_ONE, SINGLE_SYLLABIC_TWO, TRIPLE, VOWEL, WORD_SYLLABLES,
 };
+pub use score::ReadabilityScore;
 
 /// Readability Type
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
