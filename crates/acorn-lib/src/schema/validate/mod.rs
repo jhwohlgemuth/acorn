@@ -10,7 +10,7 @@ use crate::schema::standard::datacite::{
 };
 use crate::schema::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::schema::OneOrMany;
-use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_IP6, RE_PARTIAL_DATE, RE_PHONE};
+use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
 use crate::validation::{rules, Validate, ValidationError, ValidationReport};
 use core::iter::once;
@@ -97,7 +97,6 @@ pub(in crate::schema) fn validate_person_or_org_identifier(value: &PersonOrOrgId
     })
 }
 regex_validator!(is_gnd, RE_GND, "GND");
-regex_validator!(is_ip6, RE_IP6, "IP6");
 regex_validator!(
     has_image_extension,
     RE_IMAGE_EXTENSION,

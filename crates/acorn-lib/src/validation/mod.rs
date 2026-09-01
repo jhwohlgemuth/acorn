@@ -490,7 +490,7 @@ pub mod rules {
     use crate::util::{Constant, SemanticVersion};
     use convert_case::{Case, Casing};
     use core::borrow::Borrow;
-    use core::net::IpAddr;
+    use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use core::str::FromStr;
     use fluent_uri::UriRef;
     use idna::domain_to_ascii;
@@ -791,6 +791,34 @@ pub mod rules {
         SemanticVersion::parse_exact(value)
             .map(|_| ())
             .map_err(|_| ValidationError::new("version").with_message("Provide valid semantic version".into()))
+    }
+    /// Validate an IPv4 address
+    /// ### Examples
+    /// ```
+    /// use acorn::validation::rules;
+    ///
+    /// assert!(rules::ipv4("192.168.1.1").is_ok());
+    /// assert!(rules::ipv4("256.1.1.1").is_err());
+    /// ```
+    pub fn ipv4(value: &str) -> Result<(), ValidationError> {
+        value
+            .parse::<Ipv4Addr>()
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("ipv4").with_message("Provide valid IPv4 address".into()))
+    }
+    /// Validate an IPv6 address
+    /// ### Examples
+    /// ```
+    /// use acorn::validation::rules;
+    ///
+    /// assert!(rules::ipv6("2001:db8::1").is_ok());
+    /// assert!(rules::ipv6("192.168.1.1").is_err());
+    /// ```
+    pub fn ipv6(value: &str) -> Result<(), ValidationError> {
+        value
+            .parse::<Ipv6Addr>()
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("ipv6").with_message("Provide valid IPv6 address".into()))
     }
     /// Validate a four-digit year that is not in the future when a clock is available.
     ///

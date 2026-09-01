@@ -7,6 +7,7 @@ use acorn::schema::pid::{
 use acorn::schema::research_activity::ResearchActivity;
 use acorn::schema::{self, ContactPoint};
 use acorn::util::StringConversion;
+use acorn::validation::rules;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -39,7 +40,7 @@ fn acorn_py(module: &Bound<'_, PyModule>) -> PyResult<()> {
     validate.add_function(wrap_pyfunction!(is_ark, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_arxiv, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_doi, &validate)?)?;
-    validate.add_function(wrap_pyfunction!(is_ip6, &validate)?)?;
+    validate.add_function(wrap_pyfunction!(is_ip, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_orcid, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_patent_identifier, &validate)?)?;
     validate.add_function(wrap_pyfunction!(is_raid, &validate)?)?;
@@ -682,19 +683,18 @@ fn is_arxiv(value: &str) -> bool {
 fn is_doi(value: &str) -> bool {
     value.is_doi()
 }
-/// Check if value is a valid IP6 address (e.g. "2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+/// Check if value is a valid IP address (IPv4 or IPv6)
+///
 /// ### Example
 /// ```python
-/// from acorn.schema.validate import is_ip6
+/// from acorn.schema.validate import is_ip
 ///
-/// assert is_ip6("::")
+/// assert is_ip("192.168.1.1")
+/// assert is_ip("::1")
 /// ```
 #[pyfunction]
-fn is_ip6(value: &str) -> bool {
-    match schema::validate::is_ip6(value) {
-        | Ok(_) => true,
-        | Err(_) => false,
-    }
+fn is_ip(value: &str) -> bool {
+    rules::ipv4(value).is_ok() || rules::ipv6(value).is_ok()
 }
 /// Check if value is a valid ORCiD
 ///

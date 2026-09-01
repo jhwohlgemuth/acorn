@@ -8,7 +8,6 @@ from acorn.schema.validate import (
     is_ark,
     is_arxiv,
     is_doi,
-    is_ip6,
     is_orcid,
     is_patent_identifier,
     is_ror,
@@ -90,12 +89,6 @@ def test_is_doi():
     assert not is_doi("https://doi.org/42.11578/dc.20250604.1")
     # Just plain wrong
     assert not is_doi("totally invalid string")
-
-
-def test_is_ip6():
-    assert is_ip6("::")
-    assert is_ip6("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-    assert not is_ip6("192.168.1.1")
 
 
 def test_is_orcid():

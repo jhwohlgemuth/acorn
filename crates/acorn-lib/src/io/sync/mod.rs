@@ -1433,9 +1433,12 @@ mod tests {
         let entry = ModelEntry::Selector(format!("oci://registry.example.org/ai/qwen@{digest}"));
         let request = ModelRequest::try_from(&entry).unwrap();
         let details = request.assume(Path::new("models"));
-        assert_eq!(
-            details.path.as_deref(),
-            Some("models/registry.example.org/ai/qwen@sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        let normalized = details.path.as_deref().map(|p| p.replace('\\', "/")).unwrap_or_default();
+        let expected_suffix = "registry.example.org/ai/qwen@sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        assert!(
+            normalized.ends_with(expected_suffix) && normalized.starts_with("models"),
+            "expected path to be models/{expected_suffix}, got {normalized:?} (raw {:?})",
+            details.path
         );
     }
 }

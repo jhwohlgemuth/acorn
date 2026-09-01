@@ -716,6 +716,8 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             "camelcase",
             "snake_case",
             "unix_epoch",
+            "ipv4",
+            "ipv6",
         ];
         match path.get_ident() {
             | Some(ident) if supported_pid.iter().any(|rule| ident == rule) => Ok(ValidationRule::Pid(ident.clone(), parse_rule_options(meta)?)),

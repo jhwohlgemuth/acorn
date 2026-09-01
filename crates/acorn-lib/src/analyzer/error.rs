@@ -48,8 +48,10 @@ pub enum ErrorCode {
     Image,
     /// Invalid Handle identifier
     Handle,
+    /// Invalid IPv4 address
+    Ipv4,
     /// Invalid IPv6 address
-    Ip6,
+    Ipv6,
     /// Invalid ISBN
     Isbn,
     /// Invalid ISNI
@@ -143,7 +145,8 @@ impl From<&str> for ErrorCode {
             | "epoch" | "unix epoch" => Self::Epoch,
             | "image" => Self::Image,
             | "handle" => Self::Handle,
-            | "ip6" => Self::Ip6,
+            | "ip4" | "ipv4" => Self::Ipv4,
+            | "ip6" | "ipv6" => Self::Ipv6,
             | "isbn" => Self::Isbn,
             | "isni" => Self::Isni,
             | "kebabcase" => Self::KebabCase,

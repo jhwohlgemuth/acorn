@@ -9,8 +9,8 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::FromCommand;
-use crate::schema::validate::is_ip6;
 use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
+use crate::validation::rules;
 use human_units::FormatSize;
 use sysinfo::{Networks, System};
 #[cfg(feature = "std")]
@@ -308,6 +308,6 @@ fn parse_network_addresses(data: &sysinfo::NetworkData) -> Vec<String> {
     data.ip_networks()
         .iter()
         .map(|ip| ip.addr.to_string())
-        .filter(|x| is_ip6(x).is_err())
+        .filter(|x| rules::ipv6(x).is_err())
         .collect::<Vec<String>>()
 }
