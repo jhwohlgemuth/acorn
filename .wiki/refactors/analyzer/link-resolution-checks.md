@@ -12,12 +12,12 @@ status: in-progress
 # Project code boundaries
 
 - **Update:** `crates/acorn-lib/src/analyzer/{check,service}.rs`, discovery/resolution producers, `io/http/`, gather/check CLI consumers, and focused tests.
-- **Create:** shared link evidence/evaluation contracts in `acorn-analysis`, orchestration in `acorn-service`, and native evaluator implementation in `acorn-host` after extraction.
+- **Create:** shared link evidence/evaluation values plus concrete orchestration and native evaluation modules in-tree; reassess package ownership only after the portable values and evaluation compile independently.
 - **Delete:** direct provider-to-`Check` conversion and duplicate resolution streams after all producers use the shared contract.
 
 # Dependencies
 
-Use [check options context](check-options-context.md), [check batch monoid](check-batch-monoid.md), and consumer-owned host traits. This plan supplies the portable/native seam used by SWHID and other resolver features.
+Use the existing `AnalysisContext` policy split and [check batch monoid](check-batch-monoid.md). Keep concrete link execution in-tree; do not introduce a generic host trait until an alternate consumer proves the seam.
 
 # Goal
 
@@ -85,5 +85,4 @@ Retain the current CLI flag as a compatibility boundary unless a separately docu
 # Related concepts
 
 - [Check batch monoid](check-batch-monoid.md)
-- [Check options context](check-options-context.md)
 - [Standards traversal](standards-traversal.md)

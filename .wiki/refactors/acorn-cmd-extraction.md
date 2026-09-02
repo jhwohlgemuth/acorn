@@ -12,12 +12,12 @@ status: planned
 # Project code boundaries
 
 - **Update:** workspace `Cargo.toml`, `crates/acorn-lib/Cargo.toml`, `src/util/{cmd,macros}.rs`, `src/util/tests/cmd.rs`, `crates/acorn-macros/src/lib.rs`, and first-party imports/features.
-- **Create:** `crates/acorn-cmd/{Cargo.toml,src/lib.rs}` plus focused tests and facade re-exports.
-- **Delete:** command implementation from `acorn-lib` after re-export compatibility is proven; remove its `cmd`/`shell-lint` dependencies only when the facade feature mapping is in place.
+- **Create:** `crates/acorn-cmd/{Cargo.toml,src/lib.rs}` plus focused tests.
+- **Delete:** command implementation and obsolete command features from `acorn-lib` after first-party consumers migrate directly.
 
 # Dependencies
 
-Extract after portable shared values have an `acorn-core` home. It can then proceed independently of analyzer/API extraction and feeds the final facade cleanup in [crate boundary architecture](crate-boundary-architecture.md).
+Extract after portable shared values have an `acorn-core` home. It can then proceed independently of analyzer/API extraction and feeds the final ownership cleanup in [crate boundary architecture](crate-boundary-architecture.md).
 
 # Goal
 

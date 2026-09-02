@@ -2,11 +2,12 @@
 use crate::analyzer::Standard;
 use crate::error::ApiResult;
 use crate::io::{jsonc_parse_value, read_file, FromPath};
-use crate::prelude::std::PathBuf;
-use crate::schema::research_activity::ResearchActivity;
-use crate::util::{Label, MimeType};
+use crate::util::Label;
+use acorn_core::util::MimeType;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
+use std::path::PathBuf;
 use tracing::warn;
 
 /// A deprecated schema field and its canonical replacement.

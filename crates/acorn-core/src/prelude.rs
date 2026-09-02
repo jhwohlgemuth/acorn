@@ -1,5 +1,5 @@
-//! Imports grouped by their minimum runtime capability.
-/// Allocation-free language prelude.
+//! Imports grouped by their minimum runtime capability
+/// Allocation-free language prelude
 pub mod core {
     pub use ::core::prelude::rust_2021::*;
 }

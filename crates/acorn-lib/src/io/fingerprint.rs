@@ -1,10 +1,13 @@
 //! Deterministic content fingerprints for local and remote inputs.
 use crate::io::ApiResult;
-use crate::prelude::{File, Path, PathBuf, Read, String, ToString, Vec};
+use acorn_core::prelude::{String, ToString, Vec};
 use color_eyre::eyre::eyre;
 use core::fmt;
 use data_encoding::HEXLOWER;
 use ring::digest::{Context, SHA256};
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 /// SHA-256 fingerprint of one or more identified content values.
 #[derive(Clone, Debug, Eq, PartialEq)]

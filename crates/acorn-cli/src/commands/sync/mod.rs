@@ -1,9 +1,10 @@
 use crate::cli::{arguments, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::sync::{self, Config};
-use acorn::prelude::PathBuf;
-use acorn::schema::agent::ModelSelectors;
+use acorn::io::ModelSelectorsExt;
 use acorn::util::Label;
+use acorn_schema::schema::agent::ModelSelectors;
+use std::path::PathBuf;
 use tracing::info;
 /// Synchronize local inference configuration from ACORN model entries
 pub async fn run(args: &arguments::Sync, database_path: &Option<PathBuf>, no_local_database: bool, offline: bool) -> Void {
@@ -125,7 +126,7 @@ mod tests {
     use crate::test::util::{temp_test_dir, TestCleanup};
     use acorn::io::database::schema::{ModelRow, Table};
     use acorn::io::database::{Database, Operations};
-    use acorn::prelude::{create_dir_all, read_to_string, write};
+    use std::fs::{create_dir_all, read_to_string, write};
 
     #[test]
     fn test_resolve_models_skips_unresolved_entries() {

@@ -49,6 +49,10 @@ prepare-environment:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - Cargo.toml
+        - Cargo.lock
+        - crates/acorn-core/Cargo.toml
+        - crates/acorn-schema/Cargo.toml
+        - crates/acorn-lib/Cargo.toml
   script:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
@@ -76,6 +80,10 @@ test:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - make test-ci
+    - make check
+    - make wasm
+    - cargo package --no-verify --allow-dirty -p acorn-core
+    - cargo package --no-verify --allow-dirty -p acorn-schema
 
 test-python:
   stage: test

@@ -17,9 +17,9 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-1. Finish [std-only isolation](refactors/portability/isolate-std-only-modules.md) — `dependency-feature-defaults` is green (`async-trait`/`futures`/`glob`/`shell-words` optional behind `std`; `sophia` retained as portable).
-2. Run the [`acorn-schema` extraction](refactors/portability/acorn-schema-extraction.md) with one owner for manifests, facade roots, module indexes, and build integration.
-3. Isolate analyzer models from host document/rendering/service state, then plan the `acorn-analysis` extraction against the accepted schema package.
+1. Finish [std-only isolation](refactors/portability/isolate-std-only-modules.md) for analyzer document, rendering, and service state.
+2. Add an alloc-only compilation gate for the in-tree check/error/readability kernel; do not extract `acorn-analysis` yet.
+3. Revisit consumer-owned ports only after concrete native and alternate consumers prove a narrow seam.
 
 The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
 

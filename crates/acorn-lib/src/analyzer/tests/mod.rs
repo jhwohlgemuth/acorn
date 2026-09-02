@@ -9,21 +9,24 @@ use crate::analyzer::check::Standard;
 use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
 use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::analyzer::{
-    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, IntoChecks, StaticAnalyzer,
-    StaticAnalyzerConfig,
+    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckSeverity, ExecutionOptions, IntoChecks,
+    StaticAnalyzer, StaticAnalyzerConfig,
 };
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
-use crate::prelude::{create_dir_all, remove_file, write, Arc, HashMap, PathBuf};
-use crate::schema::standard::cff::Cff;
-use crate::schema::standard::crosswalk::ConversionWarning;
-use crate::schema::OneOrMany;
 use crate::test::utils::unique_path;
-use crate::validation::{Validate, ValidationError, ValidationReport};
 use crate::{check, check_ok};
+use acorn_core::prelude::{Arc, HashMap};
+use acorn_core::validation::ValidationError;
+use acorn_schema::schema::standard::cff::Cff;
+use acorn_schema::schema::standard::crosswalk::ConversionWarning;
+use acorn_schema::schema::OneOrMany;
+use acorn_schema::validation::{Validate, ValidationReport};
 use ariadne::Color;
 use ariadne::ReportKind;
 use jiff::SignedDuration;
 use serde_json::Value;
+use std::fs::{create_dir_all, remove_file, write};
+use std::path::PathBuf;
 
 #[derive(Validate)]
 struct FieldModel {
@@ -83,30 +86,31 @@ impl ValeOutputItem {
         }
     }
 }
-fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem) -> Check {
+fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem) -> (Check, Arc<DocumentIndex>) {
     let document = SourceDocument::init().content(content).format(source).source(source).build();
-    let documents = HashMap::from([(source.to_string(), Arc::new(DocumentIndex::new(document)))]);
-    Check::init()
+    let document = Arc::new(DocumentIndex::new(document));
+    let check = Check::init()
         .category(CheckCategory::Prose)
         .errors(ErrorKind::Vale(vec![item]))
         .message("prose issue")
         .uri(source)
         .build()
         .with_data(analyzed.to_string())
-        .attach_document(&documents)
+        .resolve_locator(&document);
+    (check, document)
 }
 
 #[tokio::test]
 async fn test_vale_retry_sync_reports_exhaustion() {
     let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
-    let options = CheckOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
+    let options = ExecutionOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
     let error = vale.retry_sync(&options).await.expect_err("missing Vale binary should exhaust retries");
     assert!(error.to_string().contains("failed after 3 attempts"));
 }
 #[tokio::test]
 async fn test_vale_retry_sync_can_ignore_exhaustion() {
     let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
-    let options = CheckOptions::init()
+    let options = ExecutionOptions::init()
         .ignore_sync_failure(true)
         .quiet(true)
         .sync_retry_interval(SignedDuration::ZERO)
@@ -529,7 +533,7 @@ fn test_report_schema_with_missing_value_param_does_not_panic() {
         .errors(ErrorKind::Validator(validation_errors))
         .uri("fixtures/CITATION.cff")
         .build();
-    issue.report();
+    issue.report(None);
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {
@@ -547,14 +551,14 @@ fn test_with_context_and_with_uri_preserve_severity() {
 #[test]
 fn test_prose_location_maps_extracted_document_coordinates() {
     let content = "# Title\n\nbad prose";
-    let check = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
+    let (check, document) = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
-    assert!(check.terse().contains("path=paper.pdf:3:1"));
+    assert!(check.terse(Some(&document)).contains("path=paper.pdf:3:1"));
 }
 #[test]
 fn test_prose_location_maps_structured_prose_to_full_source() {
     let content = "{\n  \"ignored\": \"metadata\",\n  \"description\": \"geo-spatial science\"\n}";
-    let check = prose_check(
+    let (check, document) = prose_check(
         "index.json",
         content,
         "geo-spatial science",
@@ -562,20 +566,20 @@ fn test_prose_location_maps_structured_prose_to_full_source() {
     );
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
     assert!(check.to_string().contains("Line 3, Character 19"));
-    assert!(check.terse().contains("path=index.json:3:19"));
+    assert!(check.terse(Some(&document)).contains("path=index.json:3:19"));
 }
 #[test]
 fn test_prose_location_omits_invalid_analyzer_span() {
     let content = "first\nsecond";
-    let check = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
+    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
     assert_eq!(check.locator, None);
     assert!(check.to_string().contains("Unlocated"));
-    assert!(!check.terse().contains("path=notes.md:"));
+    assert!(!check.terse(Some(&document)).contains("path=notes.md:"));
 }
 #[test]
 fn test_prose_location_omits_ambiguous_structured_match() {
     let content = "{\"title\":\"repeat\",\"description\":\"repeat\"}";
-    let check = prose_check(
+    let (check, document) = prose_check(
         "index.json",
         content,
         "repeat\n\nrepeat",
@@ -583,15 +587,15 @@ fn test_prose_location_omits_ambiguous_structured_match() {
     );
     assert_eq!(check.locator, None);
     assert!(check.to_string().contains("Unlocated"));
-    assert!(check.terse().contains("path=index.json"));
-    assert!(!check.terse().contains("path=index.json:"));
+    assert!(check.terse(Some(&document)).contains("path=index.json"));
+    assert!(!check.terse(Some(&document)).contains("path=index.json:"));
 }
 #[test]
 fn test_prose_location_uses_full_text_coordinates_with_duplicate_words() {
     let content = "repeat\nclean\nrepeat problem";
-    let check = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
+    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
-    assert!(check.terse().contains("path=notes.md:3:1"));
+    assert!(check.terse(Some(&document)).contains("path=notes.md:3:1"));
 }
 #[test]
 fn test_terse_output_includes_resolved_line_and_column() {
@@ -603,9 +607,9 @@ fn test_terse_output_includes_resolved_line_and_column() {
         .context("target")
         .message("Unreachable")
         .uri("index.json")
-        .build()
-        .with_document(Arc::new(DocumentIndex::new(document)));
-    assert!(check.terse().contains("path=index.json:2:11"));
+        .build();
+    let document = DocumentIndex::new(document);
+    assert!(check.terse(Some(&document)).contains("path=index.json:2:11"));
 }
 #[tokio::test]
 async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
@@ -640,9 +644,9 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
 }
 #[tokio::test]
 async fn test_collect_validation_checks_awaits_async_rules() {
-    async fn reject(value: &str) -> Result<(), crate::validation::ValidationError> {
+    async fn reject(value: &str) -> Result<(), ValidationError> {
         match value {
-            | "invalid" => Err(crate::validation::ValidationError::new("async_rejected")),
+            | "invalid" => Err(ValidationError::new("async_rejected")),
             | _ => Ok(()),
         }
     }

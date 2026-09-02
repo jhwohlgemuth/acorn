@@ -2,13 +2,7 @@
 source: crates/acorn-cli/tests/check.rs
 expression: normalized_process(&args)
 ---
-status: 70
+status: 0
 stdout:
 => !!! OFFLINE ACORN is running in offline mode
 stderr:
-ERROR =>  ✗ FAIL  Output CSV results to stdout — no data: no rows, cannot infer schema
-Error: 
-   0: no data: no rows, cannot infer schema
-
-Backtrace omitted. Run with RUST_BACKTRACE=1 environment variable to display it.
-Run with RUST_BACKTRACE=full to include source snippets.

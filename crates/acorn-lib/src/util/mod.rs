@@ -4,15 +4,14 @@ pub mod assets;
 #[cfg(feature = "std")]
 pub mod cmd;
 pub mod constants;
-pub mod core;
 pub mod macros;
-pub mod portable;
+#[cfg(feature = "std")]
+pub mod process;
 #[cfg(feature = "std")]
 pub mod std;
 pub mod terminal;
 pub use self::alloc::*;
 pub use self::assets::Constant;
-pub use self::core::*;
 #[cfg(feature = "std")]
 pub use self::std::*;
 pub use self::terminal::Label;
@@ -20,10 +19,11 @@ pub use self::terminal::Label;
 pub use self::terminal::{
     print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
 };
+
 #[cfg(not(feature = "std"))]
 /// Check if a value is a URI or portable filesystem path.
 pub fn is_uri_or_path(value: &str) -> bool {
-    self::alloc::is_uri_or_path_portable(value)
+    acorn_core::util::is_uri_or_path_portable(value)
 }
 #[cfg(test)]
 mod tests;

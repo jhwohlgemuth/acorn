@@ -10,13 +10,14 @@ use crate::io::database::schema::ModelRow;
 use crate::io::database::{resolve_database_path, Row};
 use crate::io::sync;
 use crate::io::{ApiResult, Executor};
-use crate::prelude::{HashSet, PathBuf};
-use crate::schema::agent::{ModelDetails, Quantization};
-use crate::schema::hardware::memory::Memory;
 use crate::util::constants::app::IGNORE;
 use crate::util::Label;
-use crate::validation::{Validate, ValidationError, ValidationReport};
-use crate::{Location, Repository};
+use acorn_core::prelude::HashSet;
+use acorn_core::validation::ValidationError;
+use acorn_core::{Location, Repository};
+use acorn_schema::schema::agent::{ModelDetails, Quantization};
+use acorn_schema::schema::hardware::memory::Memory;
+use acorn_schema::validation::{Validate, ValidationReport};
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
 pub use bucket::{Bucket, BucketOptions, Buckets};
@@ -28,6 +29,7 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::path::PathBuf;
 use strum::EnumIs;
 use tracing::warn;
 pub use transfer::{TransferManifest, TransferPolicy};
@@ -226,7 +228,7 @@ pub struct ModelEntryOptions {
     pub ignore: Option<Vec<String>>,
     /// Ordered exact GGUF quantization allowlist
     #[serde(default)]
-    pub quantization: Option<crate::schema::OneOrMany<Quantization>>,
+    pub quantization: Option<acorn_schema::schema::OneOrMany<Quantization>>,
     /// Maximum GPU memory available for model weights
     #[serde(default)]
     pub gpu_memory: Option<Memory>,

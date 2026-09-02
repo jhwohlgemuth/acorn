@@ -1,17 +1,20 @@
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
-use acorn::io::enrichment::{Pipeline, Provider};
+use acorn::io::enrichment::Pipeline;
 use acorn::io::workflow::{self, Workflow};
 use acorn::io::{FromPath, InputOutput};
-use acorn::prelude::{write, PathBuf};
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{print_changes_with_color, Label, MimeType, StringConversion};
-use acorn::Location;
+use acorn::util::{print_changes_with_color, Label, StringConversion};
+use acorn_core::util::MimeType;
+use acorn_core::Location;
+use acorn_schema::enrichment::Provider;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::fs::write;
+use std::path::PathBuf;
 use tracing::info;
 
 #[allow(clippy::too_many_arguments)]

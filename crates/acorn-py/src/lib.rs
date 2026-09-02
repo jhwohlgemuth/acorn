@@ -1,15 +1,15 @@
 use acorn::io::InputOutput;
-use acorn::prelude::PathBuf;
-use acorn::schema::pid::patent::{CountryCode, KindCode};
-use acorn::schema::pid::{
+use acorn::util::StringConversion;
+use acorn_schema::schema::pid::patent::{CountryCode, KindCode};
+use acorn_schema::schema::pid::{
     Arxiv, Patent, PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ARK, DOI, ISBN, ORCID, ROR, SWHID,
 };
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::schema::{self, ContactPoint};
-use acorn::util::StringConversion;
-use acorn::validation::rules;
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::{self, ContactPoint};
+use acorn_schema::validation::rules;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use std::path::PathBuf;
 
 /// Python bindings for ACORN
 #[pymodule]

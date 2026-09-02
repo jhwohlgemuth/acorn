@@ -7,15 +7,16 @@ use crate::io::http::HttpResponseError;
 use crate::io::sync::Shard;
 use crate::io::{first_env_var, http, ApiResult, Source};
 use crate::param;
-use crate::prelude::{HashMap, Path};
-use crate::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
 use crate::util::constants::app::{
-    DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT,
-    DEFAULT_HUGGINGFACE_SEARCH_TERM,
+    DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
 };
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
-use crate::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric, Label};
-use crate::{Location, Repository};
+use crate::util::Label;
+use acorn_core::prelude::HashMap;
+use acorn_core::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric};
+use acorn_core::{Location, Repository};
+use acorn_schema::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
+use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
@@ -27,6 +28,7 @@ use futures::future::join_all;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::Path;
 use tracing::{info, warn};
 
 /// Candidate repositories returned by model search.
@@ -755,9 +757,15 @@ impl From<RepositoryResolution<ModelDetails>> for ModelDetails {
         }
     }
 }
-impl ModelDetails {
+/// Hugging Face network operations for schema-owned model metadata.
+#[async_trait]
+pub trait ModelDetailsExt: Sized {
     /// Resolve this model to a GGUF fallback repository.
-    pub async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
+    async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>>;
+}
+#[async_trait]
+impl ModelDetailsExt for ModelDetails {
+    async fn resolve_fallback(self, search_options: &SearchOptions, offline: bool) -> ApiResult<RepositoryResolution<Self>> {
         match search(search_options).await {
             | Ok(candidates) => {
                 let options = Options::init()
@@ -956,9 +964,17 @@ impl From<HuggingFaceRepositoryFiles> for Weights {
         )
     }
 }
-impl Weights {
+/// Hugging Face source operations for schema-owned model weights.
+pub trait HuggingFaceWeightsExt: Sized {
     /// Set the open-weight flag for the primary source.
-    pub fn open(mut self, is_open: Option<bool>) -> Self {
+    fn open(self, is_open: Option<bool>) -> Self;
+    /// Construct weights from a source location with explicit open-weight control.
+    fn from_source(source: &Source, is_open: Option<bool>) -> Self;
+    /// Resolve the first non-empty model weight URL into a downloadable source.
+    fn to_source(self, name: Option<String>) -> Option<Source>;
+}
+impl HuggingFaceWeightsExt for Weights {
+    fn open(mut self, is_open: Option<bool>) -> Self {
         if let Some(weight) = self.0.first_mut() {
             weight.is_open = is_open;
         }
@@ -968,7 +984,7 @@ impl Weights {
     ///
     /// For remote Hugging Face sources, `is_open` controls the open-weight flag.
     /// For local sources, `is_open` is always `Some(true)`, regardless of the parameter.
-    pub fn from_source(source: &Source, is_open: Option<bool>) -> Self {
+    fn from_source(source: &Source, is_open: Option<bool>) -> Self {
         let weights = Self::from(source);
         // Only override is_open for Remote sources; Local sources are always Some(true)
         match source {
@@ -977,7 +993,7 @@ impl Weights {
         }
     }
     /// Resolve the first non-empty model weight URL into a downloadable source.
-    pub fn to_source(self, name: Option<String>) -> Option<Source> {
+    fn to_source(self, name: Option<String>) -> Option<Source> {
         self.0.into_iter().find(|weight| !weight.url.trim().is_empty()).map(|weight| {
             let location = Location::from(weight.url.as_str());
             let is_repository = location.host().is_some_and(|host| host.eq_ignore_ascii_case(DEFAULT_HUGGINGFACE_DOMAIN))

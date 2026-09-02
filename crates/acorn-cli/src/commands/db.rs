@@ -1,12 +1,15 @@
 #![allow(clippy::std_instead_of_alloc)]
 use crate::io::chromium_cache_dir;
 use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
-use acorn::prelude::{env, remove_dir_all, Arc, Path, PathBuf};
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH};
 use acorn::util::Label;
+use acorn_core::prelude::Arc;
 use color_eyre::eyre::Report;
 use futures::future::ready;
 use futures::TryFutureExt;
+use std::env;
+use std::fs::remove_dir_all;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
 #[derive(Clone)]
@@ -155,7 +158,7 @@ fn clear_chromium_cache() -> Result<(), Report> {
 mod tests {
     use super::*;
     use crate::test::util::{temp_test_dir, TestCleanup};
-    use acorn::prelude::{create_dir_all, write};
+    use std::fs::{create_dir_all, write};
 
     #[test]
     fn test_clear_cache_directory_removes_chromium_cache() {

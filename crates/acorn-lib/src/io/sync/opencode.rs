@@ -4,11 +4,10 @@
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
 use super::{Options, RenderedOutput, SyncTarget};
-use crate::io::{home_directory, read_file, ApiResult, CstValue, PathConversion};
-use crate::prelude::{current_dir, Path, PathBuf};
-use crate::schema::agent::opencode;
+use crate::io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion};
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
-use crate::validation::Validate;
+use acorn_schema::schema::agent::opencode;
+use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::string::ToString;
@@ -17,6 +16,8 @@ use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
+use std::env::current_dir;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
@@ -110,11 +111,11 @@ impl SyncTarget for Config {
                 .map(|content| content.unwrap_or_default())
                 .and_then(|before| {
                     match path.is_file() {
-                        | true => opencode::Config::from_path(&path),
-                        | false => Ok(opencode::Config::default()),
+                        | true => parse_jsonc_cst::<opencode::Config>(&before).map(|(config, cst)| (config, Some(cst))),
+                        | false => Ok((opencode::Config::default(), None)),
                     }
-                    .and_then(|existing| self.upsert(&existing, &models, options.prune))
-                    .and_then(|opencode| Config::render(self, &opencode))
+                    .and_then(|(existing, cst)| self.upsert(&existing, &models, options.prune).map(|updated| (updated, cst)))
+                    .and_then(|(opencode, cst)| self.render_with_cst(&opencode, cst.as_ref()))
                     .map(|content| RenderedOutput {
                         target: "OpenCode",
                         path,
@@ -155,7 +156,10 @@ impl Config {
     }
     /// Render an updated OpenCode configuration while preserving JSONC comments outside the managed provider
     pub fn render(&self, config: &opencode::Config) -> ApiResult<String> {
-        match &config.cst {
+        self.render_with_cst(config, None)
+    }
+    fn render_with_cst(&self, config: &opencode::Config, cst: Option<&CstRootNode>) -> ApiResult<String> {
+        match cst {
             | Some(cst) => config
                 .provider
                 .as_ref()
@@ -181,7 +185,7 @@ impl Config {
                     cst.to_string()
                 })
                 .and_then(|content| {
-                    opencode::Config::parse_jsonc(&content)
+                    parse_jsonc_cst::<opencode::Config>(&content)
                         .map(|_| content)
                         .map_err(|why| eyre!("Generated OpenCode JSONC is invalid — {why}"))
                 }),
@@ -272,8 +276,8 @@ fn default_provider_name() -> String {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
-    use crate::prelude::{create_dir_all, remove_dir_all, write};
     use crate::test::utils::temp_dir;
+    use std::fs::{create_dir_all, remove_dir_all, write};
 
     #[test]
     fn test_default_values() {
@@ -333,7 +337,7 @@ mod tests {
     }
     #[test]
     fn test_render_preserves_jsonc_comments_outside_managed_provider() {
-        let existing = opencode::Config::parse_jsonc(
+        let (existing, cst) = parse_jsonc_cst::<opencode::Config>(
             r#"{
   // root comment
   "username": "acorn",
@@ -347,12 +351,12 @@ mod tests {
         .unwrap();
         let config = Config::default();
         let updated = config.upsert(&existing, &[("qwen".to_string(), "Qwen".to_string())], false).unwrap();
-        let rendered = config.render(&updated).unwrap();
+        let rendered = config.render_with_cst(&updated, Some(&cst)).unwrap();
         assert!(rendered.contains("// root comment"));
         assert!(rendered.contains("// unrelated provider comment"));
         assert!(rendered.contains("\"stale\""));
         assert!(rendered.contains("\"qwen\""));
-        assert_eq!(rendered, config.render(&updated).unwrap());
+        assert_eq!(rendered, config.render_with_cst(&updated, Some(&cst)).unwrap());
     }
     #[test]
     fn test_upsert_is_additive_unless_pruned() {

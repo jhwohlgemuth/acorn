@@ -7,11 +7,13 @@ use crate::io::database::{schema::Table, Database};
 use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
 use crate::io::ApiResult;
 use crate::param;
-use crate::prelude::var;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
-use crate::util::{detect_json, detect_xml, Constant, Label, Searchable};
-use crate::validation::Validate;
-use crate::{Location, Repository, Scheme};
+use crate::util::{Constant, Label};
+use acorn_core::util::assets::EmbeddedAssets;
+use acorn_core::util::{detect_json, detect_xml, Searchable};
+use acorn_core::{Location, Repository, Scheme};
+use acorn_schema::schema::agent::AuthenticationScheme;
+use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue};
 use axum::http::HeaderMap;
@@ -24,9 +26,9 @@ use fluent_uri::{Uri, UriRef};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env::var;
 use strum::EnumIs;
 use tera::{Context, Tera};
 use tracing::{debug, trace, warn};
@@ -209,25 +211,6 @@ pub trait ValueValidator {
     fn is_valid(&self, _value: &str) -> bool {
         true
     }
-}
-/// Authentication schemes supported for API requests
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-pub enum AuthenticationScheme {
-    /// Bearer token authentication (e.g., JWT)
-    #[default]
-    Bearer,
-    /// Basic authentication (username:password)
-    Basic,
-    /// API key authentication
-    ApiKey,
-    /// OAuth 2.0 authentication
-    OAuth2,
-    /// AWS Signature V4 request signing
-    AwsSignatureV4,
-    /// Google Cloud Application Default Credentials
-    GoogleCloud,
-    /// Custom authentication scheme
-    Custom(String),
 }
 /// Describes the location/type of a parameter for an API resource
 #[derive(Clone, Debug, Default, Deserialize, EnumIs, Serialize)]
@@ -432,23 +415,6 @@ pub struct TypedResponse<T> {
     pub headers: HeaderMap,
     /// HTTP response status code.
     pub status_code: u16,
-}
-impl fmt::Display for AuthenticationScheme {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                | AuthenticationScheme::Bearer => "Bearer",
-                | AuthenticationScheme::Basic => "Basic",
-                | AuthenticationScheme::ApiKey => "ApiKey",
-                | AuthenticationScheme::OAuth2 => "OAuth2",
-                | AuthenticationScheme::AwsSignatureV4 => "AWS Signature V4",
-                | AuthenticationScheme::GoogleCloud => "Google Cloud",
-                | AuthenticationScheme::Custom(scheme) => scheme,
-            }
-        )
-    }
 }
 impl Authenticator for Credential {
     fn from_env(variables: &[(&str, &'static str)]) -> Option<Self> {
@@ -671,7 +637,7 @@ impl RemoteResource for Endpoint {
     /// ### Example
     /// ```ignore
     /// use acorn::io::api::{self, INCLUDED_ENDPOINTS};
-    /// use acorn::util::Searchable;
+    /// use acorn_core::util::Searchable;
     ///
     /// let orcid = INCLUDED_ENDPOINTS.find_by_name("orcid");
     /// let text = match &orcid {

@@ -5,8 +5,9 @@ use crate::io::api::{ApiResult, DatabasePersistence, RemoteResource, INCLUDED_EN
 use crate::io::database::schema::{ModelRow, ProviderRow, Table};
 use crate::io::database::{Database, Operations};
 use crate::io::{with_progress, ProgressType};
-use crate::schema::agent::{ModelDetails, ProviderDetails};
-use crate::util::{Label, Searchable};
+use crate::util::Label;
+use acorn_core::util::Searchable;
+use acorn_schema::schema::agent::{ModelDetails, ProviderDetails};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::Deserialize;

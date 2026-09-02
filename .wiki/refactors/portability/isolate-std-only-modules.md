@@ -4,7 +4,7 @@ title: "Isolate std-only modules from domain modules"
 description: "Complete the boundary between portable transformations and filesystem, process, and network services."
 difficulty: medium
 impact: critical
-package: [acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-host]
+package: [acorn-lib, acorn-cli]
 tags: [refactor, no-std, portability]
 status: in-progress
 priority: next
@@ -12,25 +12,30 @@ priority: next
 
 # Evidence
 
-- `prelude::core`, `prelude::alloc`, and `prelude::std` now expose explicit capability boundaries. Schema and portable utility modules import allocation-backed types directly, while host helpers import the std prelude.
-- `acorn::validation` provides alloc-compatible contracts, ordered flat reports, built-in scalar/PID/version rules, and indexed collection validation; the derive emits core/alloc paths.
+- `acorn-core::prelude::{core, alloc}` exposes the portable capability boundary. Schema and portable utility modules import allocation-backed types from that owner, while host code imports operating-system services directly from `std`; `acorn-lib` no longer publishes an ownership-masking prelude.
+- `acorn-schema::validation` provides alloc-compatible contracts, ordered flat reports, built-in scalar/PID/version rules, and indexed collection validation; the derive emits direct owning-crate paths.
 - Portable string/byte codecs remain on schema types, while path/file `InputOutput` implementations, migration machinery, RAiD read/conversion, and `format_with` live in the std-only `io::adapter` module.
 - `acorn-core` owns portable errors, location/repository values, and core/alloc utility implementations. `acorn-lib` supplies native `LocationExt` and `RepositoryExt` adapters.
 - OpenCode `InputOutput`, model-weight persistence, RAD contextual formatting, and RAD Markdown document indexing have moved out of schema modules. License/programming-language schema validation is deterministic and database-independent.
-- Agent source resolution, embedded prompt rendering (`tera`), OpenCode CST/path state (`CstRootNode`/`PathBuf`), and presentation (`owo_colors`) are now `alloc`/`std`-gated: `schema/agent` is `#[cfg(feature="alloc")]` (`schema/mod.rs:49`) with host imports and `PromptTemplate::render`/`Source`/`Path`/`Embed` behind `std`; `schema/agent/opencode.rs:243` `Config::cst`/`path` split `std`/`alloc`, host JSONC helpers behind `std`. No `io/` file touched.
-- `analyzer/mod.rs`, `check.rs`, `error.rs`, and `service.rs` still coordinate transformations with processes, async sleep, network checks, files, documents, and databases. The entire analyzer feature currently implies `std`.
+- Schema models and deterministic prompt rendering now live in `acorn-schema`; network/file resolution, OpenCode CST/path preservation, persistence, and presentation remain explicit host extensions in `acorn-lib`.
+- `Check` no longer stores a host `DocumentIndex`. `AnalysisReport` owns document indexes once and supplies them to detailed or terse rendering through `RenderContext`.
+- `AnalysisContext` explicitly separates calculation inputs (`AnalysisOptions`), concrete host execution (`ExecutionOptions`), and rendering/failure policy (`ReportOptions`).
+- Readability calculation consumes an explicit metric and optional threshold; the CLI composition root owns `.env` resolution.
+- `analyzer/error.rs:5` `DocumentPath`/`DocumentQuery` and `DocumentTarget::query:13` gated `std`; `ValidatorIssue::query:209` gated.
+- `analyzer/mod.rs:7` `SourceDocument`/`InputOutput`/`command_exists`/`Path`/`PathBuf` now `#[cfg(feature="std")]`, `Arc`/`HashMap` kept for `alloc`.
+- `analyzer` is still selected only by the `analysis` feature, and `analysis` still implies `std`. Individual source sections have portable characteristics, but an independently compiling portable analyzer boundary has not yet been established.
 - Vale output DTOs now have analyzer-model ownership and are re-exported from the existing `analyzer::vale` path; Vale runtime/configuration remains host-owned.
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/Cargo.toml`; `src/lib.rs`, `prelude.rs`, and `error.rs`; `src/schema/`, `src/validation/`, `src/analyzer/`, and `src/io/`; focused tests adjacent to each moved boundary.
-- **Create:** adapter boundaries for the remaining schema and analyzer host capabilities; later `crates/acorn-schema/`, `crates/acorn-analysis/`, and native implementations in `crates/acorn-host/`.
-- **Delete:** remaining portable-to-host imports after compatibility adapters exist; no legacy public path is removed.
+- **Update:** `crates/acorn-lib/Cargo.toml`; `src/lib.rs`, `error.rs`, `src/analyzer/`, `src/io/`, and `src/util/`; `crates/acorn-core/src/prelude.rs`; focused tests adjacent to each moved boundary.
+- **Create:** in-tree portable model/calculation modules and explicit host rendering/execution modules only after their dependency cuts compile independently.
+- **Delete:** remaining analyzer portable-to-host imports after explicit adapters exist.
 
 # Dependencies
 
 - **Prerequisite:** keep [dependency feature defaults](dependency-feature-defaults.md) green for minimal and alloc builds.
-- **Follow-on:** introduce [host abstraction traits](host-abstraction-traits.md) at proven seams, then extract crates through the [crate boundary architecture](../crate-boundary-architecture.md).
+- **Follow-on:** prove an alloc-compiling analyzer kernel in-tree. Reassess package extraction and consumer-owned ports only after concrete host consumers demonstrate stable seams.
 
 # Parallel execution
 
@@ -38,21 +43,22 @@ Analyzer isolation is a separate batch and owns `analyzer/mod.rs`, `check.rs`, a
 
 # Recommendation
 
-1. Move agent source resolution and embedded prompt/template rendering out of portable agent DTOs.
-2. Split OpenCode's portable serializable configuration from CST preservation and source-path state; keep file dispatch and comment-preserving writes in std adapters.
-3. Move presentation/rendering side effects out of schema types, leaving deterministic view or artifact inputs at the portable boundary.
-4. Freeze the resulting schema/validation/codec contract and hand it to the [`acorn-schema` extraction](acorn-schema-extraction.md).
-5. Continue analyzer isolation as the following slice: separate `Check` and analyzer issue models from document paths/rendering, then move Vale, HTTP, filesystem, process, and database execution behind adapters.
+1. Completed in this phase: separate check values from retained document indexes and split calculation, execution, and report policy.
+2. Move `Render`, ariadne/terminal output, `Analysis` path traversal, and `AnalysisReport` filesystem indexing into explicit in-tree host modules.
+3. Make the remaining check/error/readability model kernel compile under `alloc` without enabling the current `analysis -> std` feature bundle.
+4. Keep Vale, HTTP, filesystem, process, and database code concrete until repeated consumers prove a narrow port. Do not introduce generic host traits yet.
+5. Do not create `acorn-analysis` until the in-tree portable boundary has its own green feature check and no host imports.
 
 # Validation
 
 Run `cargo check -p acorn-lib --no-default-features`, `cargo check -p acorn-lib --no-default-features --features alloc`, `make wasm`, and the capability-specific checks in the [portability roadmap](roadmap.md).
 
+Verified 2026-09-02: `cargo check --workspace --all-targets`, `cargo check -p acorn-lib --no-default-features`, `cargo check -p acorn-lib --no-default-features --features alloc`, `make lint`, `cargo test -p acorn-lib analyzer::tests --lib`, and `cargo test -p acorn-lib analyzer::service::tests --lib`. The alloc check remains a library baseline and does not yet select analyzer modules; establishing that narrower analyzer gate is the next acceptance step.
+
 # Acceptance criteria
 
-Portable schema modules compile without concrete std services and satisfy the entry gate for `acorn-schema`; analyzer model modules compile independently of concrete document, renderer, filesystem, network, process, and database services.
+`acorn-schema` compiles without concrete host services; analyzer model modules compile independently of concrete document, renderer, filesystem, network, process, and database services.
 
 # Related plans
 
 - [Plan dependency network](../../plan-network.md)
-- [Extract acorn-schema](acorn-schema-extraction.md)

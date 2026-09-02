@@ -20,24 +20,15 @@
 //! ```
 //!
 pub use crate::error::ApiResult;
-#[cfg(unix)]
-use crate::prelude;
-use crate::prelude::{
-    absolute, canonicalize, consts, create_dir_all, current_dir, fs, io, temp_dir, var, var_os, write, BufReader, CommandOutput, Component, Cursor,
-    File, HashSet, OpenOptions, OsString, Path, PathBuf, Read, MAIN_SEPARATOR,
-};
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use crate::prelude::{set_permissions, OpenOptionsExt, Permissions, PermissionsExt};
-#[cfg(windows)]
-use crate::prelude::{symlink_dir, symlink_file};
 use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
+use crate::util::process::CommandOutput;
+use crate::util::{generate_guid, Label, StringConversion, ToStrings};
+use crate::{args, cmd};
+use acorn_core::prelude::HashSet;
 #[cfg(windows)]
-use crate::util::file_extension;
-use crate::util::{
-    case_insensitive_glob, generate_guid, suffix, to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, Label, MimeType, SemanticVersion,
-    StringConversion, ToStrings,
-};
-use crate::{args, cmd, Location};
+use acorn_core::util::file_extension;
+use acorn_core::util::{case_insensitive_glob, suffix, to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, MimeType, SemanticVersion};
+use acorn_core::Location;
 use color_eyre::eyre::{eyre, Report};
 #[cfg(feature = "std")]
 use console::{measure_text_width, strip_ansi_codes};
@@ -65,6 +56,19 @@ use rsa::{RsaPrivateKey, RsaPublicKey};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
+use std::env::{consts, current_dir, temp_dir, var, var_os};
+use std::ffi::OsString;
+use std::fs::{self, canonicalize, create_dir_all, write, File, OpenOptions};
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+use std::fs::{set_permissions, Permissions};
+use std::io::{self, BufReader, Cursor, Read};
+#[cfg(unix)]
+use std::os::unix::fs::symlink as platform_symlink;
+#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+#[cfg(windows)]
+use std::os::windows::fs::{symlink_dir, symlink_file};
+use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
@@ -103,7 +107,7 @@ pub mod workflow;
 
 pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
-pub use model::ModelListFile;
+pub use model::ModelSelectorsExt;
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 pub use temporary::TemporaryDirectory;
 
@@ -493,7 +497,7 @@ impl FromCommand for SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
     /// ### Example
     /// ```ignore
-    /// use acorn::schema::validate::SemanticVersion;
+    /// use acorn_schema::schema::validate::SemanticVersion;
     ///
     /// let version = SemanticVersion::from_command("cargo").to_string();
     /// assert_eq!(version, "1.90.0");
@@ -520,7 +524,7 @@ impl FromPath for MimeType {
     /// Uses [`MimeType::from_string`].
     ///
     /// ```ignore
-    /// use acorn::util::MimeType;
+    /// use acorn_core::util::MimeType;
     /// use std::path::Path;
     ///
     /// let mime = MimeType::from_path(Path::new("test.cff"));
@@ -1730,7 +1734,7 @@ pub fn standard_project_folder(namespace: &str, default: Option<PathBuf>) -> Pat
 /// On Windows, directory sources use directory symlinks and other sources use file symlinks.
 #[cfg(unix)]
 pub fn symlink(source: &Path, target: &Path) -> ApiResult<()> {
-    match prelude::symlink(source, target) {
+    match platform_symlink(source, target) {
         | Ok(_) => Ok(()),
         | Err(why) => Err(why.into()),
     }

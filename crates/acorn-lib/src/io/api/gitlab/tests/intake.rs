@@ -3,16 +3,16 @@ use crate::analyzer::discovery::{ArtifactCandidate, Candidate};
 use crate::io::api::citeas;
 use crate::io::api::gitlab::intake::{analyze_work_item, verified_command_author, Authorization};
 use crate::io::api::gitlab::{webhook, HookActor, Note, WorkItem, WorkItemUser};
-use crate::prelude::Mutex;
-use crate::schema::pid::{Identifier, PID};
-use crate::schema::standard::cff::Cff;
 use crate::test::server::TestServer;
 use crate::util::constants::app::WORK_ITEM_REPORT_MARKER;
+use acorn_schema::schema::pid::{Identifier, PID};
+use acorn_schema::schema::standard::cff::Cff;
 use alloc::sync::Arc;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::routing::{get, put};
 use axum::{Json, Router};
+use std::sync::Mutex;
 
 #[derive(Clone, Default)]
 struct TestState {

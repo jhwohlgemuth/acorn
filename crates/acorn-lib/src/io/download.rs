@@ -1,19 +1,19 @@
 //! File download utilities
 use crate::io::api::huggingface;
 use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, slice_path, ApiResult, ProgressType};
-use crate::prelude::{create_dir_all, remove_file, Path, PathBuf, Vec};
-use crate::util::constants::{
-    app::{DEFAULT_HUGGINGFACE_DOMAIN, DISPLAY_PATH_CHARACTER_COUNT},
-    env::HUGGINGFACE_TOKEN_VARIABLE_NAMES,
-};
+use crate::util::constants::{app::DISPLAY_PATH_CHARACTER_COUNT, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES};
 use crate::util::Label;
+use acorn_core::prelude::Vec;
+use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use axum::http::HeaderMap;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::future::join_all;
 use futures::{stream, StreamExt};
 use std::fs::rename;
+use std::fs::{create_dir_all, remove_file};
 use std::path::Component;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 /// A single downloadable file with URL, path, expected size, and optional SHA-256 checksum.

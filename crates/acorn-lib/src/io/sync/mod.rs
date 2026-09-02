@@ -9,11 +9,10 @@ use crate::io::{
     config::{FilterSet, ModelEntry},
     files_all, home_directory, write_file, ApiResult, PathConversion, Source,
 };
-use crate::prelude::{canonicalize, create_dir_all, remove_file, rename, Path, PathBuf};
-use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::{text_diff_changes_with_color, Label};
-use crate::validation::Validate;
+use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -24,6 +23,8 @@ use core::ops::ControlFlow;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::fs::{canonicalize, create_dir_all, remove_file, rename};
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 pub mod goose;
@@ -817,9 +818,9 @@ mod tests {
     )]
     use super::*;
     use crate::io::config::{ApplicationConfiguration, ModelEntry, ModelEntryOptions};
-    use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write};
     use crate::test::utils::temp_dir;
-    use crate::{Location, Repository};
+    use acorn_core::{Location, Repository};
+    use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 
     fn detailed_model(name: &str, filter: Option<Vec<String>>) -> ModelEntry {
         ModelEntry::Entry(ModelEntryOptions {

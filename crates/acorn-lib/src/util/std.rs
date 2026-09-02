@@ -1,12 +1,12 @@
 //! Utilities that require operating-system or runtime services
-use super::alloc::is_uri_or_path_portable;
 pub use super::cmd::*;
 pub use super::terminal::{
     print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
 };
-use crate::prelude::alloc::{String, Vec};
-use crate::prelude::std::Path;
+use acorn_core::prelude::{String, Vec};
+use acorn_core::util::is_uri_or_path_portable;
 use nanoid::nanoid;
+use std::path::Path;
 
 /// Generate a random ten-character ACORN identifier
 pub fn generate_guid() -> String {

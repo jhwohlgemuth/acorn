@@ -1,7 +1,7 @@
 //! OpenAPI resource import helpers for ACORN API templates.
 use super::Resource;
 use crate::io::ApiResult;
-use crate::prelude::HashSet;
+use acorn_core::prelude::HashSet;
 use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 use itertools::Itertools;

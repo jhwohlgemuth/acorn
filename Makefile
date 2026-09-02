@@ -82,6 +82,14 @@ changelog-release:
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
 
 check:
+	@cargo check -p acorn-core
+	@cargo check -p acorn-core --no-default-features --features core
+	@cargo check -p acorn-core --no-default-features --features alloc
+	@cargo check -p acorn-core --no-default-features
+	@cargo check -p acorn-schema
+	@cargo check -p acorn-schema --no-default-features --features core
+	@cargo check -p acorn-schema --no-default-features --features alloc
+	@cargo check -p acorn-schema --no-default-features
 	@cargo check -p acorn-lib
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
@@ -91,6 +99,11 @@ check:
 	@cargo check -p acorn-cli
 
 wasm:
+	@cargo check -p acorn-core --no-default-features --features core --target wasm32-unknown-unknown
+	@cargo check -p acorn-core --no-default-features --features alloc --target wasm32-unknown-unknown
+	@cargo check -p acorn-schema --no-default-features --features core --target wasm32-unknown-unknown
+	@cargo check -p acorn-schema --no-default-features --features alloc --target wasm32-unknown-unknown
+	@cargo check -p acorn-schema --no-default-features --features wasm --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 
 cover:

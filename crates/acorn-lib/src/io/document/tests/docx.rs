@@ -7,8 +7,9 @@
 )]
 use crate::analyzer::readability::flesch_kincaid_grade_level;
 use crate::io::document::to_markdown;
-use crate::prelude::{PathBuf, Write};
 use crate::test::utils::fixture_path;
+use std::io::Write;
+use std::path::PathBuf;
 use tempfile::{Builder, NamedTempFile};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};

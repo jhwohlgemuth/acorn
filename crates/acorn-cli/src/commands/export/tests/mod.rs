@@ -20,18 +20,25 @@ use crate::commands::export::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
-use acorn::prelude::{canonicalize, read, var_os, Command, Path};
-use acorn::prelude::{copy, create_dir_all, read_dir, read_to_string, write, PathBuf};
-use acorn::schema::standard::datacite;
-use acorn::schema::standard::invenio;
-#[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
+use acorn_schema::schema::standard::datacite;
+use acorn_schema::schema::standard::invenio;
 use clap_verbosity_flag::Verbosity;
 #[cfg(feature = "pdf")]
 use color_eyre::eyre::eyre;
 use color_eyre::eyre::Result;
 #[cfg(feature = "pdf")]
 use futures::lock::Mutex;
+#[cfg(feature = "pdf")]
+use std::env::var_os;
+#[cfg(feature = "pdf")]
+use std::fs::{canonicalize, read};
+use std::fs::{copy, create_dir_all, read_dir, read_to_string, write};
+#[cfg(feature = "pdf")]
+use std::path::Path;
+use std::path::PathBuf;
+#[cfg(feature = "pdf")]
+use std::process::Command;
 #[cfg(feature = "pdf")]
 use which::which;
 

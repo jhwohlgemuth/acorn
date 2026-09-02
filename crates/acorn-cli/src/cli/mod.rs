@@ -2,11 +2,10 @@ use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
     FromPath, Source, SourceAction,
 };
-use acorn::prelude::PathBuf;
-use acorn::schema::research_activity::ResearchActivity;
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
-use acorn::util::{regex_inverse, regex_join, MimeType};
+use acorn_core::util::{regex_inverse, regex_join, MimeType};
+use acorn_schema::schema::research_activity::ResearchActivity;
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
@@ -17,6 +16,7 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 use jiff::SignedDuration;
 use parse::parse_watch_duration;
+use std::path::PathBuf;
 
 pub mod arguments;
 pub mod parse;
@@ -514,7 +514,11 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
     let is_exact = path.as_ref().is_some_and(|value| value.is_file());
     let files = files
         .into_iter()
-        .filter(|candidate| MimeType::from_path(candidate) != MimeType::Markdown || is_exact || ResearchActivity::is_markdown(candidate.as_path()))
+        .filter(|candidate| {
+            MimeType::from_path(candidate) != MimeType::Markdown
+                || is_exact
+                || std::fs::read_to_string(candidate).is_ok_and(ResearchActivity::is_markdown)
+        })
         .collect::<Vec<_>>();
     match regex_join(&patterns) {
         | Some(pattern) => match local_base {

@@ -1,6 +1,7 @@
 //! Process-local in-memory caching.
-use crate::prelude::{HashMap, Mutex};
+use acorn_core::prelude::HashMap;
 use core::hash::Hash;
+use std::sync::Mutex;
 
 /// Bounded, process-local cache for reusable values.
 #[derive(Debug)]

@@ -5,14 +5,16 @@
 pub use super::model::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::analyzer::error::DocumentTarget;
 use crate::io::document::DocumentQuery;
-use crate::prelude::PathBuf;
 use crate::util::constants::app::{APPLICATION, ORGANIZATION};
 use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
-use crate::util::{Label, SemanticVersion};
+use crate::util::Label;
+use acorn_core::util::SemanticVersion;
 use ariadne::{Color, ReportKind};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
+use std::env::consts;
+use std::path::PathBuf;
 use tracing::{error, trace};
 
 /// Vale installation details
@@ -145,4 +147,13 @@ pub(crate) fn preprocess_vale_output(path: PathBuf, output: &str) -> String {
     let normalized = output.replace("\\\\", "/");
     // Then handle the extended-length path prefix and replace the full path
     normalized.replace(&format!("//?/{}", input), "items").replace(&input, "items")
+}
+pub(super) fn release_filename() -> String {
+    match consts::OS.to_lowercase().as_str() {
+        | "linux" => "Linux_64-bit.tar.gz",
+        | "macos" | "apple" => "macOS_64-bit.tar.gz",
+        | "windows" => "Windows_64-bit.zip",
+        | _ => "unknown",
+    }
+    .to_string()
 }

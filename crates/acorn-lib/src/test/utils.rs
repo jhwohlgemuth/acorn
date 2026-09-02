@@ -8,11 +8,12 @@
 //! Shared test utilities for `acorn-lib` unit tests.
 use crate::cmd;
 use crate::io::command_exists;
-use crate::prelude::{CommandOutput, PathBuf};
+use crate::util::process::CommandOutput;
 use core::time::Duration;
 use data_encoding::BASE64;
 use jiff::Timestamp;
 use ring::hmac as ring_hmac;
+use std::path::PathBuf;
 use std::time::SystemTime;
 /// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
 pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {

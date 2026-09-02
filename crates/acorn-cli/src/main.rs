@@ -1,13 +1,13 @@
 //! # 🌱 ACORN CLI
 use acorn::analyzer::discovery;
 use acorn::io::{env_var_is_truthy, progress_renderer};
-use acorn::prelude::env;
 use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
 use acorn::util::Label;
 use clap::Parser;
 use color_eyre::eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
+use std::env;
 use std::process::exit;
 use tracing::debug;
 use tracing_indicatif::writer::{IndicatifWriter, Stderr};

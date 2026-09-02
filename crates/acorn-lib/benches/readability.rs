@@ -3,7 +3,7 @@ use acorn::analyzer::readability::{
     automated_readability_index, coleman_liau_index, expand_acronyms, flesch_kincaid_grade_level, flesch_reading_ease_score, gunning_fog_index, lix,
     smog, syllable_count, word_count,
 };
-use acorn::prelude::HashMap;
+use acorn_core::prelude::HashMap;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 

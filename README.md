@@ -19,7 +19,7 @@
 :seedling: ACORN is a metascience multi-tool and research assistant that provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDF, PPTX, etc.)
 
 > [!NOTE]
-> **AI assistance disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-lib/src/schema/research_activity/aspect/mod.rs): humans author the majority of project code and retain review and decision authority, while AI tools may directly create or edit auxiliary files such as documentation and tests. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
+> **AI assistance disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-schema/src/schema/research_activity/aspect/mod.rs): humans author the majority of project code and retain review and decision authority, while AI tools may directly create or edit auxiliary files such as documentation and tests. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
 
 [[_TOC_]]
 

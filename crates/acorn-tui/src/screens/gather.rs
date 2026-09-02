@@ -1,14 +1,14 @@
 use crate::app::{App, GatherDiscovery, GatherMode, GatherState};
 use crate::{Screen, TuiOptions};
-use acorn::analyzer::discovery::{RemoteEntity, RemoteOrganizationRole, RemoteProvider, RemoteSearchRequest};
+use acorn::analyzer::discovery::{RemoteProvider, RemoteSearchRequest};
 use acorn::analyzer::{Check, CheckCategory};
 use acorn::check_err;
 use acorn::io::database::schema::{IdentifierRow, Table};
 use acorn::io::database::{Database, Operations};
 use acorn::io::document::SourceDocument;
 use acorn::io::{files_all, uri_to_path};
-use acorn::prelude::PathBuf;
-use acorn::schema::pid::{Identifier, PID};
+use acorn_schema::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
+use acorn_schema::schema::pid::{Identifier, PID};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use jiff::Timestamp;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -16,6 +16,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
@@ -518,9 +519,10 @@ mod tests {
     use super::*;
     use acorn::io::database::Row;
     use acorn::io::standard_project_folder;
-    use acorn::prelude::{remove_file, temp_dir};
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use std::env::temp_dir;
+    use std::fs::remove_file;
     #[test]
     fn test_gather_discovers_identifiers_from_text() {
         let output = gather("doi:10.1234/example https://ror.org/01qz5mb56", &disabled_database());

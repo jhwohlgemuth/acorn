@@ -3,7 +3,6 @@
 ## Next
 
 - [Isolate std-only modules](isolate-std-only-modules.md) - Complete the separation between portable domain logic and host services.
-- [Extract acorn-schema](acorn-schema-extraction.md) - Move the first remaining portable domain into its own package after the isolation gate.
 
 ## Coordination
 

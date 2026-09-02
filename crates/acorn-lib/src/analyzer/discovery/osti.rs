@@ -7,9 +7,9 @@ use crate::io::api::citeas::ToCitations;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{gitlab, orcid, osti, Configuration};
 use crate::io::ApiResult;
-use crate::schema::discovery::{Person, ProjectOrganization};
-use crate::schema::pid::{PersistentIdentifierParse, DOI, PID};
 use crate::RepositoryExt;
+use acorn_schema::schema::discovery::{Person, ProjectOrganization};
+use acorn_schema::schema::pid::{PersistentIdentifierParse, DOI, PID};
 use color_eyre::eyre::Report as EyreReport;
 use futures::future::join_all;
 use itertools::Itertools;
@@ -67,7 +67,7 @@ impl RemoteMatch {
             | RemoteEntity::Project => {
                 let options = gitlab::Options::from_env();
                 let repositories = candidate_repositories(self.url.as_deref(), &self.websites, options.domain());
-                match crate::Repository::technology(&repositories, Some(options)).await {
+                match acorn_core::Repository::technology(&repositories, Some(options)).await {
                     | Some(technology) => Self { technology, ..self },
                     | None => self,
                 }

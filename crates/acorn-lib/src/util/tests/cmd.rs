@@ -1,17 +1,18 @@
 use crate::args;
 use crate::cmd;
 use crate::io::command_exists;
-use crate::prelude::std::{CommandOutput, OsString};
 use crate::test::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin};
 #[cfg(feature = "shell-lint")]
 use crate::util::cmd::Severity as CmdSeverity;
 use crate::util::cmd::{redact, redact_args};
 #[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
+use crate::util::process::CommandOutput;
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, LinterSettings, Severity as LintSeverity, ShellDialect};
 #[cfg(feature = "shell-lint")]
 use shuck_parser::parser::Parser;
+use std::ffi::OsString;
 #[cfg(feature = "shell-lint")]
 use temp_env::with_vars;
 

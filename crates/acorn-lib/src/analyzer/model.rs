@@ -1,5 +1,5 @@
 //! Analyzer result values independent of Vale runtime configuration
-use crate::prelude::alloc::{String, Vec};
+use acorn_core::prelude::{String, Vec};
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 

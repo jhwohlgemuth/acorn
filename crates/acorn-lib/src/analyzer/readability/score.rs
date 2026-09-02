@@ -1,10 +1,10 @@
 //! Typed readability scoring model
 //!
-//! Provides constrained score values with explicit threshold combination and
-//! severity interpretation in one layer, replacing ad-hoc `f64` comparisons
-//! in `check_readability_for` and report consumers.
+//! Provides constrained score values with explicit threshold combination and severity interpretation in one layer,
+//! replacing ad-hoc `f64` comparisons in `check_readability_for` and report consumers.
+//!
 use super::ReadabilityType;
-use crate::util::is_finite_and_greater_than;
+use acorn_core::util::is_finite_and_greater_than;
 use core::fmt::{self, Display, Formatter};
 use core::ops;
 

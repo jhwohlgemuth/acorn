@@ -3,10 +3,10 @@
 //! that existed solely to derive `ValueEnum`.
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
-use acorn::enrichment::Provider;
 use acorn::io::ApiResult;
 use acorn::io::{Executor, Remote};
-use acorn::util::MimeType;
+use acorn_core::util::MimeType;
+use acorn_schema::enrichment::Provider;
 use color_eyre::eyre::eyre;
 use jiff::SignedDuration;
 use serde_json;

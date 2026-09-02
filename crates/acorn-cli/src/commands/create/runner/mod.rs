@@ -3,13 +3,16 @@ use acorn::io::api::Configuration;
 use acorn::io::command_exists;
 use acorn::io::config::{ApplicationConfiguration, RunnerDetails, RunnerType};
 use acorn::io::{to_absolute_string, Executor, InputOutput, Remote};
-use acorn::prelude::{remove_file, OsString, PathBuf};
 use acorn::util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET};
 use acorn::util::Label;
-use acorn::{args, cmd, Location, Repository};
+use acorn::{args, cmd};
+use acorn_core::{Location, Repository};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result, WrapErr};
 use futures::future::join_all;
+use std::ffi::OsString;
+use std::fs::remove_file;
+use std::path::PathBuf;
 use tracing::{debug, error, info};
 type BooleanOutcome = (Vec<Result<(), String>>, Vec<Result<(), String>>);
 

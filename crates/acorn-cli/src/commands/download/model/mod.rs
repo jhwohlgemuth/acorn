@@ -7,19 +7,22 @@ use crate::cli::arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs,
 use crate::cli::{CommandOptions, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelListFile, Source, SourceAction};
-use acorn::prelude::{create_dir_all, HashSet, PathBuf, String, Vec};
-use acorn::schema::agent::{ModelDetails, ModelSelectors};
-use acorn::schema::OneOrMany;
+use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, Source, SourceAction};
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use acorn::util::constants::env::MODEL_WHITELIST;
-use acorn::util::{merge, regex_join, suffix, Label, StringConversion};
-use acorn::Location;
-use color_eyre::eyre::{self, eyre};
+use acorn::util::{Label, StringConversion};
+use acorn_core::prelude::{HashSet, String, Vec};
+use acorn_core::util::{merge, regex_join, suffix};
+use acorn_core::Location;
+use acorn_schema::schema::agent::{ModelDetails, ModelList, ModelSelectors};
+use acorn_schema::schema::OneOrMany;
+use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use std::fs::create_dir_all;
+use std::path::PathBuf;
 use tracing::{error, info};
 
 /// Download model weights with optional persisted-metadata constraints.
@@ -41,28 +44,9 @@ impl From<Vec<String>> for Whitelist {
         Self(values)
     }
 }
-impl TryFrom<String> for Whitelist {
-    type Error = eyre::Report;
-    fn try_from(content: String) -> Result<Self, Self::Error> {
-        let trimmed = content.trim();
-        if trimmed.is_empty() {
-            Err(eyre!("Whitelist file cannot be empty"))
-        } else {
-            match serde_norway::from_str::<ModelListFile>(trimmed) {
-                | Ok(file) => file.names().map(Self),
-                | Err(why) if trimmed.starts_with('[') || trimmed.lines().any(|line| line.trim_start().starts_with("- ")) => {
-                    Err(eyre!("Failed to parse whitelist file as JSON or YAML — {why}"))
-                }
-                | Err(_) => Ok(Self(
-                    trimmed.lines().map(str::trim).filter(|line| !line.is_empty()).map(String::from).collect(),
-                )),
-            }
-        }
-    }
-}
 impl Whitelist {
     pub(crate) fn parse(content: String) -> ApiResult<Self> {
-        Self::try_from(content)
+        ModelList::parse(&content).and_then(ModelList::names).map(Self).map_err(Into::into)
     }
     pub(crate) async fn resolve(self, source: &Option<String>, offline: bool) -> ApiResult<Self> {
         match source {
@@ -326,9 +310,12 @@ pub async fn execute(request: Request<'_>) -> Void {
                                                             suffix(models.len())
                                                         );
                                                         for details in &models {
-                                                            let (id, context) = details.report();
-                                                            match context {
-                                                                | Some(ctx) => info!("=> {} {} {}", Label::using(), id.green(), ctx.dimmed()),
+                                                            let id = details.id.as_deref().unwrap_or("unknown");
+                                                            match &details.fallback {
+                                                                | Some(fallback) => {
+                                                                    let context = format!("{} {fallback}", "fallback from".italic());
+                                                                    info!("=> {} {} {}", Label::using(), id.green(), context.dimmed());
+                                                                }
                                                                 | None => info!("  {} {}", "→".cyan(), id.green()),
                                                             }
                                                         }

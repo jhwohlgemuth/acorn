@@ -6,7 +6,6 @@
     clippy::unwrap_used
 )]
 use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
-use crate::enrichment::Provider;
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::document::{SourceDocument, SourceDocuments};
@@ -23,9 +22,6 @@ use crate::io::{
     read_large_file, remove_fields, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair,
     Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, Source, SourceAction, TextOrigin,
 };
-use crate::prelude::{OsString, MAIN_SEPARATOR};
-#[cfg(unix)]
-use crate::schema::agent::Quantization;
 use crate::util::constants::app::{
     ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
     OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
@@ -33,10 +29,14 @@ use crate::util::constants::app::{
 #[cfg(unix)]
 use crate::util::constants::app::{KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MODELPACK_CONFIG, MODELPACK_MANIFEST, OCI_IMAGE_INDEX};
 use crate::util::constants::env::NO_LOCAL_DATABASE;
-use crate::util::{MimeType, SemanticVersion, StringConversion};
-use crate::validation::Validate;
-use crate::{args, Location, Repository, Scheme};
-use crate::{LocationExt, RepositoryExt};
+use crate::util::StringConversion;
+use crate::{args, LocationExt, RepositoryExt};
+use acorn_core::util::{MimeType, SemanticVersion};
+use acorn_core::{Location, Repository, Scheme};
+use acorn_schema::enrichment::Provider;
+#[cfg(unix)]
+use acorn_schema::schema::agent::Quantization;
+use acorn_schema::validation::Validate;
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};
 use color_eyre::Report;
@@ -45,11 +45,13 @@ use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, 
 use jiff::{SignedDuration, Timestamp};
 use rsa::traits::PublicKeyParts;
 use std::env::temp_dir;
+use std::ffi::OsString;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 #[cfg(unix)]
 use std::fs::{metadata, read, set_permissions, Permissions};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::MAIN_SEPARATOR;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
@@ -692,7 +694,7 @@ fn test_files_from_git() {
 }
 #[test]
 fn test_filter_git_command_result() {
-    let response = "crates/acorn-lib/assets/constants/keywords.csv\ncrates/acorn-lib/assets/constants/technology.csv".to_string();
+    let response = "crates/acorn-schema/assets/constants/keywords.csv\ncrates/acorn-schema/assets/constants/technology.csv".to_string();
     let result = response.clone();
     let files = filter_git_command_result(result, Some(vec!["csv"]));
     assert_eq!(files.len(), 2);

@@ -10,8 +10,10 @@ use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
 use crate::analyzer::{checks_to_dataframe, CheckCategory};
 use crate::check_ok;
-use crate::prelude::alloc::HashMap;
-use crate::util::{is_finite_and_greater_than, Constant};
+use crate::util::Constant;
+use acorn_core::prelude::HashMap;
+use acorn_core::util::assets::EmbeddedAssets;
+use acorn_core::util::is_finite_and_greater_than;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};

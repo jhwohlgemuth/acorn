@@ -4,12 +4,13 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{read_file, write_file};
-use crate::prelude::PathBuf;
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::{Notes, Other};
-use crate::util::{Label, StringInterpolation};
+use crate::util::Label;
+use acorn_core::util::StringInterpolation;
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::{Notes, Other};
 use fancy_regex::Regex;
 use quick_xml::escape::escape;
+use std::path::PathBuf;
 use tracing::{debug, error};
 
 pub mod ooxml;

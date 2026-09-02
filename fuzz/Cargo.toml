@@ -9,10 +9,11 @@ cargo-fuzz = true
 
 [dependencies]
 acorn = { package = "acorn-lib", path = "../crates/acorn-lib", default-features = true }
+acorn-core = { path = "../crates/acorn-core" }
+acorn-schema = { path = "../crates/acorn-schema" }
 libfuzzer-sys = "0.4"
 serde_json = "1"
 serde_norway = "0.9.42"
-validator = "0.20"
 
 [[bin]]
 name = "research_activity"

@@ -5,14 +5,15 @@
 use crate::analyzer::discovery::CitationFormat;
 use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
-use crate::prelude::var;
-use crate::schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
-use crate::util::{Label, Searchable};
+use crate::util::Label;
+use acorn_core::util::Searchable;
+use acorn_schema::schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env::var;
 use tracing::debug;
 
 /// CiteAs API options

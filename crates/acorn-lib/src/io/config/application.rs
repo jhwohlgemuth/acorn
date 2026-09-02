@@ -4,16 +4,19 @@
 use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
 use crate::io::{parse_jsonc_cst, read_file, sync, write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput};
-use crate::prelude::{env, HashMap, HashSet, Path, PathBuf};
-use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
-use crate::util::{detect_json, text_diff_changes_with_color, Label, MimeType};
-use crate::validation::Validate;
+use crate::util::{text_diff_changes_with_color, Label};
+use acorn_core::prelude::{HashMap, HashSet};
+use acorn_core::util::{detect_json, MimeType};
+use acorn_schema::schema::OneOrMany;
+use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env;
+use std::path::{Path, PathBuf};
 use tracing::{error, info};
 
 /// Struct for application configuration

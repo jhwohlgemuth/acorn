@@ -1,57 +1,31 @@
 //! Schema I/O adapter.
 //!
-//! Hosts std-only path/file behavior for schema types so that [`crate::schema`]
+//! Hosts std-only path/file behavior for schema types so that [`acorn_schema::schema`]
 //! modules stay portable. This module later moves into `acorn-host`.
 pub mod migrate;
+#[cfg(test)]
+mod tests;
 use self::migrate::Migration;
 use crate::error::ApiResult;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{Database, Operations, Row};
 use crate::io::document::{DocumentFormat, SourceDocument};
-use crate::io::{image_paths, jsonc_parse_value, parent, read_file, write_file, FromPath, InputOutput};
-use crate::prelude::alloc::{vec, Vec};
-use crate::prelude::std::{Error, Path, PathBuf};
-use crate::schema::agent::{opencode, Weights};
-use crate::schema::pid::raid::Metadata;
-use crate::schema::pid::PersistentIdentifierConvert;
-use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
-use crate::schema::standard::cff::Cff;
-use crate::schema::standard::text::Text;
-use crate::schema::standard::{datacite, dcat, huwise, invenio, text};
-use crate::schema::{ContactPoint, ImageObject, MediaObject, OneOrMany};
-use crate::util::{file_extension, Label, LinkedData, MarkdownSupport, MimeType, StringConversion, Unstructured};
+use crate::io::{image_paths, jsonc_parse_value, parent, parse_jsonc_cst, read_file, write_file, FromPath, InputOutput};
+use crate::util::{Label, StringConversion};
+use acorn_core::prelude::{vec, Vec};
+use acorn_core::util::{file_extension, LinkedData, MarkdownSupport, MimeType, Unstructured};
+use acorn_schema::schema::agent::{opencode, Weights};
+use acorn_schema::schema::pid::raid::Metadata;
+use acorn_schema::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
+use acorn_schema::schema::standard::cff::Cff;
+use acorn_schema::schema::standard::text::Text;
+use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio, text};
+use acorn_schema::schema::{ImageObject, MediaObject, OneOrMany};
 use color_eyre::eyre::eyre;
-use directories::BaseDirs;
 use owo_colors::OwoColorize;
-use tracing::{debug, error};
+use std::path::PathBuf;
+use tracing::debug;
 
-impl opencode::Config {
-    /// Load OpenCode configuration from a path or return an empty configuration.
-    pub fn load(path: impl AsRef<Path>) -> Self {
-        path.as_ref()
-            .is_file()
-            .then(|| Self::read(path.as_ref()).ok())
-            .flatten()
-            .unwrap_or_default()
-    }
-    /// Load OpenCode configuration from a JSON or JSONC file path.
-    pub fn from_path(path: impl AsRef<Path>) -> ApiResult<Self> {
-        Self::read(path.as_ref())
-    }
-    /// Discover OpenCode configuration in project and user configuration locations.
-    pub fn resolve() -> Option<Self> {
-        let home = BaseDirs::new().map(|dirs| dirs.config_dir().to_path_buf());
-        [
-            Some(PathBuf::from("opencode.jsonc")),
-            Some(PathBuf::from("opencode.json")),
-            home.as_ref().map(|path| path.join("opencode").join("opencode.jsonc")),
-            home.as_ref().map(|path| path.join("opencode").join("opencode.json")),
-        ]
-        .into_iter()
-        .flatten()
-        .find_map(|path| path.is_file().then(|| Self::read(&path).ok()).flatten())
-    }
-}
 impl InputOutput for opencode::Config {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
@@ -60,18 +34,17 @@ impl InputOutput for opencode::Config {
             | MimeType::Jsonc => Self::read_jsonc(source.clone()),
             | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
         }
-        .map(|config| Self {
-            path: Some(source),
-            ..config
-        })
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
         read_file(path.clone())
-            .and_then(|content| Self::parse_json(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
+            .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
     }
     fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone())
-            .and_then(|content| Self::parse_jsonc(&content).map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why)))
+        read_file(path.clone()).and_then(|content| {
+            parse_jsonc_cst::<Self>(&content)
+                .map(|(config, _)| config)
+                .map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+        })
     }
     fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
         Err(eyre!("YAML format is not supported for OpenCode configuration"))
@@ -84,15 +57,21 @@ impl InputOutput for opencode::Config {
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.to_jsonc_string().and_then(|content| write_file(path.into(), content))
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize OpenCode config — {why}"))
+            .and_then(|content| write_file(path.into(), content))
     }
     fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
         Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
 }
-impl Weights {
+/// Native persistence operations for schema-owned model weights.
+pub trait WeightsExt {
     /// Refresh file-level weights for a model while preserving repository-level sources.
-    pub fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
+    fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()>;
+}
+impl WeightsExt for Weights {
+    fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
         ModelRow::init()
             .model_id(model_id.to_string())
             .build()
@@ -113,6 +92,7 @@ impl Weights {
                             .collect(),
                     )
                     .serialize()
+                    .map_err(color_eyre::Report::from)
                     .and_then(|weights| {
                         ModelRow {
                             weights: Some(weights),
@@ -122,30 +102,12 @@ impl Weights {
                         .map(|_| ())
                     })
                 }
-                | None => self.serialize().and_then(|weights| {
+                | None => self.serialize().map_err(color_eyre::Report::from).and_then(|weights| {
                     Database::<Table>::from_path(database_path)
                         .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
                         .map(|_| ())
                 }),
             })
-    }
-}
-impl ContactPoint {
-    /// Fix, resolve, and augment contact data with host context.
-    pub fn format_with(self, _context: Option<PathBuf>) -> Self {
-        self.format()
-    }
-}
-impl ResearchActivity {
-    /// Format research activity data with filesystem and remote-resource context.
-    pub fn format_with(self, context: Option<PathBuf>) -> Self {
-        let Self { meta, contact, .. } = self.clone();
-        Self {
-            meta: meta.format_with(context.clone()),
-            contact: contact.format_with(context),
-            ..self
-        }
-        .format()
     }
 }
 
@@ -487,125 +449,41 @@ impl InputOutput for invenio::Record {
             .and_then(|content| write_file(output, content))
     }
 }
-impl From<ResearchActivity> for Metadata {
-    fn from(activity: ResearchActivity) -> Self {
-        let default_start_date = crate::io::current_date();
-        let default_end_year = default_start_date.chars().take(4).collect::<String>();
-        let raid_id = activity.meta.raid.as_ref().and_then(|raid| raid.first()).cloned().unwrap_or_default();
-        let ror_id = activity.meta.ror.as_ref().and_then(|rors| rors.first()).cloned().unwrap_or_default();
-        let contributor_id = activity.contact.identifier.clone().filter(|id| id.is_orcid()).unwrap_or_default();
-        let date = crate::schema::Date {
-            start_date: Some(default_start_date.clone()),
-            end_date: None,
-        };
-        let contributor_position = crate::schema::pid::raid::ContributorPosition::init()
-            .id(crate::schema::pid::raid::PositionType::PrincipalInvestigator)
-            .date(date.clone())
-            .build();
-        let contributor = crate::schema::pid::raid::Contributor {
-            id: Some(contributor_id),
-            schema_uri: Some(crate::schema::namespaces::DEFAULT_ORCID_SCHEMA_URI.to_string()),
-            status: Some("active".to_string()),
-            status_message: None,
-            position: vec![contributor_position],
-            leader: true,
-            contact: true,
-            email: Some(activity.contact.email.clone()),
-            role: None,
-            uuid: None,
-        };
-        let org_role = crate::schema::pid::raid::OrganizationRole {
-            id: crate::schema::pid::raid::OrganizationRoleType::LeadResearchOrganization,
-            schema_uri: None,
-            date: date.clone(),
-        };
-        let organization = crate::schema::pid::raid::Organization {
-            id: ror_id.clone(),
-            schema_uri: Some(crate::schema::namespaces::DEFAULT_ROR_SCHEMA_URI.to_string()),
-            role: vec![org_role],
-        };
-        let title = crate::schema::pid::raid::Title {
-            text: Some(activity.title.clone()),
-            title_type: Some(
-                crate::schema::pid::raid::TitleIdentifier::init()
-                    .id(crate::schema::pid::raid::TitleType::Primary)
-                    .build(),
-            ),
-            language: None,
-            start_date: Some(default_start_date.clone()),
-            end_date: Some(default_end_year.clone()),
-        };
-        let description = crate::schema::pid::raid::Description {
-            text: Some(activity.sections.mission.clone()),
-            description_type: Some(crate::schema::pid::raid::DescriptionIdentifier {
-                id: crate::schema::pid::raid::DescriptionType::Primary,
-                schema_uri: "https://vocabulary.raid.org/description.type.schema/318".to_string(),
-            }),
-            language: None,
-        };
-        let identifier = crate::schema::pid::raid::MetadataIdentifier {
-            id: Some(raid_id),
-            schema_uri: Some("https://raid.org/".to_string()),
-            owner: Some(crate::schema::pid::raid::Owner {
-                id: ror_id.clone(),
-                schema_uri: Some(crate::schema::namespaces::DEFAULT_ROR_SCHEMA_URI.to_string()),
-                service_point: 0,
-            }),
-            raid_agency_url: Some("https://raid.org/".to_string()),
-            registration_agency: Some(crate::schema::pid::raid::RegistrationAgency {
-                id: ror_id,
-                schema_uri: Some(crate::schema::namespaces::DEFAULT_ROR_SCHEMA_URI.to_string()),
-            }),
-            license: Some(OneOrMany::One("CC0-1.0".to_string())),
-            version: Some(1),
-        };
-        let access = crate::schema::pid::raid::Access {
-            access_type: Some(crate::schema::pid::raid::AccessIdentifier {
-                id: crate::schema::pid::raid::AccessType::OpenAccess,
-                schema_uri: "https://vocabularies.coar-repositories.org/access_rights/".to_string(),
-            }),
-            embargo_expiry: None,
-            statement: None,
-        };
-        Metadata {
-            access: Some(access),
-            contributor: Some(vec![contributor]),
-            date: None,
-            description: Some(vec![description]),
-            metadata: None,
-            title: Some(vec![title]),
-            identifier: Some(identifier),
-            alternate_identifier: None,
-            alternate_url: None,
-            organization: Some(vec![organization]),
-            related_object: None,
-            related_raid: None,
-            spatial_coverage: None,
-            subject: None,
-            traditional_knowledge_label: None,
+impl InputOutput for Metadata {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json | MimeType::Jsonc => Self::read_json(path),
+            | MimeType::Yaml => Self::read_yaml(path),
+            | _ => Err(eyre!("Unsupported RAiD metadata file extension")),
         }
     }
-}
-impl TryFrom<PathBuf> for Metadata {
-    type Error = Error;
-    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-        match read_file(path) {
-            | Ok(data) => match eserde::json::from_str::<Self>(&data) {
-                | Ok(value) => Ok(value),
-                | Err(errors) => {
-                    let details: Vec<String> = errors
-                        .iter()
-                        .map(|e| format!("{}: {}", e.path().map_or("root".into(), |p| p.to_string()), e.message()))
-                        .collect();
-                    Err(Error::other(details.join("\n")))
-                }
-            },
-            | Err(why) => {
-                let msg = format!("Read RAiD metadata file - {why}");
-                error!("=> {} {}", Label::fail(), msg);
-                Err(Error::other(msg))
-            }
-        }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| {
+            eserde::json::from_str::<Self>(&content).map_err(|errors| {
+                eyre!(errors
+                    .iter()
+                    .map(|error| format!("{}: {}", error.path().map_or("root".into(), |path| path.to_string()), error.message()))
+                    .collect::<Vec<_>>()
+                    .join("\n"))
+            })
+        })
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!(why)))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.write_json(path)
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_norway::to_string(self)
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
     }
 }
 impl InputOutput for ResearchActivity {
@@ -631,10 +509,16 @@ impl InputOutput for ResearchActivity {
         result
     }
     fn format_with(self, context: Option<PathBuf>) -> Self {
-        ResearchActivity::format_with(self, context)
+        let ResearchActivity { meta, contact, .. } = self.clone();
+        ResearchActivity {
+            meta: format_metadata(meta, context.clone()),
+            contact: contact.format(),
+            ..self
+        }
+        .format()
     }
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        ResearchActivity::serialize_as(self, mime)
+        Ok(ResearchActivity::serialize_as(self, mime)?)
     }
     fn linked_content(&self) -> ApiResult<Option<String>> {
         serde_json::to_string_pretty(&self.with_context())
@@ -725,61 +609,58 @@ impl InputOutput for ResearchActivity {
             .and_then(|content| write_file(output, content))
     }
 }
-impl ResearchActivityMetadata {
-    /// Fix, resolve, and augment research activity metadata using optional filesystem context.
-    pub fn format_with(self, context: Option<PathBuf>) -> Self {
-        let path_parent = match context {
-            | Some(path) => parent(path),
-            | None => PathBuf::from("."),
-        };
-        debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
-        let name = match image_paths(&path_parent) {
-            | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
-            | _ => None,
-        };
-        let media = match name {
-            | Some(value) => {
-                debug!(value, "=> {} First image", Label::using());
-                let first_graphic = match self.media.clone() {
-                    | Some(values) if !values.is_empty() => {
-                        let caption = self.clone().first_image_caption();
-                        let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                    | Some(_) | None => {
-                        let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                        MediaObject::Image(image_data)
-                    }
-                };
-                let rest = match self.clone().media {
-                    | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                    | Some(_) | None => vec![],
-                };
-                Some([vec![first_graphic], rest].concat())
-            }
-            | None => self.media.clone(),
-        };
-        Self { media, ..self }.format()
-    }
+fn format_metadata(metadata: ResearchActivityMetadata, context: Option<PathBuf>) -> ResearchActivityMetadata {
+    let path_parent = match context {
+        | Some(path) => parent(path),
+        | None => PathBuf::from("."),
+    };
+    debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
+    let name = match image_paths(&path_parent) {
+        | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
+        | _ => None,
+    };
+    let media = match name {
+        | Some(value) => {
+            debug!(value, "=> {} First image", Label::using());
+            let first_graphic = match metadata.media.clone() {
+                | Some(values) if !values.is_empty() => {
+                    let caption = metadata.clone().first_image_caption();
+                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+                | Some(_) | None => {
+                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+            };
+            let rest = match metadata.clone().media {
+                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                | Some(_) | None => vec![],
+            };
+            Some([vec![first_graphic], rest].concat())
+        }
+        | None => metadata.media.clone(),
+    };
+    ResearchActivityMetadata { media, ..metadata }.format()
 }
 impl InputOutput for Text {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match MimeType::from(source.display().to_string()) {
-            | MimeType::Markdown | MimeType::Text => Self::read_text(source),
+            | MimeType::Markdown | MimeType::Text => read_text(source),
             | MimeType::Json => Self::read_json(source),
             | MimeType::Yaml => Self::read_yaml(source),
             | _ => Err(eyre!("Unsupported plain text file extension")),
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_text(path)
     }
     fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_text(path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_text(path)
     }
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         match mime {
@@ -790,55 +671,47 @@ impl InputOutput for Text {
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
         match MimeType::from(output.display().to_string()) {
-            | MimeType::Markdown | MimeType::Text => self.write_text(output),
+            | MimeType::Markdown | MimeType::Text => write_text(self, output),
             | MimeType::Json => self.write_json(output),
             | MimeType::Yaml => self.write_yaml(output),
             | _ => Err(eyre!("Unsupported plain text file extension for writing")),
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_text(self, path)
     }
     fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_text(self, path)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_text(self, path)
     }
 }
-impl Text {
-    fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        read_file(path.into()).map(|content| Self { content })
-    }
-    fn write_text(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_file(path, self.content().to_string())
-    }
+fn read_text(path: impl Into<PathBuf>) -> ApiResult<Text> {
+    read_file(path.into()).map(|content| Text { content })
 }
-impl TryFrom<&Path> for Text {
-    type Error = color_eyre::Report;
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        Self::read(path.to_path_buf())
-    }
+fn write_text(value: &Text, path: impl Into<PathBuf>) -> ApiResult<()> {
+    write_file(path, value.content().to_string())
 }
 impl InputOutput for text::Document {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
-            | Ok(_) => Self::read_document(source),
+            | Ok(_) => read_document(source),
             | Err(_) => match file_extension(source.display().to_string()).as_deref() {
-                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => Self::read_text(source),
+                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => read_document_text(source),
                 | _ => Err(eyre!("Unsupported document file extension")),
             },
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_document_text(path)
     }
     fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_document_text(path)
     }
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        Self::read_text(path)
+        read_document_text(path)
     }
     fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
         match mime {
@@ -849,29 +722,27 @@ impl InputOutput for text::Document {
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
         match file_extension(output.display().to_string()).as_deref() {
-            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => self.write_text(output),
+            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => write_document_text(self, output),
             | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
             | _ => Err(eyre!("Unsupported document file extension for writing")),
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_document_text(self, path)
     }
     fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_document_text(self, path)
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        self.write_text(path)
+        write_document_text(self, path)
     }
 }
-impl text::Document {
-    fn read_document(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        SourceDocument::at(path).extract().map(|content| Self { content })
-    }
-    fn read_text(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        read_file(path.into()).map(|content| Self { content })
-    }
-    fn write_text(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_file(path, self.content().to_string())
-    }
+fn read_document(path: impl Into<PathBuf>) -> ApiResult<text::Document> {
+    SourceDocument::at(path).extract().map(|content| text::Document { content })
+}
+fn read_document_text(path: impl Into<PathBuf>) -> ApiResult<text::Document> {
+    read_file(path.into()).map(|content| text::Document { content })
+}
+fn write_document_text(value: &text::Document, path: impl Into<PathBuf>) -> ApiResult<()> {
+    write_file(path, value.content().to_string())
 }

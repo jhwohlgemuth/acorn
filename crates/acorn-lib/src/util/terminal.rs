@@ -1,9 +1,9 @@
 //! Terminal output helpers
 #[cfg(feature = "std")]
-use crate::prelude::alloc::Vec;
-use crate::prelude::alloc::{format, String, ToString};
-#[cfg(feature = "std")]
 use crate::skip;
+#[cfg(feature = "std")]
+use acorn_core::prelude::Vec;
+use acorn_core::prelude::{format, String, ToString};
 #[cfg(feature = "std")]
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 #[cfg(feature = "std")]

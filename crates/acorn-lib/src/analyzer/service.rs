@@ -1,14 +1,17 @@
-//! Structured, reusable file analysis service.
-use super::{Analysis, Check, CheckCategory, CheckOptions, Standard};
+//! Structured, reusable file analysis service
+use super::{Analysis, AnalysisContext, Check, CheckCategory, DocumentIndexes, RenderContext, ReportOptions, Standard};
 use crate::io::document::{DocumentIndex, MarkdownParser, SourceDocument};
-use crate::prelude::{Arc, HashMap, PathBuf};
-use crate::schema::pid::raid;
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::standard::cff::Cff;
-use crate::schema::standard::text::{Document, Text};
-use crate::schema::standard::{datacite, dcat, huwise, invenio};
-use crate::util::{MimeType, StringConversion};
+use crate::io::read_file;
+use crate::util::StringConversion;
+use acorn_core::prelude::{Arc, HashMap};
+use acorn_core::util::MimeType;
+use acorn_schema::schema::pid::raid;
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::standard::cff::Cff;
+use acorn_schema::schema::standard::text::{Document, Text};
+use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio};
 use core::iter::once;
+use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
 /// Results for one standard-specific group of paths.
@@ -24,10 +27,12 @@ pub struct AnalysisBatch {
 /// Complete structured analysis result.
 #[derive(Clone, Debug)]
 pub struct AnalysisReport {
-    /// Categories omitted by configuration.
-    pub skipped_categories: Vec<CheckCategory>,
     /// Standard-specific result batches.
     pub batches: Vec<AnalysisBatch>,
+    /// Source indexes retained once for host rendering.
+    documents: DocumentIndexes,
+    /// Categories omitted by configuration.
+    pub skipped_categories: Vec<CheckCategory>,
 }
 /// Checks returned for one category.
 #[derive(Clone, Debug)]
@@ -54,7 +59,11 @@ impl AnalysisReport {
             .flat_map(|category| category.checks.iter().cloned())
             .collect()
     }
-    pub(crate) fn with_checks(self, checks: Vec<Check>, options: &CheckOptions) -> Self {
+    /// Build a host rendering context for this report.
+    pub fn render_context<'a>(&'a self, options: &'a ReportOptions) -> RenderContext<'a> {
+        RenderContext::with_documents(options, &self.documents)
+    }
+    pub(crate) fn with_checks(self, checks: Vec<Check>, options: &AnalysisContext) -> Self {
         let categories = CheckCategory::iter()
             .filter_map(|category| {
                 let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<Vec<_>>();
@@ -62,7 +71,7 @@ impl AnalysisReport {
             })
             .collect();
         let batch = AnalysisBatch {
-            standard: options.standard,
+            standard: options.analysis.standard,
             paths: Vec::new(),
             categories,
         };
@@ -72,14 +81,24 @@ impl AnalysisReport {
         }
     }
 }
-async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOptions, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
-    let documents = document_indexes(paths);
+async fn analyze<T: Analysis + Send + Sync>(
+    paths: &[PathBuf],
+    options: &AnalysisContext,
+    categories: &[CheckCategory],
+    documents: &DocumentIndexes,
+) -> Vec<CategoryChecks> {
     let mut results = Vec::with_capacity(categories.len());
     for category in categories {
         let checks = T::check(category.clone(), paths, Some(options))
             .await
             .into_iter()
-            .map(|check| check.attach_document(&documents))
+            .map(|check| {
+                let document = check.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
+                match document {
+                    | Some(document) => check.resolve_locator(&document),
+                    | None => check,
+                }
+            })
             .collect();
         results.push(CategoryChecks {
             category: category.clone(),
@@ -89,30 +108,35 @@ async fn analyze<T: Analysis + Send + Sync>(paths: &[PathBuf], options: &CheckOp
     results
 }
 /// Analyze paths and return structured results without rendering or process-exit behavior
-pub async fn analyze_paths(paths: &[PathBuf], options: &CheckOptions) -> AnalysisReport {
+pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> AnalysisReport {
+    let documents = document_indexes(paths);
     let skipped_categories = skipped_categories(options);
     let categories = CheckCategory::iter()
         .filter(|category| !skipped_categories.contains(category))
         .collect::<Vec<_>>();
-    let groups = classify_paths(paths, options.standard);
+    let groups = classify_paths(paths, options.analysis.standard);
     let mut batches = Vec::with_capacity(groups.len());
     for group in groups {
         let StandardPaths { standard, paths } = group;
         let categories = match standard {
-            | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories).await,
-            | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories).await,
-            | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories).await,
-            | Standard::Document => analyze::<Document>(&paths, options, &categories).await,
-            | Standard::Huwise => analyze::<huwise::Dataset>(&paths, options, &categories).await,
-            | Standard::Invenio => analyze::<invenio::Record>(&paths, options, &categories).await,
-            | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories).await,
-            | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories).await,
-            | Standard::Text => analyze::<Text>(&paths, options, &categories).await,
+            | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories, &documents).await,
+            | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories, &documents).await,
+            | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories, &documents).await,
+            | Standard::Document => analyze::<Document>(&paths, options, &categories, &documents).await,
+            | Standard::Huwise => analyze::<huwise::Dataset>(&paths, options, &categories, &documents).await,
+            | Standard::Invenio => analyze::<invenio::Record>(&paths, options, &categories, &documents).await,
+            | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
+            | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
+            | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,
             | Standard::DublinCore => Vec::new(),
         };
         batches.push(AnalysisBatch { standard, paths, categories });
     }
-    AnalysisReport { skipped_categories, batches }
+    AnalysisReport {
+        batches,
+        documents,
+        skipped_categories,
+    }
 }
 /// Classify paths by explicit standard or by file type for the default RAD mode
 pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {
@@ -121,7 +145,7 @@ pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPath
             match MimeType::from(path.display().to_string()) {
                 | MimeType::Cff => Standard::CitationFileFormat,
                 | MimeType::Docx | MimeType::Pdf => Standard::Document,
-                | MimeType::Markdown if ResearchActivity::is_markdown(path.as_path()) => Standard::ResearchActivityData,
+                | MimeType::Markdown if read_file(&path).is_ok_and(ResearchActivity::is_markdown) => Standard::ResearchActivityData,
                 | MimeType::Text | MimeType::Markdown => Standard::Text,
                 | _ => Standard::ResearchActivityData,
             }
@@ -153,91 +177,20 @@ fn document_indexes(paths: &[PathBuf]) -> HashMap<String, Arc<DocumentIndex>> {
             documents
         })
 }
-fn skipped_categories(options: &CheckOptions) -> Vec<CheckCategory> {
+fn skipped_categories(options: &AnalysisContext) -> Vec<CheckCategory> {
     options
+        .analysis
         .skip
         .iter()
         .map(CheckCategory::from)
-        .chain((options.offline || options.disable_website_checks).then_some(CheckCategory::Link))
-        .collect()
+        .chain((options.execution.offline || options.execution.disable_website_checks).then_some(CheckCategory::Link))
+        .fold(Vec::new(), |mut categories, category| {
+            if !categories.contains(&category) {
+                categories.push(category);
+            }
+            categories
+        })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::{create_dir_all, remove_dir_all, write};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    #[test]
-    fn classifies_mixed_supported_paths_without_mutating_order() {
-        let groups = classify_paths(
-            &[
-                PathBuf::from("CITATION.cff"),
-                PathBuf::from("activity.json"),
-                PathBuf::from("notes.md"),
-                PathBuf::from("activity.jsonc"),
-                PathBuf::from("report.docx"),
-                PathBuf::from("paper.pdf"),
-                PathBuf::from("activity.yaml"),
-            ],
-            Standard::ResearchActivityData,
-        );
-        assert_eq!(
-            groups,
-            vec![
-                StandardPaths {
-                    standard: Standard::CitationFileFormat,
-                    paths: vec![PathBuf::from("CITATION.cff")],
-                },
-                StandardPaths {
-                    standard: Standard::ResearchActivityData,
-                    paths: vec![
-                        PathBuf::from("activity.json"),
-                        PathBuf::from("activity.jsonc"),
-                        PathBuf::from("activity.yaml"),
-                    ],
-                },
-                StandardPaths {
-                    standard: Standard::Text,
-                    paths: vec![PathBuf::from("notes.md")],
-                },
-                StandardPaths {
-                    standard: Standard::Document,
-                    paths: vec![PathBuf::from("report.docx"), PathBuf::from("paper.pdf")],
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn explicit_standard_applies_to_every_path() {
-        let groups = classify_paths(&[PathBuf::from("one.json"), PathBuf::from("two.yaml")], Standard::Datacite);
-        assert_eq!(
-            groups,
-            vec![StandardPaths {
-                standard: Standard::Datacite,
-                paths: vec![PathBuf::from("one.json"), PathBuf::from("two.yaml")],
-            }]
-        );
-    }
-    #[test]
-    fn document_indexes_keeps_a_candidate_when_display_keys_collide() {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or_default();
-        let root = std::env::temp_dir().join(format!("acorn-doc-index-collision-{nanos}"));
-        let left = root.join("left").join("shared").join("index.yaml");
-        let right = root.join("right").join("shared").join("index.yaml");
-        let _ = create_dir_all(left.parent().unwrap_or(&root));
-        let _ = create_dir_all(right.parent().unwrap_or(&root));
-        let _ = write(&left, "title: left\n");
-        let _ = write(&right, "title: right\n");
-        let key = left.file_name_with_parent();
-        assert_eq!(key, right.file_name_with_parent());
-        let indexes = document_indexes(&[left, right]);
-        assert_eq!(indexes.len(), 1);
-        assert!(indexes.contains_key(&key));
-        let _ = remove_dir_all(root);
-    }
-}
+mod tests;

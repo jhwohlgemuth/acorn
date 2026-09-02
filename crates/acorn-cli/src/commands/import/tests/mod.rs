@@ -4,15 +4,19 @@ use super::spec::endpoint_from_import;
 use crate::cli::arguments::{ImportModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, SyncTarget};
 use crate::test::server::spawn_source_server;
 use crate::test::util::{temp_test_dir, TestCleanup};
+use acorn::io::adapter::WeightsExt;
 use acorn::io::api::huggingface::{HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles};
 use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
-use acorn::prelude::{write, PathBuf, String};
-use acorn::schema::agent::{ModelSelector, ModelSelectors, Weights};
+use acorn::io::ModelSelectorsExt;
+use acorn_core::prelude::String;
+use acorn_schema::schema::agent::{ModelList, ModelSelector, ModelSelectors, Weights};
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
+use std::fs::write;
 use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -115,7 +119,7 @@ fn test_endpoint_from_import_normalizes_uri_domain() {
     )
     .unwrap();
     assert_eq!(endpoint.domain, "api.example.com");
-    assert_eq!(endpoint.scheme, Some(acorn::Scheme::HTTPS));
+    assert_eq!(endpoint.scheme, Some(acorn_core::Scheme::HTTPS));
     assert_eq!(endpoint.port, Some(9443));
 }
 #[test]
@@ -237,41 +241,14 @@ fn test_model_file_import_results_skip_unresolved_models() {
     assert!(collect_imported(vec![Err(eyre!("missing model"))], false).is_err());
 }
 #[test]
-fn test_model_selectors_parse_json_model_details_preferring_id() {
-    let selectors = ModelSelectors::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#.to_string()).unwrap();
-    assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
-        vec!["acme/model", "acme/other"]
-    );
-}
-#[test]
-fn test_model_selectors_parse_catalog_weight_repositories() {
-    let selectors = ModelSelectors::parse(
-        r#"[
-            {
-                "id":"google/gemma-4-26b-a4b-it",
-                "open_weights":true,
-                "weights":[{"label":"Hugging Face","url":"https://huggingface.co/google/gemma-4-26B-A4B-it"}]
-            },
-            {"id":"openai/gpt-4.1","open_weights":false}
-        ]"#
-        .to_string(),
-    )
-    .unwrap();
-    assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
-        vec!["google/gemma-4-26B-A4B-it"]
-    );
-}
-#[test]
 fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sources() {
-    let selectors = ModelSelectors::parse(
+    let selectors = ModelList::parse(
         r#"[
             {"id":"openai/gpt-oss-120b","open_weights":true},
             {"id":"openai/gpt-oss-20b","open_weights":true}
-        ]"#
-        .to_string(),
+        ]"#,
     )
+    .and_then(ModelList::selectors)
     .unwrap();
     assert_eq!(
         selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
@@ -279,35 +256,48 @@ fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sourc
     );
 }
 #[test]
-fn test_model_selectors_warn_for_unresolved_catalog_models() {
-    let logs = Arc::new(Mutex::new(Vec::new()));
-    let subscriber = tracing_subscriber::fmt()
-        .with_ansi(false)
-        .with_writer(SharedWriter(logs.clone()))
-        .finish();
-    let selectors = tracing::subscriber::with_default(subscriber, || {
-        ModelSelectors::parse(
-            r#"[
-                {"id":"acme/model"},
-                {"id":"openai/gpt-4.1","open_weights":false}
-            ]"#
-            .to_string(),
-        )
-        .unwrap()
-    });
-    let text = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
-    assert_eq!(selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/model"]);
-    assert!(text.contains("WARN"));
-    assert!(text.contains("openai/gpt-4.1"));
-    assert!(text.contains("Could not resolve"));
-    assert!(text.contains("model is not open"));
+fn test_model_selectors_parse_catalog_weight_repositories() {
+    let selectors = ModelList::parse(
+        r#"[
+            {
+                "id":"google/gemma-4-26b-a4b-it",
+                "open_weights":true,
+                "weights":[{"label":"Hugging Face","url":"https://huggingface.co/google/gemma-4-26B-A4B-it"}]
+            },
+            {"id":"openai/gpt-4.1","open_weights":false}
+        ]"#,
+    )
+    .and_then(ModelList::selectors)
+    .unwrap();
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["google/gemma-4-26B-A4B-it"]
+    );
+}
+#[test]
+fn test_model_selectors_parse_json_model_details_preferring_id() {
+    let selectors = ModelList::parse(r#"[{"name":"display name","id":"acme/model"},{"id":"acme/other"}]"#)
+        .and_then(ModelList::selectors)
+        .unwrap();
+    assert_eq!(
+        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        vec!["acme/model", "acme/other"]
+    );
 }
 #[test]
 fn test_model_selectors_parse_plain_text_and_yaml() {
-    let plain = ModelSelectors::parse(" acme/one \n\nacme/two\n".to_string()).unwrap();
-    let yaml = ModelSelectors::parse("- acme/one\n- acme/two\n".to_string()).unwrap();
+    let plain = ModelList::parse(" acme/one \n\nacme/two\n").and_then(ModelList::selectors).unwrap();
+    let yaml = ModelList::parse("- acme/one\n- acme/two\n").and_then(ModelList::selectors).unwrap();
     assert_eq!(plain.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/one", "acme/two"]);
     assert_eq!(yaml, plain);
+}
+#[tokio::test]
+async fn test_model_selectors_reject_remote_uri_offline() {
+    let result = ModelSelectors::from(Vec::<String>::new().as_slice())
+        .resolve(&Some("https://example.com/models.yaml".to_string()), true)
+        .await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("offline"));
 }
 #[tokio::test]
 async fn test_model_selectors_resolve_file_uri() {
@@ -330,14 +320,6 @@ async fn test_model_selectors_resolve_file_uri() {
     );
 }
 #[tokio::test]
-async fn test_model_selectors_reject_remote_uri_offline() {
-    let result = ModelSelectors::from(Vec::<String>::new().as_slice())
-        .resolve(&Some("https://example.com/models.yaml".to_string()), true)
-        .await;
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("offline"));
-}
-#[tokio::test]
 async fn test_model_selectors_resolve_http_uri() {
     let (source, handle) = spawn_source_server(b"[\"acme/one\",\"acme/two\"]".to_vec());
     let selectors = ModelSelectors::from(Vec::<String>::new().as_slice())
@@ -349,4 +331,28 @@ async fn test_model_selectors_resolve_http_uri() {
         selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
         vec!["acme/one", "acme/two"]
     );
+}
+#[test]
+fn test_model_selectors_warn_for_unresolved_catalog_models() {
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    let selectors = tracing::subscriber::with_default(subscriber, || {
+        ModelList::parse(
+            r#"[
+                {"id":"acme/model"},
+                {"id":"openai/gpt-4.1","open_weights":false}
+            ]"#,
+        )
+        .and_then(ModelList::selectors)
+        .unwrap()
+    });
+    let text = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
+    assert_eq!(selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/model"]);
+    assert!(text.contains("WARN"));
+    assert!(text.contains("openai/gpt-4.1"));
+    assert!(text.contains("Could not resolve"));
+    assert!(text.contains("model is not open"));
 }

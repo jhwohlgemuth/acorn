@@ -21,7 +21,7 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 | Phase | Status | Focus | Outcome |
 |---|---|---|---|
-| Portable boundary hardening | In progress | Remaining schema/analyzer host couplings, dependency features, std isolation | `acorn-schema` is extracted and the `acorn-analysis` boundary becomes mechanical |
+| Portable boundary hardening | In progress | Remaining analyzer host couplings, dependency features, std isolation | An alloc-only analyzer kernel compiles in-tree with no retained host rendering state |
 | Export boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
 | Shared abstractions | Planned | Export context, safe paths, interpolation | Duplicated mappings and path logic are replaced |
 | Structural modularization | Planned | CLI startup and API clients | Boundaries become explicit and testable |
@@ -35,7 +35,7 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 # Dependencies
 
-The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating plan. Its immediate path is dependency classification and std isolation -> [`acorn-schema` extraction](portability/acorn-schema-extraction.md) -> analyzer isolation and `acorn-analysis`. Reliability work may proceed in parallel only when it does not rename the same modules.
+The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating plan. With `acorn-schema` extracted, its immediate path is in-tree analyzer isolation and an alloc-only compile gate. `acorn-analysis` extraction and generic host traits remain deferred until that boundary is real. Reliability work may proceed in parallel only when it does not rename the same modules.
 
 # Parallel execution
 

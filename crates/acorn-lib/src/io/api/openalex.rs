@@ -6,20 +6,21 @@
 use crate::io::api::{Configuration, Endpoint, Param, Params, RemoteResource};
 use crate::io::enrichment::{Enrich, ResearchOutputMetadata};
 use crate::io::{workflow, ApiResult};
-use crate::prelude::{format, var, String, ToString, Vec};
-use crate::schema::pid::{PersistentIdentifierParse, DOI};
-use crate::schema::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
-use crate::schema::research_activity::ResearchOutput;
-use crate::schema::Website;
 use crate::util::constants::app::{DEFAULT_OPENALEX_DOMAIN, OPENALEX_WORK_FIELDS};
 use crate::util::constants::env::{OPENALEX_API_HOST, OPENALEX_API_KEY};
-use crate::util::merge_unique_by;
-use crate::Location;
+use acorn_core::prelude::{format, String, ToString, Vec};
+use acorn_core::util::merge_unique_by;
+use acorn_core::Location;
+use acorn_schema::schema::pid::{PersistentIdentifierParse, DOI};
+use acorn_schema::schema::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
+use acorn_schema::schema::research_activity::ResearchOutput;
+use acorn_schema::schema::Website;
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::env::var;
 
 /// A compact OpenAlex author identity.
 #[derive(Clone, Debug, Deserialize, Serialize)]

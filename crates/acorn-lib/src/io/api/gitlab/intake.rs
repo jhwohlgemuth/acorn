@@ -6,12 +6,12 @@ use crate::analyzer::discovery::{discover_identifiers, group_artifacts, Artifact
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::Configuration;
 use crate::io::ApiResult;
-use crate::schema::pid::{Identifier, PersistentIdentifierParse, DOI, PID};
-use crate::schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
-use crate::schema::ControlledVocabulary;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
-use crate::util::MarkdownSupport;
-use crate::Repository;
+use acorn_core::util::MarkdownSupport;
+use acorn_core::Repository;
+use acorn_schema::schema::pid::{Identifier, PersistentIdentifierParse, DOI, PID};
+use acorn_schema::schema::standard::cff::{self, Agent, Cff, IdentifierType, Person};
+use acorn_schema::schema::ControlledVocabulary;
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use core::iter::once;
@@ -278,16 +278,12 @@ impl From<ArtifactCandidate> for Cff {
             .filter(|identifier| identifier.kind != PID::DOI)
             .map(|identifier| cff::Identifier {
                 description: None,
-                kind: identifier.cff_type(),
+                kind: cff_identifier_type(identifier),
                 value: identifier.value.clone(),
             })
             .collect::<Vec<_>>();
         Cff {
-            authors: candidate
-                .authors
-                .iter()
-                .map(|author| Agent::Person(Person::from(author.as_str())))
-                .collect(),
+            authors: candidate.authors.iter().map(|author| Agent::Person(person_from_name(author))).collect(),
             doi,
             identifiers: (!identifiers.is_empty()).then_some(identifiers),
             title: candidate.title.clone().unwrap_or_default(),
@@ -296,38 +292,34 @@ impl From<ArtifactCandidate> for Cff {
         }
     }
 }
-impl Identifier {
-    fn cff_type(&self) -> IdentifierType {
-        match self.kind {
-            | PID::URL => IdentifierType::Url,
-            | PID::SWHID => IdentifierType::Swh,
-            | _ => IdentifierType::Other,
-        }
+fn cff_identifier_type(identifier: &Identifier) -> IdentifierType {
+    match identifier.kind {
+        | PID::URL => IdentifierType::Url,
+        | PID::SWHID => IdentifierType::Swh,
+        | _ => IdentifierType::Other,
     }
 }
-impl From<&str> for Person {
-    fn from(name: &str) -> Self {
-        let (given_names, family_names) = name.rsplit_once(' ').map_or((None, Some(name.to_string())), |(given, family)| {
-            (Some(given.to_string()), Some(family.to_string()))
-        });
-        Self {
-            address: None,
-            affiliation: None,
-            alias: None,
-            city: None,
-            country: None,
-            email: None,
-            family_names,
-            fax: None,
-            given_names,
-            name_particle: None,
-            name_suffix: None,
-            orcid: None,
-            postal_code: None,
-            region: None,
-            tel: None,
-            website: None,
-        }
+fn person_from_name(name: &str) -> Person {
+    let (given_names, family_names) = name.rsplit_once(' ').map_or((None, Some(name.to_string())), |(given, family)| {
+        (Some(given.to_string()), Some(family.to_string()))
+    });
+    Person {
+        address: None,
+        affiliation: None,
+        alias: None,
+        city: None,
+        country: None,
+        email: None,
+        family_names,
+        fax: None,
+        given_names,
+        name_particle: None,
+        name_suffix: None,
+        orcid: None,
+        postal_code: None,
+        region: None,
+        tel: None,
+        website: None,
     }
 }
 impl Report {

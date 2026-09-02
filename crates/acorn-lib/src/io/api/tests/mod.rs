@@ -14,10 +14,10 @@ use crate::io::api::{
 use crate::io::http::{HttpResponse, HttpResponseError};
 use crate::io::read_file;
 use crate::param;
-use crate::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use crate::test::utils::fixture_path;
-use crate::util::Searchable;
-use crate::{Location, Repository, Scheme};
+use acorn_core::util::Searchable;
+use acorn_core::{Location, Repository, Scheme};
+use acorn_schema::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
 
 mod harbor;
 mod huggingface;
@@ -479,8 +479,8 @@ mod gguf {
 mod handle_api {
     use crate::io::api::handle::{resolve_with, Record};
     use crate::io::api::Endpoint;
-    use crate::schema::pid::{Handle, PersistentIdentifierParse};
     use crate::test::server::TestServer;
+    use acorn_schema::schema::pid::{Handle, PersistentIdentifierParse};
     use axum::extract::Path;
     use axum::http::StatusCode;
     use axum::routing::get;
@@ -991,7 +991,7 @@ mod orcid_api {
         let endpoint = Endpoint::at("original.com").root("api/v1").build();
         let updated = endpoint.with_domain("http://custom.domain.com:8080/path");
         assert_eq!(updated.domain, "custom.domain.com");
-        assert_eq!(updated.scheme, Some(crate::Scheme::HTTP));
+        assert_eq!(updated.scheme, Some(Scheme::HTTP));
         assert_eq!(updated.port, Some(8080));
         assert_eq!(updated.root, Some("api/v1".to_string()));
     }
@@ -1005,9 +1005,9 @@ mod orcid_api {
     }
     #[test]
     fn test_endpoint_from_parts_sets_explicit_values() {
-        let endpoint = Endpoint::from_parts("api.example.com".to_string(), Some(crate::Scheme::HTTP), Some(8080));
+        let endpoint = Endpoint::from_parts("api.example.com".to_string(), Some(Scheme::HTTP), Some(8080));
         assert_eq!(endpoint.domain, "api.example.com");
-        assert_eq!(endpoint.scheme, Some(crate::Scheme::HTTP));
+        assert_eq!(endpoint.scheme, Some(Scheme::HTTP));
         assert_eq!(endpoint.port, Some(8080));
     }
     #[test]
@@ -1053,8 +1053,8 @@ mod models_dev {
     use crate::io::api::models_dev::CatalogResponse;
     use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
-    use crate::schema::agent::{Metric, ModelDetails, ProviderDetails};
     use crate::test::utils::unique_path;
+    use acorn_schema::schema::agent::{Metric, ModelDetails, ProviderDetails};
     use std::collections::HashMap;
 
     fn assert_models_dev_schema_variants(models: &HashMap<String, ModelDetails>) {
@@ -1144,7 +1144,7 @@ mod models_dev {
 
     #[test]
     fn test_model_row_infers_quantization_from_model_id() {
-        use crate::schema::agent::{Quantization, Weights};
+        use acorn_schema::schema::agent::{Quantization, Weights};
         let model = ModelDetails {
             id: Some("llama-3-2-3b-instruct-q4_k_m".to_string()),
             weights: None,
@@ -1242,10 +1242,10 @@ mod models_dev {
     }
     #[test]
     fn test_model_row_modalities_are_comma_separated() {
-        use crate::schema::research_activity::aspect::data::Modality;
+        use acorn_schema::schema::research_activity::aspect::data::Modality;
         let model = ModelDetails {
             id: Some("gpt-4o".to_string()),
-            modalities: Some(crate::schema::agent::Modalities {
+            modalities: Some(acorn_schema::schema::agent::Modalities {
                 input: vec![Modality::Text, Modality::Audio, Modality::Image],
                 output: vec![Modality::Text, Modality::Video],
             }),
@@ -1259,7 +1259,7 @@ mod models_dev {
     fn test_model_row_modalities_omitted_when_empty() {
         let model = ModelDetails {
             id: Some("gpt-4o".to_string()),
-            modalities: Some(crate::schema::agent::Modalities {
+            modalities: Some(acorn_schema::schema::agent::Modalities {
                 input: vec![],
                 output: vec![],
             }),

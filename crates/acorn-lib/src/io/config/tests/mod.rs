@@ -11,12 +11,16 @@ use crate::io::config::transfer::{
     count_image_files, count_json_files, has_image_extension, operations_complete_message, DownloadOptions, TransferItem,
 };
 use crate::io::{read_file, InputOutput};
-use crate::prelude::{create_dir_all, read_to_string, remove_dir_all, write, Mutex, Path, PathBuf};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS};
-use crate::{Location, Repository};
+use acorn_core::{Location, Repository};
 use color_eyre::eyre::eyre;
 use color_eyre::Report;
 use fancy_regex::Regex;
+use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 const ENDPOINTS: &str = r#"{
     "endpoints": [
         {
@@ -566,7 +570,7 @@ fn test_prepare_destination_replaces_parent_symlink_without_following_it() {
     create_dir_all(&output).unwrap();
     create_dir_all(&external).unwrap();
     write(external.join("index.json"), "outside").unwrap();
-    crate::prelude::symlink(&external, output.join("linked")).unwrap();
+    symlink(&external, output.join("linked")).unwrap();
     let target = Bucket::prepare_destination(&output, Path::new("linked/index.json")).unwrap();
     assert_eq!(target, output.join("linked/index.json"));
     assert!(output.join("linked").is_dir());

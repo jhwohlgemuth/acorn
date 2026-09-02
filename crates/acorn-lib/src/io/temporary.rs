@@ -1,8 +1,10 @@
 //! Automatically cleaned temporary directories.
 use crate::io::ApiResult;
-use crate::prelude::{create_dir_all, remove_dir_all, temp_dir, Path, PathBuf};
 use color_eyre::eyre::eyre;
 use nanoid::nanoid;
+use std::env::temp_dir;
+use std::fs::{create_dir_all, remove_dir_all};
+use std::path::{Path, PathBuf};
 
 /// A uniquely named temporary directory removed when dropped
 #[derive(Debug)]

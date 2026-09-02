@@ -2,11 +2,11 @@
 use crate::io::cache::Cache;
 use crate::io::http::get;
 use crate::io::{read_file, uri_to_path, ApiResult};
-use crate::prelude::{fs, read, OnceLock, Path, PathBuf};
-use crate::schema::pid::{Identifier, PID};
 use crate::util::constants::app::{DOCUMENT_CACHE_LIMIT, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES};
-use crate::util::{MimeType, StringConversion};
-use crate::{Location, Scheme};
+use crate::util::StringConversion;
+use acorn_core::util::MimeType;
+use acorn_core::{Location, Scheme};
+use acorn_schema::schema::pid::{Identifier, PID};
 use anydoc::Format;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
@@ -15,6 +15,9 @@ use derive_more::Display;
 use jiff::Timestamp;
 use pdf_inspector::{extract_pages_markdown_mem, PdfError};
 use serde::{Deserialize, Serialize};
+use std::fs::{self, read};
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 mod index;
 mod matching;

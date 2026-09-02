@@ -1,11 +1,10 @@
 //! VS Code custom endpoint synchronization configuration types
 use super::{Options, RenderedOutput, SyncTarget};
 use crate::io::{read_file, ApiResult};
-use crate::prelude::PathBuf;
-use crate::schema::agent::ModelDetails;
 use crate::util::constants::app::DEFAULT_VSCODE_CONFIG_PATH;
 use crate::util::StringConversion;
-use crate::validation::Validate;
+use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::validation::Validate;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use color_eyre::eyre::eyre;
@@ -13,6 +12,7 @@ use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
+use std::path::PathBuf;
 
 /// Configuration for synchronizing models into VS Code.
 #[skip_serializing_none]

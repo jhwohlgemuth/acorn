@@ -9,13 +9,16 @@ use acorn::io::powerpoint::ooxml::{
 };
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
 use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput};
-use acorn::prelude::{copy, create_dir_all, write, Arc, Path, PathBuf};
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{Label, MimeType, StringConversion};
+use acorn::util::{Label, StringConversion};
+use acorn_core::prelude::Arc;
+use acorn_core::util::MimeType;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use std::fs::{copy, create_dir_all, write};
+use std::path::{Path, PathBuf};
 use tracing::error;
 
 const IMAGE_RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
@@ -402,9 +405,10 @@ mod tests {
     use super::{add_aspect_chart, add_slide, prepare_destination};
     use crate::test::util::{temp_test_dir, TestCleanup};
     use acorn::io::{read_file, write_file};
-    use acorn::prelude::{create_dir_all, Path};
-    use acorn::schema::research_activity::ResearchActivity;
+    use acorn_schema::schema::research_activity::ResearchActivity;
     use std::env::temp_dir;
+    use std::fs::{create_dir_all, read};
+    use std::path::Path;
 
     fn write_slide_fixture(root: &Path, fragment: &str, content: &str) {
         let path = root.join(fragment);
@@ -491,7 +495,7 @@ mod tests {
         let relationships = read_file(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
         let slide = read_file(root.join("ppt/slides/slide1.xml")).unwrap();
         let content_types = read_file(root.join("[Content_Types].xml")).unwrap();
-        let media = acorn::prelude::read(root.join(format!("ppt/media/{}-aspect.png", data.meta.identifier))).unwrap();
+        let media = read(root.join(format!("ppt/media/{}-aspect.png", data.meta.identifier))).unwrap();
         assert!(relationships.contains("relationships/image"));
         assert!(relationships.contains("-aspect.png"));
         assert!(slide.contains("ASPECT rose chart"));

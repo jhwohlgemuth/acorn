@@ -13,7 +13,7 @@ status: in-progress
 
 - **Update:** `crates/acorn-lib/src/io/api/`, `src/io/config/{application,bucket,mod}.rs`, provider tests/snapshots, calling workflows, and feature wiring; later `crates/acorn-api/` plus host/service consumers.
 - **Create:** `crates/acorn-api/` after endpoint, auth, request, response, error, and transport-port ownership is acyclic.
-- **Delete:** provider protocol implementation from `acorn-lib` after facade re-exports; workflow orchestration moves to `acorn-service`, not into the new API crate.
+- **Delete:** provider protocol implementation from `acorn-lib` after consumers migrate directly; workflow orchestration moves to `acorn-service`, not into the new API crate.
 
 # Dependencies
 

@@ -1,7 +1,7 @@
 use crate::cli::Void;
-use acorn::prelude::PathBuf;
 #[cfg(not(feature = "tui"))]
 use color_eyre::eyre;
+use std::path::PathBuf;
 
 #[cfg(feature = "tui")]
 pub fn run(database_path: &Option<PathBuf>, no_local_database: bool, offline: bool) -> Void {

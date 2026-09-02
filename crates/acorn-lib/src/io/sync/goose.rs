@@ -3,13 +3,12 @@ use super::{Options, RenderedOutput, SyncTarget};
 #[cfg(not(target_os = "windows"))]
 use crate::io::home_directory;
 use crate::io::{read_file, ApiResult};
-use crate::prelude::PathBuf;
-use crate::schema::agent::ModelDetails;
 #[cfg(not(target_os = "windows"))]
 use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
-use crate::validation::Validate;
+use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::validation::Validate;
 use alloc::string::{String, ToString};
 use color_eyre::eyre::eyre;
 #[cfg(target_os = "windows")]
@@ -17,6 +16,7 @@ use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
 use serde_with::skip_serializing_none;
+use std::path::PathBuf;
 
 /// Configuration for synchronizing a local OpenAI-compatible model into Goose CLI.
 #[skip_serializing_none]

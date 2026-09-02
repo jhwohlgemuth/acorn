@@ -1,11 +1,11 @@
 use crate::cli::Void;
-use acorn::prelude::{create_dir_all, write};
 use acorn::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER, SKILL_CLIPBOARD_PROMPT, SKILL_FILENAME, SKILL_PATH};
 use acorn::util::Label;
 use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use directories::ProjectDirs;
 use rust_embed::Embed;
+use std::fs::{create_dir_all, write};
 use tracing::{info, warn};
 
 #[derive(Embed)]

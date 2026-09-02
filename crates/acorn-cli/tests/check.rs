@@ -6,8 +6,8 @@
     clippy::arithmetic_side_effects
 )]
 //! Integration tests for `acorn check`
-use acorn::prelude::PathBuf;
 use assert_cmd::Command;
+use std::path::PathBuf;
 
 fn normalized_process(args: &[String]) -> String {
     let output = Command::cargo_bin("acorn")

@@ -1,10 +1,14 @@
 #![allow(clippy::indexing_slicing)]
+mod robustness;
+
 use super::*;
+use acorn::io::write_file;
 use acorn::io::InputOutput;
-use acorn::prelude::PathBuf;
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::Location;
+use acorn_core::Location;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use assert_cmd::Command;
+use std::env::temp_dir;
+use std::path::PathBuf;
 
 #[test]
 fn test_explicit_empty_stdin_fails() {
@@ -149,7 +153,7 @@ fn test_raw_format_normalizes_arxiv_urls() {
 }
 #[test]
 fn test_raw_format_silently_returns_nonzero_for_load_failures() {
-    let path = acorn::prelude::temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
+    let path = temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
     write_file(path.clone(), "not a PDF".to_string()).unwrap();
     let output = Command::cargo_bin("acorn")
         .unwrap()
@@ -163,7 +167,7 @@ fn test_raw_format_silently_returns_nonzero_for_load_failures() {
 }
 #[test]
 fn test_verbose_raw_format_writes_load_failures_to_stderr() {
-    let path = acorn::prelude::temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
+    let path = temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
     write_file(path.clone(), "not a PDF".to_string()).unwrap();
     let output = Command::cargo_bin("acorn")
         .unwrap()
@@ -218,7 +222,7 @@ fn test_quiet_suppresses_gather_stdout() {
 }
 #[test]
 fn test_gather_persists_project_candidate_and_reports_replay() {
-    let database_path = acorn::prelude::temp_dir().join(format!("acorn-gather-{}.db", nanoid::nanoid!()));
+    let database_path = temp_dir().join(format!("acorn-gather-{}.db", nanoid::nanoid!()));
     let run = || {
         Command::cargo_bin("acorn")
             .unwrap()

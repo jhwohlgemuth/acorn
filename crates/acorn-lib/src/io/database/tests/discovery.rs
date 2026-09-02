@@ -1,6 +1,6 @@
 use crate::io::database::schema::{IdentifierRow, Table};
 use crate::io::database::{Database, Operations, Row};
-use crate::prelude::PathBuf;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn database_path(label: &str) -> PathBuf {

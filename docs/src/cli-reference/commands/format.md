@@ -75,10 +75,10 @@ acorn format index.json --enrich --provider orcid --provider ror --dry-run
 Existing populated values are preserved, ambiguous identity matches remain unchanged, and successful provider results survive later provider failures. See [Metadata enrichment](../../concepts/enrichment.md) for provider behavior, environment variables, provenance, and the complete workflow.
 
 ## Resolved Values
-- `meta.keywords`: Resolve keywords against [ACORN Keywords Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/keywords.csv)
-- `meta.technology`: Resolve technology against [ACORN Technology Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/technology.csv)
-- `meta.partners`: Resolve partner names against [ACORN Partners Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/partners.csv)
-- `meta.sponsors`: Resolve sponsor names against [ACORN Sponsors Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/assets/constants/sponsors.csv)
+- `meta.keywords`: Resolve keywords against [ACORN Keywords Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/keywords.csv)
+- `meta.technology`: Resolve technology against [ACORN Technology Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/technology.csv)
+- `meta.partners`: Resolve partner names against [ACORN Partners Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/partners.csv)
+- `meta.sponsors`: Resolve sponsor names against [ACORN Sponsors Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/sponsors.csv)
 - `contact.organization`: Resolve organization name against a given org chart (currently only supports ORNL org chart)
 - `contact.affiliation`: Resolve organization name against a given org chart (currently only supports ORNL org chart)
 

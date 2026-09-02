@@ -8,13 +8,13 @@
 use super::{Options, RenderedOutput, SyncTarget};
 use crate::args;
 use crate::io::{home_directory, read_file, ApiResult};
-use crate::prelude::{OsString, PathBuf};
-use crate::schema::agent::ModelDetails;
 use crate::util::cmd::command_string;
 use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
 use crate::util::StringConversion;
 use crate::util::ToStrings;
-use crate::validation::{Validate, ValidationError, ValidationReport};
+use acorn_core::validation::ValidationError;
+use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::validation::{Validate, ValidationReport};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -23,6 +23,8 @@ use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_norway::{Mapping, Number, Value};
 use serde_with::skip_serializing_none;
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 /// Human-readable alias for a synchronized model
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]

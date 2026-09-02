@@ -11,9 +11,9 @@ use crate::io::database::schema::{
     ActivityRow, CatalogRow, LinkCacheRow, ModelRow, ProgrammingLanguageRow, ResearchActivityRow, Table, ValidationRow,
 };
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
-use crate::prelude::PathBuf;
 use crate::util::constants::env::DATABASE_PATH;
 use jiff::Timestamp;
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";

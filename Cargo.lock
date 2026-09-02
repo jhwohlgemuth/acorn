@@ -6,7 +6,9 @@ version = 4
 name = "acorn-cli"
 version = "0.1.76"
 dependencies = [
+ "acorn-core",
  "acorn-lib",
+ "acorn-schema",
  "acorn-tui",
  "arboard",
  "assert_cmd",
@@ -54,6 +56,7 @@ dependencies = [
  "sophia",
  "strum 0.28.0",
  "temp-env",
+ "tempfile",
  "tera",
  "tokio",
  "tracing",
@@ -96,6 +99,7 @@ version = "0.1.76"
 dependencies = [
  "acorn-core",
  "acorn-macros",
+ "acorn-schema",
  "aho-corasick",
  "ammonia",
  "anydoc",
@@ -204,15 +208,65 @@ name = "acorn-py"
 version = "0.1.76"
 dependencies = [
  "acorn-lib",
+ "acorn-schema",
  "pyo3",
  "rand 0.9.4",
+]
+
+[[package]]
+name = "acorn-schema"
+version = "0.1.76"
+dependencies = [
+ "acorn-core",
+ "acorn-macros",
+ "aho-corasick",
+ "ammonia",
+ "anydoc",
+ "arboard",
+ "bon",
+ "convert_case 0.11.0",
+ "data-encoding",
+ "derive_more",
+ "eserde",
+ "fancy-regex 0.17.0",
+ "fluent-uri",
+ "glob",
+ "idna",
+ "insta",
+ "itertools 0.14.0",
+ "jiff",
+ "lazy_static",
+ "nucleo-matcher",
+ "percy-dom",
+ "petgraph",
+ "pretty_assertions",
+ "proptest",
+ "quick-xml 0.39.4",
+ "ring",
+ "rust-embed",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "serde_repr",
+ "serde_trim",
+ "serde_with",
+ "sophia",
+ "strum 0.28.0",
+ "swhid",
+ "tera",
+ "tokio",
+ "tracing",
+ "urlencoding",
 ]
 
 [[package]]
 name = "acorn-tui"
 version = "0.1.76"
 dependencies = [
+ "acorn-core",
  "acorn-lib",
+ "acorn-schema",
  "color-eyre",
  "crossterm 0.28.1",
  "jiff",

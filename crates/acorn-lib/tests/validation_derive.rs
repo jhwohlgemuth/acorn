@@ -1,5 +1,5 @@
 //! Downstream validation derive coverage.
-use acorn::validation::Validate;
+use acorn_schema::validation::Validate;
 
 #[derive(Validate)]
 struct ExternalModel {
@@ -7,7 +7,7 @@ struct ExternalModel {
     email: String,
 }
 #[test]
-fn derive_resolves_acorn_from_a_downstream_crate() {
+fn derive_resolves_acorn_schema_from_a_downstream_crate() {
     assert!(ExternalModel {
         email: "researcher@example.org".to_string(),
     }

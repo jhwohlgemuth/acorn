@@ -12,8 +12,8 @@ use super::ooxml::{
 };
 use crate::io::powerpoint::*;
 use crate::io::read_file;
-use crate::prelude::PathBuf;
-use crate::util::to_string;
+use acorn_core::util::to_string;
+use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")

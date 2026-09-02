@@ -9,18 +9,22 @@ use acorn::io::chart::ChartOptions;
 use acorn::io::current_date;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
-#[cfg(not(feature = "chart"))]
-use acorn::prelude::HashMap;
-use acorn::prelude::{remove_dir_all, Arc, HashSet, Mutex, Path, PathBuf};
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::{format_bytes, print_values_as_table, regex_join, suffix, Label, MimeType, StringConversion};
+use acorn::util::{print_values_as_table, Label, StringConversion};
 use acorn::{fail, skip};
+#[cfg(not(feature = "chart"))]
+use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{Arc, HashSet};
+use acorn_core::util::{format_bytes, regex_join, suffix, MimeType};
+use acorn_schema::schema::research_activity::ResearchActivity;
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use nanoid::nanoid;
 use owo_colors::OwoColorize;
+use std::fs::remove_dir_all;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tracing::{debug, info};
 
 #[cfg(feature = "pdf")]

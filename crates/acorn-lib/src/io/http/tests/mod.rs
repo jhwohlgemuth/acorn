@@ -1,7 +1,7 @@
 use super::*;
-use crate::prelude::{env, Arc};
 use crate::test::server::TestServer;
 use crate::util::constants::env::{HTTP_MAX_RETRIES, HTTP_STALL_TIMEOUT};
+use acorn_core::prelude::Arc;
 use axum::body::{Body, Bytes};
 use axum::http::StatusCode;
 use axum::routing::get;
@@ -9,6 +9,7 @@ use axum::Router;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use futures::{stream, StreamExt};
 use jiff::SignedDuration;
+use std::env;
 use std::sync::{Mutex, MutexGuard};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());

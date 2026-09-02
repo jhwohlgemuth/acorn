@@ -1,6 +1,5 @@
-//! Compatibility re-exports for allocation-backed utilities.
-use crate::prelude::alloc::{String, Vec};
-pub use acorn_core::util::alloc::*;
+//! ACORN host-library utilities that only require allocation.
+use acorn_core::prelude::{String, Vec};
 
 /// Trait for augmenting and formatting data for display.
 pub trait StringConversion {

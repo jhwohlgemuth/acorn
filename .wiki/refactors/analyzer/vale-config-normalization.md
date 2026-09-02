@@ -12,7 +12,7 @@ status: planned
 # Project code boundaries
 
 - **Update:** Vale configuration logic in `crates/acorn-lib/src/analyzer/{mod,vale}.rs`, native adapter callers, and tests.
-- **Create:** pure normalization functions in `acorn-analysis` and native file/process materialization in `acorn-host` after extraction.
+- **Create:** pure normalization functions and separate native file/process materialization modules in-tree; reassess package ownership only after the pure subset compiles independently.
 - **Delete:** mutation-heavy duplicated normalization branches at migrated call sites.
 
 # Dependencies

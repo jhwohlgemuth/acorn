@@ -11,11 +11,11 @@ status: planned
 
 # Recommendation
 
-Define focused traits for file storage, HTTP, clock, entropy, and process execution. Provide std implementations and WASM implementations where the capability is meaningful.
+Defer this plan. Do not introduce generic file, HTTP, clock, entropy, or process traits while the portable analyzer boundary is still being discovered. First separate concrete host execution and rendering from values and calculations in-tree. Add a consumer-owned port only when at least two real implementations or a tested alternate composition require the same narrow contract.
 
 # Current evidence
 
-Concrete capabilities are imported directly by `analyzer/`, `io/api/`, `io/document/`, `io/download.rs`, `io/source.rs`, and `doctor/`. No shared host-port module exists, and creating one before separating domain from adapters would preserve the current coupling behind traits.
+Concrete capabilities are imported directly by `analyzer/`, `io/api/`, `io/document/`, `io/download.rs`, `io/source.rs`, and `doctor/`. `AnalysisContext` now separates concrete execution policy from calculation and reporting, but `analysis` still implies `std`; a generic port family now would encode the current accidental boundary.
 
 # Project code boundaries
 
@@ -25,7 +25,7 @@ Concrete capabilities are imported directly by `analyzer/`, `io/api/`, `io/docum
 
 # Dependencies
 
-- **Prerequisites:** [std-only isolation](isolate-std-only-modules.md) identifies real capability seams, and `acorn-core`/`acorn-schema` extraction establishes portable ownership.
+- **Prerequisites:** [std-only isolation](isolate-std-only-modules.md) produces an independently compiling analyzer kernel, and a concrete alternate host/browser/test implementation demonstrates each proposed seam.
 - **Follow-on:** [WASM feature path](wasm-feature-path.md) implements meaningful browser ports; native composition moves into `acorn-host`.
 
 # Acceptance criteria

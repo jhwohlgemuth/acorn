@@ -2,19 +2,20 @@
 use crate::io::ApiResult;
 #[cfg(feature = "std")]
 use crate::io::InputOutput;
-use crate::prelude::{vec, Vec};
-#[cfg(feature = "std")]
-use crate::prelude::{HashMap, PathBuf};
-use crate::schema::research_activity::aspect::AspectFramework;
-#[cfg(feature = "std")]
-use crate::schema::research_activity::ResearchActivity;
 use crate::util::constants::app::{ORNL_COLOR_AQUA, ORNL_COLOR_ENERGY, ORNL_COLOR_GREEN, ORNL_COLOR_INFINITY};
 #[cfg(feature = "std")]
 use crate::util::StringConversion;
+use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{vec, Vec};
+use acorn_schema::schema::research_activity::aspect::AspectFramework;
+#[cfg(feature = "std")]
+use acorn_schema::schema::research_activity::ResearchActivity;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 use resvg::{tiny_skia, usvg};
+#[cfg(feature = "std")]
+use std::path::PathBuf;
 
 const CENTER: f64 = 150.0;
 const FRAME_RADIUS: f64 = 120.0;
@@ -92,39 +93,37 @@ impl Attribute {
             .unwrap_or_else(|| "N/A".to_string())
     }
 }
-impl From<&AspectFramework> for Vec<Attribute> {
-    fn from(aspect: &AspectFramework) -> Self {
-        vec![
-            Attribute::init()
-                .name("Autonomy")
-                .maybe_level(aspect.autonomy.clone().map(|value| value as u8))
-                .maximum(5)
-                .color(ORNL_COLOR_AQUA)
-                .order(0)
-                .build(),
-            Attribute::init()
-                .name("Motivity")
-                .maybe_level(aspect.motivity.clone().map(|value| value as u8))
-                .maximum(5)
-                .color(ORNL_COLOR_INFINITY)
-                .order(1)
-                .build(),
-            Attribute::init()
-                .name("Portability")
-                .maybe_level(aspect.portability.clone().map(|value| value as u8))
-                .maximum(5)
-                .color(ORNL_COLOR_GREEN)
-                .order(2)
-                .build(),
-            Attribute::init()
-                .name("Maturity")
-                .maybe_level(aspect.maturity.clone().map(|value| value as u8))
-                .maximum(9)
-                .color(ORNL_COLOR_ENERGY)
-                .order(3)
-                .build(),
-        ]
-    }
+fn attributes_from(aspect: &AspectFramework) -> Vec<Attribute> {
+    vec![
+        Attribute::init()
+            .name("Autonomy")
+            .maybe_level(aspect.autonomy.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_AQUA)
+            .order(0)
+            .build(),
+        Attribute::init()
+            .name("Motivity")
+            .maybe_level(aspect.motivity.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_INFINITY)
+            .order(1)
+            .build(),
+        Attribute::init()
+            .name("Portability")
+            .maybe_level(aspect.portability.clone().map(|value| value as u8))
+            .maximum(5)
+            .color(ORNL_COLOR_GREEN)
+            .order(2)
+            .build(),
+        Attribute::init()
+            .name("Maturity")
+            .maybe_level(aspect.maturity.clone().map(|value| value as u8))
+            .maximum(9)
+            .color(ORNL_COLOR_ENERGY)
+            .order(3)
+            .build(),
+    ]
 }
 impl From<&str> for ChartFileType {
     fn from(value: &str) -> Self {
@@ -173,7 +172,7 @@ impl ChartOptions {
     }
     fn render_svg(self, aspect: Option<&AspectFramework>) -> Option<String> {
         aspect.and_then(|aspect| {
-            let attributes = Vec::<Attribute>::from(aspect);
+            let attributes = attributes_from(aspect);
             attributes.iter().any(|attribute| attribute.level.is_some()).then(|| {
                 let view_box = if self.show_labels { "0 0 300 300" } else { "30 30 240 240" };
                 let sectors = attributes
@@ -208,8 +207,8 @@ fn sector_path(start: f64, end: f64, outer: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::ChartOptions;
-    use crate::schema::research_activity::aspect::{AspectFramework, Autonomy, Motivity, SoftwarePortability};
-    use crate::schema::TechnologyReadinessLevel;
+    use acorn_schema::schema::research_activity::aspect::{AspectFramework, Autonomy, Motivity, SoftwarePortability};
+    use acorn_schema::schema::TechnologyReadinessLevel;
     fn render_svg(aspect: Option<&AspectFramework>, options: ChartOptions) -> Option<String> {
         options
             .render(aspect)

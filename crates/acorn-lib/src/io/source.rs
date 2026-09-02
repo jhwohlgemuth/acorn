@@ -1,12 +1,14 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
 use crate::io::{http, symlink, uri_to_path, ApiResult};
-use crate::prelude::{copy, read, Path, PathBuf, String};
-use crate::schema::agent::ModelDetails;
-use crate::util::{Label, MimeType};
-use crate::{Location, Repository, Scheme};
+use crate::util::Label;
+use acorn_core::prelude::String;
+use acorn_core::util::MimeType;
+use acorn_core::{Location, Repository, Scheme};
 use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use core::fmt;
+use std::fs::{copy, read};
+use std::path::{Path, PathBuf};
 use strum::EnumIs;
 use tracing::error;
 
@@ -69,11 +71,6 @@ pub enum TextOrigin {
     Clipboard,
     /// Text read from standard input.
     Stdin,
-}
-impl From<ModelDetails> for Option<Source> {
-    fn from(details: ModelDetails) -> Self {
-        details.weights.and_then(|weights| weights.to_source(details.name.or(details.id)))
-    }
 }
 impl Source {
     /// Reads source content from a URL or local file path.

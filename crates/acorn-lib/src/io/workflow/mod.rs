@@ -6,17 +6,19 @@
 use crate::analyzer::Check;
 use crate::io::enrichment::Enrich;
 use crate::io::{read_file, write_file, ApiResult, FromPath, InputOutput};
-use crate::prelude::{Box, PathBuf, String, Vec};
-use crate::util::{print_changes_with_color, Label, MimeType, StringConversion};
-use crate::validation::Validate;
-use crate::Location;
+use crate::util::{print_changes_with_color, Label, StringConversion};
 use crate::LocationExt;
+use acorn_core::prelude::{Box, String, Vec};
+use acorn_core::util::MimeType;
+use acorn_core::Location;
+use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use owo_colors::OwoColorize;
 use serde::Serialize;
+use std::path::PathBuf;
 use tracing::warn;
 
 /// One planned change to a supported data source.

@@ -5,7 +5,6 @@ mod screens;
 mod theme;
 mod widgets;
 
-use acorn::prelude::PathBuf;
 use app::App;
 pub use app::{Candidate, GgufPickerData, State};
 use color_eyre::eyre::{Ok, Result};
@@ -14,6 +13,7 @@ use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io::stdout;
+use std::path::PathBuf;
 
 /// Entry screen for the TUI
 #[derive(Clone, Copy, Debug, PartialEq)]

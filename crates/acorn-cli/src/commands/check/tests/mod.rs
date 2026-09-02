@@ -15,20 +15,23 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+mod context;
+
 use super::{run, PrepareText};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{classify_paths, Analysis, Check, CheckCategory, Standard};
 use acorn::io::TextOrigin;
-use acorn::prelude::{read, read_to_string, PathBuf};
-use acorn::schema::standard::{datacite, dcat, huwise, invenio};
-use acorn::util::MimeType;
 use acorn::LocationExt;
+use acorn_core::util::MimeType;
+use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio};
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use jiff::SignedDuration;
+use std::fs::{read, read_to_string};
+use std::path::PathBuf;
 
 const OFFLINE: bool = true;
 
@@ -136,7 +139,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &None,
     )
     .await;
-    assert!(result.is_ok(), "Check should succeed for {standard}");
+    assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
     Ok(())
 }
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
@@ -154,7 +157,7 @@ where
 fn test_location_resolve_file_type_detects_extensionless_pdf_content() {
     let content = read(fixture_path("gather/resume.pdf")).unwrap();
     assert_eq!(
-        acorn::Location::from("https://example.org/download").resolve_file_type(&content),
+        acorn_core::Location::from("https://example.org/download").resolve_file_type(&content),
         MimeType::Pdf
     );
 }
@@ -287,7 +290,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &None,
     )
     .await;
-    assert!(result.is_ok(), "Valid highlight should pass check");
+    assert!(result.is_ok(), "Valid highlight should pass check: {result:?}");
     Ok(())
 }
 #[tokio::test]

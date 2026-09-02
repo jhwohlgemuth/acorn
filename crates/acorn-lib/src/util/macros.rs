@@ -1,5 +1,5 @@
 //! Macros
-
+//!
 /// Execute a command and capture its output.
 ///
 /// Simplifies `Command::new(binary).args(args).output()` patterns.
@@ -160,7 +160,7 @@
 ///
 /// ```ignore
 /// use acorn::cmd;
-/// use acorn::prelude::CommandOutput;
+/// use acorn::util::process::CommandOutput;
 ///
 /// // Interpolated literal (no shell overhead)
 /// let branch = "main";
@@ -212,10 +212,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_status(&__binary, __args, Some($dir.as_ref()))
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh status string + dir
@@ -231,10 +231,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_status(&__binary, __args, None)
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh status string (no dir)
@@ -251,10 +251,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref()))
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh string + dir
@@ -270,10 +270,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_output(&__binary, __args, None)
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(sh ...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(sh ...): empty command string")),
         }
     }};
     // sh string (no dir)
@@ -342,7 +342,7 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::try_from_output(
                     $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref())),
                 )
@@ -365,7 +365,7 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::try_from_output(
                     $crate::util::cmd::run_output(&__binary, __args, None),
                 )
@@ -415,10 +415,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_status(&__binary, __args, Some($dir.as_ref()))
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(...): empty command string")),
         }
     }};
     // status literal (no dir)
@@ -427,10 +427,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_status(&__binary, __args, None)
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(...): empty command string")),
         }
     }};
     // ── try literal interpolation ──────────────────────────
@@ -440,7 +440,7 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::try_from_output(
                     $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref())),
                 )
@@ -454,7 +454,7 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::try_from_output(
                     $crate::util::cmd::run_output(&__binary, __args, None),
                 )
@@ -469,10 +469,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_output(&__binary, __args, Some($dir.as_ref()))
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(...): empty command string")),
         }
     }};
     // literal (no dir)
@@ -481,10 +481,10 @@ macro_rules! cmd {
         match __parts.next() {
             | Some(__binary) => {
                 let __binary = __binary.to_string_lossy().to_string();
-                let __args = __parts.collect::<$crate::prelude::Vec<_>>();
+                let __args = __parts.collect::<::alloc::vec::Vec<_>>();
                 $crate::util::cmd::run_output(&__binary, __args, None)
             }
-            | None => Err($crate::prelude::io::Error::other("cmd!(...): empty command string")),
+            | None => Err(::std::io::Error::other("cmd!(...): empty command string")),
         }
     }};
     // ── status CLI-style ───────────────────────────────────────
@@ -499,26 +499,26 @@ macro_rules! cmd {
     // ── status array ───────────────────────────────────────────
     // status array + dir
     (status $binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
+        let mut __cmd = ::std::process::Command::new($binary);
         __cmd.args([$($arg),*]);
         __cmd.current_dir($dir);
         __cmd.status()
     }};
     // status array (no dir)
     (status $binary:expr, [ $($arg:expr),* $(,)? ]) => {{
-        $crate::prelude::Command::new($binary).args([$($arg),*]).status()
+        ::std::process::Command::new($binary).args([$($arg),*]).status()
     }};
     // ── status variable ───────────────────────────────────────
     // status variable + dir
     (status $binary:expr, $args:expr; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
+        let mut __cmd = ::std::process::Command::new($binary);
         __cmd.args($args);
         __cmd.current_dir($dir);
         __cmd.status()
     }};
     // status variable (no dir)
     (status $binary:expr, $args:expr) => {{
-        $crate::prelude::Command::new($binary).args($args).status()
+        ::std::process::Command::new($binary).args($args).status()
     }};
     // ── try CLI-style ──────────────────────────────────────────
     // try CLI-style + dir
@@ -536,7 +536,7 @@ macro_rules! cmd {
     // ── try array ──────────────────────────────────────────────
     // try array + dir
     (try $binary:expr, [ $($arg:expr),* $(,)? ]; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
+        let mut __cmd = ::std::process::Command::new($binary);
         __cmd.args([$($arg),*]);
         __cmd.current_dir($dir);
         $crate::util::cmd::try_from_output(__cmd.output())
@@ -544,13 +544,13 @@ macro_rules! cmd {
     // try array (no dir)
     (try $binary:expr, [ $($arg:expr),* $(,)? ]) => {{
         $crate::util::cmd::try_from_output(
-            $crate::prelude::Command::new($binary).args([$($arg),*]).output(),
+            ::std::process::Command::new($binary).args([$($arg),*]).output(),
         )
     }};
     // ── try variable ───────────────────────────────────────────
     // try variable + dir
     (try $binary:expr, $args:expr; dir: $dir:expr) => {{
-        let mut __cmd = $crate::prelude::Command::new($binary);
+        let mut __cmd = ::std::process::Command::new($binary);
         __cmd.args($args);
         __cmd.current_dir($dir);
         $crate::util::cmd::try_from_output(__cmd.output())
@@ -558,7 +558,7 @@ macro_rules! cmd {
     // try variable (no dir)
     (try $binary:expr, $args:expr) => {{
         $crate::util::cmd::try_from_output(
-            $crate::prelude::Command::new($binary).args($args).output(),
+            ::std::process::Command::new($binary).args($args).output(),
         )
     }};
     // ── default output CLI-style ──────────────────────────────
@@ -888,55 +888,5 @@ macro_rules! param {
         $crate::io::api::Param::of_type($style)
             .values(vec![vec![Some($val)]])
             .with_key($name)
-    };
-}
-/// Generate a validator function that matches a value against a regex
-///
-/// Creates a public function `fn(value: &str) -> Result<(), ValidationError>` that
-/// matches the input against the given regex expression.
-///
-/// # Syntax
-/// ```ignore
-/// regex_validator!(
-///     /// Doc comment
-///     function_name,
-///     REGEX_CONSTANT,
-///     "error_code",
-///     "Error message"
-/// );
-/// ```
-#[macro_export]
-macro_rules! regex_validator {
-    ($(#[$meta:meta])* $fn_name:ident, $regex:expr, $code:literal, $message:literal) => {
-        #[doc = concat!("Check if value is a valid ", $code)]
-        $(#[$meta])*
-        pub fn $fn_name(value: &str) -> Result<(), $crate::validation::ValidationError> {
-            match $regex.is_match(value) {
-                | Ok(value) if value => Ok(()),
-                | _ => Err($crate::validation::ValidationError::new($code).with_message($message.into())),
-            }
-        }
-    };
-    ($(#[$meta:meta])* $fn_name:ident, $regex:expr, $code:literal) => {
-        #[doc = concat!("Check if value is a valid ", $code)]
-        $(#[$meta])*
-        pub fn $fn_name(value: &str) -> Result<(), $crate::validation::ValidationError> {
-            match $regex.is_match(value) {
-                | Ok(value) if value => Ok(()),
-                | _ => Err($crate::validation::ValidationError::new($code)
-                    .with_message(concat!("Provide valid ", $code).into())),
-            }
-        }
-    };
-}
-/// Implement [`MarkdownSupport`](crate::util::MarkdownSupport) through [`Display`](core::fmt::Display).
-#[macro_export]
-macro_rules! impl_to_markdown {
-    ($($type:ty),+ $(,)?) => {
-        $(impl $crate::util::MarkdownSupport for $type {
-            fn to_markdown(&self) -> String {
-                self.to_string()
-            }
-        })+
     };
 }

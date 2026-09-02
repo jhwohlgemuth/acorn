@@ -1,8 +1,8 @@
 //! Immutable indexing of positions within loaded documents.
 use super::matching::{aligned_score, unique_max, UniqueMatch};
 use super::SourceDocument;
-use crate::prelude::{String, ToString, Vec};
-use crate::util::{frontmatter_and_body, MimeType};
+use acorn_core::prelude::{String, ToString, Vec};
+use acorn_core::util::{frontmatter_and_body, MimeType};
 use core::fmt;
 use core::ops::{Add, Range};
 use jsonc_parser::ast::Value as JsonValue;

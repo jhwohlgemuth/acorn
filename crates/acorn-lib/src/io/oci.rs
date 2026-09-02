@@ -3,22 +3,25 @@ use crate::args;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
 use crate::io::{extract, file_checksum, walk, ApiResult, FromCommand, PathExt};
-use crate::prelude::{
-    create_dir, create_dir_all, env, fs, remove_dir_all, remove_file, rename, HashMap, HashSet, OsString, Path, PathBuf, String, ToString, Vec,
-};
-use crate::schema::agent::{OciModelLayerRole, Quantization};
 use crate::util::cmd::{redact, run_output, run_output_with_stdin, try_from_output};
 use crate::util::constants::app::{
     ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION,
     MODELPACK_CONFIG, MODELPACK_MANIFEST, MODELPACK_WEIGHT_PREFIX, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, OCI_IMAGE_CONFIG,
     OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
 };
-use crate::util::{MimeType, SemanticVersion};
-use crate::validation::{rules, Validate, ValidationError, ValidationReport};
-use crate::Location;
+use acorn_core::prelude::{HashMap, HashSet, String, ToString, Vec};
+use acorn_core::util::{MimeType, SemanticVersion};
+use acorn_core::validation::ValidationError;
+use acorn_core::Location;
+use acorn_schema::schema::agent::{OciModelLayerRole, Quantization};
+use acorn_schema::validation::{rules, IntoValidationReport, Validate, ValidationReport};
 use color_eyre::eyre::eyre;
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use std::env;
+use std::ffi::OsString;
+use std::fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, rename};
+use std::path::{Path, PathBuf};
 
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {

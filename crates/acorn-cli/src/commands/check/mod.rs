@@ -5,18 +5,23 @@ use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::vale::Vale;
 use acorn::analyzer::{
-    analyze_paths, checks_to_csv, summary, Check, CheckCategory, CheckOptions, Checks, OutputFormat, Render, Standard, StaticAnalyzer,
+    analyze_paths, checks_to_csv, summary, AnalysisContext, AnalysisOptions, AnalysisReport, Check, CheckCategory, Checks, ExecutionOptions,
+    OutputFormat, Render, RenderContext, ReportOptions, Standard, StaticAnalyzer,
 };
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
-use acorn::prelude::{create_dir_all, remove_dir_all, remove_file, temp_dir, write, PathBuf};
 use acorn::util::constants::env::READABILITY_METRIC;
-use acorn::util::{print_values_as_table, regex_join, suffix, Label, MimeType};
+use acorn::util::{print_values_as_table, Label};
 use acorn::LocationExt;
-use acorn::{fail, skip, Location};
+use acorn::{fail, skip};
+use acorn_core::util::{regex_join, suffix, MimeType};
+use acorn_core::Location;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
 use jiff::SignedDuration;
+use std::env::temp_dir;
+use std::fs::{create_dir_all, remove_dir_all, remove_file, write};
+use std::path::PathBuf;
 use tracing::{debug, error};
 
 trait PrepareLocation {
@@ -103,34 +108,75 @@ impl PrepareText for TextOrigin {
         }
     }
 }
-fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, options: &CheckOptions) -> Vec<Check> {
-    let CheckOptions {
+fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, context: RenderContext<'_>) -> Vec<Check> {
+    let ReportOptions {
         all,
         exit_on_first_error,
         quiet,
         ..
-    } = options;
+    } = context.options;
     let filtered_results = filter_by_visibility(&results, *all);
     let issue_count = failure_count(&filtered_results);
     if *exit_on_first_error && issue_count > 0 && !*quiet {
         fail!("ACORN found {} {} issues", issue_count, category);
-        filtered_results.render(options);
+        filtered_results.render(context);
     }
     filtered_results
 }
-async fn collect(paths: &[PathBuf], options: &CheckOptions) -> Vec<Check> {
-    let report = analyze_paths(paths, options).await;
+#[allow(clippy::too_many_arguments)]
+fn build_analysis_context(
+    skip: &[CheckCategory],
+    disable_website_checks: bool,
+    all: bool,
+    exit_on_first_error: bool,
+    skip_verify_checksum: bool,
+    no_fail: bool,
+    raw: bool,
+    terse: bool,
+    standard: Standard,
+    readability_metric: ReadabilityType,
+    silent: bool,
+    offline: bool,
+    ignore_sync_failure: bool,
+    sync_retry_interval: SignedDuration,
+) -> AnalysisContext {
+    let analysis = AnalysisOptions::init()
+        .readability_metric(readability_metric)
+        .maybe_readability_threshold(resolve_readability_threshold(readability_metric))
+        .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
+        .standard(standard)
+        .build();
+    let execution = ExecutionOptions::init()
+        .disable_website_checks(disable_website_checks)
+        .ignore_sync_failure(ignore_sync_failure)
+        .offline(offline)
+        .quiet(silent || raw)
+        .skip_verify_checksum(skip_verify_checksum)
+        .sync_retry_interval(sync_retry_interval)
+        .build();
+    let report = ReportOptions::init()
+        .all(all)
+        .exit_on_first_error(exit_on_first_error)
+        .format(OutputFormat::Console)
+        .no_fail(no_fail)
+        .quiet(silent || raw)
+        .terse(terse)
+        .build();
+    AnalysisContext::init().analysis(analysis).execution(execution).report(report).build()
+}
+fn collect(report: &AnalysisReport, options: &AnalysisContext) -> Vec<Check> {
     report.skipped_categories.iter().for_each(|category| skip!("{} checks", category));
     report
         .batches
-        .into_iter()
-        .flat_map(|batch| batch.categories)
-        .flat_map(|category| apply_early_exit_policy(category.checks, &category.category, options))
+        .iter()
+        .flat_map(|batch| batch.categories.iter())
+        .flat_map(|category| apply_early_exit_policy(category.checks.clone(), &category.category, report.render_context(&options.report)))
         .collect()
 }
-async fn execute(input: Input, options: &CheckOptions) -> Result<(), Report> {
-    let issues = filter_by_visibility(&collect(&input.paths, options).await, options.all);
-    handle(&issues, &input.paths, options)
+async fn execute(input: Input, options: &AnalysisContext) -> Result<(), Report> {
+    let report = analyze_paths(&input.paths, options).await;
+    let issues = filter_by_visibility(&collect(&report, options), options.report.all);
+    handle(&issues, &input.paths, options, report.render_context(&options.report))
 }
 fn failure_count(issues: &[Check]) -> usize {
     issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
@@ -138,8 +184,8 @@ fn failure_count(issues: &[Check]) -> usize {
 fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
     issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect::<Vec<Check>>()
 }
-fn handle(issues: &Checks, paths: &[PathBuf], options: &CheckOptions) -> Result<(), Report> {
-    let CheckOptions { quiet, no_fail, terse, .. } = options;
+fn handle(issues: &Checks, paths: &[PathBuf], options: &AnalysisContext, render_context: RenderContext<'_>) -> Result<(), Report> {
+    let ReportOptions { quiet, no_fail, terse, .. } = &options.report;
     let print_summary = || {
         let file_count = paths.len();
         let headers = vec!["", "Count"];
@@ -151,12 +197,12 @@ fn handle(issues: &Checks, paths: &[PathBuf], options: &CheckOptions) -> Result<
         print_values_as_table::<String>(headers, rows, None);
     };
     if !(*quiet) {
-        issues.render(options);
+        issues.render(render_context);
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
         }
     }
-    if is_stdout_piped() {
+    if is_stdout_piped() && !issues.is_empty() {
         match checks_to_csv(issues, false) {
             | Ok(csv) => {
                 write_stdout(&csv);
@@ -194,6 +240,22 @@ fn resolve_readability_metric(readability_metric: &ReadabilityType) -> Readabili
         },
         | _ => *readability_metric,
     }
+}
+fn resolve_readability_threshold(readability_metric: ReadabilityType) -> Option<f64> {
+    let variable = match readability_metric {
+        | ReadabilityType::ARI => "MAX_ALLOWED_ARI",
+        | ReadabilityType::CLI => "MAX_ALLOWED_CLI",
+        | ReadabilityType::FKGL => "MAX_ALLOWED_FKGL",
+        | ReadabilityType::FRES => "MAX_ALLOWED_FRES",
+        | ReadabilityType::GFI => "MAX_ALLOWED_GFI",
+        | ReadabilityType::Lix => "MAX_ALLOWED_LIX",
+        | ReadabilityType::SMOG => "MAX_ALLOWED_SMOG",
+    };
+    let _ = dotenv();
+    dotenvy::var(variable)
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .inspect(|value| debug!(variable, value, "=> {} Readability threshold from .env", Label::using()))
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -237,22 +299,23 @@ pub async fn run(
     match select_source(path, *paste, filesystem_selected, watch.is_some(), read_stdin, read_clipboard) {
         | Ok(InputSource::Location(_)) if format.is_some() => Err(eyre!("--format requires piped standard input or --paste")),
         | Ok(source) => {
-            let options = CheckOptions::init()
-                .all(*all)
-                .disable_website_checks(*disable_website_checks)
-                .exit_on_first_error(*exit_on_first_error)
-                .offline(offline)
-                .no_fail(*no_fail)
-                .format(OutputFormat::Console)
-                .ignore_sync_failure(ignore_sync_failure)
-                .quiet(is_silent || *raw)
-                .skip(skip.iter().map(|value| value.to_string()).collect::<Vec<_>>())
-                .skip_verify_checksum(*skip_verify_checksum)
-                .standard(*standard)
-                .terse(*terse)
-                .sync_retry_interval(sync_retry_interval)
-                .readability_metric(resolve_readability_metric(readability_metric))
-                .build();
+            let readability_metric = resolve_readability_metric(readability_metric);
+            let options = build_analysis_context(
+                skip,
+                *disable_website_checks,
+                *all,
+                *exit_on_first_error,
+                *skip_verify_checksum,
+                *no_fail,
+                *raw,
+                *terse,
+                *standard,
+                readability_metric,
+                is_silent,
+                offline,
+                ignore_sync_failure,
+                sync_retry_interval,
+            );
             run_source(source, &command_options, &options, format.as_ref(), watch).await
         }
         | Err(why) => Err(why),
@@ -261,7 +324,7 @@ pub async fn run(
 async fn run_source(
     source: InputSource,
     command_options: &CommandOptions,
-    options: &CheckOptions,
+    options: &AnalysisContext,
     format: Option<&MimeType>,
     watch: Option<WatchOptions>,
 ) -> Result<(), Report> {
@@ -279,27 +342,35 @@ async fn run_source(
         },
     }
 }
-async fn sync_analyzer_before_check(options: &CheckOptions) -> Result<CheckOptions> {
-    let should_sync = !options.skip.iter().any(|category| CheckCategory::from(category) == CheckCategory::Prose);
+fn should_sync_analyzer(options: &AnalysisContext) -> bool {
+    !options
+        .analysis
+        .skip
+        .iter()
+        .any(|category| CheckCategory::from(category) == CheckCategory::Prose)
+}
+async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<AnalysisContext> {
+    let should_sync = should_sync_analyzer(options);
     let sync_result = match should_sync {
         | false => Ok(()),
         | true => {
             options
-                .resolve_analyzer::<Vale, _>(options.vale_config.clone().unwrap_or_default())
+                .execution
+                .resolve_analyzer::<Vale, _>(options.execution.vale_config.clone().unwrap_or_default())
                 .await
-                .retry_sync(options)
+                .retry_sync(&options.execution)
                 .await
         }
     };
     match sync_result {
-        | Ok(()) => Ok(CheckOptions {
-            skip_sync: true,
+        | Ok(()) => Ok(AnalysisContext {
+            execution: options.execution.clone().without_sync(),
             ..options.clone()
         }),
         | Err(why) => Err(why),
     }
 }
-async fn watch_run(location: &Location, command_options: &CommandOptions, options: &CheckOptions, watch: WatchOptions) -> Result<(), Report> {
+async fn watch_run(location: &Location, command_options: &CommandOptions, options: &AnalysisContext, watch: WatchOptions) -> Result<(), Report> {
     let scheme = location.scheme();
     let network = scheme.is_http() || scheme.is_https() || command_options.merge_request;
     let roots = match location {

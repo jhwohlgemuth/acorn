@@ -1,10 +1,13 @@
-//! Utilities grouped by their minimum runtime capability.
+//! Utilities grouped by their minimum runtime capability
+//!
 pub mod alloc;
+pub mod assets;
 pub mod constants;
 pub mod core;
 pub mod portable;
 pub use self::alloc::*;
 pub use self::core::*;
+
 #[cfg(feature = "std")]
 impl From<&'static ring::digest::Algorithm> for ChecksumAlgorithm {
     fn from(algorithm: &'static ring::digest::Algorithm) -> Self {

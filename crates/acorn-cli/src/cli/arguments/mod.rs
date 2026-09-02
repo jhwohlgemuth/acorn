@@ -6,20 +6,20 @@ use super::parse::{
 use super::DownloadCommands;
 use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
-use acorn::enrichment::Provider;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
-use acorn::prelude::PathBuf;
-use acorn::schema::agent::Quantization;
-use acorn::schema::hardware::memory::Memory;
 use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT};
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
-use acorn::util::MimeType;
+use acorn_core::util::MimeType;
+use acorn_schema::enrichment::Provider;
+use acorn_schema::schema::agent::Quantization;
+use acorn_schema::schema::hardware::memory::Memory;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use derive_more::Display;
 use jiff::SignedDuration;
+use std::path::PathBuf;
 use strum::EnumIs;
 pub(crate) mod osti;
 /// Remote Docker target arguments shared by container-producing create commands.

@@ -1,8 +1,7 @@
 //! Archive creation and extraction utilities.
 use crate::io::{files_all, standard_project_folder, ApiResult, PathConversion};
-use crate::prelude::{create_dir_all, io, remove_file, ErrorKind, File, OpenOptions, Path, PathBuf, Read, Write};
 use crate::util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES};
-use crate::util::MimeType;
+use acorn_core::util::MimeType;
 use color_eyre::Report;
 use core::fmt;
 use core::iter::once;
@@ -10,6 +9,9 @@ use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use sevenz_rust2::{ArchiveEntry, ArchiveReader, ArchiveWriter, Password};
+use std::fs::{create_dir_all, remove_file, File, OpenOptions};
+use std::io::{self, ErrorKind, Read, Write};
+use std::path::{Path, PathBuf};
 use tar::{Archive as TarArchive, Builder as TarBuilder};
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};

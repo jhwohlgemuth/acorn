@@ -5,10 +5,11 @@ use crate::cli::arguments::{ArchiveType, Import};
 use crate::commands::download::{log_activity, print_result};
 use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
 use acorn::io::{uri_to_path, InputOutput, TemporaryDirectory};
-use acorn::prelude::PathBuf;
-use acorn::util::{MimeType, StringConversion};
+use acorn::util::StringConversion;
+use acorn_core::util::MimeType;
 use color_eyre::eyre::{eyre, Report, Result};
 use futures::{future, stream, StreamExt, TryStreamExt};
+use std::path::PathBuf;
 
 /// Imports local buckets, remote repositories, and BagIt archives.
 pub(crate) async fn run(

@@ -4,7 +4,6 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{read_file, ApiResult};
-use crate::prelude::PathBuf;
 use crate::util::{Label, StringConversion};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
@@ -15,6 +14,7 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, Writer};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::path::PathBuf;
 use tracing::{debug, error};
 
 const XML_DECLARATION: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";

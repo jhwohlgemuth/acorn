@@ -1,4 +1,4 @@
-//! Portable foundation types and utilities for ACORN.
+//! Portable foundation types and utilities for ACORN
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

@@ -42,7 +42,7 @@ ACORN is a command line multi-tool that employs automated processes for informin
 **AI-enabled, without making AI mandatory.** ACORN's core validation, formatting, linking, and export workflows are deterministic. Optional tooling can discover and download local GGUF models, configure them for OpenCode, VS Code, Goose, and llama-swap, and provide compatible AI agents with ACORN-specific operating instructions through [`acorn skill`](cli-reference/commands/skill.md).
 
 > [!NOTE]
-> **AI-Assisted Development Disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/src/schema/research_activity/aspect/mod.rs#L154): humans author the majority of project code and retain review and decision authority over all changes; AI tools may directly create or edit code which is reviewed and refactored before being merged.
+> **AI-Assisted Development Disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/src/schema/research_activity/aspect/mod.rs#L154): humans author the majority of project code and retain review and decision authority over all changes; AI tools may directly create or edit code which is reviewed and refactored before being merged.
 
 [^acronym]: ACORN stands for "Accessible Content Optimization for Research Needs
 

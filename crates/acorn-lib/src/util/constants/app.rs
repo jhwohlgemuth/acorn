@@ -46,12 +46,6 @@ pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Bat
 pub const APPLICATION: &str = "acorn";
 /// Supported research activity data filenames and extensions.
 pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
-/// Canonical schema discriminator for Markdown research activity data.
-pub const RAD_MARKDOWN_SCHEMA: &str = "acorn/research-activity";
-/// Required second-level headings in Markdown research activity data.
-pub const RAD_MARKDOWN_REQUIRED_SECTIONS: [&str; 7] = ["Mission", "Challenge", "Approach", "Impact", "Focus", "Areas", "Contact"];
-/// Optional second-level headings in Markdown research activity data.
-pub const RAD_MARKDOWN_OPTIONAL_SECTIONS: [&str; 3] = ["Achievement", "Capabilities", "ASPECT"];
 /// Delay used to coalesce rapid filesystem notifications.
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
 /// Maximum number of online synchronization attempts.
@@ -60,18 +54,6 @@ pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
 pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 /// Maximum backoff delay for retryable HTTP requests, in seconds.
 pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
-/// Software Heritage archive browse URI.
-pub const SOFTWARE_HERITAGE_ARCHIVE_URI: &str = "https://archive.softwareheritage.org";
-/// Software Heritage SWHID resolver URI.
-pub const SOFTWARE_HERITAGE_RESOLVER_URI: &str = "https://archive.softwareheritage.org/api/1/resolve";
-/// Public Handle proxy resolver URI.
-pub const HANDLE_RESOLVER_URI: &str = "https://hdl.handle.net";
-/// Canonical SWHID specification URI.
-pub const SWHID_SCHEMA_URI: &str = "https://www.swhid.org/specification/v1.2";
-/// identifiers.org resolver URI.
-pub const IDENTIFIERS_ORG_URI: &str = "https://identifiers.org";
-/// Name-to-Thing resolver URI.
-pub const N2T_URI: &str = "https://n2t.net";
 /// Header used to authenticate GitLab API requests with a private token.
 pub const GITLAB_PRIVATE_TOKEN_HEADER: &str = "PRIVATE-TOKEN";
 /// Header used to authenticate GitLab API requests with a CI job token.
@@ -96,8 +78,6 @@ pub const WORK_ITEM_REPORT_MARKER: &str = "<!-- acorn:work-item-intake -->";
 pub const ORGANIZATION: &str = "ornl";
 /// Organization qualifier.
 pub const QUALIFIER: &str = "org";
-/// Default Hugging Face domain
-pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 /// Default OpenAlex API domain.
 pub const DEFAULT_OPENALEX_DOMAIN: &str = "api.openalex.org";
 /// OpenAlex work fields used for research-output enrichment.
@@ -175,8 +155,6 @@ pub const DEFAULT_CONFIG_FILENAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", 
 pub const CHROME_VERSION: (u32, u32, u32, u32) = (151, 0, 7922, 47);
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
-/// Default affiliation.
-pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default base name used for configured GitLab runner containers.
 pub const DEFAULT_RUNNER_NAME: &str = "acorn-runner";
 /// Default Docker daemon socket path.

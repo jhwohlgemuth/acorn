@@ -4,13 +4,14 @@ use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions, Buckets
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
 use acorn::io::{print_with_border, slice_path, InputOutput};
-use acorn::prelude::PathBuf;
 use acorn::util::constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT};
-use acorn::util::{suffix, Label, StringConversion};
+use acorn::util::{Label, StringConversion};
+use acorn_core::util::suffix;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
+use std::path::PathBuf;
 use tracing::{error, warn};
 
 pub mod model;

@@ -1,5 +1,5 @@
 #![no_main]
-use acorn::{Location, Repository};
+use acorn_core::{Location, Repository};
 use libfuzzer_sys::fuzz_target;
 
 fn exercise_location(location: &Location) {

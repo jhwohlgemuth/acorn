@@ -225,7 +225,7 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             if is_option_bool(&field.ty) {
                 quote! { #ident => |value| i32::from(value), }
             } else if is_option_timestamp(&field.ty) {
-                quote! { #ident => crate::util::to_rfc3339, }
+                quote! { #ident => acorn_core::util::to_rfc3339, }
             } else {
                 quote! { #ident, }
             }
@@ -413,24 +413,22 @@ impl ValidationRule {
     }
 }
 fn acorn_path() -> proc_macro2::TokenStream {
-    match crate_name("acorn-lib") {
-        | Ok(FoundCrate::Itself) => quote! { crate },
-        | Ok(FoundCrate::Name(name)) => {
-            let name = match name.as_str() {
-                | "acorn_lib" => format_ident!("acorn"),
-                | _ => format_ident!("{name}"),
+    for candidate in ["acorn-schema", "acorn-lib", "acorn-core"] {
+        if let Ok(found) = crate_name(candidate) {
+            return match found {
+                | FoundCrate::Itself => quote! { crate },
+                | FoundCrate::Name(name) => {
+                    let mapped = match name.as_str() {
+                        | "acorn_lib" => "acorn".to_string(),
+                        | other => other.replace('-', "_"),
+                    };
+                    let ident = format_ident!("{}", mapped);
+                    quote! { ::#ident }
+                }
             };
-            quote! { ::#name }
         }
-        | Err(_) => match crate_name("acorn-core") {
-            | Ok(FoundCrate::Itself) => quote! { crate },
-            | Ok(FoundCrate::Name(name)) => {
-                let name = format_ident!("{}", name.replace('-', "_"));
-                quote! { ::#name }
-            }
-            | Err(_) => quote! { ::acorn },
-        },
     }
+    quote! { ::acorn }
 }
 fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let acorn = acorn_path();
@@ -958,7 +956,7 @@ fn expand_rule_body(
                     Ok(quote! {
                         for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
                             if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(__item).await {
-                                __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
                             }
                         }
                     })
@@ -966,7 +964,7 @@ fn expand_rule_body(
                     Ok(quote! {
                         #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
                             if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
-                                __report.append_prefixed(&#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __nested);
+                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
                             }
                         });
                     })
@@ -1009,7 +1007,7 @@ fn expand_rule_body(
                     for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
                         if let ::core::result::Result::Err(mut __error) = #expression {
                             __error.add_param("value".into(), __item);
-                            __report.add(#acorn::prelude::alloc::format!("{}[{}]", #path, __index), __error);
+                            __report.add(#acorn::validation::index_path(#path, __index), __error);
                         }
                     }
                 })
@@ -1170,14 +1168,14 @@ impl RuleOptions {
     }
 }
 fn error_tokens(
-    acorn: &proc_macro2::TokenStream,
+    _acorn: &proc_macro2::TokenStream,
     code: &str,
     options: &RuleOptions,
     default_message: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     let code = options.code.as_ref().map(|value| quote! { #value }).unwrap_or_else(|| quote! { #code });
     let message = options.message.as_ref().map(|value| quote! { #value }).unwrap_or(default_message);
-    quote! { #acorn::validation::ValidationError::new(#code).with_message((#message).into()) }
+    quote! { ::acorn_core::validation::ValidationError::new(#code).with_message((#message).into()) }
 }
 fn override_error(expression: proc_macro2::TokenStream, options: &RuleOptions) -> syn::Result<proc_macro2::TokenStream> {
     let code = options.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
@@ -1262,7 +1260,7 @@ mod tests {
         assert!(tokens.contains("executed_at DESC"));
         assert!(tokens.contains("pub const FIELDS"));
         assert!(tokens.contains("\"id\"") && tokens.contains("\"command\"") && tokens.contains("\"executed_at\"") && tokens.contains("\"success\""));
-        assert!(tokens.contains("executed_at => crate :: util :: to_rfc3339"));
+        assert!(tokens.contains("executed_at => acorn_core :: util :: to_rfc3339"));
         assert!(tokens.contains("success => | value | i32 :: from (value)"));
     }
     #[test]

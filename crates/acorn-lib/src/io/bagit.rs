@@ -5,14 +5,17 @@
 //! activity data, metadata, and supporting documentation.
 //!
 use crate::io::{archive, file_checksum, files_all, read_file, write_file, ApiResult, StringConversion};
-use crate::prelude::{copy, create_dir_all, HashSet, Path, PathBuf};
-use crate::util::{ChecksumAlgorithm, Label, MimeType};
+use crate::util::Label;
+use acorn_core::prelude::HashSet;
+use acorn_core::util::{ChecksumAlgorithm, MimeType};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::fs::{copy, create_dir_all};
+use std::path::{Path, PathBuf};
 use tracing::{error, warn};
 
 const LINE_ENDING: &str = if cfg!(windows) { "\r\n" } else { "\n" };

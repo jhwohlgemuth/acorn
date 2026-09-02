@@ -1,8 +1,10 @@
-//! # ACORN compatibility library
+//! # ACORN host library
 //!
-//! This crate exposes ACORN schemas, services, and host adapters while preserving the established `acorn::...` public paths.
+//! This crate provides ACORN services and host adapters. Portable primitives and
+//! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "std")]
 extern crate alloc;
 
 #[doc(hidden)]
@@ -13,33 +15,31 @@ pub use acorn_macros::cmd_sh_words;
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
-pub mod enrichment;
 pub mod error;
 #[cfg(feature = "std")]
 pub mod io;
-pub mod prelude;
-pub mod schema;
+#[cfg(doctest)]
+mod ownership_tests;
 pub mod util;
-pub mod validation;
 
-pub use acorn_core::{Location, Release, Repository, Scheme};
 pub use acorn_macros::Validate;
-pub use error::{AcornError, AcornResult};
 
 #[cfg(feature = "std")]
 use crate::io::api::{github, gitlab, Configuration};
 #[cfg(feature = "std")]
 use crate::io::http::get;
 #[cfg(feature = "std")]
-use crate::prelude::alloc::{format, String, Vec};
+use acorn_core::prelude::{format, String, Vec};
 #[cfg(feature = "std")]
-use crate::prelude::std::PathBuf;
+use acorn_core::util::MimeType;
 #[cfg(feature = "std")]
-use crate::schema::ControlledVocabulary;
+use acorn_core::{Location, Release, Repository, Scheme};
 #[cfg(feature = "std")]
-use crate::util::MimeType;
+use acorn_schema::schema::ControlledVocabulary;
 #[cfg(all(feature = "std", feature = "analysis"))]
 use analyzer::{link_check, Check};
+#[cfg(feature = "std")]
+use std::path::PathBuf;
 #[cfg(feature = "std")]
 use tracing::{debug, error, trace, warn};
 

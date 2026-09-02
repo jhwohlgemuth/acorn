@@ -50,12 +50,12 @@
 //! ```
 use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
 use crate::param;
-use crate::prelude::var;
 use crate::util::Label;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use dotenvy;
 use serde::{Deserialize, Serialize};
+use std::env::var;
 use tracing::debug;
 
 /// Raw OpenAI API response payload.

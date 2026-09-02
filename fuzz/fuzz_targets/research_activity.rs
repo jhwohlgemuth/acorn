@@ -1,8 +1,8 @@
 #![no_main]
-use acorn::schema::research_activity::ResearchActivity;
-use acorn::util::ToProse;
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_core::util::ToProse;
+use acorn_schema::validation::Validate;
 use libfuzzer_sys::fuzz_target;
-use validator::Validate;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(rad) = serde_json::from_slice::<ResearchActivity>(data) {
@@ -14,7 +14,7 @@ fuzz_target!(|data: &[u8]| {
         // Suppress the libfuzzer_sys abort hook so catch_unwind can intercept.
         let prev = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
-            let result = std::panic::catch_unwind(|| serde_norway::from_str::<ResearchActivity>(text));
+        let result = std::panic::catch_unwind(|| serde_norway::from_str::<ResearchActivity>(text));
         std::panic::set_hook(prev);
         if let Ok(Ok(rad)) = result {
             let _ = rad.validate();

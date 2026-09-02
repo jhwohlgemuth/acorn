@@ -1,7 +1,7 @@
 use crate::cli::{WatchMode, WatchOptions};
 use acorn::io::{directory_roots, Fingerprint};
-use acorn::prelude::{stdin, IsTerminal, PathBuf, Vec};
 use acorn::util::{constants::app::WATCH_DEBOUNCE_INTERVAL, Label};
+use acorn_core::prelude::Vec;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::future::{pending, Future};
 use crossterm::event::{Event as TerminalEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -10,6 +10,8 @@ use futures::StreamExt;
 use notify::{PollWatcher, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_mini::{new_debouncer_opt, Config, DebounceEventResult, Debouncer};
 use owo_colors::OwoColorize;
+use std::io::{stdin, IsTerminal};
+use std::path::PathBuf;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::time::sleep;
 
@@ -270,8 +272,9 @@ fn watch<T: Watcher>(watcher: &mut Debouncer<T>, roots: &[PathBuf]) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use acorn::prelude::{create_dir_all, remove_dir_all, temp_dir, write};
     use jiff::SignedDuration;
+    use std::env::temp_dir;
+    use std::fs::{create_dir_all, remove_dir_all, write};
     use tokio::time::timeout;
 
     #[test]

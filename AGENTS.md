@@ -15,7 +15,7 @@ When assigned a task:
    - Feature: Start by reading relevant schema/command module, check if new field needs validation
 
 2. **Does it involve schema changes?**
-   - YES → Update `ResearchActivity` or relevant struct in `crates/acorn-lib/src/schema/`
+   - YES → Update `ResearchActivity` or the relevant struct in `crates/acorn-schema/src/schema/`
    - Add validators (`#[validate(...)]`)
    - Add/update tests in adjacent `#[cfg(test)]` module
    - Update ARCHITECTURE.md if major structural change
@@ -80,7 +80,7 @@ cargo run --bin acorn -- export --format pdf path/to/file.json
 ## Common Tasks
 
 ### Adding a Schema Field
-1. Edit struct in `crates/acorn-lib/src/schema/research_activity/mod.rs` (or relevant schema file)
+1. Edit struct in `crates/acorn-schema/src/schema/research_activity/mod.rs` (or relevant schema file)
 2. Add validation attributes using `validator` crate:
    ```rust
    #[validate(length(min = 1, max = 100))]
@@ -387,7 +387,7 @@ Stop and ask the user if:
 ## Important Implementation Details
 
 ### Schema System
-- Main schemas are in `crates/acorn-lib/src/schema/`:
+- Main schemas are in `crates/acorn-schema/src/schema/`:
   - `ResearchActivity` - Primary RAD schema
   - `pid::raid::Metadata` - RAiD metadata schema
 - Schemas use `schemars` for JSON Schema generation

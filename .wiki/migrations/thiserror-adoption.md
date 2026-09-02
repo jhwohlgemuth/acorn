@@ -118,7 +118,7 @@ Prioritize public crosswalk and document-parsing paths where stringification cur
 
 ## 5. Carry the policy into crate extraction
 
-As `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-api`, and adapter crates are extracted, each package should depend on `thiserror` only if it owns a typed error. `acorn-lib` should re-export compatibility types rather than introduce a facade-wide catch-all enum. Native composition crates continue to own `color-eyre` reporting.
+As `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-api`, and adapter crates are extracted, each package should depend on `thiserror` only if it owns a typed error. Consumers import those errors directly from their owner; `acorn-lib` must neither re-export them nor introduce a catch-all enum. Native composition crates continue to own `color-eyre` reporting.
 
 # Validation
 

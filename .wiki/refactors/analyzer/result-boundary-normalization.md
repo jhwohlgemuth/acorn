@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Coordinate with [thiserror adoption](../../migrations/thiserror-adoption.md); stabilize before extracting `acorn-analysis`.
+Coordinate with [thiserror adoption](../../migrations/thiserror-adoption.md); stabilize and compile the in-tree portable kernel before reconsidering `acorn-analysis`.
 
 # Evidence
 

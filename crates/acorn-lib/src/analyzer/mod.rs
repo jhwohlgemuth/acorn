@@ -4,28 +4,37 @@
 //!
 use crate::analyzer::error::DocumentTarget;
 use crate::analyzer::vale::{ValeOutput, ValeOutputItem};
+#[cfg(feature = "std")]
 use crate::io::document::SourceDocument;
 #[cfg(feature = "std")]
 use crate::io::http::get;
+#[cfg(feature = "std")]
 use crate::io::InputOutput;
+#[cfg(feature = "std")]
 use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
-use crate::prelude::{self, create_dir_all, remove_file, write, Arc, Command, CommandOutput, File, HashMap, Path, PathBuf, Stdio};
-use crate::schema::pid::raid;
-use crate::schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID};
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::standard::cff::{self, Cff, IdentifierType, Reference};
-use crate::schema::standard::text::{Document, Text};
-use crate::schema::standard::{datacite, dcat, huwise, invenio};
-use crate::schema::{Organization, ProgrammingLanguage, Website};
 use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
 use crate::util::constants::vale::{
     CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
 };
-use crate::util::{is_uri_or_path, Constant, Label, SemanticVersion, StringConversion};
-use crate::validation::{Validate, ValidationError, ValidationReport};
+use crate::util::process::CommandOutput;
+use crate::util::{is_uri_or_path, Constant, Label, StringConversion};
+use crate::RepositoryExt;
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
-use crate::{Location, Repository, RepositoryExt};
+use acorn_core::prelude::{Arc, HashMap};
+use acorn_core::util::assets::EmbeddedAssets;
+use acorn_core::util::SemanticVersion;
+use acorn_core::validation::ValidationError;
+use acorn_core::{Location, Repository};
+use acorn_schema::schema::pid::raid;
+use acorn_schema::schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID};
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::standard::cff::{self, Cff, IdentifierType, Reference};
+use acorn_schema::schema::standard::text::{Document, Text};
+use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio};
+use acorn_schema::schema::{Organization, ProgrammingLanguage, Website};
+use acorn_schema::util::assets::Constant as SchemaConstant;
+use acorn_schema::validation::{Validate, ValidationReport};
 use async_trait::async_trait;
 #[cfg(feature = "analysis")]
 use bat::PrettyPrinter;
@@ -41,6 +50,9 @@ use polars::datatypes::PlSmallStr;
 #[cfg(feature = "analysis")]
 use polars::prelude::{DataFrame, PolarsResult};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::fs::{create_dir_all, remove_file, write, File};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use tar::Archive;
 #[cfg(feature = "std")]
 use tokio::time::sleep;
@@ -48,6 +60,7 @@ use tracing::{debug, error, info, warn};
 use which::which;
 
 pub mod check;
+pub mod context;
 #[cfg(feature = "analysis")]
 pub mod discovery;
 pub mod error;
@@ -61,7 +74,8 @@ pub mod vale;
 use check::{check_prose_for, check_readability_for};
 #[cfg(feature = "analysis")]
 pub use check::{checks_to_csv, checks_to_dataframe, summary, Analysis, IntoRow, SchemaCheck};
-pub use check::{Check, CheckCategory, CheckOptions, CheckSeverity, Checks, IntoChecks, OutputFormat, Render, Standard};
+pub use check::{Check, CheckCategory, CheckSeverity, Checks, DocumentIndexes, IntoChecks, OutputFormat, Render, RenderContext, Standard};
+pub use context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportOptions};
 use error::{ErrorKind, ValidatorIssues};
 #[cfg(feature = "analysis")]
 pub use service::{analyze_paths, classify_paths, AnalysisBatch, AnalysisReport, CategoryChecks, StandardPaths};
@@ -98,7 +112,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()>;
     /// Retry synchronization when supported by the analyzer.
     #[cfg(feature = "std")]
-    async fn retry_sync(self, options: &CheckOptions) -> ApiResult<()>
+    async fn retry_sync(self, options: &ExecutionOptions) -> ApiResult<()>
     where
         Self: Sized,
     {
@@ -139,7 +153,7 @@ impl_schema_check!(
 );
 impl SchemaCheck for raid::Metadata {
     fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
-        Some(check_schema_path(path.clone(), Self::try_from(path.to_path_buf())).boxed())
+        Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
     }
 }
 #[cfg(feature = "analysis")]
@@ -148,10 +162,10 @@ impl Analysis for Cff {
     fn standard() -> Standard {
         Standard::CitationFileFormat
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -160,11 +174,11 @@ impl Analysis for Cff {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -274,10 +288,10 @@ impl Analysis for datacite::Record {
     fn standard() -> Standard {
         Standard::Datacite
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -286,11 +300,11 @@ impl Analysis for datacite::Record {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -344,10 +358,10 @@ impl Analysis for dcat::Dataset {
     fn standard() -> Standard {
         Standard::Dcat
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -356,11 +370,11 @@ impl Analysis for dcat::Dataset {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -414,10 +428,10 @@ impl Analysis for invenio::Record {
     fn standard() -> Standard {
         Standard::Invenio
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -426,11 +440,11 @@ impl Analysis for invenio::Record {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -500,10 +514,10 @@ impl Analysis for huwise::Dataset {
     fn standard() -> Standard {
         Standard::Huwise
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -512,7 +526,7 @@ impl Analysis for huwise::Dataset {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
@@ -525,10 +539,10 @@ impl Analysis for Document {
     fn standard() -> Standard {
         Standard::Document
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .flat_map(|path| match SourceDocument::from_path(path) {
@@ -554,11 +568,11 @@ impl Analysis for Document {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| async move {
             match Self::read(path) {
                 | Ok(document) => {
@@ -588,10 +602,10 @@ impl Analysis for ResearchActivity {
     fn standard() -> Standard {
         Standard::ResearchActivityData
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -600,11 +614,11 @@ impl Analysis for ResearchActivity {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -654,10 +668,10 @@ impl Analysis for Text {
     fn standard() -> Standard {
         Standard::Text
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
@@ -666,7 +680,7 @@ impl Analysis for Text {
             })
             .collect()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         check_readability_for::<Self>(paths, options)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
@@ -679,10 +693,10 @@ impl Analysis for raid::Metadata {
     fn standard() -> Standard {
         Standard::Raid
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         paths
             .par_iter()
-            .map(|path| match Self::try_from(path.to_path_buf()) {
+            .map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
@@ -827,7 +841,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         }
     }
     async fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
-        let platform = prelude::vale_release_filename();
+        let platform = vale::release_filename();
         let release = match self.version {
             | Some(value) => value,
             | None => SemanticVersion::from(VALE_VERSION),
@@ -1007,8 +1021,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
                 }
                 let acronyms = Constant::last_values("acronyms");
-                let partners = Constant::nth_values("partners", 1);
-                let sponsors = Constant::nth_values("sponsors", 1);
+                let partners = SchemaConstant::nth_values("partners", 1);
+                let sponsors = SchemaConstant::nth_values("sponsors", 1);
                 let abbreviations = Organization::alternative_names();
                 let words = Constant::read_lines("accept.txt");
                 let accept_content = acronyms
@@ -1036,7 +1050,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         }
     }
     #[cfg(feature = "std")]
-    async fn retry_sync(self, options: &CheckOptions) -> ApiResult<()> {
+    async fn retry_sync(self, options: &ExecutionOptions) -> ApiResult<()> {
         let command = self.command();
         let mut attempt = 1;
         loop {

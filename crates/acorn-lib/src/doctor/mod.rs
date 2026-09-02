@@ -9,8 +9,9 @@
 //!
 #[cfg(feature = "std")]
 use crate::io::FromCommand;
-use crate::util::{print_values_as_table, to_string, Label, SemanticVersion};
-use crate::validation::rules;
+use crate::util::{print_values_as_table, Label};
+use acorn_core::util::{to_string, SemanticVersion};
+use acorn_schema::validation::rules;
 use human_units::FormatSize;
 use sysinfo::{Networks, System};
 #[cfg(feature = "std")]

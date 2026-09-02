@@ -3,9 +3,9 @@ use super::schema::{ResearchActivityRow, Table};
 use super::{Database, Row};
 use crate::io::api::handle::Record;
 use crate::io::ApiResult;
-use crate::schema::discovery::RemoteEntity;
-use crate::schema::pid;
-use crate::util::to_rfc3339;
+use acorn_core::util::to_rfc3339;
+use acorn_schema::schema::discovery::RemoteEntity;
+use acorn_schema::schema::pid;
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use jiff::Timestamp;
@@ -392,7 +392,7 @@ fn is_not_found(error: &backend::Error) -> bool {
 mod tests {
     #![allow(clippy::indexing_slicing)]
     use super::*;
-    use crate::prelude::temp_dir;
+    use std::env::temp_dir;
 
     fn database() -> Database<Table> {
         Database::from_path(Some(temp_dir().join(format!("acorn-candidate-{}.db", nanoid!()))))

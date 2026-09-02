@@ -1,20 +1,23 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
 use super::check::CheckKind;
-use super::{analyze_paths, link_check, Analysis, Check, CheckCategory, CheckOptions, CheckSeverity, OutputFormat, Render, SchemaCheck, Standard};
+use super::{
+    analyze_paths, link_check, Analysis, AnalysisContext, AnalysisOptions, Check, CheckCategory, CheckSeverity, ExecutionOptions, OutputFormat,
+    Render, RenderContext, ReportOptions, SchemaCheck, Standard,
+};
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
 use crate::io::database::{CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate};
 use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
-use crate::prelude::{io, temp_dir, IsTerminal, Path, PathBuf};
-pub use crate::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use crate::schema::pid::{self, Arxiv, Handle, Identifier, Patent, PersistentIdentifierParse, ARK, DOI, ISBN, ISNI, ORCID, PID, RAID, ROR, SWHID};
-use crate::schema::{ControlledVocabulary, Keyword};
-use crate::util::constants::RE_URL;
-use crate::util::{merge_unique, values_as_table, Label, StringConversion};
+use crate::util::{values_as_table, Label, StringConversion};
 use crate::{check, check_err};
-use crate::{Location, LocationExt, Repository, RepositoryExt};
+use crate::{LocationExt, RepositoryExt};
+use acorn_core::util::merge_unique;
+use acorn_core::{Location, Repository};
+use acorn_schema::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
+use acorn_schema::schema::pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID};
+use acorn_schema::schema::{ControlledVocabulary, Keyword};
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 use bon::Builder;
@@ -25,6 +28,9 @@ use itertools::Itertools;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+use std::env::temp_dir;
+use std::io::{self, IsTerminal};
+use std::path::{Path, PathBuf};
 use strum::{IntoEnumIterator, VariantNames};
 use tracing::warn;
 
@@ -310,6 +316,15 @@ pub struct ArtifactCandidate {
     /// Explicit operational contact asserted by a metadata provider.
     #[serde(default)]
     pub contact: Option<Candidate>,
+}
+/// Output controls used when finalizing a gather report.
+#[derive(Clone, Copy, Debug)]
+pub struct GatherOutputPolicy<'a> {
+    format: Option<OutputFormat>,
+    output: &'a Option<PathBuf>,
+    quiet: bool,
+    terse: bool,
+    verbosity: Option<u8>,
 }
 /// Resolver outcome attached to a remote gather match.
 #[derive(Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -870,30 +885,23 @@ impl CitationFormat {
 }
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::handle::Record {}
-impl Identifier {
-    /// Discover every supported persistent identifier
-    pub fn find_all(content: &str) -> Vec<Self> {
-        let raid = content
-            .split_whitespace()
-            .filter(|value| value.to_ascii_lowercase().contains("raid"))
-            .filter_map(|value| {
-                Self {
-                    kind: PID::RAID,
-                    value: value.to_string(),
-                }
-                .normalized()
-            })
-            .collect::<Vec<_>>();
-        let parsed = PID::iter()
-            .filter(|kind| kind.is_discoverable() && !kind.is_raid())
-            .flat_map(|kind| kind.find_all(content))
-            .filter(|identifier| identifier.kind != PID::DOI || !raid.iter().any(|value| value.value == identifier.value));
-        raid.iter()
-            .cloned()
-            .chain(parsed)
-            .fold(Vec::new(), |identifiers, identifier| match identifiers.contains(&identifier) {
-                | true => identifiers,
-                | false => identifiers.into_iter().chain(once(identifier)).collect(),
+impl<'a> From<Options<'a>> for GatherOutputPolicy<'a> {
+    fn from(options: Options<'a>) -> Self {
+        Self {
+            format: options.format,
+            output: options.output,
+            quiet: options.quiet,
+            terse: options.terse,
+            verbosity: options.verbosity,
+        }
+    }
+}
+impl GatherOutputPolicy<'_> {
+    fn format(self) -> OutputFormat {
+        self.format
+            .unwrap_or_else(|| match (self.terse, self.output.is_none() && io::stdout().is_terminal()) {
+                | (true, _) | (false, true) => OutputFormat::Console,
+                | (false, false) => OutputFormat::Json,
             })
     }
 }
@@ -981,33 +989,6 @@ impl PersistenceCounts {
     }
     fn is_empty(&self) -> bool {
         self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
-    }
-}
-impl PID {
-    fn find_all(&self, content: &str) -> Vec<Identifier> {
-        match self {
-            | Self::ARK => ARK::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Arxiv => Arxiv::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Handle => Handle::find_explicit(content).into_iter().map(Identifier::from).collect(),
-            | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ISNI => ISNI::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::URL => RE_URL
-                .find_iter(content)
-                .filter_map(Result::ok)
-                .filter_map(|matched| {
-                    Identifier::new(matched.as_str())
-                        .normalized()
-                        .filter(|identifier| identifier.kind == PID::URL)
-                })
-                .collect(),
-            | _ => Vec::new(),
-        }
     }
 }
 impl Record {
@@ -1177,16 +1158,23 @@ impl Records {
             .collect::<Vec<_>>();
         let paths = materialized.iter().filter_map(|value| value.0.clone()).collect::<Vec<_>>();
         let write_checks = materialized.into_iter().filter_map(|value| value.1);
-        let options = CheckOptions::init()
-            .all(true)
-            .disable_website_checks(true)
-            .offline(offline)
-            .quiet(quiet)
+        let analysis = AnalysisOptions::init()
             .skip(vec!["prose".to_string(), "readability".to_string()])
             .standard(match standard.unwrap_or_default() {
                 | Standard::Document | Standard::ResearchActivityData => Standard::Text,
                 | value => value,
             })
+            .build();
+        let execution = ExecutionOptions::init()
+            .disable_website_checks(true)
+            .offline(offline)
+            .quiet(quiet)
+            .build();
+        let report_options = ReportOptions::init().all(true).quiet(quiet).build();
+        let options = AnalysisContext::init()
+            .analysis(analysis)
+            .execution(execution)
+            .report(report_options)
             .build();
         let report = analyze_paths(&paths, &options).await.with_checks(self.link_checks(), &options);
         (write_checks.chain(report.checks()).collect(), paths)
@@ -1453,17 +1441,13 @@ impl RemoteSearchRequest {
     }
     /// Process previously fetched remote responses using gather output and persistence options.
     pub fn process(&self, responses: Vec<RemoteSearchResponse>, options: Options<'_>) -> ApiResult<()> {
+        let output_policy = GatherOutputPolicy::from(options);
         let Options {
             citation_format,
             database_path,
-            format,
             no_local_database,
             offline,
-            output,
-            quiet,
             resolve,
-            terse,
-            verbosity,
             ..
         } = options;
         match offline {
@@ -1502,34 +1486,7 @@ impl RemoteSearchRequest {
                     .with_remote(responses)
                     .with_candidates(candidates)
                     .with_citation_format(citation_format);
-                let format = format.unwrap_or_else(|| match (terse, output.is_none() && io::stdout().is_terminal()) {
-                    | (true, _) | (false, true) => OutputFormat::Console,
-                    | (false, false) => OutputFormat::Json,
-                });
-                let check_options = CheckOptions::init()
-                    .filter_by_verbosity(true)
-                    .quiet(quiet)
-                    .terse(terse)
-                    .format(format)
-                    .maybe_verbosity(verbosity)
-                    .build();
-                checks.render(&check_options);
-                let result = match output {
-                    | _ if terse && format == OutputFormat::Console => Ok(()),
-                    | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-                    | None if quiet => Ok(()),
-                    | None => report.serialize(format).map(|serialized| {
-                        if !serialized.is_empty() {
-                            println!("{serialized}");
-                        }
-                    }),
-                };
-                result.and_then(|_| match checks.iter().any(Check::is_failure) {
-                    | true => Err(color_eyre::eyre::eyre!(OutputFailure::new(
-                        format == OutputFormat::Raw && verbosity.is_none_or(|level| level <= 1)
-                    ))),
-                    | false => Ok(()),
-                })
+                finalize_report(&checks, &report, output_policy, false)
             }
         }
     }
@@ -1879,6 +1836,34 @@ pub fn discover_identifiers(content: &str) -> Vec<Identifier> {
             }
             identifiers
         })
+}
+/// Render checks, emit a gather report, and return the command's final failure status.
+pub fn finalize_report(checks: &[Check], report: &Report, policy: GatherOutputPolicy<'_>, additional_failure: bool) -> ApiResult<()> {
+    let format = policy.format();
+    let report_options = ReportOptions::init()
+        .filter_by_verbosity(true)
+        .quiet(policy.quiet)
+        .terse(policy.terse)
+        .format(format)
+        .maybe_verbosity(policy.verbosity)
+        .build();
+    checks.render(RenderContext::new(&report_options));
+    let output = match policy.output {
+        | _ if policy.terse && format == OutputFormat::Console => Ok(()),
+        | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
+        | None if policy.quiet => Ok(()),
+        | None => report.serialize(format).map(|serialized| {
+            if !serialized.is_empty() {
+                println!("{serialized}");
+            }
+        }),
+    };
+    output.and_then(|_| match checks.iter().any(Check::is_failure) || additional_failure {
+        | true => Err(color_eyre::eyre::eyre!(OutputFailure::new(
+            format == OutputFormat::Raw && policy.verbosity.is_none_or(|level| level <= 1)
+        ))),
+        | false => Ok(()),
+    })
 }
 /// Group artifacts only when canonical identifiers or enriched metadata prove equivalence
 pub fn group_artifacts(candidates: Vec<ArtifactCandidate>) -> Vec<ArtifactCandidate> {

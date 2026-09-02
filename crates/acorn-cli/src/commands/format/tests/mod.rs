@@ -12,12 +12,12 @@
 //! Note: Tests run in online mode as format command doesn't support offline yet.
 use crate::commands::format::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
-use acorn::io::enrichment::Provider;
-use acorn::prelude::copy;
-use acorn::schema::research_activity::ResearchActivity;
+use acorn_schema::enrichment::Provider;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::fs;
+use std::fs::copy;
 
 const OFFLINE: bool = false;
 

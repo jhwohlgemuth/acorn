@@ -47,7 +47,7 @@ Schema validation recognizes ISNI in DataCite name, affiliation, publisher, and 
 Each typed PID implements `PersistentIdentifierParse::find_all`. The finder scans unstructured text with the PID's recognition pattern and returns parsed values:
 
 ```rust
-use acorn::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
+use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
 
 let text = "The dataset is available at https://doi.org/10.11578/dc.20250604.1.";
 let found = DOI::find_all(text);
@@ -63,7 +63,7 @@ The `gather` command runs the supported finders across file, document, URL, stan
 `from_string` decomposes one value into a typed structure. Parsing is intentionally separate from validation: malformed input can produce an empty or partial value, so callers that require a usable PID must validate it.
 
 ```rust
-use acorn::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
+use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
 
 let doi = DOI::from_string("https://doi.org/10.11578/dc.20250604.1");
 
@@ -79,8 +79,8 @@ The `PersistentIdentifier` trait provides common component access through `ident
 Use the typed `is_valid` method when a boolean is convenient. Schema fields use the helpers in `schema::validate`, which return `Result<(), ValidationError>` for composition with the RAD validators.
 
 ```rust
-use acorn::schema::pid::{DOI, PersistentIdentifierParse};
-use acorn::schema::validate::is_doi;
+use acorn_schema::schema::pid::{DOI, PersistentIdentifierParse};
+use acorn_schema::schema::validate::is_doi;
 
 assert!(DOI::is_valid("10.11578/dc.20250604.1"));
 assert!(is_doi("10.11578/dc.20250604.1").is_ok());
@@ -94,7 +94,7 @@ The local checks do not make a network request. Identifier resolution is a later
 `format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result:
 
 ```rust
-use acorn::schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
+use acorn_schema::schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
 
 assert_eq!(DOI::format("https://doi.org/10.11578/dc.20250604.1"), "10.11578/dc.20250604.1");
 assert_eq!(ISNI::format("0000 0004 9229 9539"), "https://isni.org/isni/0000000492299539");
@@ -104,7 +104,7 @@ assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-20
 For discovery and ingestion, `Identifier::normalized` is the safer combined boundary. It trims surrounding prose punctuation, parses according to the declared kind, formats the result, validates it, and returns `None` when the value is unsupported or invalid. `PID::Unknown` asks ACORN to detect a supported kind.
 
 ```rust
-use acorn::schema::pid::{Identifier, PID};
+use acorn_schema::schema::pid::{Identifier, PID};
 
 let raw = Identifier {
     kind: PID::DOI,

@@ -1,8 +1,8 @@
 use super::*;
 #[cfg(feature = "analysis")]
 use crate::analyzer::{Check, CheckCategory};
-use crate::schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
-use crate::schema::standard::cff::Cff;
+use acorn_schema::schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
+use acorn_schema::schema::standard::cff::Cff;
 use async_trait::async_trait;
 use tempfile::tempdir;
 

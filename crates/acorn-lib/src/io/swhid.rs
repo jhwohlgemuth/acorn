@@ -1,10 +1,11 @@
 //! Local file-system and Git SWHID calculation.
 use crate::error::ApiResult;
-use crate::prelude::{read, Path};
-use crate::schema::pid::swhid::ObjectType;
-use crate::schema::pid::SWHID;
+use acorn_schema::schema::pid::swhid::ObjectType;
+use acorn_schema::schema::pid::SWHID;
 use color_eyre::eyre::{eyre, WrapErr};
 use core::str::FromStr;
+use std::fs::read;
+use std::path::Path;
 
 /// Object source used for SWHID calculation
 /// ### Note

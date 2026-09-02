@@ -1,10 +1,10 @@
 use crate::io::api::huggingface::{
-    extract_sha256, next_page, target_path_from_sidecar, Candidate, CandidateSelection, Candidates, Downloaded, ModelInfo, ModelInfoExtension,
-    Options, RepositoryResolution, SearchOptions,
+    extract_sha256, next_page, target_path_from_sidecar, Candidate, CandidateSelection, Candidates, Downloaded, HuggingFaceWeightsExt, ModelInfo,
+    ModelInfoExtension, Options, RepositoryResolution, SearchOptions,
 };
 use crate::io::api::Endpoint;
-use crate::schema::agent::{ModelDetails, Weight, Weights};
-use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
+use acorn_schema::schema::agent::{ModelDetails, Weight, Weights};
+use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use axum::http::{HeaderMap, HeaderValue};
 use serde_json::{json, Value};
 

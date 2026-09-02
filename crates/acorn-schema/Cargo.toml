@@ -1,0 +1,68 @@
+[package]
+edition = "2021"
+name = "acorn-schema"
+version.workspace = true
+description = "Portable ACORN schema, validation, and codecs"
+authors.workspace = true
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+acorn-core = { version = "0.1.76", path = "../acorn-core", default-features = false }
+acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
+bon = { version = "3.8.1", default-features = false }
+convert_case = { version = "0.11.0", default-features = false }
+derive_more = { workspace = true }
+fancy-regex = { workspace = true }
+fluent-uri = { workspace = true }
+jiff = { workspace = true }
+schemars = { version = "1.0.4", features = ["derive"], default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_norway = { workspace = true }
+serde_repr = { workspace = true }
+serde_trim = { version = "1.1.0", default-features = false }
+serde_with = { version = "3.15.1", features = ["macros"], default-features = false }
+strum = { workspace = true }
+urlencoding = { version = "2.1.3", default-features = false }
+idna = { version = "1.1.0", features = ["alloc", "compiled_data"], default-features = false }
+aho-corasick = { version = "1.1.4", default-features = false }
+petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
+quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+data-encoding = { workspace = true }
+eserde = { workspace = true }
+sophia = { workspace = true }
+swhid = { workspace = true, features = ["git"], optional = true }
+# std-gated hosts (mirrors acorn-lib gating)
+ammonia = { version = "4.1.2", default-features = false, optional = true }
+anydoc = { workspace = true, optional = true }
+arboard = { workspace = true, optional = true }
+nucleo-matcher = { version = "0.3.1", features = ["unicode-casefold", "unicode-normalization"], default-features = false, optional = true }
+percy-dom = { version = "0.10.0", features = ["macro"], default-features = false, optional = true }
+ring = { version = "0.17.14", default-features = false, optional = true }
+rust-embed = { workspace = true, optional = true }
+tera = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+
+[dev-dependencies]
+glob = { workspace = true }
+insta = { workspace = true, features = ["json", "yaml"] }
+pretty_assertions = "1.4.1"
+proptest = "1.9.0"
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[features]
+default = ["std"]
+core = ["acorn-core/core"]
+alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
+std = ["alloc", "acorn-core/std", "jiff/std", "dep:ammonia", "dep:anydoc", "dep:arboard", "dep:nucleo-matcher", "dep:percy-dom", "dep:rust-embed", "dep:tera", "dep:tracing", "dep:swhid", "ring"]
+wasm = ["alloc"]
+swhid-compute = ["std", "dep:swhid"]
+analysis = []
+
+[lints]
+workspace = true

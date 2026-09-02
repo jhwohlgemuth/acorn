@@ -5,18 +5,20 @@ use crate::io::adapter::migrate::Migration;
 use crate::io::config::bucket::BucketOptions;
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, Provenance, ResearchActivityCandidate};
-use crate::io::{with_progress, ApiResult, FromPath, InputOutput, ProgressType};
-use crate::prelude::{Component, HashMap, Path, PathBuf};
-use crate::schema::pid::{Identifier, PID};
-use crate::schema::research_activity::ResearchActivity;
+use crate::io::{read_file, with_progress, ApiResult, FromPath, InputOutput, ProgressType};
 use crate::util::constants::app::SUPPORTED_RAD_FILETYPES;
-use crate::util::{is_filetype, suffix, Label, MimeType};
-use crate::Repository;
+use crate::util::{is_filetype, Label};
+use acorn_core::prelude::HashMap;
+use acorn_core::util::{suffix, MimeType};
+use acorn_core::Repository;
+use acorn_schema::schema::pid::{Identifier, PID};
+use acorn_schema::schema::research_activity::ResearchActivity;
 use color_eyre::eyre::{eyre, Report};
 use core::future::Future;
 use core::iter::once;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
+use std::path::{Component, Path, PathBuf};
 
 /// Policy controlling which bucket sources a transfer accepts.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -143,7 +145,7 @@ impl TransferManifest {
                     .filter(is_filetype(SUPPORTED_RAD_FILETYPES))
                     .filter(|relative| {
                         let path = output.join(relative);
-                        MimeType::from_path(&path) != MimeType::Markdown || ResearchActivity::is_markdown(path.as_path())
+                        MimeType::from_path(&path) != MimeType::Markdown || read_file(&path).is_ok_and(ResearchActivity::is_markdown)
                     })
                     .try_fold((), |(), relative| {
                         let path = output.join(relative);

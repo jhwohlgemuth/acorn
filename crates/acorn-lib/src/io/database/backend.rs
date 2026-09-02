@@ -3,14 +3,15 @@
 //! Conditionally re-exports types from either `rusqlite` (default) or `duckdb`
 //! based on enabled feature flags.
 use crate::io::ApiResult;
-use crate::prelude::{env, String};
 use crate::util::constants::env::DATABASE_BACKEND;
+use acorn_core::prelude::String;
 use color_eyre::eyre::eyre;
 #[cfg(feature = "duckdb")]
 pub use duckdb::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
 use jiff::Timestamp;
 #[cfg(not(feature = "duckdb"))]
 pub use rusqlite::{params, params_from_iter, Connection, Error, Params, ParamsFromIter, Row as BackendRow, ToSql};
+use std::env;
 
 /// SQLite backend value.
 pub const BACKEND_SQLITE: &str = "sqlite";

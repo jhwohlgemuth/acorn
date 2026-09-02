@@ -1,6 +1,5 @@
 //! HTTP client utilities for ACORN IO operations
 use super::ApiResult;
-use crate::prelude::{File, OpenOptions, Path, Write};
 use crate::util::constants::app::ACORN_USER_AGENT;
 use crate::util::Label;
 use async_trait::async_trait;
@@ -12,6 +11,9 @@ use core::fmt;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 use tokio::time::{sleep, timeout};
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};

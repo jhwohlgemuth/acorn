@@ -1,10 +1,10 @@
-use acorn::prelude::var;
 use acorn::util::constants::app::{
     ORNL_COLOR_DARK_MATTER, ORNL_COLOR_ENERGY, ORNL_COLOR_FORGE, ORNL_COLOR_GRAPHITE, ORNL_COLOR_GREEN, ORNL_COLOR_HALE_NAVY, ORNL_COLOR_HYDRO,
     ORNL_COLOR_POLAR, ORNL_COLOR_SPARK,
 };
 use acorn::util::constants::env::TUI_THEME;
 use ratatui::style::Color;
+use std::env::var;
 
 const fn ornl_color([red, green, blue]: [u8; 3]) -> Color {
     Color::Rgb(red, green, blue)

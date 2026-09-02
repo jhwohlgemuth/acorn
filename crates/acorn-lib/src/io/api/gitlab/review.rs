@@ -4,17 +4,20 @@ use super::{
     MergeRequestDiff, Options,
 };
 use crate::analyzer::discovery::discover_identifiers;
-use crate::analyzer::{analyze_paths, Check, CheckOptions};
+use crate::analyzer::{analyze_paths, AnalysisContext, Check};
 use crate::io::api::{Configuration, RepositoryFileMetadata};
 use crate::io::ApiResult;
-use crate::prelude::{create_dir_all, env, remove_dir_all, write, PathBuf};
-use crate::schema::pid::Identifier;
 use crate::util::constants::app::{APPLICATION, MAX_ANALYSIS_FILE_BYTES, MERGE_REQUEST_REPORT_MARKER};
-use crate::util::{generate_guid, MarkdownSupport, MimeType};
+use crate::util::generate_guid;
+use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_schema::schema::pid::Identifier;
 use color_eyre::eyre::{eyre, Report};
 use core::iter::once;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
+use std::env;
+use std::fs::{create_dir_all, remove_dir_all, write};
+use std::path::PathBuf;
 
 /// One merge request analysis input
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -234,7 +237,7 @@ impl Drop for Workspace {
     }
 }
 /// Analyze one merge request head and publish its note and commit status
-pub async fn analyze_merge_request(options: &Options, check_options: &CheckOptions) -> ApiResult<MergeRequestAnalysisOutcome> {
+pub async fn analyze_merge_request(options: &Options, check_options: &AnalysisContext) -> ApiResult<MergeRequestAnalysisOutcome> {
     match options.sha() {
         | Ok(sha) => match merge_request(options).await {
             | Ok(details) if details.sha != sha => Ok(MergeRequestAnalysisOutcome::Stale {
@@ -269,7 +272,7 @@ async fn build_report(
     options: &Options,
     details: &MergeRequestDetails,
     head_sha: &str,
-    check_options: &CheckOptions,
+    check_options: &AnalysisContext,
 ) -> ApiResult<MergeRequestAnalysisReport> {
     match merge_request_diffs(options).await {
         | Ok(diffs) => match Workspace::create(details.iid, head_sha) {

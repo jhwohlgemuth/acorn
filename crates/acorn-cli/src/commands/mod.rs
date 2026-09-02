@@ -7,6 +7,7 @@ use acorn::analyzer::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
 use acorn::util::Label;
+use acorn_schema::schema::discovery::RemoteOrganizationRole;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
@@ -397,7 +398,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 let organization = lab.map(|value| value.to_string()).or_else(|| organization.clone());
                 let organization_role = lab.map_or_else(
                     || organization_role.as_ref().map(Into::into).unwrap_or_default(),
-                    |_| discovery::RemoteOrganizationRole::SiteOwner,
+                    |_| RemoteOrganizationRole::SiteOwner,
                 );
                 discovery::RemoteSearchRequest::init()
                     .provider(discovery::RemoteProvider::Osti)

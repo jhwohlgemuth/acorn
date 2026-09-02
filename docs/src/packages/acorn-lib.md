@@ -5,13 +5,13 @@
 [<img alt="Downloads" src="https://img.shields.io/crates/dr/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Dependency Status" src="https://deps.rs/crate/acorn-lib/latest/status.svg?style=for-the-badge" height="20">](https://deps.rs/crate/acorn-lib/latest)
 
-The ACORN CLI application is built on top of the `acorn-lib` Rust crate. The `acorn-lib` library provides core functionalities for working with ACORN [schemas](../concepts/acorn.md), processing [persistent identifiers through their lifecycle](../concepts/persistent-identifiers.md), and generating artifacts.
+The ACORN CLI application uses `acorn-lib` for host capabilities such as filesystem and network I/O, analysis services, persistence, and artifact generation. Portable [schemas](../concepts/acorn.md), validation, and [persistent identifiers](../concepts/persistent-identifiers.md) are owned by the separate `acorn-schema` crate.
 
 ## AI And Agent APIs
 
 The library also provides building blocks for optional AI-enabled applications:
 
-- `acorn::schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
+- `acorn_schema::schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
 - Embedded prompt templates support summarization, translation, teaching, claim extraction, and gap finding.
 - `acorn::io::api::openai` provides a client for completions, chat completions, responses, embeddings, model discovery, and related operations using supported OpenAI-style HTTP endpoints and JSON formats. It can call OpenAI's service or another compatible server, including a local one such as llama-swap; "OpenAI-compatible" describes the connection format, not the model provider.
 
@@ -23,13 +23,13 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
 > The PID regression tests maintain shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, and SWHID. This parity applies to the listed overlapping cases, not every behavior or identifier family supported by those projects.
 
 ## Installation
-- Add `acorn-lib` as a dependency[^version]
+- Add the owning schema crate as a dependency[^version]
   ```sh
-  cargo add acorn-lib
+  cargo add acorn-schema
   ```  
-- Use `acorn-lib` functions in your Rust code
+- Use schema functions directly
   ```rust
-  use acorn::schema::validate::{is_ark, is_arxiv, is_doi, is_isni, is_orcid, is_ror};
+  use acorn_schema::schema::validate::{is_ark, is_arxiv, is_doi, is_isni, is_orcid, is_ror};
 
   assert!(is_ark("ark:/1234/w5678").is_ok());
   assert!(is_arxiv("arXiv:2106.09685").is_ok());
@@ -44,9 +44,9 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
   ```
 
 
-[^version]: Check [crates.io](https://crates.io/crates/acorn-lib) for the latest version
+[^version]: Check [crates.io](https://crates.io/crates/acorn-schema) for the latest version
 [^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.
-[^isbn]: [`ISBN`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ISBN.html)
-[^isni]: [`ISNI`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ISNI.html)
-[^orcid]: [`ORCID`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ORCID.html)
-[^ror]: [`ROR`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.ROR.html)
+[^isbn]: [`ISBN`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ISBN.html)
+[^isni]: [`ISNI`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ISNI.html)
+[^orcid]: [`ORCID`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ORCID.html)
+[^ror]: [`ROR`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ROR.html)

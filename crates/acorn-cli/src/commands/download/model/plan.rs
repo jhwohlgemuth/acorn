@@ -3,7 +3,8 @@ use super::{download_remote_model, materialize_local_model};
 use crate::cli::CommandOptions;
 use acorn::io::api::harbor::{self, Artifact as HarborArtifact, Options as HarborOptions};
 use acorn::io::api::huggingface::{
-    self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, ModelInfoExtension, RepositoryResolution,
+    self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, HuggingFaceWeightsExt, ModelDetailsExt, ModelInfoExtension,
+    RepositoryResolution,
 };
 use acorn::io::api::models_dev;
 use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions, RegistryKind, RegistryProfile};
@@ -11,17 +12,17 @@ use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport};
 use acorn::io::{first_env_var, ApiResult, Source, SourceAction};
-#[cfg(feature = "tui")]
-use acorn::prelude::io;
-use acorn::prelude::{create_dir_all, HashMap, HashSet, Path, PathBuf, String, Vec};
-use acorn::schema::agent::{
+use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
+use acorn::util::{Label, StringConversion};
+use acorn_core::prelude::{HashMap, HashSet, String, Vec};
+use acorn_core::util::{merge, MimeType};
+use acorn_core::{Location, Repository};
+use acorn_schema::schema::agent::{
     ModelDetails, ModelSelector, ModelSelectors, OciModelDetails, OciModelExtraction, OciModelLayer, Quantization, Weight, WeightGroups, Weights,
 };
-use acorn::schema::hardware::memory::Memory;
-use acorn::schema::OneOrMany;
-use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_DOMAIN, DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
-use acorn::util::{merge, Label, MimeType, StringConversion};
-use acorn::{Location, Repository};
+use acorn_schema::schema::hardware::memory::Memory;
+use acorn_schema::schema::OneOrMany;
+use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -30,6 +31,10 @@ use futures::{future::join_all, stream, StreamExt};
 use is_terminal::IsTerminal;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use std::fs::create_dir_all;
+#[cfg(feature = "tui")]
+use std::io;
+use std::path::{Path, PathBuf};
 use tracing::{error, info, warn};
 
 #[derive(Clone, Debug)]
@@ -615,7 +620,11 @@ impl ModelDownloadPlan {
         }
     }
     fn from_details(details: ModelDetails) -> Option<Self> {
-        Option::<Source>::from(details.clone()).map(|source| Self::new(source).with_details(details))
+        details
+            .weights
+            .clone()
+            .and_then(|weights| weights.to_source(details.name.clone().or(details.id.clone())))
+            .map(|source| Self::new(source).with_details(details))
     }
     fn constrain(
         self,
@@ -1022,7 +1031,7 @@ pub(crate) fn run_gguf_picker(candidates: huggingface::Candidates, options: &hug
 #[cfg(test)]
 mod metadata_filter_tests {
     use super::*;
-    use acorn::schema::agent::Weight;
+    use acorn_schema::schema::agent::Weight;
 
     fn weight(path: &str, quantization: Quantization, size: Option<u64>) -> Weight {
         Weight {

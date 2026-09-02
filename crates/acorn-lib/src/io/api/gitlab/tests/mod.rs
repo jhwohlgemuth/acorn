@@ -12,16 +12,17 @@ use crate::io::api::gitlab::{
 };
 use crate::io::api::{self, sluggify, IntoHeaders};
 use crate::param;
-use crate::prelude::{HashMap, Mutex};
 use crate::test::server::TestServer;
 use crate::util::constants::app::{
     GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_JOB_TOKEN_HEADER, GITLAB_PRIVATE_TOKEN_HEADER, MERGE_REQUEST_REPORT_MARKER,
 };
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use acorn_core::prelude::HashMap;
 use alloc::sync::Arc;
 use axum::extract::{Request, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
+use std::sync::Mutex;
 
 #[derive(Clone, Default)]
 struct MergeRequestWorkflowState {
@@ -608,17 +609,23 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
         .internal_identifier("7")
         .sha("abc123")
         .build();
-    let check_options = crate::analyzer::CheckOptions {
-        offline: true,
-        skip: vec![
-            "schema".to_string(),
-            "link".to_string(),
-            "prose".to_string(),
-            "quality".to_string(),
-            "readability".to_string(),
-            "crosswalk".to_string(),
-        ],
-        ..crate::analyzer::CheckOptions::default()
+    let check_options = crate::analyzer::AnalysisContext {
+        analysis: crate::analyzer::AnalysisOptions {
+            skip: vec![
+                "schema".to_string(),
+                "link".to_string(),
+                "prose".to_string(),
+                "quality".to_string(),
+                "readability".to_string(),
+                "crosswalk".to_string(),
+            ],
+            ..crate::analyzer::AnalysisOptions::default()
+        },
+        execution: crate::analyzer::ExecutionOptions {
+            offline: true,
+            ..crate::analyzer::ExecutionOptions::default()
+        },
+        ..crate::analyzer::AnalysisContext::default()
     };
     let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
     let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
@@ -677,7 +684,7 @@ async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
         .internal_identifier("7")
         .sha("old-sha")
         .build();
-    let outcome = review::analyze_merge_request(&options, &crate::analyzer::CheckOptions::default())
+    let outcome = review::analyze_merge_request(&options, &crate::analyzer::AnalysisContext::default())
         .await
         .unwrap();
     assert!(matches!(
@@ -755,17 +762,23 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
         .internal_identifier("7")
         .sha("large-sha")
         .build();
-    let check_options = crate::analyzer::CheckOptions {
-        offline: true,
-        skip: vec![
-            "schema".to_string(),
-            "link".to_string(),
-            "prose".to_string(),
-            "quality".to_string(),
-            "readability".to_string(),
-            "crosswalk".to_string(),
-        ],
-        ..crate::analyzer::CheckOptions::default()
+    let check_options = crate::analyzer::AnalysisContext {
+        analysis: crate::analyzer::AnalysisOptions {
+            skip: vec![
+                "schema".to_string(),
+                "link".to_string(),
+                "prose".to_string(),
+                "quality".to_string(),
+                "readability".to_string(),
+                "crosswalk".to_string(),
+            ],
+            ..crate::analyzer::AnalysisOptions::default()
+        },
+        execution: crate::analyzer::ExecutionOptions {
+            offline: true,
+            ..crate::analyzer::ExecutionOptions::default()
+        },
+        ..crate::analyzer::AnalysisContext::default()
     };
     let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
     let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
@@ -846,17 +859,23 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
         .internal_identifier("7")
         .sha("missing-sha")
         .build();
-    let check_options = crate::analyzer::CheckOptions {
-        offline: true,
-        skip: vec![
-            "schema".to_string(),
-            "link".to_string(),
-            "prose".to_string(),
-            "quality".to_string(),
-            "readability".to_string(),
-            "crosswalk".to_string(),
-        ],
-        ..crate::analyzer::CheckOptions::default()
+    let check_options = crate::analyzer::AnalysisContext {
+        analysis: crate::analyzer::AnalysisOptions {
+            skip: vec![
+                "schema".to_string(),
+                "link".to_string(),
+                "prose".to_string(),
+                "quality".to_string(),
+                "readability".to_string(),
+                "crosswalk".to_string(),
+            ],
+            ..crate::analyzer::AnalysisOptions::default()
+        },
+        execution: crate::analyzer::ExecutionOptions {
+            offline: true,
+            ..crate::analyzer::ExecutionOptions::default()
+        },
+        ..crate::analyzer::AnalysisContext::default()
     };
     let error = review::analyze_merge_request(&options, &check_options).await.unwrap_err().to_string();
     assert!(error.contains("could not be fetched"));

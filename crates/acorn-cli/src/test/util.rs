@@ -5,8 +5,9 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use acorn::prelude::{create_dir_all, read_dir, remove_dir_all, PathBuf};
 use core::sync::atomic::{AtomicUsize, Ordering};
+use std::fs::{create_dir_all, read_dir, remove_dir_all};
+use std::path::PathBuf;
 
 static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 

@@ -409,7 +409,7 @@ pub async fn publish_commit_status(
 }
 /// Fetch minimal GitLab project metadata, including the default branch name
 ///
-/// The project identifier must be a numeric ID or a URL-encoded project path (see [`Repository::id`](crate::Repository::id)).
+/// The project identifier must be a numeric ID or a URL-encoded project path (see [`Repository::id`](acorn_core::Repository::id)).
 /// An authentication token is optional for public projects and required for private ones.
 ///
 /// See <https://docs.gitlab.com/api/projects/#get-a-single-project> for more information

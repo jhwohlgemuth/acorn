@@ -2,8 +2,6 @@
 //!
 //! These are `#[doc(hidden)]` and not part of the public API.
 #[cfg(feature = "shell-lint")]
-use crate::prelude::std::{env, io, Command, ExitStatus, OsStr, OsString, Output, Path, Stdio, Write};
-#[cfg(feature = "shell-lint")]
 use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
 use crate::util::Label;
 use core::iter::once;
@@ -11,6 +9,12 @@ use core::iter::once;
 use shuck_linter::{lint, AnalysisRequest, Diagnostic, LinterSettings, Severity as LintSeverity, ShellDialect};
 #[cfg(feature = "shell-lint")]
 use shuck_parser::parser::Parser;
+#[cfg(feature = "shell-lint")]
+use std::env;
+use std::ffi::{OsStr, OsString};
+use std::io::{self, Write};
+use std::path::Path;
+use std::process::{Command, ExitStatus, Output, Stdio};
 use tracing::warn;
 
 #[cfg(feature = "shell-lint")]

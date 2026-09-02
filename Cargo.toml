@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/acorn-cli", "crates/acorn-core", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-py", "crates/acorn-tui", "xtask"]
+members = ["crates/acorn-cli", "crates/acorn-core", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-py", "crates/acorn-schema", "crates/acorn-tui", "xtask"]
 resolver = "2"
 
 [workspace.package]

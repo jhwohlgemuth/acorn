@@ -1,15 +1,14 @@
-//! # Readability utilities
+//! Readability utilities
 //!
-//! Analyze readabilty of prose using modern readability metrics.
-use crate::prelude::alloc::HashMap;
+//! Analyze readabilty of prose using modern readability metrics
+//!
 use crate::util::constants::app::{
     MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG,
 };
-use crate::util::find_first;
 use crate::util::Label;
+use acorn_core::prelude::HashMap;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
-use dotenvy::dotenv;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use tracing::warn;
@@ -120,34 +119,12 @@ impl ReadabilityType {
             | ReadabilityType::SMOG => MAX_ALLOWED_SMOG,
         }
     }
-    /// Get maximum allowed value for a given readability type, from environment file
-    pub fn maximum_allowed_from_env(self) -> Option<f64> {
-        match dotenv() {
-            | Ok(_) => {
-                let variables = dotenvy::vars().collect::<Vec<(String, String)>>();
-                let pair = match self {
-                    | ReadabilityType::ARI => find_first(variables, "MAX_ALLOWED_ARI"),
-                    | ReadabilityType::CLI => find_first(variables, "MAX_ALLOWED_CLI"),
-                    | ReadabilityType::FKGL => find_first(variables, "MAX_ALLOWED_FKGL"),
-                    | ReadabilityType::FRES => find_first(variables, "MAX_ALLOWED_FRES"),
-                    | ReadabilityType::GFI => find_first(variables, "MAX_ALLOWED_GFI"),
-                    | ReadabilityType::Lix => find_first(variables, "MAX_ALLOWED_LIX"),
-                    | ReadabilityType::SMOG => find_first(variables, "MAX_ALLOWED_SMOG"),
-                };
-                match pair {
-                    | Some((_, value)) => value.parse::<f64>().ok(),
-                    | None => None,
-                }
-            }
-            | Err(_) => None,
-        }
-    }
 }
 /// Expand acronyms in a given text using the provided acronym map
 /// ### Example
 /// ```rust
 /// use acorn::analyzer::readability::expand_acronyms;
-/// use acorn::prelude::HashMap;
+/// use acorn_core::prelude::HashMap;
 ///
 /// let acronyms = HashMap::from([("CLI".to_string(), "Command Line Interface".to_string())]);
 /// let text = "Use the CLI for automation.";

@@ -9,12 +9,13 @@
 
 The modules, structs, enums and constants found here support the ACORN CLI, which checks, analyzes, and exports research activity data into useable formats.
 
-## Validation imports
+## Schema validation
 
-ACORN's pre-1.0 validation API is available from `acorn::validation`:
+Portable schema validation is owned and exported directly by `acorn-schema`:
 
 ```rust
-use acorn::validation::{Validate, ValidationError, ValidationReport};
+use acorn_core::validation::ValidationError;
+use acorn_schema::validation::{Validate, ValidationReport};
 ```
 
-The `Validate` derive macro is re-exported beside the trait and continues to use `#[validate(...)]` attributes. Code importing `validator::{Validate, ValidationError, ValidationErrors}` should migrate to the ACORN types above; `ValidationReport` is a deterministic flat collection whose issue paths use forms such as `field.subfield[2]`.
+The derive macro continues to use `#[validate(...)]` attributes and resolves its implementation through `acorn-schema`. `ValidationReport` is a deterministic flat collection whose issue paths use forms such as `field.subfield[2]`. `acorn-lib` intentionally does not provide an `acorn::validation` compatibility module.

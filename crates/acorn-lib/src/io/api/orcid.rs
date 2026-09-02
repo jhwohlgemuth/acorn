@@ -29,15 +29,16 @@
 use crate::io::api::{self, Configuration, Param, Params, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::ApiResult;
 use crate::param;
-use crate::prelude::var;
-use crate::schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
-use crate::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
-use crate::util::{Label, Searchable};
+use crate::util::Label;
+use acorn_core::util::Searchable;
+use acorn_schema::schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
+use acorn_schema::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env::var;
 use tracing::debug;
 
 /// ORCiD allowed search fields
@@ -60,7 +61,7 @@ pub enum SearchField {
     GivenNames,
     /// Keyword
     Keyword,
-    /// [`ORCID`](crate::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
     /// ### Examples
     /// - `0000-0002-2057-9115` (Jason Wohlgemuth)
     /// - `0009-0005-5568-6526` (Audrey Carson)
@@ -92,7 +93,7 @@ pub enum OutputColumn {
     GivenNames,
     /// Family names
     FamilyName,
-    /// [`ORCID`](crate::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
     Orcid,
     /// Other name
     OtherName,
@@ -157,7 +158,7 @@ pub struct SearchResponse {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct SearchResult {
-    /// [`ORCID`](crate::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
     #[serde(rename = "orcid-id")]
     pub orcid_id: Option<String>,
     /// Given names (first name(s))

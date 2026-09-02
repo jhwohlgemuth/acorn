@@ -81,8 +81,8 @@ The following is planning code, not an implementation patch. The proposed built-
 
 ```rust
 use crate::enrichment::Provider;
-use crate::prelude::alloc::{String, Vec};
 use crate::validation::{Validate, ValidationError};
+use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

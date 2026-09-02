@@ -6,7 +6,7 @@ use super::database::OperationQueue;
 use super::intake::analyze_work_item;
 use crate::io::api;
 use crate::io::{self, ApiResult};
-use crate::util::constant_time_eq;
+use acorn_core::util::constant_time_eq;
 use alloc::sync::Arc;
 use axum::body::to_bytes;
 use axum::extract::Request;

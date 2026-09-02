@@ -26,6 +26,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 acorn-core = { version = "0.1.76", path = "../acorn-core", default-features = false }
+acorn-schema = { version = "0.1.76", path = "../acorn-schema", default-features = false }
 ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.1.59", path = "../acorn-macros" }
 aho-corasick = { version = "1.1.4", default-features = false }
@@ -134,9 +135,9 @@ name = "document"
 harness = false
 
 [features]
-core = ["acorn-core/core"]
-alloc = ["core", "acorn-core/alloc", "serde/alloc", "jiff/alloc"]
-wasm = ["alloc"]
+core = ["acorn-core/core", "acorn-schema/core"]
+alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
+wasm = ["alloc", "acorn-schema/alloc"]
 unicode = ["std", "console/std"]
 agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
@@ -148,6 +149,7 @@ powerpoint = ["std"]
 std = [
   "alloc",
   "acorn-core/std",
+  "acorn-schema/std",
   "dep:ammonia",
   "dep:anydoc",
   "dep:arboard",

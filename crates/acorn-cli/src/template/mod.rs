@@ -1,8 +1,9 @@
 use acorn::io::ApiResult;
-use acorn::schema::research_activity::{Research, ResearchActivity, Sections};
-use acorn::schema::ContactPoint;
 use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
-use acorn::util::{Label, MimeType};
+use acorn::util::Label;
+use acorn_core::util::MimeType;
+use acorn_schema::schema::research_activity::{Research, ResearchActivity, Sections};
+use acorn_schema::schema::ContactPoint;
 use color_eyre::eyre::eyre;
 use core::str::from_utf8;
 use data_encoding::BASE64;
@@ -307,7 +308,7 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{Convert, DataUri, Style};
-    use acorn::schema::research_activity::ResearchActivity;
+    use acorn_schema::schema::research_activity::ResearchActivity;
 
     #[test]
     fn test_required_embedded_assets_exist() {

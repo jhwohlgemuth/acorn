@@ -1,6 +1,6 @@
 # Analyzer Refactor Plans
 
-These plans prepare the pure analysis boundary defined by the [crate boundary architecture](../crate-boundary-architecture.md).
+These plans improve the in-tree analysis boundary defined by the [crate boundary architecture](../crate-boundary-architecture.md). They do not by themselves authorize crate extraction.
 
 ## Recommended first
 
@@ -13,5 +13,4 @@ These plans prepare the pure analysis boundary defined by the [crate boundary ar
 - [Summary monoid](summary-monoid.md) - Fold checks into one additive summary.
 - [Vale configuration normalization](vale-config-normalization.md) - Compose configuration transformations.
 - [Applicative validation](applicative-validation.md) - Accumulate independent failures.
-- [Check options context](check-options-context.md) - Stop repeatedly threading derived options.
 - [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.

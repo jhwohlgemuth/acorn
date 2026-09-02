@@ -1,9 +1,0 @@
----
-source: crates/acorn-lib/src/util/tests/mod.rs
-expression: "values[..5].join(\"\\n\")"
----
-true
-true
-true
-true
-true

@@ -22,15 +22,16 @@
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
 use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
-use crate::prelude::var;
-use crate::schema::pid::{PersistentIdentifierParse, ROR};
-use crate::util::{Label, Searchable};
-use crate::validation::Validate;
+use crate::util::Label;
+use acorn_core::util::Searchable;
+use acorn_schema::schema::pid::{PersistentIdentifierParse, ROR};
+use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::env::var;
 use tracing::debug;
 
 /// ROR API options

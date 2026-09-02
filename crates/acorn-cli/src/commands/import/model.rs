@@ -3,18 +3,21 @@ use crate::cli::Void;
 #[cfg(feature = "tui")]
 use crate::commands::download::model::plan::run_gguf_picker;
 use crate::commands::download::model::plan::{resolve_plans, ModelDownloadPlan};
+use acorn::io::adapter::WeightsExt;
 use acorn::io::api::huggingface;
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::database::schema::Table;
 use acorn::io::database::{Database, Operations, PersistStatus};
-use acorn::io::{sync, ApiResult, Source};
-use acorn::prelude::{PathBuf, String, Vec};
-use acorn::schema::agent::{ModelSelectors, Weights};
-use acorn::util::{suffix, Label};
+use acorn::io::{sync, ApiResult, ModelSelectorsExt, Source};
+use acorn::util::Label;
+use acorn_core::prelude::{String, Vec};
+use acorn_core::util::suffix;
+use acorn_schema::schema::agent::{ModelSelectors, Weights};
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use std::path::PathBuf;
 use tracing::{error, info, warn};
 
 /// Import model metadata into the local database

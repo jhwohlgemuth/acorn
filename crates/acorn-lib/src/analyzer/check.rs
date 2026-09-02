@@ -1,28 +1,30 @@
-//! Check result types and helpers for analyzer output.
+//! Check result types and helpers for analyzer output
+use super::context::{AnalysisContext, ReportOptions};
 use super::error::{DocumentTarget, ErrorKind, ValidatorIssues};
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
-use super::vale::{Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity};
+use super::vale::{Vale, ValeOutputItem, ValeOutputItemSeverity};
 #[cfg(feature = "analysis")]
-use super::{to_dataframe, StaticAnalyzer, StaticAnalyzerConfig};
+use super::{to_dataframe, StaticAnalyzer};
+#[cfg(feature = "std")]
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan};
+#[cfg(feature = "std")]
 use crate::io::InputOutput;
-#[cfg(feature = "analysis")]
-use crate::prelude::Cursor;
-use crate::prelude::{Arc, HashMap, Path, PathBuf};
+use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
+use crate::util::{Label, StringConversion};
+use crate::{check, check_err, check_ok};
+use acorn_core::prelude::{Arc, HashMap};
+use acorn_core::util::{MimeType, ToProse};
 #[cfg(feature = "std")]
-use crate::schema::pid::raid::Metadata;
+use acorn_schema::schema::pid::raid::Metadata;
 #[cfg(feature = "std")]
-use crate::schema::research_activity::ResearchActivity;
-use crate::schema::standard::crosswalk::mapping::{
+use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
-use crate::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-use crate::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
-use crate::schema::OneOrMany;
-use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
-use crate::util::{Label, MimeType, StringConversion, ToProse};
-use crate::{check, check_err, check_ok};
+use acorn_schema::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
+use acorn_schema::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
+use acorn_schema::schema::OneOrMany;
 use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use async_trait::async_trait;
 use bon::Builder;
@@ -33,7 +35,6 @@ use core::fmt;
 use core::future::Future;
 use derive_more::Display;
 use futures::future::{join_all, BoxFuture};
-use jiff::SignedDuration;
 #[cfg(feature = "analysis")]
 use polars::{
     frame::row::Row,
@@ -45,19 +46,26 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use schemars::schema_for;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+#[cfg(feature = "analysis")]
+use std::io::Cursor;
+#[cfg(feature = "std")]
+use std::path::{Path, PathBuf};
 use strum::{EnumIs, EnumIter, VariantNames};
 use tracing::{debug, error, info};
 
-/// Utility type alias for a vector of [`ConversionWarning`]
-pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Collection of analyzer checks.
 pub type Checks = Vec<Check>;
+/// Utility type alias for a vector of [`ConversionWarning`]
+pub type ConversionWarnings = Vec<ConversionWarning>;
+/// Document indexes available to host renderers, keyed by display URI.
+#[cfg(feature = "std")]
+pub type DocumentIndexes = HashMap<String, Arc<DocumentIndex>>;
 /// Trait for adding analysis capabilities
 #[cfg(feature = "analysis")]
 #[async_trait]
 pub trait Analysis: SchemaCheck {
     /// Run analysis for a given category
-    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
         match category {
             | CheckCategory::Link => Self::check_websites(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
@@ -68,24 +76,24 @@ pub trait Analysis: SchemaCheck {
         }
     }
     /// Perform analysis of prose
-    async fn check_prose(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_prose(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         Vec::new()
     }
     /// Perform quality checks and verify data consistency
-    async fn check_quality(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_quality(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         Vec::new()
     }
     /// Calculate readability using a given metric
-    async fn check_readability(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_readability(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         Vec::new()
     }
     /// Execute validation checks for the given paths.
-    async fn check_schema(paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_schema(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         let futures = paths.par_iter().filter_map(<Self as SchemaCheck>::check_schema_path).collect::<Vec<_>>();
         join_all(futures).await.into_iter().flatten().collect()
     }
     /// Check if URLs links are valid and readable
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&CheckOptions>) -> Vec<Check> {
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
         Vec::new()
     }
     /// Returns the output path used for Vale analysis artifacts.
@@ -124,7 +132,8 @@ pub trait IntoRow<'a> {
 /// Render a collection of checks.
 pub trait Render {
     /// Render checks in deterministic detailed or compact form.
-    fn render(&self, options: &CheckOptions);
+    #[cfg(feature = "std")]
+    fn render(&self, context: RenderContext<'_>);
 }
 /// Supplies schema checks to [`Analysis`] implementations.
 #[cfg(feature = "analysis")]
@@ -247,12 +256,13 @@ pub struct Check {
     pub category: CheckCategory,
     /// Unified issue location for checks (prose location or schema path)
     pub locator: Option<String>,
+    /// Per-item normalized prose locations retained without host document state.
+    #[builder(default)]
+    prose_locators: Vec<Option<String>>,
     /// Textual context of check (e.g., paragraph where prose issues were found)
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
     data: Option<String>,
-    /// Original document index used only by detailed renderers
-    document: Option<Arc<DocumentIndex>>,
     #[builder(default)]
     kind: CheckKind,
     /// Whether or not the check was successful
@@ -271,63 +281,14 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
-/// Data structure for passing options to check processing functions
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init, on(String, into), on(ReadabilityType, into))]
-#[derive(Default)]
-pub struct CheckOptions {
-    /// Include non-failure results such as suggestions and info messages
-    #[builder(default = false)]
-    pub all: bool,
-    /// Disable website checks that require internet access
-    #[builder(default = false)]
-    pub disable_website_checks: bool,
-    /// Flag used to indicate if a single error should cause the process to exit
-    #[builder(default = false)]
-    pub exit_on_first_error: bool,
-    /// Whether or not to run in offline mode (i.e., skip website checks)
-    #[builder(default = false)]
-    pub offline: bool,
-    /// Suppress stdout/stderr from external commands (e.g., Vale sync)
-    #[builder(default = false)]
-    pub quiet: bool,
-    /// Prevent non-zero exit behavior when failures are present
-    #[builder(default = false)]
-    pub no_fail: bool,
-    /// Continue checking when analyzer synchronization retries are exhausted
-    #[builder(default = false)]
-    pub ignore_sync_failure: bool,
-    /// Categories of checks to skip during processing
-    #[builder(default)]
-    pub skip: Vec<String>,
-    /// Metadata standard used to resolve check processing behavior
-    #[builder(default)]
-    pub standard: Standard,
-    /// Readability metric to use for readability checks
-    #[builder(default)]
-    pub readability_metric: ReadabilityType,
-    /// Whether or not to skip checksum verification for prose analysis
-    #[builder(default = false)]
-    pub skip_verify_checksum: bool,
-    /// Skip analyzer synchronization before prose analysis
-    #[builder(default = false)]
-    pub skip_sync: bool,
-    /// Delay between analyzer synchronization attempts
-    #[builder(default = SignedDuration::from_secs(1))]
-    pub sync_retry_interval: SignedDuration,
-    /// Use compact output format instead of detailed output
-    #[builder(default = false)]
-    pub terse: bool,
-    /// Filter rendered checks by the effective verbosity level
-    #[builder(default = false)]
-    pub filter_by_verbosity: bool,
-    /// Output format used by the current command
-    #[builder(default)]
-    pub format: OutputFormat,
-    /// Effective check visibility level
-    pub verbosity: Option<u8>,
-    /// Vale configuration options
-    pub vale_config: Option<ValeConfig>,
+/// Host rendering inputs kept separate from portable check values.
+#[cfg(feature = "std")]
+#[derive(Clone, Copy, Debug)]
+pub struct RenderContext<'a> {
+    /// Source indexes used for precise diagnostics.
+    pub documents: Option<&'a DocumentIndexes>,
+    /// Output and failure-reporting policy.
+    pub options: &'a ReportOptions,
 }
 #[derive(Builder)]
 #[builder(start_fn = init)]
@@ -367,18 +328,14 @@ impl CheckKind {
         (locator.clone().unwrap_or_default(), severity.colored(), details)
     }
 }
-impl CheckOptions {
-    /// Resolve the configured static analyzer.
-    #[cfg(feature = "analysis")]
-    pub async fn resolve_analyzer<Analyzer, Config>(&self, config: Config) -> Analyzer
-    where
-        Analyzer: StaticAnalyzer<Config>,
-        Config: StaticAnalyzerConfig,
-    {
-        Analyzer::resolve(config.save().await, self.offline, self.skip_verify_checksum).await
-    }
-}
 impl Check {
+    #[cfg(feature = "std")]
+    fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex> {
+        self.uri
+            .as_ref()
+            .and_then(|uri| documents.and_then(|documents| documents.get(uri)))
+            .map(Arc::as_ref)
+    }
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
         Self { kind, ..self }
     }
@@ -426,14 +383,14 @@ impl Check {
         }
     }
     /// Fancy output in contrast with more compressed output of Display impl
-    pub fn report(&self) {
+    #[cfg(feature = "std")]
+    pub fn report(&self, document: Option<&DocumentIndex>) {
         let index = self.index;
         let Check {
             category,
             locator,
             context,
             data,
-            document,
             errors,
             kind,
             severity,
@@ -488,7 +445,7 @@ impl Check {
                         .message(format!("{}{code}", message.italic()))
                         .color(severity.clone().into())
                         .build();
-                    let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                    let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
                     if !rendered {
                         print_unlocated(index, &severity, heading, format!("{message}{code}"));
                     }
@@ -510,8 +467,7 @@ impl Check {
                             .color(severity.into())
                             .build();
                         let rendered = document
-                            .as_ref()
-                            .zip(self.prose_span(item))
+                            .zip(document.and_then(|document| self.prose_span(document, item)))
                             .is_some_and(|(document, span)| document.print(&span, report));
                         if !rendered {
                             print_unlocated(index.saturating_add(i), &CheckSeverity::from(severity.clone()), check, message.clone());
@@ -577,7 +533,7 @@ impl Check {
                                     .message(issue.message.italic().to_string())
                                     .color(severity.clone().into())
                                     .build();
-                                let rendered = document.as_ref().is_some_and(|document| print_document_report(document, &query, report));
+                                let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
                                 if !rendered {
                                     print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
                                 }
@@ -597,67 +553,67 @@ impl Check {
             }
         }
     }
-    pub(crate) fn attach_document(self, documents: &HashMap<String, Arc<DocumentIndex>>) -> Self {
-        let document = self.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
-        match document {
-            | Some(document) => {
-                let attached = self.with_document(document);
-                let locator = match (&attached.category, &attached.errors) {
-                    | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.first().and_then(|item| attached.prose_locator(item)),
-                    | _ => attached.locator.clone(),
-                };
-                Self { locator, ..attached }
-            }
-            | None => self,
+    #[cfg(not(feature = "std"))]
+    pub fn report(&self) {
+        // Portable fallback without document rendering or Vale/HTTP
+        tracing::info!(category = %self.category, uri = ?self.uri, message = %self.message, "check report");
+    }
+    #[cfg(feature = "std")]
+    pub(crate) fn resolve_locator(self, document: &DocumentIndex) -> Self {
+        let prose_locators = match (&self.category, &self.errors) {
+            | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_locator(document, item)).collect(),
+            | _ => self.prose_locators.clone(),
+        };
+        let locator = prose_locators.first().cloned().flatten().or_else(|| self.locator.clone());
+        Self {
+            locator,
+            prose_locators,
+            ..self
         }
     }
-    fn prose_locator(&self, item: &ValeOutputItem) -> Option<String> {
-        self.prose_position(item)
+    #[cfg(feature = "std")]
+    fn prose_locator(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<String> {
+        self.prose_position(document, item)
             .map(|position| format!("Line {}, Character {}", position.line, position.column))
     }
-    fn prose_position(&self, item: &ValeOutputItem) -> Option<DocumentPosition> {
-        self.document
-            .as_ref()
-            .zip(self.prose_span(item))
-            .and_then(|(document, span)| document.position(span.0.start))
+    #[cfg(feature = "std")]
+    fn prose_position(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentPosition> {
+        self.prose_span(document, item).and_then(|span| document.position(span.0.start))
     }
-    fn prose_span(&self, item: &ValeOutputItem) -> Option<DocumentSpan> {
-        self.document
-            .as_ref()
-            .and_then(|document| match self.data.as_deref() == Some(document.document().content.as_str()) {
-                | true => document.span_from_line_columns(item.line, &item.span),
-                | false => match document.resolve(&item.query()) {
-                    | DocumentMatch::Unique(span) => Some(span),
-                    | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
-                },
-            })
+    #[cfg(feature = "std")]
+    fn prose_span(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentSpan> {
+        match self.data.as_deref() == Some(document.document().content.as_str()) {
+            | true => document.span_from_line_columns(item.line, &item.span),
+            | false => match document.resolve(&item.query()) {
+                | DocumentMatch::Unique(span) => Some(span),
+                | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
+            },
+        }
     }
-    pub(crate) fn terse(&self) -> String {
+    #[cfg(feature = "std")]
+    pub(crate) fn terse(&self, document: Option<&DocumentIndex>) -> String {
         let uri = self.uri.as_deref().unwrap_or_default();
-        let positions = self
-            .document
-            .as_ref()
-            .map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
-                | (CheckCategory::Link, CheckKind::Standard, _) => {
-                    let context = self.context.as_deref().map(str::trim).unwrap_or("No URL");
-                    let text = if context.is_empty() { " " } else { context };
-                    let query = match self.locator.as_deref() {
-                        | Some(locator) => DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text),
-                        | None => DocumentQuery::new().with_needle(text),
-                    };
-                    vec![document.locate(&query)]
-                }
-                | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_position(item)).collect(),
-                | (CheckCategory::Schema, _, Some(ErrorKind::Validator(report))) => {
-                    let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
-                    ValidatorIssues::from(report.clone())
-                        .with_prefix(prefix)
-                        .iter()
-                        .map(|issue| document.locate(&issue.query()))
-                        .collect()
-                }
-                | _ => Vec::new(),
-            });
+        let positions = document.map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
+            | (CheckCategory::Link, CheckKind::Standard, _) => {
+                let context = self.context.as_deref().map(str::trim).unwrap_or("No URL");
+                let text = if context.is_empty() { " " } else { context };
+                let query = match self.locator.as_deref() {
+                    | Some(locator) => DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text),
+                    | None => DocumentQuery::new().with_needle(text),
+                };
+                vec![document.locate(&query)]
+            }
+            | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_position(document, item)).collect(),
+            | (CheckCategory::Schema, _, Some(ErrorKind::Validator(report))) => {
+                let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
+                ValidatorIssues::from(report.clone())
+                    .with_prefix(prefix)
+                    .iter()
+                    .map(|issue| document.locate(&issue.query()))
+                    .collect()
+            }
+            | _ => Vec::new(),
+        });
         self.to_string()
             .split('\n')
             .enumerate()
@@ -671,6 +627,10 @@ impl Check {
             .collect::<Vec<_>>()
             .join("\n")
     }
+    #[cfg(not(feature = "std"))]
+    pub(crate) fn terse(&self) -> String {
+        self.to_string()
+    }
     /// Returns a new LinkCheckResult with the given context
     pub fn with_context(self, value: String) -> Self {
         Self {
@@ -682,12 +642,7 @@ impl Check {
     pub fn with_data(self, value: String) -> Self {
         Self { data: Some(value), ..self }
     }
-    pub(crate) fn with_document(self, value: Arc<DocumentIndex>) -> Self {
-        Self {
-            document: Some(value),
-            ..self
-        }
-    }
+    #[cfg(feature = "std")]
     /// Returns a new LinkCheckResult with the given index
     pub fn with_index(self, value: usize) -> Self {
         Self { index: value, ..self }
@@ -712,22 +667,38 @@ impl fmt::Display for Check {
                 let (locator, severity, details) = self.kind.link_row(self);
                 f.write_str(&format_row(locator, severity, details))
             }
-            | CheckCategory::Prose => match &self.errors {
-                | Some(ErrorKind::Vale(values)) => {
-                    let last = values.len().saturating_sub(1);
-                    values.iter().enumerate().try_for_each(|(index, item)| {
-                        let ValeOutputItem {
-                            check, message, severity, ..
-                        } = item;
-                        let location = self.prose_locator(item).unwrap_or_else(|| "Unlocated".to_string());
-                        let severity = CheckSeverity::from(severity.clone());
-                        let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
-                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
-                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                    })
+            | CheckCategory::Prose => {
+                #[cfg(feature = "std")]
+                {
+                    match &self.errors {
+                        | Some(ErrorKind::Vale(values)) => {
+                            let last = values.len().saturating_sub(1);
+                            values.iter().enumerate().try_for_each(|(index, item)| {
+                                let ValeOutputItem {
+                                    check, message, severity, ..
+                                } = item;
+                                let location = self
+                                    .prose_locators
+                                    .get(index)
+                                    .cloned()
+                                    .flatten()
+                                    .or_else(|| self.locator.clone())
+                                    .unwrap_or_else(|| "Unlocated".to_string());
+                                let severity = CheckSeverity::from(severity.clone());
+                                let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
+                                f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
+                                    .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                            })
+                        }
+                        | None | Some(_) => write!(f, ""),
+                    }
                 }
-                | None | Some(_) => write!(f, ""),
-            },
+                #[cfg(not(feature = "std"))]
+                {
+                    let details = self.message.clone();
+                    f.write_str(&format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details))
+                }
+            }
             | CheckCategory::Quality => {
                 let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
                 let severity = match self.success {
@@ -800,7 +771,54 @@ impl fmt::Display for Check {
         }
     }
 }
-
+impl Render for [Check] {
+    fn render(&self, context: RenderContext<'_>) {
+        let RenderContext { documents, options } = context;
+        let is_visible = Check::is_visible_at(options.verbosity);
+        let mut sorted_checks = self
+            .iter()
+            .filter(|check| !options.filter_by_verbosity || is_visible(check))
+            .cloned()
+            .collect::<Vec<_>>();
+        sorted_checks.sort_by_cached_key(|check| {
+            (
+                u8::from(&check.severity),
+                u8::from(&check.category),
+                check.locator.clone().unwrap_or_default().to_lowercase(),
+            )
+        });
+        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
+            println!();
+        }
+        match (options.quiet, options.format, options.terse) {
+            | (false, OutputFormat::Console, true) => sorted_checks
+                .iter()
+                .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
+            | (false, OutputFormat::Console, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
+                let document = check.document_from(documents);
+                check.with_index(index).report(document);
+            }),
+            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
+                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
+            }
+            | _ => {}
+        }
+    }
+}
+#[cfg(feature = "std")]
+impl<'a> RenderContext<'a> {
+    /// Create a rendering context without source indexes.
+    pub fn new(options: &'a ReportOptions) -> Self {
+        Self { documents: None, options }
+    }
+    /// Create a rendering context with source indexes.
+    pub fn with_documents(options: &'a ReportOptions, documents: &'a DocumentIndexes) -> Self {
+        Self {
+            documents: Some(documents),
+            options,
+        }
+    }
+}
 impl CheckCategory {
     /// Returns `true` if this category appears in the given list of category items
     pub fn is_in(&self, items: &[String]) -> bool {
@@ -872,37 +890,6 @@ impl CheckSeverity {
     /// Returns whether this severity should cause check failure.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Error | Self::Warning)
-    }
-}
-impl Render for Checks {
-    fn render(&self, options: &CheckOptions) {
-        let is_visible = Check::is_visible_at(options.verbosity);
-        let mut sorted_checks = self
-            .iter()
-            .filter(|check| !options.filter_by_verbosity || is_visible(check))
-            .cloned()
-            .collect::<Vec<_>>();
-        sorted_checks.sort_by_cached_key(|check| {
-            (
-                u8::from(&check.severity),
-                u8::from(&check.category),
-                check.locator.clone().unwrap_or_default().to_lowercase(),
-            )
-        });
-        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
-            println!();
-        }
-        match (options.quiet, options.format, options.terse) {
-            | (false, OutputFormat::Console, true) => sorted_checks.iter().for_each(|check| println!("{}", check.terse())),
-            | (false, OutputFormat::Console, false) => sorted_checks
-                .into_iter()
-                .enumerate()
-                .for_each(|(index, check)| check.with_index(index).report()),
-            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
-                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
-            }
-            | _ => {}
-        }
     }
 }
 impl IntoChecks for ConversionWarnings {
@@ -1161,17 +1148,23 @@ impl Standard {
     }
 }
 #[cfg(feature = "analysis")]
-pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
+pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
 where
     T: Analysis + InputOutput + ToProse,
 {
     let resolved_options = options.cloned().unwrap_or_default();
     let analyzer = resolved_options
-        .resolve_analyzer::<Vale, _>(resolved_options.vale_config.clone().unwrap_or_default())
+        .execution
+        .resolve_analyzer::<Vale, _>(resolved_options.execution.vale_config.clone().unwrap_or_default())
         .await;
-    let sync = match resolved_options.skip_sync {
+    let sync = match resolved_options.execution.skip_sync {
         | true => Ok(()),
-        | false => analyzer.clone().sync(resolved_options.offline, resolved_options.quiet).await,
+        | false => {
+            analyzer
+                .clone()
+                .sync(resolved_options.execution.offline, resolved_options.execution.quiet)
+                .await
+        }
     };
     match sync {
         | Ok(_) => {
@@ -1204,17 +1197,19 @@ where
         }
     }
 }
-pub(super) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&CheckOptions>) -> Vec<Check>
+#[cfg(feature = "std")]
+pub(super) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
 where
     T: InputOutput + ToProse,
 {
-    let CheckOptions { readability_metric, .. } = options.cloned().unwrap_or_default();
+    let analysis_options = options.cloned().unwrap_or_default().analysis;
+    let readability_metric = analysis_options.readability_metric;
     paths
         .par_iter()
         .flat_map(|path| match T::read(path) {
             | Ok(data) => {
                 let content = data.to_prose();
-                let maximum = match readability_metric.maximum_allowed_from_env() {
+                let maximum = match analysis_options.readability_threshold {
                     | Some(value) => {
                         debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
                         value
@@ -1253,6 +1248,53 @@ where
             | Err(why) => vec![check_err!(CheckCategory::Readability, context: why.to_string())],
         })
         .collect::<Vec<Check>>()
+}
+/// Portable readability check over supplied text (no filesystem or env)
+#[cfg(feature = "alloc")]
+pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Option<String>) -> Vec<Check> {
+    let maximum = metric.maximum_allowed();
+    let calculated = metric.calculate(text);
+    let assessment = ReadabilityScore::new(metric, calculated, maximum);
+    let message = assessment.to_string();
+    if assessment.is_excessive() {
+        let severity = match assessment.severity() {
+            | ReadabilitySeverity::Fail => CheckSeverity::Warning,
+            | ReadabilitySeverity::Pass => CheckSeverity::Info,
+        };
+        if let Some(uri_val) = uri {
+            vec![check!(
+                CheckCategory::Readability,
+                false,
+                severity: severity,
+                uri: uri_val,
+                errors: ErrorKind::Readability(assessment),
+                message: message,
+                data: text.to_string()
+            )]
+        } else {
+            vec![check!(
+                CheckCategory::Readability,
+                false,
+                severity: severity,
+                errors: ErrorKind::Readability(assessment),
+                message: message,
+                data: text.to_string()
+            )]
+        }
+    } else if let Some(uri_val) = uri {
+        vec![check_ok!(
+            CheckCategory::Readability,
+            uri: uri_val,
+            message: message,
+            data: text.to_string()
+        )]
+    } else {
+        vec![check_ok!(
+            CheckCategory::Readability,
+            message: message,
+            data: text.to_string()
+        )]
+    }
 }
 /// Convert vector of [`Check`] values to a Polars [DataFrame]
 #[cfg(feature = "analysis")]

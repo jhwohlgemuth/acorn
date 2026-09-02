@@ -2,7 +2,7 @@ use crate::cli::arguments::bot::EventSource;
 use acorn::io::api::gitlab::{self, bot, WebhookOptions};
 use acorn::io::api::Configuration;
 use acorn::io::Executor;
-use acorn::validation::Validate;
+use acorn_schema::validation::Validate;
 use color_eyre::eyre::{self, Report, Result};
 use core::net::SocketAddr;
 use core::time::Duration;

@@ -1,10 +1,11 @@
 //! # Input / Output Handling
 //!
 //! This module contains functions for handling input and output from the terminal such as handling input passed via `stdin` (e.g., `cat file.txt | acorn`).
-use acorn::prelude::{io, PathBuf, Read, Write};
 use acorn::util::constants::app::APPLICATION;
 use directories::BaseDirs;
 use is_terminal::IsTerminal;
+use std::io::{self, Read, Write};
+use std::path::PathBuf;
 
 /// Enum for representing input/output stream state (e.g., "piped" or "not piped")
 /// ### Notes

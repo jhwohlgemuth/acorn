@@ -1,18 +1,19 @@
 use crate::cli::WatchOptions;
 use crate::commands::watch::{self, Prepared};
-use crate::io::{is_stdin_piped, is_stdout_piped, read_stdin};
-use acorn::analyzer::discovery::{Options, OutputFailure, Records, RemoteSearchResponse, Report};
-use acorn::analyzer::{Check, CheckCategory, CheckOptions, OutputFormat, Render};
+use crate::io::{is_stdin_piped, read_stdin};
+use acorn::analyzer::discovery::{finalize_report, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report};
+use acorn::analyzer::{Check, CheckCategory, OutputFormat};
 use acorn::check_err;
 use acorn::io::config::FilterSet;
 use acorn::io::document::{SourceDocument, SourceDocuments};
 use acorn::io::enrichment::Enrich;
-use acorn::io::{files_all_with_max_depth, files_from_gitlab_merge_request, remove_fields, uri_to_path, write_file, ApiResult, Fingerprint, PathExt};
-use acorn::prelude::{remove_file, Path, PathBuf};
-use acorn::Location;
+use acorn::io::{files_all_with_max_depth, files_from_gitlab_merge_request, remove_fields, uri_to_path, ApiResult, Fingerprint, PathExt};
+use acorn_core::Location;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use futures::future::join_all;
+use std::fs::remove_file;
+use std::path::{Path, PathBuf};
 
 trait Process {
     async fn process(self, load_checks: Vec<Check>, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()>;
@@ -26,17 +27,13 @@ enum Input {
 }
 impl Process for SourceDocuments {
     async fn process(self, load_checks: Vec<Check>, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()> {
+        let output_policy = GatherOutputPolicy::from(options);
         let Options {
             citation_format,
             database_path,
             enrich,
-            format,
             no_local_database,
-            output,
-            quiet,
             resolve,
-            terse,
-            verbosity,
             ..
         } = options;
         let inputs = self.0.len();
@@ -70,34 +67,7 @@ impl Process for SourceDocuments {
         let report = Report::new(&checks, discoveries, inputs)
             .with_candidates(candidate_results)
             .with_citation_format(citation_format);
-        let format = format.unwrap_or_else(|| match (terse, output.is_none() && !is_stdout_piped()) {
-            | (true, _) | (false, true) => OutputFormat::Console,
-            | (false, false) => OutputFormat::Json,
-        });
-        let check_options = CheckOptions::init()
-            .filter_by_verbosity(true)
-            .quiet(quiet)
-            .terse(terse)
-            .format(format)
-            .maybe_verbosity(verbosity)
-            .build();
-        checks.render(&check_options);
-        let output_write_result = match output {
-            | _ if terse && format == OutputFormat::Console => Ok(()),
-            | Some(path) => report.serialize(format).and_then(|serialized| write_file(path.clone(), serialized)),
-            | None if quiet => Ok(()),
-            | None => report.serialize(format).map(|serialized| {
-                if !serialized.is_empty() {
-                    println!("{serialized}");
-                }
-            }),
-        };
-        output_write_result.and_then(|_| match checks.iter().any(Check::is_failure) || !failures.is_empty() {
-            | true => Err(eyre!(OutputFailure::new(
-                format == OutputFormat::Raw && verbosity.is_none_or(|level| level <= 1)
-            ))),
-            | false => Ok(()),
-        })
+        finalize_report(&checks, &report, output_policy, !failures.is_empty())
     }
 }
 async fn execute(input: Input, options: Options<'_>) -> ApiResult<()> {

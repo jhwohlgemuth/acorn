@@ -35,7 +35,7 @@ Add dependency-free support for the ZON JSON-data-model serialization format usi
 
 ## Codec and public interface
 
-- Add public schema-codec functions for `encode`, `decode`, and `decode_value`, returning portable typed results with generic Serde bounds and conversion through `serde_json::Value`; retain any `acorn::io::zon` path only as a facade re-export.
+- Add public schema-codec functions for `encode`, `decode`, and `decode_value`, returning portable typed results with generic Serde bounds and conversion through `serde_json::Value`; migrate callers directly and do not retain an `acorn::io::zon` facade.
 - Build the encoder and decoder from small pure functions. Keep the initial implementation inside the portable `acorn-lib` schema boundary and move it mechanically to `acorn-schema`; do not shell out or add a runtime dependency.
 - Implement the pinned strict core profile: JSON primitives, canonical numbers, flat and grouped nested objects, root and nested arrays, compound irregular arrays, and uniform-object tables.
 - Emit `T`/`F`, `null`, literal UTF-8, specification quoting and escaping, CSV-aware table cells, alphabetically sorted object keys and columns, LF line endings, no trailing whitespace, and no final newline. Preserve array order and produce deterministic bytes.

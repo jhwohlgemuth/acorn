@@ -49,11 +49,10 @@ use super::webhook::{self, WebhookConfig};
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
 #[cfg(feature = "analysis")]
-use crate::analyzer::CheckOptions;
+use crate::analyzer::AnalysisContext;
 use crate::io::api::Configuration;
 use crate::io::ApiResult;
 use crate::param;
-use crate::prelude::Mutex;
 use crate::util::Label;
 use alloc::sync::Arc;
 use axum::extract::State as ServerState;
@@ -65,6 +64,7 @@ use color_eyre::eyre::{eyre, WrapErr};
 use core::{fmt, net::SocketAddr, time::Duration};
 use jiff::SignedDuration;
 use serde::Serialize;
+use std::sync::Mutex;
 use tokio::net::TcpListener;
 use tracing::{error, info};
 /// Callback used to process merge request note events.
@@ -132,7 +132,7 @@ pub struct Config {
     pub(super) operation_handler: Option<WebhookOperationHandler>,
     /// Options applied to merge request analysis
     #[cfg(feature = "analysis")]
-    pub(super) analysis_options: CheckOptions,
+    pub(super) analysis_options: AnalysisContext,
 }
 /// Merge request note event extracted from a GitLab event.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -243,7 +243,7 @@ impl Config {
             operation_queue: OperationQueue::configured(),
             operation_handler: None,
             #[cfg(feature = "analysis")]
-            analysis_options: CheckOptions::default(),
+            analysis_options: AnalysisContext::default(),
         }
     }
     /// Return a copy of the configuration with an initial `after` timestamp.
@@ -379,7 +379,7 @@ impl Config {
     }
     /// Return a copy with explicit merge request analysis options
     #[cfg(feature = "analysis")]
-    pub fn with_analysis_options(self, analysis_options: CheckOptions) -> Self {
+    pub fn with_analysis_options(self, analysis_options: AnalysisContext) -> Self {
         Self { analysis_options, ..self }
     }
     /// Return a copy configured for authenticated webhook ingress

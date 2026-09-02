@@ -6,17 +6,23 @@ use crate::io::config::{filter_paths, FilterSet};
 use crate::io::download::{DownloadItem, DownloadTask};
 use crate::io::http::{self, download_with_progress};
 use crate::io::{files_all, uri_to_path, write_file_bytes, ApiResult, ArchiveCandidate, TemporaryDirectory};
-use crate::prelude::{self, exit, Arc, ErrorKind, Mutex, Path, PathBuf};
 use crate::util::constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS;
-use crate::util::{Label, MimeType, StringConversion};
+use crate::util::{Label, StringConversion};
 use crate::LocationExt;
-use crate::{Location, Repository, Scheme};
+use acorn_core::prelude::Arc;
+use acorn_core::util::MimeType;
+use acorn_core::{Location, Repository, Scheme};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::future::Future;
 use futures::{future, stream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use std::fs::{create_dir_all, read, remove_dir_all, remove_file, write};
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+use std::process::exit;
+use std::sync::Mutex;
 use tracing::{error, warn};
 
 /// Struct for bucket data
@@ -147,9 +153,9 @@ impl Bucket {
     fn remove_destination(path: &Path) -> ApiResult<()> {
         match path.symlink_metadata() {
             | Ok(metadata) if metadata.file_type().is_symlink() || metadata.is_file() => {
-                prelude::remove_file(path).map_err(|why| eyre!("Failed to remove existing output path {} — {why}", path.display()))
+                remove_file(path).map_err(|why| eyre!("Failed to remove existing output path {} — {why}", path.display()))
             }
-            | Ok(_) => prelude::remove_dir_all(path).map_err(|why| eyre!("Failed to remove existing output directory {} — {why}", path.display())),
+            | Ok(_) => remove_dir_all(path).map_err(|why| eyre!("Failed to remove existing output directory {} — {why}", path.display())),
             | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
             | Err(why) => Err(eyre!("Failed to inspect existing output path {} — {why}", path.display())),
         }
@@ -166,11 +172,10 @@ impl Bucket {
             .map(|parent| output.join(parent))
             .try_for_each(|parent| match parent.symlink_metadata() {
                 | Ok(metadata) if metadata.is_dir() => Ok(()),
-                | Ok(_) => Self::remove_destination(&parent).and_then(|()| {
-                    prelude::create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))
-                }),
+                | Ok(_) => Self::remove_destination(&parent)
+                    .and_then(|()| create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))),
                 | Err(why) if why.kind() == ErrorKind::NotFound => {
-                    prelude::create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))
+                    create_dir_all(&parent).map_err(|why| eyre!("Failed to create output directory {} — {why}", parent.display()))
                 }
                 | Err(why) => Err(eyre!("Failed to inspect output directory {} — {why}", parent.display())),
             })
@@ -188,7 +193,7 @@ impl Bucket {
             | true => match get_bytes().await.map_err(Into::into) {
                 | Ok(bytes) => match write_lock.lock() {
                     | Ok(_guard) => Self::prepare_destination(output, destination).and_then(|target| {
-                        prelude::write(&target, bytes)
+                        write(&target, bytes)
                             .map(|_| ())
                             .map_err(|why| eyre!("Failed to write output file {} — {why}", target.display()))
                     }),
@@ -251,7 +256,7 @@ impl Bucket {
                                         async move {
                                             let source = PathBuf::from(bucket_root.as_str()).join(item.source);
                                             Self::write_file(output.as_path(), &item.destination, clobber, write_lock.as_ref(), || async {
-                                                prelude::read(source)
+                                                read(source)
                                             })
                                             .await
                                         }

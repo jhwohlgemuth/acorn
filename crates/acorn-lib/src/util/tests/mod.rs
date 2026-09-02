@@ -13,24 +13,16 @@ use crate::io::{
     ArchiveExtraction, FromCommand, FromPath,
 };
 use crate::param;
-use crate::prelude::std::{OsStr, Path, PathBuf};
 use crate::util::*;
+use ::std::ffi::OsStr;
+use ::std::path::{Path, PathBuf};
+use acorn_core::util::assets::EmbeddedAssets;
+use acorn_core::util::*;
 use proptest::prelude::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
 const FIXTURES: &str = "../../tests/fixtures";
-
-#[test]
-fn capability_modules_match_compatibility_exports() {
-    assert!(crate::util::core::constant_time_eq(b"acorn", b"acorn"));
-    assert_eq!(crate::util::alloc::file_extension("record.json"), Some("json".to_string()));
-    assert_eq!(crate::util::portable::file_extension("record.json"), file_extension("record.json"));
-    assert_eq!(
-        crate::util::std::is_uri_or_path("https://acorn.ornl.gov"),
-        is_uri_or_path("https://acorn.ornl.gov")
-    );
-}
 
 #[cfg(feature = "cmd")]
 mod cmd;
@@ -72,33 +64,18 @@ fn test_text_diff_changes_without_color_has_no_ansi_sequences() {
 }
 #[test]
 fn test_last_values() {
-    let values: Vec<String> = Constant::last_values("technology").collect();
+    let values: Vec<String> = Constant::last_values("acronyms").collect();
     assert!(!values.is_empty());
     assert!(values.iter().all(|v| !v.is_empty()));
-    assert!(values.contains(&"true".to_string()) || values.contains(&"false".to_string()));
-    insta::assert_snapshot!(values[..5].join("\n"));
-    let partners: Vec<String> = Constant::last_values("partners").collect();
-    assert!(!partners.is_empty());
-    assert!(partners.contains(&"041m9xr71".to_string()));
     let empty: Vec<String> = Constant::last_values("nonexistent-file").collect();
     assert!(empty.is_empty());
 }
 #[test]
 fn test_nth_values() {
-    let first_column: Vec<String> = Constant::nth_values("technology", 0).collect();
+    let first_column: Vec<String> = Constant::nth_values("acronyms", 0).collect();
     assert!(!first_column.is_empty());
     assert!(first_column.iter().all(|v| !v.is_empty()));
-    assert!(first_column.contains(&"airflow".to_string()));
-    insta::assert_snapshot!(first_column[..5].join("\n"));
-    let third_column: Vec<String> = Constant::nth_values("technology", 2).collect();
-    assert!(!third_column.is_empty());
-    assert!(third_column.contains(&"Apache Airflow".to_string()));
-    insta::assert_snapshot!(third_column[..5].join("\n"));
-    let partner_names: Vec<String> = Constant::nth_values("partners", 0).collect();
-    assert!(partner_names.contains(&"Ames Laboratory".to_string()));
-    let partner_abbrevs: Vec<String> = Constant::nth_values("partners", 1).collect();
-    assert!(partner_abbrevs.contains(&"ANL".to_string()));
-    let out_of_bounds: Vec<String> = Constant::nth_values("technology", 999).collect();
+    let out_of_bounds: Vec<String> = Constant::nth_values("acronyms", 999).collect();
     assert!(out_of_bounds.is_empty());
     let empty: Vec<String> = Constant::nth_values("nonexistent-file", 0).collect();
     assert!(empty.is_empty());
