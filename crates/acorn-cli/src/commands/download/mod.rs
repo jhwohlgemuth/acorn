@@ -15,6 +15,12 @@ use std::path::PathBuf;
 use tracing::{error, warn};
 
 pub mod model;
+/// Download or verify the pinned Needle runner and print its cache path.
+pub async fn needle(offline: bool) -> Result<(), Report> {
+    acorn::io::sidecar::needle::assets::resolve(None, offline)
+        .await
+        .map(|assets| println!("{}", assets.runner.display()))
+}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,

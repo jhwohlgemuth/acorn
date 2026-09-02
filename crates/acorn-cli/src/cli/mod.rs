@@ -336,6 +336,15 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Export(Box<arguments::Export>),
+    /// Run bounded local tool inference through the managed Needle sidecar
+    ///
+    ///     Use the pinned official runner
+    ///     $> acorn infer "Validate this research activity"
+    ///
+    ///     Use a local or private-registry ModelKit
+    ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Infer(Box<arguments::Infer>),
     /// Formats research activity data in place (inherently includes some elements of `acorn check`)
     ///
     ///     $> acorn format /path/to/file.json
@@ -454,6 +463,8 @@ pub enum CreateCommands {
 pub enum DownloadCommands {
     /// Download model weights for use with ACORN research harnesses and local inference
     Model(Box<arguments::DownloadModel>),
+    /// Download and verify the pinned standalone Needle engine for this platform
+    Needle,
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

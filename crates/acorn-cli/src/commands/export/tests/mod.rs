@@ -16,7 +16,7 @@
 use crate::cli::arguments::FileFormat;
 #[cfg(feature = "pdf")]
 use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
-use crate::commands::export::run;
+use crate::commands::export::{run, tools};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
@@ -50,6 +50,19 @@ const OFFLINE: bool = true;
 const TEST_THREADS: usize = 4;
 #[cfg(feature = "pdf")]
 static PDF_VISUAL_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+#[test]
+fn export_tools_writes_native_catalog_and_refuses_overwrite() {
+    let destination = temp_test_dir("export-tools");
+    let _cleanup = TestCleanup::new(destination.clone());
+    tools(Some(&destination), false).expect("export tools");
+    let content = read_to_string(destination.join("tools.json")).expect("read tools");
+    let catalog = serde_json::from_str::<serde_json::Value>(&content).expect("parse tools");
+    assert!(catalog
+        .as_array()
+        .is_some_and(|tools| { !tools.is_empty() && tools.iter().all(|tool| tool.get("parameters").is_some()) }));
+    assert!(tools(Some(&destination), false).is_err());
+}
 
 #[cfg(feature = "pdf")]
 fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {

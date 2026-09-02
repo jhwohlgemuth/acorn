@@ -100,7 +100,7 @@ swhid = { workspace = true, features = ["git"], optional = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["net", "rt", "time"], optional = true }
+tokio = { workspace = true, features = ["io-std", "io-util", "net", "rt", "time"], optional = true }
 tracing = { workspace = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 triomphe = { workspace = true }
@@ -139,13 +139,15 @@ core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
 unicode = ["std", "console/std"]
-agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
+agentic = ["std", "tools", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
 chart = ["dep:resvg"]
 default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
 duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
+needle = ["std", "tools"]
+tools = ["std"]
 std = [
   "alloc",
   "acorn-core/std",

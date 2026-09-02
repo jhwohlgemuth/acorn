@@ -13,8 +13,7 @@ use crate::io::enrichment::Enrich;
 use crate::io::http::policy::{http_timeout_layer, retry_delay};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::oci::{
-    Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport, OciTransportOptions,
-    OrasTransport,
+    Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransportOptions, OrasTransport,
 };
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
@@ -1474,6 +1473,19 @@ fn test_oci_transport_args_append_configured_registry_options() {
             "--plain-http"
         ]
     );
+}
+#[test]
+fn test_generic_oci_pull_requires_digest_and_new_destination() {
+    let transport = OrasTransport {
+        binary: PathBuf::from("oras-does-not-need-to-exist"),
+        options: OciTransportOptions::default(),
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let tagged = OciReference::parse("oci://registry.example.org/acorn/needle:latest").unwrap();
+    assert!(transport.pull_artifact(&tagged, &temp.path().join("tagged")).is_err());
+
+    let digest = OciReference::parse(&format!("oci://registry.example.org/acorn/needle@{OCI_TEST_DIGEST}")).unwrap();
+    assert!(transport.pull_artifact(&digest, temp.path()).is_err());
 }
 #[cfg(unix)]
 #[test]

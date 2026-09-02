@@ -98,6 +98,8 @@ pub mod model;
 pub mod oci;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
+#[cfg(feature = "needle")]
+pub mod sidecar;
 pub mod source;
 #[cfg(feature = "swhid-compute")]
 pub mod swhid;

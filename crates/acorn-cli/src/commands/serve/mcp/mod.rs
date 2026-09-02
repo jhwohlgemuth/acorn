@@ -1,5 +1,5 @@
-use color_eyre::eyre::{self, Report, Result};
+use color_eyre::eyre::{Report, Result};
 
-pub async fn run() -> Result<(), Report> {
-    Err(eyre::eyre!("MCP server is not yet implemented"))
+pub async fn run(offline: bool) -> Result<(), Report> {
+    acorn::io::mcp::run(offline).await
 }

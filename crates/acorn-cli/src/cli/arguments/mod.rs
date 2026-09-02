@@ -691,6 +691,17 @@ pub(crate) struct Export {
     /// Use --format to specify output format (default: json)
     #[arg(long = "schema", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) schema: bool,
+    /// Export the canonical Needle-compatible ACORN tool catalog as tools.json
+    #[arg(
+        long = "tools",
+        value_name = "BOOL",
+        help_heading = "FLAGS",
+        conflicts_with_all = [
+            "schema", "branch", "chrome_path", "combine", "commit", "archive_format", "filter", "ignore", "show_aspect_labels",
+            "show_aspect_scores", "merge_request", "skip", "reference", "strict", "from", "to"
+        ]
+    )]
+    pub(crate) tools: bool,
     /// Suppress output from external commands while preserving ACORN output — useful for piping
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) raw: bool,
@@ -720,6 +731,26 @@ pub(crate) struct Export {
     /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+
+/// Options for one bounded Needle inference request.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Infer {
+    /// Prompt used to select and invoke ACORN tools
+    #[arg(value_name = "PROMPT")]
+    pub(crate) prompt: String,
+    /// Local ModelKit directory or digest-pinned oci:// registry reference
+    #[arg(long, value_name = "PATH_OR_OCI_REFERENCE", help_heading = "OPTIONS")]
+    pub(crate) custom_location: Option<String>,
+    /// Minimum calibrated confidence required before executing a tool
+    #[arg(long, default_value_t = acorn::io::sidecar::needle::DEFAULT_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) confidence_threshold: f64,
+    /// Maximum number of Needle tool-selection rounds
+    #[arg(long, default_value_t = acorn::io::sidecar::needle::DEFAULT_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_rounds: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

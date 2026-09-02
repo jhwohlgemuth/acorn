@@ -741,6 +741,43 @@ impl OrasTransport {
                 options,
             })
     }
+    /// Pull an arbitrary digest-pinned OCI artifact into a new directory.
+    ///
+    /// This is a narrow materialization primitive for consumers that validate
+    /// their own bundle media and layout after transfer.
+    pub fn pull_artifact(&self, reference: &OciReference, destination: &Path) -> ApiResult<()> {
+        match reference.reference() {
+            | OciReferenceValue::Tag(_) => Err(eyre!("Generic OCI bundle pulls require an immutable digest reference")),
+            | OciReferenceValue::Digest(_) if destination.exists() => Err(eyre!("OCI bundle destination already exists — {}", destination.display())),
+            | OciReferenceValue::Digest(_) => destination
+                .parent()
+                .ok_or_else(|| eyre!("OCI bundle destination has no parent"))
+                .and_then(|parent| {
+                    create_dir_all(parent)
+                        .map_err(|why| eyre!("Failed to create OCI bundle destination parent — {why}"))
+                        .map(|()| parent.join(format!(".acorn-oci-{}", nanoid::nanoid!())))
+                })
+                .and_then(|staging| {
+                    create_dir(&staging)
+                        .map_err(|why| eyre!("Failed to create OCI bundle staging directory — {why}"))
+                        .and_then(|()| {
+                            let args = vec![
+                                OsString::from("pull"),
+                                OsString::from("--output"),
+                                staging.as_os_str().to_os_string(),
+                                OsString::from(reference.oras_reference()),
+                            ];
+                            let result = self
+                                .invoke(args)
+                                .and_then(|_| rename(&staging, destination).map_err(|why| eyre!("Failed to publish OCI bundle atomically — {why}")));
+                            if result.is_err() && staging.exists() {
+                                let _ = remove_dir_all(&staging);
+                            }
+                            result
+                        })
+                }),
+        }
+    }
     fn invoke(&self, args: Vec<OsString>) -> ApiResult<String> {
         let binary = self.binary.to_string_lossy();
         let token = match self.options.credential_env.as_ref() {
