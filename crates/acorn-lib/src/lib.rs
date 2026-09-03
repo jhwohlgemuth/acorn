@@ -20,8 +20,6 @@ pub mod error;
 pub mod io;
 #[cfg(doctest)]
 mod ownership_tests;
-#[cfg(feature = "tools")]
-pub mod tools;
 pub mod util;
 
 pub use acorn_macros::Validate;

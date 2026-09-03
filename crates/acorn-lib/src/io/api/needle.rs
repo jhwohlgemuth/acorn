@@ -1,5 +1,4 @@
-//! Native client and data contract for the Needle 2 localhost runner.
-
+//! Native client and data contract for the Needle 2 localhost runner
 use super::localhost;
 use crate::io::ApiResult;
 use acorn_core::prelude::{String, Vec};
@@ -7,6 +6,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Typed client for a locally bound Needle server
+#[derive(Clone, Debug)]
+pub struct Client {
+    localhost: localhost::Client,
+}
 /// One completion request accepted by the standalone Needle server.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -14,18 +18,6 @@ pub struct CompleteRequest {
     /// User query or serialized tool result for the next inference turn.
     pub input: String,
 }
-
-/// Function selected by Needle with grammar-constrained arguments.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct FunctionCall {
-    /// Registered function name.
-    pub name: String,
-    /// Function arguments.
-    #[serde(default)]
-    pub arguments: Value,
-}
-
 /// Native response returned by Needle's `/complete` endpoint.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 pub struct CompleteResponse {
@@ -53,50 +45,27 @@ pub struct CompleteResponse {
     /// Peak session memory reported by the runner.
     pub peak_ram_mb: Option<f64>,
 }
-
-/// Typed client for a locally bound Needle server.
-#[derive(Clone, Debug)]
-pub struct Client {
-    localhost: localhost::Client,
+/// Function selected by Needle with grammar-constrained arguments.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FunctionCall {
+    /// Registered function name.
+    pub name: String,
+    /// Function arguments.
+    #[serde(default)]
+    pub arguments: Value,
 }
-
 impl Client {
-    /// Connect to a validated loopback Needle endpoint.
+    /// Connect to a validated loopback Needle endpoint
     pub fn new(base_url: impl Into<String>) -> ApiResult<Self> {
         localhost::Client::new(base_url).map(|localhost| Self { localhost })
     }
-
-    /// Complete one Needle inference turn.
+    /// Complete one Needle inference turn
     pub async fn complete(&self, input: impl Into<String>) -> ApiResult<CompleteResponse> {
         self.localhost.post_json("/complete", &CompleteRequest { input: input.into() }).await
     }
-
-    /// Return the validated endpoint URL.
+    /// Return the validated endpoint URL
     pub fn endpoint(&self) -> &str {
         self.localhost.base_url()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_documented_native_response() {
-        let response: CompleteResponse = serde_json::from_value(serde_json::json!({
-            "type": "call",
-            "success": true,
-            "error": null,
-            "error_code": null,
-            "function_calls": [{ "name": "acorn.version", "arguments": {} }],
-            "reasoning": "version requested",
-            "confidence": 0.94,
-            "prefill_tps": 4300.0,
-            "decode_tps": 850.0,
-            "peak_ram_mb": 28.0
-        }))
-        .expect("native response");
-        assert_eq!(response.response_type, "call");
-        assert_eq!(response.function_calls.first().map(|call| call.name.as_str()), Some("acorn.version"));
     }
 }

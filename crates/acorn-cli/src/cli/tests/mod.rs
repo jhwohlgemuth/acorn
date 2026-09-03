@@ -311,7 +311,7 @@ fn test_tools_export_and_needle_custom_location_arguments() {
         "validate this",
         "--custom-location",
         "oci://harbor.example/acorn/needle@sha256:abc",
-        "--confidence-threshold",
+        "--threshold",
         "0.9",
         "--max-rounds",
         "4",
@@ -321,11 +321,17 @@ fn test_tools_export_and_needle_custom_location_arguments() {
         | Some(Commands::Infer(arguments)) => {
             assert_eq!(arguments.prompt, "validate this");
             assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
-            assert_eq!(arguments.confidence_threshold, 0.9);
+            assert_eq!(arguments.threshold, 0.9);
             assert_eq!(arguments.max_rounds, 4);
         }
         | other => panic!("unexpected command: {other:?}"),
     }
+    assert!(matches!(
+        Arguments::try_parse_from(["acorn", "ask", "validate this"])
+            .expect("parse ask alias")
+            .command,
+        Some(Commands::Infer(_))
+    ));
 }
 #[test]
 fn test_what_if_aliases_dry_run_flags() {

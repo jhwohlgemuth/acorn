@@ -63,7 +63,6 @@ fn export_tools_writes_native_catalog_and_refuses_overwrite() {
         .is_some_and(|tools| { !tools.is_empty() && tools.iter().all(|tool| tool.get("parameters").is_some()) }));
     assert!(tools(Some(&destination), false).is_err());
 }
-
 #[cfg(feature = "pdf")]
 fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
     create_dir_all(destination)

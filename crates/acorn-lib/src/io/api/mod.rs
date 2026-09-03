@@ -487,6 +487,14 @@ impl Endpoint {
             ..self.clone()
         }
     }
+    /// Render a configured resource URL without issuing its request.
+    pub fn resource_url(&self, name: &str, data: Option<Vec<Param>>) -> ApiResult<String> {
+        let context = self.context_with::<EmptyField, EmptyField>(data);
+        self.resources
+            .find_by_name(name)
+            .map(|resource| render(&resource.template, &context))
+            .ok_or_else(|| eyre!("Resource '{name}' not found"))
+    }
     fn split_domain(value: &str) -> (String, Option<Scheme>, Option<u16>) {
         Uri::parse(value)
             .ok()

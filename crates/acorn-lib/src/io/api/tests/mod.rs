@@ -21,6 +21,8 @@ use acorn_schema::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIde
 
 mod harbor;
 mod huggingface;
+mod localhost;
+mod needle;
 mod openalex;
 
 #[test]
@@ -70,10 +72,9 @@ fn test_credential_into_header_pair() {
     };
     assert_eq!(credential.into_header_pair(), ("TEST-TOKEN", String::from("secret")));
 }
-
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 17);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 18);
 }
 #[test]
 fn test_tree_entry_type_deserializes_provider_aliases() {

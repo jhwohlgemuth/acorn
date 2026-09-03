@@ -44,6 +44,16 @@ pub const BASE_URL: &str = "https://research.ornl.gov";
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Application name.
 pub const APPLICATION: &str = "acorn";
+/// Default minimum confidence required before ACORN executes a Needle call.
+pub const DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD: f64 = 0.8;
+/// Default maximum tool-selection rounds in one Needle inference request.
+pub const DEFAULT_NEEDLE_MAX_ROUNDS: usize = 8;
+/// Standard manifest filename for ACORN-compatible ModelKits.
+pub const MODELKIT_MANIFEST: &str = "needle-modelkit.json";
+/// Official Hugging Face repository containing Needle 2 standalone runners.
+pub const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle2";
+/// Immutable upstream Needle 2 revision used by default acquisition.
+pub const NEEDLE_REVISION: &str = "98fbd955b0347e78059be0c253cc1ffa09b87bc7";
 /// Supported research activity data filenames and extensions.
 pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
 /// Delay used to coalesce rapid filesystem notifications.

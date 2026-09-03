@@ -593,14 +593,16 @@ Run bounded local tool inference through the managed Needle sidecar
 
 **Usage:** `acorn-cli infer [OPTIONS] <PROMPT>`
 
+**Command Alias:** `ask`
+
 ###### **Arguments:**
 
 * `<PROMPT>` — Prompt used to select and invoke ACORN tools
 
 ###### **Options:**
 
-* `--custom-location <PATH_OR_OCI_REFERENCE>` — Local ModelKit directory or digest-pinned oci:// registry reference
-* `--confidence-threshold <0..1>` — Minimum calibrated confidence required before executing a tool
+* `--custom-location <LOCATION>` — ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+* `--threshold <0..1>` — Minimum calibrated confidence required before executing a tool
 
   Default value: `0.8`
 * `--max-rounds <N>` — Maximum number of Needle tool-selection rounds

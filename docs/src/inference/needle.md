@@ -26,7 +26,7 @@ Tool calls execute only when Needle supplies a confidence at or above the defaul
 
 ```console
 acorn infer "Validate this research activity" \
-  --confidence-threshold 0.9 \
+  --threshold 0.9 \
   --max-rounds 4
 ```
 
@@ -71,6 +71,10 @@ Use the exact platform value expected by the current host: `windows-x86_64`, `wi
 ```console
 acorn infer "Return the ACORN version" --custom-location ./needle-bundle
 ```
+
+The same directory can be supplied as a `file://` URI. An `https://` location may point to the
+manifest itself; ACORN downloads its safe relative runner and tools paths into the verified cache
+before starting Needle.
 
 The session always regenerates its tool index from ACORN's current canonical catalog, so a stale bundled index cannot change the exposed tools.
 

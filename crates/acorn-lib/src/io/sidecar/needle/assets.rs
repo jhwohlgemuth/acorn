@@ -1,23 +1,20 @@
-//! Needle runner and ModelKit asset acquisition.
-
+//! Needle runner and ModelKit asset acquisition
+use super::super::{ModelKitManifest, ResolvedAssets};
+use crate::io::api::huggingface;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::oci::{OciReference, OciTransportOptions, OrasTransport};
-use crate::io::{file_checksum, make_executable, read_file, ApiResult, Fingerprint};
-use crate::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER};
+use crate::io::{make_executable, read_file, verify_checksum, ApiResult, Fingerprint, InputOutput, PathExt, Source};
+use crate::util::constants::app::{APPLICATION, MODELKIT_MANIFEST, NEEDLE_REPOSITORY, NEEDLE_REVISION, ORGANIZATION, QUALIFIER};
 use acorn_core::prelude::String;
 use acorn_schema::schema::agent::tools::NeedleToolDefinition;
 use color_eyre::eyre::eyre;
+use core::iter::once;
 use directories::ProjectDirs;
-use serde::{Deserialize, Serialize};
+use std::env::consts::{ARCH, OS};
 use std::fs::{canonicalize, create_dir_all, remove_file};
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
 
-/// Immutable upstream Needle 2 revision used by default acquisition.
-pub const NEEDLE_REVISION: &str = "98fbd955b0347e78059be0c253cc1ffa09b87bc7";
-const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle2";
-const MODELKIT_MANIFEST: &str = "needle-modelkit.json";
-
-/// One pinned official standalone runner.
+/// One pinned official standalone runner
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EngineAsset {
     /// Upstream platform folder.
@@ -29,40 +26,10 @@ pub struct EngineAsset {
     /// Expected SHA-256 digest.
     pub sha256: &'static str,
 }
-
-/// Validated assets used to start a Needle sidecar.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ResolvedAssets {
-    /// Standalone runner path.
-    pub runner: PathBuf,
-    /// Tool catalog supplied by a custom bundle.
-    pub tools: Option<PathBuf>,
-    /// Validated bundle or cache root.
-    pub root: PathBuf,
-}
-
-/// Needle-specific OCI-compatible ModelKit metadata.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ModelKitManifest {
-    /// Manifest schema version.
-    pub schema_version: u32,
-    /// Needle engine source revision.
-    pub source_revision: String,
-    /// Platform folder name.
-    pub platform: String,
-    /// Bundle-relative runner path.
-    pub runner: String,
-    /// Runner SHA-256.
-    pub runner_sha256: String,
-    /// Bundle-relative Needle tool schema.
-    pub tools: String,
-}
-
 impl EngineAsset {
     /// Resolve the pinned runner for the current desktop platform.
     pub fn current() -> ApiResult<Self> {
-        match (std::env::consts::OS, std::env::consts::ARCH) {
+        match (OS, ARCH) {
             | ("windows", "x86_64") => Ok(Self {
                 platform: "windows-x86_64",
                 executable: "needle.exe",
@@ -96,65 +63,151 @@ impl EngineAsset {
             | (os, architecture) => Err(eyre!("Needle standalone inference is not available for {os}/{architecture}")),
         }
     }
-
     /// Immutable Hugging Face URL for this runner.
-    pub fn url(&self) -> String {
-        format!(
-            "https://huggingface.co/{NEEDLE_REPOSITORY}/resolve/{NEEDLE_REVISION}/{}/{}",
-            self.platform, self.executable
-        )
+    pub fn url(&self) -> ApiResult<String> {
+        huggingface::resolve_url(NEEDLE_REPOSITORY, NEEDLE_REVISION, &format!("{}/{}", self.platform, self.executable))
     }
 }
-
-impl ModelKitManifest {
-    /// Validate and resolve this manifest within `root`.
-    pub fn resolve(&self, root: &Path) -> ApiResult<ResolvedAssets> {
-        let expected_platform = EngineAsset::current().map(|asset| asset.platform);
-        match (
-            self.schema_version,
-            self.source_revision.trim().is_empty(),
-            expected_platform,
-            self.platform.as_str(),
-        ) {
-            | (1, false, Ok(expected), actual) if actual == expected => resolve_relative(root, &self.runner)
-                .and_then(|runner| verify_sha256(&runner, &self.runner_sha256).map(|()| runner))
-                .and_then(|runner| match make_executable(&runner) {
-                    | true => Ok(runner),
-                    | false => Err(eyre!("Needle ModelKit runner is not executable — {}", runner.display())),
+impl ResolvedAssets {
+    async fn official(offline: bool, quiet: bool) -> ApiResult<Self> {
+        let resolved = EngineAsset::current().and_then(|asset| {
+            cache_root().map(|root| {
+                let root = root.join(NEEDLE_REVISION).join(asset.platform);
+                let runner = root.join(asset.executable);
+                (Self { runner, tools: None, root }, asset)
+            })
+        });
+        match resolved {
+            | Ok((assets, _)) if offline && !assets.runner.exists() => {
+                Err(eyre!("Needle runner is not cached and ACORN is offline — {}", assets.runner.display()))
+            }
+            | Ok((assets, asset)) if !assets.runner.exists() => assets.download(asset, quiet).await,
+            | Ok((assets, asset)) => match assets.clone().validate_official(asset) {
+                | Ok(valid) => Ok(valid),
+                | Err(_) if !offline => match remove_file(&assets.runner) {
+                    | Ok(()) => assets.download(asset, quiet).await,
+                    | Err(why) => Err(eyre!("Failed to replace an invalid cached Needle runner — {why}")),
+                },
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    async fn download(self, asset: EngineAsset, quiet: bool) -> ApiResult<Self> {
+        match asset.url() {
+            | Ok(url) => DownloadItems::new(
+                &self.root,
+                vec![DownloadItem::init()
+                    .url(url)
+                    .path(asset.executable.to_string())
+                    .size(asset.size)
+                    .sha(asset.sha256.to_string())
+                    .build()],
+                quiet,
+                false,
+            )
+            .download()
+            .await
+            .and_then(|()| self.validate_official(asset)),
+            | Err(why) => Err(why),
+        }
+    }
+    fn from_oci(location: &str) -> ApiResult<Self> {
+        OciReference::parse(location).and_then(|reference| {
+            let identity = Fingerprint::from_bytes(location).to_string();
+            cache_root()
+                .map(|root| root.join("oci").join(identity))
+                .and_then(|root| match root.exists() {
+                    | true => Self::from_materialized_modelkit(root),
+                    | false => OrasTransport::new(OciTransportOptions::default())
+                        .and_then(|transport| transport.pull_artifact(&reference, &root))
+                        .and_then(|()| Self::from_materialized_modelkit(root)),
                 })
-                .and_then(|runner| {
-                    resolve_relative(root, &self.tools).and_then(|tools| match tools.is_file() {
-                        | true => Ok((runner, tools)),
-                        | false => Err(eyre!("Needle ModelKit tools file is missing — {}", tools.display())),
-                    })
+        })
+    }
+    async fn from_location(location: Source, quiet: bool) -> ApiResult<Self> {
+        match location {
+            | Source::Local { path, .. } => canonicalize(&path)
+                .map_err(|why| eyre!("Failed to resolve local Needle ModelKit {} — {why}", path.display()))
+                .and_then(Self::from_materialized_modelkit),
+            | Source::Remote { identifier, .. } => match Source::read(&identifier, false)
+                .await
+                .and_then(|content| serde_json::from_str::<ModelKitManifest>(&content).map_err(|why| eyre!("Invalid ModelKit manifest — {why}")))
+            {
+                | Ok(manifest) => match download_items(&identifier, &manifest) {
+                    | Ok((root, items)) => DownloadItems::new(&root, items, false, quiet)
+                        .download()
+                        .await
+                        .and_then(|()| canonicalize(root).map_err(|why| eyre!("Failed to resolve downloaded ModelKit — {why}")))
+                        .and_then(|root| EngineAsset::current().and_then(|asset| manifest.resolve(&root, asset.platform, "Needle"))),
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why),
+            },
+            | Source::Unsupported(identifier) => Err(eyre!("Unsupported Needle ModelKit URI '{identifier}'")),
+        }
+    }
+    fn from_materialized_modelkit(root: PathBuf) -> ApiResult<Self> {
+        ModelKitManifest::read(root.join(MODELKIT_MANIFEST))
+            .and_then(|manifest| EngineAsset::current().and_then(|asset| manifest.resolve(&root, asset.platform, "Needle")))
+    }
+    fn validate_official(self, asset: EngineAsset) -> ApiResult<Self> {
+        verify_checksum(&self.runner, asset.sha256, None).and_then(|()| match make_executable(&self.runner) {
+            | true => Ok(self),
+            | false => Err(eyre!("Needle runner is not executable")),
+        })
+    }
+    /// Require a custom ModelKit to carry the exact active tool catalog
+    pub fn validate_tools(self, expected: &[NeedleToolDefinition]) -> ApiResult<Self> {
+        match self.tools.clone() {
+            | None => Ok(self),
+            | Some(path) => read_file(path)
+                .and_then(|content| {
+                    serde_json::from_str::<Vec<NeedleToolDefinition>>(&content).map_err(|why| eyre!("Invalid Needle ModelKit tools catalog — {why}"))
                 })
-                .map(|(runner, tools)| ResolvedAssets {
-                    runner,
-                    tools: Some(tools),
-                    root: root.to_path_buf(),
+                .and_then(|actual| match actual == expected {
+                    | true => Ok(self),
+                    | false => Err(eyre!("Needle ModelKit tools catalog does not match ACORN's active catalog")),
                 }),
-            | (1, false, Ok(expected), actual) => Err(eyre!("Needle ModelKit platform '{actual}' does not match this host ('{expected}')")),
-            | (_, _, Err(why), _) => Err(why),
-            | _ => Err(eyre!("Needle ModelKit requires schemaVersion 1, sourceRevision, and platform")),
         }
     }
 }
-
-/// Resolve the pinned default runner or an explicitly supplied local/OCI ModelKit.
-pub async fn resolve(custom_location: Option<&str>, offline: bool) -> ApiResult<ResolvedAssets> {
-    match custom_location.map(str::trim).filter(|value| !value.is_empty()) {
-        | Some(location) if location.starts_with("oci://") => resolve_oci(location, offline),
-        | Some(location) => resolve_local(Path::new(location)),
-        | None => resolve_default(offline).await,
-    }
-}
-
 fn cache_root() -> ApiResult<PathBuf> {
     ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
         .map(|directories| directories.cache_dir().join("needle"))
         .ok_or_else(|| eyre!("Failed to resolve the ACORN cache directory"))
 }
-
+pub(super) fn download_items(location: &str, manifest: &ModelKitManifest) -> ApiResult<(PathBuf, Vec<DownloadItem>)> {
+    let base = location.rsplit_once('/').map(|(base, _)| base).unwrap_or(location);
+    let root = cache_root().map(|root| root.join("remote").join(Fingerprint::from_bytes(location).to_string()));
+    let paths = once((&manifest.runner, Some(&manifest.runner_sha256)))
+        .chain(manifest.tools.as_ref().map(|path| (path, None)))
+        .map(|(path, sha)| match Source::parse(path) {
+            | Source::Local { path: relative, .. } if !path.trim().is_empty() && relative.is_safe() => Ok(DownloadItem::init()
+                .url(format!("{base}/{path}"))
+                .path(path.clone())
+                .maybe_sha(sha.cloned())
+                .build()),
+            | _ => Err(eyre!("Needle ModelKit path must be a safe relative path: {path}")),
+        })
+        .collect::<ApiResult<Vec<_>>>();
+    root.and_then(|root| paths.map(|paths| (root, paths)))
+}
+/// Resolve the pinned default runner or an explicitly supplied local/OCI ModelKit.
+pub async fn resolve(location: Option<&str>, offline: bool, quiet: bool) -> ApiResult<ResolvedAssets> {
+    match location.map(str::trim).filter(|value| !value.is_empty()) {
+        | None => ResolvedAssets::official(offline, quiet).await,
+        | Some(location) => match Source::parse(location) {
+            | Source::Remote { .. } if offline => Err(eyre!("Cannot download a Needle ModelKit while offline")),
+            | source @ (Source::Local { .. } | Source::Remote { .. }) => ResolvedAssets::from_location(source, quiet).await,
+            | Source::Unsupported(identifier) if identifier.starts_with("oci://") && offline => {
+                Err(eyre!("Cannot pull a Needle ModelKit from OCI while offline"))
+            }
+            | Source::Unsupported(identifier) if identifier.starts_with("oci://") => ResolvedAssets::from_oci(&identifier),
+            | Source::Unsupported(identifier) => Err(eyre!("Unsupported Needle ModelKit URI '{identifier}'")),
+        },
+    }
+}
 /// Resolve a persistent Needle retrieval index keyed by the tool catalog.
 pub fn tool_index(catalog: &str) -> ApiResult<PathBuf> {
     cache_root().map(|root| root.join("indexes")).and_then(|root| {
@@ -162,169 +215,4 @@ pub fn tool_index(catalog: &str) -> ApiResult<PathBuf> {
             .map_err(|why| eyre!("Failed to create the Needle tool-index cache — {why}"))
             .map(|()| root.join(format!("{}.idx", Fingerprint::from_bytes(catalog))))
     })
-}
-
-/// Require a custom ModelKit to carry the exact active ACORN tool catalog.
-pub fn validate_tools(assets: &ResolvedAssets, expected: &[NeedleToolDefinition]) -> ApiResult<()> {
-    match &assets.tools {
-        | None => Ok(()),
-        | Some(path) => read_file(path)
-            .and_then(|content| {
-                serde_json::from_str::<Vec<NeedleToolDefinition>>(&content).map_err(|why| eyre!("Invalid Needle ModelKit tools catalog — {why}"))
-            })
-            .and_then(|actual| match actual == expected {
-                | true => Ok(()),
-                | false => Err(eyre!("Needle ModelKit tools catalog does not match ACORN's active catalog")),
-            }),
-    }
-}
-
-async fn resolve_default(offline: bool) -> ApiResult<ResolvedAssets> {
-    let asset = EngineAsset::current();
-    match asset {
-        | Ok(asset) => {
-            let root = cache_root().map(|root| root.join(NEEDLE_REVISION).join(asset.platform));
-            match root {
-                | Ok(root) => {
-                    let runner = root.join(asset.executable);
-                    match (runner.exists(), offline) {
-                        | (false, true) => Err(eyre!("Needle runner is not cached and ACORN is offline — {}", runner.display())),
-                        | (false, false) => download_default(root, runner, asset).await,
-                        | (true, true) => finish_default(root, runner, asset),
-                        | (true, false) => match finish_default(root.clone(), runner.clone(), asset) {
-                            | Ok(resolved) => Ok(resolved),
-                            | Err(_) => match remove_file(&runner) {
-                                | Ok(()) => download_default(root, runner, asset).await,
-                                | Err(why) => Err(eyre!("Failed to replace an invalid cached Needle runner — {why}")),
-                            },
-                        },
-                    }
-                }
-                | Err(why) => Err(why),
-            }
-        }
-        | Err(why) => Err(why),
-    }
-}
-
-async fn download_default(root: PathBuf, runner: PathBuf, asset: EngineAsset) -> ApiResult<ResolvedAssets> {
-    DownloadItems::new(
-        &root,
-        vec![DownloadItem {
-            url: asset.url(),
-            path: asset.executable.to_string(),
-            size: Some(asset.size),
-            sha: Some(asset.sha256.to_string()),
-            headers: None,
-        }],
-        false,
-        false,
-    )
-    .download()
-    .await
-    .and_then(|()| finish_default(root, runner, asset))
-}
-
-fn finish_default(root: PathBuf, runner: PathBuf, asset: EngineAsset) -> ApiResult<ResolvedAssets> {
-    verify_sha256(&runner, asset.sha256).and_then(|()| match make_executable(&runner) {
-        | true => Ok(ResolvedAssets { runner, tools: None, root }),
-        | false => Err(eyre!("Needle runner is not executable")),
-    })
-}
-
-fn resolve_local(root: &Path) -> ApiResult<ResolvedAssets> {
-    canonicalize(root)
-        .map_err(|why| eyre!("Failed to resolve local Needle ModelKit {} — {why}", root.display()))
-        .and_then(|root| read_manifest(&root).and_then(|manifest| manifest.resolve(&root)))
-}
-
-fn resolve_oci(location: &str, offline: bool) -> ApiResult<ResolvedAssets> {
-    match offline {
-        | true => Err(eyre!("Cannot pull a Needle ModelKit from OCI while offline")),
-        | false => OciReference::parse(location).and_then(|reference| {
-            let identity = Fingerprint::from_bytes(location).to_string();
-            cache_root()
-                .map(|root| root.join("oci").join(identity))
-                .and_then(|root| match root.exists() {
-                    | true => read_manifest(&root).and_then(|manifest| manifest.resolve(&root)),
-                    | false => OrasTransport::new(OciTransportOptions::default())
-                        .and_then(|transport| transport.pull_artifact(&reference, &root))
-                        .and_then(|()| read_manifest(&root))
-                        .and_then(|manifest| manifest.resolve(&root)),
-                })
-        }),
-    }
-}
-
-fn read_manifest(root: &Path) -> ApiResult<ModelKitManifest> {
-    read_file(root.join(MODELKIT_MANIFEST))
-        .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Invalid Needle ModelKit manifest — {why}")))
-}
-
-fn resolve_relative(root: &Path, value: &str) -> ApiResult<PathBuf> {
-    let relative = Path::new(value);
-    let safe = !value.trim().is_empty() && relative.components().all(|component| matches!(component, Component::Normal(_)));
-    match safe {
-        | false => Err(eyre!("Needle ModelKit path must be a safe relative path: {value}")),
-        | true => canonicalize(root.join(relative))
-            .map_err(|why| eyre!("Failed to resolve Needle ModelKit path '{value}' — {why}"))
-            .and_then(|path| match path.starts_with(root) {
-                | true => Ok(path),
-                | false => Err(eyre!("Needle ModelKit path escapes its bundle root: {value}")),
-            }),
-    }
-}
-
-fn verify_sha256(path: &Path, expected: &str) -> ApiResult<()> {
-    file_checksum(path.to_path_buf(), None)
-        .ok_or_else(|| eyre!("Failed to calculate Needle runner checksum — {}", path.display()))
-        .and_then(|actual| match actual.checksum_value.eq_ignore_ascii_case(expected) {
-            | true => Ok(()),
-            | false => Err(eyre!(
-                "Needle runner checksum mismatch (expected {expected}, got {})",
-                actual.checksum_value
-            )),
-        })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn official_asset_is_digest_pinned() {
-        let asset = EngineAsset::current().expect("supported test platform");
-        assert_eq!(asset.sha256.len(), 64);
-        assert!(asset.url().contains(NEEDLE_REVISION));
-        assert!(!asset.url().contains("/main/"));
-    }
-
-    #[test]
-    fn modelkit_rejects_unsafe_paths() {
-        let root = std::env::temp_dir();
-        assert!(resolve_relative(&root, "../needle").is_err());
-        assert!(resolve_relative(&root, "/needle").is_err());
-    }
-
-    #[test]
-    fn custom_catalog_must_match_exactly() {
-        let fixture = tempfile::tempdir().expect("fixture");
-        let tools = fixture.path().join("tools.json");
-        std::fs::write(&tools, "[]").expect("write tools");
-        let assets = ResolvedAssets {
-            runner: fixture.path().join("needle"),
-            tools: Some(tools),
-            root: fixture.path().to_path_buf(),
-        };
-        assert!(validate_tools(&assets, &[]).is_ok());
-        assert!(validate_tools(
-            &assets,
-            &[NeedleToolDefinition {
-                name: "acorn.version".to_string(),
-                description: "Version".to_string(),
-                parameters: serde_json::json!({ "type": "object" }),
-            }]
-        )
-        .is_err());
-    }
 }

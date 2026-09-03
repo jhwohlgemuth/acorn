@@ -118,7 +118,7 @@ doctest:
 
 lint:
 	@cargo fmt --check
-	@cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings
+	@cargo clippy --fix --workspace --no-deps --all-features --all-targets -- -D warnings
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site

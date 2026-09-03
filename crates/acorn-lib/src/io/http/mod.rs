@@ -10,6 +10,7 @@ use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
+use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -204,6 +205,16 @@ impl HttpService for ReqwestHttpService {
     }
 }
 impl ReqwestHttpService {
+    fn loopback() -> ApiResult<Self> {
+        let policy = policy::shared_http_policy();
+        reqwest::Client::builder()
+            .timeout(policy.timeout.unsigned_abs())
+            .connect_timeout(policy.connect_timeout.unsigned_abs())
+            .redirect(Policy::none())
+            .build()
+            .map(|client| Self { client })
+            .map_err(|why| eyre!("Failed to construct loopback HTTP client — {why}"))
+    }
     fn streaming() -> Self {
         let policy = policy::shared_http_policy();
         let client = reqwest::Client::builder()
@@ -562,10 +573,6 @@ fn is_credential_header(name: &HeaderName) -> bool {
     let name = name.as_str();
     name == AUTHORIZATION.as_str() || name.ends_with("-token") || name.ends_with("-key") || name == "apikey"
 }
-/// Build a one-entry header map, skipping invalid names or values.
-pub fn header(name: &str, value: &str) -> HeaderMap {
-    headers([(name, value)])
-}
 /// Build a Bearer authorization header when `token` is non-empty.
 pub fn bearer_auth(token: &str) -> HeaderMap {
     match token.trim() {
@@ -573,17 +580,24 @@ pub fn bearer_auth(token: &str) -> HeaderMap {
         | value => header(AUTHORIZATION.as_str(), format!("Bearer {value}").as_str()),
     }
 }
-/// Build an HTTP request for a dynamic method.
-pub fn request(method: HttpMethod, url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(method, url)
+/// Utility method to employ best practices when making async HTTP DELETE requests.
+pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Delete, url)
 }
 /// Utility method to employ best practices when making async HTTP GET requests.
 pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Get, url)
 }
-/// Utility method to employ best practices when making async HTTP DELETE requests.
-pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Delete, url)
+/// Build a one-entry header map, skipping invalid names or values.
+pub fn header(name: &str, value: &str) -> HeaderMap {
+    headers([(name, value)])
+}
+/// Build an HTTP POST request that refuses redirects from a validated loopback endpoint.
+pub fn loopback_post(url: impl Into<String>) -> ApiResult<HttpRequestBuilder> {
+    ReqwestHttpService::loopback().map(|service| HttpRequestBuilder {
+        service,
+        ..HttpRequestBuilder::new(HttpMethod::Post, url)
+    })
 }
 /// Utility method to employ best practices when making async HTTP PATCH requests.
 pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {
@@ -596,6 +610,10 @@ pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
 /// Utility method to employ best practices when making async HTTP PUT requests.
 pub fn put(url: impl Into<String>) -> HttpRequestBuilder {
     HttpRequestBuilder::new(HttpMethod::Put, url)
+}
+/// Build an HTTP request for a dynamic method.
+pub fn request(method: HttpMethod, url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(method, url)
 }
 async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
     let HttpRequest {

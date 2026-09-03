@@ -8,7 +8,9 @@ use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
-use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT};
+use acorn::util::constants::app::{
+    DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
+};
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn_core::util::MimeType;
 use acorn_schema::enrichment::Provider;
@@ -742,14 +744,14 @@ pub(crate) struct Infer {
     /// Prompt used to select and invoke ACORN tools
     #[arg(value_name = "PROMPT")]
     pub(crate) prompt: String,
-    /// Local ModelKit directory or digest-pinned oci:// registry reference
-    #[arg(long, value_name = "PATH_OR_OCI_REFERENCE", help_heading = "OPTIONS")]
+    /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+    #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
     pub(crate) custom_location: Option<String>,
     /// Minimum calibrated confidence required before executing a tool
-    #[arg(long, default_value_t = acorn::io::sidecar::needle::DEFAULT_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
-    pub(crate) confidence_threshold: f64,
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) threshold: f64,
     /// Maximum number of Needle tool-selection rounds
-    #[arg(long, default_value_t = acorn::io::sidecar::needle::DEFAULT_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
     pub(crate) max_rounds: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,

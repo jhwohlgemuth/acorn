@@ -1835,6 +1835,27 @@ pub fn validate_unix_timestamp_window(unix_seconds: i64, window_secs: i64) -> Ap
         Ok(())
     }
 }
+/// Verify that a file checksum matches an expected hexadecimal digest.
+///
+/// SHA-256 is used when `algorithm` is [`None`].
+pub fn verify_checksum<P, E>(path: P, expected: E, algorithm: Option<&'static ring::digest::Algorithm>) -> ApiResult<()>
+where
+    P: Into<PathBuf>,
+    E: ToString,
+{
+    let path = path.into();
+    let expected = expected.to_string();
+    file_checksum(path.clone(), algorithm)
+        .ok_or_else(|| eyre!("Failed to calculate file checksum — {}", path.display()))
+        .and_then(|actual| match actual.checksum_value.eq_ignore_ascii_case(&expected) {
+            | true => Ok(()),
+            | false => Err(eyre!(
+                "File checksum mismatch for {} (expected {expected}, got {})",
+                path.display(),
+                actual.checksum_value
+            )),
+        })
+}
 /// Walk a directory tree and return portable paths relative to its root.
 ///
 /// Symbolic links and non-file entries are rejected so callers can safely

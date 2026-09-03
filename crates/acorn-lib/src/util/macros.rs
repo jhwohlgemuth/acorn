@@ -205,6 +205,13 @@
 #[cfg(feature = "cmd")]
 #[macro_export]
 macro_rules! cmd {
+    // ── spawned child ──────────────────────────────────────────
+    (spawn $binary:expr, $args:expr; dir: $dir:expr) => {
+        $crate::util::cmd::spawn($binary, $args, Some($dir.as_ref()))
+    };
+    (spawn $binary:expr, $args:expr) => {
+        $crate::util::cmd::spawn($binary, $args, None)
+    };
     // ── sh status ──────────────────────────────────────────────
     // sh status literal + dir
     (sh status $cmd:literal; dir: $dir:expr) => {{

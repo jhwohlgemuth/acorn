@@ -7,6 +7,7 @@ use acorn::io::bagit::{Bag, BagInfo, Save};
 #[cfg(feature = "chart")]
 use acorn::io::chart::ChartOptions;
 use acorn::io::current_date;
+use acorn::io::sidecar;
 use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
 use acorn::io::{ApiFuture, ApiResult};
 use acorn::util::{print_values_as_table, Label, StringConversion};
@@ -22,7 +23,7 @@ use color_eyre::eyre::eyre;
 use core::iter::once;
 use nanoid::nanoid;
 use owo_colors::OwoColorize;
-use std::fs::{create_dir_all, remove_dir_all};
+use std::fs::{create_dir_all, remove_dir_all, remove_file, rename};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tracing::{debug, info};
@@ -45,9 +46,9 @@ pub fn tools(output: Option<&Path>, dry_run: bool) -> ApiResult<()> {
             .map_err(|why| eyre!("Failed to create tools export directory {} — {why}", directory.display()))
             .and_then(|()| {
                 let temporary = directory.join(format!(".tools-{}.json.tmp", nanoid!()));
-                acorn::io::sidecar::needle::write_tools(temporary.clone()).and_then(|()| {
-                    std::fs::rename(&temporary, &destination).map_err(|why| {
-                        let _ = std::fs::remove_file(&temporary);
+                sidecar::needle::write_tools(temporary.clone()).and_then(|()| {
+                    rename(&temporary, &destination).map_err(|why| {
+                        let _ = remove_file(&temporary);
                         eyre!("Failed to publish Needle tool catalog {} — {why}", destination.display())
                     })
                 })

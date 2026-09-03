@@ -139,15 +139,14 @@ core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
 unicode = ["std", "console/std"]
-agentic = ["std", "tools", "dep:axum", "dep:rmcp", "dep:tower"]
+agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = ["alloc", "std", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
 chart = ["dep:resvg"]
 default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
 duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
-needle = ["std", "tools"]
-tools = ["std"]
+needle = ["agentic", "cmd"]
 std = [
   "alloc",
   "acorn-core/std",

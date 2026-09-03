@@ -343,7 +343,7 @@ pub enum Commands {
     ///
     ///     Use a local or private-registry ModelKit
     ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
-    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS", visible_alias = "ask")]
     Infer(Box<arguments::Infer>),
     /// Formats research activity data in place (inherently includes some elements of `acorn check`)
     ///

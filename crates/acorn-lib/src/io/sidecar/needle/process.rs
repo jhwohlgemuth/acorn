@@ -1,12 +1,12 @@
-//! Needle subprocess lifecycle.
-
-use super::assets::ResolvedAssets;
+//! Needle subprocess lifecycle
+use super::super::ResolvedAssets;
+use crate::io::api::localhost::available_port;
 use crate::io::ApiResult;
-use acorn_core::prelude::String;
+use crate::{args, cmd};
+use acorn_core::prelude::{Path, PathBuf, String};
 use color_eyre::eyre::eyre;
 use std::fs::remove_dir_all;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Child;
 use tokio::net::TcpStream;
 use tokio::time::{sleep, Duration};
 
@@ -17,27 +17,25 @@ pub struct Runner {
     endpoint: String,
     session_root: PathBuf,
 }
-
+impl Drop for Runner {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        let _ = remove_dir_all(&self.session_root);
+    }
+}
 impl Runner {
     /// Start the standalone runner with a fixed tool catalog.
     pub async fn start(assets: &ResolvedAssets, tools: &Path, tool_index: &Path, session_root: PathBuf) -> ApiResult<Self> {
         let cleanup_root = session_root.clone();
         let runner = available_port().and_then(|port| {
-            let mut command = Command::new(&assets.runner);
-            command
-                .arg("--tools")
-                .arg(tools)
-                .arg("--tool-index")
-                .arg(tool_index)
-                .arg("--serve")
-                .arg("--port")
-                .arg(port.to_string())
-                .current_dir(&assets.root)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::inherit());
-            command
-                .spawn()
+            let arguments = args![
+                ("--tools", tools.as_os_str()),
+                ("--tool-index", tool_index.as_os_str()),
+                "--serve",
+                ("--port", port.to_string())
+            ];
+            cmd!(spawn &assets.runner, arguments; dir: &assets.root)
                 .map(|child| Self {
                     child,
                     endpoint: format!("http://127.0.0.1:{port}"),
@@ -57,12 +55,10 @@ impl Runner {
         }
         result
     }
-
     /// Return the private loopback endpoint selected for this process.
     pub fn endpoint(&self) -> &str {
         &self.endpoint
     }
-
     async fn wait_until_ready(&mut self) -> ApiResult<()> {
         let address = self.endpoint.trim_start_matches("http://");
         let mut remaining = 100_u8;
@@ -78,30 +74,5 @@ impl Runner {
             }
         }
         Err(eyre!("Needle runner did not become ready at {} within 10 seconds", self.endpoint))
-    }
-}
-
-impl Drop for Runner {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        let _ = remove_dir_all(&self.session_root);
-    }
-}
-
-fn available_port() -> ApiResult<u16> {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|listener| listener.local_addr())
-        .map(|address| address.port())
-        .map_err(|why| eyre!("Failed to allocate a private Needle localhost port — {why}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn allocates_an_ephemeral_port() {
-        assert_ne!(available_port().expect("port"), 0);
     }
 }

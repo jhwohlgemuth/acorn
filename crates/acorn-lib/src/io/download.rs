@@ -6,6 +6,7 @@ use crate::util::Label;
 use acorn_core::prelude::Vec;
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use axum::http::HeaderMap;
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::future::join_all;
@@ -17,7 +18,8 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 /// A single downloadable file with URL, path, expected size, and optional SHA-256 checksum.
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone, Debug)]
+#[builder(start_fn = init, on(String, into))]
 pub struct DownloadItem {
     /// URL to download from
     pub url: String,

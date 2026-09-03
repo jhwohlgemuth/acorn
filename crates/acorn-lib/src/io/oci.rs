@@ -1,4 +1,4 @@
-//! OCI model artifact references, manifests, and ORAS-backed transport
+//! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
 use crate::args;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
@@ -149,7 +149,7 @@ struct OciPlan {
     layers: Vec<OciLayer>,
     files: OciFiles,
 }
-/// A validated, explicit OCI artifact reference.
+/// A validated, explicit OCI artifact reference
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Validate)]
 #[validate(schema(function = "OciReference::is_valid", skip_on_field_errors = false))]
 #[serde(rename_all = "camelCase")]
@@ -158,7 +158,7 @@ pub struct OciReference {
     repository: String,
     reference: OciReferenceValue,
 }
-/// Deterministic OCI planning data shown by dry runs and used by pulls.
+/// Deterministic OCI planning data shown by dry runs and used by pulls
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OciResolution {
@@ -176,7 +176,7 @@ pub struct OciResolution {
     pub total_size: u64,
     /// Total selected transfer size in bytes.
     pub transfer_size: u64,
-    /// Known installed size in bytes, or `None` for deferred archive inventories.
+    /// Known installed size in bytes, or `None` for deferred archive inventories
     #[serde(skip_serializing_if = "Option::is_none")]
     pub installed_size: Option<u64>,
     /// Selected transfer layers.
@@ -193,7 +193,7 @@ pub struct OciResolution {
     #[serde(skip)]
     pub quantization: Vec<Quantization>,
 }
-/// Credentials and development transport options for ORAS.
+/// Credentials and development transport options for ORAS
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct OciTransportOptions {
     /// Environment variable containing a registry token or password.
@@ -211,7 +211,7 @@ pub struct OciTransportOptions {
     /// Permit plain HTTP for an explicitly configured development registry.
     pub plain_http: bool,
 }
-/// ORAS CLI implementation of OCI artifact transport.
+/// ORAS CLI implementation of OCI artifact transport
 #[derive(Clone, Debug)]
 pub struct OrasTransport {
     pub(crate) binary: PathBuf,
@@ -741,10 +741,9 @@ impl OrasTransport {
                 options,
             })
     }
-    /// Pull an arbitrary digest-pinned OCI artifact into a new directory.
-    ///
-    /// This is a narrow materialization primitive for consumers that validate
-    /// their own bundle media and layout after transfer.
+    /// Pull an arbitrary digest-pinned OCI artifact into a new directory
+    /// ### Note
+    /// This is a narrow materialization primitive for consumers that validate their own bundle media and layout after transfer.
     pub fn pull_artifact(&self, reference: &OciReference, destination: &Path) -> ApiResult<()> {
         match reference.reference() {
             | OciReferenceValue::Tag(_) => Err(eyre!("Generic OCI bundle pulls require an immutable digest reference")),
@@ -761,12 +760,7 @@ impl OrasTransport {
                     create_dir(&staging)
                         .map_err(|why| eyre!("Failed to create OCI bundle staging directory — {why}"))
                         .and_then(|()| {
-                            let args = vec![
-                                OsString::from("pull"),
-                                OsString::from("--output"),
-                                staging.as_os_str().to_os_string(),
-                                OsString::from(reference.oras_reference()),
-                            ];
+                            let args = args!["pull", "--output", staging.as_os_str(), reference.oras_reference()];
                             let result = self
                                 .invoke(args)
                                 .and_then(|_| rename(&staging, destination).map_err(|why| eyre!("Failed to publish OCI bundle atomically — {why}")));
