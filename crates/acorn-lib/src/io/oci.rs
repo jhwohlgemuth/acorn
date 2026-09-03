@@ -2,12 +2,12 @@
 use crate::args;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
-use crate::io::{extract, file_checksum, walk, ApiResult, FromCommand, PathExt};
+use crate::io::{extract, file_checksum, retry, walk, ApiResult, FromCommand, PathExt};
 use crate::util::cmd::{redact, run_output, run_output_with_stdin, try_from_output};
 use crate::util::constants::app::{
     ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION,
     MODELPACK_CONFIG, MODELPACK_MANIFEST, MODELPACK_WEIGHT_PREFIX, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, OCI_IMAGE_CONFIG,
-    OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
+    OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX, ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS,
 };
 use acorn_core::prelude::{HashMap, HashSet, String, ToString, Vec};
 use acorn_core::util::{MimeType, SemanticVersion};
@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::ffi::OsString;
 use std::fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, rename};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
@@ -782,10 +783,14 @@ impl OrasTransport {
         };
         token.and_then(|token| {
             let args = self.transport_args(args, token.is_some());
-            let output = match token {
-                | Some(token) => run_output_with_stdin(binary.as_ref(), args, None, token.as_bytes()),
-                | None => run_output(binary.as_ref(), args, None),
-            };
+            let output = retry(
+                || match token.as_ref() {
+                    | Some(token) => run_output_with_stdin(binary.as_ref(), &args, None, token.as_bytes()),
+                    | None => run_output(binary.as_ref(), &args, None),
+                },
+                |why| why.kind() == ErrorKind::ExecutableFileBusy,
+                Some(&ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS),
+            );
             try_from_output(output).map_err(|why| eyre!("ORAS request failed — {}", redact(&why)))
         })
     }

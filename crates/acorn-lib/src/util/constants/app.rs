@@ -132,6 +132,8 @@ pub const MODELPACK_WEIGHT_TAR_GZIP: &str = "application/vnd.cncf.model.weight.v
 pub const MODELPACK_WEIGHT_TAR_ZSTD: &str = "application/vnd.cncf.model.weight.v1.tar+zstd";
 /// Minimum supported ORAS CLI version.
 pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
+/// Millisecond delays used when retrying a temporarily busy ORAS executable.
+pub const ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS: [u64; 3] = [10, 25, 50];
 /// Default llama-swap configuration path beneath the user's home directory.
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
 /// Default OpenCode configuration path beneath the user's home directory.

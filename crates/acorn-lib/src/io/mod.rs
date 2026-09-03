@@ -69,6 +69,7 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
 use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
+use std::thread;
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
@@ -1701,6 +1702,16 @@ pub fn remove_fields(value: Value, fields: &[&str]) -> Value {
         | Value::Array(values) => Value::Array(values.into_iter().map(|value| remove_fields(value, fields)).collect()),
         | value => value,
     }
+}
+/// Run an operation and retry matching errors after optional millisecond delays.
+pub fn retry<T, E>(run: impl Fn() -> Result<T, E>, should_retry: impl Fn(&E) -> bool, delays: Option<&[u64]>) -> Result<T, E> {
+    delays.unwrap_or_default().iter().fold(run(), |result, delay| match result {
+        | Err(why) if should_retry(&why) => {
+            thread::sleep(Duration::from_millis(*delay));
+            run()
+        }
+        | result => result,
+    })
 }
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.
