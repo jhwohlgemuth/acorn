@@ -280,6 +280,59 @@ fn test_export_aspect_chart_visibility_arguments() {
         | other => panic!("unexpected command: {other:?}"),
     }
 }
+
+#[test]
+fn test_tools_export_and_needle_custom_location_arguments() {
+    let serve = Arguments::try_parse_from(["acorn", "serve", "mcp"]).expect("parse MCP server");
+    assert!(matches!(
+        serve.command,
+        Some(Commands::Serve {
+            command: Some(ServeCommands::Mcp)
+        })
+    ));
+    let download = Arguments::try_parse_from(["acorn", "download", "needle"]).expect("parse Needle download");
+    assert!(matches!(
+        download.command,
+        Some(Commands::Download(ref arguments)) if matches!(arguments.command, Some(DownloadCommands::Needle))
+    ));
+    let export = Arguments::try_parse_from(["acorn", "export", "--tools", "--output", "catalog"]).expect("parse tools export");
+    match export.command {
+        | Some(Commands::Export(arguments)) => {
+            assert!(arguments.tools);
+            assert_eq!(arguments.output, Some(PathBuf::from("catalog")));
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    assert!(Arguments::try_parse_from(["acorn", "export", "--tools", "--schema"]).is_err());
+
+    let infer = Arguments::try_parse_from([
+        "acorn",
+        "infer",
+        "validate this",
+        "--custom-location",
+        "oci://harbor.example/acorn/needle@sha256:abc",
+        "--threshold",
+        "0.9",
+        "--max-rounds",
+        "4",
+    ])
+    .expect("parse Needle inference");
+    match infer.command {
+        | Some(Commands::Infer(arguments)) => {
+            assert_eq!(arguments.prompt, "validate this");
+            assert_eq!(arguments.custom_location.as_deref(), Some("oci://harbor.example/acorn/needle@sha256:abc"));
+            assert_eq!(arguments.threshold, 0.9);
+            assert_eq!(arguments.max_rounds, 4);
+        }
+        | other => panic!("unexpected command: {other:?}"),
+    }
+    assert!(matches!(
+        Arguments::try_parse_from(["acorn", "ask", "validate this"])
+            .expect("parse ask alias")
+            .command,
+        Some(Commands::Infer(_))
+    ));
+}
 #[test]
 fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "download", "model", "--what-if"]).is_ok());

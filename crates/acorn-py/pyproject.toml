@@ -54,7 +54,9 @@ uv = "==0.12.2"
 [tool.pixi.feature.build.target.linux-64.dependencies]
 binutils = "*"
 c-compiler = "*"
+openssl = ">=3,<4"
 patchelf = "~=0.17.2"
+pkg-config = "*"
 
 [tool.pixi.feature.build.tasks]
 venv = "uv venv --clear"

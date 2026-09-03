@@ -38,6 +38,8 @@
     - [sync](./cli-reference/commands/sync.md)
     - [tui](./cli-reference/commands/tui.md)
   - [Model workflows](./cli-reference/model-workflows.md)
+- [🧰 Local inference and tools](./inference/README.md)
+  - [Needle sidecar](./inference/needle.md)
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)
   - [🐍 Python package](./packages/acorn-py.md)

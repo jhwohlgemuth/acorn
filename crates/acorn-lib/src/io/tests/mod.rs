@@ -5,7 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use super::{create_progress_bar_with_renderer, finish_progress_bar, ProgressType};
+use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::document::{SourceDocument, SourceDocuments};
@@ -40,6 +40,7 @@ use acorn_schema::validation::Validate;
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};
 use color_eyre::Report;
+use core::cell::Cell;
 use fluent_uri::Uri as UriParse;
 use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, TermLike};
 use jiff::{SignedDuration, Timestamp};
@@ -49,6 +50,7 @@ use std::ffi::OsString;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 #[cfg(unix)]
 use std::fs::{metadata, read, set_permissions, Permissions};
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::MAIN_SEPARATOR;
@@ -1072,6 +1074,24 @@ fn test_retry_delay_uses_bounded_exponential_fallback() {
     assert_eq!(retry_delay(None, usize::MAX, Timestamp::UNIX_EPOCH), SignedDuration::from_secs(60));
 }
 #[test]
+fn test_retry_repeats_matching_errors_using_optional_millisecond_delays() {
+    let attempts = Cell::new(0);
+    let result = retry(
+        || {
+            let attempt = attempts.get();
+            attempts.set(attempt + 1);
+            match attempt < 2 {
+                | true => Err(io::Error::from(io::ErrorKind::ExecutableFileBusy)),
+                | false => Ok("ready"),
+            }
+        },
+        |why| why.kind() == io::ErrorKind::ExecutableFileBusy,
+        Some(&[0, 0]),
+    );
+    assert_eq!(result.unwrap(), "ready");
+    assert_eq!(attempts.get(), 3);
+}
+#[test]
 fn test_shared_http_timeout_layer_constructs() {
     let _layer = http_timeout_layer();
 }
@@ -1474,6 +1494,19 @@ fn test_oci_transport_args_append_configured_registry_options() {
             "--plain-http"
         ]
     );
+}
+#[test]
+fn test_generic_oci_pull_requires_digest_and_new_destination() {
+    let transport = OrasTransport {
+        binary: PathBuf::from("oras-does-not-need-to-exist"),
+        options: OciTransportOptions::default(),
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let tagged = OciReference::parse("oci://registry.example.org/acorn/needle:latest").unwrap();
+    assert!(transport.pull_artifact(&tagged, &temp.path().join("tagged")).is_err());
+
+    let digest = OciReference::parse(&format!("oci://registry.example.org/acorn/needle@{OCI_TEST_DIGEST}")).unwrap();
+    assert!(transport.pull_artifact(&digest, temp.path()).is_err());
 }
 #[cfg(unix)]
 #[test]

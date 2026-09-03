@@ -44,6 +44,16 @@ pub const BASE_URL: &str = "https://research.ornl.gov";
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Application name.
 pub const APPLICATION: &str = "acorn";
+/// Default minimum confidence required before ACORN executes a Needle call.
+pub const DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD: f64 = 0.8;
+/// Default maximum tool-selection rounds in one Needle inference request.
+pub const DEFAULT_NEEDLE_MAX_ROUNDS: usize = 8;
+/// Standard manifest filename for ACORN-compatible ModelKits.
+pub const MODELKIT_MANIFEST: &str = "needle-modelkit.json";
+/// Official Hugging Face repository containing Needle 2 standalone runners.
+pub const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle2";
+/// Immutable upstream Needle 2 revision used by default acquisition.
+pub const NEEDLE_REVISION: &str = "98fbd955b0347e78059be0c253cc1ffa09b87bc7";
 /// Supported research activity data filenames and extensions.
 pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
 /// Delay used to coalesce rapid filesystem notifications.
@@ -122,6 +132,8 @@ pub const MODELPACK_WEIGHT_TAR_GZIP: &str = "application/vnd.cncf.model.weight.v
 pub const MODELPACK_WEIGHT_TAR_ZSTD: &str = "application/vnd.cncf.model.weight.v1.tar+zstd";
 /// Minimum supported ORAS CLI version.
 pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
+/// Millisecond delays used when retrying a temporarily busy ORAS executable.
+pub const ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS: [u64; 3] = [10, 25, 50];
 /// Default llama-swap configuration path beneath the user's home directory.
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
 /// Default OpenCode configuration path beneath the user's home directory.

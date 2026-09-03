@@ -40,7 +40,9 @@ pub mod gitlab;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;
+pub mod localhost;
 pub mod models_dev;
+pub mod needle;
 pub mod openai;
 pub mod openalex;
 pub mod openapi;
@@ -484,6 +486,14 @@ impl Endpoint {
             port: port.or(self.port),
             ..self.clone()
         }
+    }
+    /// Render a configured resource URL without issuing its request.
+    pub fn resource_url(&self, name: &str, data: Option<Vec<Param>>) -> ApiResult<String> {
+        let context = self.context_with::<EmptyField, EmptyField>(data);
+        self.resources
+            .find_by_name(name)
+            .map(|resource| render(&resource.template, &context))
+            .ok_or_else(|| eyre!("Resource '{name}' not found"))
     }
     fn split_domain(value: &str) -> (String, Option<Scheme>, Option<u16>) {
         Uri::parse(value)

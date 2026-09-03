@@ -100,7 +100,7 @@ swhid = { workspace = true, features = ["git"], optional = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["net", "rt", "time"], optional = true }
+tokio = { workspace = true, features = ["io-std", "io-util", "net", "rt", "time"], optional = true }
 tracing = { workspace = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 triomphe = { workspace = true }
@@ -146,6 +146,7 @@ default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
 doctor = ["std", "dep:sysinfo"]
 duckdb = ["std", "dep:duckdb"]
 powerpoint = ["std"]
+needle = ["agentic", "cmd"]
 std = [
   "alloc",
   "acorn-core/std",

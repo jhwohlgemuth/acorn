@@ -25,6 +25,7 @@ pub mod export;
 pub mod format;
 pub mod gather;
 pub mod import;
+pub mod infer;
 pub mod link;
 pub mod serve;
 pub mod skill;
@@ -221,17 +222,28 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             } = arguments.as_ref();
             doctor::run(fix, interactive, report, check, offline)
         }
-        | Some(Commands::Download(arguments)) if arguments.flatten && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+        | Some(Commands::Download(arguments))
+            if arguments.flatten && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
+        {
             Err(eyre::eyre!("--flatten is only supported for bucket downloads"))
         }
-        | Some(Commands::Download(arguments)) if arguments.clobber && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+        | Some(Commands::Download(arguments))
+            if arguments.clobber && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
+        {
             Err(eyre::eyre!("--clobber is only supported for bucket downloads"))
         }
-        | Some(Commands::Download(arguments)) if arguments.strict && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+        | Some(Commands::Download(arguments))
+            if arguments.strict && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
+        {
             Err(eyre::eyre!("--strict is only supported for bucket downloads"))
         }
-        | Some(Commands::Download(arguments)) if arguments.canonicalize && matches!(arguments.command, Some(DownloadCommands::Model(_))) => {
+        | Some(Commands::Download(arguments))
+            if arguments.canonicalize && matches!(arguments.command, Some(DownloadCommands::Model(_) | DownloadCommands::Needle)) =>
+        {
             Err(eyre::eyre!("--canonicalize is only supported for bucket downloads"))
+        }
+        | Some(Commands::Download(arguments)) if matches!(arguments.command, Some(DownloadCommands::Needle)) => {
+            with_runtime(download::needle(&arguments.verbose, offline))
         }
         | Some(Commands::Download(arguments)) => with_runtime(async {
             match initialize_database(config).await {
@@ -251,6 +263,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                             | Err(why) => Err(why),
                         }
                     }
+                    | Some(DownloadCommands::Needle) => download::needle(&arguments.verbose, offline).await,
                     | None => {
                         download::run(
                             &arguments.config,
@@ -274,14 +287,15 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 | Err(why) => Err(why),
             }
         }),
-        | Some(Commands::Export(arguments)) => {
-            if arguments.schema {
+        | Some(Commands::Export(arguments)) => match (arguments.schema, arguments.tools) {
+            | (true, _) => {
                 let format = OutputFormat::from(&arguments.format);
                 let format_str = format.to_string().to_lowercase();
                 arguments.standard.to_schema(&format_str);
-                return Ok(());
+                Ok(())
             }
-            with_runtime(async {
+            | (false, true) => export::tools(arguments.output.as_deref(), arguments.dry_run),
+            | (false, false) => with_runtime(async {
                 let arguments::Export {
                     output,
                     path,
@@ -333,8 +347,18 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     offline,
                 )
                 .await
-            })
-        }
+            }),
+        },
+        | Some(Commands::Infer(arguments)) => with_runtime(async {
+            infer::run(
+                &arguments.prompt,
+                arguments.custom_location.as_deref(),
+                arguments.threshold,
+                arguments.max_rounds,
+                offline,
+            )
+            .await
+        }),
         | Some(Commands::Format(arguments)) => with_runtime(async {
             let arguments::Format {
                 path,
@@ -520,7 +544,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 )
                 .await
             }),
-            | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run().await }),
+            | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run(offline).await }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),

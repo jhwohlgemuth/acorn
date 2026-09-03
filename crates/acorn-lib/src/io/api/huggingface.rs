@@ -1139,6 +1139,19 @@ fn request_token(configured: Option<&str>) -> String {
         .or_else(|| first_env_var(&HUGGINGFACE_TOKEN_VARIABLE_NAMES))
         .unwrap_or_default()
 }
+/// Render a Hugging Face repository file URL from the embedded endpoint catalog.
+pub fn resolve_url(identifier: &str, revision: &str, path: &str) -> ApiResult<String> {
+    Endpoint::from_template("huggingface::org").and_then(|endpoint| {
+        endpoint.resource_url(
+            "resolve",
+            Some(vec![
+                param!(TemplateValue, "identifier", identifier),
+                param!(TemplateValue, "revision", revision),
+                param!(TemplateValue, "path", path),
+            ]),
+        )
+    })
+}
 /// Find repositories matching the search options, sorted by downloads.
 pub async fn search(options: &SearchOptions) -> ApiResult<Candidates> {
     let template = "huggingface::api";

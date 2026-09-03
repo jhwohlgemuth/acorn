@@ -16,3 +16,8 @@ pub mod alloc {
     pub use triomphe::Arc;
 }
 pub use self::alloc::{format, vec, Arc, Box, DefaultHashBuilder, HashMap, HashSet, String, ToString, Vec};
+#[cfg(feature = "std")]
+pub use std::{
+    fs::{canonicalize, create_dir},
+    path::{Component, Path, PathBuf},
+};

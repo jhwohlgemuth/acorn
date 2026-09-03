@@ -13,7 +13,9 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli doctor`↴](#acorn-cli-doctor)
 * [`acorn-cli download`↴](#acorn-cli-download)
 * [`acorn-cli download model`↴](#acorn-cli-download-model)
+* [`acorn-cli download needle`↴](#acorn-cli-download-needle)
 * [`acorn-cli export`↴](#acorn-cli-export)
+* [`acorn-cli infer`↴](#acorn-cli-infer)
 * [`acorn-cli format`↴](#acorn-cli-format)
 * [`acorn-cli gather`↴](#acorn-cli-gather)
 * [`acorn-cli import`↴](#acorn-cli-import)
@@ -56,6 +58,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `doctor` — Diagnose and correct system requirements for using acorn
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
+* `infer` — Run bounded local tool inference through the managed Needle sidecar
 * `format` — Formats research activity data in place (inherently includes some elements of `acorn check`)
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
@@ -377,6 +380,7 @@ Download research activity data from buckets or model weights for local inferenc
 ###### **Subcommands:**
 
 * `model` — Download model weights for use with ACORN research harnesses and local inference
+* `needle` — Download and verify the pinned standalone Needle engine for this platform
 
 ###### **Arguments:**
 
@@ -471,6 +475,14 @@ Download model weights for use with ACORN research harnesses and local inference
 
 
 
+## `acorn-cli download needle`
+
+Download and verify the pinned standalone Needle engine for this platform
+
+**Usage:** `acorn-cli download needle`
+
+
+
 ## `acorn-cli export`
 
 Export research activity data to a specific target
@@ -546,6 +558,7 @@ Export research activity data to a specific target
 * `--schema` — Print JSON or YAML schema for the selected standard to stdout
 
    Use --format to specify output format (default: json)
+* `--tools` — Export the canonical Needle-compatible ACORN tool catalog as tools.json
 * `--raw` — Suppress output from external commands while preserving ACORN output — useful for piping
 * `-S`, `--skip <LIST>` — Skip one or more available export check categories
 * `-r`, `--reference <PATH>` — Path to reference file to be used when exporting to PowerPoint
@@ -563,6 +576,38 @@ Export research activity data to a specific target
 * `--to <STANDARD>` — Target metadata standard for crosswalk conversion
 
    Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli infer`
+
+Run bounded local tool inference through the managed Needle sidecar
+
+    Use the pinned official runner
+    $> acorn infer "Validate this research activity"
+
+    Use a local or private-registry ModelKit
+    $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
+
+**Usage:** `acorn-cli infer [OPTIONS] <PROMPT>`
+
+**Command Alias:** `ask`
+
+###### **Arguments:**
+
+* `<PROMPT>` — Prompt used to select and invoke ACORN tools
+
+###### **Options:**
+
+* `--custom-location <LOCATION>` — ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+* `--threshold <0..1>` — Minimum calibrated confidence required before executing a tool
+
+  Default value: `0.8`
+* `--max-rounds <N>` — Maximum number of Needle tool-selection rounds
+
+  Default value: `8`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

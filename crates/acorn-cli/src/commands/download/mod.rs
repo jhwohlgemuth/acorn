@@ -3,7 +3,7 @@ use crate::commands::preflight;
 use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions, Buckets, TransferPolicy};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
-use acorn::io::{print_with_border, slice_path, InputOutput};
+use acorn::io::{print_with_border, sidecar, slice_path, InputOutput};
 use acorn::util::constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT};
 use acorn::util::{Label, StringConversion};
 use acorn_core::util::suffix;
@@ -15,6 +15,12 @@ use std::path::PathBuf;
 use tracing::{error, warn};
 
 pub mod model;
+/// Download or verify the pinned Needle runner and print its cache path.
+pub async fn needle(verbose: &Verbosity, offline: bool) -> Result<(), Report> {
+    sidecar::needle::assets::resolve(None, offline, verbose.is_silent())
+        .await
+        .map(|assets| println!("{}", assets.runner.display()))
+}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,

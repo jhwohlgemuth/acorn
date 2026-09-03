@@ -8,7 +8,9 @@ use acorn::analyzer::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
-use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT};
+use acorn::util::constants::app::{
+    DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
+};
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn_core::util::MimeType;
 use acorn_schema::enrichment::Provider;
@@ -691,6 +693,17 @@ pub(crate) struct Export {
     /// Use --format to specify output format (default: json)
     #[arg(long = "schema", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) schema: bool,
+    /// Export the canonical Needle-compatible ACORN tool catalog as tools.json
+    #[arg(
+        long = "tools",
+        value_name = "BOOL",
+        help_heading = "FLAGS",
+        conflicts_with_all = [
+            "schema", "branch", "chrome_path", "combine", "commit", "archive_format", "filter", "ignore", "show_aspect_labels",
+            "show_aspect_scores", "merge_request", "skip", "reference", "strict", "from", "to"
+        ]
+    )]
+    pub(crate) tools: bool,
     /// Suppress output from external commands while preserving ACORN output — useful for piping
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) raw: bool,
@@ -720,6 +733,26 @@ pub(crate) struct Export {
     /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+
+/// Options for one bounded Needle inference request.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Infer {
+    /// Prompt used to select and invoke ACORN tools
+    #[arg(value_name = "PROMPT")]
+    pub(crate) prompt: String,
+    /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+    #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
+    pub(crate) custom_location: Option<String>,
+    /// Minimum calibrated confidence required before executing a tool
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) threshold: f64,
+    /// Maximum number of Needle tool-selection rounds
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_rounds: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

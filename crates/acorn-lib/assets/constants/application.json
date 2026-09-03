@@ -275,6 +275,17 @@
       ]
     },
     {
+      "name": "huggingface::org",
+      "domain": "huggingface.co",
+      "resources": [
+        {
+          "name": "resolve",
+          "method": "get",
+          "template": "{{ base }}/{{ identifier }}/resolve/{{ revision }}/{{ path }}"
+        }
+      ]
+    },
+    {
       "name": "models-dev",
       "domain": "models.dev",
       "resources": [

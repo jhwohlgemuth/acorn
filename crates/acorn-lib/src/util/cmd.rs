@@ -14,7 +14,7 @@ use std::env;
 use std::ffi::{OsStr, OsString};
 use std::io::{self, Write};
 use std::path::Path;
-use std::process::{Command, ExitStatus, Output, Stdio};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
 use tracing::warn;
 
 #[cfg(feature = "shell-lint")]
@@ -207,6 +207,23 @@ where
     log_command(binary, &args, dir);
     let mut cmd = command_with_args(binary, &args, dir);
     cmd.status()
+}
+/// Spawn a detached-input command with inherited standard error.
+#[doc(hidden)]
+pub fn spawn<I, S>(binary: impl AsRef<OsStr>, args: I, dir: Option<&Path>) -> io::Result<Child>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let binary = binary.as_ref();
+    let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
+    log_command(&binary.to_string_lossy(), &args, dir);
+    let mut command = Command::new(binary);
+    command.args(&args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::inherit());
+    if let Some(dir) = dir {
+        command.current_dir(dir);
+    }
+    command.spawn()
 }
 /// Convert a command result to `Result<String, String>`.
 ///

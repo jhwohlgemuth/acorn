@@ -28,6 +28,7 @@ use tera::{Context, Tera};
 use tracing::warn;
 
 pub mod opencode;
+pub mod tools;
 
 /// Suffixes removed when deriving fallback model search names.
 pub const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
