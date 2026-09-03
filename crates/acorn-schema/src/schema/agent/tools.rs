@@ -1,5 +1,5 @@
 //! Portable data contracts for ACORN agent tools
-use acorn_core::prelude::alloc::{format, String};
+use acorn_core::prelude::alloc::{format, String, ToString};
 use acorn_core::{AcornError, AcornResult};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
