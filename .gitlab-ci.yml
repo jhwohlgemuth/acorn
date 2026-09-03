@@ -82,8 +82,7 @@ test:
     - make test-ci
     - make check
     - make wasm
-    - cargo package --no-verify --allow-dirty -p acorn-core
-    - cargo package --no-verify --allow-dirty -p acorn-schema
+    - cargo package --no-verify --allow-dirty -p acorn-core -p acorn-schema
 
 test-python:
   stage: test
