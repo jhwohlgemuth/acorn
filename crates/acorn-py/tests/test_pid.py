@@ -1,9 +1,25 @@
-from acorn.schema.pid import DOI, ISBN, ORCID, ROR, SWHID, Patent
+from acorn.schema.pid import DOI, ISBN, ORCID, ROR, SWHID, Arxiv, Patent
+
+
+def test_arxiv():
+    pid = Arxiv.from_string("https://arxiv.org/pdf/1501.00001v2.pdf")
+    assert pid.archive == ""
+    assert pid.identifier == "arXiv:1501.00001v2"
+    assert pid.schema_uri == "https://arxiv.org"
+    assert pid.version == "v2"
+    values = Arxiv.find_all("See arXiv:2106.09685 and arXiv:1412.7878v3.")
+    assert [value.identifier for value in values] == [
+        "arXiv:2106.09685",
+        "arXiv:1412.7878v3",
+    ]
 
 
 def test_doi():
     pid = DOI.from_string("https://doi.org/10.11578/dc.20250604.1")
     assert pid.identifier == "10.11578/dc.20250604.1"
+    assert pid.prefix == "10.11578"
+    assert pid.schema_uri == "https://doi.org"
+    assert pid.suffix == "dc.20250604.1"
     valid = "https://doi.org/10.11578/dc.20250604.1"
     text = f"I made a thing with dois {valid}, {valid} and {valid}. Please check it out."
     values = DOI.find_all(text)
@@ -18,6 +34,8 @@ def test_orcid():
     valid = "https://orcid.org/0000-0002-2057-9115"
     pid = ORCID.from_string(valid)
     assert pid.identifier == "0000-0002-2057-9115"
+    assert pid.schema_uri == "https://orcid.org/"
+    assert pid.check_digit == "5"
     text = f"I know some people with ORCIDs {valid}, {valid} and {valid}. Please check them out."
     values = ORCID.find_all(text)
     expected_count = 3
@@ -33,12 +51,20 @@ def test_isbn():
     expected_count = 1
     assert len(values) == expected_count
     assert str(values[0]) == "978-0-306-40619-5"
+    assert values[0].prefix_element == "978"
+    assert values[0].registration_group == "0"
+    assert values[0].publisher == "306"
+    assert values[0].title == "40619"
+    assert values[0].check_digit == "5"
 
 
 def test_patent():
     pid = Patent.from_string("US 9,374,321 B2")
     assert str(pid) == "US 9374321 B2"
+    assert pid.country_code == "US"
     assert pid.serial_number == "9374321"
+    assert pid.kind_code == "B2"
+    assert pid.year is None
     assert pid.is_granted()
     # Missing country code
     pid = Patent.from_string("9374321B2")
@@ -57,6 +83,8 @@ def test_ror():
     valid = f"https://ror.org/{identifier}"
     pid = ROR.from_string(valid)
     assert pid.identifier == identifier
+    assert pid.schema_uri == "https://ror.org/"
+    assert pid.check_digit == ""
     text = f"I know some orgs with ROR IDs {valid}, {valid} and {valid}. Please check them out."
     values = ROR.find_all(text)
     expected_count = 3

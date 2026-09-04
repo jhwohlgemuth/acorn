@@ -11,6 +11,33 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::path::PathBuf;
 
+macro_rules! impl_pid_wrapper {
+    ($wrapper:ident, $pid_type:ty, |$value:ident| $from_string:block, [$($field:ident: $field_type:ty),+ $(,)?] $(, {$($extra:item)*})?) => {
+        #[pymethods]
+        impl $wrapper {
+            #[staticmethod]
+            fn find_all(value: String) -> Vec<$wrapper> {
+                <$pid_type>::find_all(&value)
+                    .iter()
+                    .map(|identifier| Self::from_string(identifier.to_string()))
+                    .collect()
+            }
+            #[staticmethod]
+            fn from_string(value: String) -> $wrapper {
+                let $value = value;
+                $from_string
+            }
+            $(
+                #[getter]
+                fn $field(&self) -> $field_type {
+                    self.$field.clone()
+                }
+            )+
+            $($($extra)*)?
+        }
+    };
+}
+
 /// Python bindings for ACORN
 #[pymodule]
 #[pyo3(name = "acorn")]
@@ -177,14 +204,10 @@ impl PyContactPoint {
         self.organization.clone()
     }
 }
-#[pymethods]
-impl PyDOI {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyDOI> {
-        DOI::find_all(&value).iter().map(|d| PyDOI::from_string(d.clone().to_string())).collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyDOI {
+impl_pid_wrapper!(
+    PyDOI,
+    DOI,
+    |value| {
         let pid = DOI::from_string(&value);
         PyDOI {
             identifier: pid.identifier(),
@@ -192,35 +215,13 @@ impl PyDOI {
             suffix: pid.suffix().unwrap_or_default(),
             schema_uri: pid.schema_uri(),
         }
-    }
-    #[getter]
-    fn identifier(&self) -> String {
-        self.identifier.clone()
-    }
-    #[getter]
-    fn prefix(&self) -> String {
-        self.prefix.clone()
-    }
-    #[getter]
-    fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
-    }
-    #[getter]
-    fn suffix(&self) -> String {
-        self.suffix.clone()
-    }
-}
-#[pymethods]
-impl PyArxiv {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyArxiv> {
-        Arxiv::find_all(&value)
-            .iter()
-            .map(|identifier| PyArxiv::from_string(identifier.to_string()))
-            .collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyArxiv {
+    },
+    [identifier: String, prefix: String, schema_uri: String, suffix: String]
+);
+impl_pid_wrapper!(
+    PyArxiv,
+    Arxiv,
+    |value| {
         let pid = Arxiv::from_string(value);
         PyArxiv {
             archive: pid.archive.clone().unwrap_or_default(),
@@ -228,35 +229,13 @@ impl PyArxiv {
             schema_uri: pid.schema_uri(),
             version: pid.version.clone().unwrap_or_default(),
         }
-    }
-    #[getter]
-    fn archive(&self) -> String {
-        self.archive.clone()
-    }
-    #[getter]
-    fn identifier(&self) -> String {
-        self.identifier.clone()
-    }
-    #[getter]
-    fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
-    }
-    #[getter]
-    fn version(&self) -> String {
-        self.version.clone()
-    }
-}
-#[pymethods]
-impl PyISBN {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyISBN> {
-        ISBN::find_all(&value)
-            .iter()
-            .map(|p| PyISBN::from_string(p.clone().to_string()))
-            .collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyISBN {
+    },
+    [archive: String, identifier: String, schema_uri: String, version: String]
+);
+impl_pid_wrapper!(
+    PyISBN,
+    ISBN,
+    |value| {
         let pid = ISBN::from_string(&value);
         let ISBN {
             prefix_element,
@@ -272,42 +251,25 @@ impl PyISBN {
             title: title.unwrap_or_default(),
             check_digit: check_digit.unwrap_or_default(),
         }
+    },
+    [prefix_element: String, registration_group: String, publisher: String, title: String, check_digit: String],
+    {
+        fn __str__(&self) -> String {
+            let Self {
+                prefix_element,
+                registration_group,
+                publisher,
+                title,
+                check_digit,
+            } = self;
+            [prefix_element, registration_group, publisher, title, check_digit]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<String>>()
+                .join("-")
+        }
     }
-    #[getter]
-    fn prefix_element(&self) -> String {
-        self.prefix_element.clone()
-    }
-    #[getter]
-    fn registration_group(&self) -> String {
-        self.registration_group.clone()
-    }
-    #[getter]
-    fn publisher(&self) -> String {
-        self.publisher.clone()
-    }
-    #[getter]
-    fn title(&self) -> String {
-        self.title.clone()
-    }
-    #[getter]
-    fn check_digit(&self) -> String {
-        self.check_digit.clone()
-    }
-    fn __str__(&self) -> String {
-        let Self {
-            prefix_element,
-            registration_group,
-            publisher,
-            title,
-            check_digit,
-        } = self;
-        [prefix_element, registration_group, publisher, title, check_digit]
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<String>>()
-            .join("-")
-    }
-}
+);
 #[pymethods]
 impl PyMetadata {
     #[getter]
@@ -315,17 +277,10 @@ impl PyMetadata {
         self.identifier.clone()
     }
 }
-#[pymethods]
-impl PyORCID {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyORCID> {
-        ORCID::find_all(&value)
-            .iter()
-            .map(|p| PyORCID::from_string(p.clone().to_string()))
-            .collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyORCID {
+impl_pid_wrapper!(
+    PyORCID,
+    ORCID,
+    |value| {
         let pid = ORCID::from_string(&value);
         let ORCID {
             identifier,
@@ -337,31 +292,13 @@ impl PyORCID {
             schema_uri: schema_uri.unwrap_or_default(),
             check_digit: check_digit.unwrap_or_default(),
         }
-    }
-    #[getter]
-    fn identifier(&self) -> String {
-        self.identifier.clone()
-    }
-    #[getter]
-    fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
-    }
-    #[getter]
-    fn check_digit(&self) -> String {
-        self.check_digit.clone()
-    }
-}
-#[pymethods]
-impl PyPatent {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyPatent> {
-        Patent::find_all(&value)
-            .iter()
-            .map(|p| PyPatent::from_string(p.clone().to_string()))
-            .collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyPatent {
+    },
+    [identifier: String, schema_uri: String, check_digit: String]
+);
+impl_pid_wrapper!(
+    PyPatent,
+    Patent,
+    |value| {
         let pid = Patent::parse(&value);
         match pid {
             | Some(value) => match value {
@@ -400,32 +337,19 @@ impl PyPatent {
                 year: None,
             },
         }
+    },
+    [country_code: Option<String>, kind_code: String, serial_number: String, year: Option<String>],
+    {
+        fn is_granted(&self) -> bool {
+            let code = self.kind_code();
+            KindCode::from(code).is_granted()
+        }
+        fn __str__(&self) -> String {
+            let code = self.country_code().unwrap_or_else(|| CountryCode::default().to_string());
+            format!("{} {} {}", code, self.serial_number(), self.kind_code())
+        }
     }
-    #[getter]
-    fn country_code(&self) -> Option<String> {
-        self.country_code.clone()
-    }
-    #[getter]
-    fn kind_code(&self) -> String {
-        self.kind_code.clone()
-    }
-    #[getter]
-    fn serial_number(&self) -> String {
-        self.serial_number.clone()
-    }
-    #[getter]
-    fn year(&self) -> Option<String> {
-        self.year.clone()
-    }
-    fn is_granted(&self) -> bool {
-        let code = self.kind_code();
-        KindCode::from(code).is_granted()
-    }
-    fn __str__(&self) -> String {
-        let code = self.country_code().unwrap_or_else(|| CountryCode::default().to_string());
-        format!("{} {} {}", code, self.serial_number(), self.kind_code())
-    }
-}
+);
 #[pymethods]
 impl PyResearchActivity {
     #[staticmethod]
@@ -501,14 +425,10 @@ impl PyResearchActivity {
         self.title.clone()
     }
 }
-#[pymethods]
-impl PyROR {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PyROR> {
-        ROR::find_all(&value).iter().map(|d| PyROR::from_string(d.clone().to_string())).collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PyROR {
+impl_pid_wrapper!(
+    PyROR,
+    ROR,
+    |value| {
         let pid = ROR::from_string(&value);
         let ROR {
             identifier,
@@ -520,31 +440,13 @@ impl PyROR {
             schema_uri: schema_uri.unwrap_or_default(),
             check_digit: check_digit.unwrap_or_default(),
         }
-    }
-    #[getter]
-    fn identifier(&self) -> String {
-        self.identifier.clone()
-    }
-    #[getter]
-    fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
-    }
-    #[getter]
-    fn check_digit(&self) -> String {
-        self.check_digit.clone()
-    }
-}
-#[pymethods]
-impl PySWHID {
-    #[staticmethod]
-    fn find_all(value: String) -> Vec<PySWHID> {
-        SWHID::find_all(value)
-            .iter()
-            .map(|identifier| PySWHID::from_string(identifier.to_string()))
-            .collect()
-    }
-    #[staticmethod]
-    fn from_string(value: String) -> PySWHID {
+    },
+    [identifier: String, schema_uri: String, check_digit: String]
+);
+impl_pid_wrapper!(
+    PySWHID,
+    SWHID,
+    |value| {
         let pid = SWHID::from_string(value);
         PySWHID {
             core_identifier: pid.core_identifier(),
@@ -553,31 +455,14 @@ impl PySWHID {
             schema_uri: pid.schema_uri(),
             url: pid.url(),
         }
+    },
+    [core_identifier: String, identifier: String, object_type: String, schema_uri: String, url: String],
+    {
+        fn __str__(&self) -> String {
+            self.identifier.clone()
+        }
     }
-    #[getter]
-    fn core_identifier(&self) -> String {
-        self.core_identifier.clone()
-    }
-    #[getter]
-    fn identifier(&self) -> String {
-        self.identifier.clone()
-    }
-    #[getter]
-    fn object_type(&self) -> String {
-        self.object_type.clone()
-    }
-    #[getter]
-    fn schema_uri(&self) -> String {
-        self.schema_uri.clone()
-    }
-    #[getter]
-    fn url(&self) -> String {
-        self.url.clone()
-    }
-    fn __str__(&self) -> String {
-        self.identifier.clone()
-    }
-}
+);
 /// Convert a ARK into a standard format
 /// ### Example
 /// ```python
