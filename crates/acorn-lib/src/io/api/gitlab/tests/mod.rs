@@ -32,6 +32,11 @@ struct MergeRequestWorkflowState {
 }
 
 #[test]
+fn test_creator_slug_normalizes_and_falls_back() {
+    assert_eq!(sluggify(" Alice.Example ", 42), "alice-example");
+    assert_eq!(sluggify("---", 42), "user-42");
+}
+#[test]
 fn test_gitlab_credential_variables_match_precedence_and_headers() {
     assert_eq!(
         GITLAB_CREDENTIAL_VARIABLE_PAIRS,
@@ -43,459 +48,20 @@ fn test_gitlab_credential_variables_match_precedence_and_headers() {
     );
     assert_eq!(GITLAB_CREDENTIAL_VARIABLE_PAIRS.map(|(name, _)| name), GITLAB_TOKEN_VARIABLE_NAMES);
 }
-#[test]
-fn test_options_send_configured_token_header() {
-    let options = Options::with_token("job-token").token_header(GITLAB_JOB_TOKEN_HEADER).build();
-    let headers = Params::new()
-        .with_auth(options.token(), Some(options.token_header()))
-        .build()
-        .into_headers();
-    assert_eq!(
-        headers.get(GITLAB_JOB_TOKEN_HEADER).and_then(|value| value.to_str().ok()),
-        Some("job-token")
-    );
-    assert!(!headers.contains_key(GITLAB_PRIVATE_TOKEN_HEADER));
-}
-
-#[test]
-fn test_creator_slug_normalizes_and_falls_back() {
-    assert_eq!(sluggify(" Alice.Example ", 42), "alice-example");
-    assert_eq!(sluggify("---", 42), "user-42");
-}
-#[test]
-fn test_webhook_options_validate_reachability_and_credentials() {
-    assert!(WebhookOptions::new(Some("not a URL"), Some("legacy-secret"), Some("signing-secret"))
-        .validate()
-        .is_err());
-    assert!(WebhookOptions::new(Some("https://bot.example.org"), None, None).validate().is_err());
-    assert!(
-        WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("signing-secret"))
-            .validate()
-            .is_ok()
-    );
-}
-#[test]
-fn test_query_string() {
-    let param = param!(KeyValuePair, "per_page", "100");
-    let query = param.to_string::<PaginationKey, api::EmptyField>();
-    assert_eq!(query, "per_page=100");
-}
-#[test]
-fn test_params_to_query_string() {
-    let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "2")];
-    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-    assert_eq!(query, "?per_page=100&page=2");
-}
-#[test]
-fn test_params_to_query_string_with_invalid_fields() {
-    let params = vec![param!(KeyValuePair, "every_page", "100"), param!(KeyValuePair, "page", "42")];
-    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-    assert_eq!(query, "?page=42");
-}
-#[test]
-fn test_params_to_query_string_with_invalid_values() {
-    let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "not a number")];
-    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-    assert_eq!(query, "?per_page=100");
-    let params = vec![param!(KeyValuePair, "per_page", "{}"), param!(KeyValuePair, "page", "not a number")];
-    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
-    assert!(query.is_empty());
-}
-#[test]
-fn test_programming_languages_response_parse_filters_programming_only() {
-    let data = HashMap::from_iter([
-        (
-            "Python".to_string(),
-            ProgrammingLanguageDetails {
-                language_id: Some(303),
-                language_type: Some("programming".to_string()),
-                color: Some("#3572A5".to_string()),
-                group: None,
-            },
-        ),
-        (
-            "YAML".to_string(),
-            ProgrammingLanguageDetails {
-                language_id: Some(407),
-                language_type: Some("data".to_string()),
-                color: Some("#cb171e".to_string()),
-                group: None,
-            },
-        ),
-    ]);
-    let response = ProgrammingLanguagesResponse::parse(data);
-    assert_eq!(response.languages.len(), 1);
-    assert_eq!(response.languages[0].name, "Python");
-    assert_eq!(response.languages[0].language_id, Some(303));
-}
-#[test]
-fn test_programming_language_use_response_deserializes_map() {
-    let json = r#"{"Rust":98.12,"Makefile":0.5,"Python":0.49}"#;
-    let response: ProgrammingLanguageUseResponse = serde_json::from_str(json).expect("should deserialize language usage map");
-    assert_eq!(response.languages.len(), 3);
-    assert_eq!(response.languages[0].name, "Makefile");
-    assert_eq!(response.languages[0].percentage, 0.5);
-    assert_eq!(response.languages[1].name, "Python");
-    assert_eq!(response.languages[2].name, "Rust");
-}
-#[test]
-fn test_parse_tree_paths_response_filters_blob_entries() {
-    let json = r#"[
-        {"id":"1","name":"README.md","type":"blob","path":"README.md","mode":"100644"},
-        {"id":"2","name":"content","type":"tree","path":"content","mode":"040000"}
-    ]"#;
-    let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
-    assert_eq!(response.paths, vec!["README.md".to_string()]);
-    assert_eq!(response.entry_count, 2);
-}
-#[test]
-fn test_parse_tree_paths_response_retains_directory_only_page_count() {
-    let json = r#"[
-        {"id":"1","name":"content","type":"tree","path":"content","mode":"040000"},
-        {"id":"2","name":"docs","type":"tree","path":"docs","mode":"040000"}
-    ]"#;
-    let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
-    assert!(response.paths.is_empty());
-    assert_eq!(response.entry_count, 2);
-}
-#[test]
-fn test_parse_tree_paths_response_treats_later_page_403_as_terminal() {
-    let json = r#"{"message":"403 Forbidden"}"#;
-    let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
-    assert!(response.error.is_some());
-    let response = handle_tree_paths_response(Ok(response), 3).expect("later-page forbidden should be terminal");
-    assert!(response.paths.is_empty());
-}
-#[test]
-fn test_parse_tree_paths_response_returns_error_on_first_page_403() {
-    let json = r#"{"message":"403 Forbidden"}"#;
-    let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
-    let why = handle_tree_paths_response(Ok(response), 1).expect_err("first-page forbidden should fail");
-    assert!(why.to_string().contains("403 Forbidden"));
-}
-#[test]
-fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
-    let html = "<!doctype html><html><body>403 Forbidden</body></html>";
-    let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
-    assert!(why.to_string().contains("expected value"));
-}
 #[tokio::test]
-async fn test_repository_tree_treats_later_page_empty_403_as_terminal() {
-    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
-    let response = repository_tree(&options).await.expect("later-page forbidden should be terminal");
-    assert!(response.paths.is_empty());
-    assert_eq!(response.entry_count, 0);
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_repository_tree_reports_first_page_empty_403_status() {
-    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
-    let why = repository_tree(&options).await.expect_err("first-page forbidden should fail");
-    assert!(why.to_string().contains("HTTP 403"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_repository_tree_reports_later_page_403_with_reason() {
+async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
     let router = Router::new().route(
-        "/api/v4/projects/30/repository/tree",
-        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
-    );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
-    let why = repository_tree(&options)
-        .await
-        .expect_err("later-page forbidden with a reason should fail");
-    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_repository_file_reports_non_json_error_status() {
-    let router = Router::new().route(
-        "/api/v4/projects/30/repository/files/activity.json",
-        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
-    );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("")
-        .domain(&server.base_url)
-        .identifier("30")
-        .path("activity.json")
-        .sha("HEAD")
-        .build();
-    let why = repository_file(&options).await.expect_err("forbidden repository file should fail");
-    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
-    assert!(!why.to_string().contains("missing field `file_path`"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_details_resolves_identifier_and_default_branch() {
-    let router = Router::new().route(
-        "/api/v4/projects/30",
-        get(|| async { Json(serde_json::json!({"id": 30, "default_branch": "main", "path_with_namespace": "group/quest"})) }),
-    );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
-    let details = project_details(&options).await.expect("project details should resolve");
-    assert_eq!(details.identifier, 30);
-    assert_eq!(details.default_branch.as_deref(), Some("main"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_details_accepts_missing_default_branch() {
-    let router = Router::new().route("/api/v4/projects/30", get(|| async { Json(serde_json::json!({"id": 30})) }));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
-    let details = project_details(&options)
-        .await
-        .expect("project details without default branch should resolve");
-    assert_eq!(details.identifier, 30);
-    assert_eq!(details.default_branch, None);
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_details_requires_identifier() {
-    let options = Options::with_token("").domain("gitlab.com").build();
-    let why = project_details(&options)
-        .await
-        .expect_err("project details without identifier should fail");
-    assert!(why.to_string().contains("project identifier is required"));
-}
-#[tokio::test]
-async fn test_project_webhook_registration_uses_signing_token_on_gitlab_19() {
-    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
-    let router = Router::new()
-        .route(
-            "/api/v4/version",
-            get(|| async { Json(serde_json::json!({"version":"19.1.0","revision":"abc"})) }),
-        )
-        .route(
-            "/api/v4/projects/30/hooks",
-            get(|| async { Json(serde_json::json!([])) }).post(
-                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
-                    bodies.lock().unwrap().push(body);
-                    Json(serde_json::json!({
-                        "id": 7,
-                        "url": "https://bot.example.org/webhooks/gitlab",
-                        "merge_requests_events": true,
-                        "note_events": true,
-                        "enable_ssl_verification": true,
-                        "signing_token_present": true
-                    }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&bodies));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
-    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
-    let body = bodies.lock().unwrap()[0].clone();
-    assert!(result.created);
-    assert_eq!(body.get("signing_token").and_then(serde_json::Value::as_str), Some("whsec_c2lnbmluZw=="));
-    assert!(body.get("token").is_none());
-    assert_eq!(body.get("merge_requests_events").and_then(serde_json::Value::as_bool), Some(true));
-    assert_eq!(body.get("note_events").and_then(serde_json::Value::as_bool), Some(true));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_webhooks_reads_every_page() {
-    let router = Router::new().route(
-        "/api/v4/projects/30/hooks",
-        get(|request: Request| async move {
-            let page = request
-                .uri()
-                .query()
-                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
-                .unwrap_or("1");
-            let hooks = if page == "1" {
-                (0..100)
-                    .map(|id| {
-                        serde_json::json!({
-                            "id": id,
-                            "url": format!("https://bot.example.org/{id}"),
-                            "merge_requests_events": true,
-                            "note_events": true,
-                            "enable_ssl_verification": true
-                        })
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                vec![serde_json::json!({
-                    "id": 100,
-                    "url": "https://bot.example.org/webhooks/gitlab",
-                    "merge_requests_events": true,
-                    "note_events": true,
-                    "enable_ssl_verification": true
-                })]
-            };
-            Json(hooks)
-        }),
-    );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    assert_eq!(project_webhooks(&options).await.unwrap().len(), 101);
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_webhook_registration_uses_legacy_token_before_gitlab_19() {
-    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
-    let router = Router::new()
-        .route(
-            "/api/v4/version",
-            get(|| async { Json(serde_json::json!({"version":"18.11.2","revision":"abc"})) }),
-        )
-        .route(
-            "/api/v4/projects/30/hooks",
-            get(|| async { Json(serde_json::json!([])) }).post(
-                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
-                    bodies.lock().unwrap().push(body);
-                    Json(serde_json::json!({
-                        "id": 8,
-                        "url": "https://bot.example.org/webhooks/gitlab",
-                        "merge_requests_events": true,
-                        "note_events": true,
-                        "enable_ssl_verification": true,
-                        "token_present": true
-                    }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&bodies));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
-    upsert_project_webhook(&options, &webhook_options).await.unwrap();
-    let body = bodies.lock().unwrap()[0].clone();
-    assert_eq!(body.get("token").and_then(serde_json::Value::as_str), Some("legacy-secret"));
-    assert!(body.get("signing_token").is_none());
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_webhook_registration_refreshes_exact_existing_hook_credential() {
-    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
-    let router = Router::new()
-        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
-        .route(
-            "/api/v4/projects/30/hooks",
-            get(|| async {
-                Json(serde_json::json!([{
-                    "id": 9,
-                    "url": "https://bot.example.org/webhooks/gitlab",
-                    "merge_requests_events": true,
-                    "note_events": true,
-                    "enable_ssl_verification": true,
-                    "signing_token_present": true
-                }]))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/hooks/9",
-            put(
-                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
-                    bodies.lock().unwrap().push(body);
-                    Json(serde_json::json!({
-                        "id": 9,
-                        "url": "https://bot.example.org/webhooks/gitlab",
-                        "merge_requests_events": true,
-                        "note_events": true,
-                        "enable_ssl_verification": true,
-                        "signing_token_present": true
-                    }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&bodies));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    let webhook_options = WebhookOptions::new(Some("https://bot.example.org/"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
-    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
-    assert!(!result.created);
-    assert_eq!(result.hook.id, 9);
-    assert_eq!(
-        bodies.lock().unwrap()[0].get("signing_token").and_then(serde_json::Value::as_str),
-        Some("whsec_c2lnbmluZw==")
-    );
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_webhook_registration_updates_mismatched_hook_without_duplication() {
-    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
-    let router = Router::new()
-        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
-        .route(
-            "/api/v4/projects/30/hooks",
-            get(|| async {
-                Json(serde_json::json!([{
-                    "id": 10,
-                    "url": "https://bot.example.org/webhooks/gitlab",
-                    "merge_requests_events": false,
-                    "note_events": true,
-                    "enable_ssl_verification": true
-                }]))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/hooks/10",
-            put(
-                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
-                    bodies.lock().unwrap().push(body);
-                    Json(serde_json::json!({
-                        "id": 10,
-                        "url": "https://bot.example.org/webhooks/gitlab",
-                        "merge_requests_events": true,
-                        "note_events": true,
-                        "enable_ssl_verification": true,
-                        "signing_token_present": true
-                    }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&bodies));
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
-    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
-    assert!(!result.created);
-    assert_eq!(bodies.lock().unwrap().len(), 1);
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_project_webhook_registration_surfaces_permission_error_without_credentials() {
-    let router = Router::new()
-        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"18.11.2"})) }))
-        .route(
-            "/api/v4/projects/30/hooks",
-            get(|| async { (axum::http::StatusCode::FORBIDDEN, Json(serde_json::json!({"message":"403 Forbidden"}))) }),
-        );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound-secret").domain(&server.base_url).identifier("30").build();
-    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("inbound-secret"), Some("whsec_c2lnbmluZw=="));
-    let error = upsert_project_webhook(&options, &webhook_options).await.unwrap_err().to_string();
-    assert!(!error.contains("outbound-secret"));
-    assert!(!error.contains("inbound-secret"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_merge_request_diffs_reads_every_page() {
-    let router = Router::new().route(
-        "/api/v4/projects/30/merge_requests/7/diffs",
-        get(|request: Request| async move {
-            let page = request
-                .uri()
-                .query()
-                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
-                .unwrap_or("1");
-            let diffs = if page == "1" {
-                (0..100)
-                    .map(|index| serde_json::json!({"old_path":format!("old-{index}.json"),"new_path":format!("new-{index}.json")}))
-                    .collect::<Vec<_>>()
-            } else {
-                vec![serde_json::json!({"old_path":"last.json","new_path":"last.json"})]
-            };
-            Json(diffs)
+        "/api/v4/projects/30/merge_requests/7",
+        get(|| async {
+            Json(serde_json::json!({
+                "iid": 7,
+                "project_id": 30,
+                "source_project_id": 30,
+                "sha": "new-sha",
+                "title": "Updated",
+                "description": "",
+                "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+            }))
         }),
     );
     let server = TestServer::start(router).await.unwrap();
@@ -503,8 +69,117 @@ async fn test_merge_request_diffs_reads_every_page() {
         .domain(&server.base_url)
         .identifier("30")
         .internal_identifier("7")
+        .sha("old-sha")
         .build();
-    assert_eq!(merge_request_diffs(&options).await.unwrap().len(), 101);
+    let outcome = review::analyze_merge_request(&options, &crate::analyzer::AnalysisContext::default())
+        .await
+        .unwrap();
+    assert!(matches!(
+        outcome,
+        review::MergeRequestAnalysisOutcome::Stale {
+            queued_sha,
+            current_sha
+        } if queued_sha == "old-sha" && current_sha == "new-sha"
+    ));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_merge_request_analysis_fails_status_for_oversized_supported_file() {
+    let state = MergeRequestWorkflowState::default();
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/7",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid": 7,
+                    "project_id": 30,
+                    "source_project_id": 30,
+                    "sha": "large-sha",
+                    "title": "Large metadata",
+                    "description": "",
+                    "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/diffs",
+            get(|| async { Json(serde_json::json!([{"old_path":"large.json","new_path":"large.json"}])) }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/files/large.json",
+            get(|| async {
+                Json(serde_json::json!({
+                    "file_path": "large.json",
+                    "size": 1_048_577,
+                    "encoding": "base64",
+                    "content": ""
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/statuses/large-sha",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.statuses.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "name": "acorn/check",
+                        "sha": "large-sha",
+                        "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
+                        "description": body.get("description").cloned(),
+                        "target_url": body.get("target_url").cloned()
+                    }))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests/7/notes",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.notes.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({"id": 89, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .sha("large-sha")
+        .build();
+    let check_options = crate::analyzer::AnalysisContext {
+        analysis: crate::analyzer::AnalysisOptions {
+            skip: vec![
+                "schema".to_string(),
+                "link".to_string(),
+                "prose".to_string(),
+                "quality".to_string(),
+                "readability".to_string(),
+                "crosswalk".to_string(),
+            ],
+            ..crate::analyzer::AnalysisOptions::default()
+        },
+        execution: crate::analyzer::ExecutionOptions {
+            offline: true,
+            ..crate::analyzer::ExecutionOptions::default()
+        },
+        ..crate::analyzer::AnalysisContext::default()
+    };
+    let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
+    let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
+        panic!("expected published analysis");
+    };
+    assert!(report.failed());
+    assert!(!report.requires_retry());
+    assert_eq!(
+        report.inputs.iter().filter(|input| matches!(input, review::Input::Failed { .. })).count(),
+        1
+    );
+    let statuses = state.statuses.lock().unwrap().clone();
+    assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
+    assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("failed"));
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -662,140 +337,6 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
     server.stop().await.unwrap();
 }
 #[tokio::test]
-async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
-    let router = Router::new().route(
-        "/api/v4/projects/30/merge_requests/7",
-        get(|| async {
-            Json(serde_json::json!({
-                "iid": 7,
-                "project_id": 30,
-                "source_project_id": 30,
-                "sha": "new-sha",
-                "title": "Updated",
-                "description": "",
-                "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
-            }))
-        }),
-    );
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound")
-        .domain(&server.base_url)
-        .identifier("30")
-        .internal_identifier("7")
-        .sha("old-sha")
-        .build();
-    let outcome = review::analyze_merge_request(&options, &crate::analyzer::AnalysisContext::default())
-        .await
-        .unwrap();
-    assert!(matches!(
-        outcome,
-        review::MergeRequestAnalysisOutcome::Stale {
-            queued_sha,
-            current_sha
-        } if queued_sha == "old-sha" && current_sha == "new-sha"
-    ));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_merge_request_analysis_fails_status_for_oversized_supported_file() {
-    let state = MergeRequestWorkflowState::default();
-    let router = Router::new()
-        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 500})) }))
-        .route(
-            "/api/v4/projects/30/merge_requests/7",
-            get(|| async {
-                Json(serde_json::json!({
-                    "iid": 7,
-                    "project_id": 30,
-                    "source_project_id": 30,
-                    "sha": "large-sha",
-                    "title": "Large metadata",
-                    "description": "",
-                    "web_url": "https://gitlab.example.test/project/-/merge_requests/7"
-                }))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/merge_requests/7/diffs",
-            get(|| async { Json(serde_json::json!([{"old_path":"large.json","new_path":"large.json"}])) }),
-        )
-        .route(
-            "/api/v4/projects/30/repository/files/large.json",
-            get(|| async {
-                Json(serde_json::json!({
-                    "file_path": "large.json",
-                    "size": 1_048_577,
-                    "encoding": "base64",
-                    "content": ""
-                }))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/statuses/large-sha",
-            post(
-                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
-                    state.statuses.lock().unwrap().push(body.clone());
-                    Json(serde_json::json!({
-                        "name": "acorn/check",
-                        "sha": "large-sha",
-                        "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
-                        "description": body.get("description").cloned(),
-                        "target_url": body.get("target_url").cloned()
-                    }))
-                },
-            ),
-        )
-        .route(
-            "/api/v4/projects/30/merge_requests/7/notes",
-            get(|| async { Json(serde_json::json!([])) }).post(
-                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
-                    state.notes.lock().unwrap().push(body.clone());
-                    Json(serde_json::json!({"id": 89, "body": body.get("body").and_then(serde_json::Value::as_str).unwrap_or_default()}))
-                },
-            ),
-        )
-        .with_state(state.clone());
-    let server = TestServer::start(router).await.unwrap();
-    let options = Options::with_token("outbound")
-        .domain(&server.base_url)
-        .identifier("30")
-        .internal_identifier("7")
-        .sha("large-sha")
-        .build();
-    let check_options = crate::analyzer::AnalysisContext {
-        analysis: crate::analyzer::AnalysisOptions {
-            skip: vec![
-                "schema".to_string(),
-                "link".to_string(),
-                "prose".to_string(),
-                "quality".to_string(),
-                "readability".to_string(),
-                "crosswalk".to_string(),
-            ],
-            ..crate::analyzer::AnalysisOptions::default()
-        },
-        execution: crate::analyzer::ExecutionOptions {
-            offline: true,
-            ..crate::analyzer::ExecutionOptions::default()
-        },
-        ..crate::analyzer::AnalysisContext::default()
-    };
-    let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
-    let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
-        panic!("expected published analysis");
-    };
-    assert!(report.failed());
-    assert!(!report.requires_retry());
-    assert_eq!(
-        report.inputs.iter().filter(|input| matches!(input, review::Input::Failed { .. })).count(),
-        1
-    );
-    let statuses = state.statuses.lock().unwrap().clone();
-    assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
-    assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("failed"));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
 async fn test_merge_request_analysis_retries_inaccessible_supported_content_after_reporting_failure() {
     let state = MergeRequestWorkflowState::default();
     let router = Router::new()
@@ -886,6 +427,452 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
     server.stop().await.unwrap();
 }
 #[tokio::test]
+async fn test_merge_request_diffs_reads_every_page() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/merge_requests/7/diffs",
+        get(|request: Request| async move {
+            let page = request
+                .uri()
+                .query()
+                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
+                .unwrap_or("1");
+            let diffs = if page == "1" {
+                (0..100)
+                    .map(|index| serde_json::json!({"old_path":format!("old-{index}.json"),"new_path":format!("new-{index}.json")}))
+                    .collect::<Vec<_>>()
+            } else {
+                vec![serde_json::json!({"old_path":"last.json","new_path":"last.json"})]
+            };
+            Json(diffs)
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .internal_identifier("7")
+        .build();
+    assert_eq!(merge_request_diffs(&options).await.unwrap().len(), 101);
+    server.stop().await.unwrap();
+}
+#[test]
+fn test_options_send_configured_token_header() {
+    let options = Options::with_token("job-token").token_header(GITLAB_JOB_TOKEN_HEADER).build();
+    let headers = Params::new()
+        .with_auth(options.token(), Some(options.token_header()))
+        .build()
+        .into_headers();
+    assert_eq!(
+        headers.get(GITLAB_JOB_TOKEN_HEADER).and_then(|value| value.to_str().ok()),
+        Some("job-token")
+    );
+    assert!(!headers.contains_key(GITLAB_PRIVATE_TOKEN_HEADER));
+}
+#[test]
+fn test_params_to_query_string() {
+    let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "2")];
+    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
+    assert_eq!(query, "?per_page=100&page=2");
+}
+#[test]
+fn test_params_to_query_string_with_invalid_fields() {
+    let params = vec![param!(KeyValuePair, "every_page", "100"), param!(KeyValuePair, "page", "42")];
+    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
+    assert_eq!(query, "?page=42");
+}
+#[test]
+fn test_params_to_query_string_with_invalid_values() {
+    let params = vec![param!(KeyValuePair, "per_page", "100"), param!(KeyValuePair, "page", "not a number")];
+    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
+    assert_eq!(query, "?per_page=100");
+    let params = vec![param!(KeyValuePair, "per_page", "{}"), param!(KeyValuePair, "page", "not a number")];
+    let query = Param::to_query_string::<PaginationKey, api::EmptyField>(params);
+    assert!(query.is_empty());
+}
+#[test]
+fn test_parse_tree_paths_response_filters_blob_entries() {
+    let json = r#"[
+        {"id":"1","name":"README.md","type":"blob","path":"README.md","mode":"100644"},
+        {"id":"2","name":"content","type":"tree","path":"content","mode":"040000"}
+    ]"#;
+    let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
+    assert_eq!(response.paths, vec!["README.md".to_string()]);
+    assert_eq!(response.entry_count, 2);
+}
+#[test]
+fn test_parse_tree_paths_response_retains_directory_only_page_count() {
+    let json = r#"[
+        {"id":"1","name":"content","type":"tree","path":"content","mode":"040000"},
+        {"id":"2","name":"docs","type":"tree","path":"docs","mode":"040000"}
+    ]"#;
+    let response: TreeResponse = serde_json::from_str(json).expect("tree entries should parse");
+    assert!(response.paths.is_empty());
+    assert_eq!(response.entry_count, 2);
+}
+#[test]
+fn test_parse_tree_paths_response_returns_actionable_error_for_non_json() {
+    let html = "<!doctype html><html><body>403 Forbidden</body></html>";
+    let why = serde_json::from_str::<TreeResponse>(html).expect_err("non-json response should fail with parse error");
+    assert!(why.to_string().contains("expected value"));
+}
+#[test]
+fn test_parse_tree_paths_response_returns_error_on_first_page_403() {
+    let json = r#"{"message":"403 Forbidden"}"#;
+    let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
+    let why = handle_tree_paths_response(Ok(response), 1).expect_err("first-page forbidden should fail");
+    assert!(why.to_string().contains("403 Forbidden"));
+}
+#[test]
+fn test_parse_tree_paths_response_treats_later_page_403_as_terminal() {
+    let json = r#"{"message":"403 Forbidden"}"#;
+    let response: TreeResponse = serde_json::from_str(json).expect("error payload should deserialize as tree response");
+    assert!(response.error.is_some());
+    let response = handle_tree_paths_response(Ok(response), 3).expect("later-page forbidden should be terminal");
+    assert!(response.paths.is_empty());
+}
+#[test]
+fn test_programming_language_use_response_deserializes_map() {
+    let json = r#"{"Rust":98.12,"Makefile":0.5,"Python":0.49}"#;
+    let response: ProgrammingLanguageUseResponse = serde_json::from_str(json).expect("should deserialize language usage map");
+    assert_eq!(response.languages.len(), 3);
+    assert_eq!(response.languages[0].name, "Makefile");
+    assert_eq!(response.languages[0].percentage, 0.5);
+    assert_eq!(response.languages[1].name, "Python");
+    assert_eq!(response.languages[2].name, "Rust");
+}
+#[test]
+fn test_programming_languages_response_parse_filters_programming_only() {
+    let data = HashMap::from_iter([
+        (
+            "Python".to_string(),
+            ProgrammingLanguageDetails {
+                language_id: Some(303),
+                language_type: Some("programming".to_string()),
+                color: Some("#3572A5".to_string()),
+                group: None,
+            },
+        ),
+        (
+            "YAML".to_string(),
+            ProgrammingLanguageDetails {
+                language_id: Some(407),
+                language_type: Some("data".to_string()),
+                color: Some("#cb171e".to_string()),
+                group: None,
+            },
+        ),
+    ]);
+    let response = ProgrammingLanguagesResponse::parse(data);
+    assert_eq!(response.languages.len(), 1);
+    assert_eq!(response.languages[0].name, "Python");
+    assert_eq!(response.languages[0].language_id, Some(303));
+}
+#[tokio::test]
+async fn test_project_details_accepts_missing_default_branch() {
+    let router = Router::new().route("/api/v4/projects/30", get(|| async { Json(serde_json::json!({"id": 30})) }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let details = project_details(&options)
+        .await
+        .expect("project details without default branch should resolve");
+    assert_eq!(details.identifier, 30);
+    assert_eq!(details.default_branch, None);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_details_requires_identifier() {
+    let options = Options::with_token("").domain("gitlab.com").build();
+    let why = project_details(&options)
+        .await
+        .expect_err("project details without identifier should fail");
+    assert!(why.to_string().contains("project identifier is required"));
+}
+#[tokio::test]
+async fn test_project_details_resolves_identifier_and_default_branch() {
+    let router = Router::new().route(
+        "/api/v4/projects/30",
+        get(|| async { Json(serde_json::json!({"id": 30, "default_branch": "main", "path_with_namespace": "group/quest"})) }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let details = project_details(&options).await.expect("project details should resolve");
+    assert_eq!(details.identifier, 30);
+    assert_eq!(details.default_branch.as_deref(), Some("main"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_refreshes_exact_existing_hook_credential() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 9,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": true,
+                    "note_events": true,
+                    "enable_ssl_verification": true,
+                    "signing_token_present": true
+                }]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks/9",
+            put(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 9,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org/"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    assert!(!result.created);
+    assert_eq!(result.hook.id, 9);
+    assert_eq!(
+        bodies.lock().unwrap()[0].get("signing_token").and_then(serde_json::Value::as_str),
+        Some("whsec_c2lnbmluZw==")
+    );
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_surfaces_permission_error_without_credentials() {
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"18.11.2"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { (axum::http::StatusCode::FORBIDDEN, Json(serde_json::json!({"message":"403 Forbidden"}))) }),
+        );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound-secret").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("inbound-secret"), Some("whsec_c2lnbmluZw=="));
+    let error = upsert_project_webhook(&options, &webhook_options).await.unwrap_err().to_string();
+    assert!(!error.contains("outbound-secret"));
+    assert!(!error.contains("inbound-secret"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_updates_mismatched_hook_without_duplication() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route("/api/v4/version", get(|| async { Json(serde_json::json!({"version":"19.1.0"})) }))
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async {
+                Json(serde_json::json!([{
+                    "id": 10,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": false,
+                    "note_events": true,
+                    "enable_ssl_verification": true
+                }]))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks/10",
+            put(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 10,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    assert!(!result.created);
+    assert_eq!(bodies.lock().unwrap().len(), 1);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_uses_legacy_token_before_gitlab_19() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route(
+            "/api/v4/version",
+            get(|| async { Json(serde_json::json!({"version":"18.11.2","revision":"abc"})) }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 8,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    let body = bodies.lock().unwrap()[0].clone();
+    assert_eq!(body.get("token").and_then(serde_json::Value::as_str), Some("legacy-secret"));
+    assert!(body.get("signing_token").is_none());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhook_registration_uses_signing_token_on_gitlab_19() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let router = Router::new()
+        .route(
+            "/api/v4/version",
+            get(|| async { Json(serde_json::json!({"version":"19.1.0","revision":"abc"})) }),
+        )
+        .route(
+            "/api/v4/projects/30/hooks",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(bodies): State<Arc<Mutex<Vec<serde_json::Value>>>>, Json(body): Json<serde_json::Value>| async move {
+                    bodies.lock().unwrap().push(body);
+                    Json(serde_json::json!({
+                        "id": 7,
+                        "url": "https://bot.example.org/webhooks/gitlab",
+                        "merge_requests_events": true,
+                        "note_events": true,
+                        "enable_ssl_verification": true,
+                        "signing_token_present": true
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&bodies));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let webhook_options = WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("whsec_c2lnbmluZw=="));
+    let result = upsert_project_webhook(&options, &webhook_options).await.unwrap();
+    let body = bodies.lock().unwrap()[0].clone();
+    assert!(result.created);
+    assert_eq!(body.get("signing_token").and_then(serde_json::Value::as_str), Some("whsec_c2lnbmluZw=="));
+    assert!(body.get("token").is_none());
+    assert_eq!(body.get("merge_requests_events").and_then(serde_json::Value::as_bool), Some(true));
+    assert_eq!(body.get("note_events").and_then(serde_json::Value::as_bool), Some(true));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_project_webhooks_reads_every_page() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/hooks",
+        get(|request: Request| async move {
+            let page = request
+                .uri()
+                .query()
+                .and_then(|query| query.split('&').find_map(|part| part.strip_prefix("page=")))
+                .unwrap_or("1");
+            let hooks = if page == "1" {
+                (0..100)
+                    .map(|id| {
+                        serde_json::json!({
+                            "id": id,
+                            "url": format!("https://bot.example.org/{id}"),
+                            "merge_requests_events": true,
+                            "note_events": true,
+                            "enable_ssl_verification": true
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                vec![serde_json::json!({
+                    "id": 100,
+                    "url": "https://bot.example.org/webhooks/gitlab",
+                    "merge_requests_events": true,
+                    "note_events": true,
+                    "enable_ssl_verification": true
+                })]
+            };
+            Json(hooks)
+        }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    assert_eq!(project_webhooks(&options).await.unwrap().len(), 101);
+    server.stop().await.unwrap();
+}
+#[test]
+fn test_query_string() {
+    let param = param!(KeyValuePair, "per_page", "100");
+    let query = param.to_string::<PaginationKey, api::EmptyField>();
+    assert_eq!(query, "per_page=100");
+}
+#[tokio::test]
+async fn test_repository_file_reports_non_json_error_status() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/repository/files/activity.json",
+        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("")
+        .domain(&server.base_url)
+        .identifier("30")
+        .path("activity.json")
+        .sha("HEAD")
+        .build();
+    let why = repository_file(&options).await.expect_err("forbidden repository file should fail");
+    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
+    assert!(!why.to_string().contains("missing field `file_path`"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_tree_reports_first_page_empty_403_status() {
+    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").build();
+    let why = repository_tree(&options).await.expect_err("first-page forbidden should fail");
+    assert!(why.to_string().contains("HTTP 403"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_tree_reports_later_page_403_with_reason() {
+    let router = Router::new().route(
+        "/api/v4/projects/30/repository/tree",
+        get(|| async { (axum::http::StatusCode::FORBIDDEN, "Access is restricted") }),
+    );
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
+    let why = repository_tree(&options)
+        .await
+        .expect_err("later-page forbidden with a reason should fail");
+    assert!(why.to_string().contains("HTTP 403: Access is restricted"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_repository_tree_treats_later_page_empty_403_as_terminal() {
+    let router = Router::new().route("/api/v4/projects/30/repository/tree", get(|| async { axum::http::StatusCode::FORBIDDEN }));
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("").domain(&server.base_url).identifier("30").page(2).build();
+    let response = repository_tree(&options).await.expect("later-page forbidden should be terminal");
+    assert!(response.paths.is_empty());
+    assert_eq!(response.entry_count, 0);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
 async fn test_upsert_merge_request_note_updates_existing_marker() {
     let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
     let router = Router::new()
@@ -923,7 +910,20 @@ async fn test_upsert_merge_request_note_updates_existing_marker() {
     assert_eq!(bodies.lock().unwrap().len(), 1);
     server.stop().await.unwrap();
 }
+#[test]
+fn test_webhook_options_validate_reachability_and_credentials() {
+    assert!(WebhookOptions::new(Some("not a URL"), Some("legacy-secret"), Some("signing-secret"))
+        .validate()
+        .is_err());
+    assert!(WebhookOptions::new(Some("https://bot.example.org"), None, None).validate().is_err());
+    assert!(
+        WebhookOptions::new(Some("https://bot.example.org"), Some("legacy-secret"), Some("signing-secret"))
+            .validate()
+            .is_ok()
+    );
+}
 #[cfg(test)]
 mod bot;
+mod database;
 #[cfg(feature = "analysis")]
 mod intake;

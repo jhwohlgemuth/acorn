@@ -5,8 +5,8 @@ use super::database::OperationQueue;
 #[cfg(feature = "analysis")]
 use super::intake::analyze_work_item;
 use crate::io::api;
-use crate::io::{self, ApiResult};
-use acorn_core::util::constant_time_eq;
+use crate::io::api::webhooks::{self, Verifier};
+use crate::io::ApiResult;
 use alloc::sync::Arc;
 use axum::body::to_bytes;
 use axum::extract::Request;
@@ -14,16 +14,17 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Extension;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
-use core::{fmt, future::Future, pin::Pin};
-use data_encoding::BASE64;
-use ring::hmac;
+use core::fmt;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "analysis")]
 use tracing::info;
 
+/// An authenticated, normalized webhook delivery ready for processing.
+pub type WebhookDelivery = webhooks::Delivery<HookPayload>;
 /// Awaitable result produced by a durable webhook operation
-pub type WebhookOperation = Pin<Box<dyn Future<Output = ApiResult<()>> + Send>>;
+pub type WebhookOperation = webhooks::Operation;
 /// Callback used by durable webhook workers
-pub type WebhookOperationHandler = Arc<dyn Fn(WebhookDelivery) -> WebhookOperation + Send + Sync + 'static>;
+pub type WebhookOperationHandler = webhooks::OperationHandler<HookPayload>;
 /// Normalized payload from a GitLab webhook delivery, with struct-like enum variants per event kind.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum HookPayload {
@@ -156,29 +157,10 @@ pub(super) struct WebhookConfig {
     project_id: Option<u64>,
     operation_queue: OperationQueue,
 }
-/// An authenticated, normalized webhook delivery ready for processing.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct WebhookDelivery {
-    /// Delivery identifier from `webhook-id`, `Idempotency-Key`, or `X-Gitlab-Webhook-UUID`.
-    pub delivery_id: String,
-    /// Normalized event payload.
-    pub event: HookPayload,
-}
 #[derive(Debug)]
 struct WebhookError {
     status: StatusCode,
     message: String,
-}
-impl HookActor {
-    /// Create webhook actor metadata.
-    pub fn new(project_id: u64, user_id: u64, username: impl Into<String>, is_bot: bool) -> Self {
-        Self {
-            project_id,
-            user_id,
-            username: username.into(),
-            is_bot,
-        }
-    }
 }
 impl From<(u64, HookUser)> for HookActor {
     fn from((project_id, user): (u64, HookUser)) -> Self {
@@ -191,6 +173,17 @@ impl From<(u64, HookUser)> for HookActor {
             project_id,
             user_id,
             username,
+            is_bot,
+        }
+    }
+}
+impl HookActor {
+    /// Create webhook actor metadata.
+    pub fn new(project_id: u64, user_id: u64, username: impl Into<String>, is_bot: bool) -> Self {
+        Self {
+            project_id,
+            user_id,
+            username: username.into(),
             is_bot,
         }
     }
@@ -229,12 +222,9 @@ impl From<WebhookDelivery> for StatusCode {
 }
 impl Webhook {
     /// Normalize a supported GitLab webhook payload and validate its project identifier
-    fn normalize(headers: &HeaderMap, raw_body: &[u8], expected_project_id: Option<u64>) -> ApiResult<Self> {
+    fn normalize(delivery_id: &str, headers: &HeaderMap, raw_body: &[u8], expected_project_id: Option<u64>) -> ApiResult<Self> {
         let event_type = api::first_header(headers, &["x-gitlab-event"])
             .ok_or_else(|| WebhookError::report(StatusCode::BAD_REQUEST, "Missing X-Gitlab-Event header"))?;
-        let delivery_id = api::first_header(headers, &["webhook-id", "idempotency-key", "x-gitlab-webhook-uuid"])
-            .filter(|delivery_id| !delivery_id.trim().is_empty())
-            .ok_or_else(|| WebhookError::report(StatusCode::BAD_REQUEST, "Missing webhook delivery identifier"))?;
         let event = match event_type {
             | "Merge Request Hook" => {
                 let RawMergeRequestHook {
@@ -293,7 +283,7 @@ impl Webhook {
             }
             | _ => return Ok(Self::Unsupported),
         };
-        Ok(Self::Delivery(WebhookDelivery {
+        Ok(Self::Delivery(webhooks::Delivery {
             delivery_id: delivery_id.to_string(),
             event,
         }))
@@ -303,42 +293,6 @@ impl Webhook {
             Err(WebhookError::report(StatusCode::FORBIDDEN, "Webhook from unexpected project"))
         } else {
             Ok(())
-        }
-    }
-    fn verify(headers: &HeaderMap, raw_body: &[u8], signing_token: &str) -> ApiResult<()> {
-        let webhook_id =
-            api::first_header(headers, &["webhook-id"]).ok_or_else(|| WebhookError::report(StatusCode::BAD_REQUEST, "Missing webhook-id header"))?;
-        let timestamp = api::first_header(headers, &["webhook-timestamp"])
-            .ok_or_else(|| WebhookError::report(StatusCode::BAD_REQUEST, "Missing webhook-timestamp header"))?;
-        timestamp
-            .parse::<i64>()
-            .map_err(|_| WebhookError::report(StatusCode::BAD_REQUEST, "Invalid webhook-timestamp value"))
-            .and_then(|timestamp| {
-                io::validate_unix_timestamp_window(timestamp, 300)
-                    .map_err(|_| WebhookError::report(StatusCode::UNAUTHORIZED, "Webhook timestamp is outside the five-minute window"))
-            })?;
-        let signature_header = api::first_header(headers, &["webhook-signature"])
-            .ok_or_else(|| WebhookError::report(StatusCode::UNAUTHORIZED, "Missing webhook-signature header"))?;
-        let encoded_token = signing_token
-            .strip_prefix("whsec_")
-            .ok_or_else(|| WebhookError::report(StatusCode::UNAUTHORIZED, "Invalid webhook signing token format"))?;
-        let key_bytes = BASE64
-            .decode(encoded_token.as_bytes())
-            .map_err(|_| WebhookError::report(StatusCode::UNAUTHORIZED, "Invalid webhook signing token encoding"))?;
-        let key = hmac::Key::new(hmac::HMAC_SHA256, &key_bytes);
-        let mut message = format!("{webhook_id}.{timestamp}.").into_bytes();
-        message.extend_from_slice(raw_body);
-        let verified = signature_header.split_whitespace().any(|part| {
-            part.strip_prefix("v1,").is_some_and(|signature| {
-                BASE64
-                    .decode(signature.as_bytes())
-                    .is_ok_and(|tag_bytes| hmac::verify(&key, &message, &tag_bytes).is_ok())
-            })
-        });
-        if verified {
-            Ok(())
-        } else {
-            Err(WebhookError::report(StatusCode::UNAUTHORIZED, "Webhook signature verification failed"))
         }
     }
 }
@@ -351,7 +305,7 @@ impl Webhook {
             .and_then(|raw| {
                 config
                     .authenticate(&parts.headers, &raw)
-                    .and_then(|_| Self::normalize(&parts.headers, &raw, config.project_id))
+                    .and_then(|verified| Self::normalize(verified.delivery_id, &parts.headers, verified.raw_body, config.project_id))
             })
             .and_then(|webhook| webhook.persist(&config))
             .map_err(WebhookError::response)
@@ -387,28 +341,58 @@ impl WebhookConfig {
     /// When a `webhook-signature` header is present, Standard Webhooks HMAC-SHA256 verification
     /// is performed and the legacy `X-Gitlab-Token` path is bypassed entirely.  Without that
     /// header, the `X-Gitlab-Token` value (if any) is compared in constant time.
-    fn authenticate(&self, headers: &HeaderMap, raw_body: &[u8]) -> ApiResult<()> {
+    fn authenticate<'a>(&self, headers: &'a HeaderMap, raw_body: &'a [u8]) -> ApiResult<webhooks::VerifiedRequest<'a>> {
+        let request = webhooks::InboundRequest { headers, raw_body };
         if headers.contains_key("webhook-signature") {
             self.webhook_signing_token
                 .as_deref()
                 .ok_or_else(|| WebhookError::report(StatusCode::UNAUTHORIZED, "No signing token configured for Standard Webhooks"))
-                .and_then(|signing_token| Webhook::verify(headers, raw_body, signing_token))
+                .and_then(|signing_token| {
+                    webhooks::StandardWebhooksVerifier::new(signing_token, 300)
+                        .and_then(|verifier| verifier.verify(request, jiff::Timestamp::now()))
+                        .map_err(WebhookError::from_shared)
+                })
         } else {
-            match (self.webhook_token.as_deref(), api::first_header(headers, &["x-gitlab-token"])) {
-                | (Some(expected), Some(received)) => {
-                    if constant_time_eq(expected, received) {
-                        Ok(())
-                    } else {
-                        Err(WebhookError::report(StatusCode::UNAUTHORIZED, "Invalid X-Gitlab-Token"))
-                    }
-                }
-                | (Some(_), None) => Err(WebhookError::report(StatusCode::UNAUTHORIZED, "Missing X-Gitlab-Token header")),
-                | (None, _) => Err(WebhookError::report(StatusCode::UNAUTHORIZED, "No webhook credential configured")),
-            }
+            self.webhook_token.as_deref().map_or_else(
+                || Err(WebhookError::report(StatusCode::UNAUTHORIZED, "No webhook credential configured")),
+                |token| {
+                    webhooks::HeaderSecretVerifier::new("x-gitlab-token", token, &["webhook-id", "idempotency-key", "x-gitlab-webhook-uuid"])
+                        .and_then(|verifier| verifier.verify(request, jiff::Timestamp::now()))
+                        .map_err(WebhookError::from_shared)
+                },
+            )
         }
     }
 }
-impl WebhookDelivery {
+impl core::error::Error for WebhookError {}
+impl fmt::Display for WebhookError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", self.message)
+    }
+}
+impl WebhookError {
+    fn from_shared(error: webhooks::WebhookError) -> Report {
+        let status = match error.kind() {
+            | webhooks::ErrorKind::BadRequest => StatusCode::BAD_REQUEST,
+            | webhooks::ErrorKind::Unauthorized => StatusCode::UNAUTHORIZED,
+            | _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        Self::report(status, error.to_string())
+    }
+    fn report(status: StatusCode, message: impl Into<String>) -> Report {
+        eyre!(Self {
+            status,
+            message: message.into(),
+        })
+    }
+    fn response(error: Report) -> (StatusCode, String) {
+        error.downcast_ref::<Self>().map_or_else(
+            || (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
+            |webhook_error| (webhook_error.status, webhook_error.message.clone()),
+        )
+    }
+}
+impl webhooks::Delivery<HookPayload> {
     /// Return the canonical operation key for an actionable normalized delivery
     pub fn key(&self) -> Option<String> {
         match &self.event {
@@ -486,26 +470,6 @@ impl WebhookDelivery {
         ))
     }
 }
-impl WebhookError {
-    fn report(status: StatusCode, message: impl Into<String>) -> Report {
-        eyre!(Self {
-            status,
-            message: message.into(),
-        })
-    }
-    fn response(error: Report) -> (StatusCode, String) {
-        error.downcast_ref::<Self>().map_or_else(
-            || (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
-            |webhook_error| (webhook_error.status, webhook_error.message.clone()),
-        )
-    }
-}
-impl fmt::Display for WebhookError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", self.message)
-    }
-}
-impl core::error::Error for WebhookError {}
 pub(super) fn check_requested(content: &str) -> bool {
     content.lines().any(|line| line.trim() == "/acorn check")
 }

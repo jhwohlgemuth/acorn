@@ -70,7 +70,7 @@ isolate std-only modules   host abstraction traits
 - [Check batch monoid](refactors/analyzer/check-batch-monoid.md) reduces duplicated assembly before [standards traversal](refactors/analyzer/standards-traversal.md); validation tree flattening is already complete through the portable ordered `ValidationReport`.
 - [Link resolution checks](refactors/analyzer/link-resolution-checks.md) must consume the implemented calculation/execution/report context split without introducing a generic host trait or presuming package extraction.
 - [API roadmap](refactors/api/roadmap.md) records completed shared authentication builders and orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
-- [GitLab claimed-operation capabilities](refactors/api/gitlab-claimed-operation-capabilities.md) must stabilize durable settlement before [reusable webhook transport](refactors/api/webhook-transport-abstraction.md) extracts provider-neutral delivery mechanics; the remaining [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) then consume both boundaries before moving into `acorn-service`.
+- [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) consume the landed opaque claimed-operation settlement and provider-neutral webhook verification/dispatch boundaries before moving orchestration into `acorn-service`.
 
 ### Export and interfaces
 
@@ -79,7 +79,7 @@ isolate std-only modules   host abstraction traits
 - [CLI parse/execution models](refactors/core/cli-parse-execution-models.md), [startup separation](refactors/core/cli-startup-separation.md), and [CLI error boundary](refactors/core/cli-error-boundary.md) prepare the CLI as a composition root after service and adapter extraction.
 - [Workspace duplication consolidation](refactors/workspace-duplication-consolidation.md) must land its JSONC-policy slice before the corresponding host boundary moves again. Its PID, TUI, API-status, and test-helper slices follow the locks of their owning lanes.
 - [thiserror adoption](migrations/thiserror-adoption.md) is incremental across extracted crates; it must not delay portable extraction, but each new crate must start with owned portable errors.
-- [ModelKit and ModelPack OCI interoperability](features/oci-model-artifact-downloads.md) provides the normalized registry materialization boundary consumed by [Needle sidecar inference](features/needle-sidecar-inference.md). The OCI plan reuses the safe archive boundary from [unified import and download with BagIt archives](features/unified-import-download-bagit.md); Needle consumes only its selected GGUF output and then establishes one tool catalog and executor shared by its native projection and the MCP server adapter.
+- [ModelKit and ModelPack OCI interoperability](features/oci-model-artifact-downloads.md) preserves the normalized registry materialization boundary used by the landed Needle sidecar. The OCI plan reuses the safe archive boundary from [unified import and download with BagIt archives](features/unified-import-download-bagit.md); inference consumes only its selected GGUF output.
 
 ## Scheduling conflicts and shared files
 
@@ -87,9 +87,9 @@ isolate std-only modules   host abstraction traits
 |---|---|---|
 | `crates/acorn-schema/src/schema/` | Metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT | Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
-| `crates/acorn-lib/src/io/api/` | API roadmap children, reusable webhooks, GitLab, SWHID, OCI, inference | Separate provider protocol from workflow orchestration before crate moves; avoid parallel renames of the same modules. |
-| `crates/acorn-schema/src/schema/agent/` and `crates/acorn-lib/src/io/mcp/` | Needle inference, ACP inference, OCI model interoperability, service extraction | Land the provider-neutral tool definition/executor contract before provider or protocol adapters; serialize the agent schema contract, module-index, and feature changes. |
-| `crates/acorn-lib/src/io/http/mod.rs` | Reusable webhooks, API invocation, transfer/download hardening | Serialize request logging, retry, redaction, and service-injection changes; webhook callback URLs may contain credentials in query parameters. |
+| `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Preserve the landed webhook boundary, separate provider protocol from workflow orchestration before crate moves, and avoid parallel renames of the same modules. |
+| `crates/acorn-schema/src/schema/agent/` and `crates/acorn-lib/src/io/mcp/` | ACP inference, OCI model interoperability, service extraction | Preserve the landed provider-neutral tool definition/executor contract; serialize the agent schema contract, module-index, and feature changes. |
+| `crates/acorn-lib/src/io/http/mod.rs` | API invocation, transfer/download hardening | Preserve request-level redirect, response-bound, redaction, and anonymous-fallback controls; serialize further service-injection changes. |
 | `crates/acorn-lib/src/io/config/` | API endpoint/environment, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
 | `crates/acorn-cli/src/main.rs` and `cli/` | CLI model/startup/error plans, ACP inference | Complete parse/execution separation before adding a large new command surface. |

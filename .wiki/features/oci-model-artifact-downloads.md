@@ -29,7 +29,7 @@ status: in-progress
 # Dependencies
 
 - Reuse the safe extraction and atomic publication boundaries shared with [unified import and download with BagIt archives](unified-import-download-bagit.md). Coordinate any edits to `io/archive.rs`; ModelPack support must not create a second archive engine.
-- Preserve the registry materialization contract consumed by [Needle sidecar inference](needle-sidecar-inference.md). Needle may consume only the selected GGUF model output, not the full package inventory.
+- Preserve the registry materialization contract consumed by the landed Needle sidecar. Inference may consume only the selected GGUF model output, not the full package inventory.
 - Keep protocol parsing independent of ORAS process execution so the [crate boundary architecture](../refactors/crate-boundary-architecture.md) can later move protocol DTOs and native host transport separately.
 - This plan occupies the **Provider leaves** and **Transfer/archive** lanes in the [parallel execution guide](../parallel-execution.md). `io/oci.rs`, `io/gguf.rs`, the model download planner, application constants, schema agent types, CLI arguments/help, and any shared archive changes are its integration locks for an implementation slice.
 

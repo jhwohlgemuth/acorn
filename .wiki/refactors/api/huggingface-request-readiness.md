@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Coordinate request composition with [request parameters](request-parameter-composition.md) and durable transition semantics with [claimed operations](gitlab-claimed-operation-capabilities.md); preserve the API/service split.
+Coordinate request composition with [request parameters](request-parameter-composition.md) and preserve the API/service split. Follow the same invalid-state prevention principle already landed for GitLab durable settlement.
 
 # Parallel execution
 
@@ -113,4 +113,3 @@ Inventory the complete public surface in generated documentation before implemen
 # Related plans
 
 - [Request parameter composition](request-parameter-composition.md) covers shared parameter assembly after request readiness is established.
-- [GitLab claimed-operation capabilities](gitlab-claimed-operation-capabilities.md) applies the same invalid-state prevention principle to durable worker settlement.

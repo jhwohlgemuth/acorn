@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-Requires [claimed-operation capabilities](gitlab-claimed-operation-capabilities.md), the [reusable webhook transport](webhook-transport-abstraction.md), stable API request/response/error contracts, and the analyzer service boundary. It is downstream of the portability crate split, not a prerequisite for `acorn-core`/`acorn-schema`.
+Builds on the landed opaque claimed-operation settlement and provider-neutral webhook verification/dispatch contracts. It still requires stable API request/response/error contracts and the analyzer service boundary, and remains downstream of the portability crate split rather than a prerequisite for `acorn-core`/`acorn-schema`.
 
 # Goal
 

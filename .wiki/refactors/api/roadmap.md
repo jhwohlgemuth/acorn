@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication builders are complete. The remaining order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs; the reusable [webhook transport](webhook-transport-abstraction.md) follows a stable GitLab settlement contract, and provider-specific refinements follow. See the [plan dependency network](../../plan-network.md).
+This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication builders and reusable webhook contracts are complete. The remaining order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
 
 # Parallel execution
 
@@ -33,7 +33,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 2. Finish endpoint resolution and required/optional request-parameter migration.
 3. Introduce invocation and parse helpers with explicit fallback behavior.
 4. Normalize environment bootstrap and health checks.
-5. Extract reusable webhook verification, typed delivery, safe callback dispatch, and transport errors after GitLab queue settlement stabilizes.
+5. Complete: reusable webhook verification, typed delivery, safe callback dispatch, transport errors, and guarded GitLab queue settlement are implemented.
 6. Add response, validation, generation, and capability layers only where they reduce current duplication.
 
 # Evidence
@@ -45,6 +45,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 - `crates/acorn-lib/src/io/config/application.rs` now owns application-file discovery, endpoint lists, rendering, and synchronization; `bucket.rs` owns bucket repository/authentication orchestration; `mod.rs` retains shared model/registry types and stable public re-exports.
 - `Params::{with_auth,with_auth_maybe}` and their tests now own bearer and named custom-token construction; the completed standalone authentication plan was removed.
 - `Params` also owns immutable optional query/template/body builders, but several provider paths still construct raw `Vec<Param>` values, so parameter composition remains in progress.
+- `io::api::webhooks` owns provider-neutral delivery, verification, and one-shot HTTPS callback dispatch; `io::http` enforces request-level redirect refusal, response bounds, anonymous-fallback policy, and sensitive-URL diagnostics.
 
 # Validation
 
@@ -59,4 +60,3 @@ Shared mechanics live at the API root, provider modules retain only provider-spe
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [Reusable webhook transport](webhook-transport-abstraction.md)

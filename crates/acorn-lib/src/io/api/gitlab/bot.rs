@@ -625,16 +625,34 @@ impl Server {
         let Server { config, .. } = self;
         match config.operation_queue.claim_next(SignedDuration::from_mins(5)) {
             | Ok(Some(operation)) => {
-                let result = match serde_json::from_str::<WebhookDelivery>(&operation.event_json) {
+                let operation_key = operation.operation_key().to_string();
+                match serde_json::from_str::<WebhookDelivery>(operation.event_json()) {
                     | Ok(delivery) => match delivery.process(config).await {
-                        | Ok(()) => config.operation_queue.succeed(&operation.operation_key),
-                        | Err(why) => Err(why),
+                        | Ok(()) => config
+                            .operation_queue
+                            .succeed(operation)
+                            .map(|_| true)
+                            .map_err(|why| eyre!("Failed to settle successful bot operation `{operation_key}` — {why}")),
+                        | Err(why) => {
+                            let processing_error = why.to_string();
+                            match config.operation_queue.fail(operation, &processing_error) {
+                                | Ok(_) => Err(why),
+                                | Err(settlement_error) => Err(eyre!(
+                                    "Bot operation `{operation_key}` failed — {processing_error}; failed to settle operation — {settlement_error}"
+                                )),
+                            }
+                        }
                     },
-                    | Err(why) => Err(eyre!("Failed to decode normalized webhook operation — {why}")),
-                };
-                result
-                    .map(|_| true)
-                    .or_else(|why| config.operation_queue.fail(&operation, &why.to_string()).and_then(|_| Err(why)))
+                    | Err(why) => {
+                        let processing_error = format!("Failed to decode normalized webhook operation — {why}");
+                        match config.operation_queue.fail(operation, &processing_error) {
+                            | Ok(_) => Err(eyre!(processing_error)),
+                            | Err(settlement_error) => Err(eyre!(
+                                "Bot operation `{operation_key}` failed — {processing_error}; failed to settle operation — {settlement_error}"
+                            )),
+                        }
+                    }
+                }
             }
             | Ok(None) => Ok(false),
             | Err(why) => Err(why),

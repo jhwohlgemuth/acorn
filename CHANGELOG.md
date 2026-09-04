@@ -10,6 +10,8 @@
 
 ### Changed
 
+- Add provider-neutral webhook delivery, inbound verification, and one-shot HTTPS callback dispatch contracts under `acorn::io::api::webhooks`; GitLab webhook imports remain available through compatibility aliases.
+- Make GitLab queue claims opaque and single-use. `OperationQueue::succeed` and `OperationQueue::fail` now consume a `ClaimedOperation`, and claim data is read through accessors instead of public fields.
 - Replace `hf-hub` with ACORN-owned Hugging Face metadata and search handling. Public model metadata APIs now use `acorn::io::api::huggingface::ModelInfo` and options-based requests through ACORN's typed endpoint layer, including support for legacy and relationship-object `baseModels` responses and same-origin pagination.
 - Persist Criterion results for every semantic version and relevant default-branch change as normalized longitudinal datasets, self-contained trend reports, and raw GitLab package artifacts.
 - Replace direct Chrono usage with Jiff; public database timestamp fields now use `jiff::Timestamp`, and queue and cache intervals use `jiff::SignedDuration`.

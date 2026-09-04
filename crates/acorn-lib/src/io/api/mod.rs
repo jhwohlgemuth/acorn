@@ -52,6 +52,8 @@ pub mod raid;
 pub mod ror;
 pub mod spdx;
 pub mod swhid;
+/// Provider-neutral webhook verification and callback transport contracts.
+pub mod webhooks;
 
 lazy_static! {
     /// Vector of API endpoints used during the endeavor of scientific research, communication, and collaboration

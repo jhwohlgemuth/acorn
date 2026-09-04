@@ -12,7 +12,16 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
+/// Result of transactionally recording a delivery and its canonical operation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EnqueueStatus {
+    /// A new delivery and operation were recorded.
+    Inserted,
+    /// This delivery identifier was already recorded.
+    DuplicateDelivery,
+    /// The delivery was new but its canonical operation already existed.
+    DuplicateOperation,
+}
 /// Durable state of one canonical bot operation.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -28,54 +37,46 @@ pub enum OperationState {
     /// Exhausted its retry budget.
     TerminalFailure,
 }
-impl fmt::Display for OperationState {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Queued => "queued",
-            | Self::Running => "running",
-            | Self::Succeeded => "succeeded",
-            | Self::RetryableFailure => "retryable-failure",
-            | Self::TerminalFailure => "terminal-failure",
-        })
-    }
-}
-impl OperationState {
-    fn parse(value: &str) -> ApiResult<Self> {
-        match value {
-            | "queued" => Ok(Self::Queued),
-            | "running" => Ok(Self::Running),
-            | "succeeded" => Ok(Self::Succeeded),
-            | "retryable-failure" => Ok(Self::RetryableFailure),
-            | "terminal-failure" => Ok(Self::TerminalFailure),
-            | _ => Err(eyre!("Unknown bot operation state `{value}`")),
-        }
-    }
-}
-
-/// Result of transactionally recording a delivery and its canonical operation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum EnqueueStatus {
-    /// A new delivery and operation were recorded.
-    Inserted,
-    /// This delivery identifier was already recorded.
-    DuplicateDelivery,
-    /// The delivery was new but its canonical operation already existed.
-    DuplicateOperation,
-}
-
 /// One operation claimed by a worker.
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// This opaque typestate token represents the only queue state that callers may settle.
+/// It cannot be cloned and is consumed by [`OperationQueue::succeed`] or
+/// [`OperationQueue::fail`]. Other states remain authoritative in the database.
+///
+/// ```compile_fail
+/// # use acorn::io::api::gitlab::database::ClaimedOperation;
+///
+/// # fn duplicate(claim: ClaimedOperation) {
+///     let duplicate = claim.clone();
+/// # }
+/// ```
+///
+/// ```compile_fail
+/// # use acorn::io::api::gitlab::database::{ClaimedOperation, OperationQueue};
+///
+/// # fn settle_twice(queue: &OperationQueue, claim: ClaimedOperation) {
+///     queue.succeed(claim).unwrap();
+///     queue.fail(claim, "failed").unwrap();
+/// # }
+/// ```
+#[derive(Debug, Eq, PartialEq)]
 pub struct ClaimedOperation {
     /// Canonical idempotency key.
-    pub operation_key: String,
+    operation_key: String,
     /// Delivery that first created the operation.
-    pub delivery_id: String,
+    delivery_id: String,
     /// Normalized event JSON.
-    pub event_json: String,
+    event_json: String,
     /// One-based attempt number.
-    pub attempts: u32,
+    attempts: u32,
 }
-
+/// Database-backed queue for authenticated, normalized webhook events.
+#[derive(Clone, Debug)]
+pub struct OperationQueue {
+    path: Option<PathBuf>,
+    #[cfg(test)]
+    settlement_hook: Option<fn() -> ApiResult<()>>,
+}
 /// Aggregate durable queue counters.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct QueueCounts {
@@ -90,20 +91,40 @@ pub struct QueueCounts {
     /// Deliveries whose canonical operation was already present.
     pub deduplicated: u64,
 }
-
-/// Database-backed queue for authenticated, normalized webhook events.
-#[derive(Clone, Debug)]
-pub struct OperationQueue {
-    path: Option<PathBuf>,
+impl ClaimedOperation {
+    /// Return the canonical idempotency key.
+    pub fn operation_key(&self) -> &str {
+        &self.operation_key
+    }
+    /// Return the delivery that first created the operation.
+    pub fn delivery_id(&self) -> &str {
+        &self.delivery_id
+    }
+    /// Return the normalized event JSON.
+    pub fn event_json(&self) -> &str {
+        &self.event_json
+    }
+    /// Return the one-based attempt number.
+    pub fn attempts(&self) -> u32 {
+        self.attempts
+    }
 }
 impl OperationQueue {
     /// Use the configured ACORN database path.
     pub fn configured() -> Self {
-        Self { path: None }
+        Self {
+            path: None,
+            #[cfg(test)]
+            settlement_hook: None,
+        }
     }
     /// Use an explicit database path.
     pub fn from_path(path: PathBuf) -> Self {
-        Self { path: Some(path) }
+        Self {
+            path: Some(path),
+            #[cfg(test)]
+            settlement_hook: None,
+        }
     }
     /// Create the durable queue tables when absent.
     pub fn migrate(&self) -> ApiResult<()> {
@@ -214,12 +235,12 @@ impl OperationQueue {
             })
         })
     }
-    /// Mark an operation successful.
-    pub fn succeed(&self, operation_key: &str) -> ApiResult<()> {
-        self.update_state(operation_key, OperationState::Succeeded, None, Timestamp::now())
+    /// Consume a running claim and mark its matching attempt successful.
+    pub fn succeed(&self, operation: ClaimedOperation) -> ApiResult<()> {
+        self.update_state(operation, OperationState::Succeeded, None, Timestamp::now())
     }
-    /// Retain a failure and schedule a bounded retry, or make it terminal after five attempts.
-    pub fn fail(&self, operation: &ClaimedOperation, error: &str) -> ApiResult<OperationState> {
+    /// Consume a running claim and schedule a bounded retry, or make it terminal after five attempts.
+    pub fn fail(&self, operation: ClaimedOperation, error: &str) -> ApiResult<OperationState> {
         let state = if operation.attempts >= MAX_GITLAB_OPERATION_ATTEMPTS {
             OperationState::TerminalFailure
         } else {
@@ -232,8 +253,7 @@ impl OperationQueue {
             .min(MAX_GITLAB_OPERATION_BACKOFF_SECONDS);
         let now = Timestamp::now();
         let available_at = now.checked_add(SignedDuration::from_secs(backoff)).unwrap_or(now);
-        self.update_state(&operation.operation_key, state, Some(error), available_at)
-            .map(|_| state)
+        self.update_state(operation, state, Some(error), available_at).map(|_| state)
     }
     /// Read the current state for one operation.
     pub fn state(&self, operation_key: &str) -> ApiResult<Option<OperationState>> {
@@ -285,27 +305,44 @@ impl OperationQueue {
             })
         })
     }
-    fn update_state(&self, operation_key: &str, state: OperationState, error: Option<&str>, available_at: Timestamp) -> ApiResult<()> {
-        self.migrate().and_then(|_| {
+    fn update_state(&self, operation: ClaimedOperation, state: OperationState, error: Option<&str>, available_at: Timestamp) -> ApiResult<()> {
+        let operation_key = operation.operation_key;
+        let attempts = operation.attempts;
+        self.migrate().and_then(|_| self.before_settlement()).and_then(|_| {
             self.with_connection(|connection| {
                 let now = to_rfc3339(Timestamp::now());
                 connection
                     .execute(
                         "UPDATE bot_operations
                          SET state = ?, available_at = ?, claimed_at = NULL, last_error = ?, updated_at = ?
-                         WHERE operation_key = ?",
-                        params![state.to_string(), to_rfc3339(available_at), error, now, operation_key],
+                         WHERE operation_key = ? AND state = 'running' AND attempts = ?",
+                        params![state.to_string(), to_rfc3339(available_at), error, now, operation_key, attempts],
                     )
                     .map_err(|why| eyre!("Failed to update bot operation — {why}"))
                     .and_then(|updated| {
                         (updated == 1)
                             .then_some(())
-                            .ok_or_else(|| eyre!("Bot operation `{operation_key}` was not found"))
+                            .ok_or_else(|| eyre!("Bot operation `{operation_key}` attempt {attempts} is stale or already settled"))
                     })
             })
         })
     }
-    fn with_connection<T>(&self, operation: impl FnOnce(&Connection) -> ApiResult<T>) -> ApiResult<T> {
+    #[cfg(not(test))]
+    fn before_settlement(&self) -> ApiResult<()> {
+        Ok(())
+    }
+    #[cfg(test)]
+    fn before_settlement(&self) -> ApiResult<()> {
+        self.settlement_hook.map_or(Ok(()), |hook| hook())
+    }
+    #[cfg(test)]
+    pub(crate) fn with_settlement_hook(self, settlement_hook: fn() -> ApiResult<()>) -> Self {
+        Self {
+            settlement_hook: Some(settlement_hook),
+            ..self
+        }
+    }
+    pub(super) fn with_connection<T>(&self, operation: impl FnOnce(&Connection) -> ApiResult<T>) -> ApiResult<T> {
         CONNECTION_LOCK
             .get_or_init(|| Mutex::new(()))
             .lock()
@@ -334,7 +371,37 @@ impl OperationQueue {
         })
     }
 }
-
+impl fmt::Display for OperationState {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Queued => "queued",
+            | Self::Running => "running",
+            | Self::Succeeded => "succeeded",
+            | Self::RetryableFailure => "retryable-failure",
+            | Self::TerminalFailure => "terminal-failure",
+        })
+    }
+}
+impl OperationState {
+    fn parse(value: &str) -> ApiResult<Self> {
+        match value {
+            | "queued" => Ok(Self::Queued),
+            | "running" => Ok(Self::Running),
+            | "succeeded" => Ok(Self::Succeeded),
+            | "retryable-failure" => Ok(Self::RetryableFailure),
+            | "terminal-failure" => Ok(Self::TerminalFailure),
+            | _ => Err(eyre!("Unknown bot operation state `{value}`")),
+        }
+    }
+}
+#[cfg(not(feature = "duckdb"))]
+fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
+    matches!(error, crate::io::database::backend::Error::QueryReturnedNoRows)
+}
+#[cfg(feature = "duckdb")]
+fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
+    error.to_string().contains("Query returned no rows")
+}
 fn select_available(connection: &Connection, now: &str) -> ApiResult<Option<ClaimedOperation>> {
     let result = connection.query_row(
         "SELECT operation_key, delivery_id, event_json, attempts
@@ -356,118 +423,5 @@ fn select_available(connection: &Connection, now: &str) -> ApiResult<Option<Clai
         | Ok(operation) => Ok(Some(operation)),
         | Err(why) if is_no_rows(&why) => Ok(None),
         | Err(why) => Err(eyre!("Failed to select an available bot operation — {why}")),
-    }
-}
-
-#[cfg(not(feature = "duckdb"))]
-fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
-    matches!(error, crate::io::database::backend::Error::QueryReturnedNoRows)
-}
-#[cfg(feature = "duckdb")]
-fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
-    error.to_string().contains("Query returned no rows")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nanoid::nanoid;
-    use std::env::temp_dir;
-
-    fn queue() -> OperationQueue {
-        OperationQueue::from_path(temp_dir().join(format!("acorn-bot-{}.db", nanoid!())))
-    }
-
-    #[test]
-    fn duplicate_delivery_and_operation_are_idempotent() {
-        let queue = queue();
-        assert_eq!(
-            queue.enqueue("delivery-1", "mr-check:1:2:abc", r#"{"event":"normalized"}"#).unwrap(),
-            EnqueueStatus::Inserted
-        );
-        assert_eq!(
-            queue.enqueue("delivery-1", "mr-check:1:2:abc", r#"{"event":"changed"}"#).unwrap(),
-            EnqueueStatus::DuplicateDelivery
-        );
-        assert_eq!(
-            queue.enqueue("delivery-2", "mr-check:1:2:abc", r#"{"event":"normalized"}"#).unwrap(),
-            EnqueueStatus::DuplicateOperation
-        );
-        assert_eq!(queue.counts().unwrap().deduplicated, 1);
-    }
-
-    #[test]
-    fn claims_retries_and_retains_terminal_failure() {
-        let queue = queue();
-        queue.enqueue("delivery-1", "work-item-check:1:2:3", "{}").unwrap();
-        let mut operation = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
-        assert_eq!(operation.attempts, 1);
-        for expected_attempt in 1..=MAX_GITLAB_OPERATION_ATTEMPTS {
-            operation.attempts = expected_attempt;
-            let state = queue.fail(&operation, "temporary").unwrap();
-            if expected_attempt < MAX_GITLAB_OPERATION_ATTEMPTS {
-                assert_eq!(state, OperationState::RetryableFailure);
-                queue
-                    .with_connection(|connection| {
-                        connection
-                            .execute(
-                                "UPDATE bot_operations SET available_at = ? WHERE operation_key = ?",
-                                params![
-                                    to_rfc3339(Timestamp::now().checked_sub(SignedDuration::from_secs(1)).unwrap()),
-                                    operation.operation_key
-                                ],
-                            )
-                            .map(|_| ())
-                            .map_err(|why| eyre!("{why}"))
-                    })
-                    .unwrap();
-                operation = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
-            } else {
-                assert_eq!(state, OperationState::TerminalFailure);
-            }
-        }
-        assert_eq!(queue.state(&operation.operation_key).unwrap(), Some(OperationState::TerminalFailure));
-        assert_eq!(queue.counts().unwrap().failed, 1);
-    }
-
-    #[test]
-    fn stale_running_operation_is_recovered_after_restart() {
-        let queue = queue();
-        queue.enqueue("delivery-1", "mr-check:1:2:abc", "{}").unwrap();
-        let claimed = queue.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap();
-        queue
-            .with_connection(|connection| {
-                connection
-                    .execute(
-                        "UPDATE bot_operations SET claimed_at = ? WHERE operation_key = ?",
-                        params![
-                            to_rfc3339(Timestamp::now().checked_sub(SignedDuration::from_mins(10)).unwrap()),
-                            claimed.operation_key
-                        ],
-                    )
-                    .map(|_| ())
-                    .map_err(|why| eyre!("{why}"))
-            })
-            .unwrap();
-        let restarted = OperationQueue::from_path(queue.path.clone().unwrap());
-        assert_eq!(restarted.claim_next(SignedDuration::from_mins(5)).unwrap().unwrap().attempts, 2);
-    }
-
-    #[test]
-    #[cfg(not(feature = "duckdb"))]
-    fn schema_does_not_store_raw_webhook_bodies() {
-        let queue = queue();
-        queue.migrate().unwrap();
-        queue
-            .with_connection(|connection| {
-                let sql = connection
-                    .query_row("SELECT sql FROM sqlite_master WHERE name = 'bot_webhook_deliveries'", params![], |row| {
-                        row.get::<_, String>(0)
-                    })
-                    .map_err(|why| eyre!("{why}"))?;
-                assert!(!sql.contains("raw_body"));
-                Ok(())
-            })
-            .unwrap();
     }
 }

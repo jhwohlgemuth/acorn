@@ -7,7 +7,7 @@ use axum::http::header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, 
 use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use core::fmt;
+use core::{borrow::Borrow, fmt};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use reqwest::redirect::Policy;
@@ -20,15 +20,17 @@ use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
 
 pub mod policy;
-#[cfg(test)]
-mod tests;
-
-#[derive(Builder)]
-#[builder(start_fn = init)]
-struct DownloadError {
-    status_code: Option<u16>,
-    retry_headers: Option<HeaderMap>,
-    report: color_eyre::Report,
+/// Ordered UTF-8 header lookup helpers.
+pub trait HeaderMapExt {
+    /// Return the first named header whose value is valid UTF-8.
+    fn first<'a>(&'a self, names: &[&str]) -> Option<&'a str>
+    where
+        Self: Borrow<HeaderMap>,
+    {
+        names
+            .iter()
+            .find_map(|name| <Self as Borrow<HeaderMap>>::borrow(self).get(*name).and_then(|value| value.to_str().ok()))
+    }
 }
 /// Async HTTP service abstraction for ACORN I/O.
 #[async_trait]
@@ -52,15 +54,35 @@ pub enum HttpMethod {
     /// HTTP PUT
     Put,
 }
+#[derive(Builder)]
+#[builder(start_fn = init)]
+struct DownloadError {
+    status_code: Option<u16>,
+    retry_headers: Option<HeaderMap>,
+    report: color_eyre::Report,
+}
 /// Internal HTTP request representation.
-#[derive(Clone, Debug)]
+#[derive(Builder, Clone)]
+#[builder(builder_type = HttpRequestInit, start_fn = init, on(String, into))]
 pub struct HttpRequest {
+    /// Whether rejected credentials may be retried without authentication.
+    #[builder(default = true)]
+    pub allow_anonymous_fallback: bool,
+    /// Whether HTTP redirects may be followed.
+    #[builder(default = true)]
+    pub follow_redirects: bool,
     /// Request headers
+    #[builder(default)]
     pub headers: HeaderMap,
     /// Optional JSON body
     pub json_body: Option<serde_json::Value>,
+    /// Maximum accepted response body size, when bounded.
+    pub max_response_bytes: Option<usize>,
     /// HTTP method
     pub method: HttpMethod,
+    /// Whether diagnostics must redact the URL path and query.
+    #[builder(default)]
+    pub sensitive_url: bool,
     /// URL string
     pub url: String,
 }
@@ -86,22 +108,17 @@ pub struct HttpResponseError {
     status_code: u16,
     reason: String,
 }
+/// Error returned when a response body exceeds its request-level byte limit.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HttpResponseTooLarge {
+    maximum: usize,
+}
 /// Reqwest-backed async HTTP service adapter.
 #[derive(Clone, Debug)]
 pub struct ReqwestHttpService {
     client: reqwest::Client,
 }
-impl Default for ReqwestHttpService {
-    fn default() -> Self {
-        let policy = policy::shared_http_policy();
-        let client = reqwest::Client::builder()
-            .timeout(policy.timeout.unsigned_abs())
-            .connect_timeout(policy.connect_timeout.unsigned_abs())
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
-        Self { client }
-    }
-}
+impl HeaderMapExt for HeaderMap {}
 impl From<&str> for HttpMethod {
     fn from(value: &str) -> Self {
         match value.to_uppercase().as_str() {
@@ -113,20 +130,32 @@ impl From<&str> for HttpMethod {
         }
     }
 }
-impl From<HttpMethod> for reqwest::Method {
-    fn from(value: HttpMethod) -> Self {
-        match value {
-            | HttpMethod::Delete => reqwest::Method::DELETE,
-            | HttpMethod::Get => reqwest::Method::GET,
-            | HttpMethod::Patch => reqwest::Method::PATCH,
-            | HttpMethod::Post => reqwest::Method::POST,
-            | HttpMethod::Put => reqwest::Method::PUT,
+impl fmt::Debug for HttpRequest {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("HttpRequest")
+            .field("allow_anonymous_fallback", &self.allow_anonymous_fallback)
+            .field("follow_redirects", &self.follow_redirects)
+            .field("headers", &self.headers)
+            .field("json_body", &self.json_body)
+            .field("max_response_bytes", &self.max_response_bytes)
+            .field("method", &self.method)
+            .field("sensitive_url", &self.sensitive_url)
+            .field("url", &self.diagnostic_url())
+            .finish()
+    }
+}
+impl HttpRequest {
+    fn diagnostic_url(&self) -> &str {
+        match self.sensitive_url {
+            | true => "[REDACTED WEBHOOK URL]",
+            | false => &self.url,
         }
     }
 }
 impl fmt::Display for HttpRequestBuilder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.request.method, self.request.url)
+        write!(f, "{} {}", self.request.method, self.request.diagnostic_url())
     }
 }
 impl HttpRequestBuilder {
@@ -152,12 +181,7 @@ impl HttpRequestBuilder {
     }
     fn new(method: HttpMethod, url: impl Into<String>) -> Self {
         Self {
-            request: HttpRequest {
-                headers: HeaderMap::new(),
-                json_body: None,
-                method,
-                url: url.into(),
-            },
+            request: HttpRequest::init().method(method).url(url).build(),
             service: ReqwestHttpService::default(),
         }
     }
@@ -179,6 +203,12 @@ impl HttpResponse {
         }
     }
 }
+impl core::error::Error for HttpResponseError {}
+impl fmt::Display for HttpResponseError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "HTTP {}: {}", self.status_code, self.reason)
+    }
+}
 impl HttpResponseError {
     /// Create an HTTP response error from its status and response detail.
     pub fn new(status_code: u16, reason: impl Into<String>) -> Self {
@@ -192,16 +222,44 @@ impl HttpResponseError {
         self.status_code
     }
 }
-impl fmt::Display for HttpResponseError {
+impl core::error::Error for HttpResponseTooLarge {}
+impl fmt::Display for HttpResponseTooLarge {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "HTTP {}: {}", self.status_code, self.reason)
+        write!(formatter, "HTTP response exceeded its configured {}-byte limit", self.maximum)
     }
 }
-impl core::error::Error for HttpResponseError {}
+impl From<HttpMethod> for reqwest::Method {
+    fn from(value: HttpMethod) -> Self {
+        match value {
+            | HttpMethod::Delete => reqwest::Method::DELETE,
+            | HttpMethod::Get => reqwest::Method::GET,
+            | HttpMethod::Patch => reqwest::Method::PATCH,
+            | HttpMethod::Post => reqwest::Method::POST,
+            | HttpMethod::Put => reqwest::Method::PUT,
+        }
+    }
+}
+impl Default for ReqwestHttpService {
+    fn default() -> Self {
+        let policy = policy::shared_http_policy();
+        let client = reqwest::Client::builder()
+            .timeout(policy.timeout.unsigned_abs())
+            .connect_timeout(policy.connect_timeout.unsigned_abs())
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self { client }
+    }
+}
 #[async_trait]
 impl HttpService for ReqwestHttpService {
     async fn execute(&self, request: HttpRequest) -> ApiResult<HttpResponse> {
-        execute_with_policy(self.client.clone(), request).await
+        match request.follow_redirects {
+            | true => execute_with_policy(self.client.clone(), request).await,
+            | false => match no_redirect_client() {
+                | Ok(client) => execute_with_policy(client, request).await,
+                | Err(why) => Err(why),
+            },
+        }
     }
 }
 impl ReqwestHttpService {
@@ -224,6 +282,28 @@ impl ReqwestHttpService {
         Self { client }
     }
 }
+fn anonymous_request(request: &HttpRequest) -> Option<HttpRequest> {
+    let headers = request
+        .headers
+        .iter()
+        .filter(|(name, value)| !(value.is_sensitive() && is_credential_header(name)))
+        .fold(HeaderMap::new(), |mut headers, (name, value)| {
+            headers.append(name.clone(), value.clone());
+            headers
+        });
+    (headers.len() < request.headers.len()).then(|| HttpRequest { headers, ..request.clone() })
+}
+/// Build a Bearer authorization header when `token` is non-empty.
+pub fn bearer_auth(token: &str) -> HeaderMap {
+    match token.trim() {
+        | "" => HeaderMap::new(),
+        | value => header(AUTHORIZATION.as_str(), format!("Bearer {value}").as_str()),
+    }
+}
+/// Utility method to employ best practices when making async HTTP DELETE requests.
+pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Delete, url)
+}
 /// Streams response bytes from `url` to `output` and reports cumulative progress
 pub async fn download_with_progress(
     url: &str,
@@ -235,12 +315,7 @@ pub async fn download_with_progress(
     resume_from: Option<u64>,
 ) -> ApiResult<()> {
     let service = ReqwestHttpService::streaming();
-    let request = HttpRequest {
-        headers: headers.unwrap_or_default(),
-        json_body: None,
-        method: HttpMethod::Get,
-        url: url.to_string(),
-    };
+    let request = HttpRequest::init().maybe_headers(headers).method(HttpMethod::Get).url(url).build();
     let policy = stream_request_with_policy(
         service.client,
         request,
@@ -255,61 +330,210 @@ pub async fn download_with_progress(
         | Err(why) => Err(why),
     }
 }
-/// Check if a URL advertises byte-range support via `Accept-Ranges: bytes`.
-pub async fn supports_byte_ranges(url: &str, headers: Option<HeaderMap>) -> ApiResult<bool> {
-    let service = ReqwestHttpService::streaming();
-    let request = service
-        .client
-        .head(url)
-        .header(USER_AGENT, ACORN_USER_AGENT)
-        .headers(headers.unwrap_or_default());
-    match request.send().await {
-        | Ok(response) => Ok(response
-            .headers()
-            .get(ACCEPT_RANGES)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.eq_ignore_ascii_case("bytes"))),
-        | Err(why) => Err(eyre!("Failed to probe HTTP range support — {why}")),
+async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+    let anonymous = request.allow_anonymous_fallback.then(|| anonymous_request(&request)).flatten();
+    let result = execute_with_policy_attempts(client.clone(), request).await;
+    match (result, anonymous) {
+        | (Ok(response), Some(request)) if matches!(response.status_code, 401 | 403) => {
+            let credential_status = response.status_code;
+            warn!(
+                status_code = credential_status,
+                url = request.diagnostic_url(),
+                "=> {} Configured HTTP credentials were rejected; retrying without authentication",
+                Label::using()
+            );
+            match execute_with_policy_attempts(client, request).await {
+                | Ok(response) if matches!(response.status_code, 401 | 403) => Err(eyre!(
+                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed (HTTP {})",
+                    response.status_code
+                )),
+                | Err(why) => Err(eyre!(
+                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed — {why}"
+                )),
+                | result => result,
+            }
+        }
+        | (result, _) => result,
     }
 }
-async fn stream_request_with_policy(
-    client: reqwest::Client,
-    request: HttpRequest,
-    output: &Path,
-    progress: &mut impl FnMut(u64, Option<u64>),
-    resume_from: Option<u64>,
-    error_message: Option<&str>,
-    auth_error_message: Option<&str>,
-) -> ApiResult<()> {
-    let anonymous = anonymous_request(&request);
-    let url = request.url.clone();
-    let result = stream_request_attempts(client.clone(), request, output, progress, resume_from, error_message, auth_error_message).await;
-    match (result, anonymous) {
-        | (
-            Err(DownloadError {
-                status_code: Some(status_code @ (401 | 403)),
-                report,
-                ..
-            }),
-            Some(request),
-        ) => {
-            let follow_up_action = "(retrying download without authentication)".dimmed();
-            warn!(status_code, url, "=> {} Rejected HTTP credentials {follow_up_action}", Label::using(),);
-            match stream_request_attempts(client, request, output, progress, resume_from, error_message, None).await {
-                | Ok(()) => Ok(()),
-                | Err(anonymous_error) => {
-                    let combined = eyre!("{report}; anonymous fallback also failed — {}", anonymous_error.report);
-                    warn!(url, "=> {} HTTP download failed — {combined}", Label::fail());
-                    Err(combined)
+async fn execute_with_policy_attempts(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+    let policy = policy::shared_http_policy();
+    let method = request.method.clone();
+    let url = request.diagnostic_url().to_string();
+    let max_attempts = policy.max_attempts();
+    for attempt in 1..=max_attempts {
+        let started = Timestamp::now();
+        let result = execute_with_timeout(client.clone(), request.clone()).await;
+        let elapsed_ms = Timestamp::now().duration_since(started).as_millis();
+        match result {
+            | Ok(response) => {
+                let retry = should_retry(&method, Some(response.status_code));
+                if retry && attempt < max_attempts {
+                    let delay = policy::retry_delay(Some(&response.headers), attempt, Timestamp::now());
+                    warn!(
+                        attempt,
+                        status_code = response.status_code,
+                        elapsed_ms,
+                        retry_after_ms = delay.as_millis(),
+                        url,
+                        "=> {} Retrying HTTP request",
+                        Label::using()
+                    );
+                    sleep(delay.unsigned_abs()).await;
+                } else {
+                    debug!(
+                        attempt,
+                        status_code = response.status_code,
+                        elapsed_ms,
+                        url,
+                        "=> {} HTTP request",
+                        Label::using()
+                    );
+                    return Ok(response);
+                }
+            }
+            | Err(why) => {
+                let retry = should_retry(&method, None);
+                if retry && attempt < max_attempts {
+                    let delay = policy::retry_delay(None, attempt, Timestamp::now());
+                    warn!(
+                        attempt,
+                        elapsed_ms,
+                        retry_after_ms = delay.as_millis(),
+                        url,
+                        "=> {} Retrying HTTP request — {why}",
+                        Label::using()
+                    );
+                    sleep(delay.unsigned_abs()).await;
+                } else {
+                    warn!(attempt, elapsed_ms, url, "=> {} HTTP request failed — {why}", Label::fail());
+                    return Err(why);
                 }
             }
         }
-        | (Ok(()), _) => Ok(()),
-        | (Err(why), _) => {
-            warn!(url, "=> {} HTTP download — {}", Label::fail(), why.report);
-            Err(why.report)
-        }
     }
+    Err(eyre!("HTTP request failed after retry attempts"))
+}
+async fn execute_with_timeout(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+    let service = policy::http_service_builder().service(service_fn(move |value: HttpRequest| {
+        let client = client.clone();
+        async move { invoke_request(client, value).await }
+    }));
+    service
+        .oneshot(request)
+        .await
+        .map_err(|why| eyre!("HTTP service timeout or middleware error — {why}"))
+}
+/// Utility method to employ best practices when making async HTTP GET requests.
+pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Get, url)
+}
+/// Build a one-entry header map, skipping invalid names or values.
+pub fn header(name: &str, value: &str) -> HeaderMap {
+    headers([(name, value)])
+}
+/// Build a header map from string name-value pairs, skipping invalid entries.
+pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> HeaderMap {
+    values.into_iter().fold(HeaderMap::new(), |mut headers, (name, value)| {
+        if let (Ok(name), Ok(mut value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
+            value.set_sensitive(is_credential_header(&name));
+            headers.append(name, value);
+        }
+        headers
+    })
+}
+async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+    let HttpRequest {
+        headers,
+        json_body,
+        max_response_bytes,
+        method,
+        sensitive_url,
+        url,
+        ..
+    } = request;
+    let builder = client.request(method.into(), url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
+    let builder = match json_body {
+        | Some(value) => builder.json(&value),
+        | None => builder,
+    };
+    match builder.send().await {
+        | Ok(mut response) => {
+            let status_code = response.status().as_u16();
+            let headers = response.headers().clone();
+            let oversized = max_response_bytes
+                .zip(response.content_length())
+                .and_then(|(maximum, length)| u64::try_from(maximum).is_ok_and(|maximum| length > maximum).then_some(maximum));
+            match oversized {
+                | Some(maximum) => Err(eyre!(HttpResponseTooLarge { maximum })),
+                | None => {
+                    let mut body = Vec::new();
+                    loop {
+                        match response.chunk().await {
+                            | Ok(Some(chunk)) => match max_response_bytes.filter(|maximum| body.len().saturating_add(chunk.len()) > *maximum) {
+                                | Some(maximum) => break Err(eyre!(HttpResponseTooLarge { maximum })),
+                                | None => body.extend_from_slice(&chunk),
+                            },
+                            | Ok(None) => break Ok(HttpResponse { body, headers, status_code }),
+                            | Err(_why) if sensitive_url => break Err(eyre!("HTTP response body transport failed")),
+                            | Err(why) => break Err(eyre!(why)),
+                        }
+                    }
+                }
+            }
+        }
+        | Err(_why) if sensitive_url => Err(eyre!("HTTP request transport failed")),
+        | Err(why) => Err(eyre!(why)),
+    }
+}
+fn is_credential_header(name: &HeaderName) -> bool {
+    let name = name.as_str();
+    name == AUTHORIZATION.as_str() || name.ends_with("-token") || name.ends_with("-key") || name == "apikey"
+}
+/// Build an HTTP POST request that refuses redirects from a validated loopback endpoint.
+pub fn loopback_post(url: impl Into<String>) -> ApiResult<HttpRequestBuilder> {
+    ReqwestHttpService::loopback().map(|service| HttpRequestBuilder {
+        service,
+        ..HttpRequestBuilder::new(HttpMethod::Post, url)
+    })
+}
+fn no_redirect_client() -> ApiResult<reqwest::Client> {
+    let policy = policy::shared_http_policy();
+    reqwest::Client::builder()
+        .timeout(policy.timeout.unsigned_abs())
+        .connect_timeout(policy.connect_timeout.unsigned_abs())
+        .redirect(Policy::none())
+        .build()
+        .map_err(|_| eyre!("Failed to construct restricted HTTP client"))
+}
+/// Utility method to employ best practices when making async HTTP PATCH requests.
+pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Patch, url)
+}
+/// Utility method to employ best practices when making async HTTP POST requests.
+pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Post, url)
+}
+/// Utility method to employ best practices when making async HTTP PUT requests.
+pub fn put(url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(HttpMethod::Put, url)
+}
+/// Build an HTTP request for a dynamic method.
+pub fn request(method: HttpMethod, url: impl Into<String>) -> HttpRequestBuilder {
+    HttpRequestBuilder::new(method, url)
+}
+/// Reads response bytes or converts request, status, and body errors into a contextual error.
+pub async fn response_body_bytes(response: ApiResult<HttpResponse>, error_message: &str) -> ApiResult<Vec<u8>> {
+    match response {
+        | Ok(value) => match value.status_code {
+            | 200..=299 => value.bytes().await.map_err(|why| eyre!("{error_message} — {why}")),
+            | status => Err(eyre!("{error_message} — HTTP {status}")),
+        },
+        | Err(why) => Err(eyre!("{error_message} — {why}")),
+    }
+}
+pub(crate) fn should_retry(method: &HttpMethod, status_code: Option<u16>) -> bool {
+    policy::should_retry(method, status_code)
 }
 async fn stream_request_attempts(
     client: reqwest::Client,
@@ -454,205 +678,61 @@ async fn stream_request_once(
         | Err(why) => Err(DownloadError::init().report(eyre!("{error_message} — {why}")).build()),
     }
 }
-async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
+async fn stream_request_with_policy(
+    client: reqwest::Client,
+    request: HttpRequest,
+    output: &Path,
+    progress: &mut impl FnMut(u64, Option<u64>),
+    resume_from: Option<u64>,
+    error_message: Option<&str>,
+    auth_error_message: Option<&str>,
+) -> ApiResult<()> {
     let anonymous = anonymous_request(&request);
-    let result = execute_with_policy_attempts(client.clone(), request).await;
-    match (result, anonymous) {
-        | (Ok(response), Some(request)) if matches!(response.status_code, 401 | 403) => {
-            let credential_status = response.status_code;
-            warn!(
-                status_code = credential_status,
-                url = request.url.as_str(),
-                "=> {} Configured HTTP credentials were rejected; retrying without authentication",
-                Label::using()
-            );
-            match execute_with_policy_attempts(client, request).await {
-                | Ok(response) if matches!(response.status_code, 401 | 403) => Err(eyre!(
-                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed (HTTP {})",
-                    response.status_code
-                )),
-                | Err(why) => Err(eyre!(
-                    "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed — {why}"
-                )),
-                | result => result,
-            }
-        }
-        | (result, _) => result,
-    }
-}
-async fn execute_with_policy_attempts(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
-    let policy = policy::shared_http_policy();
-    let method = request.method.clone();
     let url = request.url.clone();
-    let max_attempts = policy.max_attempts();
-    for attempt in 1..=max_attempts {
-        let started = Timestamp::now();
-        let result = execute_with_timeout(client.clone(), request.clone()).await;
-        let elapsed_ms = Timestamp::now().duration_since(started).as_millis();
-        match result {
-            | Ok(response) => {
-                let retry = should_retry(&method, Some(response.status_code));
-                if retry && attempt < max_attempts {
-                    let delay = policy::retry_delay(Some(&response.headers), attempt, Timestamp::now());
-                    warn!(
-                        attempt,
-                        status_code = response.status_code,
-                        elapsed_ms,
-                        retry_after_ms = delay.as_millis(),
-                        url,
-                        "=> {} Retrying HTTP request",
-                        Label::using()
-                    );
-                    sleep(delay.unsigned_abs()).await;
-                } else {
-                    debug!(
-                        attempt,
-                        status_code = response.status_code,
-                        elapsed_ms,
-                        url,
-                        "=> {} HTTP request",
-                        Label::using()
-                    );
-                    return Ok(response);
-                }
-            }
-            | Err(why) => {
-                let retry = should_retry(&method, None);
-                if retry && attempt < max_attempts {
-                    let delay = policy::retry_delay(None, attempt, Timestamp::now());
-                    warn!(
-                        attempt,
-                        elapsed_ms,
-                        retry_after_ms = delay.as_millis(),
-                        url,
-                        "=> {} Retrying HTTP request — {why}",
-                        Label::using()
-                    );
-                    sleep(delay.unsigned_abs()).await;
-                } else {
-                    warn!(attempt, elapsed_ms, url, "=> {} HTTP request failed — {why}", Label::fail());
-                    return Err(why);
+    let result = stream_request_attempts(client.clone(), request, output, progress, resume_from, error_message, auth_error_message).await;
+    match (result, anonymous) {
+        | (
+            Err(DownloadError {
+                status_code: Some(status_code @ (401 | 403)),
+                report,
+                ..
+            }),
+            Some(request),
+        ) => {
+            let follow_up_action = "(retrying download without authentication)".dimmed();
+            warn!(status_code, url, "=> {} Rejected HTTP credentials {follow_up_action}", Label::using(),);
+            match stream_request_attempts(client, request, output, progress, resume_from, error_message, None).await {
+                | Ok(()) => Ok(()),
+                | Err(anonymous_error) => {
+                    let combined = eyre!("{report}; anonymous fallback also failed — {}", anonymous_error.report);
+                    warn!(url, "=> {} HTTP download failed — {combined}", Label::fail());
+                    Err(combined)
                 }
             }
         }
-    }
-    Err(eyre!("HTTP request failed after retry attempts"))
-}
-async fn execute_with_timeout(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
-    let service = policy::http_service_builder().service(service_fn(move |value: HttpRequest| {
-        let client = client.clone();
-        async move { invoke_request(client, value).await }
-    }));
-    service
-        .oneshot(request)
-        .await
-        .map_err(|why| eyre!("HTTP service timeout or middleware error — {why}"))
-}
-/// Build a header map from string name-value pairs, skipping invalid entries.
-pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> HeaderMap {
-    values.into_iter().fold(HeaderMap::new(), |mut headers, (name, value)| {
-        if let (Ok(name), Ok(mut value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
-            value.set_sensitive(is_credential_header(&name));
-            headers.append(name, value);
+        | (Ok(()), _) => Ok(()),
+        | (Err(why), _) => {
+            warn!(url, "=> {} HTTP download — {}", Label::fail(), why.report);
+            Err(why.report)
         }
-        headers
-    })
-}
-fn anonymous_request(request: &HttpRequest) -> Option<HttpRequest> {
-    let headers = request
-        .headers
-        .iter()
-        .filter(|(name, value)| !(value.is_sensitive() && is_credential_header(name)))
-        .fold(HeaderMap::new(), |mut headers, (name, value)| {
-            headers.append(name.clone(), value.clone());
-            headers
-        });
-    (headers.len() < request.headers.len()).then(|| HttpRequest { headers, ..request.clone() })
-}
-fn is_credential_header(name: &HeaderName) -> bool {
-    let name = name.as_str();
-    name == AUTHORIZATION.as_str() || name.ends_with("-token") || name.ends_with("-key") || name == "apikey"
-}
-/// Build a Bearer authorization header when `token` is non-empty.
-pub fn bearer_auth(token: &str) -> HeaderMap {
-    match token.trim() {
-        | "" => HeaderMap::new(),
-        | value => header(AUTHORIZATION.as_str(), format!("Bearer {value}").as_str()),
     }
 }
-/// Utility method to employ best practices when making async HTTP DELETE requests.
-pub fn delete(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Delete, url)
-}
-/// Utility method to employ best practices when making async HTTP GET requests.
-pub fn get(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Get, url)
-}
-/// Build a one-entry header map, skipping invalid names or values.
-pub fn header(name: &str, value: &str) -> HeaderMap {
-    headers([(name, value)])
-}
-/// Build an HTTP POST request that refuses redirects from a validated loopback endpoint.
-pub fn loopback_post(url: impl Into<String>) -> ApiResult<HttpRequestBuilder> {
-    ReqwestHttpService::loopback().map(|service| HttpRequestBuilder {
-        service,
-        ..HttpRequestBuilder::new(HttpMethod::Post, url)
-    })
-}
-/// Utility method to employ best practices when making async HTTP PATCH requests.
-pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Patch, url)
-}
-/// Utility method to employ best practices when making async HTTP POST requests.
-pub fn post(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Post, url)
-}
-/// Utility method to employ best practices when making async HTTP PUT requests.
-pub fn put(url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(HttpMethod::Put, url)
-}
-/// Build an HTTP request for a dynamic method.
-pub fn request(method: HttpMethod, url: impl Into<String>) -> HttpRequestBuilder {
-    HttpRequestBuilder::new(method, url)
-}
-async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
-    let HttpRequest {
-        headers,
-        json_body,
-        method,
-        url,
-    } = request;
-    let builder = client.request(method.into(), url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
-    let builder = match json_body {
-        | Some(value) => builder.json(&value),
-        | None => builder,
-    };
-    match builder.send().await {
-        | Ok(response) => {
-            let status_code = response.status().as_u16();
-            let headers = response.headers().clone();
-            match response.bytes().await {
-                | Ok(body) => Ok(HttpResponse {
-                    body: body.to_vec(),
-                    headers,
-                    status_code,
-                }),
-                | Err(why) => Err(eyre!(why)),
-            }
-        }
-        | Err(why) => Err(eyre!(why)),
+/// Check if a URL advertises byte-range support via `Accept-Ranges: bytes`.
+pub async fn supports_byte_ranges(url: &str, headers: Option<HeaderMap>) -> ApiResult<bool> {
+    let service = ReqwestHttpService::streaming();
+    let request = service
+        .client
+        .head(url)
+        .header(USER_AGENT, ACORN_USER_AGENT)
+        .headers(headers.unwrap_or_default());
+    match request.send().await {
+        | Ok(response) => Ok(response
+            .headers()
+            .get(ACCEPT_RANGES)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.eq_ignore_ascii_case("bytes"))),
+        | Err(why) => Err(eyre!("Failed to probe HTTP range support — {why}")),
     }
 }
-/// Reads response bytes or converts request, status, and body errors into a contextual error.
-pub async fn response_body_bytes(response: ApiResult<HttpResponse>, error_message: &str) -> ApiResult<Vec<u8>> {
-    match response {
-        | Ok(value) => match value.status_code {
-            | 200..=299 => value.bytes().await.map_err(|why| eyre!("{error_message} — {why}")),
-            | status => Err(eyre!("{error_message} — HTTP {status}")),
-        },
-        | Err(why) => Err(eyre!("{error_message} — {why}")),
-    }
-}
-pub(crate) fn should_retry(method: &HttpMethod, status_code: Option<u16>) -> bool {
-    policy::should_retry(method, status_code)
-}
+#[cfg(test)]
+mod tests;
