@@ -6,18 +6,18 @@ difficulty: high
 impact: high
 package: [workspace, acorn-py, ci, docs]
 tags: [migration, repository, python, pyo3, maturin, gitlab, ci, release]
-status: planned
+status: in-progress
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-py/`, workspace `Cargo.toml`, `.gitlab-ci.yml`, release/docs references, `xtask` workspace assumptions, and the already-provisioned external repository.
-- **Create:** standalone manifest, CI/release configuration, documentation, and history-bearing source tree in the external repository.
+- **Update:** this migration record now; `crates/acorn-py/`, workspace `Cargo.toml`, `.gitlab-ci.yml`, release/docs references, and `xtask` workspace assumptions only after standalone remote CI and release validation.
+- **Create:** the history-bearing standalone sibling checkout at `../acorn-py`, with its own manifest, lockfiles, core CI, tests, and project documentation. Remote release configuration remains follow-on work.
 - **Delete:** `crates/acorn-py/` and monorepo Python CI/release wiring only after the external build, publish, permissions, and consumer cutover are verified.
 
 # Dependencies
 
-Complete [Python binding deduplication](../refactors/core/python-binding-deduplication.md) before copying the final source. Coordinate manifest/release order with [crate boundaries](../refactors/crate-boundary-architecture.md), [thiserror](thiserror-adoption.md), and [runner pools](../refactors/ci-runner-pools.md).
+Python binding deduplication is complete. Coordinate manifest/release order with [crate boundaries](../refactors/crate-boundary-architecture.md), [thiserror](thiserror-adoption.md), and [runner pools](../refactors/ci-runner-pools.md).
 
 # Goal
 
@@ -41,11 +41,15 @@ The extraction must preserve useful file history, keep the installed Python modu
 - `.gitlab-ci.yml` owns one `test-python` job. It runs `pixi run test` for merge requests and default-branch changes but does not build a wheel matrix or publish `acorn-py` to PyPI.
 - ACORN's crates.io publishing script does not publish `acorn-py`; the only checked-in PyPI release command is the package-local `make pypi` target using `MATURIN_PASSWORD`.
 - ACORN's README, architecture, contributor/agent guidance, mdBook sources, and active wiki plans describe `acorn-py` as part of this checkout. The package README and `pyproject.toml` still point source and changelog links at the monorepo.
-- The active [Python binding deduplication](../refactors/core/python-binding-deduplication.md) plan concerns only code that will move. The [CI runner pools](../refactors/ci-runner-pools.md), [crate boundary architecture](../refactors/crate-boundary-architecture.md), and [thiserror adoption](thiserror-adoption.md) plans also contain assumptions about Python jobs or bindings inside ACORN.
+- `crates/acorn-py/src/lib.rs` now generates the shared `find_all`, `from_string`, and getter methods for all seven PID wrappers from the `impl_pid_wrapper!` definition. Binding tests cover each wrapper's Python-visible constructor, finder, getters, and special methods; the clean-checkout Python suite passes all 22 tests.
+- A standalone repository was prepared from ACORN commit `88e1baeb97d8492cff3c7d2b56415a47f88727e8` by filtering both historical package locations (`acorn-py/` and `crates/acorn-py/`) to the repository root. ACORN release tags were intentionally omitted.
+- The prepared repository owns version `0.1.37`, Python 3.10 and 3.13 environments, Rust 1.95 checks, a repository-local test fixture, core GitLab CI, and wheel build/install smoke testing. Its configured origin is `git@code.ornl.gov:research-enablement/acorn-py.git`; no branch has been pushed during preparation.
+- `acorn-lib` 0.1.76 is published on crates.io, but `acorn-schema` 0.1.76 is not. The standalone manifest therefore pins both crates to public ACORN commit `1c1f737b6248a5c3c80dd6038054931968e36d45` so clean builds resolve one coherent 0.1.76 workspace snapshot without a sibling checkout. Registry-only dependencies remain a release follow-up after `acorn-schema` is published.
+- The [CI runner pools](../refactors/ci-runner-pools.md), [crate boundary architecture](../refactors/crate-boundary-architecture.md), and [thiserror adoption](thiserror-adoption.md) plans contain assumptions about Python jobs or bindings inside ACORN.
 
 # Recommendation
 
-Use the existing [`research-enablement/acorn-py`](https://code.ornl.gov/research-enablement/acorn-py) remote as the independent GitLab home for the bindings. Populate it from a history-filtered copy of `crates/acorn-py/`, then make it a single-package Rust/Python repository that consumes `acorn-lib` from crates.io. Do not add a Git submodule, vendored copy, or mandatory cross-project pipeline to ACORN; those would recreate checkout or release coupling.
+Use the existing [`research-enablement/acorn-py`](https://code.ornl.gov/research-enablement/acorn-py) remote as the independent GitLab home for the bindings. Populate it from the prepared history-filtered sibling repository, then migrate its pinned ACORN dependencies to crates.io after every required Rust crate is published. Do not add a Git submodule, vendored copy, or mandatory cross-project pipeline to ACORN; those would recreate checkout or release coupling.
 
 Use independent semantic versions for the Python distribution and the Rust library. The `acorn-py` manifest should declare the lowest compatible published `acorn-lib` release, while its committed lockfile selects a reviewed concrete dependency set. Updating ACORN's workspace version must no longer update or release `acorn-py`.
 
@@ -70,15 +74,14 @@ Split documentation ownership as follows:
 
 ## 2. Populate the standalone repository with history
 
-1. In a disposable clone, filter the ACORN history to `crates/acorn-py/` and rewrite that prefix to the new repository root. Push the rewritten branch to the existing `acorn-py` remote without importing ACORN release tags, because the two projects will have independent release histories.
+1. In a disposable clone, filter both historical ACORN package paths, `acorn-py/` and `crates/acorn-py/`, and rewrite each prefix to the new repository root. Push the rewritten branch to the existing `acorn-py` remote without importing ACORN release tags, because the two projects will have independent release histories.
 2. Record the source ACORN commit and extraction procedure in the first migration commit and new repository documentation. Verify representative historical commits with `git log --follow` before opening development on the new repository.
 3. Add repository-level files that were previously inherited from ACORN: `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, maintainer/ownership metadata, agent guidance if retained, and a Python-specific `CHANGELOG.md`. Carry forward relevant historical `acorn-py` changelog entries without rewriting ACORN's historical changelog.
-4. Move the existing [Python binding deduplication](../refactors/core/python-binding-deduplication.md) plan into the new repository's planning system, preserving its planned status. Remove the ACORN copy and index entry only during the ACORN cleanup phase.
 
 ## 3. Make acorn-py independently buildable
 
 1. Replace `version.workspace = true` with an explicit package version owned by `acorn-py`. Give the Rust package metadata and `[project]` metadata one documented version source of truth that Maturin can read.
-2. Replace `acorn-lib = { path = "../acorn-lib", ... }` with a crates.io dependency on the verified compatible `acorn-lib` release. Keep local path overrides developer-only and uncommitted so release artifacts cannot accidentally contain a monorepo path assumption.
+2. Replace workspace path dependencies with one coherent external source. The prepared repository pins `acorn-lib` and `acorn-schema` to the public ACORN 0.1.76 commit because `acorn-schema` is not yet on crates.io; convert both to verified registry releases once available. Keep local path overrides developer-only and uncommitted so release artifacts cannot accidentally contain a monorepo path assumption.
 3. Move only the PyO3-required Cargo configuration from ACORN. Prefer Maturin's extension-module behavior; retain target linker flags or `PYTHON_SYS_EXECUTABLE` only if standalone macOS builds prove they are still required.
 4. Copy the relevant Rust toolchain, formatting, lint, and dependency-policy settings into the standalone project instead of relying on ACORN workspace inheritance. Keep `Cargo.lock` and `pixi.lock` committed and regenerate them from the new root.
 5. Replace mutating Pixi lint tasks with CI-safe check tasks: Rust formatting and Clippy checks, Ruff format/check, and Black check if Black remains part of the chosen formatter policy. Keep separate developer fix/format tasks.
@@ -118,7 +121,7 @@ Only merge the ACORN cleanup after the standalone default-branch pipeline passes
 5. Remove the PyO3-only macOS linker configuration and `PYTHON_SYS_EXECUTABLE` override from `.cargo/config.toml` after native macOS ACORN builds confirm they have no other owner.
 6. Update `ARCHITECTURE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, and other contributor guidance so they list only crates present in the ACORN workspace and link to the standalone bindings when relevant.
 7. Keep historical `CHANGELOG.md` entries intact. Remove or regenerate current generated artifacts such as coverage data if they still name `crates/acorn-py`.
-8. Move the binding-deduplication plan as described above, remove its ACORN index entry, and update other active plans that describe an in-workspace Python boundary, including crate-boundary architecture and thiserror adoption.
+8. Update other active plans that describe an in-workspace Python boundary, including crate-boundary architecture and thiserror adoption.
 
 ## 7. Update ACORN user documentation
 
@@ -139,7 +142,7 @@ Only merge the ACORN cleanup after the standalone default-branch pipeline passes
 ## Standalone acorn-py
 
 1. Clone only `acorn-py` into a clean directory with no sibling ACORN checkout and run all documented setup, format, lint, build, and test commands.
-2. Confirm `cargo metadata` resolves `acorn-lib` from the registry and contains no path outside the new repository.
+2. Confirm `cargo metadata` contains no local path outside the new repository. Before production publication, replace the temporary public Git pins and confirm both ACORN dependencies resolve from the registry.
 3. Verify representative pre-extraction commits are reachable in the rewritten history and the recorded source commit matches the ACORN cutover base.
 4. Run merge-request and default-branch pipelines, then build and smoke-test all four platform wheel targets on clean Python environments.
 5. Dry-run the protected-tag/version gate. Publish one release candidate to TestPyPI if available, then install it by distribution name and import `acorn` before the first production release.
@@ -161,7 +164,7 @@ Before the first standalone PyPI release, keep the ACORN removal merge request u
 # Acceptance criteria
 
 1. [`research-enablement/acorn-py`](https://code.ornl.gov/research-enablement/acorn-py) contains the binding source and useful filtered history, builds without an ACORN checkout, and is the canonical source and issue location advertised on PyPI.
-2. The Python distribution has an explicit independent version and consumes a published, documented-compatible `acorn-lib` dependency.
+2. The Python distribution has an explicit independent version and consumes one documented-compatible ACORN dependency snapshot; production publication remains gated on publishing and selecting registry releases for all required Rust crates.
 3. Its merge-request/default-branch CI performs non-mutating Rust and Python checks, source tests, platform wheel builds, and clean wheel-install smoke tests.
 4. A protected, version-matched tag publishes only previously tested wheels to PyPI and creates an auditable release record without relying on ACORN secrets or jobs.
 5. ACORN contains no `crates/acorn-py` workspace member, Python test job, PyO3-only Cargo configuration, Python version-sync entry, or package publication credential.
@@ -172,7 +175,6 @@ Before the first standalone PyPI release, keep the ACORN removal merge request u
 
 # Related plans
 
-- [Python binding deduplication](../refactors/core/python-binding-deduplication.md)
 - [GitLab CI runner pools](../refactors/ci-runner-pools.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [thiserror adoption](thiserror-adoption.md)

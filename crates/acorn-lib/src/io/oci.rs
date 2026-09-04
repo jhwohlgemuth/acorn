@@ -1,5 +1,6 @@
 //! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
 use crate::args;
+use crate::io::api;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
 use crate::io::{extract, file_checksum, retry, walk, ApiResult, FromCommand, PathExt};
@@ -17,6 +18,7 @@ use acorn_schema::schema::agent::{OciModelLayerRole, Quantization};
 use acorn_schema::validation::{rules, IntoValidationReport, Validate, ValidationReport};
 use color_eyre::eyre::eyre;
 use core::fmt;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::ffi::OsString;
@@ -775,8 +777,9 @@ impl OrasTransport {
     }
     fn invoke(&self, args: Vec<OsString>) -> ApiResult<String> {
         let binary = self.binary.to_string_lossy();
-        let token = match self.options.credential_env.as_ref() {
+        let token: ApiResult<Option<api::Secret>> = match self.options.credential_env.as_ref() {
             | Some(name) => env::var(name)
+                .map(api::Secret::from)
                 .map(Some)
                 .map_err(|_| eyre!("OCI credential environment variable '{name}' is not set")),
             | None => Ok(None),
@@ -785,7 +788,7 @@ impl OrasTransport {
             let args = self.transport_args(args, token.is_some());
             let output = retry(
                 || match token.as_ref() {
-                    | Some(token) => run_output_with_stdin(binary.as_ref(), &args, None, token.as_bytes()),
+                    | Some(secret) => run_output_with_stdin(binary.as_ref(), &args, None, ExposeSecret::expose_secret(secret).as_bytes()),
                     | None => run_output(binary.as_ref(), &args, None),
                 },
                 |why| why.kind() == ErrorKind::ExecutableFileBusy,

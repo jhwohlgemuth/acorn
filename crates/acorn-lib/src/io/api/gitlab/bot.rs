@@ -50,7 +50,7 @@ pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDeli
 use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
 #[cfg(feature = "analysis")]
 use crate::analyzer::AnalysisContext;
-use crate::io::api::Configuration;
+use crate::io::api::{self, Configuration};
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::Label;
@@ -121,9 +121,9 @@ pub struct Config {
     /// Whether to run the legacy Events API reconciliation poller
     polling_enabled: bool,
     /// Expected `X-Gitlab-Token` header value for legacy webhook authentication.
-    webhook_token: Option<String>,
+    webhook_token: Option<api::Secret>,
     /// Base64-encoded HMAC-SHA256 signing secret for Standard Webhooks authentication.
-    webhook_signing_token: Option<String>,
+    webhook_signing_token: Option<api::Secret>,
     /// Numeric GitLab project ID to accept deliveries for; rejects all others when set.
     project_id: Option<u64>,
     /// Durable delivery and operation queue
@@ -322,7 +322,7 @@ impl Config {
     /// ```
     pub fn with_webhook_token(self, token: impl Into<String>) -> Self {
         Self {
-            webhook_token: Some(token.into()),
+            webhook_token: Some(api::Secret::from(token.into())),
             ..self
         }
     }
@@ -343,7 +343,7 @@ impl Config {
     /// ```
     pub fn with_webhook_signing_token(self, token: impl Into<String>) -> Self {
         Self {
-            webhook_signing_token: Some(token.into()),
+            webhook_signing_token: Some(api::Secret::from(token.into())),
             ..self
         }
     }
@@ -466,8 +466,8 @@ impl Server {
         let Server { config, state } = self;
         let webhook_config = Arc::new(
             WebhookConfig::init()
-                .maybe_webhook_token(config.webhook_token.as_deref())
-                .maybe_webhook_signing_token(config.webhook_signing_token.as_deref())
+                .maybe_webhook_token(config.webhook_token.clone())
+                .maybe_webhook_signing_token(config.webhook_signing_token.clone())
                 .maybe_project_id(config.project_id)
                 .operation_queue(config.operation_queue.clone())
                 .build(),

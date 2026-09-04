@@ -1,4 +1,5 @@
 //! Provider-neutral webhook verification and callback transport contracts
+use crate::io::api;
 use crate::io::http::{HeaderMapExt, HttpMethod, HttpRequest, HttpResponseTooLarge, HttpService};
 use crate::io::ApiResult;
 use crate::util::constants::app::MAX_CALLBACK_RESPONSE_BYTES;
@@ -11,6 +12,7 @@ use http::header::{HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use http::HeaderMap;
 use jiff::Timestamp;
 use ring::hmac;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
 /// Awaitable result produced by a durable webhook operation.
@@ -66,7 +68,7 @@ pub struct DispatchResult {
 #[derive(Clone)]
 pub struct HeaderSecretVerifier {
     delivery_headers: Vec<HeaderName>,
-    secret: String,
+    secret: api::Secret,
     secret_header: HeaderName,
 }
 /// Borrowed inbound request material used by webhook verifiers.
@@ -192,7 +194,7 @@ impl fmt::Debug for HeaderSecretVerifier {
 }
 impl HeaderSecretVerifier {
     /// Construct a shared-header verifier and ordered delivery-ID lookup.
-    pub fn new(secret_header: &str, secret: impl Into<String>, delivery_headers: &[&str]) -> Result<Self, WebhookError> {
+    pub fn new(secret_header: &str, secret: impl Into<api::Secret>, delivery_headers: &[&str]) -> Result<Self, WebhookError> {
         HeaderName::from_bytes(secret_header.as_bytes())
             .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid secret header name"))
             .and_then(|secret_header| {
@@ -205,7 +207,7 @@ impl HeaderSecretVerifier {
             })
             .and_then(|(secret_header, delivery_headers)| {
                 let secret = secret.into();
-                match secret.is_empty() {
+                match ExposeSecret::expose_secret(&secret).is_empty() {
                     | true => Err(WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook authentication secret")),
                     | false => Ok(Self {
                         delivery_headers,
@@ -215,6 +217,10 @@ impl HeaderSecretVerifier {
                 }
             })
     }
+    /// Construct from a string secret (convenience for tests).
+    pub fn from_string(secret_header: &str, secret: impl Into<String>, delivery_headers: &[&str]) -> Result<Self, WebhookError> {
+        Self::new(secret_header, api::Secret::from(secret.into()), delivery_headers)
+    }
 }
 impl Verifier for HeaderSecretVerifier {
     fn verify<'a>(&self, request: InboundRequest<'a>, _now: Timestamp) -> Result<VerifiedRequest<'a>, WebhookError> {
@@ -223,19 +229,21 @@ impl Verifier for HeaderSecretVerifier {
             .get(&self.secret_header)
             .and_then(|value| value.to_str().ok())
             .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Missing webhook authentication header"))
-            .and_then(|received| match constant_time_eq(self.secret.as_bytes(), received.as_bytes()) {
-                | true => self
-                    .delivery_headers
-                    .iter()
-                    .find_map(|name| request.headers.get(name).and_then(|value| value.to_str().ok()))
-                    .filter(|value| !value.trim().is_empty())
-                    .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook delivery identifier"))
-                    .map(|delivery_id| VerifiedRequest {
-                        delivery_id,
-                        raw_body: request.raw_body,
-                    }),
-                | false => Err(WebhookError::new(ErrorKind::Unauthorized, "Webhook authentication failed")),
-            })
+            .and_then(
+                |received| match constant_time_eq(ExposeSecret::expose_secret(&self.secret).as_bytes(), received.as_bytes()) {
+                    | true => self
+                        .delivery_headers
+                        .iter()
+                        .find_map(|name| request.headers.get(name).and_then(|value| value.to_str().ok()))
+                        .filter(|value| !value.trim().is_empty())
+                        .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook delivery identifier"))
+                        .map(|delivery_id| VerifiedRequest {
+                            delivery_id,
+                            raw_body: request.raw_body,
+                        }),
+                    | false => Err(WebhookError::new(ErrorKind::Unauthorized, "Webhook authentication failed")),
+                },
+            )
     }
 }
 impl fmt::Debug for StandardWebhooksVerifier {
@@ -249,7 +257,9 @@ impl fmt::Debug for StandardWebhooksVerifier {
 }
 impl StandardWebhooksVerifier {
     /// Construct a verifier from a `whsec_` Standard Webhooks secret.
-    pub fn new(signing_secret: &str, tolerance_seconds: u64) -> Result<Self, WebhookError> {
+    pub fn new(signing_secret: impl Into<api::Secret>, tolerance_seconds: u64) -> Result<Self, WebhookError> {
+        let signing_secret = signing_secret.into();
+        let signing_secret = ExposeSecret::expose_secret(&signing_secret);
         signing_secret
             .strip_prefix("whsec_")
             .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret"))
@@ -265,6 +275,10 @@ impl StandardWebhooksVerifier {
                     tolerance_seconds,
                 }),
             })
+    }
+    /// Construct from a string secret (convenience for tests).
+    pub fn from_string(signing_secret: &str, tolerance_seconds: u64) -> Result<Self, WebhookError> {
+        Self::new(api::Secret::from(signing_secret.to_string()), tolerance_seconds)
     }
 }
 impl Verifier for StandardWebhooksVerifier {

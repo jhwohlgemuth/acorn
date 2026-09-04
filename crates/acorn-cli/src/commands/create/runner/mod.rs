@@ -1,5 +1,5 @@
 use acorn::io::api::gitlab::{self, RunnerCreationResponse};
-use acorn::io::api::Configuration;
+use acorn::io::api::{Configuration, Secret};
 use acorn::io::command_exists;
 use acorn::io::config::{ApplicationConfiguration, RunnerDetails, RunnerType};
 use acorn::io::{to_absolute_string, Executor, InputOutput, Remote};
@@ -10,6 +10,7 @@ use acorn_core::{Location, Repository};
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result, WrapErr};
 use futures::future::join_all;
+use secrecy::ExposeSecret;
 use std::ffi::OsString;
 use std::fs::remove_file;
 use std::path::PathBuf;
@@ -371,7 +372,7 @@ async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, rem
                                         "--non-interactive",
                                         ("--url", url),
                                         ("--description", description),
-                                        ("--token", token),
+                                        ("--token", ExposeSecret::expose_secret(&token).to_string()),
                                         ("--executor", executor.gitlab_runner_type()),
                                         ..gpu_args,
                                     ];
@@ -408,7 +409,7 @@ async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, rem
                         "--non-interactive",
                         ("--url", url),
                         ("--description", description),
-                        ("--token", token),
+                        ("--token", ExposeSecret::expose_secret(&token).to_string()),
                         ("--executor", executor.gitlab_runner_type()),
                         ..gpu_args,
                     ];
@@ -463,7 +464,7 @@ fn build_docker_runner_args(
 }
 /// Build the `exec <name> gitlab-runner register ...` argument list for
 /// Docker/Podman container-based executors.
-fn build_register_args(name: &str, url: &str, description: &str, token: &str, log_level: &str, gpu_template: &Option<String>) -> Vec<OsString> {
+fn build_register_args(name: &str, url: &str, description: &str, token: &Secret, log_level: &str, gpu_template: &Option<String>) -> Vec<OsString> {
     let gpu_args = match gpu_template {
         | Some(template) => args!["--template-config", template],
         | None => args![],
@@ -477,7 +478,7 @@ fn build_register_args(name: &str, url: &str, description: &str, token: &str, lo
         "--non-interactive",
         ("--url", url),
         ("--description", description),
-        ("--token", token),
+        ("--token", ExposeSecret::expose_secret(token).to_string()),
         ("--executor", "docker"),
         ("--docker-image", "docker"),
         ("--docker-volumes", format!("{DOCKER_SOCKET}:{DOCKER_SOCKET}")),
@@ -535,11 +536,12 @@ mod tests {
     #[test]
     fn test_remote_runner_registration_targets_the_requested_docker_host() {
         let template = Some("/etc/gitlab-runner/gpu.template.toml".to_string());
+        let token = Secret::from("token".to_string());
         let values = text(remote().docker_args(build_register_args(
             "runner-42",
             "https://gitlab.example.org/",
             "GitLab Runner [42]",
-            "token",
+            &token,
             "debug",
             &template,
         )));

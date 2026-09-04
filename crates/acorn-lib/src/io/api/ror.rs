@@ -21,7 +21,7 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
 use crate::util::Label;
 use acorn_core::util::Searchable;
 use acorn_schema::schema::pid::{PersistentIdentifierParse, ROR};
@@ -33,14 +33,16 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env::var;
 use tracing::debug;
+use veil::Redact;
 
 /// ROR API options
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Bearer token for authentication
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// Request body payload
     pub body: Option<String>,
     /// ROR API domain (defaults to api.ror.org)
@@ -61,7 +63,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: var("ROR_API_TOKEN").unwrap_or_default(),
+            token: api::Secret::from(var("ROR_API_TOKEN").unwrap_or_default()),
             body: None,
             domain: var("ROR_SERVER_HOST").unwrap_or_else(|_| String::from("api.ror.org")),
             identifier: None,
@@ -86,7 +88,7 @@ impl Configuration for Options {
             ..self
         }
     }
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     fn domain(&self) -> &str {

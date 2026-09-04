@@ -44,6 +44,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 - `crates/acorn-lib/src/io/api/gitlab/mod.rs`
 - `crates/acorn-lib/src/io/config/application.rs` now owns application-file discovery, endpoint lists, rendering, and synchronization; `bucket.rs` owns bucket repository/authentication orchestration; `mod.rs` retains shared model/registry types and stable public re-exports.
 - `Params::{with_auth,with_auth_maybe}` and their tests now own bearer and named custom-token construction; the completed standalone authentication plan was removed.
+- `api::Secret` aliases `secrecy::SecretString`; API credentials, provider options, webhook credentials, and persisted runner configuration use secret containers with explicit exposure only at request construction and redacted outer diagnostics through `veil`.
 - `Params` also owns immutable optional query/template/body builders, but several provider paths still construct raw `Vec<Param>` values, so parameter composition remains in progress.
 - `io::api::webhooks` owns provider-neutral delivery, verification, and one-shot HTTPS callback dispatch; `io::http` enforces request-level redirect refusal, response bounds, anonymous-fallback policy, and sensitive-URL diagnostics.
 

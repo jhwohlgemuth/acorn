@@ -1,6 +1,6 @@
 //! Hugging Face Hub API helpers.
 use super::{Endpoint, IntoHeaders, Params, RemoteResource, TreeEntry};
-use crate::io::api::{Param, RepositoryFileMetadata};
+use crate::io::api::{self, Param, RepositoryFileMetadata};
 use crate::io::config::FilterSet;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::http::HttpResponseError;
@@ -26,10 +26,12 @@ use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt, ops::Deref};
 use futures::future::join_all;
 use owo_colors::OwoColorize;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::Path;
 use tracing::{info, warn};
+use veil::Redact;
 
 /// Candidate repositories returned by model search.
 pub type Candidates = Vec<Candidate>;
@@ -212,11 +214,12 @@ pub struct ModelSibling {
     pub rfilename: String,
 }
 /// Options for HuggingFace API requests
-#[derive(Builder, Clone, Debug)]
+#[derive(Builder, Clone, Redact)]
 #[builder(start_fn = init, on(String, into))]
 pub struct Options {
     /// Authentication token
-    pub token: Option<String>,
+    #[redact]
+    pub token: Option<api::Secret>,
     /// Model registry domain (default: "huggingface.co")
     #[builder(default = DEFAULT_HUGGINGFACE_DOMAIN.to_string())]
     pub domain: String,
@@ -269,7 +272,7 @@ pub struct RepositoryResolution<T> {
     value: T,
 }
 /// Options for Hugging Face model fallback searches.
-#[derive(Builder, Clone, Debug)]
+#[derive(Builder, Clone, Redact)]
 #[builder(start_fn = init, on(String, into))]
 pub struct SearchOptions {
     /// Base model identifier used to find related GGUF repositories.
@@ -280,7 +283,8 @@ pub struct SearchOptions {
     #[builder(default = DEFAULT_HUGGINGFACE_DOMAIN.to_string())]
     pub domain: String,
     /// Authentication token.
-    pub token: Option<String>,
+    #[redact]
+    pub token: Option<api::Secret>,
     /// Hugging Face search filter.
     #[builder(default = DEFAULT_HUGGINGFACE_SEARCH_TERM.to_string())]
     pub term: String,
@@ -790,7 +794,7 @@ impl ModelInfo {
         match options.identifier.as_deref() {
             | Some(identifier) => match Endpoint::from_template("huggingface::api").map(|endpoint| endpoint.with_domain(&options.domain)) {
                 | Ok(endpoint) => {
-                    let token = request_token(options.token.as_deref());
+                    let token = request_token(options.token.as_ref().map(|s| ExposeSecret::expose_secret(s) as &str));
                     let params: Vec<Param> = vec![
                         param!(TemplateValue, "identifier", identifier),
                         param!(KeyValuePair, "expand", "baseModels"),
@@ -1095,7 +1099,7 @@ pub fn parse_identifier(identifier: &str) -> ApiResult<(&str, &str)> {
 pub async fn repository_tree(options: &Options) -> ApiResult<HuggingFaceRepositoryFiles> {
     let template = "huggingface::api";
     let action = "tree";
-    let token = request_token(options.token.as_deref());
+    let token = request_token(options.token.as_ref().map(|s| ExposeSecret::expose_secret(s) as &str));
     let params: Vec<Param> = options
         .identifier
         .as_deref()
@@ -1162,7 +1166,7 @@ pub async fn search(options: &SearchOptions) -> ApiResult<Candidates> {
         })),
         | basename => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(&options.domain)) {
             | Ok(endpoint) => {
-                let token = request_token(options.token.as_deref());
+                let token = request_token(options.token.as_ref().map(|s| ExposeSecret::expose_secret(s) as &str));
                 let limit = options.limit;
                 let limit_value = (limit < 1000).then(|| limit.to_string());
                 let params: Vec<Param> = vec![

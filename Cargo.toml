@@ -86,7 +86,8 @@ rmcp = { version = "1.5.0", features = ["server", "transport-io"], default-featu
 shell-words = { version = "1.1.0", default-features = false }
 rust-embed = { version = "8.11.0", default-features = false }
 rusqlite = { version = "0.39.0", default-features = false }
-secrecy = { version = "0.10.3", default-features = false }
+secrecy = { version = "0.10.3", features = ["serde"], default-features = false }
+veil = { version = "0.3.0" }
 serde = { version = "1.0.225", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.149", default-features = false }
 eserde = { version = "0.1", features = ["derive", "json"], default-features = false }

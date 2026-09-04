@@ -9,7 +9,6 @@
 
 - [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.
 - [Shared interpolation primitives](interpolation-primitives.md) - Unify string and list placeholder behavior.
-- [Python binding deduplication](python-binding-deduplication.md) - Reduce repetitive PID wrappers.
 - [OOXML slide-list fuzzing](ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
 - [Shared export context](export-context.md) - Centralize renderer input extraction.
 - [Research activity lifecycle, credit, license, and award fields](research-activity-lifecycle-credit-fields.md) - Add typed schema targets for provider enrichment that does not belong in notes.

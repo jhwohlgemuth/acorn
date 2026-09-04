@@ -1,5 +1,5 @@
 //! Bucket transfer and local copy logic
-use crate::io::api::{github, gitlab, Authenticator, Configuration, Credential};
+use crate::io::api::{github, gitlab, Authenticator, Configuration, Credential, Endpoint, Params};
 use crate::io::bagit::Bag;
 use crate::io::config::transfer::{transfer_bucket_files, DownloadOptions, TransferItem, TransferManifest, TransferPolicy};
 use crate::io::config::{filter_paths, FilterSet};
@@ -16,6 +16,7 @@ use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::future::Future;
 use futures::{future, stream, StreamExt, TryStreamExt};
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::fs::{create_dir_all, read, remove_dir_all, remove_file, write};
@@ -367,16 +368,22 @@ impl Bucket {
         let request = match options.repository {
             | Repository::GitLab { .. } => {
                 let branch = options.branch.filter(|value| !value.is_empty()).unwrap_or("HEAD");
-                let branch_ref = branch.percent_encode();
                 let encoded_path = path.percent_encode();
                 let headers = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
                     .map(Credential::into_header_pair)
-                    .map(|(header, token)| http::headers([(header, token.as_str())]));
+                    .map(|(header, token)| http::headers([(header, ExposeSecret::expose_secret(&token))]));
                 match (options.repository.domain(), options.repository.id()) {
-                    | (Some(domain), Some(identifier)) => Ok((
-                        format!("https://{domain}/api/v4/projects/{identifier}/repository/files/{encoded_path}/raw?ref={branch_ref}"),
-                        headers,
-                    )),
+                    | (Some(domain), Some(identifier)) => {
+                        let params = Params::new()
+                            .with_template("identifier", Some(identifier.as_str()))
+                            .with_template("file_path", Some(encoded_path.as_str()))
+                            .with_keyvalue("ref", Some(branch))
+                            .build();
+                        Endpoint::from_template("gitlab::api")
+                            .map(|endpoint| endpoint.with_domain(domain))
+                            .and_then(|endpoint| endpoint.resource_url("repository-file-raw", Some(params)))
+                            .map(|url| (url, headers))
+                    }
                     | _ => Err(eyre!("Failed to build GitLab API request for repository path")),
                 }
             }

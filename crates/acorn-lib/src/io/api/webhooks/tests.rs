@@ -100,7 +100,7 @@ fn secret_verifier_uses_ordered_delivery_headers_and_redacts_secret() {
 }
 #[test]
 fn standard_webhooks_rejects_stale_and_future_timestamps() {
-    let verifier = StandardWebhooksVerifier::new(&format!("whsec_{}", BASE64.encode(b"key")), 300).unwrap();
+    let verifier = StandardWebhooksVerifier::new(format!("whsec_{}", BASE64.encode(b"key")), 300).unwrap();
     for timestamp in ["1699999699", "1700000301"] {
         let mut headers = HeaderMap::new();
         headers.insert("webhook-id", HeaderValue::from_static("delivery"));
@@ -122,7 +122,7 @@ fn standard_webhooks_rejects_stale_and_future_timestamps() {
 fn standard_webhooks_verifies_raw_bytes_and_rotated_signatures() {
     let secret = b"signing-key";
     let encoded_secret = format!("whsec_{}", BASE64.encode(secret));
-    let verifier = StandardWebhooksVerifier::new(&encoded_secret, 300).unwrap();
+    let verifier = StandardWebhooksVerifier::new(encoded_secret.clone(), 300).unwrap();
     assert!(!format!("{verifier:?}").contains(&encoded_secret));
     let now = Timestamp::from_second(1_700_000_000).unwrap();
     let body = br#"{"event":"created"}"#;

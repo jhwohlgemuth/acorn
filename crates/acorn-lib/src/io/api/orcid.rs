@@ -40,6 +40,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env::var;
 use tracing::debug;
+use veil::Redact;
 
 /// ORCiD allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -101,12 +102,13 @@ pub enum OutputColumn {
     PastInstitutionAffiliationName,
 }
 /// ORCiD API options
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Bearer token for authentication
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// Request body payload
     pub body: Option<String>,
     /// ORCiD API domain (defaults to pub.orcid.org)
@@ -216,7 +218,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: var("ORCID_API_TOKEN").unwrap_or_default(),
+            token: api::Secret::from(var("ORCID_API_TOKEN").unwrap_or_default()),
             body: None,
             domain: var("ORCID_SERVER_HOST").unwrap_or_else(|_| String::from("pub.orcid.org")),
             identifier: None,
@@ -241,7 +243,7 @@ impl Configuration for Options {
             ..self
         }
     }
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     fn domain(&self) -> &str {

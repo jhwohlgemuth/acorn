@@ -16,6 +16,7 @@ use acorn_core::{Location, Repository};
 use color_eyre::eyre::eyre;
 use color_eyre::Report;
 use fancy_regex::Regex;
+use secrecy::ExposeSecret;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
@@ -374,7 +375,7 @@ async fn test_download_item_gitlab_raw_url_uses_resolved_branch_and_encodes_path
                 .as_ref()
                 .and_then(|headers| headers.get(credential.header))
                 .and_then(|value| value.to_str().ok()),
-            Some(credential.token.as_str())
+            Some(ExposeSecret::expose_secret(&credential.token))
         ),
         | None => assert!(item.headers.is_none()),
     }

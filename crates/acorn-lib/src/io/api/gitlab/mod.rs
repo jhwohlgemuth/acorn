@@ -1,7 +1,7 @@
 //! Module for interacting with GitLab API
 //!
 use crate::io::api::{
-    require_non_empty_secret, Authenticator, Configuration, Credential, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param,
+    self, require_non_empty_secret, Authenticator, Configuration, Credential, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param,
     Params, RemoteResource, RepositoryFileMetadata, ResponseContent, TreeEntry, ValueValidator, INCLUDED_ENDPOINTS,
 };
 use crate::io::config::{RunnerDetails, RunnerStatus, RunnerType};
@@ -27,6 +27,7 @@ use serde_with::skip_serializing_none;
 use std::env::var;
 use strum::EnumIs;
 use tracing::debug;
+use veil::Redact;
 
 pub mod bot;
 pub mod database;
@@ -643,12 +644,13 @@ pub struct NoteMetadata {
     pub commands_changes: serde_json::Value,
 }
 /// Options for GitLab API requests
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Authentication token
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// HTTP header used to send the authentication token.
     #[builder(default = GITLAB_PRIVATE_TOKEN_HEADER)]
     pub token_header: &'static str,
@@ -829,6 +831,7 @@ pub struct RunnerCreationResponse {
     #[serde(rename = "id")]
     pub identifier: u64,
     /// Runner access token
+    #[serde(default)]
     pub token: Option<String>,
     /// Runner access token expiration timestamp
     pub token_expires_at: Option<String>,
@@ -1027,14 +1030,16 @@ pub struct UserMetadata {
     pub url: String,
 }
 /// Webhook endpoint and inbound authentication options
-#[derive(Clone, Debug, Default, Eq, PartialEq, Validate)]
+#[derive(Clone, Default, Validate, Redact)]
 pub struct WebhookOptions {
     #[validate(url)]
     public_url: Option<String>,
     #[validate(required)]
-    webhook_token: Option<String>,
+    #[redact]
+    webhook_token: Option<api::Secret>,
     #[validate(required)]
-    signing_token: Option<String>,
+    #[redact]
+    signing_token: Option<api::Secret>,
 }
 /// Result of ensuring the configured project webhook exists
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1316,7 +1321,7 @@ impl Configuration for Options {
         }
         let (token_header, token) = Credential::from_env(&GITLAB_CREDENTIAL_VARIABLE_PAIRS)
             .map(Credential::into_header_pair)
-            .unwrap_or_else(|| (GITLAB_PRIVATE_TOKEN_HEADER, String::new()));
+            .unwrap_or_else(|| (GITLAB_PRIVATE_TOKEN_HEADER, api::Secret::from(String::new())));
         Self {
             token,
             token_header,
@@ -1353,7 +1358,7 @@ impl Configuration for Options {
         }
     }
     /// Return the authentication token
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     /// Return the GitLab domain
@@ -1693,16 +1698,22 @@ impl WebhookOptions {
     pub fn from_env(public_url: Option<&str>) -> Self {
         Self {
             public_url: public_url.map(str::to_string),
-            webhook_token: var("GITLAB_WEBHOOK_TOKEN").ok().filter(|value| !value.trim().is_empty()),
-            signing_token: var("GITLAB_WEBHOOK_SIGNING_TOKEN").ok().filter(|value| !value.trim().is_empty()),
+            webhook_token: var("GITLAB_WEBHOOK_TOKEN")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .map(api::Secret::from),
+            signing_token: var("GITLAB_WEBHOOK_SIGNING_TOKEN")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .map(api::Secret::from),
         }
     }
     /// Create explicit webhook options
     pub fn new(public_url: Option<&str>, webhook_token: Option<&str>, signing_token: Option<&str>) -> Self {
         Self {
             public_url: public_url.map(str::to_string),
-            webhook_token: webhook_token.map(str::to_string),
-            signing_token: signing_token.map(str::to_string),
+            webhook_token: webhook_token.map(|value| api::Secret::from(value.to_string())),
+            signing_token: signing_token.map(|value| api::Secret::from(value.to_string())),
         }
     }
     fn url(&self) -> Option<String> {
@@ -1710,9 +1721,9 @@ impl WebhookOptions {
             .as_deref()
             .map(|public_url| format!("{}/webhooks/gitlab", public_url.trim_end_matches('/')))
     }
-    fn credentials(&self, supports_signing: bool) -> (Option<&str>, Option<&str>) {
-        let signing_token = supports_signing.then_some(self.signing_token.as_deref()).flatten();
-        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_deref()).flatten();
+    fn credentials(&self, supports_signing: bool) -> (Option<&api::Secret>, Option<&api::Secret>) {
+        let signing_token = supports_signing.then_some(self.signing_token.as_ref()).flatten();
+        let webhook_token = signing_token.is_none().then_some(self.webhook_token.as_ref()).flatten();
         (webhook_token, signing_token)
     }
 
@@ -1720,8 +1731,8 @@ impl WebhookOptions {
         let (webhook_token, signing_token) = self.credentials(supports_signing);
         Self {
             public_url: self.url(),
-            webhook_token: webhook_token.map(str::to_string),
-            signing_token: signing_token.map(str::to_string),
+            webhook_token: webhook_token.cloned(),
+            signing_token: signing_token.cloned(),
         }
     }
 }

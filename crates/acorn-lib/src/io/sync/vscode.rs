@@ -1,5 +1,6 @@
 //! VS Code custom endpoint synchronization configuration types
 use super::{Options, RenderedOutput, SyncTarget};
+use crate::io::api;
 use crate::io::{read_file, ApiResult};
 use crate::util::constants::app::DEFAULT_VSCODE_CONFIG_PATH;
 use crate::util::StringConversion;
@@ -9,14 +10,16 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use color_eyre::eyre::eyre;
 use directories::BaseDirs;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
 use std::path::PathBuf;
+use veil::Redact;
 
 /// Configuration for synchronizing models into VS Code.
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[derive(Clone, Deserialize, Serialize, Validate, Redact)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// Path to `chatLanguageModels.json` on disk.
@@ -32,8 +35,9 @@ pub struct Config {
     #[validate(length(min = 1))]
     pub provider_name: String,
     /// API key or VS Code input variable used by the endpoint.
-    #[validate(length(min = 1))]
-    pub api_key: Option<String>,
+    #[serde(default, skip_serializing)]
+    #[redact]
+    pub api_key: Option<api::Secret>,
     /// Default maximum input tokens advertised for each model.
     #[serde(default = "default_max_input_tokens")]
     #[validate(range(min = 1))]
@@ -149,7 +153,7 @@ impl Config {
             provider.insert("apiType".to_string(), Value::String("chat-completions".to_string()));
             provider.insert("models".to_string(), Value::Array(entries));
             if let Some(api_key) = self.api_key.as_ref() {
-                provider.insert("apiKey".to_string(), Value::String(api_key.clone()));
+                provider.insert("apiKey".to_string(), Value::String(ExposeSecret::expose_secret(api_key).to_string()));
             } else if !provider.contains_key("apiKey") {
                 provider.insert("apiKey".to_string(), Value::String("none".to_string()));
             }

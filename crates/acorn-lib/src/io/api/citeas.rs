@@ -3,7 +3,7 @@
 //!
 //! See <https://citeas.org/api> for more information
 use crate::analyzer::discovery::CitationFormat;
-use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
+use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
 use crate::util::Label;
 use acorn_core::util::Searchable;
@@ -15,14 +15,16 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env::var;
 use tracing::debug;
+use veil::Redact;
 
 /// CiteAs API options
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Bearer token for authentication
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// Request body payload
     pub body: Option<String>,
     /// CiteAs API domain (defaults to citeas.org)
@@ -43,7 +45,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: var("CITEAS_API_TOKEN").unwrap_or_default(),
+            token: api::Secret::from(var("CITEAS_API_TOKEN").unwrap_or_default()),
             body: None,
             domain: var("CITEAS_SERVER_HOST").unwrap_or_else(|_| String::from("citeas.org")),
             identifier: None,
@@ -68,7 +70,7 @@ impl Configuration for Options {
             ..self
         }
     }
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     fn domain(&self) -> &str {

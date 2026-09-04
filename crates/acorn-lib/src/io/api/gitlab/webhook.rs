@@ -150,10 +150,10 @@ struct RawNoteHook {
 }
 /// Immutable webhook config injected into the Axum router via [`Extension`].
 #[derive(Builder, Clone)]
-#[builder(start_fn = init, on(String, into))]
+#[builder(start_fn = init)]
 pub(super) struct WebhookConfig {
-    webhook_token: Option<String>,
-    webhook_signing_token: Option<String>,
+    webhook_token: Option<api::Secret>,
+    webhook_signing_token: Option<api::Secret>,
     project_id: Option<u64>,
     operation_queue: OperationQueue,
 }
@@ -345,7 +345,7 @@ impl WebhookConfig {
         let request = webhooks::InboundRequest { headers, raw_body };
         if headers.contains_key("webhook-signature") {
             self.webhook_signing_token
-                .as_deref()
+                .clone()
                 .ok_or_else(|| WebhookError::report(StatusCode::UNAUTHORIZED, "No signing token configured for Standard Webhooks"))
                 .and_then(|signing_token| {
                     webhooks::StandardWebhooksVerifier::new(signing_token, 300)
@@ -353,7 +353,7 @@ impl WebhookConfig {
                         .map_err(WebhookError::from_shared)
                 })
         } else {
-            self.webhook_token.as_deref().map_or_else(
+            self.webhook_token.clone().map_or_else(
                 || Err(WebhookError::report(StatusCode::UNAUTHORIZED, "No webhook credential configured")),
                 |token| {
                     webhooks::HeaderSecretVerifier::new("x-gitlab-token", token, &["webhook-id", "idempotency-key", "x-gitlab-webhook-uuid"])

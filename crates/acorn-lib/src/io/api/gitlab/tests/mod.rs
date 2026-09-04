@@ -22,6 +22,7 @@ use alloc::sync::Arc;
 use axum::extract::{Request, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
+use secrecy::ExposeSecret;
 use std::sync::Mutex;
 
 #[derive(Clone, Default)]
@@ -459,7 +460,7 @@ async fn test_merge_request_diffs_reads_every_page() {
 fn test_options_send_configured_token_header() {
     let options = Options::with_token("job-token").token_header(GITLAB_JOB_TOKEN_HEADER).build();
     let headers = Params::new()
-        .with_auth(options.token(), Some(options.token_header()))
+        .with_auth(ExposeSecret::expose_secret(options.token()), Some(options.token_header()))
         .build()
         .into_headers();
     assert_eq!(

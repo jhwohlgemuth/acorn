@@ -87,6 +87,7 @@ rust-ini = { version = "0.21.3", default-features = false, optional = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false}
 strum = { workspace = true }
 secrecy = { workspace = true }
+veil = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 eserde = { workspace = true }

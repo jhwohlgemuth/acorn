@@ -1,5 +1,5 @@
 //! Focused Harbor v2 artifact discovery and metadata operations
-use crate::io::api::{EmptyField, Endpoint, Param, RemoteResource};
+use crate::io::api::{self, EmptyField, Endpoint, Param, RemoteResource};
 use crate::io::config::RegistryProfile;
 use crate::io::ApiResult;
 use crate::param;
@@ -7,6 +7,7 @@ use acorn_core::prelude::{String, ToString, Vec};
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
 use data_encoding::BASE64;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::env;
 use urlencoding::encode;
@@ -189,12 +190,14 @@ pub(crate) fn params(profile: &RegistryProfile, params: Vec<Param>) -> ApiResult
     match (&profile.credential_env, &profile.username) {
         | (Some(name), username) => match env::var(name) {
             | Ok(secret) => {
+                let secret = api::Secret::from(secret);
+                let exposed = ExposeSecret::expose_secret(&secret);
                 let authorization = match username {
                     | Some(username) => {
-                        let credentials = format!("{username}:{secret}");
+                        let credentials = format!("{username}:{exposed}");
                         format!("Basic {}", BASE64.encode(credentials.as_bytes()))
                     }
-                    | None => format!("Bearer {secret}"),
+                    | None => format!("Bearer {exposed}"),
                 };
                 Ok(params
                     .into_iter()

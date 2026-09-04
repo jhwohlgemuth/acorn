@@ -3,7 +3,7 @@
 //! OpenAlex is used as a structured scholarly metadata provider. It complements
 //! CiteAs, whose current ACORN integration remains focused on rendered citation
 //! lookup rather than workflow enrichment.
-use crate::io::api::{Configuration, Endpoint, Param, Params, RemoteResource};
+use crate::io::api::{self, Configuration, Endpoint, Param, Params, RemoteResource};
 use crate::io::enrichment::{Enrich, ResearchOutputMetadata};
 use crate::io::{workflow, ApiResult};
 use crate::util::constants::app::{DEFAULT_OPENALEX_DOMAIN, OPENALEX_WORK_FIELDS};
@@ -19,8 +19,10 @@ use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};
+use secrecy::{ExposeSecret, SecretBox};
 use serde::{Deserialize, Serialize};
 use std::env::var;
+use veil::Redact;
 
 /// A compact OpenAlex author identity.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -84,12 +86,13 @@ pub struct OpenAccess {
     pub oa_url: Option<String>,
 }
 /// Options for one OpenAlex work lookup.
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = init)]
 pub struct Options {
     /// API key used for authenticated OpenAlex requests.
-    #[builder(default)]
-    pub api_key: String,
+    #[builder(default, with = |api_key: String| SecretBox::new(api_key.into_boxed_str()))]
+    #[redact]
+    pub api_key: api::Secret,
     /// Request body payload.
     pub body: Option<String>,
     /// OpenAlex API host or base URL.
@@ -198,7 +201,7 @@ impl Configuration for Options {
     /// Build options from OpenAlex environment variables.
     fn from_env() -> Self {
         Self {
-            api_key: var(OPENALEX_API_KEY).unwrap_or_default(),
+            api_key: api::Secret::from(var(OPENALEX_API_KEY).unwrap_or_default()),
             body: None,
             domain: var(OPENALEX_API_HOST).unwrap_or_else(|_| DEFAULT_OPENALEX_DOMAIN.to_string()),
             identifier: None,
@@ -223,7 +226,7 @@ impl Configuration for Options {
             ..self
         }
     }
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.api_key
     }
     fn domain(&self) -> &str {
@@ -371,7 +374,7 @@ pub async fn work(options: &Options) -> ApiResult<Work> {
             let params = Params::new()
                 .with_template("identifier", Some(identifier.as_str()))
                 .with_keyvalue("select", Some(OPENALEX_WORK_FIELDS))
-                .with_api_key(&options.api_key)
+                .with_api_key(ExposeSecret::expose_secret(&options.api_key))
                 .with_custom(options.params())
                 .build();
             match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {

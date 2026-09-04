@@ -6,6 +6,7 @@
 pub mod application;
 pub mod bucket;
 pub mod transfer;
+use crate::io::api;
 use crate::io::database::schema::ModelRow;
 use crate::io::database::{resolve_database_path, Row};
 use crate::io::sync;
@@ -33,6 +34,7 @@ use std::path::PathBuf;
 use strum::EnumIs;
 use tracing::warn;
 pub use transfer::{TransferManifest, TransferPolicy};
+use veil::Redact;
 
 /// Authentication requirement for a configured model download source
 #[derive(Clone, Debug, Default, Display, EnumIs, Eq, PartialEq, Serialize, Deserialize)]
@@ -265,7 +267,7 @@ pub struct RegistryProfile {
     #[serde(default)]
     pub plain_http: bool,
 }
-#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
+#[derive(Builder, Clone, Serialize, Deserialize, Redact)]
 #[builder(start_fn = at, on(String, into))]
 #[serde(rename_all = "camelCase")]
 /// CI/CD runner configuration entry
@@ -309,8 +311,9 @@ pub struct RunnerDetails {
     #[serde(default)]
     pub identifier: Option<u64>,
     /// Runner authentication token returned from GitLab API
-    #[serde(default)]
-    pub token: Option<String>,
+    #[serde(skip, default)]
+    #[redact]
+    pub token: Option<api::Secret>,
 }
 impl FilterSet {
     /// Compile ignore and filter regex patterns into a filter set
@@ -481,7 +484,10 @@ impl RunnerDetails {
     }
     /// Set the runner authentication token
     pub fn with_token(self, value: Option<String>) -> Self {
-        Self { token: value, ..self }
+        Self {
+            token: value.map(api::Secret::from),
+            ..self
+        }
     }
 }
 impl fmt::Display for RunnerType {

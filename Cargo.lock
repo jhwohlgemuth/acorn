@@ -65,6 +65,7 @@ dependencies = [
  "tracing-subscriber",
  "triomphe",
  "urlencoding",
+ "veil",
  "which",
 ]
 
@@ -189,6 +190,7 @@ dependencies = [
  "tracing-subscriber",
  "triomphe",
  "urlencoding",
+ "veil",
  "which",
  "zench",
  "zip 8.6.0",
@@ -7533,6 +7535,7 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e891af845473308773346dc847b2c23ee78fe442e0472ac50e22a18a93d3ae5a"
 dependencies = [
+ "serde",
  "zeroize",
 ]
 
@@ -9519,6 +9522,27 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "veil"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7352f0bbf3ab98911b0c0277065094c1b1ec79bbc85fa3b7d16bf1859c3d96f"
+dependencies = [
+ "once_cell",
+ "veil-macros",
+]
+
+[[package]]
+name = "veil-macros"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47a3f4f06d904eb789b935253752ba6bcc1dfa61349f8d5341c66abe070b44e5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "version_check"

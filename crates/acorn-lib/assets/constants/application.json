@@ -176,6 +176,11 @@
           "template": "{{ base }}/projects/{{ identifier }}/repository/files/{{ file_path }}{{ query }}"
         },
         {
+          "name": "repository-file-raw",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/files/{{ file_path }}/raw{{ query }}"
+        },
+        {
           "name": "runner",
           "method": "get",
           "template": "{{ base }}/runners/{{ identifier }}{{ query }}"

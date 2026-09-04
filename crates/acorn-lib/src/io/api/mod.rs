@@ -26,12 +26,19 @@ use fluent_uri::{Uri, UriRef};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env::var;
 use strum::EnumIs;
 use tera::{Context, Tera};
 use tracing::{debug, trace, warn};
+use veil::Redact;
+
+/// Secret string stored as `SecretBox<String>` (`SecretString`) with `ZeroizeOnDrop` and `Debug=[REDACTED]`.
+/// Uses `SecretString` (alias for `SecretBox<String>`) for ergonomic `From<String>` with `bon` builders
+/// while preserving `SecretBox` semantics (`SecretBox<str>` would be equivalent but lacks `From<String>`).
+pub type Secret = secrecy::SecretString;
 
 pub mod citeas;
 pub mod geonames;
@@ -77,7 +84,7 @@ pub trait Configuration {
     /// Return a copy of this configuration with the specified resource identifier set
     fn with_identifier(self, value: impl Into<String>) -> Self;
     /// Return the authentication token
-    fn token(&self) -> &str;
+    fn token(&self) -> &Secret;
     /// Return the API domain
     fn domain(&self) -> &str;
     /// Return the optional resource identifier
@@ -261,24 +268,32 @@ pub enum TreeEntryType {
     Directory,
 }
 /// Represents authentication credentials for accessing an API
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[derive(Builder, Clone, Deserialize, Serialize, Redact)]
 #[builder(start_fn = init)]
 pub struct Authentication {
-    // TODO: Make token secret
     /// The token used for authenticating API requests
-    pub token: Option<String>,
+    #[serde(skip, default)]
+    #[redact]
+    pub token: Option<Secret>,
     /// The scheme used for authenticating API requests
     #[builder(default)]
     pub scheme: AuthenticationScheme,
 }
 /// An API token paired with the HTTP header required to send it.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Redact)]
 pub struct Credential {
     /// HTTP header used to authenticate the request.
     pub header: &'static str,
     /// Token value sent in the authentication header.
-    pub token: String,
+    #[redact]
+    pub token: Secret,
 }
+impl PartialEq for Credential {
+    fn eq(&self, other: &Self) -> bool {
+        self.header == other.header && ExposeSecret::expose_secret(&self.token) == ExposeSecret::expose_secret(&other.token)
+    }
+}
+impl Eq for Credential {}
 /// Empty struct used for cases where no query fields are needed
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -427,13 +442,16 @@ impl Authenticator for Credential {
                 .ok()
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty())
-                .map(|token| Self { header: *header, token })
+                .map(|token| Self {
+                    header: *header,
+                    token: Secret::from(token),
+                })
         })
     }
 }
 impl Credential {
     /// Consume the credential and return its HTTP header and token
-    pub fn into_header_pair(self) -> (&'static str, String) {
+    pub fn into_header_pair(self) -> (&'static str, Secret) {
         (self.header, self.token)
     }
 }
@@ -832,8 +850,12 @@ impl Params {
     /// [`Configuration`] provider.
     pub fn from_config(config: &impl Configuration) -> Self {
         Self::new()
-            .with_auth(config.token(), None)
+            .with_auth(ExposeSecret::expose_secret(config.token()), None)
             .with_template("identifier", config.identifier())
+    }
+    /// Add an authentication header from a `SecretBox<str>` if non-empty.
+    pub fn with_auth_secret(self, token: &Secret, name: Option<&str>) -> Self {
+        self.with_auth(ExposeSecret::expose_secret(token), name)
     }
     /// Add any pre-built `Param` value
     pub fn with(self, param: Param) -> Self {
@@ -846,6 +868,17 @@ impl Params {
     /// Add an `api_key` query parameter when an optional key is present and non-empty.
     pub fn with_api_key_maybe(self, api_key: Option<&str>) -> Self {
         match api_key.map(str::trim).filter(|value| !value.is_empty()) {
+            | Some(value) => self.with_keyvalue("api_key", Some(value)),
+            | None => self,
+        }
+    }
+    /// Add an `api_key` query parameter from a `SecretBox<str>` if non-empty.
+    pub fn with_api_key_secret(self, api_key: &Secret) -> Self {
+        self.with_api_key(ExposeSecret::expose_secret(api_key))
+    }
+    /// Add an `api_key` query parameter from an optional `SecretBox<str>` if present and non-empty.
+    pub fn with_api_key_secret_maybe(self, api_key: Option<&Secret>) -> Self {
+        match api_key.map(ExposeSecret::expose_secret).map(str::trim).filter(|v| !v.is_empty()) {
             | Some(value) => self.with_keyvalue("api_key", Some(value)),
             | None => self,
         }
@@ -873,6 +906,13 @@ impl Params {
     /// Uses the same header semantics as [`Params::with_auth`]
     pub fn with_auth_maybe(self, token: Option<&str>, name: Option<&str>) -> Self {
         match token.map(str::trim).filter(|value| !value.is_empty()) {
+            | Some(value) => self.with_auth(value, name),
+            | None => self,
+        }
+    }
+    /// Add an authentication header from a `SecretBox<str>` if non-empty.
+    pub fn with_auth_secret_maybe(self, token: Option<&Secret>, name: Option<&str>) -> Self {
+        match token.map(ExposeSecret::expose_secret).map(str::trim).filter(|v| !v.is_empty()) {
             | Some(value) => self.with_auth(value, name),
             | None => self,
         }
@@ -1189,13 +1229,13 @@ pub(crate) fn render(template: &str, context: &Context) -> String {
 /// Validate that a required secret is present and non-empty
 /// ### Note
 /// The returned error intentionally excludes secret values
-pub(crate) fn require_non_empty_secret(secret: &str, path: &str, names: &[&str]) -> ApiResult<String> {
-    let value = secret.trim();
+pub(crate) fn require_non_empty_secret(secret: &Secret, path: &str, names: &[&str]) -> ApiResult<Secret> {
+    let value = ExposeSecret::expose_secret(secret).trim();
     if value.is_empty() {
         let env_list = names.join(", ");
         Err(eyre!("Missing required token for {path} request. Set one of: {env_list}"))
     } else {
-        Ok(value.to_string())
+        Ok(Secret::from(value))
     }
 }
 fn response_content(response: HttpResponse) -> ApiResult<ResponseContent> {

@@ -1,6 +1,6 @@
 use crate::cli::Void;
 use acorn::io::api::openapi::import_resources_from_openapi;
-use acorn::io::api::{Authentication, Endpoint};
+use acorn::io::api::{Authentication, Endpoint, Secret};
 use acorn::io::{write_file, Source};
 use acorn::util::Label;
 use acorn_schema::schema::agent::AuthenticationScheme;
@@ -59,7 +59,7 @@ pub(super) fn endpoint_from_import(
             .name(name.to_string())
             .maybe_root(root.clone())
             .maybe_authentication(auth_token.as_ref().map(|token| Authentication {
-                token: Some(token.clone()),
+                token: Some(Secret::from(token.clone())),
                 scheme: AuthenticationScheme::Bearer,
             }))
             .resources(resources)

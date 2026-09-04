@@ -48,15 +48,17 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
+use crate::io::api::{self, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
 use crate::param;
 use crate::util::Label;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use dotenvy;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::env::var;
 use tracing::debug;
+use veil::Redact;
 
 /// Raw OpenAI API response payload.
 ///
@@ -121,12 +123,13 @@ pub struct Model {
 /// OpenAI API options
 ///
 /// Configuration options used across OpenAI API operations.
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Bearer token for authentication
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// Request body payload for POST requests
     pub body: Option<String>,
     /// OpenAI API domain (defaults to `api.openai.com`)
@@ -147,7 +150,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: var("OPENAI_API_KEY").unwrap_or_default(),
+            token: api::Secret::from(var("OPENAI_API_KEY").unwrap_or_default()),
             body: None,
             domain: var("OPENAI_SERVER_HOST").unwrap_or_else(|_| String::from("api.openai.com")),
             identifier: None,
@@ -176,7 +179,7 @@ impl Configuration for Options {
         }
     }
     /// Return the authentication token
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     /// Return the OpenAI server domain
@@ -248,7 +251,7 @@ where
         | Ok(endpoint) => match (body_mode, &options.body) {
             | (BodyMode::Required, Some(value)) if !value.is_empty() => {
                 let params = Params::new()
-                    .with_auth(options.token(), None)
+                    .with_auth(ExposeSecret::expose_secret(options.token()), None)
                     .with(param!(Body, value.as_str()))
                     .with_custom(options.params())
                     .build();

@@ -8,10 +8,12 @@ use super::{
     RepositoryFile, ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
     WebhookRegistration, WorkItem, INCLUDED_ENDPOINTS,
 };
+use crate::io::api;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
+use secrecy::ExposeSecret;
 use serde::Deserialize;
 
-fn authenticated_endpoint(action: &str, options: &Options) -> ApiResult<(Endpoint, String)> {
+fn authenticated_endpoint(action: &str, options: &Options) -> ApiResult<(Endpoint, api::Secret)> {
     let path = format!("gitlab::api::{action}");
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => Endpoint::from_template("gitlab::api").map(|endpoint| (endpoint.with_domain(options.domain()), token)),
@@ -42,7 +44,7 @@ pub async fn create_runner(options: &Options) -> ApiResult<RunnerCreationRespons
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_body("description", description)
                     .with_body(&format!("{runner_type}_id"), options.identifier.as_deref().unwrap_or_default())
                     .with_body("runner_type", &format!("{runner_type}_type"))
@@ -80,7 +82,9 @@ pub async fn current_user(options: &Options) -> ApiResult<GitLabIdentity> {
     let action = "current-user";
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
-            let params = Params::new().with_auth(&token, Some(options.token_header())).build();
+            let params = Params::new()
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                .build();
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<GitLabIdentity, Fallback<ErrorResponse>>(response)
         }
@@ -115,7 +119,7 @@ pub async fn events(options: &Options) -> ApiResult<EventsResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -138,7 +142,7 @@ pub async fn groups(options: &Options) -> ApiResult<GroupsResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_keyvalue("page", Some("1"))
                     .with_keyvalue("per_page", Some("100"))
@@ -173,7 +177,7 @@ pub async fn language_use(options: &Options) -> ApiResult<ProgrammingLanguageUse
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -224,7 +228,7 @@ pub async fn merge_request(options: &Options) -> ApiResult<MergeRequestDetails> 
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .build();
@@ -242,7 +246,7 @@ pub fn merge_request_diffs(options: &Options) -> BoxFuture<'_, ApiResult<MergeRe
             | Ok((endpoint, token)) => {
                 let page_value = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page_value))
@@ -279,7 +283,7 @@ pub async fn merge_request_note(options: &Options) -> ApiResult<NoteMetadata> {
             | Ok(endpoint) => {
                 let body = options.body.as_deref().unwrap_or_default();
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_body("body", body)
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
@@ -304,7 +308,7 @@ fn merge_request_notes_page(options: &Options) -> BoxFuture<'_, ApiResult<NotesR
             | Ok((endpoint, token)) => {
                 let page_value = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page_value))
@@ -333,7 +337,7 @@ pub async fn project_member(options: &Options, user_id: u64) -> ApiResult<Projec
         | Ok((endpoint, token)) => {
             let user_id = user_id.to_string();
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", options.identifier())
                 .with_template("user_id", Some(&user_id))
                 .build();
@@ -357,7 +361,7 @@ fn project_webhooks_page(options: &Options) -> BoxFuture<'_, ApiResult<ProjectWe
             | Ok(token) => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
                 | Ok(endpoint) => {
                     let params = Params::new()
-                        .with_auth(&token, Some(options.token_header()))
+                        .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                         .with_template("identifier", options.identifier())
                         .with_keyvalue("page", Some(&page.to_string()))
                         .with_keyvalue("per_page", Some("100"))
@@ -393,7 +397,7 @@ pub async fn publish_commit_status(
             let state = state.to_string();
             let project_id = project_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", project_id.as_deref().or(options.identifier()))
                 .with_template("sha", Some(sha))
                 .with_body("state", &state)
@@ -420,7 +424,7 @@ pub async fn project_details(options: &Options) -> ApiResult<ProjectDetails> {
     match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
         | Ok(endpoint) => match identifier {
             | Some(project_identifier) => {
-                let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
+                let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
                 let params = Params::new()
                     .with_template("identifier", Some(project_identifier))
                     .with_auth_maybe(token, Some(options.token_header()))
@@ -445,7 +449,7 @@ pub async fn repository_file(options: &Options) -> ApiResult<RepositoryFile> {
         | (Ok(endpoint), Some(project_identifier), Ok(file_path), Ok(sha)) => {
             let encoded_identifier = urlencoding::encode(project_identifier);
             let encoded_path = urlencoding::encode(file_path);
-            let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
+            let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
             let params = Params::new()
                 .with_template("identifier", Some(encoded_identifier.as_ref()))
                 .with_template("file_path", Some(encoded_path.as_ref()))
@@ -468,7 +472,7 @@ pub(crate) async fn repository_tree(options: &Options) -> ApiResult<TreeResponse
     let action = "tree";
     match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
         | Ok(endpoint) => {
-            let token = (!options.token.trim().is_empty()).then_some(options.token.as_str());
+            let token = (!ExposeSecret::expose_secret(&options.token).trim().is_empty()).then_some(ExposeSecret::expose_secret(&options.token));
             let params = Params::new()
                 .with_template("identifier", options.identifier())
                 .with_keyvalue("per_page", Some("100"))
@@ -499,7 +503,7 @@ pub async fn runner(options: &Options) -> ApiResult<RunnerMetadata> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_custom(options.params())
                     .build();
@@ -520,7 +524,7 @@ pub async fn runners(options: &Options) -> ApiResult<RunnersResponse> {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
             | Ok(endpoint) => {
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_custom(options.params())
                     .build();
                 let response = endpoint.invoke_with::<PaginationKey, EmptyField>(action, Some(params)).await;
@@ -595,7 +599,9 @@ pub async fn version(options: &Options) -> ApiResult<InstanceVersion> {
     match require_non_empty_secret(&options.token, &path, &GITLAB_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {
             | Ok(endpoint) => {
-                let params = Params::new().with_auth(&token, Some(options.token_header())).build();
+                let params = Params::new()
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                    .build();
                 let response = endpoint.invoke(action, Some(params)).await;
                 endpoint.handle::<InstanceVersion>(response)
             }
@@ -610,7 +616,7 @@ pub async fn work_item(options: &Options) -> ApiResult<WorkItem> {
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .build();
@@ -628,7 +634,7 @@ pub fn work_item_notes(options: &Options) -> BoxFuture<'_, ApiResult<NotesRespon
             | Ok((endpoint, token)) => {
                 let page = options.page.to_string();
                 let params = Params::new()
-                    .with_auth(&token, Some(options.token_header()))
+                    .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                     .with_template("identifier", options.identifier())
                     .with_template("internal_identifier", options.internal_identifier.as_deref())
                     .with_keyvalue("page", Some(&page))
@@ -659,7 +665,7 @@ async fn write_merge_request_note(options: &Options, note_id: Option<u64>, body:
         | Ok((endpoint, token)) => {
             let note_id = note_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .with_template("note_id", note_id.as_deref())
@@ -684,14 +690,14 @@ async fn write_project_webhook(options: &Options, action: &str, hook_id: Option<
                     merge_requests_events: true,
                     note_events: true,
                     enable_ssl_verification: true,
-                    token: webhook.webhook_token.as_deref(),
-                    signing_token: webhook.signing_token.as_deref(),
+                    token: webhook.webhook_token.as_ref().map(|secret| ExposeSecret::expose_secret(secret) as &str),
+                    signing_token: webhook.signing_token.as_ref().map(|secret| ExposeSecret::expose_secret(secret) as &str),
                 };
                 match serde_json::to_string(&request) {
                     | Ok(body) => {
                         let hook_id = hook_id.map(|value| value.to_string());
                         let params = Params::new()
-                            .with_auth(&token, Some(options.token_header()))
+                            .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                             .with_template("identifier", options.identifier())
                             .with_template("hook_id", hook_id.as_deref())
                             .with(crate::param!(Body, &body))
@@ -713,7 +719,7 @@ async fn write_work_item_note(options: &Options, note_id: Option<u64>, body: &st
         | Ok((endpoint, token)) => {
             let note_id = note_id.map(|value| value.to_string());
             let params = Params::new()
-                .with_auth(&token, Some(options.token_header()))
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
                 .with_template("identifier", options.identifier())
                 .with_template("internal_identifier", options.internal_identifier.as_deref())
                 .with_template("note_id", note_id.as_deref())

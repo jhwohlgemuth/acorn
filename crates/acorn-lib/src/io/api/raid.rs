@@ -2,7 +2,7 @@
 //!
 //! See <https://metadata.raid.org> for more information
 //!
-use crate::io::api::{require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource};
+use crate::io::api::{self, require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource};
 use crate::param;
 use crate::util::constants::env::RAID_TOKEN_VARIABLE_NAMES;
 use crate::util::Label;
@@ -11,9 +11,11 @@ use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use dotenvy;
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::env::var;
 use tracing::debug;
+use veil::Redact;
 
 /// Server response for RAiD API errors
 /// ### Example JSON output
@@ -34,7 +36,7 @@ use tracing::debug;
 /// }
 /// ```
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
-#[builder(start_fn = with_token, on(String, into))]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct ErrorResponse {
     /// Error type
     #[serde(rename = "type")]
@@ -60,7 +62,7 @@ pub struct ErrorResponse {
 /// }
 /// ```
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
-#[builder(start_fn = with_token, on(String, into))]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct ErrorResponseFailure {
     /// Field associated with this validation failure
     #[serde(rename = "fieldId")]
@@ -74,12 +76,13 @@ pub struct ErrorResponseFailure {
 /// RAiD API options
 ///
 /// Configuration options for RAiD API operations
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Clone, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Bearer token for authentication
     #[builder(start_fn)]
-    pub token: String,
+    #[redact]
+    pub token: api::Secret,
     /// Request body payload
     pub body: Option<String>,
     /// RAiD server domain (defaults to api.raid.org)
@@ -100,8 +103,8 @@ pub struct Options {
 /// RAiD service point
 ///
 /// Primary entry point for interfacing with a RAiD service point
-#[derive(Builder, Debug, Deserialize, Serialize, Validate)]
-#[builder(start_fn = with_token, on(String, into))]
+#[derive(Builder, Deserialize, Serialize, Validate, Redact)]
+#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct ServicePoint {
     /// Service point identifier
     pub identifier: String,
@@ -109,7 +112,9 @@ pub struct ServicePoint {
     #[validate(url)]
     pub url: String,
     /// Service point bearer token for authentication
-    pub token: Option<String>,
+    #[serde(skip, default)]
+    #[redact]
+    pub token: Option<api::Secret>,
 }
 /// RAiD service point response
 ///
@@ -171,7 +176,7 @@ impl Configuration for Options {
             debug!("=> {} Load .env — {why}", Label::skip());
         }
         Self {
-            token: var("RAID_API_TOKEN").unwrap_or_default(),
+            token: api::Secret::from(var("RAID_API_TOKEN").unwrap_or_default()),
             body: None,
             domain: var("RAID_SERVER_HOST").unwrap_or_else(|_| String::from("api.raid.org")),
             prefix: None,
@@ -203,7 +208,7 @@ impl Configuration for Options {
         }
     }
     /// Return the authentication token
-    fn token(&self) -> &str {
+    fn token(&self) -> &api::Secret {
         &self.token
     }
     /// Return the RAiD server domain
@@ -246,7 +251,7 @@ pub async fn create_record(options: &Options) -> ApiResult<Metadata> {
                 | Some(value) => match serde_json::to_string(value) {
                     | Ok(body) => {
                         let params = Params::new()
-                            .with_auth(&token, None)
+                            .with_auth(ExposeSecret::expose_secret(&token), None)
                             .with(param!(Body, &body))
                             .with_custom(options.params())
                             .build();
@@ -282,7 +287,7 @@ pub async fn record(options: &Options) -> ApiResult<Vec<Metadata>> {
             | Ok(endpoint) => match &options.identifier {
                 | Some(value) if !value.is_empty() => {
                     let params = Params::new()
-                        .with_auth(&token, None)
+                        .with_auth(ExposeSecret::expose_secret(&token), None)
                         .with_template("identifier", Some(value))
                         .with_custom(options.params())
                         .build();
@@ -290,7 +295,10 @@ pub async fn record(options: &Options) -> ApiResult<Vec<Metadata>> {
                     endpoint.handle::<Metadata>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = Params::new().with_auth(&token, None).with_custom(options.params()).build();
+                    let params = Params::new()
+                        .with_auth(ExposeSecret::expose_secret(&token), None)
+                        .with_custom(options.params())
+                        .build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<Metadata>>(response)
                 }
@@ -320,7 +328,7 @@ pub async fn service_point(options: &Options) -> ApiResult<Vec<ServicePointRespo
             | Ok(endpoint) => match &options.identifier {
                 | Some(value) if !value.is_empty() => {
                     let params = Params::new()
-                        .with_auth(&token, None)
+                        .with_auth(ExposeSecret::expose_secret(&token), None)
                         .with_template("identifier", Some(value))
                         .with_custom(options.params())
                         .build();
@@ -328,7 +336,10 @@ pub async fn service_point(options: &Options) -> ApiResult<Vec<ServicePointRespo
                     endpoint.handle::<ServicePointResponse>(response).map(|r| vec![r])
                 }
                 | Some(_) | None => {
-                    let params = Params::new().with_auth(&token, None).with_custom(options.params()).build();
+                    let params = Params::new()
+                        .with_auth(ExposeSecret::expose_secret(&token), None)
+                        .with_custom(options.params())
+                        .build();
                     let response = endpoint.invoke(action, Some(params)).await;
                     endpoint.handle::<Vec<ServicePointResponse>>(response)
                 }

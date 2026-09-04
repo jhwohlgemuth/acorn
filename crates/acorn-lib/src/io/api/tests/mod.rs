@@ -18,6 +18,7 @@ use crate::test::utils::fixture_path;
 use acorn_core::util::Searchable;
 use acorn_core::{Location, Repository, Scheme};
 use acorn_schema::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
+use secrecy::ExposeSecret;
 
 mod harbor;
 mod huggingface;
@@ -38,7 +39,7 @@ fn test_credential_from_env_uses_precedence_and_trims_values() {
                 ("ACORN_TEST_FALLBACK_TOKEN", "FALLBACK-TOKEN"),
             ])
             .expect("the primary credential should resolve");
-            assert_eq!(credential.token, "primary-token");
+            assert_eq!(ExposeSecret::expose_secret(&credential.token), "primary-token");
             assert_eq!(credential.header, "PRIMARY-TOKEN");
         },
     );
@@ -53,7 +54,7 @@ fn test_credential_from_env_skips_empty_values() {
         || {
             let credential = Credential::from_env(&[("ACORN_TEST_EMPTY_TOKEN", "EMPTY-TOKEN"), ("ACORN_TEST_NONEMPTY_TOKEN", "NONEMPTY-TOKEN")])
                 .expect("the non-empty credential should resolve");
-            assert_eq!(credential.token, "fallback-token");
+            assert_eq!(ExposeSecret::expose_secret(&credential.token), "fallback-token");
             assert_eq!(credential.header, "NONEMPTY-TOKEN");
         },
     );
@@ -68,9 +69,11 @@ fn test_credential_from_env_returns_none_when_unconfigured() {
 fn test_credential_into_header_pair() {
     let credential = Credential {
         header: "TEST-TOKEN",
-        token: String::from("secret"),
+        token: api::Secret::from(String::from("secret")),
     };
-    assert_eq!(credential.into_header_pair(), ("TEST-TOKEN", String::from("secret")));
+    let (header, token) = credential.into_header_pair();
+    assert_eq!(header, "TEST-TOKEN");
+    assert_eq!(ExposeSecret::expose_secret(&token), "secret");
 }
 #[test]
 fn test_endpoints_length() {
@@ -349,7 +352,8 @@ fn test_render_prefills_empty_before_default_filter() {
 }
 #[test]
 fn test_require_non_empty_secret_rejects_empty_values() {
-    let why = require_non_empty_secret("   ", "GitLab", &["CI_JOB_TOKEN", "GITLAB_TOKEN"]).expect_err("empty token must fail");
+    let why = require_non_empty_secret(&api::Secret::from(String::from("   ")), "GitLab", &["CI_JOB_TOKEN", "GITLAB_TOKEN"])
+        .expect_err("empty token must fail");
     let message = why.to_string();
     assert!(message.contains("Missing required token for"));
     assert!(message.contains("CI_JOB_TOKEN"));
@@ -357,8 +361,9 @@ fn test_require_non_empty_secret_rejects_empty_values() {
 }
 #[test]
 fn test_require_non_empty_secret_trims_and_accepts_value() {
-    let token = require_non_empty_secret("  secret-token  ", "RAiD", &["RAID_API_TOKEN"]).expect("non-empty token must pass");
-    assert_eq!(token, "secret-token");
+    let token = require_non_empty_secret(&api::Secret::from(String::from("  secret-token  ")), "RAiD", &["RAID_API_TOKEN"])
+        .expect("non-empty token must pass");
+    assert_eq!(ExposeSecret::expose_secret(&token), "secret-token");
 }
 #[test]
 fn test_with_auth_bearer_adds_authorization_header() {
