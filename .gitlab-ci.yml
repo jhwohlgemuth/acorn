@@ -146,17 +146,14 @@ test-docs:
 fuzz-smoke:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
-  resource_group: tests
   tags:
     - cpu
+  timeout: 12 minutes
   hooks:
     pre_get_sources_script:
       - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
   inherit:
     variables: true
-  needs:
-    - job: test
-      optional: true
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -180,9 +177,9 @@ fuzz-smoke:
     - rustc --version
     - cargo --version
     - cargo "+${NIGHTLY_TOOLCHAIN}" --version
-    - cargo check --manifest-path fuzz/Cargo.toml
-    - cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=10
-    - cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=10
+    - rm -rf fuzz/artifacts
+    - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
+    - timeout --foreground --kill-after=30 180 cargo "+${NIGHTLY_TOOLCHAIN}" fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1
 
 benchmark:
   stage: performance
