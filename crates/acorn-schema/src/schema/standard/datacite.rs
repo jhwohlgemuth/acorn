@@ -1,8 +1,8 @@
 //! DataCite metadata schema models
 //!
-//! These types model the DataCite Metadata Schema 4.6 structure, including
-//! DOI records, creators, contributors, related identifiers, funding
-//! references, geolocation, rights, and other metadata properties
+//! These types model the DataCite Metadata Schema 4.7 structure, including
+//! DOI records, creators, contributors, related identifiers, related items,
+//! funding references, geolocation, rights, and other metadata properties
 use crate::schema::namespaces::DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY;
 use crate::schema::standard::crosswalk::mapping::invenio_to_datacite;
 #[cfg(feature = "std")]
@@ -28,9 +28,9 @@ use serde_with::skip_serializing_none;
 
 /// Collection of DataCite DOI records
 pub type Catalog = Vec<Record>;
-/// Contributor type enumeration per DataCite 4.6 property 7.a
+/// Contributor type enumeration per DataCite 4.7 property 7.a
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/contributorType/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/contributorType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ContributorType {
     /// Person with knowledge of how to access, troubleshoot, or otherwise field issues related to the resource
@@ -86,9 +86,9 @@ pub enum ContributorType {
     /// - Writer
     Other,
 }
-/// Date type enumeration per DataCite 4.6 property 8.a
+/// Date type enumeration per DataCite 4.7 property 8.a
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/dateType/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/dateType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DateType {
     /// Date that the publisher accepted the resource into their system
@@ -118,7 +118,7 @@ pub enum DateType {
 }
 /// Description type enumeration
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/descriptionType/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/descriptionType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum DescriptionType {
     /// Brief description of the resource and the context in which the resource was created
@@ -134,7 +134,7 @@ pub enum DescriptionType {
     /// Other
     Other,
 }
-/// Funder identifier type enumeration per DataCite 4.6 property 19.2.a
+/// Funder identifier type enumeration per DataCite 4.7 property 19.2.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum FunderIdentifierType {
     /// Crossref Funder ID
@@ -155,7 +155,7 @@ pub enum FunderIdentifierType {
     #[serde(rename = "Other")]
     Other,
 }
-/// Name type enumeration per DataCite 4.6 property 7.1.a
+/// Name type enumeration per DataCite 4.7 property 7.1.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum NameType {
     /// Personal name
@@ -165,9 +165,9 @@ pub enum NameType {
     #[serde(rename = "Organizational")]
     Organizational,
 }
-/// Related identifier type enumeration per DataCite 4.6 property 12.a
+/// Related identifier type enumeration per DataCite 4.7 property 12.a
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relatedIdentifierType/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relatedIdentifierType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelatedIdentifierType {
     /// ARK
@@ -233,12 +233,18 @@ pub enum RelatedIdentifierType {
     /// w3id
     #[serde(rename = "w3id")]
     W3id,
+    /// RAiD
+    #[serde(rename = "RAiD")]
+    Raid,
+    /// SWHID
+    #[serde(rename = "SWHID")]
+    Swhid,
 }
-/// Relation type enumeration per DataCite 4.6 property 12.b
+/// Relation type enumeration per DataCite 4.7 property 12.b
 ///
 /// Description of the relationship of the resource being registered (A) and the related resource (B)
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/appendices/appendix-1/relationType/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relationType/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RelationType {
     /// Indicates that A includes B in a citation
@@ -317,8 +323,10 @@ pub enum RelationType {
     Requires,
     /// Reviews
     Reviews,
+    /// Other
+    Other,
 }
-/// General resource type enumeration per DataCite 4.6 property 10.a
+/// General resource type enumeration per DataCite 4.7 property 10.a
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResourceTypeGeneral {
     /// Series of visual representations imparting an impression of motion when shown in succession (may or may not include sound)
@@ -438,10 +446,14 @@ pub enum ResourceTypeGeneral {
     Text,
     /// Structured series of steps which can be executed to produce a final outcome, allowing users a means to specify and enact their work in a more reproducible manner
     Workflow,
+    /// Poster
+    Poster,
+    /// Presentation
+    Presentation,
     /// Other
     Other,
 }
-/// Title type enumeration per DataCite 4.6 property 3.a
+/// Title type enumeration per DataCite 4.7 property 3.a
 /// ### Note
 /// > The titleType subproperty is used when more than a single title is provided. Unless otherwise indicated by titleType, a title is considered to be the main title
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -455,7 +467,7 @@ pub enum TitleType {
     /// Other
     Other,
 }
-/// Creator or contributor affiliation per DataCite 4.6 property 2.5
+/// Creator or contributor affiliation per DataCite 4.7 property 2.5
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[validate(schema(function = "validate_affiliation_identifier", skip_on_field_errors = false))]
@@ -473,11 +485,11 @@ pub struct Affiliation {
     #[serde(rename = "schemeURI")]
     pub scheme_uri: Option<String>,
 }
-/// Alternate identifier per DataCite 4.6 property 11
+/// Alternate identifier per DataCite 4.7 property 11
 ///
 /// An identifier other than the primary Identifier applied to the resource being registered.
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/alternateidentifier/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/alternateidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct AlternateIdentifier {
@@ -507,9 +519,9 @@ pub struct Attributes {
     /// Publisher information (property 4)
     #[validate(nested)]
     pub publisher: Option<Publisher>,
-    /// Publication year per DataCite 4.6 property 5
+    /// Publication year per DataCite 4.7 property 5
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/publicationyear/> for details
     #[validate(year)]
     #[serde(rename = "publicationYear")]
     pub publication_year: Option<i32>,
@@ -538,6 +550,10 @@ pub struct Attributes {
     #[validate(nested)]
     #[serde(rename = "relatedIdentifiers")]
     pub related_identifiers: Option<Vec<RelatedIdentifier>>,
+    /// Related items (property 20, DataCite 4.7)
+    #[validate(nested)]
+    #[serde(rename = "relatedItems")]
+    pub related_items: Option<Vec<RelatedItem>>,
     /// Sizes (property 13)
     /// ### Examples
     /// - "15 pages"
@@ -585,9 +601,9 @@ pub struct AwardNumber {
     #[serde(rename = "$text")]
     pub value: String,
 }
-/// Contributor per DataCite 4.6 property 7
+/// Contributor per DataCite 4.7 property 7
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/contributor/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/contributor/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Contributor {
@@ -613,9 +629,9 @@ pub struct Contributor {
     #[validate(nested)]
     pub affiliation: Option<Vec<Affiliation>>,
 }
-/// Creator or author information per DataCite 4.6 property 2
+/// Creator or author information per DataCite 4.7 property 2
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/creator/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/creator/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Creator {
@@ -646,9 +662,9 @@ pub struct Creators {
     #[validate(nested)]
     pub creator: Vec<Creator>,
 }
-/// Date per DataCite 4.6 property 8
+/// Date per DataCite 4.7 property 8
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/date/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/date/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Date {
@@ -670,9 +686,9 @@ pub struct Dates {
     #[validate(nested)]
     pub date: Vec<Date>,
 }
-/// Resource description per DataCite 4.6 property 17
+/// Resource description per DataCite 4.7 property 17
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/description/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/description/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Description {
@@ -697,11 +713,11 @@ pub struct Descriptions {
 /// Container for `<formats>` XML element
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Formats {
-    /// Format list per DataCite 4.6 property 14
+    /// Format list per DataCite 4.7 property 14
     ///
     /// Use file extension or MIME type where possible, e.g., PDF, XML, MPG or application/pdf, text/xml, video/mpeg. Free text.
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/format/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/format/> for details
     pub format: Vec<String>,
 }
 /// Funder identifier element with typed attribute (property 19.2)
@@ -718,11 +734,11 @@ pub struct FunderIdentifier {
     #[serde(rename = "$text")]
     pub value: String,
 }
-/// Funding reference per DataCite 4.6 property 19
+/// Funding reference per DataCite 4.7 property 19
 ///
 /// Information about financial support (funding) for the resource being registered.
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/fundingreference/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/fundingreference/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[validate(schema(function = "validate_funding_reference_identifier", skip_on_field_errors = false))]
@@ -759,11 +775,11 @@ pub struct FundingReferences {
     #[serde(rename = "fundingReference")]
     pub funding_reference: Vec<KernelFundingReference>,
 }
-/// Geographic location per DataCite 4.6 property 18
+/// Geographic location per DataCite 4.7 property 18
 ///
 /// Spatial region or named place where the data was gathered or about which the data is focused.
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/geolocation/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/geolocation/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocation {
@@ -784,7 +800,7 @@ pub struct GeoLocation {
     #[serde(rename = "geoLocationPolygon")]
     pub geo_location_polygon: Option<GeoLocationPolygon>,
 }
-/// Geographic bounding box per DataCite 4.6 property 18.2
+/// Geographic bounding box per DataCite 4.7 property 18.2
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationBox {
     /// Western longitude
@@ -804,7 +820,7 @@ pub struct GeoLocationBox {
     #[serde(rename = "northBoundLatitude")]
     pub north_bound_latitude: f64,
 }
-/// Geographic point per DataCite 4.6 property 18.1
+/// Geographic point per DataCite 4.7 property 18.1
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationPoint {
     /// Longitude (-180 to 180)
@@ -816,7 +832,7 @@ pub struct GeoLocationPoint {
     #[serde(rename = "pointLatitude")]
     pub latitude: f64,
 }
-/// Geographic polygon per DataCite 4.6 property 18.4
+/// Geographic polygon per DataCite 4.7 property 18.4
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct GeoLocationPolygon {
@@ -837,9 +853,9 @@ pub struct GeoLocations {
     #[serde(rename = "geoLocation")]
     pub geo_location: Vec<GeoLocation>,
 }
-/// DataCite kernel-4 XML resource identifier per DataCite 4.6 property 1
+/// DataCite kernel-4 XML resource identifier per DataCite 4.7 property 1
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/identifier/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/identifier/> for details
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Identifier {
     /// Identifier type (e.g., "DOI")
@@ -889,9 +905,16 @@ pub struct NameIdentifier {
     #[serde(rename = "schemeUri", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
 }
-/// Publisher information per DataCite 4.6 property 4
+struct Property {
+    name: &'static str,
+    present: bool,
+}
+struct PropertySet<const N: usize> {
+    properties: [Property; N],
+}
+/// Publisher information per DataCite 4.7 property 4
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publisher/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/publisher/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[validate(schema(function = "validate_publisher_identifier", skip_on_field_errors = false))]
@@ -923,11 +946,11 @@ pub struct Record {
     #[validate(nested)]
     pub attributes: Attributes,
 }
-/// Related identifier per DataCite 4.6 property 12
+/// Related identifier per DataCite 4.7 property 12
 ///
 /// Identifiers of related resources. These must be globally unique identifiers.
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/relatedidentifier/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/relatedidentifier/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct RelatedIdentifier {
@@ -953,6 +976,9 @@ pub struct RelatedIdentifier {
     /// Resource type of the related identifier
     #[serde(rename = "resourceTypeGeneral")]
     pub resource_type_general: Option<ResourceTypeGeneral>,
+    /// Relation type information (DataCite 4.7 property 12.g)
+    #[serde(rename = "relationTypeInformation", alias = "relationTypeInformation")]
+    pub relation_type_information: Option<String>,
 }
 /// Container for `<relatedIdentifiers>` XML element
 #[skip_serializing_none]
@@ -963,76 +989,219 @@ pub struct RelatedIdentifiers {
     #[serde(rename = "relatedIdentifier")]
     pub related_identifier: Vec<RelatedIdentifier>,
 }
+/// Related item per DataCite 4.7 property 20
+///
+/// Information about a resource related to the one being registered.
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/relateditem/> for details
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItem {
+    /// Related item type (property 20.a)
+    #[serde(rename = "relatedItemType", alias = "@relatedItemType")]
+    pub related_item_type: ResourceTypeGeneral,
+    /// Relation type (property 20.b)
+    #[serde(rename = "relationType", alias = "@relationType")]
+    pub relation_type: RelationType,
+    /// Relation type information (property 20.c)
+    #[serde(rename = "relationTypeInformation")]
+    pub relation_type_information: Option<String>,
+    /// Related item identifier (property 20.1)
+    #[serde(rename = "relatedItemIdentifier")]
+    pub related_item_identifier: Option<RelatedItemIdentifier>,
+    /// Creators (property 20.2)
+    #[validate(nested)]
+    pub creators: Option<Vec<RelatedItemCreator>>,
+    /// Titles (property 20.3)
+    #[validate(nested)]
+    pub titles: Option<Vec<RelatedItemTitle>>,
+    /// Publication year (property 20.4)
+    #[validate(year)]
+    #[serde(rename = "publicationYear")]
+    pub publication_year: Option<String>,
+    /// Volume (property 20.5)
+    pub volume: Option<String>,
+    /// Issue (property 20.6)
+    pub issue: Option<String>,
+    /// Number (property 20.7)
+    #[validate(nested)]
+    pub number: Option<RelatedItemNumber>,
+    /// First page (property 20.8)
+    #[serde(rename = "firstPage")]
+    pub first_page: Option<String>,
+    /// Last page (property 20.9)
+    #[serde(rename = "lastPage")]
+    pub last_page: Option<String>,
+    /// Publisher (property 20.10)
+    pub publisher: Option<String>,
+    /// Edition (property 20.11)
+    pub edition: Option<String>,
+    /// Contributors (property 20.12)
+    #[validate(nested)]
+    pub contributors: Option<Vec<RelatedItemContributor>>,
+}
+/// Related item contributor per DataCite 4.7 property 20.12
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItemContributor {
+    /// Contributor name
+    #[serde(alias = "$text")]
+    pub name: String,
+    /// Contributor type
+    #[serde(rename = "contributorType", alias = "@contributorType")]
+    pub contributor_type: ContributorType,
+    /// Name type
+    #[serde(rename = "nameType", alias = "@nameType")]
+    pub name_type: Option<NameType>,
+    /// Given name
+    #[serde(rename = "givenName")]
+    pub given_name: Option<String>,
+    /// Family name
+    #[serde(rename = "familyName")]
+    pub family_name: Option<String>,
+}
+/// Related item creator per DataCite 4.7 property 20.2
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItemCreator {
+    /// Creator name
+    #[serde(alias = "$text")]
+    pub name: String,
+    /// Name type
+    #[serde(rename = "nameType", alias = "@nameType")]
+    pub name_type: Option<NameType>,
+    /// Given name
+    #[serde(rename = "givenName")]
+    pub given_name: Option<String>,
+    /// Family name
+    #[serde(rename = "familyName")]
+    pub family_name: Option<String>,
+}
+/// Related item identifier per DataCite 4.7 property 20.1
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItemIdentifier {
+    /// Related item identifier value
+    #[serde(rename = "relatedItemIdentifier", alias = "$text")]
+    pub related_item_identifier: String,
+    /// Related item identifier type
+    #[serde(rename = "relatedItemIdentifierType", alias = "@relatedItemIdentifierType")]
+    pub related_item_identifier_type: Option<RelatedIdentifierType>,
+    /// Related metadata scheme
+    #[serde(rename = "relatedMetadataScheme")]
+    pub related_metadata_scheme: Option<String>,
+    /// Scheme URI
+    #[validate(url)]
+    #[serde(rename = "schemeURI")]
+    pub scheme_uri: Option<String>,
+    /// Scheme type
+    #[serde(rename = "schemeType")]
+    pub scheme_type: Option<String>,
+}
+/// Number element per DataCite 4.7 property 20.7
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItemNumber {
+    /// Number value
+    #[serde(alias = "$text")]
+    pub value: String,
+    /// Number type
+    #[serde(rename = "numberType", alias = "@numberType")]
+    pub number_type: Option<String>,
+}
+/// Container for `<relatedItems>` XML element
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItems {
+    /// Related item list
+    #[validate(nested)]
+    #[serde(rename = "relatedItem")]
+    pub related_item: Vec<RelatedItem>,
+}
+/// Related item title per DataCite 4.7 property 20.3
+#[skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+pub struct RelatedItemTitle {
+    /// Title text
+    #[serde(alias = "$text")]
+    pub title: String,
+    /// Title type
+    #[serde(rename = "titleType", alias = "@titleType")]
+    pub title_type: Option<TitleType>,
+}
 /// Represents the top-level `<resource>` element in DataCite kernel-4 XML.
 /// Reuses existing leaf types ([`Creator`], [`GeoLocation`], [`Subject`], etc.)
 /// with container wrappers for the XML list-element pattern.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Resource {
-    /// Resource identifier (DataCite 4.6 property 1)
+    /// Resource identifier (DataCite 4.7 property 1)
     #[validate(nested)]
     pub identifier: Identifier,
-    /// Creators (DataCite 4.6 property 2)
+    /// Creators (DataCite 4.7 property 2)
     #[validate(nested)]
     pub creators: Creators,
-    /// Titles (DataCite 4.6 property 3)
+    /// Titles (DataCite 4.7 property 3)
     #[validate(nested)]
     pub titles: Titles,
-    /// Publisher name (DataCite 4.6 property 4)
+    /// Publisher name (DataCite 4.7 property 4)
     pub publisher: String,
-    /// Publication year per DataCite 4.6 property 5
+    /// Publication year per DataCite 4.7 property 5
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/publicationyear/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/publicationyear/> for details
     #[validate(year)]
     #[serde(rename = "publicationYear")]
     pub publication_year: u32,
-    /// Resource type (DataCite 4.6 property 10)
+    /// Resource type (DataCite 4.7 property 10)
     #[serde(rename = "resourceType")]
     pub resource_type: ResourceTypes,
-    /// Subjects (DataCite 4.6 property 6)
+    /// Subjects (DataCite 4.7 property 6)
     #[validate(nested)]
     pub subjects: Option<Subjects>,
-    /// Dates (DataCite 4.6 property 8)
+    /// Dates (DataCite 4.7 property 8)
     #[validate(nested)]
     pub dates: Option<Dates>,
-    /// Language code per DataCite 4.6 property 9
+    /// Language code per DataCite 4.7 property 9
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/language/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/language/> for details
     #[validate(custom(function = "is_iso_639_1_language_code"))]
     pub language: Option<String>,
-    /// Related identifiers (DataCite 4.6 property 12)
+    /// Related identifiers (DataCite 4.7 property 12)
     #[serde(rename = "relatedIdentifiers")]
     pub related_identifiers: Option<RelatedIdentifiers>,
-    /// Sizes (DataCite 4.6 property 13)
+    /// Related items (DataCite 4.7 property 20)
+    #[validate(nested)]
+    #[serde(rename = "relatedItems")]
+    pub related_items: Option<RelatedItems>,
+    /// Sizes (DataCite 4.7 property 13)
     #[validate(nested)]
     pub sizes: Option<Sizes>,
-    /// Formats (DataCite 4.6 property 14)
+    /// Formats (DataCite 4.7 property 14)
     #[validate(nested)]
     pub formats: Option<Formats>,
-    /// Version per DataCite 4.6 property 15
+    /// Version per DataCite 4.7 property 15
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/version/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/version/> for details
     #[validate(version)]
     pub version: Option<String>,
-    /// Rights list (DataCite 4.6 property 16)
+    /// Rights list (DataCite 4.7 property 16)
     #[validate(nested)]
     #[serde(rename = "rightsList")]
     pub rights_list: Option<RightsList>,
-    /// Descriptions (DataCite 4.6 property 17)
+    /// Descriptions (DataCite 4.7 property 17)
     #[validate(nested)]
     pub descriptions: Option<Descriptions>,
-    /// Geographic locations (DataCite 4.6 property 18)
+    /// Geographic locations (DataCite 4.7 property 18)
     #[validate(nested)]
     #[serde(rename = "geoLocations")]
     pub geo_locations: Option<GeoLocations>,
-    /// Funding references (DataCite 4.6 property 19)
+    /// Funding references (DataCite 4.7 property 19)
     #[validate(nested)]
     #[serde(rename = "fundingReferences")]
     pub funding_references: Option<FundingReferences>,
 }
-/// Resource type information per DataCite 4.6 property 10
+/// Resource type information per DataCite 4.7 property 10
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/resourcetype/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/resourcetype/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct ResourceTypes {
@@ -1043,9 +1212,9 @@ pub struct ResourceTypes {
     #[serde(rename = "resourceType", alias = "$text")]
     pub resource_type: Option<String>,
 }
-/// Rights information per DataCite 4.6 property 16
+/// Rights information per DataCite 4.7 property 16
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/rights/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/rights/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Rights {
@@ -1078,16 +1247,16 @@ pub struct RightsList {
 /// Container for `<sizes>` XML element
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Sizes {
-    /// Size list per DataCite 4.6 property 13
+    /// Size list per DataCite 4.7 property 13
     ///
     /// Size (e.g., bytes, pages, inches, etc.) or duration (extent), e.g., hours, minutes, days, etc., of a resource. Free text.
     ///
-    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/size/> for details
+    /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/size/> for details
     pub size: Vec<String>,
 }
-/// Subject keyword per DataCite 4.6 property 6
+/// Subject keyword per DataCite 4.7 property 6
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/subject/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/subject/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Subject {
@@ -1119,9 +1288,9 @@ pub struct Subjects {
     #[validate(nested)]
     pub subject: Vec<Subject>,
 }
-/// Dataset title per DataCite 4.6 property 3
+/// Dataset title per DataCite 4.7 property 3
 ///
-/// See <https://datacite-metadata-schema.readthedocs.io/en/4.6/properties/title/> for details
+/// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/title/> for details
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 pub struct Title {
@@ -1138,11 +1307,6 @@ pub struct Titles {
     /// Title list
     pub title: Vec<Title>,
 }
-impl PartialEq for GeoLocationPoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.longitude.to_bits() == other.longitude.to_bits() && self.latitude.to_bits() == other.latitude.to_bits()
-    }
-}
 impl Eq for GeoLocationPoint {}
 impl fmt::Display for GeoLocationPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1150,45 +1314,131 @@ impl fmt::Display for GeoLocationPoint {
         write!(f, "({longitude}, {latitude})")
     }
 }
-#[cfg(feature = "std")]
-impl TryFrom<huwise::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
-        let mapping = huwise_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
+impl PartialEq for GeoLocationPoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.longitude.to_bits() == other.longitude.to_bits() && self.latitude.to_bits() == other.latitude.to_bits()
     }
 }
-#[cfg(feature = "std")]
-impl TryFrom<dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
-        let mapping = dcat_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
+impl Property {
+    const fn new(name: &'static str, present: bool) -> Self {
+        Self { name, present }
+    }
+    fn validate(self) -> Result<(), String> {
+        self.present.then_some(()).ok_or_else(|| self.name.to_string())
     }
 }
-#[cfg(feature = "std")]
-impl TryFrom<&dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
-        Record::try_from(dataset.clone())
+impl<const N: usize> PropertySet<N> {
+    const fn new(properties: [Property; N]) -> Self {
+        Self { properties }
+    }
+    fn validate(self) -> Result<(), Vec<String>> {
+        let missing = self
+            .properties
+            .into_iter()
+            .filter_map(|property| property.validate().err())
+            .collect::<Vec<_>>();
+        match missing.is_empty() {
+            | true => Ok(()),
+            | false => Err(missing),
+        }
     }
 }
-impl TryFrom<invenio::Record> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(record: invenio::Record) -> Result<Self, Self::Error> {
-        let mapping = invenio_to_datacite();
-        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
+impl Record {
+    /// Validate that the record satisfies DataCite deposit-mandatory properties.
+    ///
+    /// Mandatory for deposit: `doi`, `titles`, `creators`, `publisher`, `publicationYear`, `resourceTypes`.
+    /// This is distinct from `Validate` which allows partially enriched internal records.
+    pub fn validate_deposit_ready(&self) -> Result<(), Vec<String>> {
+        PropertySet::new([
+            Property::new("doi", !self.attributes.doi.trim().is_empty()),
+            Property::new(
+                "titles",
+                self.attributes
+                    .titles
+                    .as_ref()
+                    .is_some_and(|titles| titles.iter().any(|title| !title.title.trim().is_empty())),
+            ),
+            Property::new(
+                "creators",
+                self.attributes
+                    .creators
+                    .as_ref()
+                    .is_some_and(|creators| creators.iter().any(|creator| !creator.name.trim().is_empty())),
+            ),
+            Property::new(
+                "publisher",
+                self.attributes
+                    .publisher
+                    .as_ref()
+                    .is_some_and(|publisher| !publisher.name.trim().is_empty()),
+            ),
+            Property::new("publicationYear", self.attributes.publication_year.is_some()),
+            Property::new(
+                "resourceTypes",
+                self.attributes
+                    .resource_types
+                    .as_ref()
+                    .is_some_and(|resource_types| resource_types.resource_type_general.is_some()),
+            ),
+        ])
+        .validate()
     }
-}
-impl TryFrom<&invenio::Record> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(record: &invenio::Record) -> Result<Self, Self::Error> {
-        Record::try_from(record.clone())
+    /// Validate inclusion of every DataCite 4.7 recommended property.
+    ///
+    /// This completeness check is separate from deposit readiness because recommended properties are not mandatory.
+    pub fn validate_recommended_properties(&self) -> Result<(), Vec<String>> {
+        PropertySet::new([
+            Property::new("subjects", self.attributes.subjects.as_ref().is_some_and(|values| !values.is_empty())),
+            Property::new(
+                "contributors",
+                self.attributes.contributors.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new("dates", self.attributes.dates.as_ref().is_some_and(|values| !values.is_empty())),
+            Property::new(
+                "relatedIdentifiers",
+                self.attributes.related_identifiers.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new(
+                "descriptions",
+                self.attributes.descriptions.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new(
+                "geoLocations",
+                self.attributes.geo_locations.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+        ])
+        .validate()
+    }
+    /// Validate inclusion of every DataCite 4.7 optional property.
+    ///
+    /// This is an optional-set completeness check; missing values do not make a record invalid or prevent deposit.
+    pub fn validate_optional_properties(&self) -> Result<(), Vec<String>> {
+        PropertySet::new([
+            Property::new(
+                "language",
+                self.attributes.language.as_ref().is_some_and(|value| !value.trim().is_empty()),
+            ),
+            Property::new(
+                "alternateIdentifiers",
+                self.attributes.alternate_identifiers.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new("sizes", self.attributes.sizes.as_ref().is_some_and(|values| !values.is_empty())),
+            Property::new("formats", self.attributes.formats.as_ref().is_some_and(|values| !values.is_empty())),
+            Property::new("version", self.attributes.version.as_ref().is_some_and(|value| !value.trim().is_empty())),
+            Property::new(
+                "rightsList",
+                self.attributes.rights_list.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new(
+                "fundingReferences",
+                self.attributes.funding_references.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+            Property::new(
+                "relatedItems",
+                self.attributes.related_items.as_ref().is_some_and(|values| !values.is_empty()),
+            ),
+        ])
+        .validate()
     }
 }
 impl SchemaBuilder for Record {
@@ -1251,6 +1501,7 @@ impl SchemaBuilder for Record {
             language,
             alternate_identifiers: None,
             related_identifiers: None,
+            related_items: None,
             sizes: None,
             formats: None,
             version: fields.get_string_opt("version"),
@@ -1349,6 +1600,61 @@ impl ToProse for Record {
             .chain(self.attributes.subjects.iter().flatten().map(|value| value.subject.clone()))
             .collect::<Vec<String>>()
             .join("\n\n")
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<&dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
+        Record::try_from(dataset.clone())
+    }
+}
+impl TryFrom<&invenio::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: &invenio::Record) -> Result<Self, Self::Error> {
+        Record::try_from(record.clone())
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
+        let mapping = dcat_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<huwise::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
+        let mapping = huwise_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
+    }
+}
+impl TryFrom<invenio::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: invenio::Record) -> Result<Self, Self::Error> {
+        let mapping = invenio_to_datacite();
+        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
+    }
+}
+impl Resource {
+    /// Validate that the XML resource satisfies DataCite deposit-mandatory properties.
+    pub fn validate_deposit_ready(&self) -> Result<(), Vec<String>> {
+        PropertySet::new([
+            Property::new("identifier", !self.identifier.value.trim().is_empty()),
+            Property::new("creators", self.creators.creator.iter().any(|creator| !creator.name.trim().is_empty())),
+            Property::new("titles", self.titles.title.iter().any(|title| !title.title.trim().is_empty())),
+            Property::new("publisher", !self.publisher.trim().is_empty()),
+            Property::new("publicationYear", true),
+            Property::new("resourceType", self.resource_type.resource_type_general.is_some()),
+        ])
+        .validate()
     }
 }
 fn default_identifier_type() -> String {

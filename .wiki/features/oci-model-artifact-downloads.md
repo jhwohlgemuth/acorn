@@ -28,6 +28,7 @@ status: in-progress
 
 # Dependencies
 
+- Consume the public resolved-config contract from [portable ModelKit schema model](modelkit-schema-model.md) before completing native ModelKit parsing. This OCI plan owns transport, descriptor verification, package/layer normalization, extraction, and GGUF selection; it must not retain a second private Kitfile model.
 - Reuse the safe extraction and atomic publication boundaries shared with [unified import and download with BagIt archives](unified-import-download-bagit.md). Coordinate any edits to `io/archive.rs`; ModelPack support must not create a second archive engine.
 - Preserve the registry materialization contract consumed by the landed Needle sidecar. Inference may consume only the selected GGUF model output, not the full package inventory.
 - Keep protocol parsing independent of ORAS process execution so the [crate boundary architecture](../refactors/crate-boundary-architecture.md) can later move protocol DTOs and native host transport separately.
@@ -81,7 +82,7 @@ Exit condition: ACORN produces the same selected GGUF inventory from equivalent 
 
 ### 3. Improve ModelKit compatibility without coupling to KitOps internals
 
-1. Pin producer fixtures to a reviewed KitOps release or commit and document the ModelKit media types and config fields ACORN intentionally consumes. Do not infer ModelKit solely from a repository name or registry host.
+1. Pin producer fixtures to a reviewed KitOps release or commit and decode the complete resolved config through the [portable ModelKit schema model](modelkit-schema-model.md). Document the ModelKit media types ACORN consumes and do not infer ModelKit solely from a repository name or registry host.
 2. Accept unrelated ModelKit layers while selecting only the model component needed by `download model`. A model-free kit is valid as a package but invalid for this command; return that precise diagnostic.
 3. Replace the “exactly one gzip model layer” assumption with deterministic matching between the model path or paths allowed by the pinned config contract and supported model layers. Cover multiple files, split GGUF, projectors, and ambiguity explicitly; do not guess when metadata cannot associate them.
 4. When KitOps produces ModelPack with an embedded Kitfile annotation, use the normative ModelPack manifest, config, media types, and `org.cncf.model.*` annotations first. Treat the Kitfile only as optional enrichment so artifacts from `modctl` or another producer behave equivalently.

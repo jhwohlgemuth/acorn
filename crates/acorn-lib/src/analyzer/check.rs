@@ -1096,11 +1096,8 @@ impl Standard {
         target: Standard,
         target_mime: MimeType,
     ) -> Result<(String, ConversionWarnings), CrosswalkError> {
-        let warnings = match self.collect_crosswalk_warnings(content, &mime, target) {
-            | Ok(w) => w,
-            | Err(_) => Vec::new(),
-        };
-        self.crosswalk(content, mime, target, target_mime).map(|content| (content, warnings))
+        self.collect_crosswalk_warnings(content, &mime, target)
+            .and_then(|warnings| self.crosswalk(content, mime, target, target_mime).map(|content| (content, warnings)))
     }
     /// Run the FieldMapping pipeline to detect field-level losses for a given pair.
     fn collect_crosswalk_warnings(&self, content: &str, mime: &MimeType, target: Standard) -> Result<ConversionWarnings, CrosswalkError> {

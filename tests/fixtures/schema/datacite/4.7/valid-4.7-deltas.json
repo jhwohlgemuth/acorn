@@ -1,0 +1,85 @@
+[
+    {
+        "id": "10.5072/datacite-47-poster",
+        "type": "dois",
+        "attributes": {
+            "doi": "10.5072/datacite-47-poster",
+            "titles": [{ "title": "Poster: RAiD-aware Software Release" }],
+            "creators": [{ "name": "Doe, Jane", "nameType": "Personal", "givenName": "Jane", "familyName": "Doe" }],
+            "publisher": { "name": "Example Repository" },
+            "publicationYear": 2024,
+            "types": { "resourceTypeGeneral": "Poster", "resourceType": "Conference poster" },
+            "url": "https://example.org/poster/1",
+            "relatedIdentifiers": [
+                {
+                    "relatedIdentifier": "https://raid.org/10.26259/5c43ca8f",
+                    "relatedIdentifierType": "RAiD",
+                    "relationType": "IsPartOf",
+                    "resourceTypeGeneral": "Project"
+                },
+                {
+                    "relatedIdentifier": "swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2",
+                    "relatedIdentifierType": "SWHID",
+                    "relationType": "Cites",
+                    "resourceTypeGeneral": "Software"
+                },
+                {
+                    "relatedIdentifier": "10.1234/custom-relation",
+                    "relatedIdentifierType": "DOI",
+                    "relationType": "Other",
+                    "relationTypeInformation": "Custom domain-specific relation",
+                    "resourceTypeGeneral": "Dataset"
+                }
+            ],
+            "relatedItems": [
+                {
+                    "relatedItemType": "JournalArticle",
+                    "relationType": "IsPublishedIn",
+                    "titles": [{ "title": "Journal of Example Studies" }],
+                    "creators": [{ "name": "Smith, John" }],
+                    "publicationYear": "2024",
+                    "volume": "10",
+                    "issue": "2",
+                    "firstPage": "100",
+                    "lastPage": "110",
+                    "publisher": "Example Publisher"
+                },
+                {
+                    "relatedItemType": "Dataset",
+                    "relationType": "Other",
+                    "relationTypeInformation": "Derived from instrument calibration",
+                    "relatedItemIdentifier": {
+                        "relatedItemIdentifier": "10.5072/related-dataset",
+                        "relatedItemIdentifierType": "DOI"
+                    },
+                    "titles": [{ "title": "Calibration Dataset" }],
+                    "publicationYear": "2023"
+                }
+            ],
+            "schemaVersion": "http://datacite.org/schema/kernel-4"
+        }
+    },
+    {
+        "id": "10.5072/datacite-47-presentation",
+        "type": "dois",
+        "attributes": {
+            "doi": "10.5072/datacite-47-presentation",
+            "titles": [{ "title": "Presentation: Workflow Results" }],
+            "creators": [{ "name": "Roe, Richard", "nameType": "Personal" }],
+            "publisher": { "name": "Example Repository" },
+            "publicationYear": 2024,
+            "types": { "resourceTypeGeneral": "Presentation", "resourceType": "Conference presentation" },
+            "url": "https://example.org/presentation/1",
+            "relatedIdentifiers": [
+                {
+                    "relatedIdentifier": "https://raid.org/10.26259/abc123",
+                    "relatedIdentifierType": "RAiD",
+                    "relationType": "Other",
+                    "relationTypeInformation": "Activity linkage for institute reporting",
+                    "resourceTypeGeneral": "Project"
+                }
+            ],
+            "schemaVersion": "http://datacite.org/schema/kernel-4"
+        }
+    }
+]

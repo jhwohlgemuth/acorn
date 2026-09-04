@@ -37,7 +37,7 @@
 //!
 //! Each schema provides implementations of [`SchemaExtractor`] and [`SchemaBuilder`]
 //! in the [`extractors`] and [`builders`] submodules.
-use acorn_core::prelude::alloc::{String, Vec};
+use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
 
 pub mod mapping;
@@ -236,10 +236,20 @@ where
 {
     let source_fields = source.extract_fields();
     let mut target_fields = Fields::new();
-    let warnings = Vec::new();
-    mapping.apply(&source_fields, &mut target_fields)?;
-    let target = T::build_from_fields(&target_fields)?;
-    Ok((target, warnings))
+    mapping.apply(&source_fields, &mut target_fields).and_then(|missing| {
+        let warnings = missing
+            .into_iter()
+            .map(|field| {
+                ConversionWarning::omitted(
+                    mapping.source,
+                    mapping.target,
+                    field.clone(),
+                    format!("optional '{field}' not present in source; target '{}' remains empty", field),
+                )
+            })
+            .collect();
+        T::build_from_fields(&target_fields).map(|target| (target, warnings))
+    })
 }
 
 #[cfg(all(test, feature = "std"))]

@@ -8,6 +8,7 @@
 
 ## Planned
 
+- [Portable ModelKit schema model](modelkit-schema-model.md) - Model Kitfile 1.0.0 authoring YAML and resolved OCI-config JSON as one validated portable domain with explicit codec boundaries.
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Stage prompt hydration, ACP/OpenAI-compatible inference, structured fix suggestions, and verified deterministic remediation.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) - Align activity metadata with RAiD and output interchange with DataCite, DCAT, persistent identifiers, and contributor-role vocabularies.
 - [Research activity changelog](research-activity-changelog.md) - Add a manually authored, timestamped timeline of code and other research developments with explicit progress states and provenance for future dynamically discovered entries.

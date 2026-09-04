@@ -73,6 +73,7 @@ fn extract_datacite_record_basic() {
             language: Some("en".to_string()),
             alternate_identifiers: None,
             related_identifiers: None,
+            related_items: None,
             sizes: None,
             formats: None,
             version: None,
@@ -193,6 +194,7 @@ fn from_datacite_to_dcat() {
             language: Some("en".to_string()),
             alternate_identifiers: None,
             related_identifiers: None,
+            related_items: None,
             sizes: None,
             formats: None,
             version: None,
@@ -418,6 +420,7 @@ fn from_datacite_to_invenio() {
             language: Some("de".to_string()),
             alternate_identifiers: None,
             related_identifiers: None,
+            related_items: None,
             sizes: None,
             formats: None,
             version: Some("1.0".to_string()),
@@ -695,6 +698,7 @@ proptest! {
     #[test]
     fn prop_datacite_dcat_roundtrip(title in "\\PC{0,64}", publisher in "\\PC{0,64}") {
         let mut source = Fields::new();
+        source.insert("doi", FieldValue::String("10.5555/test".to_string()));
         source.insert("title", FieldValue::String(title.clone()));
         source.insert("publisher", FieldValue::String(publisher.clone()));
         let mut dcat_fields = Fields::new();
@@ -704,4 +708,132 @@ proptest! {
         prop_assert_eq!(back.get_string_opt("title"), Some(title));
         prop_assert_eq!(back.get_string_opt("publisher"), Some(publisher));
     }
+}
+#[test]
+fn convert_propagates_missing_as_warnings() {
+    let record = datacite::Record {
+        id: "10.5555/warn-test".to_string(),
+        kind: "dois".to_string(),
+        attributes: datacite::Attributes {
+            doi: "10.5555/warn-test".to_string(),
+            event: None,
+            titles: Some(vec![datacite::Title {
+                title: "Warn Test".to_string(),
+                title_type: None,
+            }]),
+            creators: None,
+            publisher: None,
+            publication_year: None,
+            resource_types: None,
+            url: None,
+            subjects: None,
+            contributors: None,
+            dates: None,
+            language: None,
+            alternate_identifiers: None,
+            related_identifiers: None,
+            related_items: None,
+            sizes: None,
+            formats: None,
+            version: None,
+            rights_list: None,
+            descriptions: None,
+            geo_locations: None,
+            funding_references: None,
+            schema_version: None,
+        },
+    };
+    let mapping = datacite_to_dcat();
+    let result: Result<(dcat::Dataset, Vec<ConversionWarning>), CrosswalkError> = crate::schema::standard::crosswalk::convert(&record, &mapping);
+    assert!(result.is_ok());
+    let (_, warnings) = result.expect("convert should succeed");
+    // mapping has optional fields like description, language, creators, etc. missing -> warnings non-empty
+    assert!(!warnings.is_empty(), "lossy conversion should produce warnings, got empty");
+    assert!(warnings
+        .iter()
+        .any(|w| w.field == "description" || w.field == "language" || w.field == "creators"));
+    for w in &warnings {
+        assert_eq!(w.from, "datacite");
+        assert_eq!(w.to, "dcat");
+    }
+}
+#[test]
+fn convert_missing_required_field_fails() {
+    let _record = datacite::Record {
+        id: "".to_string(),
+        kind: "dois".to_string(),
+        attributes: datacite::Attributes {
+            doi: "".to_string(),
+            event: None,
+            titles: None,
+            creators: None,
+            publisher: None,
+            publication_year: None,
+            resource_types: None,
+            url: None,
+            subjects: None,
+            contributors: None,
+            dates: None,
+            language: None,
+            alternate_identifiers: None,
+            related_identifiers: None,
+            related_items: None,
+            sizes: None,
+            formats: None,
+            version: None,
+            rights_list: None,
+            descriptions: None,
+            geo_locations: None,
+            funding_references: None,
+            schema_version: None,
+        },
+    };
+    // dcat_to_datacite requires identifier (doi) as required
+    let dataset = dcat::Dataset {
+        id: None,
+        jsonld_type: None,
+        title: Some(OneOrMany::Many(vec!["No identifier".to_string()])),
+        description: None,
+        identifier: None,
+        issued: None,
+        modified: None,
+        language: None,
+        publisher: None,
+        creator: None,
+        contact_point: None,
+        keywords: None,
+        themes: None,
+        license: None,
+        rights: None,
+        access_rights: None,
+        has_policy: None,
+        conforms_to: None,
+        landing_page: None,
+        relation: None,
+        type_: None,
+        version: None,
+        version_notes: None,
+        previous_version: None,
+        has_version: None,
+        has_current_version: None,
+        replaces: None,
+        status: None,
+        is_referenced_by: None,
+        has_part: None,
+        qualified_relation: None,
+        first: None,
+        last: None,
+        previous: None,
+        distribution: None,
+        frequency: None,
+        in_series: None,
+        spatial: None,
+        spatial_resolution_in_meters: None,
+        temporal: None,
+        temporal_resolution: None,
+        was_generated_by: None,
+    };
+    let mapping = dcat_to_datacite();
+    let result: Result<(datacite::Record, Vec<ConversionWarning>), CrosswalkError> = crate::schema::standard::crosswalk::convert(&dataset, &mapping);
+    assert!(matches!(result, Err(CrosswalkError::MissingRequiredField(_))));
 }

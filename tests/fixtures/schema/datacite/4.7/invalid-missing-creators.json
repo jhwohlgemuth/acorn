@@ -1,0 +1,14 @@
+[
+    {
+        "id": "10.5072/invalid-missing-creators",
+        "type": "dois",
+        "attributes": {
+            "doi": "10.5072/invalid-missing-creators",
+            "titles": [{ "title": "Missing creators" }],
+            "publisher": { "name": "Example Repository" },
+            "publicationYear": 2024,
+            "types": { "resourceTypeGeneral": "Dataset" },
+            "url": "https://example.org/invalid/2"
+        }
+    }
+]

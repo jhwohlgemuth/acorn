@@ -192,13 +192,12 @@ impl FieldMapping {
     ///
     /// Returns missing non-required fields that could not be mapped.
     pub fn apply(&self, source: &Fields, target: &mut Fields) -> Result<Vec<String>, CrosswalkError> {
-        let mut missing = Vec::new();
-        for rule in &self.rules {
-            if let Ok(Some(field)) = rule.apply(source, target) {
-                missing.push(field);
-            }
-        }
-        Ok(missing)
+        self.rules.iter().try_fold(Vec::new(), |mut missing, rule| {
+            rule.apply(source, target).map(|field| {
+                missing.extend(field);
+                missing
+            })
+        })
     }
 }
 impl FieldRule {
@@ -338,7 +337,7 @@ impl FieldValue {
 /// Create field mapping rules from DataCite to DCAT
 pub fn datacite_to_dcat() -> FieldMapping {
     FieldMapping::new("datacite", "dcat")
-        .with_rule(FieldRule::new("doi", "identifier").required())
+        .with_rule(FieldRule::new("doi", "identifier").required().with_transform(as_vec))
         .with_rule(FieldRule::new("title", "title"))
         .with_rule(FieldRule::new("description", "description"))
         .with_rule(FieldRule::new("language", "language").with_transform(as_vec))
@@ -490,6 +489,8 @@ pub fn resource_type_to_iri(value: FieldValue) -> Result<FieldValue, String> {
                 | "Journal" => "https://schema.org/Periodical",
                 | "Report" => "https://schema.org/Report",
                 | "Text" => "https://schema.org/CreativeWork",
+                | "Poster" => "https://schema.org/Poster",
+                | "Presentation" => "https://schema.org/PresentationDigitalDocument",
                 | _ => return Err(format!("unknown resource type: {s}")),
             };
             Ok(FieldValue::IRI(iri.to_string()))
@@ -513,6 +514,8 @@ pub fn iri_to_resource_type(value: FieldValue) -> Result<FieldValue, String> {
                 | "https://schema.org/Periodical" => "Journal",
                 | "https://schema.org/Report" => "Report",
                 | "https://schema.org/CreativeWork" => "Text",
+                | "https://schema.org/Poster" => "Poster",
+                | "https://schema.org/PresentationDigitalDocument" => "Presentation",
                 | _ => return Err(format!("unknown IRI: {iri}")),
             };
             Ok(FieldValue::String(type_str.to_string()))

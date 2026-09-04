@@ -6,8 +6,9 @@
     clippy::unwrap_used
 )]
 use crate::schema::standard::datacite::{
-    Affiliation, Catalog, Date, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint,
-    NameIdentifier, NameType, Publisher, RelatedIdentifierType, RelationType, Resource, ResourceTypeGeneral, TitleType,
+    Affiliation, Attributes, Catalog, Date, DateType, DescriptionType, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint,
+    NameIdentifier, NameType, Publisher, RelatedIdentifier, RelatedIdentifierType, RelatedItem, RelatedItemIdentifier, RelationType, Resource,
+    ResourceTypeGeneral, TitleType,
 };
 use crate::validation::Validate;
 use serde_json::Value;
@@ -366,4 +367,336 @@ fn test_datacite_record_propagates_identifier_validation() {
         scheme_uri: Some("https://isni.org/".to_string()),
     });
     assert!(record.validate().is_err());
+}
+#[test]
+fn test_datacite_47_resource_types() {
+    let poster = ResourceTypeGeneral::Poster;
+    assert_eq!(serde_json::to_string(&poster).expect("serialize poster"), "\"Poster\"");
+    let presentation = ResourceTypeGeneral::Presentation;
+    assert_eq!(serde_json::to_string(&presentation).expect("serialize presentation"), "\"Presentation\"");
+    let parsed: ResourceTypeGeneral = serde_json::from_str("\"Poster\"").expect("parse poster");
+    assert_eq!(parsed, ResourceTypeGeneral::Poster);
+}
+
+#[test]
+fn test_datacite_47_related_identifier_types() {
+    let raid = RelatedIdentifierType::Raid;
+    assert_eq!(serde_json::to_string(&raid).expect("serialize braid"), "\"RAiD\"");
+    let swhid = RelatedIdentifierType::Swhid;
+    assert_eq!(serde_json::to_string(&swhid).expect("serialize swhid"), "\"SWHID\"");
+    let parsed: RelatedIdentifierType = serde_json::from_str("\"RAiD\"").expect("parse raid");
+    assert_eq!(parsed, RelatedIdentifierType::Raid);
+    let parsed: RelatedIdentifierType = serde_json::from_str("\"SWHID\"").expect("parse swhid");
+    assert_eq!(parsed, RelatedIdentifierType::Swhid);
+}
+
+#[test]
+fn test_datacite_47_relation_type_other() {
+    let other = RelationType::Other;
+    assert_eq!(serde_json::to_string(&other).expect("serialize other"), "\"Other\"");
+    let parsed: RelationType = serde_json::from_str("\"Other\"").expect("parse other");
+    assert_eq!(parsed, RelationType::Other);
+}
+
+#[test]
+fn test_datacite_47_relation_type_information() {
+    let ri = RelatedIdentifier {
+        related_identifier: "10.1234/custom".to_string(),
+        related_identifier_type: Some(RelatedIdentifierType::Doi),
+        relation_type: Some(RelationType::Other),
+        related_metadata_scheme: None,
+        scheme_uri: None,
+        scheme_type: None,
+        resource_type_general: Some(ResourceTypeGeneral::Dataset),
+        relation_type_information: Some("Custom domain-specific relation".to_string()),
+    };
+    assert!(ri.validate().is_ok());
+    let json = serde_json::to_string(&ri).expect("serialize related identifier");
+    assert!(json.contains("relationTypeInformation"));
+    let parsed: RelatedIdentifier = serde_json::from_str(&json).expect("parse related identifier");
+    assert_eq!(parsed.relation_type_information.as_deref(), Some("Custom domain-specific relation"));
+}
+
+#[test]
+fn test_datacite_47_related_item() {
+    let item = RelatedItem {
+        related_item_type: ResourceTypeGeneral::JournalArticle,
+        relation_type: RelationType::IsPublishedIn,
+        relation_type_information: None,
+        related_item_identifier: Some(RelatedItemIdentifier {
+            related_item_identifier: "10.1234/journal-article".to_string(),
+            related_item_identifier_type: Some(RelatedIdentifierType::Doi),
+            related_metadata_scheme: None,
+            scheme_uri: None,
+            scheme_type: None,
+        }),
+        creators: None,
+        titles: None,
+        publication_year: Some("2024".to_string()),
+        volume: Some("10".to_string()),
+        issue: Some("2".to_string()),
+        number: None,
+        first_page: Some("100".to_string()),
+        last_page: Some("110".to_string()),
+        publisher: Some("Example Publisher".to_string()),
+        edition: None,
+        contributors: None,
+    };
+    assert!(item.validate().is_ok());
+    let json = serde_json::to_string(&item).expect("serialize related item");
+    assert!(json.contains("relatedItemType"));
+    let other = RelatedItem {
+        related_item_type: ResourceTypeGeneral::Dataset,
+        relation_type: RelationType::Other,
+        relation_type_information: Some("Derived from instrument calibration".to_string()),
+        related_item_identifier: None,
+        creators: None,
+        titles: None,
+        publication_year: None,
+        volume: None,
+        issue: None,
+        number: None,
+        first_page: None,
+        last_page: None,
+        publisher: None,
+        edition: None,
+        contributors: None,
+    };
+    let json = serde_json::to_string(&other).expect("serialize related item other");
+    assert!(json.contains("Other"));
+    assert!(json.contains("relationTypeInformation"));
+    let invalid_year = RelatedItem {
+        publication_year: Some("24".to_string()),
+        ..other
+    };
+    assert!(invalid_year.validate().is_err());
+}
+
+#[test]
+fn test_datacite_47_json_fixture_with_deltas() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json");
+    let text = std::fs::read_to_string(path).expect("failed to read 4.7 deltas fixture");
+    let catalog: Catalog = serde_json::from_str(&text).expect("failed to parse 4.7 deltas fixture");
+    assert_eq!(catalog.len(), 2);
+    let first = &catalog[0];
+    assert_eq!(
+        first.attributes.resource_types.as_ref().expect("types").resource_type_general,
+        Some(ResourceTypeGeneral::Poster)
+    );
+    let related = first.attributes.related_identifiers.as_ref().expect("related identifiers");
+    assert!(related.iter().any(|r| r.related_identifier_type == Some(RelatedIdentifierType::Raid)));
+    assert!(related.iter().any(|r| r.related_identifier_type == Some(RelatedIdentifierType::Swhid)));
+    assert!(related
+        .iter()
+        .any(|r| r.relation_type == Some(RelationType::Other) && r.relation_type_information.is_some()));
+    let items = first.attributes.related_items.as_ref().expect("related items");
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].related_item_type, ResourceTypeGeneral::JournalArticle);
+    let second = &catalog[1];
+    assert_eq!(
+        second.attributes.resource_types.as_ref().expect("types").resource_type_general,
+        Some(ResourceTypeGeneral::Presentation)
+    );
+    for record in catalog {
+        assert!(record.validate().is_ok(), "4.7 delta record should validate");
+    }
+}
+
+#[test]
+fn test_datacite_47_xml_fixture_with_related_item() {
+    // Construct a Resource with 4.7 deltas and verify round-trip through XML serde.
+    let resource = Resource {
+        identifier: crate::schema::standard::datacite::Identifier {
+            identifier_type: "DOI".to_string(),
+            value: "10.5072/datacite-47-xml".to_string(),
+        },
+        creators: crate::schema::standard::datacite::Creators {
+            creator: vec![crate::schema::standard::datacite::Creator {
+                name: "Doe, Jane".to_string(),
+                name_type: Some(NameType::Personal),
+                given_name: Some("Jane".to_string()),
+                family_name: Some("Doe".to_string()),
+                name_identifiers: None,
+                affiliation: None,
+            }],
+        },
+        titles: crate::schema::standard::datacite::Titles {
+            title: vec![crate::schema::standard::datacite::Title {
+                title: "XML Resource with RelatedItem".to_string(),
+                title_type: None,
+            }],
+        },
+        publisher: "Example Repository".to_string(),
+        publication_year: 2024,
+        resource_type: crate::schema::standard::datacite::ResourceTypes {
+            resource_type_general: Some(ResourceTypeGeneral::Poster),
+            resource_type: Some("Conference poster".to_string()),
+        },
+        subjects: None,
+        dates: None,
+        language: None,
+        related_identifiers: Some(crate::schema::standard::datacite::RelatedIdentifiers {
+            related_identifier: vec![
+                RelatedIdentifier {
+                    related_identifier: "https://raid.org/10.26259/5c43ca8f".to_string(),
+                    related_identifier_type: Some(RelatedIdentifierType::Raid),
+                    relation_type: Some(RelationType::IsPartOf),
+                    related_metadata_scheme: None,
+                    scheme_uri: None,
+                    scheme_type: None,
+                    resource_type_general: Some(ResourceTypeGeneral::Project),
+                    relation_type_information: None,
+                },
+                RelatedIdentifier {
+                    related_identifier: "swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2".to_string(),
+                    related_identifier_type: Some(RelatedIdentifierType::Swhid),
+                    relation_type: Some(RelationType::Cites),
+                    related_metadata_scheme: None,
+                    scheme_uri: None,
+                    scheme_type: None,
+                    resource_type_general: Some(ResourceTypeGeneral::Software),
+                    relation_type_information: None,
+                },
+            ],
+        }),
+        related_items: Some(crate::schema::standard::datacite::RelatedItems {
+            related_item: vec![
+                RelatedItem {
+                    related_item_type: ResourceTypeGeneral::JournalArticle,
+                    relation_type: RelationType::IsPublishedIn,
+                    relation_type_information: None,
+                    related_item_identifier: None,
+                    creators: None,
+                    titles: Some(vec![crate::schema::standard::datacite::RelatedItemTitle {
+                        title: "Journal of Example Studies".to_string(),
+                        title_type: None,
+                    }]),
+                    publication_year: Some("2024".to_string()),
+                    volume: Some("10".to_string()),
+                    issue: Some("2".to_string()),
+                    number: None,
+                    first_page: Some("100".to_string()),
+                    last_page: Some("110".to_string()),
+                    publisher: Some("Example Publisher".to_string()),
+                    edition: None,
+                    contributors: None,
+                },
+                RelatedItem {
+                    related_item_type: ResourceTypeGeneral::Dataset,
+                    relation_type: RelationType::Other,
+                    relation_type_information: Some("Derived from instrument calibration".to_string()),
+                    related_item_identifier: Some(RelatedItemIdentifier {
+                        related_item_identifier: "10.5072/related-dataset".to_string(),
+                        related_item_identifier_type: Some(RelatedIdentifierType::Doi),
+                        related_metadata_scheme: None,
+                        scheme_uri: None,
+                        scheme_type: None,
+                    }),
+                    creators: None,
+                    titles: None,
+                    publication_year: Some("2023".to_string()),
+                    volume: None,
+                    issue: None,
+                    number: None,
+                    first_page: None,
+                    last_page: None,
+                    publisher: None,
+                    edition: None,
+                    contributors: None,
+                },
+            ],
+        }),
+        sizes: None,
+        formats: None,
+        version: None,
+        rights_list: None,
+        descriptions: None,
+        geo_locations: None,
+        funding_references: None,
+    };
+    assert!(resource.validate().is_ok());
+    let xml = quick_xml::se::to_string(&resource).expect("serialize 4.7 xml");
+    assert!(xml.contains("Poster"));
+    assert!(xml.contains("RAiD") || xml.contains("Raid"));
+    let parsed: Resource = quick_xml::de::from_str(&xml).expect("parse 4.7 xml round-trip");
+    assert_eq!(parsed.resource_type.resource_type_general, Some(ResourceTypeGeneral::Poster));
+    let items = parsed.related_items.as_ref().expect("related items");
+    assert_eq!(items.related_item.len(), 2);
+    assert_eq!(items.related_item[0].related_item_type, ResourceTypeGeneral::JournalArticle);
+    // Also verify fixture file is parsable as JSON (validates 4.7 deltas fixture shape)
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json");
+    let text = std::fs::read_to_string(path).expect("failed to read 4.7 deltas fixture");
+    let catalog: Catalog = serde_json::from_str(&text).expect("parse deltas json");
+    assert_eq!(catalog.len(), 2);
+}
+#[test]
+fn test_datacite_deposit_ready_validator() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json");
+    let text = std::fs::read_to_string(path).expect("read deltas");
+    let catalog: Catalog = serde_json::from_str(&text).expect("parse deltas");
+    for record in &catalog {
+        assert!(record.validate().is_ok());
+        assert!(record.validate_deposit_ready().is_ok(), "4.7 deltas should be deposit-ready");
+    }
+    let invalid_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/schema/datacite/4.7/invalid-missing-mandatory.json");
+    let text = std::fs::read_to_string(invalid_path).expect("read invalid");
+    let catalog: Catalog = serde_json::from_str(&text).expect("parse invalid");
+    let record = &catalog[0];
+    assert!(record.validate().is_ok(), "invalid fixture is still syntactically valid");
+    let err = record.validate_deposit_ready().expect_err("should be not deposit-ready");
+    assert_eq!(err, vec!["titles".to_string()]);
+    let recommended = record.validate_recommended_properties().expect_err("record omits recommended properties");
+    assert_eq!(
+        recommended,
+        ["subjects", "contributors", "dates", "relatedIdentifiers", "descriptions", "geoLocations"]
+            .map(str::to_string)
+            .to_vec()
+    );
+    let optional = record.validate_optional_properties().expect_err("record omits optional properties");
+    assert_eq!(
+        optional,
+        [
+            "language",
+            "alternateIdentifiers",
+            "sizes",
+            "formats",
+            "version",
+            "rightsList",
+            "fundingReferences",
+            "relatedItems"
+        ]
+        .map(str::to_string)
+        .to_vec()
+    );
+    let xml_resource = Resource {
+        identifier: crate::schema::standard::datacite::Identifier {
+            identifier_type: "DOI".to_string(),
+            value: "10.5072/test".to_string(),
+        },
+        creators: crate::schema::standard::datacite::Creators { creator: vec![] },
+        titles: crate::schema::standard::datacite::Titles { title: vec![] },
+        publisher: "Test Publisher".to_string(),
+        publication_year: 2024,
+        resource_type: crate::schema::standard::datacite::ResourceTypes {
+            resource_type_general: None,
+            resource_type: Some("Dataset".to_string()),
+        },
+        subjects: None,
+        dates: None,
+        language: None,
+        related_identifiers: None,
+        related_items: None,
+        sizes: None,
+        formats: None,
+        version: None,
+        rights_list: None,
+        descriptions: None,
+        geo_locations: None,
+        funding_references: None,
+    };
+    let err = xml_resource
+        .validate_deposit_ready()
+        .expect_err("xml missing creators/titles/type should fail");
+    assert_eq!(err, ["creators", "titles", "resourceType"].map(str::to_string).to_vec());
 }

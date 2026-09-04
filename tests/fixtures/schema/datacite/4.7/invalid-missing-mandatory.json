@@ -1,0 +1,14 @@
+[
+    {
+        "id": "10.5072/invalid-missing-titles",
+        "type": "dois",
+        "attributes": {
+            "doi": "10.5072/invalid-missing-titles",
+            "creators": [{ "name": "Doe, Jane" }],
+            "publisher": { "name": "Example Repository" },
+            "publicationYear": 2024,
+            "types": { "resourceTypeGeneral": "Dataset" },
+            "url": "https://example.org/invalid/1"
+        }
+    }
+]
