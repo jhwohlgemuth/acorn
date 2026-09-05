@@ -133,7 +133,10 @@ lint: shellcheck
 	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
 
 shellcheck:
-	@find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		for file in $$(find scripts -type f -name '*.sh'); do tr -d '\r' < "$$file" > "$$file.tmp" && mv "$$file.tmp" "$$file"; done; \
+		find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck; \
+	else echo "shellcheck not found, skipping"; fi
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
