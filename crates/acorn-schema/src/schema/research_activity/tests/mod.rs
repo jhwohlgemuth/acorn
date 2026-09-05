@@ -117,6 +117,136 @@ fn test_alias_migration_accepts_deprecated_fields_with_canonical_output() {
     assert!(sections.get("outcomes").is_none());
 }
 #[test]
+fn test_metadata_aliases_and_flattened_values_use_canonical_fields() {
+    let mut metadata = serde_json::to_value(ResearchActivityMetadata::default()).expect("metadata should serialize");
+    let metadata = metadata.as_object_mut().expect("metadata is an object");
+    metadata.insert(
+        "dates".to_string(),
+        serde_json::json!([{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]),
+    );
+    metadata.insert("contributors".to_string(), serde_json::json!(" Doe, Jane "));
+    metadata.insert("organizations".to_string(), serde_json::json!([" Example Organization "]));
+    metadata.insert(
+        "sponsors".to_string(),
+        serde_json::json!([" Example Funder ", {"name": "Structured Funder", "awards": []}]),
+    );
+    metadata.insert("related".to_string(), serde_json::json!(" related-activity "));
+    metadata.insert("languages".to_string(), serde_json::json!([" eng ", {"id": "fra", "schemaUri": null}]));
+    metadata.insert("subjects".to_string(), serde_json::json!(" Climate change "));
+    metadata.insert("spatialCoverage".to_string(), serde_json::json!(" US-TN "));
+    metadata.insert("rights".to_string(), serde_json::json!(" Copyright Example "));
+    metadata.insert("access".to_string(), serde_json::json!("open"));
+    let parsed: ResearchActivityMetadata =
+        serde_json::from_value(serde_json::Value::Object(metadata.clone())).expect("aliases and flattened values should deserialize");
+    assert_eq!(parsed.typed_dates.as_ref().expect("dates").len(), 1);
+    assert_eq!(parsed.contributors.as_ref().expect("contributors")[0].name, "Doe, Jane");
+    assert_eq!(parsed.organizations.as_ref().expect("organizations")[0].name, "Example Organization");
+    assert_eq!(parsed.funders.as_ref().expect("funders")[0].name, "Example Funder");
+    assert_eq!(
+        parsed.related_resources.as_ref().expect("related resources")[0].identifier.value,
+        "related-activity"
+    );
+    assert_eq!(parsed.languages.as_ref().expect("languages")[0].id, "eng");
+    assert_eq!(parsed.subjects.as_ref().expect("subjects")[0].subject, "Climate change");
+    assert_eq!(parsed.spatial_coverage.as_ref().expect("spatial coverage")[0].id, "US-TN");
+    assert_eq!(parsed.rights.as_ref().expect("rights")[0].rights.as_deref(), Some("Copyright Example"));
+    assert!(matches!(
+        parsed.access.as_ref().and_then(|access| access.access.as_ref()),
+        Some(RightsAccess::Open)
+    ));
+    let canonical = serde_json::to_value(parsed).expect("metadata should serialize canonically");
+    for alias in ["dates", "sponsors", "related"] {
+        assert!(canonical.get(alias).is_none());
+    }
+    for field in ["typedDates", "funders", "relatedResources"] {
+        assert!(canonical.get(field).is_some());
+    }
+    let mut context = serde_json::to_value(ResearchActivityMetadataContext::default()).expect("context should serialize");
+    let context = context.as_object_mut().expect("context is an object");
+    let funders = context.remove("funders").expect("context contains funders");
+    let related = context.remove("relatedResources").expect("context contains related resources");
+    context.insert("sponsors".to_string(), funders);
+    context.insert("related".to_string(), related);
+    let context: ResearchActivityMetadataContext =
+        serde_json::from_value(serde_json::Value::Object(context.clone())).expect("legacy context aliases should deserialize");
+    let canonical = serde_json::to_value(context).expect("context should serialize canonically");
+    assert!(canonical.get("sponsors").is_none());
+    assert!(canonical.get("related").is_none());
+    assert!(canonical.get("funders").is_some());
+    assert!(canonical.get("relatedResources").is_some());
+}
+#[test]
+fn test_datacite_aligned_metadata_fixture_supports_simple_and_detailed_forms() {
+    let path = fixtures_dir().join("data/valid_project_datacite/index.json");
+    let content = std::fs::read_to_string(path).expect("DataCite-aligned RAD fixture should exist");
+    let activity: ResearchActivity = eserde::json::from_str(&content).expect("DataCite-aligned RAD fixture should deserialize");
+    let validation = activity.validate();
+    assert!(validation.is_ok(), "DataCite-aligned RAD fixture should validate: {validation:?}");
+    let contributors = activity.meta.contributors.as_ref().expect("contributors should be present");
+    assert_eq!(contributors[0].name, "Doe, Jane");
+    assert_eq!(contributors[1].identifiers.len(), 1);
+    let funders = activity.meta.funders.as_ref().expect("funders should be present");
+    assert_eq!(funders[0].name, "U.S. Department of Energy");
+    assert_eq!(funders[1].awards.len(), 1);
+    let languages = activity.meta.languages.as_ref().expect("languages should be present");
+    assert_eq!(languages[0].id, "eng");
+    assert_eq!(languages[1].schema_uri.as_deref(), Some("https://iso639-3.sil.org/code/fra"));
+    let canonical = serde_json::to_value(activity).expect("fixture should serialize canonically");
+    let metadata = &canonical["meta"];
+    assert!(metadata.get("dates").is_none());
+    assert!(metadata.get("typedDates").is_some());
+    for field in [
+        "contributors",
+        "organizations",
+        "funders",
+        "relatedResources",
+        "languages",
+        "subjects",
+        "spatialCoverage",
+        "rights",
+    ] {
+        assert!(metadata[field].as_array().expect("metadata field should be an array")[0].is_object());
+    }
+    assert!(metadata["access"].is_object());
+}
+#[test]
+fn test_invalid_datacite_aligned_metadata_fixture_reports_nested_errors() {
+    let path = fixtures_dir().join("data/invalid_project_datacite/index.json");
+    let content = std::fs::read_to_string(path).expect("invalid DataCite-aligned RAD fixture should exist");
+    let activity: ResearchActivity =
+        eserde::json::from_str(&content).expect("invalid DataCite-aligned RAD fixture should deserialize before validation");
+    let report = activity
+        .validate()
+        .expect_err("invalid DataCite-aligned RAD fixture should fail validation");
+    let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
+    [
+        "meta.typed_dates[0].date",
+        "meta.contributors[0].name",
+        "meta.contributors[1].identifiers[0].scheme_uri",
+        "meta.organizations[0].name",
+        "meta.organizations[1].identifiers[0].scheme_uri",
+        "meta.funders[0].name",
+        "meta.funders[1].ror",
+        "meta.funders[1].awards[0].doi",
+        "meta.funders[1].awards[0].url",
+        "meta.related_resources[0].identifier.value",
+        "meta.related_resources[1].identifier.value",
+        "meta.related_resources[1].relation_type",
+        "meta.languages[0].id",
+        "meta.languages[1].id",
+        "meta.languages[1].schema_uri",
+        "meta.subjects[0].subject",
+        "meta.subjects[1].scheme_uri",
+        "meta.subjects[1].value_uri",
+        "meta.spatial_coverage[1].schema_uri",
+        "meta.rights[1].rights_uri",
+        "meta.rights[1].scheme_uri",
+        "meta.access.rights_uri",
+    ]
+    .into_iter()
+    .for_each(|expected| assert!(paths.contains(&expected), "missing validation path {expected}: {paths:?}"));
+}
+#[test]
 fn test_alias_migration_retains_established_compatibility_fields() {
     let mut contact = serde_json::to_value(
         ContactPoint::init()

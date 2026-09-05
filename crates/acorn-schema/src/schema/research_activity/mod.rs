@@ -5,13 +5,15 @@
 use crate::enrichment::Provider;
 use crate::schema::hardware::Resource;
 use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
+use crate::schema::pid::raid::{Language, SpatialCoverage};
 use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
+use crate::schema::research_activity::output::Funding;
 use crate::schema::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::schema::standard::text::Text;
 #[cfg(feature = "std")]
 use crate::schema::vocabulary;
 use crate::schema::{
-    ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OrganizationType, Other, Status, Website,
+    ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OneOrMany, OrganizationType, Other, Status, Website,
 };
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{
@@ -33,7 +35,7 @@ use derive_more::Display;
 #[cfg(feature = "std")]
 use schemars::schema_for;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 
@@ -61,6 +63,94 @@ enum Vocabulary {
     Sponsors,
     #[display("technology")]
     Technology,
+}
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrStructured<T> {
+    String(String),
+    Structured(T),
+}
+fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + From<String>,
+{
+    Option::<OneOrMany<StringOrStructured<T>>>::deserialize(deserializer).map(|values| {
+        values.map(|values| {
+            values
+                .into_vec()
+                .into_iter()
+                .map(|value| match value {
+                    | StringOrStructured::String(value) => T::from(value),
+                    | StringOrStructured::Structured(value) => value,
+                })
+                .collect()
+        })
+    })
+}
+fn deserialize_string_or_structured<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + From<String>,
+{
+    Option::<StringOrStructured<T>>::deserialize(deserializer).map(|value| {
+        value.map(|value| match value {
+            | StringOrStructured::String(value) => T::from(value),
+            | StringOrStructured::Structured(value) => value,
+        })
+    })
+}
+impl From<String> for ActivityContributor {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
+impl From<String> for ActivityOrganization {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
+impl From<String> for Funding {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
+impl From<String> for TypedRelatedResource {
+    fn from(value: String) -> Self {
+        Self::init()
+            .identifier(TypedIdentifier::init().value(value.trim().to_string()).build())
+            .relation_type("Related")
+            .category(RelatedResourceCategory::Related)
+            .build()
+    }
+}
+impl From<String> for Language {
+    fn from(value: String) -> Self {
+        Self::init().id(value.trim().to_string()).build()
+    }
+}
+impl From<String> for ControlledSubject {
+    fn from(value: String) -> Self {
+        Self::init().subject(value.trim().to_string()).build()
+    }
+}
+impl From<String> for SpatialCoverage {
+    fn from(value: String) -> Self {
+        Self {
+            id: value.trim().to_string(),
+            schema_uri: None,
+            place: Vec::new(),
+        }
+    }
+}
+impl From<String> for StructuredRights {
+    fn from(value: String) -> Self {
+        match value.trim() {
+            | "open" => Self::init().access(RightsAccess::Open).build(),
+            | "embargoed" => Self::init().access(RightsAccess::Embargoed).build(),
+            | value => Self::init().rights(value.to_string()).build(),
+        }
+    }
 }
 /// Provenance for fields contributed by one enrichment provider.
 #[skip_serializing_none]
@@ -275,12 +365,6 @@ pub struct ResearchActivityMetadata {
     #[builder(default = Vec::<String>::new())]
     #[serde(deserialize_with = "vec_string_trim")]
     pub technology: Vec<String>,
-    /// Organization(s) responsible for funding associated research activity data
-    ///
-    /// Includes any office within a US cabinet-level department that has leadership appointed by the president and confirmed by the Senate, e.g., NNSA or Office of Science.
-    ///
-    /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/sponsors.csv">Full list of sponsors</a></div>
-    pub sponsors: Option<Vec<String>>,
     /// Organization(s) related to the associated research activity data
     /// ### Examples
     /// - Los Alamos National Laboratory
@@ -288,8 +372,6 @@ pub struct ResearchActivityMetadata {
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/partners.csv">Full list of partners</a></div>
     pub partners: Option<Vec<String>>,
-    /// Related resarch activity data identifiers of related research activity data
-    pub related: Option<Vec<String>>,
     /// Hardware/compute resource requirements
     /// ### Note
     /// Selected components should reflect the minimum hardware/compute resources required to perform the research activity
@@ -299,6 +381,98 @@ pub struct ResearchActivityMetadata {
     /// the resources attribute should include GPU, but need not include CPU
     #[eserde(compat)]
     pub resources: Option<Vec<Resource>>,
+    /// Structured activity dates (e.g. StartDate, EndDate, Created, Updated) with explicit date types.
+    ///
+    /// Distinct from `Changelog` entry timestamps and RAiD registry `metadata` timestamps; see `.wiki/assets/standards-field-matrix.md` Validity Levels.
+    ///
+    /// ### Example
+    /// `"dates": [{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]`
+    #[validate(nested)]
+    #[serde(alias = "dates")]
+    #[eserde(compat)]
+    pub typed_dates: Option<Vec<TypedActivityDate>>,
+    /// Structured contributors with identifiers, affiliations and dated roles.
+    ///
+    /// Canonical — legacy `contact` remains accepted as input.
+    ///
+    /// ### Examples
+    /// - Simple: `"contributors": ["Doe, Jane"]`
+    /// - Detailed: `"contributors": [{"name": "Doe, Jane", "identifiers": [{"value": "https://orcid.org/0000-0002-1825-0097", "scheme": "ORCID"}]}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub contributors: Option<Vec<ActivityContributor>>,
+    /// Structured organizations with identifiers and dated roles.
+    ///
+    /// Canonical — legacy `ror`/`sponsors`/`partners` remain accepted.
+    ///
+    /// ### Examples
+    /// - Simple: `"organizations": ["Oak Ridge National Laboratory"]`
+    /// - Detailed: `"organizations": [{"name": "Oak Ridge National Laboratory", "identifiers": [{"value": "https://ror.org/01qz5mb56", "scheme": "ROR"}]}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub organizations: Option<Vec<ActivityOrganization>>,
+    /// Activity-level funders reusing structured output funding (funder name, ROR, award identifier/doi/url).
+    ///
+    /// Legacy `sponsors` input is accepted as an alias and normalized to structured funders.
+    ///
+    /// ### Examples
+    /// - Simple: `"funders": ["U.S. Department of Energy"]`
+    /// - Detailed: `"funders": [{"name": "Example Funder", "awards": [{"identifier": "AWARD-1"}]}]`
+    #[validate(nested)]
+    #[serde(alias = "sponsors", default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub funders: Option<Vec<Funding>>,
+    /// Typed related resources (activities, objects) with identifier, relation and resource type.
+    ///
+    /// Legacy `related` input is accepted as an alias and normalized to structured related resources.
+    ///
+    /// ### Examples
+    /// - Simple: `"relatedResources": ["related-activity"]`
+    /// - Detailed: `"relatedResources": [{"identifier": {"value": "10.1038/nature12373", "scheme": "DOI"}, "relationType": "References"}]`
+    #[validate(nested)]
+    #[serde(alias = "related", default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub related_resources: Option<Vec<TypedRelatedResource>>,
+    /// Languages using RAiD `Language` (`id` 3-letter `eng`, `schemaUri` URL).
+    ///
+    /// Direct reuse of `crate::schema::pid::raid::Language`; see `.wiki/assets/standards-field-matrix.md` Language row.
+    ///
+    /// ### Examples
+    /// - Simple: `"languages": ["eng"]`
+    /// - Detailed: `"languages": [{"id": "eng", "schemaUri": "https://iso639-3.sil.org/code/eng"}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub languages: Option<Vec<Language>>,
+    /// Controlled subjects with scheme and value URIs (maps `Keyword` → DataCite `Subject` / RAiD `subject`).
+    ///
+    /// ### Examples
+    /// - Simple: `"subjects": ["machine learning"]`
+    /// - Detailed: `"subjects": [{"subject": "machine learning", "subjectScheme": "ACORN", "valueUri": "https://example.org/subjects/machine-learning"}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub subjects: Option<Vec<ControlledSubject>>,
+    /// Spatial coverage (repeated per location, do not duplicate organisational locations).
+    ///
+    /// ### Examples
+    /// - Simple: `"spatialCoverage": ["US-TN"]`
+    /// - Detailed: `"spatialCoverage": [{"id": "US-TN", "place": [{"text": "Oak Ridge", "language": null}]}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub spatial_coverage: Option<Vec<SpatialCoverage>>,
+    /// Structured rights (SPDX `rightsIdentifier` etc. via `validate_license` parity).
+    ///
+    /// ### Examples
+    /// - Simple: `"rights": ["Copyright Example Organization"]`
+    /// - Detailed: `"rights": [{"rightsIdentifier": "CC-BY-4.0", "rightsIdentifierScheme": "SPDX"}]`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
+    pub rights: Option<Vec<StructuredRights>>,
+    /// Structured access statement (e.g. `open`, `embargoed`).
+    ///
+    /// ### Examples
+    /// - Simple: `"access": "open"`
+    /// - Detailed: `"access": {"rights": "Open access", "access": "open"}`
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_string_or_structured")]
+    pub access: Option<StructuredRights>,
 }
 /// Linked data (e.g., JSON-LD) context for metadata
 ///
@@ -342,14 +516,40 @@ pub struct ResearchActivityMetadataContext {
     pub keywords: String,
     /// Software, programmings languages, and digital resources used by research activity
     pub technology: String,
-    /// Sponsors
-    pub sponsors: String,
     /// Partners
     pub partners: String,
-    /// Related research activity data
-    pub related: String,
     /// Hardware/compute resource requirements
     pub resources: String,
+    /// Structured activity dates
+    #[serde(default = "default_typed_dates_context")]
+    pub typed_dates: String,
+    /// Structured contributors
+    #[serde(default = "default_contributors_context")]
+    pub contributors: String,
+    /// Structured organizations
+    #[serde(default = "default_organizations_context")]
+    pub organizations: String,
+    /// Activity-level funders
+    #[serde(alias = "sponsors", default = "default_funders_context")]
+    pub funders: String,
+    /// Typed related resources
+    #[serde(alias = "related", default = "default_related_resources_context")]
+    pub related_resources: String,
+    /// Languages (`raid:Language`)
+    #[serde(default = "default_languages_context")]
+    pub languages: String,
+    /// Controlled subjects
+    #[serde(default = "default_subjects_context")]
+    pub subjects: String,
+    /// Spatial coverage
+    #[serde(default = "default_spatial_coverage_context")]
+    pub spatial_coverage: String,
+    /// Structured rights
+    #[serde(default = "default_rights_context")]
+    pub rights: String,
+    /// Structured access
+    #[serde(default = "default_access_context")]
+    pub access: String,
 }
 /// Research activity prose components that describe the activity using natural language
 #[skip_serializing_none]
@@ -753,15 +953,24 @@ impl ResearchActivityMetadata {
             | values if !values.is_empty() => Some(values),
             | _ => None,
         };
-        let sponsors = match Vocabulary::Sponsors.resolve(self.sponsors.clone()) {
-            | values if !values.is_empty() => Some(values),
-            | _ => None,
-        };
+        let funders = self.funders.clone().and_then(|funders| {
+            let funders = funders
+                .into_iter()
+                .filter_map(|funder| {
+                    Vocabulary::Sponsors
+                        .resolve(Some(vec![funder.name.clone()]))
+                        .into_iter()
+                        .next()
+                        .map(|name| Funding { name, ..funder })
+                })
+                .collect::<Vec<_>>();
+            (!funders.is_empty()).then_some(funders)
+        });
         Self {
             keywords,
             technology,
             partners,
-            sponsors,
+            funders,
             ..self
         }
     }
@@ -785,10 +994,18 @@ impl Default for ResearchActivityMetadataContext {
             .websites(schema_org("WebSite"))
             .keywords(dcat("keyword"))
             .technology(schema_org("DefinedTerm"))
-            .sponsors(codemeta("sponsor"))
             .partners(schema_org("Text"))
-            .related(schema_org("Text"))
             .resources(schema_org("DefinedTerm"))
+            .typed_dates(dcterms("date"))
+            .contributors(schema_org("contributor"))
+            .organizations(schema_org("Organization"))
+            .funders(codemeta("sponsor"))
+            .related_resources(dcterms("relation"))
+            .languages(dcterms("language"))
+            .subjects(dcterms("subject"))
+            .spatial_coverage(dcterms("spatial"))
+            .rights(dcterms("rights"))
+            .access(dcterms("accessRights"))
             .build()
     }
 }
@@ -858,6 +1075,36 @@ fn default_outputs_context() -> String {
 }
 fn default_swhid_context() -> String {
     codemeta("identifier")
+}
+fn default_typed_dates_context() -> String {
+    dcterms("date")
+}
+fn default_contributors_context() -> String {
+    schema_org("contributor")
+}
+fn default_organizations_context() -> String {
+    schema_org("Organization")
+}
+fn default_funders_context() -> String {
+    codemeta("sponsor")
+}
+fn default_related_resources_context() -> String {
+    dcterms("relation")
+}
+fn default_languages_context() -> String {
+    dcterms("language")
+}
+fn default_subjects_context() -> String {
+    dcterms("subject")
+}
+fn default_spatial_coverage_context() -> String {
+    dcterms("spatial")
+}
+fn default_rights_context() -> String {
+    dcterms("rights")
+}
+fn default_access_context() -> String {
+    dcterms("accessRights")
 }
 /// Custom validator function for [approach](Sections::approach)
 pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {

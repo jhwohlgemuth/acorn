@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "identifier": "invalid-datacite-metadata",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "keywords": [
+      "metadata"
+    ],
+    "technology": [],
+    "dates": [
+      {
+        "dateType": "StartDate",
+        "date": "2024-01-15"
+      }
+    ],
+    "contributors": [
+      "",
+      {
+        "name": "Doe, Jane",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0002-1825-0097",
+            "scheme": "ORCID",
+            "schemeUri": "not a URL"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      "",
+      {
+        "name": "Example Partner",
+        "identifiers": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR",
+            "schemeUri": "not a URL"
+          }
+        ],
+        "roles": []
+      }
+    ],
+    "funders": [
+      "",
+      {
+        "name": "Example Funder",
+        "ror": "not a ROR",
+        "awards": [
+          {
+            "identifier": "AWARD-1",
+            "doi": "not a DOI",
+            "url": "not a URL"
+          }
+        ]
+      }
+    ],
+    "relatedResources": [
+      "",
+      {
+        "identifier": {
+          "value": ""
+        },
+        "relationType": ""
+      }
+    ],
+    "languages": [
+      "en",
+      {
+        "id": "english",
+        "schemaUri": "not a URL"
+      }
+    ],
+    "subjects": [
+      "",
+      {
+        "subject": "machine learning",
+        "subjectScheme": "ACORN",
+        "schemeUri": "not a URL",
+        "valueUri": "not a URL"
+      }
+    ],
+    "spatialCoverage": [
+      "US-TN",
+      {
+        "id": "US-CA",
+        "schemaUri": "not a URL",
+        "place": []
+      }
+    ],
+    "rights": [
+      "Copyright Example Organization",
+      {
+        "rightsUri": "not a URL",
+        "rightsIdentifierScheme": "SPDX",
+        "schemeUri": "not a URL"
+      }
+    ],
+    "access": {
+      "rights": "Invalid access metadata",
+      "rightsUri": "not a URL"
+    }
+  },
+  "title": "Invalid DataCite-aligned Research Activity",
+  "subtitle": "Invalid nested metadata for validation testing",
+  "sections": {
+    "mission": "Verify invalid DataCite-aligned metadata is rejected.",
+    "challenge": "Metadata validation must report nested errors.",
+    "approach": [
+      "Exercise shorthand and detailed metadata values."
+    ],
+    "impact": [
+      "Invalid metadata cannot pass validation."
+    ],
+    "research": {
+      "focus": "Standards-aligned research metadata",
+      "areas": [
+        "Metadata interoperability"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Principal Investigator",
+    "first": "Jane",
+    "last": "Doe",
+    "email": "jane.doe@example.org",
+    "phone": "(865) 555-0100",
+    "url": "https://example.org/people/jane-doe",
+    "organization": "Example Organization"
+  }
+}

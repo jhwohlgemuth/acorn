@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "identifier": "datacite-aligned-metadata",
+    "archive": false,
+    "draft": false,
+    "status": "active",
+    "keywords": [
+      "metadata"
+    ],
+    "technology": [],
+    "dates": [
+      {
+        "dateType": "StartDate",
+        "date": "2024-01-15T10:00:00Z",
+        "information": "Activity start"
+      },
+      {
+        "dateType": "Updated",
+        "date": "2026-09-04T16:30:00-04:00"
+      }
+    ],
+    "contributors": [
+      "Doe, Jane",
+      {
+        "name": "Smith, Alex",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0002-1825-0097",
+            "scheme": "ORCID",
+            "schemeUri": "https://orcid.org"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR",
+            "schemeUri": "https://ror.org"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0002-1825-0097",
+              "scheme": "ORCID"
+            },
+            "role": "Conceptualization",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2024-01-15T10:00:00Z",
+            "contact": true,
+            "leader": true
+          }
+        ]
+      }
+    ],
+    "organizations": [
+      "Oak Ridge National Laboratory",
+      {
+        "name": "Example Partner",
+        "identifiers": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR",
+            "schemeUri": "https://ror.org"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/01qz5mb56",
+              "scheme": "ROR"
+            },
+            "role": "LeadResearchOrganisation",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      }
+    ],
+    "funders": [
+      "U.S. Department of Energy",
+      {
+        "name": "Example Funder",
+        "ror": "https://ror.org/01qz5mb56",
+        "awards": [
+          {
+            "identifier": "AWARD-1",
+            "title": "Example award",
+            "doi": "10.5072/example-award",
+            "url": "https://example.org/awards/AWARD-1"
+          }
+        ]
+      }
+    ],
+    "relatedResources": [
+      "related-activity",
+      {
+        "identifier": {
+          "value": "10.1038/nature12373",
+          "scheme": "DOI",
+          "schemeUri": "https://doi.org"
+        },
+        "relationType": "References",
+        "resourceTypeGeneral": "JournalArticle",
+        "category": "related"
+      }
+    ],
+    "languages": [
+      "eng",
+      {
+        "id": "fra",
+        "schemaUri": "https://iso639-3.sil.org/code/fra"
+      }
+    ],
+    "subjects": [
+      "artificial intelligence",
+      {
+        "subject": "machine learning",
+        "subjectScheme": "ACORN",
+        "schemeUri": "https://example.org/subjects",
+        "valueUri": "https://example.org/subjects/machine-learning"
+      }
+    ],
+    "spatialCoverage": [
+      "US-TN",
+      {
+        "id": "US-CA",
+        "schemaUri": "https://www.geonames.org/",
+        "place": [
+          {
+            "text": "California",
+            "language": {
+              "id": "eng",
+              "schemaUri": null
+            }
+          }
+        ]
+      }
+    ],
+    "rights": [
+      "Copyright Example Organization",
+      {
+        "rights": "Creative Commons Attribution 4.0 International",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/",
+        "rightsIdentifier": "CC-BY-4.0",
+        "rightsIdentifierScheme": "SPDX",
+        "schemeUri": "https://spdx.org/licenses/",
+        "access": "open"
+      }
+    ],
+    "access": {
+      "rights": "Open access",
+      "access": "open"
+    }
+  },
+  "title": "DataCite-aligned Research Activity",
+  "subtitle": "Simple authoring with detailed interoperable metadata",
+  "sections": {
+    "mission": "Make research activity metadata straightforward to author and exchange.",
+    "challenge": "Research metadata must remain approachable while preserving standards-aligned details.",
+    "approach": [
+      "Accept concise values and normalize them into canonical structured metadata."
+    ],
+    "impact": [
+      "Researchers can author interoperable records without unnecessary nesting."
+    ],
+    "research": {
+      "focus": "Standards-aligned research metadata",
+      "areas": [
+        "Metadata interoperability"
+      ]
+    }
+  },
+  "contact": {
+    "title": "Principal Investigator",
+    "first": "Jane",
+    "last": "Doe",
+    "email": "jane.doe@example.org",
+    "phone": "(865) 555-0100",
+    "url": "https://example.org/people/jane-doe",
+    "organization": "Example Organization"
+  }
+}
