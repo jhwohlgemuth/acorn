@@ -1,9 +1,6 @@
 # WebAssembly development
 
-ACORN's portable Rust surface can be checked for the `wasm32-unknown-unknown` target. This is currently a portability build for contributors, not a published JavaScript or browser package.
-
-> [!IMPORTANT]
-> `make wasm` verifies the portable and analyzer-only feature paths. It does not link a `.wasm` artifact or generate JavaScript bindings.
+The `acorn-wasm` crate exposes ACORN's portable Research Activity validation and readability analysis to JavaScript. It operates entirely on supplied in-memory values and does not use filesystems, processes, databases, or networks.
 
 ## Installation
 
@@ -13,32 +10,51 @@ Install the Rust toolchain and add the WASM target:
 rustup target add wasm32-unknown-unknown
 ```
 
-Clone the ACORN repository, then run the check from its root:
+Install `wasm-pack`, clone the ACORN repository, then build and test the package from its root:
 
 ```sh
-make wasm
+cargo install wasm-pack --locked
+make wasm-package
 ```
 
-Maintainers can check the complete native and WASM portability matrix plus the host-dependency deny policy with:
+The generated web package is written to `target/acorn-wasm/pkg`. Maintainers can check the complete native and WASM portability matrix, generated package, JavaScript-facing tests, and host-dependency deny policy with:
 
 ```sh
 make check-portable
 ```
 
-The equivalent Cargo command is:
+The lower-level compile checks are:
 
 ```sh
 cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
+cargo check -p acorn-wasm --target wasm32-unknown-unknown
 ```
 
-Rust projects that compile to WASM can select the same ACORN surface:
+Rust projects that compile to WASM can continue selecting the portable Rust surface directly:
 
 ```sh
 cargo add acorn-lib --no-default-features --features wasm
 ```
 
-## Currently available functionality
+## JavaScript API
+
+Import the generated web module and initialize it before calling the bindings:
+
+```js
+import init, { checkReadability, validateResearchActivity } from "./target/acorn-wasm/pkg/acorn_wasm.js";
+
+await init();
+
+const validation = validateResearchActivity(JSON.stringify(researchActivity));
+const readability = checkReadability("Supplied text to assess.", "fkgl");
+```
+
+`validateResearchActivity` returns `{ valid, value, diagnostics }`. Parse and validation diagnostics retain their original order and include their kind, path, message, and validation details when available.
+
+`checkReadability` accepts the canonical metrics `ari`, `cli`, `fkgl`, `fres`, `gfi`, `lix`, and `smog`. It returns the ordered checks and the category summary produced from those checks. An optional URI may be supplied as the third argument.
+
+## Portable Rust functionality
 
 The WASM build exposes Rust APIs that operate on supplied in-memory values. It currently includes:
 
@@ -68,21 +84,19 @@ assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 assert!(is_ror("https://ror.org/01qz5mb56").is_ok());
 ```
 
-## What the check covers
+## Boundaries
 
 The current `wasm` feature selects allocation-capable APIs without enabling ACORN's native filesystem, process, terminal presentation, database, or network services. The separate `analyzer` feature adds only the portable analyzer kernel. CI compiles both paths and rejects host-only dependencies from the analyzer graph.
 
-The check does not currently provide:
+The package does not provide:
 
-- `wasm-bindgen` JavaScript bindings
-- an npm package
 - browser HTTP or storage adapters
 - a supported browser application entry point
 - native file or URL reads and writes
 - analyzer host execution, document conversion, database, process, download, or doctor services
 - std-only agent definitions and embedded agent assets
 
-Those capabilities are planned for a dedicated `acorn-wasm` adapter crate. Portable crates will remain independent of browser-specific dependencies, and `acorn-wasm` will compose supported ACORN services with browser implementations.
+Browser services are a later milestone. Portable crates remain independent of browser-specific dependencies; concrete browser adapters and their bindings belong only in `acorn-wasm`.
 
 ## macOS sandbox warnings
 

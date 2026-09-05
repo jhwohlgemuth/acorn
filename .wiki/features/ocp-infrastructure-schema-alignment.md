@@ -201,7 +201,7 @@ cargo nextest run --package acorn-lib schema::hardware
 cargo nextest run --package acorn-lib schema::research_activity
 cargo check -p acorn-lib --no-default-features
 cargo check -p acorn-lib --no-default-features --features alloc
-make wasm
+make check-wasm
 make lint
 make test
 make book

@@ -16,5 +16,17 @@ check_tree() {
     fi
 }
 
+check_wasm_tree() {
+    local tree
+    local matches
+    tree="$(cargo tree --locked -p acorn-wasm --edges normal --prefix none --target wasm32-unknown-unknown)"
+    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden" || true)"
+    if [[ -n "$matches" ]]; then
+        printf 'Host-only dependencies leaked into the acorn-wasm graph:\n%s\n' "$matches" >&2
+        exit 1
+    fi
+}
+
 check_tree native
 check_tree wasm --target wasm32-unknown-unknown
+check_wasm_tree

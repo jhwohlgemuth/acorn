@@ -35,5 +35,5 @@ Selected analyzer and API flows consume injected host capabilities rather than c
 # Related plans
 
 - [Portability roadmap](roadmap.md)
-- [Complete the WASM feature path](wasm-feature-path.md)
+- [WASM browser services](wasm-feature-path.md)
 - [Plan dependency network](../../plan-network.md)

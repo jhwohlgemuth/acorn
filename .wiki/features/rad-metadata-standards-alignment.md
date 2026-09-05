@@ -23,7 +23,7 @@ This plan **provides** the stabilized portable schema/crosswalk contracts consum
 
 Slice 0 (loss reporting + 4.7 audit) is the gating prerequisite for all later slices. No `ResearchActivity`/`ResearchOutput` field additions or `ResearchActivity <-> RAiD` / `ResearchOutput <-> DataCite` adapters may start until Slice 0 is green and its pinned fixtures are reviewed.
 
-**Status 2026-09-03:** Slice 0 landed — `crates/acorn-schema/src/schema/standard/datacite.rs:1` now targets 4.7, `RelatedIdentifierType::{Raid,Swhid}` `datacite.rs:172`, `RelationType::Other` `datacite.rs:243`, `ResourceTypeGeneral::{Poster,Presentation}` `datacite.rs:323`, `RelatedItem`/`RelatedItems` + `relationTypeInformation` on `RelatedIdentifier`/`RelatedItem`, `validate_deposit_ready()` on `Record`/`Resource` `datacite.rs:1525`, crosswalk warnings propagated in `crosswalk/mod.rs:232` and `crosswalk/mapping.rs:194`, `analyzer/check.rs:1099` no longer swallows `Err`, `datacite_to_dcat` now uses `as_vec` for `doi->identifier`, and pinned fixtures under `tests/fixtures/schema/datacite/4.7/` with tests in `crates/acorn-schema/src/schema/standard/tests/datacite.rs` and `crates/acorn-schema/src/schema/standard/crosswalk/tests/mod.rs` are green (`cargo nextest -p acorn-schema` 278 passed, `make wasm` green, `rg "4\.6" crates/acorn-schema/src/schema/standard/datacite.rs` empty).
+**Status 2026-09-03:** Slice 0 landed — `crates/acorn-schema/src/schema/standard/datacite.rs:1` now targets 4.7, `RelatedIdentifierType::{Raid,Swhid}` `datacite.rs:172`, `RelationType::Other` `datacite.rs:243`, `ResourceTypeGeneral::{Poster,Presentation}` `datacite.rs:323`, `RelatedItem`/`RelatedItems` + `relationTypeInformation` on `RelatedIdentifier`/`RelatedItem`, `validate_deposit_ready()` on `Record`/`Resource` `datacite.rs:1525`, crosswalk warnings propagated in `crosswalk/mod.rs:232` and `crosswalk/mapping.rs:194`, `analyzer/check.rs:1099` no longer swallows `Err`, `datacite_to_dcat` now uses `as_vec` for `doi->identifier`, and pinned fixtures under `tests/fixtures/schema/datacite/4.7/` with tests in `crates/acorn-schema/src/schema/standard/tests/datacite.rs` and `crates/acorn-schema/src/schema/standard/crosswalk/tests/mod.rs` are green (`cargo nextest -p acorn-schema` 278 passed, `make check-wasm` green, `rg "4\.6" crates/acorn-schema/src/schema/standard/datacite.rs` empty).
 
 # Goal
 
@@ -196,7 +196,7 @@ cargo nextest run -p acorn-schema --lib research_activity
 cargo nextest run -p acorn-schema --lib pid::raid
 cargo check -p acorn-schema --no-default-features
 cargo check -p acorn-schema --no-default-features --features alloc
-make wasm
+make check-wasm
 make lint
 make test
 make audit # if deps change
@@ -227,7 +227,7 @@ Additional checks:
 - Existing RAD fixtures continue to deserialize throughout the additive implementation phases.
 - Lossless round-trip tests retain all fields classified as exact or reversible transformations.
 - Generated JSON Schema exposes controlled values, nested validation, and conditional requirements where supported; `RelatedItem`/`RAiD`/`SWHID` appear in schema output.
-- Default, minimal (`--no-default-features`), `alloc`, and WASM builds remain supported; `make wasm` passes per slice.
+- Default, minimal (`--no-default-features`), `alloc`, and WASM builds remain supported; `make check-wasm` passes per slice.
 - No network request occurs during schema validation or fixture-backed tests; `offline` mode respected in CLI consumers.
 
 # Risks and mitigations

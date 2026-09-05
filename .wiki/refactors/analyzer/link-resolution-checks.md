@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-Use the existing `AnalysisContext` policy split and [check batch monoid](check-batch-monoid.md). Keep concrete link execution in-tree; do not introduce a generic host trait until an alternate consumer proves the seam.
+Use the existing `AnalysisContext` policy split and ordered `CheckBatch`. Keep concrete link execution in-tree; do not introduce a generic host trait until an alternate consumer proves the seam.
 
 # Goal
 
@@ -84,5 +84,4 @@ Retain the current CLI flag as a compatibility boundary unless a separately docu
 
 # Related concepts
 
-- [Check batch monoid](check-batch-monoid.md)
 - [Standards traversal](standards-traversal.md)

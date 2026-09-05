@@ -23,6 +23,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
 - The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
 - `make check-portable` and the dedicated `test-portability` CI job enforce the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs.
+- `acorn-wasm` now owns minimal JavaScript bindings for supplied-value Research Activity validation and readability analysis; artifact generation and JavaScript-facing tests are part of the portability gate.
 
 # Project code boundaries
 
@@ -43,7 +44,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 1. **Completed:** separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services in-tree; add native and WASM alloc-only compile gates.
 2. **Completed decision:** defer `acorn-analysis` and generic host traits until a concrete alternate consumer requires the portable kernel or proves a narrow port.
 3. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
-4. Complete target-specific browser wiring in `acorn-wasm`, native implementations in `acorn-host`, and CI gates for every supported feature combination.
+4. Extend the minimal `acorn-wasm` package with target-specific browser services only after concrete workflows prove narrow ports; add native implementations in `acorn-host` and CI gates for every supported adapter.
 
 # Dependency boundaries
 
@@ -56,7 +57,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Validation
 
-Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-05 with the analyzer-only native and WASM checks, dependency deny policy, focused portable analyzer tests, and full workspace check.
+Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-05 with the analyzer-only native and WASM checks, `acorn-wasm` artifact and JavaScript tests, dependency deny policy, focused portable analyzer tests, and full workspace checks.
 
 # Related plans
 

@@ -17,10 +17,9 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-1. Complete the active [portable `CheckBatch` contract](refactors/analyzer/check-batch-monoid.md) without extracting a crate or adding host traits.
-2. Continue with [standards traversal](refactors/analyzer/standards-traversal.md) once check batching is stable.
-3. Continue narrowing broad dependency feature defaults while keeping minimal, alloc, analyzer, native, and WASM checks green.
-4. Revisit consumer-owned ports only after concrete native and alternate consumers prove a narrow seam.
+1. Continue with [standards traversal](refactors/analyzer/standards-traversal.md) over the implemented ordered `CheckBatch` contract.
+2. Continue narrowing broad dependency feature defaults while keeping minimal, alloc, analyzer, native, and WASM checks green.
+3. Revisit consumer-owned ports and [WASM browser services](refactors/portability/wasm-feature-path.md) only after concrete native and browser consumers prove a narrow seam.
 
 The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
 

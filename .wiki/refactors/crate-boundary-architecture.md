@@ -77,7 +77,7 @@ crates/
 ├── acorn-store      (planned)
 ├── acorn-export     (planned)
 ├── acorn-host       (planned)
-├── acorn-wasm       (planned)
+├── acorn-wasm
 ├── acorn-service    (planned)
 └── acorn-cmd        (planned)
 ```
@@ -93,7 +93,7 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-store` | SQLite and DuckDB adapters, cache and table models, and durable operation persistence | API invocation, presentation, or application workflows |
 | `acorn-export` | Shared export context, templates, charts, OOXML/PowerPoint transformations, and renderer contracts that produce artifact bytes | Filesystem writes, browser/process startup, or CLI output |
 | `acorn-host` | Native filesystem and source handling, native HTTP transport, document conversion, process execution, downloads, synchronization, doctor checks, and concrete analysis/export adapters | Browser adapters, domain policy, or multi-service orchestration |
-| `acorn-wasm` | `wasm-bindgen`/`js-sys` integration, browser HTTP and storage adapters, JS-facing DTO conversion, and the WASM composition root | Native filesystem/process assumptions or portable domain policy |
+| `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
 | `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
 | `acorn-cmd` | Command construction and execution helpers plus the public command macro surface | General-purpose ACORN utilities |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Portable domains, schemas, or re-exports that conceal another crate's ownership |
@@ -154,7 +154,7 @@ Keep endpoint, authentication, request, response, and provider protocol mechanic
 
 ## 4. Extract adapters
 
-Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move native operations and concrete native port implementations into `acorn-host`. Create `acorn-wasm` for target-specific browser adapters and bindings. Split one capability at a time and keep every intermediate workspace state buildable.
+Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move native operations and concrete native port implementations into `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
 
 ## 5. Extract application services
 

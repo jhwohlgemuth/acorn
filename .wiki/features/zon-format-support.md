@@ -66,7 +66,7 @@ Add dependency-free support for the ZON JSON-data-model serialization format usi
 - Cover invalid headers, numbers, escapes, unterminated strings, BOMs, count mismatches, and every resource limit with negative tests.
 - Add RAD tests for JSON-to-ZON equivalence, `.zonf` read/write, deterministic serialization, and multiple `eserde` schema errors.
 - Add CLI tests for discovery, check, format, regular export, `.zonf` output naming, crosswalk input/output with explicit and inferred standards, and GitLab supported-file classification.
-- Regenerate help and run focused tests, `cargo fmt --all --check`, `make lint`, `make test`, `make book`, `cargo check -p acorn-lib --no-default-features`, and `make wasm`.
+- Regenerate help and run focused tests, `cargo fmt --all --check`, `make lint`, `make test`, `make book`, `cargo check -p acorn-lib --no-default-features`, and `make check-wasm`.
 
 # Acceptance criteria
 

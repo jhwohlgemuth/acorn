@@ -25,7 +25,7 @@ isolate std-only modules   host abstraction traits
                      |
           +----------+----------+
           v                     v
-    acorn-host              acorn-wasm
+    acorn-host       acorn-wasm browser services
           \                     /
            +---------+---------+
                      v
@@ -50,7 +50,7 @@ isolate std-only modules   host abstraction traits
 | `acorn-store` | `io/database/`, GitLab durable operation state | API DTO/error boundaries | GitLab workflows, service extraction |
 | `acorn-export` | PowerPoint/OOXML and template transforms that return bytes | Export context; interpolation; OOXML hardening | Native/browser renderer adapters |
 | `acorn-host` | Native files, HTTP, processes, downloads, document conversion, doctor | Host traits plus extracted domains | CLI/TUI/Python direct composition |
-| `acorn-wasm` | Browser bindings, HTTP/storage adapters, JS DTO conversion | Portable domains and host traits | Consumable WASM artifact |
+| `acorn-wasm` | Minimal bindings are complete; browser HTTP/storage adapters remain | Concrete browser workflow and narrow consumer-owned ports | Browser service composition |
 | `acorn-service` | Discovery, analysis, GitLab bot, MCP/server orchestration | Analysis/API/store/export boundaries | Thin interface composition roots |
 | `acorn-cmd` | `util/cmd.rs`, command macros and tests | `acorn-core`; command extraction plan | Removes command runtime from `acorn-lib` defaults |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Owning domains directly | Shrinks at each explicit ownership cutover |
@@ -63,12 +63,13 @@ isolate std-only modules   host abstraction traits
 - The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
 - [Host abstraction traits](refactors/portability/host-abstraction-traits.md) is explicitly deferred until an independently compiling kernel and concrete alternate consumers prove each seam.
 - [Crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates the analyzer, API, export, command, and portability boundaries; schedule the named extraction plan rather than the umbrella.
-- [WASM feature path](refactors/portability/wasm-feature-path.md) requires portable crates and consumer-owned ports. [no-std and WASM CI](refactors/portability/no-std-wasm-ci.md) begins with current package checks and expands as crates appear.
+- Minimal `acorn-wasm` bindings consume the existing portable schema and analyzer boundaries directly. [WASM browser services](refactors/portability/wasm-feature-path.md) require a concrete workflow and proven consumer-owned ports; [no-std and WASM CI](refactors/portability/no-std-wasm-ci.md) expands with each supported adapter.
 
 ### Analyzer and API
 
-- [Check batch monoid](refactors/analyzer/check-batch-monoid.md) reduces duplicated assembly before [standards traversal](refactors/analyzer/standards-traversal.md); validation tree flattening is already complete through the portable ordered `ValidationReport`.
+- The implemented ordered `CheckBatch` contract precedes [standards traversal](refactors/analyzer/standards-traversal.md); validation tree flattening is already complete through the portable ordered `ValidationReport`.
 - [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md) provides the portable `acorn-schema` crosswalk/loss contract and DataCite 4.7 type audit consumed by [standards traversal](refactors/analyzer/standards-traversal.md), [CKAN/DCAT](migrations/ckan-dcat-crosswalk.md), and [research activity changelog](features/research-activity-changelog.md); its Slice 0 (loss reporting + 4.7 fixtures) is the gate for those consumers. The changelog's portable leaf types may land after the matrix, but `ResearchActivity`/`ResearchOutput` contexts, renderers, and shared fixtures remain schema-lane integration locks.
+- [First-class RRID research-resource support](features/rrid-research-resource-support.md) can land its portable PID leaf independently, but its RAD/DataCite resource mapping requires the metadata-alignment loss-reporting gate. Authoritative resolution and search additionally consume the discovery lifecycle, link-resolution outcomes, and API endpoint/credential contracts; local RRID parsing must not wait for those host slices.
 - [Link resolution checks](refactors/analyzer/link-resolution-checks.md) must consume the implemented calculation/execution/report context split without introducing a generic host trait or presuming package extraction.
 - [API roadmap](refactors/api/roadmap.md) records the completed shared authentication builders, `SecretString` credential migration, and reusable webhook contracts, then orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
 - [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) consume the landed opaque claimed-operation settlement and provider-neutral webhook verification/dispatch boundaries before moving orchestration into `acorn-service`.
@@ -86,9 +87,9 @@ isolate std-only modules   host abstraction traits
 
 | Shared boundary | Plans that overlap | Coordination rule |
 |---|---|---|
-| `crates/acorn-schema/src/schema/` | Metadata alignment, changelog, OCP, SWHID, ZON, CKAN/DCAT, ModelKit/Kitfile | Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. ModelKit/Kitfile owns a leaf module (`schema/modelkit`) but shares the `schema/mod.rs` integration lock. |
+| `crates/acorn-schema/src/schema/` | Metadata alignment, changelog, OCP, RRID, SWHID, ZON, CKAN/DCAT, ModelKit/Kitfile | Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. RRID owns new PID and research-resource leaves but shares PID/schema module roots and `ResearchActivity` integration locks. ModelKit/Kitfile owns a leaf module (`schema/modelkit`) but shares the `schema/mod.rs` integration lock. |
 | `crates/acorn-lib/src/analyzer/` | Analyzer algebra plans, link resolution, ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. |
-| `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, SWHID, OCI, inference | Preserve the landed authentication and webhook boundaries, separate provider protocol from workflow orchestration before crate moves, and avoid parallel renames of the same modules. |
+| `crates/acorn-lib/src/io/api/` | API roadmap children, GitLab, RRID, SWHID, OCI, inference | Preserve the landed authentication and webhook boundaries, separate provider protocol from workflow orchestration before crate moves, and avoid parallel renames of the same modules. RRID resolver/search work is gated on a documented machine API and must not scrape the portal. |
 | `crates/acorn-schema/src/schema/agent/` and `crates/acorn-lib/src/io/mcp/` | ACP inference, OCI model interoperability, service extraction | Preserve the landed provider-neutral tool definition/executor contract; serialize the agent schema contract, module-index, and feature changes. |
 | `crates/acorn-lib/src/io/http/mod.rs` | API invocation, transfer/download hardening | Preserve request-level redirect, response-bound, redaction, and anonymous-fallback controls; serialize further service-injection changes. |
 | `crates/acorn-lib/src/io/config/` | API endpoint/environment, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |

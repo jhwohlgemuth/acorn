@@ -71,16 +71,16 @@ Finish the existing implementation before declaring the feature complete. Keep a
 7. Finish documentation and release validation.
    - Regenerate CLI help and update import/export/download documentation with 7z behavior, suffix rules, manual overrides, remote handling, and security restrictions.
    - Update this concept's evidence and acceptance criteria after the outstanding tests land.
-   - Make the repository's standard `make wasm` target pass with the configured Rust toolchain instead of relying on an explicit compiler override.
+   - Make the repository's standard `make check-wasm` target pass with the configured Rust toolchain instead of relying on an explicit compiler override.
    - Resolve, upgrade, or deliberately document the currently reported RustSec findings so `make audit` has an accepted result.
-   - Run focused tests, `make lint`, `make test`, `make help`, `make wasm`, and `make audit`.
+   - Run focused tests, `make lint`, `make test`, `make help`, `make check-wasm`, and `make audit`.
 
 ## Validation
 
 - Exercise MIME precedence, unknown input, ZIP/TAR/TAR.GZ/7z round trips, traversal rejection, and complete BagIt manifests.
 - Exercise local and remote import policy, provenance, filtering, flattening, clobbering, and database ingestion.
 - Exercise BagIt output suffix inference, explicit overrides, conflicts, and re-import.
-- Run `make lint`, `make test`, `make help`, `make wasm`, and `make audit`.
+- Run `make lint`, `make test`, `make help`, `make check-wasm`, and `make audit`.
 - The config split passed `make lint`, `make test`, and `make cover` on 2026-08-31; the focused `io::config::tests` suite passed all 42 tests and workspace coverage was 66.71% (19,208/28,795 lines).
 
 ## Acceptance criteria

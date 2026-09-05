@@ -345,7 +345,7 @@ Deliverable: adapters explain all projection losses and never manufacture regist
 - Add ordering tests for equal timestamps and offset-bearing timestamps.
 - Add DataCite Project and RAiD loss-reporting golden tests.
 - Regenerate schemas and documentation where checked-in output changes.
-- Run focused schema tests, then `cargo fmt --all`, `make lint`, `make test`, and `make wasm`.
+- Run focused schema tests, then `cargo fmt --all`, `make lint`, `make test`, and `make check-wasm`.
 
 # Acceptance criteria
 

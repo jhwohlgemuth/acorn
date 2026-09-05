@@ -68,6 +68,9 @@ build-in-image: clean
 	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
 	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
 
+build-wasm:
+	@wasm-pack build crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg
+	@wasm-pack test --node crates/acorn-wasm
 
 clean:
 	@cargo clean
@@ -101,10 +104,11 @@ check-portable:
 	@cargo check -p acorn-lib --no-default-features --features alloc
 	@cargo check -p acorn-lib --no-default-features --features analyzer
 	@cargo check -p acorn-lib --no-default-features
-	@$(MAKE) wasm
+	@$(MAKE) check-wasm
+	@$(MAKE) build-wasm
 	@bash scripts/check-portable-dependencies.sh
 
-wasm:
+check-wasm:
 	@cargo check -p acorn-core --no-default-features --features core --target wasm32-unknown-unknown
 	@cargo check -p acorn-core --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-schema --no-default-features --features core --target wasm32-unknown-unknown
@@ -112,6 +116,7 @@ wasm:
 	@cargo check -p acorn-schema --no-default-features --features wasm --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
+	@cargo check -p acorn-wasm --target wasm32-unknown-unknown
 
 cover:
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked
@@ -123,9 +128,12 @@ doc:
 doctest:
 	@cargo test --doc
 
-lint:
+lint: shellcheck
 	@cargo fmt --check
 	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
+
+shellcheck:
+	@find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
@@ -279,10 +287,10 @@ DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2);
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
 ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
-	cargo-fuzz \
 	cargo-audit \
 	cargo-auditable \
 	cargo-deny \
+	cargo-fuzz \
 	cargo-insta \
 	cargo-msrv \
 	cargo-nextest \
@@ -291,7 +299,8 @@ DEV_DEPENDENCIES = \
 	cargo-udeps \
 	mdbook \
 	mdbook-mermaid \
-	mdbook-pikchr
+	mdbook-pikchr \
+	wasm-pack
 TARGETS = \
 	i586-unknown-linux-musl \
 	i686-unknown-linux-gnu \
@@ -312,6 +321,7 @@ TASKS = \
 	audit \
 	book \
 	build \
+	build-wasm \
 	changelog \
 	changelog-release \
 	clean \
@@ -322,6 +332,7 @@ TASKS = \
 	bench-compare \
 	bench-report \
 	lint \
+	shellcheck \
 	fuzz \
 	fuzz-repro \
 	help \
@@ -330,7 +341,7 @@ TASKS = \
 	setup \
 	test \
 	test-ci \
-	wasm \
+	check-wasm \
 	version \
 	release-version \
 	check-version \

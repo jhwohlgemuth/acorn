@@ -51,7 +51,7 @@ Extract a CLI-local synchronization helper that converts resolved model identifi
 
 1. Add parity tests before consolidating each behavior, including JSONC comments/trailing commas and invalid percent escapes.
 2. Run focused package tests for every slice.
-3. Run `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, and `make wasm` for portable changes.
+3. Run `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, and `make check-wasm` for portable changes.
 4. Run `make lint` and `make test` after each integration slice.
 5. Repeat the exact-file, asset-hash, and normalized source-block scan; document intentional remaining matches.
 

@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Follow [check batch monoid](check-batch-monoid.md), consume the existing flat validation report, and land after schema codec ownership is stable.
+Consume the implemented ordered `CheckBatch` and flat validation report, and land after schema codec ownership is stable.
 
 # Evidence
 
@@ -30,7 +30,3 @@ Define a generic traversal over readable artifacts and check categories after th
 # Acceptance criteria
 
 Standard implementations retain only reading and extraction differences while common check orchestration is shared.
-
-# Related plans
-
-- [Check batch monoid](check-batch-monoid.md)

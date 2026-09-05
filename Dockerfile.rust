@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         mingw-w64 \
         musl-tools \
         pkg-config \
+        shellcheck \
     && apt-get install --no-install-recommends --yes \
         npm \
     && npx playwright install-deps \
@@ -50,6 +51,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && cargo install --locked mdbook --version 0.5.2 \
     && cargo install --locked mdbook-mermaid --version 0.17.0 \
     && cargo install --locked mdbook-pikchr --version 0.2.0 \
+    && cargo install --locked wasm-pack --version 0.15.0 \
     && apt-get clean \
     && rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/* \
     && rm -rf /usr/share/man/?? \

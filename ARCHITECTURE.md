@@ -18,12 +18,14 @@ ACORN product crates live under `crates/`; repository-only tooling and shared as
 ```text
 acorn/
 ├── crates/
+│   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
 │   ├── acorn-lib/      # Analysis and host services not yet extracted
 │   ├── acorn-macros/   # Validation and command procedural macros
-│   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
+│   ├── acorn-py/       # Python bindings
+│   ├── acorn-schema/   # Portable schemas, validation, crosswalks, and codecs
 │   ├── acorn-tui/      # Terminal interface
-│   └── acorn-py/       # Python bindings
+│   └── acorn-wasm/     # In-memory JavaScript validation and analysis bindings
 ├── docs/               # Public mdBook documentation
 ├── fuzz/               # Cargo fuzz targets
 ├── tests/              # Shared fixtures and integration data
@@ -37,11 +39,14 @@ The current dependency direction is:
 acorn-core
     |
     v
-acorn-lib <----- acorn-macros
+acorn-schema
     |
-    +----------> acorn-cli <----- acorn-tui
-    +----------> acorn-tui
-    +----------> acorn-py
+    +----------> acorn-lib <----- acorn-macros
+    |                |
+    |                +----------> acorn-cli <----- acorn-tui
+    |                +----------> acorn-py
+    |                +----------> acorn-tui
+    +---------------------------> acorn-wasm <----- acorn-lib::analyzer
 ```
 
 `acorn-core` and `acorn-schema` are extracted portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns host implementations that may move into the planned crates below.
@@ -59,7 +64,7 @@ Portability is a capability spectrum, not a native-versus-WASM switch. Both `aco
 | `std` | Native runtime support and adapter implementations | Extends `alloc`; enables filesystem, HTTP, database, process, document, terminal, and related host dependencies |
 | Capability features | Selectable product behavior such as `analysis`, `agentic`, `doctor`, `powerpoint`, and `swhid-compute` | Layer on the minimum runtime they currently need; broad `std` coupling is being split into narrower crates |
 
-Code should import from the narrowest prelude that matches its behavior: `prelude::core` for allocation-free language items, `prelude::alloc` for portable owned data, and `prelude::std` only for operating-system or runtime services. A type compiling for a WASM target is not evidence that it belongs in a browser adapter; browser APIs will live in `acorn-wasm`.
+Code should import from the narrowest prelude that matches its behavior: `prelude::core` for allocation-free language items, `prelude::alloc` for portable owned data, and `prelude::std` only for operating-system or runtime services. A type compiling for a WASM target is not evidence that it belongs in a browser adapter; JavaScript bindings and future browser APIs live in `acorn-wasm`.
 
 ## Current module ownership
 
@@ -81,6 +86,10 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 Host behavior already moved out of schema modules includes path/file `InputOutput` implementations, migration, OpenCode file I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing. `LocationExt` and `RepositoryExt` add native behavior to portable `acorn-core` values without moving that behavior into the foundation crate.
 
 The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and future browser composition. The analyzer check/error/readability kernel is independently selectable; CI prevents its native and WASM graphs from acquiring host-only dependencies.
+
+### `acorn-wasm`
+
+`acorn-wasm` is the JavaScript adapter for portable ACORN behavior. Its initial API parses and validates supplied Research Activity JSON and calculates readability checks over supplied text. It owns `wasm-bindgen` DTO conversion and package generation without enabling native host services. Browser HTTP, storage, document, process, and persistence adapters remain deferred until concrete service workflows prove narrow consumer-owned ports.
 
 ### Interface crates
 
@@ -113,7 +122,7 @@ acorn-lib          = remaining host implementations during migration
 
 Port traits belong to the portable domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` provide concrete implementations; `acorn-service` orchestrates use cases without depending on a native adapter. `acorn-lib` shrinks as consumers migrate directly to each owning crate and does not retain ownership-masking re-exports.
 
-`acorn-analysis` extraction is deferred despite its proven in-tree boundary: no independent portable consumer currently justifies the package or generic host traits. Analyzer, API, export, and service contracts stabilize next; provider, store, export, host, browser, service, and command packages then follow one accepted boundary at a time.
+`acorn-wasm` currently consumes the proven in-tree analyzer boundary through the narrow `analyzer` feature. Extracting `acorn-analysis` remains a separate ownership decision while analyzer, API, export, and service contracts stabilize; provider, store, export, host, browser-service, service, and command packages then follow one accepted boundary at a time.
 
 ## Cross-cutting rules
 

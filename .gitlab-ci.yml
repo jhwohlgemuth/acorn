@@ -51,8 +51,9 @@ prepare-environment:
         - Cargo.toml
         - Cargo.lock
         - crates/acorn-core/Cargo.toml
-        - crates/acorn-schema/Cargo.toml
         - crates/acorn-lib/Cargo.toml
+        - crates/acorn-schema/Cargo.toml
+        - crates/acorn-wasm/Cargo.toml
   script:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
@@ -103,9 +104,11 @@ test-portability:
         - crates/acorn-core/**/*
         - crates/acorn-lib/**/*
         - crates/acorn-schema/**/*
+        - crates/acorn-wasm/**/*
         - scripts/check-portable-dependencies.sh
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
+    - command -v wasm-pack >/dev/null || cargo install --locked wasm-pack@0.15.0
     - make check-portable
 
 test-python:

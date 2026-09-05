@@ -35,7 +35,7 @@ Finish hardening ACORN's first-class Software Hash Identifier (SWHID) support ag
 - Run the pinned SWHID conformance and differential tests without making the reference implementation a portable runtime dependency.
 - Run focused PID, discovery, schema, CFF, resolver, calculation, and CLI tests.
 - Run `cargo fmt --all`, `make lint`, and `make test`.
-- Run `cargo check -p acorn-lib --no-default-features`, the alloc feature check, and `make wasm`.
+- Run `cargo check -p acorn-lib --no-default-features`, the alloc feature check, and `make check-wasm`.
 - Run `make audit` if the remaining work changes dependencies.
 
 # Acceptance criteria

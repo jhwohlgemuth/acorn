@@ -10,6 +10,6 @@
 
 ## Planned
 
-- [WASM feature path](wasm-feature-path.md) - Complete the existing WASM capability path.
+- [WASM browser services](wasm-feature-path.md) - Extend the minimal in-memory package with concrete browser adapters after service ports are proven.
 - [Host abstraction traits](host-abstraction-traits.md) - Abstract files, HTTP, time, entropy, and processes.
 - [macOS compact-unwind size](macos-compact-unwind-size.md) - Reduce Darwin debug and test unwind metadata without suppressing linker diagnostics.

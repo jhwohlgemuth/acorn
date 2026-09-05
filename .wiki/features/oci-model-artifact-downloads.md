@@ -123,7 +123,7 @@ Exit condition: users can determine exactly what ACORN recognized, selected, ign
 
 ### Repository checks
 
-Run focused OCI, GGUF, archive, and model-download tests first, then formatting, workspace checks, `make lint`, `make test`, `make wasm`, `make book`, and `make audit`. Regenerate `CommandLineHelp.md` only when the CLI contract changes.
+Run focused OCI, GGUF, archive, and model-download tests first, then formatting, workspace checks, `make lint`, `make test`, `make check-wasm`, `make book`, and `make audit`. Regenerate `CommandLineHelp.md` only when the CLI contract changes.
 
 ## Risks and mitigations
 
