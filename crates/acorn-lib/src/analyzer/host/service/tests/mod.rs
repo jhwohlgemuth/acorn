@@ -47,7 +47,8 @@ fn test_analyze_report_with_checks_groups_in_category_order_and_omits_empty_grou
             check_ok!(CheckCategory::Prose, message: "prose"),
             check_err!(CheckCategory::Schema, message: "schema"),
             check_ok!(CheckCategory::Prose, message: "second prose"),
-        ],
+        ]
+        .into(),
         &options,
     );
     assert_eq!(report.batches.len(), 1);
@@ -62,6 +63,14 @@ fn test_analyze_report_with_checks_groups_in_category_order_and_omits_empty_grou
         [CheckCategory::Schema, CheckCategory::Prose]
     );
     assert_eq!(report.batches[0].categories[1].checks.len(), 2);
+    assert_eq!(
+        report.batches[0].categories[1]
+            .checks
+            .iter()
+            .map(|check| check.message.as_str())
+            .collect::<Vec<_>>(),
+        ["prose", "second prose"]
+    );
 }
 #[test]
 fn test_classify_paths_applies_explicit_standard_to_every_path() {
@@ -142,6 +151,24 @@ fn test_document_indexes_keep_first_source_when_display_keys_collide() {
     assert_eq!(
         indexes.get(&key).expect("collision index should exist").document().content,
         "title: left\n"
+    );
+}
+#[tokio::test]
+async fn test_flatten_checks_preserves_future_and_batch_order() {
+    let futures = [
+        core::future::ready(
+            vec![
+                check_ok!(CheckCategory::Quality, message: "first"),
+                check_ok!(CheckCategory::Quality, message: "second"),
+            ]
+            .into(),
+        ),
+        core::future::ready(CheckBatch::single(check_ok!(CheckCategory::Quality, message: "third"))),
+    ];
+    let checks = <Text as Analysis>::flatten_checks(futures).await;
+    assert_eq!(
+        checks.iter().map(|check| check.message.as_str()).collect::<Vec<_>>(),
+        ["first", "second", "third"]
     );
 }
 #[test]

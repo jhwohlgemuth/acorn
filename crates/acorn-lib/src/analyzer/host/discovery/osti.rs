@@ -192,7 +192,7 @@ impl RemoteSearchResponse {
             offset: response.offset,
             has_more: response.has_more,
             matches,
-            resolution_checks: Vec::new(),
+            resolution_checks: Default::default(),
         })
     }
     pub(super) async fn resolve(self) -> Self {
@@ -201,7 +201,9 @@ impl RemoteSearchResponse {
             .iter()
             .flat_map(|value| candidate_urls(value.url.as_deref(), &value.websites))
             .collect::<Vec<_>>();
-        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string())))).await;
+        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string()))))
+            .await
+            .into();
         Self {
             matches,
             resolution_checks,

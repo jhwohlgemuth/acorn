@@ -22,6 +22,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - The `analyzer` feature compiles the check/error/readability model kernel with `alloc`; the `analysis` feature adds native execution and rendering under `analyzer::host`.
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
 - The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
+- `make check-portable` and the dedicated `test-portability` CI job enforce the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs.
 
 # Project code boundaries
 
@@ -35,12 +36,12 @@ This roadmap is governed by the [crate boundary architecture](../crate-boundary-
 
 # Parallel execution
 
-This roadmap coordinates work and does not own a concurrent implementation branch. Active std-isolation or extraction work holds the library-root and module-index integration locks. Orthogonal leaf work may proceed in analyzer readability, remote create, Python bindings, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
+This roadmap coordinates work and does not own a concurrent implementation branch. Active extraction work holds the library-root and module-index integration locks. Orthogonal leaf work may proceed in analyzer readability, remote create, Python bindings, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
 
 # Implementation order
 
 1. **Completed:** separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services in-tree; add native and WASM alloc-only compile gates.
-2. Reassess whether the resulting boundary warrants `acorn-analysis`; do not extract it or add generic host traits by default.
+2. **Completed decision:** defer `acorn-analysis` and generic host traits until a concrete alternate consumer requires the portable kernel or proves a narrow port.
 3. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
 4. Complete target-specific browser wiring in `acorn-wasm`, native implementations in `acorn-host`, and CI gates for every supported feature combination.
 
@@ -55,7 +56,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Validation
 
-Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-04 with the analyzer-only native and WASM checks, the focused portable analyzer tests, and the full workspace check.
+Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-05 with the analyzer-only native and WASM checks, dependency deny policy, focused portable analyzer tests, and full workspace check.
 
 # Related plans
 

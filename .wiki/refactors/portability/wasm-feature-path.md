@@ -30,7 +30,7 @@ status: planned
 # Dependencies
 
 - **Prerequisites:** portable `acorn-core` and `acorn-schema` boundaries plus meaningful consumer-owned traits from [host abstraction traits](host-abstraction-traits.md).
-- **Follow-on:** expand [no-std and WASM CI](no-std-wasm-ci.md) from facade compilation to artifact and browser-adapter checks.
+- **Follow-on:** expand [no-std and WASM CI](no-std-wasm-ci.md) from current-package compilation to artifact and browser-adapter checks.
 
 # Recommendation
 

@@ -1,6 +1,6 @@
 //! Structured native file-analysis service
 use super::render::{DocumentIndexes, RenderContext};
-use crate::analyzer::check::{Check, CheckCategory, CheckSeverity, Standard};
+use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
 use crate::analyzer::host::context::{AnalysisContext, ReportOptions};
 use crate::analyzer::host::runtime::StaticAnalyzer;
 use crate::analyzer::host::vale::Vale;
@@ -28,51 +28,51 @@ use tracing::{debug, error};
 #[async_trait]
 pub trait Analysis: SchemaCheck {
     /// Run analysis for a given category.
-    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         match category {
             | CheckCategory::Link => Self::check_websites(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
             | CheckCategory::Quality => Self::check_quality(paths, options).await,
             | CheckCategory::Readability => Self::check_readability(paths, options).await,
             | CheckCategory::Schema => Self::check_schema(paths, options).await,
-            | CheckCategory::Crosswalk => Vec::new(),
+            | CheckCategory::Crosswalk => CheckBatch::empty(),
         }
     }
     /// Perform analysis of prose.
-    async fn check_prose(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
+    async fn check_prose(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        CheckBatch::empty()
     }
     /// Perform quality checks and verify data consistency.
-    async fn check_quality(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
+    async fn check_quality(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        CheckBatch::empty()
     }
     /// Calculate readability using a given metric.
-    async fn check_readability(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
+    async fn check_readability(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        CheckBatch::empty()
     }
     /// Execute validation checks for the given paths.
-    async fn check_schema(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_schema(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.par_iter().filter_map(<Self as SchemaCheck>::check_schema_path).collect::<Vec<_>>();
-        join_all(futures).await.into_iter().flatten().collect()
+        join_all(futures).await.into_iter().collect()
     }
     /// Check whether URL links are valid and readable.
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
+    async fn check_websites(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        CheckBatch::empty()
     }
     /// Return the output path used for Vale analysis artifacts.
     fn output_path(path: &Path, data: &Self) -> PathBuf;
     /// Return the metadata standard represented by the implementing type.
     fn standard() -> Standard;
     /// Flatten futures that each return checks.
-    async fn flatten_checks<I, F>(futures: I) -> Vec<Check>
+    async fn flatten_checks<I, F>(futures: I) -> CheckBatch
     where
         I: IntoIterator<Item = F> + Send,
-        F: Future<Output = Vec<Check>> + Send,
+        F: Future<Output = CheckBatch> + Send,
     {
-        join_all(futures).await.into_iter().flatten().collect()
+        join_all(futures).await.into_iter().collect()
     }
     /// Collect link checks and attach the source URI.
-    async fn collect_checks<'a>(futures: impl IntoIterator<Item = futures::future::BoxFuture<'a, Check>> + Send, path: &Path) -> Vec<Check> {
+    async fn collect_checks<'a>(futures: impl IntoIterator<Item = futures::future::BoxFuture<'a, Check>> + Send, path: &Path) -> CheckBatch {
         let uri = Some(path.to_path_buf().file_name_with_parent());
         join_all(futures).await.into_iter().map(|check| check.with_uri(uri.clone())).collect()
     }
@@ -80,7 +80,7 @@ pub trait Analysis: SchemaCheck {
 /// Supplies schema checks to native [`Analysis`] implementations.
 pub trait SchemaCheck {
     /// Read and validate one schema document when the implementing type supports it.
-    fn check_schema_path(_path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+    fn check_schema_path(_path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
         None
     }
 }
@@ -110,7 +110,7 @@ pub struct CategoryChecks {
     /// Category that produced the checks.
     pub category: CheckCategory,
     /// Structured check results.
-    pub checks: Vec<Check>,
+    pub checks: CheckBatch,
 }
 /// Paths assigned to one analysis standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -122,7 +122,7 @@ pub struct StandardPaths {
 }
 impl AnalysisReport {
     /// Flatten all structured checks without printing or exiting.
-    pub fn checks(&self) -> Vec<Check> {
+    pub fn checks(&self) -> CheckBatch {
         self.batches
             .iter()
             .flat_map(|batch| batch.categories.iter())
@@ -133,10 +133,10 @@ impl AnalysisReport {
     pub fn render_context<'a>(&'a self, options: &'a ReportOptions) -> RenderContext<'a> {
         RenderContext::with_documents(options, &self.documents)
     }
-    pub(crate) fn with_checks(self, checks: Vec<Check>, options: &AnalysisContext) -> Self {
+    pub(crate) fn with_checks(self, checks: CheckBatch, options: &AnalysisContext) -> Self {
         let categories = CheckCategory::iter()
             .filter_map(|category| {
-                let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<Vec<_>>();
+                let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<CheckBatch>();
                 (!checks.is_empty()).then_some(CategoryChecks { category, checks })
             })
             .collect();
@@ -208,7 +208,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
         skipped_categories,
     }
 }
-pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
+pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch
 where
     T: Analysis + InputOutput + ToProse,
 {
@@ -245,19 +245,19 @@ where
                                 .map(|check| check.with_uri(uri.clone()))
                                 .collect()
                         }
-                        | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)],
+                        | Err(why) => CheckBatch::single(check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)),
                     }
                 }
             });
-            join_all(results).await.into_iter().flatten().collect()
+            join_all(results).await.into_iter().collect()
         }
         | Err(why) => {
             error!("=> {} Vale sync — {why}", Label::fail());
-            vec![check_err!(CheckCategory::Prose)]
+            CheckBatch::single(check_err!(CheckCategory::Prose))
         }
     }
 }
-pub(crate) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
+pub(crate) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch
 where
     T: InputOutput + ToProse,
 {
@@ -307,6 +307,7 @@ where
             | Err(why) => vec![check_err!(CheckCategory::Readability, context: why.to_string())],
         })
         .collect::<Vec<Check>>()
+        .into()
 }
 /// Classify paths by explicit standard or by file type for the default RAD mode
 pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {

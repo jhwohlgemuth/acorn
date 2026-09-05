@@ -15,7 +15,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema` extraction is complete with direct first-party imports and no `acorn-lib` schema facade. The in-tree analyzer kernel now compiles independently under `alloc`; reassess its concrete boundary before extracting `acorn-analysis` or introducing generic host traits.
+This plan is coordination-only. `acorn-schema` extraction is complete with direct first-party imports and no `acorn-lib` schema facade. The in-tree analyzer kernel now compiles independently under `alloc` and is CI-enforced; `acorn-analysis` and generic host traits are deferred until a concrete alternate consumer proves their need.
 
 # Current evidence
 

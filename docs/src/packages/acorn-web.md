@@ -3,7 +3,7 @@
 ACORN's portable Rust surface can be checked for the `wasm32-unknown-unknown` target. This is currently a portability build for contributors, not a published JavaScript or browser package.
 
 > [!IMPORTANT]
-> `make wasm` runs `cargo check`. It verifies that the portable feature path compiles, but it does not link a `.wasm` artifact or generate JavaScript bindings.
+> `make wasm` verifies the portable and analyzer-only feature paths. It does not link a `.wasm` artifact or generate JavaScript bindings.
 
 ## Installation
 
@@ -19,10 +19,17 @@ Clone the ACORN repository, then run the check from its root:
 make wasm
 ```
 
+Maintainers can check the complete native and WASM portability matrix plus the host-dependency deny policy with:
+
+```sh
+make check-portable
+```
+
 The equivalent Cargo command is:
 
 ```sh
 cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
+cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
 ```
 
 Rust projects that compile to WASM can select the same ACORN surface:
@@ -45,6 +52,7 @@ The WASM build exposes Rust APIs that operate on supplied in-memory values. It c
 | Portable domain APIs | `Location`, `Repository`, `Scheme`, `Release`, `AcornError`, and `AcornResult` |
 | Portable utilities | MIME and file-extension detection, Crockford Base32, constant-time byte comparison, glob matching, regex-to-glob conversion, frontmatter splitting, semantic versions, byte formatting, and string normalization |
 | Reference data | Compile-time vocabularies used by portable schema and validation code |
+| Analyzer kernel | Check, error, Vale output, readability, and scoring models plus calculations over supplied text through the separate `analyzer` feature |
 
 Schema types implement their normal Serde, JSON Schema, and validation traits in this configuration. Callers provide the strings, bytes, or already-deserialized values; ACORN does not fetch or read them in the WASM build.
 
@@ -62,7 +70,7 @@ assert!(is_ror("https://ror.org/01qz5mb56").is_ok());
 
 ## What the check covers
 
-The current `wasm` feature selects allocation-capable APIs without enabling ACORN's native filesystem, process, terminal presentation, database, or network services. The check protects that dependency boundary on a browser-compatible compilation target.
+The current `wasm` feature selects allocation-capable APIs without enabling ACORN's native filesystem, process, terminal presentation, database, or network services. The separate `analyzer` feature adds only the portable analyzer kernel. CI compiles both paths and rejects host-only dependencies from the analyzer graph.
 
 The check does not currently provide:
 
@@ -71,7 +79,7 @@ The check does not currently provide:
 - browser HTTP or storage adapters
 - a supported browser application entry point
 - native file or URL reads and writes
-- analyzer, document conversion, database, process, download, or doctor services
+- analyzer host execution, document conversion, database, process, download, or doctor services
 - std-only agent definitions and embedded agent assets
 
 Those capabilities are planned for a dedicated `acorn-wasm` adapter crate. Portable crates will remain independent of browser-specific dependencies, and `acorn-wasm` will compose supported ACORN services with browser implementations.

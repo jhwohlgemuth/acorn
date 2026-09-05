@@ -2,9 +2,12 @@
 
 These plans improve the in-tree analysis boundary defined by the [crate boundary architecture](../crate-boundary-architecture.md). They do not by themselves authorize crate extraction.
 
-## Recommended first
+## In progress
 
-- [Check batch monoid](check-batch-monoid.md) - Reduce repeated asynchronous collection assembly.
+- [Portable CheckBatch contract](check-batch-monoid.md) - Stabilize ordered analyzer result aggregation without extracting a crate or adding host traits.
+
+## Recommended next
+
 - [Standards traversal](standards-traversal.md) - Deduplicate near-isomorphic standard analysis flows after check batching stabilizes; portable validation is already flat.
 
 ## Additional plans

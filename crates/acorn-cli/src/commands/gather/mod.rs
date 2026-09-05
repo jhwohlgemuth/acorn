@@ -2,7 +2,7 @@ use crate::cli::WatchOptions;
 use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdin_piped, read_stdin};
 use acorn::analyzer::host::discovery::{finalize_report, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report};
-use acorn::analyzer::{Check, CheckCategory, OutputFormat};
+use acorn::analyzer::{CheckBatch, CheckCategory, OutputFormat};
 use acorn::check_err;
 use acorn::io::config::FilterSet;
 use acorn::io::document::{SourceDocument, SourceDocuments};
@@ -16,7 +16,7 @@ use std::fs::remove_file;
 use std::path::{Path, PathBuf};
 
 trait Process {
-    async fn process(self, load_checks: Vec<Check>, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()>;
+    async fn process(self, load_checks: CheckBatch, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()>;
 }
 enum Input {
     Documents {
@@ -26,7 +26,7 @@ enum Input {
     Remote(Vec<RemoteSearchResponse>),
 }
 impl Process for SourceDocuments {
-    async fn process(self, load_checks: Vec<Check>, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()> {
+    async fn process(self, load_checks: CheckBatch, failures: Vec<String>, options: Options<'_>, resolved: Option<Records>) -> ApiResult<()> {
         let output_policy = GatherOutputPolicy::from(options);
         let Options {
             citation_format,
@@ -40,7 +40,7 @@ impl Process for SourceDocuments {
         let enrichment_checks = failures
             .iter()
             .map(|why| check_err!(CheckCategory::Link, message: why.clone()))
-            .collect::<Vec<_>>();
+            .collect::<CheckBatch>();
         let sources: Vec<SourceDocument> = self.into();
         let discoveries = match (resolved, enrich, resolve) {
             | (Some(discoveries), false, _) => discoveries,
@@ -48,26 +48,24 @@ impl Process for SourceDocuments {
             | _ => Records::from(sources),
         };
         let (candidate_results, persistence_checks) = if no_local_database {
-            (Vec::new(), Vec::new())
+            (Vec::new(), CheckBatch::empty())
         } else {
             let history_checks = discoveries.persist(database_path);
             let (candidate_results, candidate_checks) = discoveries.persist_candidates(database_path);
-            (candidate_results, history_checks.into_iter().chain(candidate_checks).collect())
+            (candidate_results, history_checks.combine(candidate_checks))
         };
         let (analysis_checks, temporary_paths) = discoveries.analyze(options).await;
         let checks = load_checks
-            .into_iter()
-            .chain(enrichment_checks)
-            .chain(analysis_checks)
-            .chain(persistence_checks)
-            .collect::<Vec<_>>();
+            .combine(enrichment_checks)
+            .combine(analysis_checks)
+            .combine(persistence_checks);
         temporary_paths.iter().for_each(|path| {
             let _ = remove_file(path);
         });
-        let report = Report::new(&checks, discoveries, inputs)
+        let report = Report::new(checks.as_slice(), discoveries, inputs)
             .with_candidates(candidate_results)
             .with_citation_format(citation_format);
-        finalize_report(&checks, &report, output_policy, !failures.is_empty())
+        finalize_report(checks.as_slice(), &report, output_policy, !failures.is_empty())
     }
 }
 async fn execute(input: Input, options: Options<'_>) -> ApiResult<()> {
@@ -237,7 +235,7 @@ async fn process_available(values: Vec<ApiResult<SourceDocument>>, resolved: Opt
                 .err()
                 .map(|why| check_err!(CheckCategory::Schema, message: why.to_string()))
         })
-        .collect::<Vec<_>>();
+        .collect::<CheckBatch>();
     let sources = values.into_iter().filter_map(core::result::Result::ok).collect::<Vec<_>>();
     let (sources, enriched, failures) = SourceDocuments::from(sources).enrich(enrich).await;
     match enrich && format == Some(OutputFormat::Raw) && !enriched.is_empty() {

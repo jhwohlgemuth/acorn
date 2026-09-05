@@ -117,8 +117,8 @@ async fn test_cff_check_quality_returns_ok_for_readable_file() {
     write(path.clone(), yaml).expect("failed to write CFF fixture");
     let checks = Cff::check_quality(core::slice::from_ref(&path), None).await;
     assert_eq!(checks.len(), 1);
-    assert!(checks[0].success);
-    assert_eq!(checks[0].category, CheckCategory::Quality);
+    assert!(checks.as_slice()[0].success);
+    assert_eq!(checks.as_slice()[0].category, CheckCategory::Quality);
     let _cleanup = remove_file(path);
 }
 #[tokio::test]
@@ -150,7 +150,7 @@ async fn test_cff_validation_issues_invalid_doi() {
     };
     let issues = collect_validation_checks(&cff).await;
     assert!(!issues.is_empty());
-    assert_eq!(issues[0].category, CheckCategory::Schema);
+    assert_eq!(issues.as_slice()[0].category, CheckCategory::Schema);
 }
 #[test]
 fn test_check_severity_default() {
@@ -239,7 +239,7 @@ async fn test_collect_validation_checks_awaits_async_rules() {
     })
     .await;
     assert_eq!(checks.len(), 1);
-    assert_eq!(checks[0].context.as_deref(), Some("value"));
+    assert_eq!(checks.as_slice()[0].context.as_deref(), Some("value"));
 }
 #[tokio::test]
 async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
@@ -265,7 +265,7 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
     };
     let checks = collect_validation_checks(&value).await;
     assert_eq!(checks.len(), 1);
-    let rendered = format!("{}", checks[0]);
+    let rendered = format!("{}", checks.as_slice()[0]);
     assert!(
         rendered.contains("children[1].email"),
         "expected nested indexed path in display output: {rendered}"
@@ -277,11 +277,11 @@ fn test_conversion_warnings_use_into_checks_trait() {
     let warnings = vec![ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher")];
     let checks = warnings.to_checks(Some("record.json".to_string()));
     assert_eq!(checks.len(), 1);
-    assert_eq!(checks[0].category, CheckCategory::Crosswalk);
-    assert_eq!(checks[0].severity, CheckSeverity::Warning);
-    assert_eq!(checks[0].issue_count(), 1);
-    assert_eq!(checks[0].uri.as_deref(), Some("record.json"));
-    assert_eq!(checks[0].locator.as_deref(), Some("attributes.publisher"));
+    assert_eq!(checks.as_slice()[0].category, CheckCategory::Crosswalk);
+    assert_eq!(checks.as_slice()[0].severity, CheckSeverity::Warning);
+    assert_eq!(checks.as_slice()[0].issue_count(), 1);
+    assert_eq!(checks.as_slice()[0].uri.as_deref(), Some("record.json"));
+    assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("attributes.publisher"));
 }
 #[test]
 fn test_parse_vale_output() {
@@ -791,7 +791,8 @@ fn test_summary_includes_crosswalk_warnings() {
         ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher"),
         ConversionWarning::no_equivalent("datacite", "dcat", "attributes.subjects"),
     ];
-    let rows = summary(warnings.to_checks(None));
+    let checks = warnings.to_checks(None);
+    let rows = summary(checks.as_slice());
     assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
 }
 #[test]

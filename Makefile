@@ -81,7 +81,14 @@ changelog-release:
 	@git pull origin main --tags
 	@git-cliff --output CHANGELOG.md --gitlab-token ${GITLAB_TOKEN} --latest
 
-check:
+check: check-portable check-host
+
+check-host:
+	@cargo check -p acorn-lib
+	@cargo check -p acorn-lib --features std,analysis
+	@cargo check -p acorn-cli
+
+check-portable:
 	@cargo check -p acorn-core
 	@cargo check -p acorn-core --no-default-features --features core
 	@cargo check -p acorn-core --no-default-features --features alloc
@@ -90,14 +97,12 @@ check:
 	@cargo check -p acorn-schema --no-default-features --features core
 	@cargo check -p acorn-schema --no-default-features --features alloc
 	@cargo check -p acorn-schema --no-default-features
-	@cargo check -p acorn-lib
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
 	@cargo check -p acorn-lib --no-default-features --features analyzer
 	@cargo check -p acorn-lib --no-default-features
 	@$(MAKE) wasm
-	@cargo check -p acorn-lib --features std,analysis
-	@cargo check -p acorn-cli
+	@bash scripts/check-portable-dependencies.sh
 
 wasm:
 	@cargo check -p acorn-core --no-default-features --features core --target wasm32-unknown-unknown

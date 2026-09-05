@@ -19,7 +19,7 @@ ACORN product crates live under `crates/`; repository-only tooling and shared as
 acorn/
 ├── crates/
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
-│   ├── acorn-lib/      # Compatibility facade plus schemas, analysis, and host services not yet extracted
+│   ├── acorn-lib/      # Analysis and host services not yet extracted
 │   ├── acorn-macros/   # Validation and command procedural macros
 │   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
 │   ├── acorn-tui/      # Terminal interface
@@ -44,7 +44,7 @@ acorn-lib <----- acorn-macros
     +----------> acorn-py
 ```
 
-`acorn-core` is the first extracted portable package. `acorn-lib` remains the public library crate named `acorn`; it re-exports core types and still owns implementation that will move into the planned crates below.
+`acorn-core` and `acorn-schema` are extracted portable packages consumed directly by first-party crates. `acorn-lib` remains the public library crate named `acorn` and owns host implementations that may move into the planned crates below.
 
 ## Portability spectrum
 
@@ -71,16 +71,16 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 
 `acorn-lib` currently contains these boundaries:
 
-- `schema/` and `validation/`: RAD, PID, standards, hardware, agent models, crosswalks, codecs, and allocation-compatible validation.
+- Schema models, crosswalks, codecs, and allocation-compatible validation are owned by `acorn-schema`; `acorn-lib` retains their host adapters and services.
 - `analyzer/`: alloc-capable check/result models, readability, and scoring behind `analyzer`; native context, discovery, Vale execution, path services, tabular export, and terminal rendering live under `analyzer::host` behind `analysis`.
 - `io/`: native adapters and services for APIs, databases, documents, archives, downloads, synchronization, source handling, workflows, and PowerPoint.
 - `doctor/`: native environment diagnostics behind the `doctor` feature.
 - `enrichment.rs`: enrichment contracts and transformations shared by schema and service work.
-- `util/`, `prelude.rs`, and `error.rs`: compatibility paths that re-export or extend portable `acorn-core` behavior and retain native helpers.
+- `util/` and `error.rs`: native helpers and extensions around portable `acorn-core` behavior.
 
 Host behavior already moved out of schema modules includes path/file `InputOutput` implementations, migration, OpenCode file I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing. `LocationExt` and `RepositoryExt` add native behavior to portable `acorn-core` values without moving that behavior into the foundation crate.
 
-The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and selecting the analyzer check/error/readability kernel without its isolated native document, rendering, filesystem, process, HTTP, and database services.
+The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and future browser composition. The analyzer check/error/readability kernel is independently selectable; CI prevents its native and WASM graphs from acquiring host-only dependencies.
 
 ### Interface crates
 
@@ -108,12 +108,12 @@ browser adapters: acorn-wasm
 
 CLI / TUI / Python = services + native adapters
 JS / WASM          = services + browser adapters
-acorn-lib          = compatibility feature mapping and re-exports
+acorn-lib          = remaining host implementations during migration
 ```
 
-Port traits belong to the portable domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` provide concrete implementations; `acorn-service` orchestrates use cases without depending on a native adapter. `acorn-lib` must become a facade rather than a second implementation layer.
+Port traits belong to the portable domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` provide concrete implementations; `acorn-service` orchestrates use cases without depending on a native adapter. `acorn-lib` shrinks as consumers migrate directly to each owning crate and does not retain ownership-masking re-exports.
 
-The next extraction is `acorn-schema`, after its remaining std-only state and side effects move behind adapters. `acorn-analysis` follows once check/result contracts no longer depend on document, renderer, filesystem, network, process, or database implementations. Provider, store, export, host, browser, service, and command packages follow one accepted boundary at a time.
+`acorn-analysis` extraction is deferred despite its proven in-tree boundary: no independent portable consumer currently justifies the package or generic host traits. Analyzer, API, export, and service contracts stabilize next; provider, store, export, host, browser, service, and command packages then follow one accepted boundary at a time.
 
 ## Cross-cutting rules
 
@@ -123,6 +123,6 @@ The next extraction is `acorn-schema`, after its remaining std-only state and si
 - `color-eyre` and `tracing` provide rich native diagnostics; portable packages own errors that do not require host reporting.
 - `rayon` is an optional native analysis implementation detail, not a requirement of portable analysis models.
 - Each feature or crate exposes only capabilities it implements; `std` availability must not silently select unrelated services in the final package graph.
-- Existing `acorn::...` paths remain compatibility shims until a separately approved breaking release.
+- Ownership transfers may break import paths at an explicit semver boundary; legacy re-export adapters are not retained.
 
 The active extraction order, evidence, validation gates, and write-set coordination live in the [planning wiki](.wiki/index.md), especially the [plan dependency network](.wiki/plan-network.md).

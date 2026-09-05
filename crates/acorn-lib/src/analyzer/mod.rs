@@ -5,7 +5,9 @@ pub mod error;
 pub mod host;
 pub mod model;
 pub mod readability;
+#[cfg(test)]
+mod tests;
 
 #[cfg(feature = "std")]
 pub use check::IntoChecks;
-pub use check::{check_readability_for_text, summary, Check, CheckCategory, CheckSeverity, Checks, OutputFormat, Standard};
+pub use check::{check_readability_for_text, summary, Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard};

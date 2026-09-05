@@ -3,7 +3,7 @@ use super::context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportO
 use super::render::{Render, RenderContext};
 use super::runtime::link_check;
 use super::service::{analyze_paths, Analysis, SchemaCheck};
-use crate::analyzer::check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard};
+use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard};
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
@@ -400,7 +400,7 @@ pub struct RemoteSearchResponse {
     /// Normalized matches.
     pub matches: Vec<RemoteMatch>,
     #[serde(skip)]
-    resolution_checks: Vec<Check>,
+    resolution_checks: CheckBatch,
 }
 /// Structured gather report
 #[derive(Builder, Clone, Debug, Serialize)]
@@ -1132,7 +1132,7 @@ impl From<Vec<SourceDocument>> for Records {
     }
 }
 impl Records {
-    fn link_checks(&self) -> Vec<Check> {
+    fn link_checks(&self) -> CheckBatch {
         self.0
             .iter()
             .flat_map(|record| match record {
@@ -1152,12 +1152,12 @@ impl Records {
                     };
                     once(found).chain(outcome).collect()
                 }
-                | Record::Check { .. } => Vec::new(),
+                | Record::Check { .. } => CheckBatch::empty(),
             })
             .collect()
     }
     /// Analyze the retained source documents and return checks and temporary paths
-    pub async fn analyze(&self, options: Options<'_>) -> (Vec<Check>, Vec<PathBuf>) {
+    pub async fn analyze(&self, options: Options<'_>) -> (CheckBatch, Vec<PathBuf>) {
         let Options {
             offline, standard, quiet, ..
         } = options;
@@ -1240,7 +1240,7 @@ impl Records {
         self.0.is_empty()
     }
     /// Persist discoveries and return checks for failed writes
-    pub fn persist(&self, database_path: &Option<PathBuf>) -> Vec<Check> {
+    pub fn persist(&self, database_path: &Option<PathBuf>) -> CheckBatch {
         let database = Database::<Table>::from_path(database_path.clone());
         let discovered_at = Timestamp::now();
         self.0
@@ -1273,7 +1273,7 @@ impl Records {
             .collect()
     }
     /// Persist exact-identity project candidates and return results plus failure checks.
-    pub fn persist_candidates(&self, database_path: &Option<PathBuf>) -> (Vec<CandidatePersistence>, Vec<Check>) {
+    pub fn persist_candidates(&self, database_path: &Option<PathBuf>) -> (Vec<CandidatePersistence>, CheckBatch) {
         let database = Database::<Table>::from_path(database_path.clone());
         self.candidates()
             .into_iter()
@@ -1288,20 +1288,24 @@ impl Records {
                     .to_string();
                 ResearchActivityCandidate::try_from(candidate).ok().map(|value| (locator, uri, value))
             })
-            .fold((Vec::new(), Vec::new()), |(mut results, mut checks), (locator, uri, value)| {
-                match database.create_or_enrich(value) {
+            .fold(
+                (Vec::new(), CheckBatch::empty()),
+                |(mut results, checks), (locator, uri, value)| match database.create_or_enrich(value) {
                     | Ok(result) => {
-                        checks.push(LifecycleState::from(result.action).check(locator, result.iid.clone(), Some(uri)));
+                        let check = LifecycleState::from(result.action).check(locator, result.iid.clone(), Some(uri));
                         results.push(result);
+                        (results, checks.combine(CheckBatch::single(check)))
                     }
-                    | Err(why) => checks.push(check_err!(
-                        CheckCategory::Schema,
-                        message: why.to_string(),
-                        uri: uri,
-                    )),
-                }
-                (results, checks)
-            })
+                    | Err(why) => (
+                        results,
+                        checks.combine(CheckBatch::single(check_err!(
+                            CheckCategory::Schema,
+                            message: why.to_string(),
+                            uri: uri,
+                        ))),
+                    ),
+                },
+            )
     }
     /// Resolve supported identifiers through their metadata providers
     pub async fn resolve(self) -> Self {
@@ -1338,7 +1342,7 @@ impl RemoteMatch {
             .and_then(|metadata| resolved_pid_output(&identifier, kind, metadata, citation_format).ok())
             .unwrap_or(identifier)
     }
-    fn link_checks(&self) -> Vec<Check> {
+    fn link_checks(&self) -> CheckBatch {
         let identifier = self.normalized_identifier();
         let found = LifecycleState::Found.check(identifier.clone(), Some(self.title.clone()), self.url.clone());
         let outcome = self.resolution.as_ref().and_then(|resolution| match resolution.status {
@@ -1530,7 +1534,7 @@ impl RemoteSearchResponse {
             offset: self.offset,
             has_more: self.has_more || other.has_more,
             matches,
-            resolution_checks: self.resolution_checks.into_iter().chain(other.resolution_checks).collect(),
+            resolution_checks: self.resolution_checks.combine(other.resolution_checks),
         }
     }
     /// Persist project matches as canonical research activity candidates, optionally associated with an organization ROR.

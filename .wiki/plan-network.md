@@ -38,7 +38,7 @@ isolate std-only modules   host abstraction traits
             no-std/WASM CI gates
 ```
 
-`acorn-core` and `acorn-schema` are extracted and their domain types are consumed directly. `acorn-lib` has no schema facade: path/file ownership, network model resolution, persistence, contextual RAD formatting, and OpenCode CST preservation remain explicit host extensions. Active portability work now tightens analyzer document/rendering/service couplings and must produce an alloc-only in-tree kernel before analysis extraction is reconsidered.
+`acorn-core` and `acorn-schema` are extracted and their domain types are consumed directly. `acorn-lib` has no schema facade: path/file ownership, network model resolution, persistence, contextual RAD formatting, and OpenCode CST preservation remain explicit host extensions. The alloc-only analyzer kernel is enforced in CI; `acorn-analysis` and generic host traits remain deferred until a concrete alternate consumer proves their need.
 
 ## Target ownership network
 
@@ -98,10 +98,10 @@ isolate std-only modules   host abstraction traits
 
 ## Scheduling projection
 
-- Critical-path coordination plans are not implementation jobs. Schedule an analyzer std-isolation slice or named extraction rather than assigning the entire roadmap to an agent.
+- Critical-path coordination plans are not implementation jobs. Schedule a named contract-stabilization or extraction plan rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
-- The alloc-only analyzer-kernel gate is complete; the next portability decision is whether proven consumer needs justify package extraction or host traits.
-- Remote-create leaf work, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed beside the isolation slice when they obey the locks in the [parallel execution guide](parallel-execution.md); they pause for integration windows if they need shared manifests or roots.
+- The analyzer extraction decision is deferred: preserve the CI-enforced in-tree boundary while analyzer, API, export, and service contracts stabilize, then reconsider extraction only when a concrete alternate consumer exists.
+- Remote-create leaf work, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed concurrently when they obey the locks in the [parallel execution guide](parallel-execution.md); they pause for integration windows if they need shared manifests or roots.
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
 - The [research activity changelog](features/research-activity-changelog.md) and [OCP schema alignment](features/ocp-infrastructure-schema-alignment.md) consume the implemented `not` combinator, `timestamp`/`nonempty` primitives, and consolidated `schema::validate` module. The changelog and CKAN/DCAT now also consume the RAD standards field-matrix and loss-reporting contract from [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md); its Slice 0 must land before changelog's loss table and CKAN's target-contract work. Portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.
 

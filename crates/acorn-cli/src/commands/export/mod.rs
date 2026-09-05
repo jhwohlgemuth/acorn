@@ -576,7 +576,7 @@ async fn export_as_format_crosswalk(
                                 for check in &all_warnings {
                                     info!("  {check}");
                                 }
-                                print_values_as_table::<String>(vec!["", "Count"], summary(all_warnings.clone()), None);
+                                print_values_as_table::<String>(vec!["", "Count"], summary(&all_warnings), None);
                             }
                             if dry_run {
                                 info!(

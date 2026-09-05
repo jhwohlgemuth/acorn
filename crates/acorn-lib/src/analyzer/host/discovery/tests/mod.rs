@@ -173,10 +173,10 @@ fn test_discovery_analysis_checks_failed_resolution() {
     );
     let checks = discoveries.link_checks();
     assert_eq!(checks.len(), 2);
-    assert_eq!(checks[0].message, "found");
-    assert_eq!(checks[1].category, CheckCategory::Link);
-    assert_eq!(checks[1].message, "failed");
-    assert_eq!(checks[1].context.as_deref(), Some("resolution error"));
+    assert_eq!(checks.as_slice()[0].message, "found");
+    assert_eq!(checks.as_slice()[1].category, CheckCategory::Link);
+    assert_eq!(checks.as_slice()[1].message, "failed");
+    assert_eq!(checks.as_slice()[1].context.as_deref(), Some("resolution error"));
 }
 #[test]
 fn test_exact_grouping_does_not_use_matching_metadata() {
@@ -670,9 +670,9 @@ fn test_remote_match_analysis_checks_failed_resolution() {
         .build();
     let checks = value.link_checks();
     assert_eq!(checks.len(), 2);
-    assert_eq!(checks[0].message, "found");
-    assert_eq!(checks[1].message, "failed");
-    assert_eq!(checks[1].context.as_deref(), Some("resolution error"));
+    assert_eq!(checks.as_slice()[0].message, "found");
+    assert_eq!(checks.as_slice()[1].message, "failed");
+    assert_eq!(checks.as_slice()[1].context.as_deref(), Some("resolution error"));
 }
 #[test]
 fn test_remote_persistence_keeps_non_projects_report_only() {
@@ -716,7 +716,7 @@ fn test_remote_persistence_keeps_non_projects_report_only() {
                 .metadata(serde_json::json!({}))
                 .build(),
         ],
-        resolution_checks: Vec::new(),
+        resolution_checks: Default::default(),
     };
     let database = Database::<Table>::from_path(database_path);
     let results = response.clone().persist(&database, None).unwrap();
@@ -776,7 +776,7 @@ fn test_remote_responses_merge_duplicate_provider_identifiers() {
             .title("Example")
             .metadata(serde_json::Value::Null)
             .build()],
-        resolution_checks: Vec::new(),
+        resolution_checks: Default::default(),
     };
     let merged = vec![response("1"), response("1"), response("2")]
         .into_iter()

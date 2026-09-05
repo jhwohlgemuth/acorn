@@ -9,7 +9,7 @@ use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
 use acorn::analyzer::host::tabular::checks_to_csv;
 use acorn::analyzer::host::vale::Vale;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{summary, Check, CheckCategory, Checks, OutputFormat, Standard};
+use acorn::analyzer::{summary, Check, CheckBatch, CheckCategory, OutputFormat, Standard};
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
@@ -110,18 +110,18 @@ impl PrepareText for TextOrigin {
         }
     }
 }
-fn apply_early_exit_policy(results: Vec<Check>, category: &CheckCategory, context: RenderContext<'_>) -> Vec<Check> {
+fn apply_early_exit_policy(results: CheckBatch, category: &CheckCategory, context: RenderContext<'_>) -> CheckBatch {
     let ReportOptions {
         all,
         exit_on_first_error,
         quiet,
         ..
     } = context.options;
-    let filtered_results = filter_by_visibility(&results, *all);
-    let issue_count = failure_count(&filtered_results);
+    let filtered_results = filter_by_visibility(results.as_slice(), *all);
+    let issue_count = failure_count(filtered_results.as_slice());
     if *exit_on_first_error && issue_count > 0 && !*quiet {
         fail!("ACORN found {} {} issues", issue_count, category);
-        filtered_results.render(context);
+        filtered_results.as_slice().render(context);
     }
     filtered_results
 }
@@ -166,7 +166,7 @@ fn build_analysis_context(
         .build();
     AnalysisContext::init().analysis(analysis).execution(execution).report(report).build()
 }
-fn collect(report: &AnalysisReport, options: &AnalysisContext) -> Vec<Check> {
+fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
     report.skipped_categories.iter().for_each(|category| skip!("{} checks", category));
     report
         .batches
@@ -177,16 +177,17 @@ fn collect(report: &AnalysisReport, options: &AnalysisContext) -> Vec<Check> {
 }
 async fn execute(input: Input, options: &AnalysisContext) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
-    let issues = filter_by_visibility(&collect(&report, options), options.report.all);
+    let collected = collect(&report, options);
+    let issues = filter_by_visibility(collected.as_slice(), options.report.all);
     handle(&issues, &input.paths, options, report.render_context(&options.report))
 }
 fn failure_count(issues: &[Check]) -> usize {
     issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
 }
-fn filter_by_visibility(issues: &[Check], all: bool) -> Vec<Check> {
-    issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect::<Vec<Check>>()
+fn filter_by_visibility(issues: &[Check], all: bool) -> CheckBatch {
+    issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect()
 }
-fn handle(issues: &Checks, paths: &[PathBuf], options: &AnalysisContext, render_context: RenderContext<'_>) -> Result<(), Report> {
+fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, render_context: RenderContext<'_>) -> Result<(), Report> {
     let ReportOptions { quiet, no_fail, terse, .. } = &options.report;
     let print_summary = || {
         let file_count = paths.len();
@@ -194,18 +195,18 @@ fn handle(issues: &Checks, paths: &[PathBuf], options: &AnalysisContext, render_
         let rows = (file_count > 1)
             .then(|| vec!["Files checked".to_string(), file_count.to_string()])
             .into_iter()
-            .chain(summary(issues.to_vec()))
+            .chain(summary(issues.as_slice()))
             .collect();
         print_values_as_table::<String>(headers, rows, None);
     };
     if !(*quiet) {
-        issues.render(render_context);
+        issues.as_slice().render(render_context);
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
         }
     }
     if is_stdout_piped() && !issues.is_empty() {
-        match checks_to_csv(issues, false) {
+        match checks_to_csv(issues.as_slice(), false) {
             | Ok(csv) => {
                 write_stdout(&csv);
                 Ok(())
@@ -215,7 +216,7 @@ fn handle(issues: &Checks, paths: &[PathBuf], options: &AnalysisContext, render_
                 Err(why.into())
             }
         }
-    } else if !*no_fail && has_failures(issues) {
+    } else if !*no_fail && has_failures(issues.as_slice()) {
         let count = issues.len();
         Err(eyre!("ACORN found {count} issue{}", suffix(count)))
     } else {

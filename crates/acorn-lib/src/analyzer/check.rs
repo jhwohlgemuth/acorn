@@ -24,16 +24,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use strum::{EnumIs, EnumIter, VariantNames};
 
-/// Collection of analyzer checks.
-pub type Checks = Vec<Check>;
 /// Utility type alias for a vector of [`ConversionWarning`]
 #[cfg(feature = "std")]
 pub type ConversionWarnings = Vec<ConversionWarning>;
-/// Trait for converting to a vector of checks
+/// Trait for converting values to an ordered batch of checks.
 #[cfg(feature = "std")]
 pub trait IntoChecks {
-    /// Convert to a vector of checks
-    fn to_checks(&self, uri: Option<String>) -> Vec<Check>;
+    /// Convert to an ordered batch of checks.
+    fn to_checks(&self, uri: Option<String>) -> CheckBatch;
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
@@ -174,6 +172,9 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
+/// Ordered collection of analyzer checks.
+#[derive(Clone, Debug, Default)]
+pub struct CheckBatch(Vec<Check>);
 impl Check {
     #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
@@ -244,6 +245,69 @@ impl Check {
     /// Returns a new LinkCheckResult with the given URL
     pub fn with_uri(self, value: Option<String>) -> Self {
         Self { uri: value, ..self }
+    }
+}
+impl CheckBatch {
+    /// Create an empty batch.
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+    /// Create a batch containing one check.
+    pub fn single(check: Check) -> Self {
+        Self(vec![check])
+    }
+    /// Combine two batches while preserving their left-to-right order.
+    pub fn combine(self, other: Self) -> Self {
+        Self(self.0.into_iter().chain(other.0).collect())
+    }
+    /// Borrow the checks in this batch as a slice.
+    pub fn as_slice(&self) -> &[Check] {
+        &self.0
+    }
+    /// Iterate over borrowed checks in insertion order.
+    pub fn iter(&self) -> core::slice::Iter<'_, Check> {
+        self.0.iter()
+    }
+    /// Return the number of checks in this batch.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    /// Return whether this batch contains no checks.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Convert this batch into its ordered vector representation.
+    pub fn into_vec(self) -> Vec<Check> {
+        self.0
+    }
+}
+impl core::iter::FromIterator<Check> for CheckBatch {
+    fn from_iter<T: IntoIterator<Item = Check>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+impl core::iter::FromIterator<CheckBatch> for CheckBatch {
+    fn from_iter<T: IntoIterator<Item = CheckBatch>>(iter: T) -> Self {
+        Self(iter.into_iter().flat_map(CheckBatch::into_iter).collect())
+    }
+}
+impl From<Vec<Check>> for CheckBatch {
+    fn from(checks: Vec<Check>) -> Self {
+        Self(checks)
+    }
+}
+impl IntoIterator for CheckBatch {
+    type Item = Check;
+    type IntoIter = alloc::vec::IntoIter<Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 impl CheckCategory {
@@ -321,7 +385,7 @@ impl IntoChecks for ConversionWarnings {
     ///
     /// Each ConversionWarning from a field-level loss during schema crosswalk produces
     /// a single Check with the field name as locator and a human-readable message.
-    fn to_checks(&self, uri: Option<String>) -> Vec<Check> {
+    fn to_checks(&self, uri: Option<String>) -> CheckBatch {
         self.iter()
             .map(|w| {
                 let context = format!("{} → {}", w.from, w.to);
@@ -476,14 +540,19 @@ impl From<&CheckSeverity> for u8 {
         }
     }
 }
+impl From<CheckBatch> for Vec<Check> {
+    fn from(checks: CheckBatch) -> Self {
+        checks.into_vec()
+    }
+}
 /// Portable readability check over supplied text (no filesystem or env)
 #[cfg(feature = "alloc")]
-pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Option<String>) -> Vec<Check> {
+pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Option<String>) -> CheckBatch {
     let maximum = metric.maximum_allowed();
     let calculated = metric.calculate(text);
     let assessment = ReadabilityScore::new(metric, calculated, maximum);
     let message = assessment.to_string();
-    if assessment.is_excessive() {
+    CheckBatch::from(if assessment.is_excessive() {
         let severity = match assessment.severity() {
             | ReadabilitySeverity::Fail => CheckSeverity::Warning,
             | ReadabilitySeverity::Pass => CheckSeverity::Info,
@@ -521,7 +590,7 @@ pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Opti
             message: message,
             data: text.to_string()
         )]
-    }
+    })
 }
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
 #[cfg(feature = "std")]
@@ -571,7 +640,7 @@ where
     })
 }
 /// Create summary data table from given issues
-pub fn summary(issues: Vec<Check>) -> Vec<Vec<String>> {
+pub fn summary(issues: &[Check]) -> Vec<Vec<String>> {
     [
         CheckCategory::Schema,
         CheckCategory::Link,

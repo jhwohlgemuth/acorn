@@ -5,7 +5,7 @@
 use super::context::{AnalysisContext, ExecutionOptions};
 use super::service::{check_prose_for, check_readability_for, Analysis, SchemaCheck};
 use super::vale::{self, Vale, ValeConfig};
-use crate::analyzer::check::{Check, CheckCategory, CheckSeverity, Standard};
+use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
 use crate::analyzer::error::{DocumentTarget, ErrorKind, ValidatorIssues};
 use crate::analyzer::model::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
@@ -63,7 +63,7 @@ macro_rules! impl_schema_check {
     ($($schema:ty),+ $(,)?) => {
         $(
             impl SchemaCheck for $schema {
-                fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+                fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
                     Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
                 }
             }
@@ -85,7 +85,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Resolve analyzer
     async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
     /// Run analyzer on content
-    async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> Vec<Check>;
+    async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> CheckBatch;
     /// Perform synchronization when supported by the analyzer
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()>;
     /// Retry synchronization when supported by the analyzer.
@@ -135,23 +135,24 @@ impl Analysis for Cff {
     fn standard() -> Standard {
         Standard::CitationFileFormat
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -245,7 +246,7 @@ impl Analysis for Cff {
                         let futures: Vec<_> = root_futures.into_iter().chain(identifier_futures).chain(reference_futures).collect();
                         Self::collect_checks(futures, &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
                 }
             }
         });
@@ -261,23 +262,24 @@ impl Analysis for datacite::Record {
     fn standard() -> Standard {
         Standard::Datacite
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -315,7 +317,7 @@ impl Analysis for datacite::Record {
                         });
                         Self::collect_checks(root_futures.chain(rights_futures).chain(related_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
                 }
             }
         });
@@ -331,23 +333,24 @@ impl Analysis for dcat::Dataset {
     fn standard() -> Standard {
         Standard::Dcat
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -385,7 +388,7 @@ impl Analysis for dcat::Dataset {
                             });
                         Self::collect_checks(root_futures.chain(distribution_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
                 }
             }
         });
@@ -401,10 +404,10 @@ impl Analysis for Document {
     fn standard() -> Standard {
         Standard::Document
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .flat_map(|path| match SourceDocument::from_path(path) {
@@ -428,13 +431,14 @@ impl Analysis for Document {
                     uri: path.file_name_with_parent()
                 )],
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| async move {
             match Self::read(path) {
                 | Ok(document) => {
@@ -447,9 +451,7 @@ impl Analysis for Document {
                     )
                     .await
                 }
-                | Err(why) => {
-                    vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))]
-                }
+                | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
             }
         });
         Self::flatten_checks(futures).await
@@ -464,19 +466,20 @@ impl Analysis for huwise::Dataset {
     fn standard() -> Standard {
         Standard::Huwise
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
@@ -489,23 +492,24 @@ impl Analysis for invenio::Record {
     fn standard() -> Standard {
         Standard::Invenio
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -559,7 +563,7 @@ impl Analysis for invenio::Record {
                         });
                         Self::collect_checks(pid_futures.chain(related_futures).chain(rights_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
                 }
             }
         });
@@ -575,21 +579,22 @@ impl Analysis for raid::Metadata {
     fn standard() -> Standard {
         Standard::Raid
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path.to_path_buf()) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
 impl SchemaCheck for raid::Metadata {
-    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
         Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
     }
 }
@@ -599,23 +604,24 @@ impl Analysis for ResearchActivity {
     fn standard() -> Standard {
         Standard::ResearchActivityData
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(feature = "std")]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -646,7 +652,7 @@ impl Analysis for ResearchActivity {
                         let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
                         Self::collect_checks(links, &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))],
+                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
                 }
             }
         });
@@ -665,19 +671,20 @@ impl Analysis for Text {
     fn standard() -> Standard {
         Standard::Text
     }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
             .map(|path| match Self::read(path) {
                 | Ok(_) => check_ok!(CheckCategory::Quality),
                 | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into()
     }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
@@ -722,7 +729,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         vale
     }
-    async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> Vec<Check> {
+    async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> CheckBatch {
         let uri = path.file_name_with_parent();
         let root = path
             .parent()
@@ -740,7 +747,8 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     CheckCategory::Prose,
                     uri: uri,
                     message: format!("Cannot write analyzer input at {}", path.display())
-                )];
+                )]
+                .into();
             }
         }
         let binary = match &self.binary {
@@ -776,7 +784,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         let parsed = ValeOutput::parse(&output.stdout(), path.clone());
                         if parsed.is_empty() {
                             info!("=> {} {} has {}", Label::pass(), uri.underline(), "no prose issues".green());
-                            vec![check_ok!(CheckCategory::Prose, uri: uri)]
+                            CheckBatch::single(check_ok!(CheckCategory::Prose, uri: uri))
                         } else {
                             parsed
                                 .into_iter()
@@ -803,18 +811,18 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                             why
                         };
                         error!("=> {} Analyze with OK output — {message}", Label::fail());
-                        vec![check_err!(CheckCategory::Prose, message: message)]
+                        CheckBatch::single(check_err!(CheckCategory::Prose, message: message))
                     }
                     | Err(why) => {
                         error!("=> {} Analyze — {why}", Label::fail());
-                        vec![check_err!(CheckCategory::Prose, uri: uri)]
+                        CheckBatch::single(check_err!(CheckCategory::Prose, uri: uri))
                     }
                 }
             }
             | None => {
                 let title = self.command().to_case(Case::Title);
                 error!("=> {} {} configuration", Label::not_found(), title);
-                vec![check_err!(CheckCategory::Prose, message: uri)]
+                CheckBatch::single(check_err!(CheckCategory::Prose, message: uri))
             }
         }
     }
@@ -1173,7 +1181,7 @@ impl StaticAnalyzerConfig for ValeConfig {
         self
     }
 }
-async fn check_schema_path<T, E>(path: PathBuf, document: Result<T, E>) -> Vec<Check>
+async fn check_schema_path<T, E>(path: PathBuf, document: Result<T, E>) -> CheckBatch
 where
     T: Validate + Send,
     E: ToString + Send,
@@ -1192,7 +1200,7 @@ where
             .collect(),
     }
 }
-pub(crate) async fn collect_validation_checks<T>(value: &T) -> Vec<Check>
+pub(crate) async fn collect_validation_checks<T>(value: &T) -> CheckBatch
 where
     T: Validate,
 {

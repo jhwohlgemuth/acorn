@@ -309,7 +309,7 @@ async fn build_report(
                         Ok(MergeRequestAnalysisReport {
                             head_sha: head_sha.to_string(),
                             inputs,
-                            checks,
+                            checks: checks.into(),
                             citation_candidates,
                         })
                     }
