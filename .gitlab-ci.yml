@@ -1,6 +1,6 @@
 variables:
   BINARY_NAME: acorn
-  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_JOB_ID/$CI_PROJECT_PATH
   GIT_CLEAN_FLAGS: -ffdx
   CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
   CARGO_NET_RETRY: "3"
@@ -87,6 +87,7 @@ test:
 test-portability:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  resource_group: tests
   tags:
     - cpu
   hooks:
@@ -141,6 +142,7 @@ test-python:
 test-docs:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  resource_group: tests
   tags:
     - cpu
   hooks:
@@ -173,6 +175,7 @@ test-docs:
 fuzz-smoke:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  resource_group: tests
   tags:
     - cpu
   timeout: 12 minutes
