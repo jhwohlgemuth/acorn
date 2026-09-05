@@ -38,10 +38,15 @@ use serde_trim::{option_string_trim, string_trim, vec_string_trim};
 use serde_with::skip_serializing_none;
 
 pub mod aspect;
+pub mod common;
 mod markdown;
 pub mod output;
 pub mod s3a;
 use aspect::AspectFramework;
+pub use common::{
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
+    RelatedResourceCategory, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
+};
 use markdown::Document;
 pub use output::ResearchOutput;
 

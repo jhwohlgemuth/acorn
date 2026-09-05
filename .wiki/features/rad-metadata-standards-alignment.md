@@ -107,7 +107,7 @@ Deliverable: `cargo nextest run -p acorn-schema standard::datacite` validates pi
 - Define separate validity levels for a valid RAD record, a RAiD-ready activity, and a DataCite-deposit-ready output — the latter is the new `validate_deposit_ready(&Record)` / `validate_deposit_ready(&Resource)` gate, not `Validate` on `Attributes`.
 - Pin official RAiD and DataCite 4.7 fixtures used for conformance tests (reuses Slice 0 fixtures; matrix references them by path).
 
-Deliverable: a reviewed mapping table and fixture set that resolve field meaning before Rust types change. Matrix lives in `docs/` or `.wiki/assets/` and is linked from this plan.
+Deliverable: a reviewed mapping table and fixture set that resolve field meaning before Rust types change. Matrix lives in `.wiki/assets/standards-field-matrix.md` and is linked from this plan.
 
 ## 2. Add reusable metadata primitives
 

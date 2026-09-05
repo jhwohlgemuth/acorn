@@ -75,28 +75,24 @@
 //!     id: String,
 //!     name: String,
 //! }
-//!
 //! fn validate_id(value: &Member, _ctx: &Context) -> Result<(), ValidationReport> {
 //!     (!value.id.is_empty())
 //!         .then_some(())
 //!         .ok_or_else(|| ValidationError::new("id"))
 //!         .map_err(|error| error.into_report("id"))
 //! }
-//!
 //! fn validate_name(value: &Member) -> Result<(), ValidationReport> {
 //!     (!value.name.is_empty())
 //!         .then_some(())
 //!         .ok_or_else(|| ValidationError::new("name"))
 //!         .map_err(|error| error.into_report("name"))
 //! }
-//!
 //! fn check_identity(value: &Member, ctx: &Context) -> Result<(), ValidationReport> {
 //!     ValidationReport::default()
 //!         .merge("", report_of(validate_id(value, ctx)))
 //!         .merge("", report_of(validate_name(value)))
 //!         .finish()
 //! }
-//!
 //! fn main() {
 //!     let active = Member { enabled: true, ctx: Context, id: String::new(), name: "A".into() };
 //!     assert!(active.validate().is_err());
@@ -106,7 +102,6 @@
 //! ```
 //!
 //! # Examples
-//!
 //! Combine scalar, optional, collection, and negated validation:
 //!
 //! ```
@@ -121,7 +116,6 @@
 //!         .then_some(())
 //!         .ok_or_else(|| ValidationError::new("channel"))
 //! }
-//!
 //! #[derive(Serialize, Validate)]
 //! struct Contact {
 //!     #[validate(nonempty, length(max = 80))]
@@ -135,16 +129,15 @@
 //!     #[validate(not(url), custom(function = "known_channel"))]
 //!     channel: String,
 //! }
-//!
 //! fn main() {
-//! let value = Contact {
-//!     name: "ACORN".into(),
-//!     address: Some("research@example.org".into()),
-//!     destination: "https://example.org/contact".into(),
-//!     emails: vec!["research@example.org".into()],
-//!     channel: "email".into(),
-//! };
-//! assert!(value.validate().is_ok());
+//!     let value = Contact {
+//!         name: "ACORN".into(),
+//!         address: Some("research@example.org".into()),
+//!         destination: "https://example.org/contact".into(),
+//!         emails: vec!["research@example.org".into()],
+//!         channel: "email".into(),
+//!     };
+//!     assert!(value.validate().is_ok());
 //! }
 //! ```
 //!
@@ -162,23 +155,20 @@
 //!     #[validate(range(min = 1, max = 10))]
 //!     score: u8,
 //! }
-//!
 //! fn has_children(value: &Parent, _context: &()) -> Result<(), ValidationReport> {
 //!     (!value.children.is_empty())
 //!         .then_some(())
 //!         .ok_or_else(|| ValidationError::new("children"))
 //!         .map_err(|error| error.into_report(""))
 //! }
-//!
 //! #[derive(Serialize, Validate)]
 //! #[validate(schema(function = "has_children"))]
 //! struct Parent {
 //!     #[validate(nested)]
 //!     children: Vec<Child>,
 //! }
-//!
 //! fn main() {
-//! assert!(Parent { children: vec![Child { score: 5 }] }.validate().is_ok());
+//!     assert!(Parent { children: vec![Child { score: 5 }] }.validate().is_ok());
 //! }
 //! ```
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
