@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
-use crate::analyzer::{AnalysisOptions, ExecutionOptions};
+use crate::analyzer::host::context::{AnalysisOptions, ExecutionOptions};
 use crate::{check_err, check_ok};
 use std::fs::{create_dir_all, write};
 use tempfile::tempdir;

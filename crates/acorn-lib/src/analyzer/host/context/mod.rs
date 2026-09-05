@@ -1,8 +1,8 @@
-//! Immutable analysis, execution, and reporting configuration.
-
-use super::check::{OutputFormat, Standard};
-use super::readability::ReadabilityType;
+//! Immutable analysis, execution, and reporting configuration
+use super::runtime::{StaticAnalyzer, StaticAnalyzerConfig};
 use super::vale::ValeConfig;
+use crate::analyzer::check::{OutputFormat, Standard};
+use crate::analyzer::readability::ReadabilityType;
 use acorn_core::prelude::Vec;
 use bon::Builder;
 use jiff::SignedDuration;
@@ -111,8 +111,8 @@ impl ExecutionOptions {
     /// Resolve the configured static analyzer.
     pub async fn resolve_analyzer<Analyzer, Config>(&self, config: Config) -> Analyzer
     where
-        Analyzer: super::StaticAnalyzer<Config>,
-        Config: super::StaticAnalyzerConfig,
+        Analyzer: StaticAnalyzer<Config>,
+        Config: StaticAnalyzerConfig,
     {
         Analyzer::resolve(config.save().await, self.offline, self.skip_verify_checksum).await
     }

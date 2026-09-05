@@ -1,5 +1,5 @@
 use super::*;
-use crate::analyzer::discovery::{ArtifactCandidate, Candidate};
+use crate::analyzer::host::discovery::{ArtifactCandidate, Candidate};
 use crate::io::api::citeas;
 use crate::io::api::gitlab::intake::{analyze_work_item, verified_command_author, Authorization};
 use crate::io::api::gitlab::{webhook, HookActor, Note, WorkItem, WorkItemUser};
@@ -19,7 +19,6 @@ struct TestState {
     written: Arc<Mutex<Vec<serde_json::Value>>>,
     repository_url: Arc<Mutex<String>>,
 }
-
 fn note_json(identifier: u64, body: &str, author_id: u64) -> serde_json::Value {
     serde_json::json!({
         "id": identifier,
@@ -30,7 +29,6 @@ fn note_json(identifier: u64, body: &str, author_id: u64) -> serde_json::Value {
         "internal": false
     })
 }
-
 fn written_note(body: &serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "id": 80,
@@ -40,65 +38,6 @@ fn written_note(body: &serde_json::Value) -> serde_json::Value {
         "confidential": false,
         "internal": false
     })
-}
-#[test]
-fn content_excludes_commands_and_non_human_or_later_notes() {
-    let item = WorkItem {
-        identifier: 10,
-        iid: 7,
-        project_id: 30,
-        title: "Result".to_string(),
-        description: "doi:10.1234/example".to_string(),
-        author: WorkItemUser::new(1, "user-1", false),
-        issue_type: "issue".to_string(),
-        confidential: false,
-    };
-    let note = |identifier, body: &str, author, system| Note::WorkItem {
-        identifier,
-        body: body.to_string(),
-        author,
-        system,
-        confidential: false,
-        internal: false,
-    };
-    let content = item.content(
-        &[
-            note(2, "Human context", WorkItemUser::new(2, "user-2", false), false),
-            note(3, "/acorn check", WorkItemUser::new(2, "user-2", false), false),
-            note(4, "Bot context", WorkItemUser::new(9, "user-9", true), false),
-            note(5, "System context", WorkItemUser::new(2, "user-2", false), true),
-            note(11, "Later context", WorkItemUser::new(2, "user-2", false), false),
-        ],
-        10,
-        9,
-    );
-    assert!(content.contains("Human context"));
-    assert!(!content.contains("/acorn check"));
-    assert!(!content.contains("Bot context"));
-    assert!(!content.contains("System context"));
-    assert!(!content.contains("Later context"));
-}
-#[test]
-fn embedded_cff_is_complete_and_identifier_only_candidate_is_excluded() {
-    let content = "```cff\ncff-version: 1.2.0\ntitle: Existing result\nmessage: Cite this\nabstract: A complete software description\nkeywords: [ai, hpc]\nrepository-code: https://gitlab.com/example/project\nauthors:\n  - family-names: Example\n    given-names: Alice\ncontact:\n  - family-names: Contact\n    given-names: Casey\n    orcid: https://orcid.org/0000-0002-2057-9115\n    email: contact@example.org\ndoi: 10.1234/example\nidentifiers:\n  - type: other\n    value: hdl:10013/epic.10033\n```";
-    let candidate = ArtifactCandidate::from(Cff::embedded(content).into_iter().next().unwrap());
-    assert_eq!(candidate.description.as_deref(), Some("A complete software description"));
-    assert_eq!(candidate.keywords, ["artificial-intelligence", "high-performance-computing"]);
-    assert_eq!(candidate.websites[0].url(), Some("https://gitlab.com/example/project"));
-    assert_eq!(candidate.contact.as_ref().and_then(Candidate::email), Some("contact@example.org"));
-    assert!(candidate
-        .identifiers
-        .iter()
-        .any(|identifier| identifier.kind == PID::Handle && identifier.value == "10013/epic.10033"));
-    assert!(candidate.classify(None).cff.is_some());
-    let identifier = Identifier::new("https://example.org/artifact").normalized().unwrap();
-    let excluded = ArtifactCandidate {
-        identifiers: vec![identifier],
-        ..ArtifactCandidate::default()
-    }
-    .classify(Some("metadata unavailable".to_string()));
-    assert_eq!(excluded.missing, ["Title", "Authors"]);
-    assert!(excluded.cff.is_none());
 }
 #[test]
 fn citeas_metadata_completes_a_doi_candidate() {
@@ -143,6 +82,43 @@ fn command_matching_requires_an_exact_trimmed_line() {
     );
     assert_eq!(verified_command_author(&[command], 10, &HookActor::new(30, 2, "user-2", false)), None);
 }
+#[test]
+fn content_excludes_commands_and_non_human_or_later_notes() {
+    let item = WorkItem {
+        identifier: 10,
+        iid: 7,
+        project_id: 30,
+        title: "Result".to_string(),
+        description: "doi:10.1234/example".to_string(),
+        author: WorkItemUser::new(1, "user-1", false),
+        issue_type: "issue".to_string(),
+        confidential: false,
+    };
+    let note = |identifier, body: &str, author, system| Note::WorkItem {
+        identifier,
+        body: body.to_string(),
+        author,
+        system,
+        confidential: false,
+        internal: false,
+    };
+    let content = item.content(
+        &[
+            note(2, "Human context", WorkItemUser::new(2, "user-2", false), false),
+            note(3, "/acorn check", WorkItemUser::new(2, "user-2", false), false),
+            note(4, "Bot context", WorkItemUser::new(9, "user-9", true), false),
+            note(5, "System context", WorkItemUser::new(2, "user-2", false), true),
+            note(11, "Later context", WorkItemUser::new(2, "user-2", false), false),
+        ],
+        10,
+        9,
+    );
+    assert!(content.contains("Human context"));
+    assert!(!content.contains("/acorn check"));
+    assert!(!content.contains("Bot context"));
+    assert!(!content.contains("System context"));
+    assert!(!content.contains("Later context"));
+}
 #[tokio::test]
 async fn creator_issue_intake_reports_multiple_incomplete_artifacts() {
     let state = TestState::default();
@@ -184,6 +160,28 @@ async fn creator_issue_intake_reports_multiple_incomplete_artifacts() {
     assert!(report.candidates.iter().all(|candidate| candidate.cff.is_none()));
     assert_eq!(state.written.lock().unwrap().len(), 1);
     server.stop().await.unwrap();
+}
+#[test]
+fn embedded_cff_is_complete_and_identifier_only_candidate_is_excluded() {
+    let content = "```cff\ncff-version: 1.2.0\ntitle: Existing result\nmessage: Cite this\nabstract: A complete software description\nkeywords: [ai, hpc]\nrepository-code: https://gitlab.com/example/project\nauthors:\n  - family-names: Example\n    given-names: Alice\ncontact:\n  - family-names: Contact\n    given-names: Casey\n    orcid: https://orcid.org/0000-0002-2057-9115\n    email: contact@example.org\ndoi: 10.1234/example\nidentifiers:\n  - type: other\n    value: hdl:10013/epic.10033\n```";
+    let candidate = ArtifactCandidate::from(Cff::embedded(content).into_iter().next().unwrap());
+    assert_eq!(candidate.description.as_deref(), Some("A complete software description"));
+    assert_eq!(candidate.keywords, ["artificial-intelligence", "high-performance-computing"]);
+    assert_eq!(candidate.websites[0].url(), Some("https://gitlab.com/example/project"));
+    assert_eq!(candidate.contact.as_ref().and_then(Candidate::email), Some("contact@example.org"));
+    assert!(candidate
+        .identifiers
+        .iter()
+        .any(|identifier| identifier.kind == PID::Handle && identifier.value == "10013/epic.10033"));
+    assert!(candidate.classify(None).cff.is_some());
+    let identifier = Identifier::new("https://example.org/artifact").normalized().unwrap();
+    let excluded = ArtifactCandidate {
+        identifiers: vec![identifier],
+        ..ArtifactCandidate::default()
+    }
+    .classify(Some("metadata unavailable".to_string()));
+    assert_eq!(excluded.missing, ["Title", "Authors"]);
+    assert!(excluded.cff.is_none());
 }
 #[tokio::test]
 async fn existing_gitlab_repository_cff_completes_candidate() {

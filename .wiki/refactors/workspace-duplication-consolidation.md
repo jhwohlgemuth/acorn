@@ -69,6 +69,6 @@ Extract a CLI-local synchronization helper that converts resolved model identifi
 # Related plans
 
 - [Crate boundary architecture](crate-boundary-architecture.md)
-- [Isolate std-only modules](portability/isolate-std-only-modules.md)
+- [Portability roadmap](portability/roadmap.md)
 - [API health-check helpers](api/health-check-helpers.md)
 - [CLI parse and execution models](core/cli-parse-execution-models.md)

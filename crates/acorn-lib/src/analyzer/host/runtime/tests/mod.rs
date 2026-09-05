@@ -7,11 +7,14 @@
 )]
 use crate::analyzer::check::Standard;
 use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
-use crate::analyzer::vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
-use crate::analyzer::{
-    checks_to_dataframe, collect_validation_checks, summary, Analysis, Check, CheckCategory, CheckSeverity, ExecutionOptions, IntoChecks,
-    StaticAnalyzer, StaticAnalyzerConfig,
+use crate::analyzer::host::context::ExecutionOptions;
+use crate::analyzer::host::runtime::{collect_validation_checks, StaticAnalyzer, StaticAnalyzerConfig};
+use crate::analyzer::host::service::Analysis;
+use crate::analyzer::host::tabular::checks_to_dataframe;
+use crate::analyzer::host::vale::{
+    preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity,
 };
+use crate::analyzer::{summary, Check, CheckCategory, CheckSeverity, IntoChecks};
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::test::utils::unique_path;
 use crate::{check, check_ok};
@@ -29,9 +32,9 @@ use std::fs::{create_dir_all, remove_file, write};
 use std::path::PathBuf;
 
 #[derive(Validate)]
-struct FieldModel {
-    #[validate(length(min = 3, max = 3))]
-    name: String,
+struct ArrayParamModel {
+    #[validate(length(min = 3))]
+    tags: Vec<String>,
 }
 #[derive(Validate)]
 struct ChildModel {
@@ -39,14 +42,19 @@ struct ChildModel {
     email: String,
 }
 #[derive(Validate)]
-struct ParentModel {
-    #[validate(nested)]
-    child: ChildModel,
+struct FieldModel {
+    #[validate(length(min = 3, max = 3))]
+    name: String,
 }
 #[derive(Validate)]
 struct ParentListModel {
     #[validate(nested)]
     children: Vec<ChildModel>,
+}
+#[derive(Validate)]
+struct ParentModel {
+    #[validate(nested)]
+    child: ChildModel,
 }
 #[derive(Validate)]
 struct RepeatedChildModel {
@@ -62,11 +70,6 @@ struct RepeatedNameModel {
 struct RepeatedNameParentModel {
     #[validate(nested)]
     child: RepeatedNameModel,
-}
-#[derive(Validate)]
-struct ArrayParamModel {
-    #[validate(length(min = 3))]
-    tags: Vec<String>,
 }
 impl ValeOutputItem {
     fn fixture(line: u32, span: Vec<u32>, word_match: &str) -> Self {
@@ -99,44 +102,24 @@ fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem
         .resolve_locator(&document);
     (check, document)
 }
-
 #[tokio::test]
-async fn test_vale_retry_sync_reports_exhaustion() {
-    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
-    let options = ExecutionOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
-    let error = vale.retry_sync(&options).await.expect_err("missing Vale binary should exhaust retries");
-    assert!(error.to_string().contains("failed after 3 attempts"));
-}
-#[tokio::test]
-async fn test_vale_retry_sync_can_ignore_exhaustion() {
-    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
-    let options = ExecutionOptions::init()
-        .ignore_sync_failure(true)
-        .quiet(true)
-        .sync_retry_interval(SignedDuration::ZERO)
-        .build();
-    assert!(vale.retry_sync(&options).await.is_ok());
-}
-#[test]
-fn test_standard_detection_uses_dcat_jsonld_type() {
-    let value: Value = serde_json::json!({
-        "@type": "dcat:Dataset",
-        "metadata": {}
-    });
-    let object = value.as_object().unwrap();
-    assert_eq!(Standard::from(object), Standard::Dcat);
-}
-#[tokio::test]
-async fn test_cff_validation_issues_invalid_doi() {
+async fn test_cff_check_quality_returns_ok_for_readable_file() {
+    let path = unique_path("cff-quality-valid", "cff");
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent).expect("failed to create test_artifacts directory");
+    }
     let cff = Cff {
-        title: "Invalid DOI".to_string(),
+        title: "Valid CFF".to_string(),
         message: "Message".to_string(),
-        doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let issues = collect_validation_checks(&cff).await;
-    assert!(!issues.is_empty());
-    assert_eq!(issues[0].category, CheckCategory::Schema);
+    let yaml = serde_norway::to_string(&cff).expect("failed to serialize CFF fixture");
+    write(path.clone(), yaml).expect("failed to write CFF fixture");
+    let checks = Cff::check_quality(core::slice::from_ref(&path), None).await;
+    assert_eq!(checks.len(), 1);
+    assert!(checks[0].success);
+    assert_eq!(checks[0].category, CheckCategory::Quality);
+    let _cleanup = remove_file(path);
 }
 #[tokio::test]
 async fn test_cff_check_schema_returns_errors_for_invalid_file() {
@@ -158,23 +141,56 @@ async fn test_cff_check_schema_returns_errors_for_invalid_file() {
     let _cleanup = remove_file(path);
 }
 #[tokio::test]
-async fn test_cff_check_quality_returns_ok_for_readable_file() {
-    let path = unique_path("cff-quality-valid", "cff");
-    if let Some(parent) = path.parent() {
-        create_dir_all(parent).expect("failed to create test_artifacts directory");
-    }
+async fn test_cff_validation_issues_invalid_doi() {
     let cff = Cff {
-        title: "Valid CFF".to_string(),
+        title: "Invalid DOI".to_string(),
         message: "Message".to_string(),
+        doi: Some("not-a-doi".to_string()),
         ..Cff::default()
     };
-    let yaml = serde_norway::to_string(&cff).expect("failed to serialize CFF fixture");
-    write(path.clone(), yaml).expect("failed to write CFF fixture");
-    let checks = Cff::check_quality(core::slice::from_ref(&path), None).await;
-    assert_eq!(checks.len(), 1);
-    assert!(checks[0].success);
-    assert_eq!(checks[0].category, CheckCategory::Quality);
-    let _cleanup = remove_file(path);
+    let issues = collect_validation_checks(&cff).await;
+    assert!(!issues.is_empty());
+    assert_eq!(issues[0].category, CheckCategory::Schema);
+}
+#[test]
+fn test_check_severity_default() {
+    let check = check_ok!(CheckCategory::Prose);
+    assert_eq!(check.severity, CheckSeverity::Error);
+}
+#[test]
+fn test_check_severity_from_vale_output_item_severity_matrix() {
+    let matrix = [
+        (ValeOutputItemSeverity::Error, CheckSeverity::Error),
+        (ValeOutputItemSeverity::Suggestion, CheckSeverity::Suggestion),
+        (ValeOutputItemSeverity::Warning, CheckSeverity::Warning),
+    ];
+    matrix
+        .into_iter()
+        .for_each(|(input, expected)| assert_eq!(CheckSeverity::from(input), expected));
+}
+#[test]
+fn test_check_severity_to_ariadne_color_matrix() {
+    let matrix = [
+        (CheckSeverity::Error, Color::Red),
+        (CheckSeverity::Suggestion, Color::Blue),
+        (CheckSeverity::Warning, Color::Yellow),
+    ];
+    matrix.into_iter().for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
+}
+#[test]
+fn test_check_severity_to_ariadne_report_kind_matrix() {
+    let error_kind: ReportKind<'static> = CheckSeverity::Error.into();
+    let suggestion_kind: ReportKind<'static> = CheckSeverity::Suggestion.into();
+    let warning_kind: ReportKind<'static> = CheckSeverity::Warning.into();
+    assert!(matches!(error_kind, ReportKind::Error));
+    assert!(matches!(warning_kind, ReportKind::Warning));
+    match suggestion_kind {
+        | ReportKind::Custom(label, color) => {
+            assert_eq!(label, "Suggestion");
+            assert_eq!(color, Color::Blue);
+        }
+        | _ => panic!("Suggestion severity should map to custom report kind"),
+    }
 }
 #[test]
 fn test_checks_to_dataframe() {
@@ -183,6 +199,78 @@ fn test_checks_to_dataframe() {
     let df = checks_to_dataframe(&checks);
     let reason = "Failed to convert checks to dataframe";
     assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+}
+#[tokio::test]
+async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {
+    let cff = Cff {
+        title: "Invalid License".to_string(),
+        message: "Message".to_string(),
+        license: Some(OneOrMany::One(" ".to_string())),
+        ..Cff::default()
+    };
+    let checks = collect_validation_checks(&cff).await;
+    let schema_check = checks
+        .iter()
+        .find(|check| check.category == CheckCategory::Schema)
+        .expect("expected schema check");
+    let rendered = format!("{}", schema_check);
+    assert_eq!(schema_check.context.as_deref(), Some("license"));
+    assert!(rendered.contains("license"), "expected license path in display output: {rendered}");
+    assert!(
+        !rendered.contains("license.license"),
+        "expected duplicated wrapper path to be removed: {rendered}"
+    );
+}
+#[tokio::test]
+async fn test_collect_validation_checks_awaits_async_rules() {
+    async fn reject(value: &str) -> Result<(), ValidationError> {
+        match value {
+            | "invalid" => Err(ValidationError::new("async_rejected")),
+            | _ => Ok(()),
+        }
+    }
+    #[derive(Validate)]
+    struct AsyncModel {
+        #[validate(async(function = "reject"))]
+        value: String,
+    }
+    let checks = collect_validation_checks(&AsyncModel {
+        value: "invalid".to_string(),
+    })
+    .await;
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].context.as_deref(), Some("value"));
+}
+#[tokio::test]
+async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
+    #[derive(Validate)]
+    struct ChildModel {
+        #[validate(email)]
+        email: String,
+    }
+    #[derive(Validate)]
+    struct ParentListModel {
+        #[validate(nested)]
+        children: Vec<ChildModel>,
+    }
+    let value = ParentListModel {
+        children: vec![
+            ChildModel {
+                email: "valid@example.com".to_string(),
+            },
+            ChildModel {
+                email: "invalid".to_string(),
+            },
+        ],
+    };
+    let checks = collect_validation_checks(&value).await;
+    assert_eq!(checks.len(), 1);
+    let rendered = format!("{}", checks[0]);
+    assert!(
+        rendered.contains("children[1].email"),
+        "expected nested indexed path in display output: {rendered}"
+    );
+    assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
 }
 #[test]
 fn test_conversion_warnings_use_into_checks_trait() {
@@ -194,15 +282,6 @@ fn test_conversion_warnings_use_into_checks_trait() {
     assert_eq!(checks[0].issue_count(), 1);
     assert_eq!(checks[0].uri.as_deref(), Some("record.json"));
     assert_eq!(checks[0].locator.as_deref(), Some("attributes.publisher"));
-}
-#[test]
-fn test_summary_includes_crosswalk_warnings() {
-    let warnings = vec![
-        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher"),
-        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.subjects"),
-    ];
-    let rows = summary(warnings.to_checks(None));
-    assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
 }
 #[test]
 fn test_parse_vale_output() {
@@ -266,6 +345,16 @@ fn test_parse_vale_output() {
     "#;
     let parsed: Vec<ValeOutputItem> = ValeOutput::parse(data, PathBuf::from(path));
     assert_eq!(parsed.len(), 3);
+}
+#[test]
+fn test_portable_validation_codes_map_to_dedicated_analyzer_kinds() {
+    assert!(matches!(ErrorCode::from("country"), ErrorCode::Country));
+    assert!(matches!(ErrorCode::from("digest"), ErrorCode::Digest));
+    assert!(matches!(ErrorCode::from("epoch"), ErrorCode::Epoch));
+    assert!(matches!(ErrorCode::from("nonempty"), ErrorCode::Nonempty));
+    assert!(matches!(ErrorCode::from("not"), ErrorCode::Not));
+    assert!(matches!(ErrorCode::from("or"), ErrorCode::Or));
+    assert!(matches!(ErrorCode::from("timestamp"), ErrorCode::Timestamp));
 }
 #[test]
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
@@ -465,223 +554,19 @@ fn test_preprocess_vale_output_windows_full_example() {
     }
 }
 #[test]
-fn test_vale_output_parse_empty() {
-    let path = PathBuf::from("test-file");
-    let empty_output = "{}";
-    let result = ValeOutput::parse(empty_output, path);
-    assert_eq!(result.len(), 0, "Empty output should return empty vector");
-}
-#[test]
-fn test_vale_output_severity_colored() {
-    let warning = ValeOutputItemSeverity::Warning;
-    let error = ValeOutputItemSeverity::Error;
-    let suggestion = ValeOutputItemSeverity::Suggestion;
-    assert!(!warning.colored().is_empty());
-    assert!(!error.colored().is_empty());
-    assert!(!suggestion.colored().is_empty());
-}
-#[test]
-fn test_check_severity_default() {
-    let check = check_ok!(CheckCategory::Prose);
-    assert_eq!(check.severity, CheckSeverity::Error);
-}
-#[test]
-fn test_check_severity_from_vale_output_item_severity_matrix() {
-    let matrix = [
-        (ValeOutputItemSeverity::Error, CheckSeverity::Error),
-        (ValeOutputItemSeverity::Suggestion, CheckSeverity::Suggestion),
-        (ValeOutputItemSeverity::Warning, CheckSeverity::Warning),
-    ];
-    matrix
-        .into_iter()
-        .for_each(|(input, expected)| assert_eq!(CheckSeverity::from(input), expected));
-}
-#[test]
-fn test_check_severity_to_ariadne_color_matrix() {
-    let matrix = [
-        (CheckSeverity::Error, Color::Red),
-        (CheckSeverity::Suggestion, Color::Blue),
-        (CheckSeverity::Warning, Color::Yellow),
-    ];
-    matrix.into_iter().for_each(|(input, expected)| assert_eq!(Color::from(input), expected));
-}
-#[test]
-fn test_check_severity_to_ariadne_report_kind_matrix() {
-    let error_kind: ReportKind<'static> = CheckSeverity::Error.into();
-    let suggestion_kind: ReportKind<'static> = CheckSeverity::Suggestion.into();
-    let warning_kind: ReportKind<'static> = CheckSeverity::Warning.into();
-    assert!(matches!(error_kind, ReportKind::Error));
-    assert!(matches!(warning_kind, ReportKind::Warning));
-    match suggestion_kind {
-        | ReportKind::Custom(label, color) => {
-            assert_eq!(label, "Suggestion");
-            assert_eq!(color, Color::Blue);
-        }
-        | _ => panic!("Suggestion severity should map to custom report kind"),
-    }
-}
-#[test]
-fn test_report_schema_with_missing_value_param_does_not_panic() {
-    let mut validation_errors = ValidationReport::new();
-    let mut error = ValidationError::new("license");
-    error.params.clear();
-    validation_errors.add("license", error);
-    let issue = Check::init()
-        .index(0)
-        .category(CheckCategory::Schema)
-        .severity(CheckSeverity::Error)
-        .errors(ErrorKind::Validator(validation_errors))
-        .uri("fixtures/CITATION.cff")
-        .build();
-    issue.report(None);
-}
-#[test]
-fn test_with_context_and_with_uri_preserve_severity() {
-    let check = check!(
-      CheckCategory::Link,
-      false,
-      severity: CheckSeverity::Warning,
-      message: "link check"
-    );
-    let with_context = check.clone().with_context("content/index.json".to_string());
-    let with_uri = check.with_uri(Some("https://example.org".to_string()));
-    assert_eq!(with_context.severity, CheckSeverity::Warning);
-    assert_eq!(with_uri.severity, CheckSeverity::Warning);
-}
-#[test]
-fn test_prose_location_maps_extracted_document_coordinates() {
-    let content = "# Title\n\nbad prose";
-    let (check, document) = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
-    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
-    assert!(check.terse(Some(&document)).contains("path=paper.pdf:3:1"));
-}
-#[test]
-fn test_prose_location_maps_structured_prose_to_full_source() {
-    let content = "{\n  \"ignored\": \"metadata\",\n  \"description\": \"geo-spatial science\"\n}";
-    let (check, document) = prose_check(
-        "index.json",
-        content,
-        "geo-spatial science",
-        ValeOutputItem::fixture(1, vec![1, 11], "geo-spatial"),
-    );
-    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
-    assert!(check.to_string().contains("Line 3, Character 19"));
-    assert!(check.terse(Some(&document)).contains("path=index.json:3:19"));
-}
-#[test]
-fn test_prose_location_omits_invalid_analyzer_span() {
-    let content = "first\nsecond";
-    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
-    assert_eq!(check.locator, None);
-    assert!(check.to_string().contains("Unlocated"));
-    assert!(!check.terse(Some(&document)).contains("path=notes.md:"));
-}
-#[test]
-fn test_prose_location_omits_ambiguous_structured_match() {
-    let content = "{\"title\":\"repeat\",\"description\":\"repeat\"}";
-    let (check, document) = prose_check(
-        "index.json",
-        content,
-        "repeat\n\nrepeat",
-        ValeOutputItem::fixture(3, vec![1, 6], "repeat"),
-    );
-    assert_eq!(check.locator, None);
-    assert!(check.to_string().contains("Unlocated"));
-    assert!(check.terse(Some(&document)).contains("path=index.json"));
-    assert!(!check.terse(Some(&document)).contains("path=index.json:"));
-}
-#[test]
-fn test_prose_location_uses_full_text_coordinates_with_duplicate_words() {
-    let content = "repeat\nclean\nrepeat problem";
-    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
-    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
-    assert!(check.terse(Some(&document)).contains("path=notes.md:3:1"));
-}
-#[test]
-fn test_terse_output_includes_resolved_line_and_column() {
-    let content = "{\n  \"url\": \"target\"\n}";
-    let document = SourceDocument::init().content(content).format("json").source("index.json").build();
-    let check = Check::init()
-        .category(CheckCategory::Link)
-        .locator("url")
-        .context("target")
-        .message("Unreachable")
-        .uri("index.json")
-        .build();
-    let document = DocumentIndex::new(document);
-    assert!(check.terse(Some(&document)).contains("path=index.json:2:11"));
-}
-#[tokio::test]
-async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
-    #[derive(Validate)]
-    struct ChildModel {
-        #[validate(email)]
-        email: String,
-    }
-    #[derive(Validate)]
-    struct ParentListModel {
-        #[validate(nested)]
-        children: Vec<ChildModel>,
-    }
-    let value = ParentListModel {
-        children: vec![
-            ChildModel {
-                email: "valid@example.com".to_string(),
-            },
-            ChildModel {
+fn test_process_preserves_non_wrapper_repeated_segment_paths() {
+    let value = RepeatedNameParentModel {
+        child: RepeatedNameModel {
+            child: RepeatedChildModel {
                 email: "invalid".to_string(),
             },
-        ],
+        },
     };
-    let checks = collect_validation_checks(&value).await;
-    assert_eq!(checks.len(), 1);
-    let rendered = format!("{}", checks[0]);
-    assert!(
-        rendered.contains("children[1].email"),
-        "expected nested indexed path in display output: {rendered}"
-    );
-    assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
-}
-#[tokio::test]
-async fn test_collect_validation_checks_awaits_async_rules() {
-    async fn reject(value: &str) -> Result<(), ValidationError> {
-        match value {
-            | "invalid" => Err(ValidationError::new("async_rejected")),
-            | _ => Ok(()),
-        }
-    }
-    #[derive(Validate)]
-    struct AsyncModel {
-        #[validate(async(function = "reject"))]
-        value: String,
-    }
-    let checks = collect_validation_checks(&AsyncModel {
-        value: "invalid".to_string(),
-    })
-    .await;
-    assert_eq!(checks.len(), 1);
-    assert_eq!(checks[0].context.as_deref(), Some("value"));
-}
-#[tokio::test]
-async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {
-    let cff = Cff {
-        title: "Invalid License".to_string(),
-        message: "Message".to_string(),
-        license: Some(OneOrMany::One(" ".to_string())),
-        ..Cff::default()
-    };
-    let checks = collect_validation_checks(&cff).await;
-    let schema_check = checks
-        .iter()
-        .find(|check| check.category == CheckCategory::Schema)
-        .expect("expected schema check");
-    let rendered = format!("{}", schema_check);
-    assert_eq!(schema_check.context.as_deref(), Some("license"));
-    assert!(rendered.contains("license"), "expected license path in display output: {rendered}");
-    assert!(
-        !rendered.contains("license.license"),
-        "expected duplicated wrapper path to be removed: {rendered}"
-    );
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(errors).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = issues.iter().next().expect("expected validator issue");
+    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
 }
 #[test]
 fn test_process_returns_field_issue_tuple() {
@@ -696,31 +581,6 @@ fn test_process_returns_field_issue_tuple() {
     assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("x")));
     assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
     assert_eq!(issue.params.get("max").and_then(|v| v.as_i64()), Some(3));
-}
-#[test]
-fn test_portable_validation_codes_map_to_dedicated_analyzer_kinds() {
-    assert!(matches!(ErrorCode::from("country"), ErrorCode::Country));
-    assert!(matches!(ErrorCode::from("digest"), ErrorCode::Digest));
-    assert!(matches!(ErrorCode::from("epoch"), ErrorCode::Epoch));
-    assert!(matches!(ErrorCode::from("nonempty"), ErrorCode::Nonempty));
-    assert!(matches!(ErrorCode::from("not"), ErrorCode::Not));
-    assert!(matches!(ErrorCode::from("or"), ErrorCode::Or));
-    assert!(matches!(ErrorCode::from("timestamp"), ErrorCode::Timestamp));
-}
-#[test]
-fn test_process_returns_nested_struct_path() {
-    let value = ParentModel {
-        child: ChildModel {
-            email: "not-an-email".to_string(),
-        },
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(errors).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = issues.iter().next().expect("expected validator issue");
-    assert!(matches!(issue.code, ErrorCode::Email));
-    assert_eq!(issue.path.as_deref(), Some("child.email"));
-    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
 }
 #[test]
 fn test_process_returns_nested_list_index_path() {
@@ -741,6 +601,21 @@ fn test_process_returns_nested_list_index_path() {
     assert!(matches!(issue.code, ErrorCode::Email));
     assert_eq!(issue.path.as_deref(), Some("children[1].email"));
     assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("invalid")));
+}
+#[test]
+fn test_process_returns_nested_struct_path() {
+    let value = ParentModel {
+        child: ChildModel {
+            email: "not-an-email".to_string(),
+        },
+    };
+    let errors = value.validate().expect_err("expected validation failure");
+    let issues = ErrorKind::Validator(errors).process("");
+    assert_eq!(issues.len(), 1);
+    let issue = issues.iter().next().expect("expected validator issue");
+    assert!(matches!(issue.code, ErrorCode::Email));
+    assert_eq!(issue.path.as_deref(), Some("child.email"));
+    assert_eq!(issue.params.get("value").map(|v| v.as_str()), Some(Some("not-an-email")));
 }
 #[test]
 fn test_process_returns_none_path_for_root_field_errors() {
@@ -787,19 +662,68 @@ fn test_process_serializes_array_param_values() {
     assert_eq!(issue.params.get("min").and_then(|v| v.as_i64()), Some(3));
 }
 #[test]
-fn test_process_preserves_non_wrapper_repeated_segment_paths() {
-    let value = RepeatedNameParentModel {
-        child: RepeatedNameModel {
-            child: RepeatedChildModel {
-                email: "invalid".to_string(),
-            },
-        },
-    };
-    let errors = value.validate().expect_err("expected validation failure");
-    let issues = ErrorKind::Validator(errors).process("");
-    assert_eq!(issues.len(), 1);
-    let issue = issues.iter().next().expect("expected validator issue");
-    assert_eq!(issue.path.as_deref(), Some("child.child.email"));
+fn test_prose_location_maps_extracted_document_coordinates() {
+    let content = "# Title\n\nbad prose";
+    let (check, document) = prose_check("paper.pdf", content, content, ValeOutputItem::fixture(3, vec![1, 3], "bad"));
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
+    assert!(check.terse(Some(&document)).contains("path=paper.pdf:3:1"));
+}
+#[test]
+fn test_prose_location_maps_structured_prose_to_full_source() {
+    let content = "{\n  \"ignored\": \"metadata\",\n  \"description\": \"geo-spatial science\"\n}";
+    let (check, document) = prose_check(
+        "index.json",
+        content,
+        "geo-spatial science",
+        ValeOutputItem::fixture(1, vec![1, 11], "geo-spatial"),
+    );
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
+    assert!(check.to_string().contains("Line 3, Character 19"));
+    assert!(check.terse(Some(&document)).contains("path=index.json:3:19"));
+}
+#[test]
+fn test_prose_location_omits_ambiguous_structured_match() {
+    let content = "{\"title\":\"repeat\",\"description\":\"repeat\"}";
+    let (check, document) = prose_check(
+        "index.json",
+        content,
+        "repeat\n\nrepeat",
+        ValeOutputItem::fixture(3, vec![1, 6], "repeat"),
+    );
+    assert_eq!(check.locator, None);
+    assert!(check.to_string().contains("Unlocated"));
+    assert!(check.terse(Some(&document)).contains("path=index.json"));
+    assert!(!check.terse(Some(&document)).contains("path=index.json:"));
+}
+#[test]
+fn test_prose_location_omits_invalid_analyzer_span() {
+    let content = "first\nsecond";
+    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(9, vec![1, 3], "bad"));
+    assert_eq!(check.locator, None);
+    assert!(check.to_string().contains("Unlocated"));
+    assert!(!check.terse(Some(&document)).contains("path=notes.md:"));
+}
+#[test]
+fn test_prose_location_uses_full_text_coordinates_with_duplicate_words() {
+    let content = "repeat\nclean\nrepeat problem";
+    let (check, document) = prose_check("notes.md", content, content, ValeOutputItem::fixture(3, vec![1, 6], "repeat"));
+    assert_eq!(check.locator.as_deref(), Some("Line 3, Character 1"));
+    assert!(check.terse(Some(&document)).contains("path=notes.md:3:1"));
+}
+#[test]
+fn test_report_schema_with_missing_value_param_does_not_panic() {
+    let mut validation_errors = ValidationReport::new();
+    let mut error = ValidationError::new("license");
+    error.params.clear();
+    validation_errors.add("license", error);
+    let issue = Check::init()
+        .index(0)
+        .category(CheckCategory::Schema)
+        .severity(CheckSeverity::Error)
+        .errors(ErrorKind::Validator(validation_errors))
+        .uri("fixtures/CITATION.cff")
+        .build();
+    issue.report(None);
 }
 #[test]
 fn test_resolve_vale_package_source() {
@@ -836,24 +760,53 @@ fn test_source_text_formats_array_values_as_markdown_list() {
     assert!(source.contains("- \"beta\""));
 }
 #[test]
-fn test_validator_query_selects_indexed_array_value() {
-    let mut params: HashMap<String, Value> = HashMap::new();
-    params.insert("index".to_string(), serde_json::json!(1));
-    params.insert("value".to_string(), serde_json::json!(["first phrase", "second phrase"]));
-    let issue = ValidatorIssue::init()
-        .code(ErrorCode::Section)
-        .maybe_path(Some("sections.impact".to_string()))
-        .message("section")
-        .params(params)
+fn test_standard_detection_uses_dcat_jsonld_type() {
+    let value: Value = serde_json::json!({
+        "@type": "dcat:Dataset",
+        "metadata": {}
+    });
+    let object = value.as_object().unwrap();
+    assert_eq!(Standard::from(object), Standard::Dcat);
+}
+#[test]
+fn test_standard_to_schema_does_not_panic() {
+    let standards = [
+        Standard::ResearchActivityData,
+        Standard::CitationFileFormat,
+        Standard::Datacite,
+        Standard::Dcat,
+        Standard::Huwise,
+        Standard::Invenio,
+        Standard::Raid,
+        Standard::Text,
+        Standard::Document,
+    ];
+    for standard in standards {
+        standard.to_schema("json");
+    }
+}
+#[test]
+fn test_summary_includes_crosswalk_warnings() {
+    let warnings = vec![
+        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.publisher"),
+        ConversionWarning::no_equivalent("datacite", "dcat", "attributes.subjects"),
+    ];
+    let rows = summary(warnings.to_checks(None));
+    assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
+}
+#[test]
+fn test_terse_output_includes_resolved_line_and_column() {
+    let content = "{\n  \"url\": \"target\"\n}";
+    let document = SourceDocument::init().content(content).format("json").source("index.json").build();
+    let check = Check::init()
+        .category(CheckCategory::Link)
+        .locator("url")
+        .context("target")
+        .message("Unreachable")
+        .uri("index.json")
         .build();
-    let content = "sections:\n  impact:\n    - first phrase\n    - second phrase\n";
-    let document = SourceDocument::init().content(content).format("yaml").source("index.yaml").build();
-    let index = DocumentIndex::new(document);
-    let matched = index.resolve(&issue.query());
-    let DocumentMatch::Unique(span) = matched else {
-        panic!("expected indexed YAML value to resolve uniquely");
-    };
-    assert_eq!(&content[span.0], "second phrase");
+    let document = DocumentIndex::new(document);
+    assert!(check.terse(Some(&document)).contains("path=index.json:2:11"));
 }
 #[test]
 fn test_vale_config_unwrap_or_default_uses_default_values() {
@@ -883,24 +836,6 @@ fn test_vale_output_item_location_matches_prose_display_format() {
     assert_eq!(item.locator(), "Line 17, Character 23");
 }
 #[test]
-fn test_vale_output_item_source_text_uses_word_match() {
-    let item = ValeOutputItem {
-        action: ValeOutputItemAction {
-            name: "replace".to_string(),
-            params: None,
-        },
-        check: "Science.use-instead".to_string(),
-        description: "".to_string(),
-        line: 19,
-        link: "".to_string(),
-        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
-        severity: ValeOutputItemSeverity::Error,
-        span: vec![36, 46],
-        word_match: "geo-spatial".to_string(),
-    };
-    assert_eq!(item.source_text(), "geo-spatial");
-}
-#[test]
 fn test_vale_output_item_query_uses_word_match_without_renderer_data() {
     let item = ValeOutputItem {
         action: ValeOutputItemAction {
@@ -919,19 +854,86 @@ fn test_vale_output_item_query_uses_word_match_without_renderer_data() {
     assert_eq!(item.query(), DocumentQuery::new().with_needle("geo-spatial"));
 }
 #[test]
-fn test_standard_to_schema_does_not_panic() {
-    let standards = [
-        Standard::ResearchActivityData,
-        Standard::CitationFileFormat,
-        Standard::Datacite,
-        Standard::Dcat,
-        Standard::Huwise,
-        Standard::Invenio,
-        Standard::Raid,
-        Standard::Text,
-        Standard::Document,
-    ];
-    for standard in standards {
-        standard.to_schema("json");
-    }
+fn test_vale_output_item_source_text_uses_word_match() {
+    let item = ValeOutputItem {
+        action: ValeOutputItemAction {
+            name: "replace".to_string(),
+            params: None,
+        },
+        check: "Science.use-instead".to_string(),
+        description: "".to_string(),
+        line: 19,
+        link: "".to_string(),
+        message: "Use 'geospatial' instead of 'geo-spatial'.".to_string(),
+        severity: ValeOutputItemSeverity::Error,
+        span: vec![36, 46],
+        word_match: "geo-spatial".to_string(),
+    };
+    assert_eq!(item.source_text(), "geo-spatial");
+}
+#[test]
+fn test_vale_output_parse_empty() {
+    let path = PathBuf::from("test-file");
+    let empty_output = "{}";
+    let result = ValeOutput::parse(empty_output, path);
+    assert_eq!(result.len(), 0, "Empty output should return empty vector");
+}
+#[test]
+fn test_vale_output_severity_colored() {
+    let warning = ValeOutputItemSeverity::Warning;
+    let error = ValeOutputItemSeverity::Error;
+    let suggestion = ValeOutputItemSeverity::Suggestion;
+    assert!(!warning.colored().is_empty());
+    assert!(!error.colored().is_empty());
+    assert!(!suggestion.colored().is_empty());
+}
+#[tokio::test]
+async fn test_vale_retry_sync_can_ignore_exhaustion() {
+    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
+    let options = ExecutionOptions::init()
+        .ignore_sync_failure(true)
+        .quiet(true)
+        .sync_retry_interval(SignedDuration::ZERO)
+        .build();
+    assert!(vale.retry_sync(&options).await.is_ok());
+}
+#[tokio::test]
+async fn test_vale_retry_sync_reports_exhaustion() {
+    let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
+    let options = ExecutionOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
+    let error = vale.retry_sync(&options).await.expect_err("missing Vale binary should exhaust retries");
+    assert!(error.to_string().contains("failed after 3 attempts"));
+}
+#[test]
+fn test_validator_query_selects_indexed_array_value() {
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("index".to_string(), serde_json::json!(1));
+    params.insert("value".to_string(), serde_json::json!(["first phrase", "second phrase"]));
+    let issue = ValidatorIssue::init()
+        .code(ErrorCode::Section)
+        .maybe_path(Some("sections.impact".to_string()))
+        .message("section")
+        .params(params)
+        .build();
+    let content = "sections:\n  impact:\n    - first phrase\n    - second phrase\n";
+    let document = SourceDocument::init().content(content).format("yaml").source("index.yaml").build();
+    let index = DocumentIndex::new(document);
+    let matched = index.resolve(&issue.query());
+    let DocumentMatch::Unique(span) = matched else {
+        panic!("expected indexed YAML value to resolve uniquely");
+    };
+    assert_eq!(&content[span.0], "second phrase");
+}
+#[test]
+fn test_with_context_and_with_uri_preserve_severity() {
+    let check = check!(
+      CheckCategory::Link,
+      false,
+      severity: CheckSeverity::Warning,
+      message: "link check"
+    );
+    let with_context = check.clone().with_context("content/index.json".to_string());
+    let with_uri = check.with_uri(Some("https://example.org".to_string()));
+    assert_eq!(with_context.severity, CheckSeverity::Warning);
+    assert_eq!(with_uri.severity, CheckSeverity::Warning);
 }

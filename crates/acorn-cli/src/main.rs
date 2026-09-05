@@ -1,5 +1,5 @@
 //! # 🌱 ACORN CLI
-use acorn::analyzer::discovery;
+use acorn::analyzer::host::discovery;
 use acorn::io::{env_var_is_truthy, progress_renderer};
 use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
 use acorn::util::Label;
@@ -26,14 +26,32 @@ mod template;
 use cli::{Arguments, Void};
 use commands::{run, DatabaseConfig};
 
-// Environment variables
-const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
 const DISPLAY_LEVEL: bool = true;
 const DISPLAY_LINE_NUMBER: bool = false;
 const DISPLAY_TARGET: bool = false;
 const DISPLAY_THREAD_ID: bool = false;
 const DISPLAY_THREAD_NAME: bool = false;
-
+// Environment variables
+const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
+fn init_tracing(args: &Arguments) {
+    let writer = IndicatifWriter::<Stderr>::new(progress_renderer());
+    let filter = dotenvy::var(LOG_LEVEL)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .map_or_else(|| EnvFilter::new(args.verbose.log_level_filter().as_trace().to_string()), EnvFilter::new);
+    let format = fmt::layer()
+        .with_ansi(true)
+        .with_ansi_sanitization(false)
+        .with_level(DISPLAY_LEVEL)
+        .with_line_number(DISPLAY_LINE_NUMBER)
+        .with_target(DISPLAY_TARGET)
+        .with_thread_ids(DISPLAY_THREAD_ID)
+        .with_thread_names(DISPLAY_THREAD_NAME)
+        .without_time()
+        .compact()
+        .with_writer(writer);
+    tracing_subscriber::registry().with(filter).with(format).init();
+}
 fn main() -> Void {
     color_eyre::install()?;
     dotenv().ok();
@@ -98,25 +116,5 @@ fn main() -> Void {
         }
     }
 }
-fn init_tracing(args: &Arguments) {
-    let writer = IndicatifWriter::<Stderr>::new(progress_renderer());
-    let filter = dotenvy::var(LOG_LEVEL)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .map_or_else(|| EnvFilter::new(args.verbose.log_level_filter().as_trace().to_string()), EnvFilter::new);
-    let format = fmt::layer()
-        .with_ansi(true)
-        .with_ansi_sanitization(false)
-        .with_level(DISPLAY_LEVEL)
-        .with_line_number(DISPLAY_LINE_NUMBER)
-        .with_target(DISPLAY_TARGET)
-        .with_thread_ids(DISPLAY_THREAD_ID)
-        .with_thread_names(DISPLAY_THREAD_NAME)
-        .without_time()
-        .compact()
-        .with_writer(writer);
-    tracing_subscriber::registry().with(filter).with(format).init();
-}
-
 #[cfg(test)]
 mod test;

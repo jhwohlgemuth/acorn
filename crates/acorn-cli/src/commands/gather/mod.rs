@@ -1,7 +1,7 @@
 use crate::cli::WatchOptions;
 use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdin_piped, read_stdin};
-use acorn::analyzer::discovery::{finalize_report, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report};
+use acorn::analyzer::host::discovery::{finalize_report, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report};
 use acorn::analyzer::{Check, CheckCategory, OutputFormat};
 use acorn::check_err;
 use acorn::io::config::FilterSet;

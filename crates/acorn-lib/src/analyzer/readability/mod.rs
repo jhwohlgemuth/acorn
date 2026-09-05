@@ -6,7 +6,7 @@ use crate::util::constants::app::{
     MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG,
 };
 use crate::util::Label;
-use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{HashMap, String, ToString, Vec};
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -63,19 +63,14 @@ pub enum ReadabilityType {
     #[display("smog")]
     SMOG,
 }
-impl From<ReadabilityType> for String {
-    fn from(value: ReadabilityType) -> Self {
-        value.to_string()
+impl From<&str> for ReadabilityType {
+    fn from(value: &str) -> Self {
+        ReadabilityType::from_string(value)
     }
 }
 impl From<String> for ReadabilityType {
     fn from(value: String) -> Self {
         ReadabilityType::from_string(&value)
-    }
-}
-impl From<&str> for ReadabilityType {
-    fn from(value: &str) -> Self {
-        ReadabilityType::from_string(value)
     }
 }
 impl ReadabilityType {
@@ -119,6 +114,44 @@ impl ReadabilityType {
             | ReadabilityType::SMOG => MAX_ALLOWED_SMOG,
         }
     }
+}
+impl From<ReadabilityType> for String {
+    fn from(value: ReadabilityType) -> Self {
+        value.to_string()
+    }
+}
+/// Automated Readability Index (ARI)
+///
+/// The formula was derived from a large dataset of texts used in US schools.
+/// The result is a number that corresponds with a US grade level.
+///
+/// Requires counting letters, words, and sentences
+///
+/// See <https://en.wikipedia.org/wiki/Automated_readability_index> for more information
+pub fn automated_readability_index(text: &str) -> f64 {
+    let letters = letter_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    debug!(letters, words, sentences, "=> {}", Label::using());
+    let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
+    (score * 100.0).round() / 100.0
+}
+/// Coleman-Liau Index (CLI)
+///
+/// Requires counting letters, words, and sentences
+pub fn coleman_liau_index(text: &str) -> f64 {
+    let letters = letter_count(text);
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    debug!(letters, words, sentences, "=> {}", Label::using());
+    let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
+    (score * 100.0).round() / 100.0
+}
+/// Count the number of "complex words"[^complex] in a given text
+///
+/// [^complex]: Words with 3 or more syllables
+pub fn complex_word_count(text: &str) -> u32 {
+    words(text).iter().filter(|word| syllable_count(word) > 2).count() as u32
 }
 /// Expand acronyms in a given text using the provided acronym map
 /// ### Example
@@ -194,11 +227,53 @@ pub fn expand_acronyms(text: &str, acronyms: &HashMap<String, String>) -> String
         }
     }
 }
-/// Count the number of "complex words"[^complex] in a given text
+/// Flesch-Kincaid Grade Level (FKGL)[^cite]
 ///
-/// [^complex]: Words with 3 or more syllables
-pub fn complex_word_count(text: &str) -> u32 {
-    words(text).iter().filter(|word| syllable_count(word) > 2).count() as u32
+/// Arguably the most popular readability test.
+///
+/// The result is a number that corresponds with a US grade level.
+///
+/// Requires counting words, sentences, and syllables
+///
+/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
+///
+/// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221-233. <https://doi.org/10.1037/h0057532>
+pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let syllables = syllable_count(text);
+    debug!(words, sentences, syllables, "=> {}", Label::using());
+    let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
+    (score * 100.0).round() / 100.0
+}
+/// Flesch Reading Ease Score (FRES)
+///
+/// FRES range is 100 (very easy) - 0 (extremely difficult)
+///
+/// Requires counting words, sentences, and syllables
+///
+/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
+pub fn flesch_reading_ease_score(text: &str) -> f64 {
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let syllables = syllable_count(text);
+    debug!(words, sentences, syllables, "=> {}", Label::using());
+    let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
+    (score * 100.0).round() / 100.0
+}
+/// Gunning Fog Index (GFI)
+///
+/// Estimates the years of formal education a person needs to understand the text on the first reading
+///
+/// Requires counting words, sentences, and "complex words" (see [complex_word_count])
+///
+/// See <https://en.wikipedia.org/wiki/Gunning_fog_index> for more information
+pub fn gunning_fog_index(text: &str) -> f64 {
+    let words = word_count(text);
+    let complex_words = complex_word_count(text);
+    let sentences = sentence_count(text);
+    let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
+    (score * 100.0).round() / 100.0
 }
 /// Count the number of letters in a given text
 ///
@@ -207,6 +282,22 @@ pub fn letter_count(text: &str) -> u32 {
     text.chars()
         .filter(|c| !(c.is_whitespace() || NON_ALPHABETIC.is_match(&c.to_string()).unwrap_or_default()))
         .count() as u32
+}
+/// Lix (abbreviation of Swedish läsbarhetsindex)
+///
+/// Indicates the difficulty of reading a text
+///
+/// Requires counting words, sentences, and long words (see [long_word_count])
+///
+/// "Lix" is an abbreviation of *läsbarhetsindex*, which means "readability index" in Swedish
+///
+/// See <https://en.wikipedia.org/wiki/Lix_(readability_test)> for more information
+pub fn lix(text: &str) -> f64 {
+    let words = word_count(text);
+    let sentences = sentence_count(text);
+    let long_words = long_word_count(text);
+    let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
+    (score * 100.0).round() / 100.0
 }
 /// Count the number of "long words"[^long] in a given text
 ///
@@ -276,122 +367,6 @@ pub fn sentence_count(text: &str) -> u32 {
         })
         .count() as u32
 }
-/// Get list of words in a given text
-pub fn words(text: &str) -> Vec<String> {
-    text.split_whitespace().map(String::from).collect()
-}
-/// Count the number of words in a given text
-///
-/// See [`words`]
-pub fn word_count(text: &str) -> u32 {
-    words(text).len() as u32
-}
-/// Automated Readability Index (ARI)
-///
-/// The formula was derived from a large dataset of texts used in US schools.
-/// The result is a number that corresponds with a US grade level.
-///
-/// Requires counting letters, words, and sentences
-///
-/// See <https://en.wikipedia.org/wiki/Automated_readability_index> for more information
-pub fn automated_readability_index(text: &str) -> f64 {
-    let letters = letter_count(text);
-    let words = word_count(text);
-    let sentences = sentence_count(text);
-    debug!(letters, words, sentences, "=> {}", Label::using());
-    let score = 4.71 * (letters as f64 / words as f64) + 0.5 * (words as f64 / sentences as f64) - 21.43;
-    (score * 100.0).round() / 100.0
-}
-/// Coleman-Liau Index (CLI)
-///
-/// Requires counting letters, words, and sentences
-pub fn coleman_liau_index(text: &str) -> f64 {
-    let letters = letter_count(text);
-    let words = word_count(text);
-    let sentences = sentence_count(text);
-    debug!(letters, words, sentences, "=> {}", Label::using());
-    let score = (0.0588 * 100.0 * (letters as f64 / words as f64)) - (0.296 * 100.0 * (sentences as f64 / words as f64)) - 15.8;
-    (score * 100.0).round() / 100.0
-}
-/// Flesch-Kincaid Grade Level (FKGL)[^cite]
-///
-/// Arguably the most popular readability test.
-///
-/// The result is a number that corresponds with a US grade level.
-///
-/// Requires counting words, sentences, and syllables
-///
-/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
-///
-/// [^cite]: Flesch, R. (1948). A new readability yardstick. Journal of Applied Psychology, 32(3), 221-233. <https://doi.org/10.1037/h0057532>
-pub fn flesch_kincaid_grade_level(text: &str) -> f64 {
-    let words = word_count(text);
-    let sentences = sentence_count(text);
-    let syllables = syllable_count(text);
-    debug!(words, sentences, syllables, "=> {}", Label::using());
-    let score = 0.39 * (words as f64 / sentences as f64) + 11.8 * (syllables as f64 / words as f64) - 15.59;
-    (score * 100.0).round() / 100.0
-}
-/// Flesch Reading Ease Score (FRES)
-///
-/// FRES range is 100 (very easy) - 0 (extremely difficult)
-///
-/// Requires counting words, sentences, and syllables
-///
-/// See <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests> for more information
-pub fn flesch_reading_ease_score(text: &str) -> f64 {
-    let words = word_count(text);
-    let sentences = sentence_count(text);
-    let syllables = syllable_count(text);
-    debug!(words, sentences, syllables, "=> {}", Label::using());
-    let score = 206.835 - (1.015 * words as f64 / sentences as f64) - (84.6 * syllables as f64 / words as f64);
-    (score * 100.0).round() / 100.0
-}
-/// Gunning Fog Index (GFI)
-///
-/// Estimates the years of formal education a person needs to understand the text on the first reading
-///
-/// Requires counting words, sentences, and "complex words" (see [complex_word_count])
-///
-/// See <https://en.wikipedia.org/wiki/Gunning_fog_index> for more information
-pub fn gunning_fog_index(text: &str) -> f64 {
-    let words = word_count(text);
-    let complex_words = complex_word_count(text);
-    let sentences = sentence_count(text);
-    let score = 0.4 * ((words as f64 / sentences as f64) + (100.0 * (complex_words as f64 / words as f64)));
-    (score * 100.0).round() / 100.0
-}
-/// Lix (abbreviation of Swedish läsbarhetsindex)
-///
-/// Indicates the difficulty of reading a text
-///
-/// Requires counting words, sentences, and long words (see [long_word_count])
-///
-/// "Lix" is an abbreviation of *läsbarhetsindex*, which means "readability index" in Swedish
-///
-/// See <https://en.wikipedia.org/wiki/Lix_(readability_test)> for more information
-pub fn lix(text: &str) -> f64 {
-    let words = word_count(text);
-    let sentences = sentence_count(text);
-    let long_words = long_word_count(text);
-    let score = (words as f64 / sentences as f64) + 100.0 * (long_words as f64 / words as f64);
-    (score * 100.0).round() / 100.0
-}
-/// Simple Measure of Gobbledygook (SMOG)
-///
-/// Estimates the years of education needed to understand a piece of writing
-///
-/// **Caution**: SMOG formula was normalized on 30-sentence samples
-///
-/// Requires counting sentences, and "complex words" (see [complex_word_count])
-///
-/// See <https://en.wikipedia.org/wiki/SMOG> for more information
-pub fn smog(text: &str) -> f64 {
-    let sentences = sentence_count(text);
-    let complex_words = complex_word_count(text);
-    let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
-    (score * 100.0).round() / 100.0
-}
 /// Get the singular form of a word (e.g. "people" -> "person")
 ///
 /// Adapted from the PHP library, [Text-Statistics](https://github.com/DaveChild/Text-Statistics)
@@ -419,6 +394,21 @@ pub fn singular_form(word: &str) -> String {
             }
         }
     }
+}
+/// Simple Measure of Gobbledygook (SMOG)
+///
+/// Estimates the years of education needed to understand a piece of writing
+///
+/// **Caution**: SMOG formula was normalized on 30-sentence samples
+///
+/// Requires counting sentences, and "complex words" (see [complex_word_count])
+///
+/// See <https://en.wikipedia.org/wiki/SMOG> for more information
+pub fn smog(text: &str) -> f64 {
+    let sentences = sentence_count(text);
+    let complex_words = complex_word_count(text);
+    let score = 1.0430 * (30.0 * (complex_words as f64 / sentences as f64)).sqrt() + 3.1291;
+    (score * 100.0).round() / 100.0
 }
 /// Count the number of syllables in a given text
 /// ### Example
@@ -493,6 +483,15 @@ pub(crate) fn tokenize(value: &str) -> Vec<String> {
         .map(|x| NON_ALPHABETIC.replace_all(x, "").to_lowercase())
         .collect::<Vec<_>>()
 }
-
+/// Count the number of words in a given text
+///
+/// See [`words`]
+pub fn word_count(text: &str) -> u32 {
+    words(text).len() as u32
+}
+/// Get list of words in a given text
+pub fn words(text: &str) -> Vec<String> {
+    text.split_whitespace().map(String::from).collect()
+}
 #[cfg(test)]
 mod tests;

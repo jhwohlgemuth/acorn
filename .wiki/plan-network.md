@@ -60,7 +60,7 @@ isolate std-only modules   host abstraction traits
 ### Portability and crate boundaries
 
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
-- [Isolate std-only modules](refactors/portability/isolate-std-only-modules.md) now focuses on the analyzer boundary after completion of `acorn-schema` extraction.
+- The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
 - [Host abstraction traits](refactors/portability/host-abstraction-traits.md) is explicitly deferred until an independently compiling kernel and concrete alternate consumers prove each seam.
 - [Crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates the analyzer, API, export, command, and portability boundaries; schedule the named extraction plan rather than the umbrella.
 - [WASM feature path](refactors/portability/wasm-feature-path.md) requires portable crates and consumer-owned ports. [no-std and WASM CI](refactors/portability/no-std-wasm-ci.md) begins with current package checks and expands as crates appear.
@@ -100,7 +100,7 @@ isolate std-only modules   host abstraction traits
 
 - Critical-path coordination plans are not implementation jobs. Schedule an analyzer std-isolation slice or named extraction rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
-- The current critical-path batch is analyzer std isolation; `acorn-schema` already owns the schema index and portable assets.
+- The alloc-only analyzer-kernel gate is complete; the next portability decision is whether proven consumer needs justify package extraction or host traits.
 - Remote-create leaf work, OOXML leaf transformations, and a Hugging Face request-type leaf may proceed beside the isolation slice when they obey the locks in the [parallel execution guide](parallel-execution.md); they pause for integration windows if they need shared manifests or roots.
 - Schema features, GitLab service work, CLI root refactors, analyzer `mod/check/service` refactors, and build/CI wiring serialize within their lanes.
 - The [research activity changelog](features/research-activity-changelog.md) and [OCP schema alignment](features/ocp-infrastructure-schema-alignment.md) consume the implemented `not` combinator, `timestamp`/`nonempty` primitives, and consolidated `schema::validate` module. The changelog and CKAN/DCAT now also consume the RAD standards field-matrix and loss-reporting contract from [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md); its Slice 0 must land before changelog's loss table and CKAN's target-contract work. Portable leaf types may land separately, but `ResearchActivity`, contexts, renderers, and shared fixtures remain schema-lane integration locks.

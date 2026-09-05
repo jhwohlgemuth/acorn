@@ -4,7 +4,7 @@ use super::parse::{
     parse_watch_duration,
 };
 use super::DownloadCommands;
-use acorn::analyzer::discovery::CitationFormat;
+use acorn::analyzer::host::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Remote};
@@ -166,6 +166,24 @@ pub(crate) mod bot {
         }
     }
 }
+/// Archive container format used for BagIt import and export.
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
+pub(crate) enum ArchiveType {
+    /// 7-Zip archive.
+    #[value(name = "7z")]
+    #[display("7z")]
+    SevenZip,
+    /// Uncompressed TAR archive.
+    #[display("tar")]
+    Tar,
+    /// Gzip-compressed TAR archive.
+    #[value(name = "tar.gz")]
+    #[display("tar.gz")]
+    TarGzip,
+    /// ZIP archive.
+    #[display("zip")]
+    Zip,
+}
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]
 pub enum DatabaseBackend {
@@ -206,34 +224,6 @@ pub enum FileFormat {
     #[display("YAML")]
     Yaml,
 }
-/// Archive container format used for BagIt import and export.
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
-pub(crate) enum ArchiveType {
-    /// 7-Zip archive.
-    #[value(name = "7z")]
-    #[display("7z")]
-    SevenZip,
-    /// Uncompressed TAR archive.
-    #[display("tar")]
-    Tar,
-    /// Gzip-compressed TAR archive.
-    #[value(name = "tar.gz")]
-    #[display("tar.gz")]
-    TarGzip,
-    /// ZIP archive.
-    #[display("zip")]
-    Zip,
-}
-impl From<ArchiveType> for MimeType {
-    fn from(value: ArchiveType) -> Self {
-        match value {
-            | ArchiveType::SevenZip => Self::SevenZip,
-            | ArchiveType::Tar => Self::Tar,
-            | ArchiveType::TarGzip => Self::Gzip,
-            | ArchiveType::Zip => Self::Zip,
-        }
-    }
-}
 /// Structured output format for gathered identifiers.
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum GatherOutputFormat {
@@ -251,16 +241,6 @@ pub enum GatherOutputFormat {
     #[display("yaml")]
     Yaml,
 }
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
-        }
-    }
-}
 /// Structured output format for raw/dry-run results (JSON or YAML)
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
 pub enum OutputFormat {
@@ -269,6 +249,38 @@ pub enum OutputFormat {
     Json,
     #[display("YAML")]
     Yaml,
+}
+/// Target artifact aspect ratio size available when exporting research activity data using acorn
+#[derive(Clone, Debug, Default, Display, ValueEnum)]
+pub enum Size {
+    /// Widescreen size (16:9)
+    #[default]
+    #[display("widescreen")]
+    Widescreen,
+    /// Standard size (4:3)
+    #[display("standard")]
+    Standard,
+}
+/// SWHID object source.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum SwhidKind {
+    /// Infer a local file or directory.
+    #[default]
+    Auto,
+    /// Local file content.
+    Content,
+    /// Local directory traversal.
+    Directory,
+    /// Git blob selected by REFERENCE.
+    GitBlob,
+    /// Git tree selected by REFERENCE.
+    GitTree,
+    /// Git commit selected by REFERENCE.
+    Revision,
+    /// Annotated Git tag named by REFERENCE.
+    Release,
+    /// Local Git branches and tags.
+    Snapshot,
 }
 /// Local inference configuration target for model synchronization.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumIs, ValueEnum)]
@@ -284,17 +296,6 @@ pub(crate) enum SyncTarget {
     Vscode,
     /// Synchronize Goose CLI only
     Goose,
-}
-/// Target artifact aspect ratio size available when exporting research activity data using acorn
-#[derive(Clone, Debug, Default, Display, ValueEnum)]
-pub enum Size {
-    /// Widescreen size (16:9)
-    #[default]
-    #[display("widescreen")]
-    Widescreen,
-    /// Standard size (4:3)
-    #[display("standard")]
-    Standard,
 }
 /// Target artifact types available when exporting research activity data using acorn
 ///
@@ -460,80 +461,6 @@ pub(crate) struct Download {
     pub(crate) verbose: Verbosity,
 }
 #[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct Import {
-    #[command(subcommand)]
-    pub(crate) command: Option<super::ImportCommands>,
-    /// Local directories, repository URIs, or BagIt archive URIs.
-    #[arg(value_name = "URI", required = false, value_delimiter = ',', value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
-    pub(crate) uri: Vec<String>,
-    /// Path to configuration file (JSON, JSONC, or YAML).
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "uri", help_heading = "OPTIONS")]
-    pub(crate) config: Option<PathBuf>,
-    /// Regular expression patterns used to include files.
-    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-    pub(crate) filter: Vec<String>,
-    /// Regular expression patterns used to exclude files.
-    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
-    pub(crate) ignore: Vec<String>,
-    /// Directory where imported content is saved.
-    #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
-    pub(crate) output: Option<PathBuf>,
-    /// Save imported files directly beneath the output directory.
-    #[arg(short = 'f', long, help_heading = "FLAGS")]
-    pub(crate) flatten: bool,
-    /// Replace existing files or directories at selected output paths.
-    #[arg(short = 'C', long, help_heading = "FLAGS")]
-    pub(crate) clobber: bool,
-    /// Force archive handling and bypass content inference.
-    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
-    pub(crate) archive_format: Option<ArchiveType>,
-    #[command(flatten)]
-    pub(crate) verbose: Verbosity,
-}
-/// Model selectors and configuration shared by model commands.
-#[derive(Clone, Debug, Args)]
-pub(crate) struct ModelSourceArgs {
-    /// Model ID/name(s), local path(s), direct URL(s), or explicit oci:// artifact reference(s).
-    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
-    pub(crate) model: Vec<String>,
-    /// URI or local path to a model list file.
-    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
-    pub(crate) model_file: Option<String>,
-    /// Path to an application configuration file listing models.
-    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-    pub(crate) config: Option<PathBuf>,
-}
-/// Fallback and search behavior shared by model commands.
-#[derive(Clone, Debug, Args)]
-pub(crate) struct ModelResolutionArgs {
-    /// Disable automatic GGUF fallback repository discovery.
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) no_fallback: bool,
-    /// Open an interactive picker when fallback finds multiple repositories.
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) interactive: bool,
-    /// Maximum number of Hugging Face repositories to search.
-    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
-    pub(crate) search_limit: usize,
-    /// Minimum downloads required for a GGUF fallback repository.
-    #[arg(long = "minimum-popularity", value_name = "COUNT", env = MINIMUM_DOWNLOAD_COUNT, default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, help_heading = "OPTIONS")]
-    pub(crate) minimum_download_count: u64,
-}
-/// Synchronization behavior shared by model commands.
-#[derive(Clone, Debug, Args)]
-pub(crate) struct ModelSyncArgs {
-    /// Synchronize resolved models with configured inference applications.
-    #[arg(long, value_enum, value_name = "TARGET", num_args = 0..=1, default_missing_value = "all", help_heading = "OPTIONS")]
-    pub(crate) sync: Option<SyncTarget>,
-    /// Assume synchronized models exist under the models directory.
-    #[arg(long, requires = "sync", help_heading = "FLAGS")]
-    pub(crate) force: bool,
-    /// Preview resolution and synchronization without writes.
-    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
-    pub(crate) dry_run: bool,
-}
-#[derive(Clone, Debug, Args)]
 #[command(
     long_about = "Download model weights for use with ACORN research harnesses and local inference.\n\
         \n\
@@ -605,18 +532,6 @@ pub(crate) struct DownloadModel {
     /// Output format for --raw results
     #[arg(long, value_name = "FORMAT", default_value = "json", requires = "raw", help_heading = "OPTIONS")]
     pub(crate) format: OutputFormat,
-    #[command(flatten)]
-    pub(crate) verbose: Verbosity,
-}
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct ImportModel {
-    #[command(flatten)]
-    pub(crate) source: ModelSourceArgs,
-    #[command(flatten)]
-    pub(crate) resolution: ModelResolutionArgs,
-    #[command(flatten)]
-    pub(crate) synchronization: ModelSyncArgs,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
@@ -733,26 +648,6 @@ pub(crate) struct Export {
     /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
-    #[command(flatten)]
-    pub(crate) verbose: Verbosity,
-}
-
-/// Options for one bounded Needle inference request.
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct Infer {
-    /// Prompt used to select and invoke ACORN tools
-    #[arg(value_name = "PROMPT")]
-    pub(crate) prompt: String,
-    /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
-    #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
-    pub(crate) custom_location: Option<String>,
-    /// Minimum calibrated confidence required before executing a tool
-    #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
-    pub(crate) threshold: f64,
-    /// Maximum number of Needle tool-selection rounds
-    #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
-    pub(crate) max_rounds: usize,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
@@ -887,6 +782,69 @@ pub(crate) struct Gather {
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
+pub(crate) struct Import {
+    #[command(subcommand)]
+    pub(crate) command: Option<super::ImportCommands>,
+    /// Local directories, repository URIs, or BagIt archive URIs.
+    #[arg(value_name = "URI", required = false, value_delimiter = ',', value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) uri: Vec<String>,
+    /// Path to configuration file (JSON, JSONC, or YAML).
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, conflicts_with = "uri", help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Regular expression patterns used to include files.
+    #[arg(long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) filter: Vec<String>,
+    /// Regular expression patterns used to exclude files.
+    #[arg(short, long, value_name = "LIST", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) ignore: Vec<String>,
+    /// Directory where imported content is saved.
+    #[arg(default_value = "./content", short, long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) output: Option<PathBuf>,
+    /// Save imported files directly beneath the output directory.
+    #[arg(short = 'f', long, help_heading = "FLAGS")]
+    pub(crate) flatten: bool,
+    /// Replace existing files or directories at selected output paths.
+    #[arg(short = 'C', long, help_heading = "FLAGS")]
+    pub(crate) clobber: bool,
+    /// Force archive handling and bypass content inference.
+    #[arg(long, value_enum, value_name = "FORMAT", help_heading = "OPTIONS")]
+    pub(crate) archive_format: Option<ArchiveType>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ImportModel {
+    #[command(flatten)]
+    pub(crate) source: ModelSourceArgs,
+    #[command(flatten)]
+    pub(crate) resolution: ModelResolutionArgs,
+    #[command(flatten)]
+    pub(crate) synchronization: ModelSyncArgs,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+/// Options for one bounded Needle inference request.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Infer {
+    /// Prompt used to select and invoke ACORN tools
+    #[arg(value_name = "PROMPT")]
+    pub(crate) prompt: String,
+    /// ModelKit directory, file:// URI, HTTP(S) manifest URI, or digest-pinned oci:// reference
+    #[arg(long, value_name = "LOCATION", help_heading = "OPTIONS")]
+    pub(crate) custom_location: Option<String>,
+    /// Minimum calibrated confidence required before executing a tool
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, value_name = "0..1", help_heading = "OPTIONS")]
+    pub(crate) threshold: f64,
+    /// Maximum number of Needle tool-selection rounds
+    #[arg(long, default_value_t = DEFAULT_NEEDLE_MAX_ROUNDS, value_name = "N", help_heading = "OPTIONS")]
+    pub(crate) max_rounds: usize,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
 pub(crate) struct Link {
     /// Path to look for files to process
     #[arg(default_value = "./", required = false, value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "OPTIONS")]
@@ -918,60 +876,92 @@ pub(crate) struct Link {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-/// SWHID object source.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
-pub(crate) enum SwhidKind {
-    /// Infer a local file or directory.
-    #[default]
-    Auto,
-    /// Local file content.
-    Content,
-    /// Local directory traversal.
-    Directory,
-    /// Git blob selected by REFERENCE.
-    GitBlob,
-    /// Git tree selected by REFERENCE.
-    GitTree,
-    /// Git commit selected by REFERENCE.
-    Revision,
-    /// Annotated Git tag named by REFERENCE.
-    Release,
-    /// Local Git branches and tags.
-    Snapshot,
+/// Fallback and search behavior shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelResolutionArgs {
+    /// Disable automatic GGUF fallback repository discovery.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) no_fallback: bool,
+    /// Open an interactive picker when fallback finds multiple repositories.
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) interactive: bool,
+    /// Maximum number of Hugging Face repositories to search.
+    #[arg(long, value_name = "LIMIT", env = SEARCH_LIMIT, default_value_t = DEFAULT_HUGGINGFACE_SEARCH_LIMIT, help_heading = "OPTIONS")]
+    pub(crate) search_limit: usize,
+    /// Minimum downloads required for a GGUF fallback repository.
+    #[arg(long = "minimum-popularity", value_name = "COUNT", env = MINIMUM_DOWNLOAD_COUNT, default_value_t = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, help_heading = "OPTIONS")]
+    pub(crate) minimum_download_count: u64,
 }
-impl From<SwhidKind> for CalculationKind {
-    fn from(value: SwhidKind) -> Self {
-        match value {
-            | SwhidKind::Auto => Self::Auto,
-            | SwhidKind::Content => Self::Content,
-            | SwhidKind::Directory => Self::Directory,
-            | SwhidKind::GitBlob => Self::GitBlob,
-            | SwhidKind::GitTree => Self::GitTree,
-            | SwhidKind::Revision => Self::Revision,
-            | SwhidKind::Release => Self::Release,
-            | SwhidKind::Snapshot => Self::Snapshot,
-        }
-    }
+/// Model selectors and configuration shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelSourceArgs {
+    /// Model ID/name(s), local path(s), direct URL(s), or explicit oci:// artifact reference(s).
+    #[arg(value_name = "MODEL", required = false, value_delimiter = ',', help_heading = "ARGS")]
+    pub(crate) model: Vec<String>,
+    /// URI or local path to a model list file.
+    #[arg(long, value_name = "URI_OR_PATH", help_heading = "OPTIONS")]
+    pub(crate) model_file: Option<String>,
+    /// Path to an application configuration file listing models.
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
 }
-/// Calculate or verify a Software Hash Identifier.
+/// Synchronization behavior shared by model commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct ModelSyncArgs {
+    /// Synchronize resolved models with configured inference applications.
+    #[arg(long, value_enum, value_name = "TARGET", num_args = 0..=1, default_missing_value = "all", help_heading = "OPTIONS")]
+    pub(crate) sync: Option<SyncTarget>,
+    /// Assume synchronized models exist under the models directory.
+    #[arg(long, requires = "sync", help_heading = "FLAGS")]
+    pub(crate) force: bool,
+    /// Preview resolution and synchronization without writes.
+    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
-pub(crate) struct Swhid {
-    /// Local file, directory, or Git repository
-    #[arg(default_value = ".", value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
-    pub(crate) path: PathBuf,
-    /// Object source to calculate
-    #[arg(long, value_enum, default_value_t, help_heading = "OPTIONS")]
-    pub(crate) kind: SwhidKind,
-    /// Git revision expression or annotated tag name
-    #[arg(short, long, value_name = "REFERENCE", help_heading = "OPTIONS")]
-    pub(crate) reference: Option<String>,
-    /// Verify the calculated core object against this SWHID
-    #[arg(long, value_name = "SWHID", help_heading = "OPTIONS")]
-    pub(crate) verify: Option<String>,
-    /// Print only the calculated identifier
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) raw: bool,
+pub(crate) struct Runner {
+    /// Path to configuration file for creating the resource
+    #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Runner description (alternative to providing a configuration file)
+    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
+    pub(crate) description: Option<String>,
+    /// GitLab group ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) group: Option<u64>,
+    /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
+    #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
+    pub(crate) repo: Option<String>,
+    /// GitLab project ID to create a runner for (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) project: Option<u64>,
+    /// Runner name (used as Docker container name)
+    #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
+    pub(crate) name: Option<String>,
+    /// Hosting server location (for use during registration)
+    #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
+    pub(crate) server: Option<String>,
+    /// Tags to register the runner with (alternative to providing a configuration file)
+    #[arg(
+        short,
+        long,
+        conflicts_with = "untagged",
+        value_name = "LIST",
+        value_delimiter = ',',
+        help_heading = "OPTIONS"
+    )]
+    pub(crate) tags: Vec<String>,
+    /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
+    #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
+    pub(crate) untagged: bool,
+    /// Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime.
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -999,6 +989,26 @@ pub(crate) struct Spec {
     pub(crate) dry_run: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// Calculate or verify a Software Hash Identifier.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Swhid {
+    /// Local file, directory, or Git repository
+    #[arg(default_value = ".", value_name = "PATH", value_hint = ValueHint::AnyPath, help_heading = "ARGS")]
+    pub(crate) path: PathBuf,
+    /// Object source to calculate
+    #[arg(long, value_enum, default_value_t, help_heading = "OPTIONS")]
+    pub(crate) kind: SwhidKind,
+    /// Git revision expression or annotated tag name
+    #[arg(short, long, value_name = "REFERENCE", help_heading = "OPTIONS")]
+    pub(crate) reference: Option<String>,
+    /// Verify the calculated core object against this SWHID
+    #[arg(long, value_name = "SWHID", help_heading = "OPTIONS")]
+    pub(crate) verify: Option<String>,
+    /// Print only the calculated identifier
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) raw: bool,
 }
 #[derive(Clone, Debug, Args)]
 #[command(
@@ -1070,50 +1080,29 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct Runner {
-    /// Path to configuration file for creating the resource
-    #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
-    pub(crate) config: Option<PathBuf>,
-    /// Runner description (alternative to providing a configuration file)
-    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
-    pub(crate) description: Option<String>,
-    /// GitLab group ID to create a runner for (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
-    pub(crate) group: Option<u64>,
-    /// GitLab repository domain override for runner creation (e.g., code.ornl.gov)
-    #[arg(short = 'r', long, alias = "domain", value_name = "REPO", help_heading = "OPTIONS")]
-    pub(crate) repo: Option<String>,
-    /// GitLab project ID to create a runner for (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "group", value_name = "ID", help_heading = "OPTIONS")]
-    pub(crate) project: Option<u64>,
-    /// Runner name (used as Docker container name)
-    #[arg(short = 'n', long, value_name = "NAME", help_heading = "OPTIONS")]
-    pub(crate) name: Option<String>,
-    /// Hosting server location (for use during registration)
-    #[arg(short, long, value_name = "SERVER", help_heading = "OPTIONS")]
-    pub(crate) server: Option<String>,
-    /// Tags to register the runner with (alternative to providing a configuration file)
-    #[arg(
-        short,
-        long,
-        conflicts_with = "untagged",
-        value_name = "LIST",
-        value_delimiter = ',',
-        help_heading = "OPTIONS"
-    )]
-    pub(crate) tags: Vec<String>,
-    /// Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
-    #[arg(short, long, conflicts_with = "tags", help_heading = "FLAGS")]
-    pub(crate) untagged: bool,
-    /// Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime.
-    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub(crate) runtime: Option<Executor>,
-    #[command(flatten)]
-    pub(crate) target: RemoteTarget,
-    #[command(flatten)]
-    pub(crate) verbose: Verbosity,
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Console,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
+    }
+}
+impl From<SwhidKind> for CalculationKind {
+    fn from(value: SwhidKind) -> Self {
+        match value {
+            | SwhidKind::Auto => Self::Auto,
+            | SwhidKind::Content => Self::Content,
+            | SwhidKind::Directory => Self::Directory,
+            | SwhidKind::GitBlob => Self::GitBlob,
+            | SwhidKind::GitTree => Self::GitTree,
+            | SwhidKind::Revision => Self::Revision,
+            | SwhidKind::Release => Self::Release,
+            | SwhidKind::Snapshot => Self::Snapshot,
+        }
+    }
 }
 impl FileFormat {
     pub fn is_structured(&self) -> bool {
@@ -1121,11 +1110,6 @@ impl FileFormat {
             | FileFormat::Cff | FileFormat::Json | FileFormat::Yaml => true,
             | _ => false,
         }
-    }
-}
-impl From<FileFormat> for MimeType {
-    fn from(format: FileFormat) -> Self {
-        MimeType::from(&format)
     }
 }
 impl From<&FileFormat> for MimeType {
@@ -1139,6 +1123,21 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Powerpoint => MimeType::Powerpoint,
             | FileFormat::Yaml => MimeType::Yaml,
         }
+    }
+}
+impl From<ArchiveType> for MimeType {
+    fn from(value: ArchiveType) -> Self {
+        match value {
+            | ArchiveType::SevenZip => Self::SevenZip,
+            | ArchiveType::Tar => Self::Tar,
+            | ArchiveType::TarGzip => Self::Gzip,
+            | ArchiveType::Zip => Self::Zip,
+        }
+    }
+}
+impl From<FileFormat> for MimeType {
+    fn from(format: FileFormat) -> Self {
+        MimeType::from(&format)
     }
 }
 impl From<&FileFormat> for OutputFormat {

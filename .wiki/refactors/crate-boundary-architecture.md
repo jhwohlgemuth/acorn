@@ -15,7 +15,7 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema` extraction is complete with direct first-party imports and no `acorn-lib` schema facade. The active work is in-tree [analyzer std isolation](portability/isolate-std-only-modules.md). Do not extract `acorn-analysis` or introduce generic host traits until a portable analyzer kernel compiles independently and its concrete boundaries have proved stable.
+This plan is coordination-only. `acorn-schema` extraction is complete with direct first-party imports and no `acorn-lib` schema facade. The in-tree analyzer kernel now compiles independently under `alloc`; reassess its concrete boundary before extracting `acorn-analysis` or introducing generic host traits.
 
 # Current evidence
 
@@ -108,7 +108,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 # Plan dependencies
 
-- **Immediate prerequisite:** [std-only isolation](portability/isolate-std-only-modules.md) must first prove the analyzer boundary in-tree; it does not currently authorize package extraction.
+- **Satisfied prerequisite:** the [portability roadmap](portability/roadmap.md) now proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
 - **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; [acorn-cmd extraction](acorn-cmd-extraction.md) prepares `acorn-cmd`.
 - **Downstream:** [host traits](portability/host-abstraction-traits.md), [WASM](portability/wasm-feature-path.md), and [portable CI](portability/no-std-wasm-ci.md) expand as packages appear.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
@@ -201,7 +201,6 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 - [Refactor initiative](initiative.md)
 - [Extract acorn-cmd](acorn-cmd-extraction.md)
 - [Portability roadmap](portability/roadmap.md)
-- [Isolate std-only modules](portability/isolate-std-only-modules.md)
 - [Host abstraction traits](portability/host-abstraction-traits.md)
 - [WASM feature path](portability/wasm-feature-path.md)
 - [no-std and WASM CI](portability/no-std-wasm-ci.md)

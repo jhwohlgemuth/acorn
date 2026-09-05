@@ -20,8 +20,9 @@ mod context;
 use super::{run, PrepareText};
 use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
+use acorn::analyzer::host::service::{classify_paths, Analysis};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{classify_paths, Analysis, Check, CheckCategory, Standard};
+use acorn::analyzer::{Check, CheckCategory, Standard};
 use acorn::io::TextOrigin;
 use acorn::LocationExt;
 use acorn_core::util::MimeType;
@@ -34,83 +35,16 @@ use std::fs::{read, read_to_string};
 use std::path::PathBuf;
 
 const OFFLINE: bool = true;
-
-#[test]
-fn test_text_input_format_is_inferred_and_cleaned_up() {
-    [
-        ("Text to check.\n".to_string(), "stdin.txt", Standard::Text),
-        (
-            read_to_string(fixture_path("data/invalid_project_a/index.json")).expect("read JSON fixture"),
-            "stdin.json",
-            Standard::ResearchActivityData,
-        ),
-        (
-            read_to_string(fixture_path("data/valid_project/index.jsonc")).expect("read JSONC fixture"),
-            "stdin.jsonc",
-            Standard::ResearchActivityData,
-        ),
-        (
-            read_to_string(fixture_path("data/invalid_project_b/index.yaml")).expect("read YAML fixture"),
-            "stdin.yaml",
-            Standard::ResearchActivityData,
-        ),
-        (
-            read_to_string(fixture_path("data/invalid_project_c/index.md")).expect("read Markdown fixture"),
-            "stdin.md",
-            Standard::ResearchActivityData,
-        ),
-    ]
-    .into_iter()
-    .for_each(|(content, filename, standard)| {
-        let prepared = TextOrigin::Stdin.prepare(&content, None).expect("prepare standard input");
-        let path = prepared.value.paths[0].clone();
-        let input = path.parent().expect("temporary input parent").to_path_buf();
-        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
-        assert_eq!(input.file_name().and_then(|value| value.to_str()), Some("input"));
-        assert_eq!(read_to_string(&path).expect("read temporary input"), content);
-        assert_eq!(classify_paths(core::slice::from_ref(&path), Standard::default())[0].standard, standard);
-        drop(prepared.value);
-        assert!(!input.exists());
-    });
-    [
-        (MimeType::Cff, "clipboard.cff"),
-        (MimeType::Json, "clipboard.json"),
-        (MimeType::Jsonc, "clipboard.jsonc"),
-        (MimeType::Markdown, "clipboard.md"),
-        (MimeType::Text, "clipboard.txt"),
-        (MimeType::Yaml, "clipboard.yaml"),
-    ]
-    .into_iter()
-    .for_each(|(format, filename)| {
-        let prepared = TextOrigin::Clipboard
-            .prepare("forced format", Some(&format))
-            .expect("prepare forced clipboard format");
-        let path = prepared.value.paths[0].clone();
-        let input = path.parent().expect("temporary input parent").to_path_buf();
-        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
-        drop(prepared.value);
-        assert!(!input.exists());
-    });
+async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
+where
+    T: Analysis + Send,
+{
+    let path = fixture_path(path);
+    let checks = T::check_schema(core::slice::from_ref(&path), None).await;
+    let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
+    assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
+    Ok(())
 }
-#[test]
-fn test_check_accepts_piped_text() {
-    let output = Command::cargo_bin("acorn")
-        .expect("resolve acorn binary")
-        .args([
-            "--offline",
-            "--no-local-database",
-            "check",
-            "--all",
-            "--skip",
-            "prose,link,crosswalk,schema,quality",
-        ])
-        .write_stdin("Text supplied through standard input. It has several words and another sentence.\n")
-        .output()
-        .expect("run check with standard input");
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
-}
-
 async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
     let path = Some(fixture_path(path));
     let result = run(
@@ -142,29 +76,39 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
     assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
     Ok(())
 }
-async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
-where
-    T: Analysis + Send,
-{
-    let path = fixture_path(path);
-    let checks = T::check_schema(core::slice::from_ref(&path), None).await;
-    let issue_count = checks.iter().map(Check::issue_count).sum::<usize>();
-    assert_eq!(issue_count, expected, "Unexpected schema issue count for {path:?}");
-    Ok(())
-}
-
 #[test]
-fn test_location_resolve_file_type_detects_extensionless_pdf_content() {
-    let content = read(fixture_path("gather/resume.pdf")).unwrap();
-    assert_eq!(
-        acorn_core::Location::from("https://example.org/download").resolve_file_type(&content),
-        MimeType::Pdf
-    );
+fn test_check_accepts_piped_text() {
+    let output = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args([
+            "--offline",
+            "--no-local-database",
+            "check",
+            "--all",
+            "--skip",
+            "prose,link,crosswalk,schema,quality",
+        ])
+        .write_stdin("Text supplied through standard input. It has several words and another sentence.\n")
+        .output()
+        .expect("run check with standard input");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
 }
-
 #[tokio::test]
-async fn test_check_valid_project() -> Result<()> {
-    let path = Some(fixture_path("data/valid_project/index.json"));
+async fn test_check_datacite_standard() -> Result<()> {
+    run_standard_check("schema/datacite.json", Standard::Datacite).await
+}
+#[tokio::test]
+async fn test_check_dcat_standard() -> Result<()> {
+    run_standard_check("schema/dcat.json", Standard::Dcat).await
+}
+#[tokio::test]
+async fn test_check_huwise_standard() -> Result<()> {
+    run_standard_check("schema/huwise.json", Standard::Huwise).await
+}
+#[tokio::test]
+async fn test_check_invalid_project_with_no_fail() -> Result<()> {
+    let path = Some(fixture_path("data/invalid_project_a/index.json"));
     let result = run(
         &path,
         &false,
@@ -191,8 +135,12 @@ async fn test_check_valid_project() -> Result<()> {
         &None,
     )
     .await;
-    assert!(result.is_ok(), "Valid project should pass check");
+    assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
     Ok(())
+}
+#[tokio::test]
+async fn test_check_invenio_standard() -> Result<()> {
+    run_standard_check("schema/invenio-single.json", Standard::Invenio).await
 }
 #[tokio::test]
 async fn test_check_remote_project() -> Result<()> {
@@ -262,6 +210,38 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
+async fn test_check_terse_mode() -> Result<()> {
+    let path = Some(fixture_path("data/valid_project/index.json"));
+    let result = run(
+        &path,
+        &false,
+        &None,
+        &None,
+        &[],
+        &[],
+        &[],
+        &true,
+        &false,
+        &false,
+        &false,
+        &false,
+        &true,
+        &false,
+        &true, // terse mode
+        &Standard::default(),
+        &ReadabilityType::FKGL,
+        &Verbosity::new(0, 1),
+        OFFLINE,
+        None,
+        false,
+        SignedDuration::from_secs(1),
+        &None,
+    )
+    .await;
+    assert!(result.is_ok(), "Check in terse mode should succeed");
+    Ok(())
+}
+#[tokio::test]
 async fn test_check_valid_highlight() -> Result<()> {
     let path = Some(fixture_path("data/valid_highlight/index.json"));
     let result = run(
@@ -294,39 +274,7 @@ async fn test_check_valid_highlight() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_check_invalid_project_with_no_fail() -> Result<()> {
-    let path = Some(fixture_path("data/invalid_project_a/index.json"));
-    let result = run(
-        &path,
-        &false,
-        &None,
-        &None,
-        &[],
-        &[],
-        &[],
-        &true,
-        &false,
-        &false,
-        &false,
-        &false,
-        &true,
-        &false,
-        &false,
-        &Standard::default(),
-        &ReadabilityType::FKGL,
-        &Verbosity::new(0, 1),
-        OFFLINE,
-        None,
-        false,
-        SignedDuration::from_secs(1),
-        &None,
-    )
-    .await;
-    assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
-    Ok(())
-}
-#[tokio::test]
-async fn test_check_with_skip_categories() -> Result<()> {
+async fn test_check_valid_project() -> Result<()> {
     let path = Some(fixture_path("data/valid_project/index.json"));
     let result = run(
         &path,
@@ -335,7 +283,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &None,
         &[],
         &[],
-        &[CheckCategory::Prose, CheckCategory::Schema],
+        &[],
         &true,
         &false,
         &false,
@@ -354,7 +302,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         &None,
     )
     .await;
-    assert!(result.is_ok(), "Check with skip categories should succeed");
+    assert!(result.is_ok(), "Valid project should pass check");
     Ok(())
 }
 #[tokio::test]
@@ -393,7 +341,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
     Ok(())
 }
 #[tokio::test]
-async fn test_check_terse_mode() -> Result<()> {
+async fn test_check_with_skip_categories() -> Result<()> {
     let path = Some(fixture_path("data/valid_project/index.json"));
     let result = run(
         &path,
@@ -402,7 +350,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        &[CheckCategory::Prose, CheckCategory::Schema],
         &true,
         &false,
         &false,
@@ -410,7 +358,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &false,
         &true,
         &false,
-        &true, // terse mode
+        &false,
         &Standard::default(),
         &ReadabilityType::FKGL,
         &Verbosity::new(0, 1),
@@ -421,24 +369,8 @@ async fn test_check_terse_mode() -> Result<()> {
         &None,
     )
     .await;
-    assert!(result.is_ok(), "Check in terse mode should succeed");
+    assert!(result.is_ok(), "Check with skip categories should succeed");
     Ok(())
-}
-#[tokio::test]
-async fn test_check_datacite_standard() -> Result<()> {
-    run_standard_check("schema/datacite.json", Standard::Datacite).await
-}
-#[tokio::test]
-async fn test_check_dcat_standard() -> Result<()> {
-    run_standard_check("schema/dcat.json", Standard::Dcat).await
-}
-#[tokio::test]
-async fn test_check_invenio_standard() -> Result<()> {
-    run_standard_check("schema/invenio-single.json", Standard::Invenio).await
-}
-#[tokio::test]
-async fn test_check_huwise_standard() -> Result<()> {
-    run_standard_check("schema/huwise.json", Standard::Huwise).await
 }
 #[tokio::test]
 async fn test_datacite_invalid_fixture_has_two_schema_errors() -> Result<()> {
@@ -449,10 +381,75 @@ async fn test_dcat_invalid_fixture_has_two_schema_errors() -> Result<()> {
     assert_schema_issue_count::<dcat::Dataset>("schema/dcat-invalid-2-errors.json", 2).await
 }
 #[tokio::test]
+async fn test_huwise_invalid_fixture_has_two_schema_errors() -> Result<()> {
+    assert_schema_issue_count::<huwise::Dataset>("schema/huwise-invalid-2-errors.json", 2).await
+}
+#[tokio::test]
 async fn test_invenio_invalid_fixture_has_two_schema_errors() -> Result<()> {
     assert_schema_issue_count::<invenio::Record>("schema/invenio-invalid-2-errors.json", 2).await
 }
-#[tokio::test]
-async fn test_huwise_invalid_fixture_has_two_schema_errors() -> Result<()> {
-    assert_schema_issue_count::<huwise::Dataset>("schema/huwise-invalid-2-errors.json", 2).await
+#[test]
+fn test_location_resolve_file_type_detects_extensionless_pdf_content() {
+    let content = read(fixture_path("gather/resume.pdf")).unwrap();
+    assert_eq!(
+        acorn_core::Location::from("https://example.org/download").resolve_file_type(&content),
+        MimeType::Pdf
+    );
+}
+#[test]
+fn test_text_input_format_is_inferred_and_cleaned_up() {
+    [
+        ("Text to check.\n".to_string(), "stdin.txt", Standard::Text),
+        (
+            read_to_string(fixture_path("data/invalid_project_a/index.json")).expect("read JSON fixture"),
+            "stdin.json",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/valid_project/index.jsonc")).expect("read JSONC fixture"),
+            "stdin.jsonc",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/invalid_project_b/index.yaml")).expect("read YAML fixture"),
+            "stdin.yaml",
+            Standard::ResearchActivityData,
+        ),
+        (
+            read_to_string(fixture_path("data/invalid_project_c/index.md")).expect("read Markdown fixture"),
+            "stdin.md",
+            Standard::ResearchActivityData,
+        ),
+    ]
+    .into_iter()
+    .for_each(|(content, filename, standard)| {
+        let prepared = TextOrigin::Stdin.prepare(&content, None).expect("prepare standard input");
+        let path = prepared.value.paths[0].clone();
+        let input = path.parent().expect("temporary input parent").to_path_buf();
+        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
+        assert_eq!(input.file_name().and_then(|value| value.to_str()), Some("input"));
+        assert_eq!(read_to_string(&path).expect("read temporary input"), content);
+        assert_eq!(classify_paths(core::slice::from_ref(&path), Standard::default())[0].standard, standard);
+        drop(prepared.value);
+        assert!(!input.exists());
+    });
+    [
+        (MimeType::Cff, "clipboard.cff"),
+        (MimeType::Json, "clipboard.json"),
+        (MimeType::Jsonc, "clipboard.jsonc"),
+        (MimeType::Markdown, "clipboard.md"),
+        (MimeType::Text, "clipboard.txt"),
+        (MimeType::Yaml, "clipboard.yaml"),
+    ]
+    .into_iter()
+    .for_each(|(format, filename)| {
+        let prepared = TextOrigin::Clipboard
+            .prepare("forced format", Some(&format))
+            .expect("prepare forced clipboard format");
+        let path = prepared.value.paths[0].clone();
+        let input = path.parent().expect("temporary input parent").to_path_buf();
+        assert_eq!(path.file_name().and_then(|value| value.to_str()), Some(filename));
+        drop(prepared.value);
+        assert!(!input.exists());
+    });
 }

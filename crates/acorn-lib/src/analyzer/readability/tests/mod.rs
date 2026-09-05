@@ -5,24 +5,23 @@
     clippy::indexing_slicing,
     clippy::arithmetic_side_effects
 )]
+#[cfg(feature = "analysis")]
+use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use crate::analyzer::readability::ReadabilityType;
 use crate::analyzer::readability::*;
-use crate::analyzer::{checks_to_dataframe, CheckCategory};
+#[cfg(feature = "analysis")]
+use crate::analyzer::CheckCategory;
+#[cfg(feature = "analysis")]
 use crate::check_ok;
 use crate::util::Constant;
-use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{format, vec, HashMap};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::is_finite_and_greater_than;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use zench::{bench, bx};
 
-// Baseline with dictionary-backed lookup is above 0.90 on words.csv.
-// Keep this as a regression floor (not a quality target) so future changes do not
-// silently degrade broad-wordlist behavior.
-const MIN_ACCURACY: f64 = 1.0;
 const ACORN_SAMPLE_TEXT: &str = r#"
 ACORN is a CLI application that provides a structure for
 Research Activity Data (RAD) and enables adding linked
@@ -40,6 +39,10 @@ memory-safe Rust programming language, ACORN is portable
 and accessible for use on any Windows, Mac, or Linux
 machine.
     "#;
+// Baseline with dictionary-backed lookup is above 0.90 on words.csv.
+// Keep this as a regression floor (not a quality target) so future changes do not
+// silently degrade broad-wordlist behavior.
+const MIN_ACCURACY: f64 = 1.0;
 // Source: https://fleschkincaidcalculator.com/
 const SAMPLE_TEXT: &str = r#"
 Crafting a compelling proposal for funding, whether it's a grant proposal for business proposal for funding, is critical to securing financial support.
@@ -47,7 +50,32 @@ Clear, readable writing can set your proposal apart from the competition. One ef
 This blog post explores how to write a proposal for funding, including a sample skeleton for a business proposal for funding, and explains how to use 
 the Flesch Kincaid score checker to optimize readability for grant and business proposals.
 "#;
-
+#[test]
+fn bench_readability() {
+    let short = "The quick brown fox jumps over the lazy dog.";
+    let medium = "The alacritous brown fox jumps over the lethargic dog. ".repeat(128);
+    bench!(
+        "word_count short" => bx(word_count(bx(short))),
+        "syllable_count short" => bx(syllable_count(bx(short))),
+        "ari short" => bx(automated_readability_index(bx(short))),
+        "syllable_count medium" => bx(syllable_count(bx(medium.as_str()))),
+        "ari medium" => bx(automated_readability_index(bx(medium.as_str()))),
+    );
+}
+#[test]
+fn bench_readability_heavy_paths() {
+    let corpus = match Constant::from_asset("words.csv") {
+        | Some(content) => content.lines().filter_map(|line| line.split(',').next()).collect::<Vec<&str>>().join(" "),
+        | None => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
+    };
+    let large = format!("{} {}", corpus, corpus);
+    bench!(
+        "syllable_count large" => bx(syllable_count(bx(large.as_str()))),
+        "complex_word_count large" => bx(complex_word_count(bx(large.as_str()))),
+        "smog large" => bx(smog(bx(large.as_str()))),
+        "fkgl large" => bx(flesch_kincaid_grade_level(bx(large.as_str()))),
+    );
+}
 #[test]
 fn test_automated_readability_index() {
     let text = "The quick brown fox jumps over the lazy dog.";
@@ -56,6 +84,7 @@ fn test_automated_readability_index() {
     assert_eq!(6.62, automated_readability_index(text));
 }
 #[test]
+#[cfg(feature = "analysis")]
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
@@ -229,6 +258,13 @@ fn test_score_below_threshold_is_not_excessive() {
     assert!(!score.is_excessive());
 }
 #[test]
+fn test_score_display_matches_existing_message() {
+    let score = ReadabilityScore::new(ReadabilityType::FKGL, 13.39, 12.0);
+    assert_eq!(score.to_string(), "FKGL = 13.39/12");
+    let fres = ReadabilityScore::new(ReadabilityType::FRES, 94.3, 50.0);
+    assert_eq!(fres.to_string(), "FRES = 94.3/50");
+}
+#[test]
 fn test_score_fres_above_floor_is_not_excessive() {
     let score = ReadabilityScore::new(ReadabilityType::FRES, 60.0, 50.0);
     assert!(!score.is_excessive());
@@ -245,13 +281,6 @@ fn test_score_fres_below_floor_is_excessive() {
     let score = ReadabilityScore::new(ReadabilityType::FRES, 40.0, 50.0);
     assert!(score.is_excessive());
     assert_eq!(score.severity(), ReadabilitySeverity::Fail);
-}
-#[test]
-fn test_score_display_matches_existing_message() {
-    let score = ReadabilityScore::new(ReadabilityType::FKGL, 13.39, 12.0);
-    assert_eq!(score.to_string(), "FKGL = 13.39/12");
-    let fres = ReadabilityScore::new(ReadabilityType::FRES, 94.3, 50.0);
-    assert_eq!(fres.to_string(), "FRES = 94.3/50");
 }
 #[test]
 fn test_score_just_above_and_below_epsilon() {
@@ -368,10 +397,10 @@ fn test_syllable_count_simple() {
     assert_eq!(0, syllable_count(""));
     const SINGLE_SYLLABLE_WORDS: [&str; 7] = ["a", "and", "is", "of", "Foo", "the", "wine"];
     const DOUBLE_SYLLABLE_WORDS: [&str; 9] = ["bottle", "cafe", "cafes", "Hello", "hello", "PIZZA", "pizza", "PROJECT", "project"];
-    SINGLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
+    SINGLE_SYLLABLE_WORDS.iter().for_each(|x| {
         assert_eq!(1, syllable_count(x), "=> [REASON] \"{x}\" is NOT a single-syllable word");
     });
-    DOUBLE_SYLLABLE_WORDS.par_iter().for_each(|x| {
+    DOUBLE_SYLLABLE_WORDS.iter().for_each(|x| {
         assert_eq!(2, syllable_count(x), "=> [REASON] \"{x}\" is NOT a double-syllable word");
     });
     assert_eq!(3, syllable_count("Syllable"));
@@ -470,30 +499,4 @@ fn test_syllables_count_word_list() {
 fn test_word_count() {
     let text = "The quick brown fox jumps over the lazy dog.";
     assert_eq!(9, word_count(text));
-}
-#[test]
-fn bench_readability() {
-    let short = "The quick brown fox jumps over the lazy dog.";
-    let medium = "The alacritous brown fox jumps over the lethargic dog. ".repeat(128);
-    bench!(
-        "word_count short" => bx(word_count(bx(short))),
-        "syllable_count short" => bx(syllable_count(bx(short))),
-        "ari short" => bx(automated_readability_index(bx(short))),
-        "syllable_count medium" => bx(syllable_count(bx(medium.as_str()))),
-        "ari medium" => bx(automated_readability_index(bx(medium.as_str()))),
-    );
-}
-#[test]
-fn bench_readability_heavy_paths() {
-    let corpus = match Constant::from_asset("words.csv") {
-        | Some(content) => content.lines().filter_map(|line| line.split(',').next()).collect::<Vec<&str>>().join(" "),
-        | None => "The alacritous brown fox jumps over the lethargic dog. ".repeat(512),
-    };
-    let large = format!("{} {}", corpus, corpus);
-    bench!(
-        "syllable_count large" => bx(syllable_count(bx(large.as_str()))),
-        "complex_word_count large" => bx(complex_word_count(bx(large.as_str()))),
-        "smog large" => bx(smog(bx(large.as_str()))),
-        "fkgl large" => bx(flesch_kincaid_grade_level(bx(large.as_str()))),
-    );
 }

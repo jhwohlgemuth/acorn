@@ -4,7 +4,7 @@
 //! Used to inform and configure readability analysis
 //!
 use crate::util::Constant;
-use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{vec, HashMap, String};
 use acorn_core::util::assets::EmbeddedAssets;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;

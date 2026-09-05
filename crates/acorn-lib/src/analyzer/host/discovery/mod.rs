@@ -1,9 +1,9 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
-use super::check::CheckKind;
-use super::{
-    analyze_paths, link_check, Analysis, AnalysisContext, AnalysisOptions, Check, CheckCategory, CheckSeverity, ExecutionOptions, OutputFormat,
-    Render, RenderContext, ReportOptions, SchemaCheck, Standard,
-};
+use super::context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportOptions};
+use super::render::{Render, RenderContext};
+use super::runtime::link_check;
+use super::service::{analyze_paths, Analysis, SchemaCheck};
+use crate::analyzer::check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard};
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
@@ -65,6 +65,47 @@ pub enum Candidate {
         email: Option<String>,
     },
 }
+/// Citation format used for resolved DOI output.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::EnumIter, VariantNames)]
+#[serde(rename_all = "lowercase")]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+pub enum CitationFormat {
+    /// Institute of Electrical and Electronics Engineers.
+    #[default]
+    Ieee,
+    /// American Psychological Association.
+    Apa,
+    /// Chicago Manual of Style.
+    Chicago,
+    /// Harvard author-date style.
+    Harvard,
+    /// Modern Language Association.
+    Mla,
+    /// Vancouver numeric style.
+    Vancouver,
+}
+/// State emitted while gathering and resolving discoveries.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum LifecycleState {
+    /// A discovery or provider match was found.
+    Found,
+    /// Metadata resolution succeeded.
+    Resolved,
+    /// No resolver supports the discovery.
+    Unsupported,
+    /// Metadata resolution failed.
+    Failed,
+    /// A canonical candidate was created.
+    Created,
+    /// An existing candidate was enriched.
+    Enriched,
+    /// The candidate already contained the gathered evidence.
+    Unchanged,
+    /// Candidate evidence conflicted with stored data.
+    Conflict,
+}
 /// Serializable gather record
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "record", rename_all = "lowercase")]
@@ -100,31 +141,24 @@ pub enum Record {
         source_format: String,
     },
 }
-/// Citation format used for resolved DOI output.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::EnumIter, VariantNames)]
-#[serde(rename_all = "lowercase")]
-#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
-pub enum CitationFormat {
-    /// Institute of Electrical and Electronics Engineers.
-    #[default]
-    Ieee,
-    /// American Psychological Association.
-    Apa,
-    /// Chicago Manual of Style.
-    Chicago,
-    /// Harvard author-date style.
-    Harvard,
-    /// Modern Language Association.
-    Mla,
-    /// Vancouver numeric style.
-    Vancouver,
-}
 /// Remote metadata provider used by gather.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RemoteProvider {
     /// DOE CODE from the Office of Scientific and Technical Information.
     Osti,
+}
+/// Typed terminal outcome of a resolution attempt.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResolutionOutcome<T> {
+    /// Resolution was not requested.
+    NotRequested,
+    /// No resolver is implemented for the value.
+    Unsupported,
+    /// Resolution succeeded with metadata.
+    Resolved(T),
+    /// Resolution failed with a diagnostic.
+    Failed(String),
 }
 /// Outcome state for remote identifier resolution.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
@@ -140,141 +174,6 @@ pub enum ResolutionStatus {
     Resolved,
     /// No resolver is implemented for this identifier type.
     Unsupported,
-}
-/// Typed terminal outcome of a resolution attempt.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ResolutionOutcome<T> {
-    /// Resolution was not requested.
-    NotRequested,
-    /// No resolver is implemented for the value.
-    Unsupported,
-    /// Resolution succeeded with metadata.
-    Resolved(T),
-    /// Resolution failed with a diagnostic.
-    Failed(String),
-}
-/// State emitted while gathering and resolving discoveries.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, strum::Display)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-pub enum LifecycleState {
-    /// A discovery or provider match was found.
-    Found,
-    /// Metadata resolution succeeded.
-    Resolved,
-    /// No resolver supports the discovery.
-    Unsupported,
-    /// Metadata resolution failed.
-    Failed,
-    /// A canonical candidate was created.
-    Created,
-    /// An existing candidate was enriched.
-    Enriched,
-    /// The candidate already contained the gathered evidence.
-    Unchanged,
-    /// Candidate evidence conflicted with stored data.
-    Conflict,
-}
-/// Features exposed by a remote gather provider.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ProviderCapabilities {
-    /// Entity views supported by the provider.
-    pub entities: Vec<RemoteEntity>,
-    /// Whether organization-scoped searches are supported.
-    pub organization_filter: bool,
-    /// Whether offset, limit, and all-page retrieval are supported.
-    pub pagination: bool,
-}
-/// Provider-neutral remote search request.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
-#[builder(start_fn = init)]
-pub struct RemoteSearchRequest {
-    /// Provider to search.
-    pub provider: RemoteProvider,
-    /// Entity view to return.
-    pub entity: RemoteEntity,
-    /// Direct search expressions.
-    #[builder(default)]
-    pub queries: Vec<String>,
-    /// Optional organization filter.
-    pub organization: Option<String>,
-    /// Optional ROR associated with the organization filter.
-    pub organization_ror: Option<String>,
-    /// Organization relationship filter.
-    #[builder(default)]
-    pub organization_role: RemoteOrganizationRole,
-    /// Upstream page size.
-    #[builder(default = 20)]
-    pub limit: usize,
-    /// Upstream offset.
-    #[builder(default)]
-    pub offset: usize,
-    /// Retrieve all pages.
-    #[builder(default)]
-    pub all: bool,
-}
-/// Provider-neutral remote search match.
-#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
-#[builder(start_fn = init, on(String, into))]
-pub struct RemoteMatch {
-    /// Entity kind.
-    pub entity: RemoteEntity,
-    /// Provider-native stable identifier.
-    pub identifier: String,
-    /// Human-readable label.
-    pub title: String,
-    /// Optional persistent identifier.
-    pub pid: Option<String>,
-    /// Optional canonical link.
-    pub url: Option<String>,
-    /// Provider-native metadata retained for structured output and details.
-    pub metadata: serde_json::Value,
-    /// Provider-supplied project description.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Additional provider-confirmed project links.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub websites: Vec<Candidate>,
-    /// Provider-supplied project keywords.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub keywords: Vec<Keyword>,
-    /// Organizations identified as project sponsors.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sponsors: Vec<String>,
-    /// Organizations identified as project partners.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub partners: Vec<String>,
-    /// Related research activity identifiers.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub related: Vec<String>,
-    /// Programming languages reported by the repository provider.
-    #[builder(default = Vec::new())]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub technology: Vec<String>,
-    /// Optional metadata-provider outcome requested for raw resolution.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resolution: Option<RemoteResolution>,
-}
-/// Provider-neutral remote search response.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RemoteSearchResponse {
-    /// Provider that produced the results.
-    pub provider: RemoteProvider,
-    /// Total upstream records matched.
-    pub total: usize,
-    /// Upstream offset.
-    pub offset: usize,
-    /// Whether another page is available.
-    pub has_more: bool,
-    /// Normalized matches.
-    pub matches: Vec<RemoteMatch>,
-    #[serde(skip)]
-    resolution_checks: Vec<Check>,
 }
 /// Candidate artifact record before standard-specific mapping
 #[derive(Builder, Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -325,21 +224,6 @@ pub struct GatherOutputPolicy<'a> {
     quiet: bool,
     terse: bool,
     verbosity: Option<u8>,
-}
-/// Resolver outcome attached to a remote gather match.
-#[derive(Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[builder(start_fn = init, on(String, into))]
-pub struct RemoteResolution {
-    /// Metadata provider name.
-    pub provider: String,
-    /// Resolution status.
-    pub status: ResolutionStatus,
-    /// Full provider metadata when resolution succeeded.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<serde_json::Value>,
-    /// Provider diagnostic when resolution failed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
 }
 /// Gather command options shared with discovery analysis
 #[derive(Clone, Copy, Debug)]
@@ -398,10 +282,126 @@ struct PersistenceCounts {
     unchanged: usize,
     conflicts: usize,
 }
+/// Features exposed by a remote gather provider.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProviderCapabilities {
+    /// Entity views supported by the provider.
+    pub entities: Vec<RemoteEntity>,
+    /// Whether organization-scoped searches are supported.
+    pub organization_filter: bool,
+    /// Whether offset, limit, and all-page retrieval are supported.
+    pub pagination: bool,
+}
 /// Gather discoveries and the source documents from which they were derived
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(transparent)]
 pub struct Records(Vec<Record>, #[serde(skip)] Vec<SourceDocument>);
+/// Provider-neutral remote search match.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+pub struct RemoteMatch {
+    /// Entity kind.
+    pub entity: RemoteEntity,
+    /// Provider-native stable identifier.
+    pub identifier: String,
+    /// Human-readable label.
+    pub title: String,
+    /// Optional persistent identifier.
+    pub pid: Option<String>,
+    /// Optional canonical link.
+    pub url: Option<String>,
+    /// Provider-native metadata retained for structured output and details.
+    pub metadata: serde_json::Value,
+    /// Provider-supplied project description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Additional provider-confirmed project links.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub websites: Vec<Candidate>,
+    /// Provider-supplied project keywords.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keywords: Vec<Keyword>,
+    /// Organizations identified as project sponsors.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sponsors: Vec<String>,
+    /// Organizations identified as project partners.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub partners: Vec<String>,
+    /// Related research activity identifiers.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub related: Vec<String>,
+    /// Programming languages reported by the repository provider.
+    #[builder(default = Vec::new())]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub technology: Vec<String>,
+    /// Optional metadata-provider outcome requested for raw resolution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<RemoteResolution>,
+}
+/// Resolver outcome attached to a remote gather match.
+#[derive(Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+pub struct RemoteResolution {
+    /// Metadata provider name.
+    pub provider: String,
+    /// Resolution status.
+    pub status: ResolutionStatus,
+    /// Full provider metadata when resolution succeeded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+    /// Provider diagnostic when resolution failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+/// Provider-neutral remote search request.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
+pub struct RemoteSearchRequest {
+    /// Provider to search.
+    pub provider: RemoteProvider,
+    /// Entity view to return.
+    pub entity: RemoteEntity,
+    /// Direct search expressions.
+    #[builder(default)]
+    pub queries: Vec<String>,
+    /// Optional organization filter.
+    pub organization: Option<String>,
+    /// Optional ROR associated with the organization filter.
+    pub organization_ror: Option<String>,
+    /// Organization relationship filter.
+    #[builder(default)]
+    pub organization_role: RemoteOrganizationRole,
+    /// Upstream page size.
+    #[builder(default = 20)]
+    pub limit: usize,
+    /// Upstream offset.
+    #[builder(default)]
+    pub offset: usize,
+    /// Retrieve all pages.
+    #[builder(default)]
+    pub all: bool,
+}
+/// Provider-neutral remote search response.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RemoteSearchResponse {
+    /// Provider that produced the results.
+    pub provider: RemoteProvider,
+    /// Total upstream records matched.
+    pub total: usize,
+    /// Upstream offset.
+    pub offset: usize,
+    /// Whether another page is available.
+    pub has_more: bool,
+    /// Normalized matches.
+    pub matches: Vec<RemoteMatch>,
+    #[serde(skip)]
+    resolution_checks: Vec<Check>,
+}
 /// Structured gather report
 #[derive(Builder, Clone, Debug, Serialize)]
 #[builder(builder_type(vis = "pub(crate)"), start_fn(name = init, vis = "pub(crate)"))]
@@ -432,6 +432,9 @@ pub(crate) struct Summary {
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
 }
+impl DeserializeMetadata for api::citeas::Citations {}
+impl DeserializeMetadata for api::handle::Record {}
+impl DeserializeMetadata for api::orcid::SearchResponse {}
 impl ArtifactCandidate {
     fn new(identifiers: Vec<Identifier>, provenance: Vec<serde_json::Value>) -> Self {
         Self {
@@ -706,41 +709,6 @@ impl ArtifactCandidate {
         }
     }
 }
-impl Record {
-    fn supporting_handle(&self) -> Option<(String, ArtifactCandidate)> {
-        match self {
-            | Self::Discovery {
-                identifier,
-                identifier_type: PID::Handle,
-                metadata,
-                resolution_status,
-                source,
-                source_format,
-            } => {
-                let handle = Identifier {
-                    kind: PID::Handle,
-                    value: identifier.clone(),
-                };
-                handle.normalized().map(|identifier| {
-                    let prov = Provenance::Discovery {
-                        source: source.clone(),
-                        source_format: source_format.clone(),
-                        identifier: identifier.value.clone(),
-                        resolution_status: resolution_status.to_string(),
-                        observed_at: Timestamp::now().to_string(),
-                    };
-                    let provenance = serde_json::to_value(prov).unwrap_or_default();
-                    let identifiers = vec![identifier];
-                    let provenance = vec![provenance];
-                    let artifact_candidate = ArtifactCandidate::new(identifiers, provenance);
-                    let handle_candidate = artifact_candidate.resolved(metadata.as_deref(), &PID::Handle);
-                    (source.clone(), handle_candidate)
-                })
-            }
-            | _ => None,
-        }
-    }
-}
 impl<'a> TryFrom<&'a Record> for ArtifactCandidate {
     type Error = &'a Record;
 
@@ -800,33 +768,6 @@ impl Candidate {
         matches!(self, Self::Contact { identifier, email } if identifier.is_some() || email.is_some())
     }
 }
-impl fmt::Display for CitationFormat {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self {
-            | Self::Ieee => "ieee",
-            | Self::Apa => "apa",
-            | Self::Chicago => "chicago",
-            | Self::Harvard => "harvard",
-            | Self::Mla => "mla",
-            | Self::Vancouver => "vancouver",
-        };
-        formatter.write_str(value)
-    }
-}
-impl From<&str> for CitationFormat {
-    fn from(value: &str) -> Self {
-        value.trim().parse().unwrap_or_default()
-    }
-}
-impl FromStr for CitationFormat {
-    type Err = String;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::iter()
-            .zip(Self::VARIANTS)
-            .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
-            .ok_or_else(|| value.to_string())
-    }
-}
 impl CitationFormat {
     fn matches(self, citation: &api::citeas::Citation) -> bool {
         let values = [&citation.style_shortname, &citation.style_fullname].map(|value| {
@@ -883,17 +824,31 @@ impl CitationFormat {
         Self::VARIANTS
     }
 }
-impl DeserializeMetadata for api::citeas::Citations {}
-impl DeserializeMetadata for api::handle::Record {}
-impl<'a> From<Options<'a>> for GatherOutputPolicy<'a> {
-    fn from(options: Options<'a>) -> Self {
-        Self {
-            format: options.format,
-            output: options.output,
-            quiet: options.quiet,
-            terse: options.terse,
-            verbosity: options.verbosity,
-        }
+impl fmt::Display for CitationFormat {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = match self {
+            | Self::Ieee => "ieee",
+            | Self::Apa => "apa",
+            | Self::Chicago => "chicago",
+            | Self::Harvard => "harvard",
+            | Self::Mla => "mla",
+            | Self::Vancouver => "vancouver",
+        };
+        formatter.write_str(value)
+    }
+}
+impl From<&str> for CitationFormat {
+    fn from(value: &str) -> Self {
+        value.trim().parse().unwrap_or_default()
+    }
+}
+impl FromStr for CitationFormat {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::iter()
+            .zip(Self::VARIANTS)
+            .find_map(|(format, variant)| variant.eq_ignore_ascii_case(value.trim()).then_some(format))
+            .ok_or_else(|| value.to_string())
     }
 }
 impl GatherOutputPolicy<'_> {
@@ -903,6 +858,17 @@ impl GatherOutputPolicy<'_> {
                 | (true, _) | (false, true) => OutputFormat::Console,
                 | (false, false) => OutputFormat::Json,
             })
+    }
+}
+impl<'a> From<Options<'a>> for GatherOutputPolicy<'a> {
+    fn from(options: Options<'a>) -> Self {
+        Self {
+            format: options.format,
+            output: options.output,
+            quiet: options.quiet,
+            terse: options.terse,
+            verbosity: options.verbosity,
+        }
     }
 }
 impl From<CandidateAction> for LifecycleState {
@@ -950,6 +916,12 @@ impl Options<'_> {
             .collect()
     }
 }
+impl core::error::Error for OutputFailure {}
+impl fmt::Display for OutputFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ACORN gather found one or more failures")
+    }
+}
 impl OutputFailure {
     /// Create a gather failure, optionally suppressing the top-level diagnostic.
     pub const fn new(silent: bool) -> Self {
@@ -960,12 +932,6 @@ impl OutputFailure {
         self.silent
     }
 }
-impl fmt::Display for OutputFailure {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ACORN gather found one or more failures")
-    }
-}
-impl core::error::Error for OutputFailure {}
 impl PersistenceCounts {
     fn from_results(results: &[CandidatePersistence]) -> Self {
         results.iter().fold(Self::default(), |counts, result| match result.action {
@@ -989,6 +955,65 @@ impl PersistenceCounts {
     }
     fn is_empty(&self) -> bool {
         self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
+    }
+}
+impl From<&Check> for Record {
+    fn from(value: &Check) -> Self {
+        Self::Check {
+            category: value.category.clone(),
+            locator: value.locator.clone(),
+            message: value.message.clone(),
+            severity: value.severity.clone(),
+            success: value.success,
+            uri: value.uri.clone(),
+        }
+    }
+}
+impl From<Identifier> for Record {
+    fn from(identifier: Identifier) -> Self {
+        Self::Discovery {
+            identifier: identifier.value,
+            identifier_type: identifier.kind,
+            metadata: None,
+            resolution_status: ResolutionStatus::NotRequested,
+            source: String::new(),
+            source_format: String::new(),
+        }
+    }
+}
+impl Record {
+    fn supporting_handle(&self) -> Option<(String, ArtifactCandidate)> {
+        match self {
+            | Self::Discovery {
+                identifier,
+                identifier_type: PID::Handle,
+                metadata,
+                resolution_status,
+                source,
+                source_format,
+            } => {
+                let handle = Identifier {
+                    kind: PID::Handle,
+                    value: identifier.clone(),
+                };
+                handle.normalized().map(|identifier| {
+                    let prov = Provenance::Discovery {
+                        source: source.clone(),
+                        source_format: source_format.clone(),
+                        identifier: identifier.value.clone(),
+                        resolution_status: resolution_status.to_string(),
+                        observed_at: Timestamp::now().to_string(),
+                    };
+                    let provenance = serde_json::to_value(prov).unwrap_or_default();
+                    let identifiers = vec![identifier];
+                    let provenance = vec![provenance];
+                    let artifact_candidate = ArtifactCandidate::new(identifiers, provenance);
+                    let handle_candidate = artifact_candidate.resolved(metadata.as_deref(), &PID::Handle);
+                    (source.clone(), handle_candidate)
+                })
+            }
+            | _ => None,
+        }
     }
 }
 impl Record {
@@ -1078,31 +1103,6 @@ impl Record {
         }
     }
 }
-impl From<Identifier> for Record {
-    fn from(identifier: Identifier) -> Self {
-        Self::Discovery {
-            identifier: identifier.value,
-            identifier_type: identifier.kind,
-            metadata: None,
-            resolution_status: ResolutionStatus::NotRequested,
-            source: String::new(),
-            source_format: String::new(),
-        }
-    }
-}
-impl From<&Check> for Record {
-    fn from(value: &Check) -> Self {
-        Self::Check {
-            category: value.category.clone(),
-            locator: value.locator.clone(),
-            message: value.message.clone(),
-            severity: value.severity.clone(),
-            success: value.success,
-            uri: value.uri.clone(),
-        }
-    }
-}
-impl SchemaCheck for Records {}
 #[async_trait]
 impl Analysis for Records {
     fn standard() -> Standard {
@@ -1110,6 +1110,25 @@ impl Analysis for Records {
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         path.to_path_buf()
+    }
+}
+impl From<&[SourceDocument]> for Records {
+    fn from(sources: &[SourceDocument]) -> Self {
+        Self::from(sources.to_vec())
+    }
+}
+impl From<Vec<SourceDocument>> for Records {
+    fn from(sources: Vec<SourceDocument>) -> Self {
+        let records = sources
+            .iter()
+            .flat_map(|source| {
+                Identifier::find_all(&source.content)
+                    .into_iter()
+                    .map(|identifier| Record::from(identifier).with_source(source))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        Self(records, sources)
     }
 }
 impl Records {
@@ -1289,28 +1308,14 @@ impl Records {
         Self(join_all(self.0.into_iter().map(Record::resolve)).await, self.1)
     }
 }
-impl From<&[SourceDocument]> for Records {
-    fn from(sources: &[SourceDocument]) -> Self {
-        Self::from(sources.to_vec())
+impl SchemaCheck for Records {}
+#[async_trait]
+impl Analysis for RemoteMatch {
+    fn standard() -> Standard {
+        Standard::Text
     }
-}
-impl From<Vec<SourceDocument>> for Records {
-    fn from(sources: Vec<SourceDocument>) -> Self {
-        let records = sources
-            .iter()
-            .flat_map(|source| {
-                Identifier::find_all(&source.content)
-                    .into_iter()
-                    .map(|identifier| Record::from(identifier).with_source(source))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        Self(records, sources)
-    }
-}
-impl<'a> From<&'a Records> for &'a [SourceDocument] {
-    fn from(discoveries: &'a Records) -> Self {
-        discoveries.1.as_slice()
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        path.to_path_buf()
     }
 }
 impl RemoteMatch {
@@ -1348,15 +1353,6 @@ impl RemoteMatch {
     }
 }
 impl SchemaCheck for RemoteMatch {}
-#[async_trait]
-impl Analysis for RemoteMatch {
-    fn standard() -> Standard {
-        Standard::Text
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        path.to_path_buf()
-    }
-}
 impl fmt::Display for RemoteProvider {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -1774,17 +1770,6 @@ impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
         }
     }
 }
-impl<T> ResolutionOutcome<T> {
-    /// Return the serializable status represented by this outcome.
-    pub const fn status(&self) -> ResolutionStatus {
-        match self {
-            | Self::NotRequested => ResolutionStatus::NotRequested,
-            | Self::Unsupported => ResolutionStatus::Unsupported,
-            | Self::Resolved(_) => ResolutionStatus::Resolved,
-            | Self::Failed(_) => ResolutionStatus::Failed,
-        }
-    }
-}
 impl ResolutionOutcome<String> {
     fn into_parts(self) -> (Option<String>, ResolutionStatus) {
         let status = self.status();
@@ -1809,7 +1794,22 @@ where
         }
     }
 }
-impl DeserializeMetadata for api::orcid::SearchResponse {}
+impl<T> ResolutionOutcome<T> {
+    /// Return the serializable status represented by this outcome.
+    pub const fn status(&self) -> ResolutionStatus {
+        match self {
+            | Self::NotRequested => ResolutionStatus::NotRequested,
+            | Self::Unsupported => ResolutionStatus::Unsupported,
+            | Self::Resolved(_) => ResolutionStatus::Resolved,
+            | Self::Failed(_) => ResolutionStatus::Failed,
+        }
+    }
+}
+impl<'a> From<&'a Records> for &'a [SourceDocument] {
+    fn from(discoveries: &'a Records) -> Self {
+        discoveries.1.as_slice()
+    }
+}
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}
 pub(super) fn candidate_repositories(canonical_url: Option<&str>, websites: &[Candidate], domain: &str) -> Vec<Repository> {
     candidate_urls(canonical_url, websites)
@@ -1878,15 +1878,15 @@ pub fn group_artifacts(candidates: Vec<ArtifactCandidate>) -> Vec<ArtifactCandid
 fn is_zero(value: &usize) -> bool {
     *value == 0
 }
-fn metadata_values(field: &str, values: &[String]) -> Option<(String, serde_json::Value)> {
-    (!values.is_empty()).then(|| (field.to_string(), serde_json::json!(values)))
-}
 fn merge_websites(left: impl IntoIterator<Item = Candidate>, right: impl IntoIterator<Item = Candidate>) -> Vec<Candidate> {
     left.into_iter()
         .chain(right)
         .filter(|candidate| candidate.url().is_some())
         .unique_by(|candidate| candidate.url().unwrap_or_default().to_string())
         .collect()
+}
+fn metadata_values(field: &str, values: &[String]) -> Option<(String, serde_json::Value)> {
+    (!values.is_empty()).then(|| (field.to_string(), serde_json::json!(values)))
 }
 fn normalized_authors(values: &[String]) -> Vec<String> {
     let mut values = values.iter().map(|value| value.as_str().normalized()).collect::<Vec<_>>();

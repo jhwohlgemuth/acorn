@@ -19,9 +19,9 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - `acorn-core` is extracted under `crates/` and compiles in minimal, alloc, default, and WASM-target configurations. Root domain types, errors, and portable utilities are imported directly from `acorn-core`; `acorn-lib` does not re-export them.
 - Portable string/byte codecs live on schema types, while path/file behavior lives in the std-only `io::adapter` and `io::document` modules. OpenCode I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing have moved outward.
 - Schema validation no longer reads `ACORN_DATABASE_PATH`; license and programming-language catalog membership is a host-service concern rather than derive-time schema policy.
-- Analyzer result DTOs no longer depend on Vale runtime configuration, but analyzer path/service/rendering code remains gated behind `analysis -> std`.
+- The `analyzer` feature compiles the check/error/readability model kernel with `alloc`; the `analysis` feature adds native execution and rendering under `analyzer::host`.
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
-- The unresolved critical edge is making the analyzer model/calculation kernel compile independently under `alloc`. Extraction is not scheduled merely because source-level separation has begun.
+- The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
 
 # Project code boundaries
 
@@ -39,7 +39,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Implementation order
 
-1. Separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services in-tree; add an alloc-only compile gate.
+1. **Completed:** separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services in-tree; add native and WASM alloc-only compile gates.
 2. Reassess whether the resulting boundary warrants `acorn-analysis`; do not extract it or add generic host traits by default.
 3. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
 4. Complete target-specific browser wiring in `acorn-wasm`, native implementations in `acorn-host`, and CI gates for every supported feature combination.
@@ -55,12 +55,11 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Validation
 
-Check the default, no-default, alloc, std, and WASM target configurations independently.
+Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-04 with the analyzer-only native and WASM checks, the focused portable analyzer tests, and the full workspace check.
 
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [Isolate std-only modules](isolate-std-only-modules.md)
 - [Host abstraction traits](host-abstraction-traits.md)
 - [WASM feature path](wasm-feature-path.md)
 - [no-std and WASM CI](no-std-wasm-ci.md)

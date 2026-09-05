@@ -27,7 +27,7 @@ Remaining broad wiring is unresolved rather than a compatibility contract: `anal
 # Dependencies
 
 - **Prerequisite for:** every crate extraction and the WASM composition crate.
-- **Can proceed with:** [std-only isolation](isolate-std-only-modules.md), provided every manifest change keeps minimal, alloc, std, and WASM checks independently green.
+- **Can proceed after:** the analyzer boundary recorded in the [portability roadmap](roadmap.md), provided every manifest change keeps minimal, alloc, analyzer, std, and WASM checks independently green.
 
 # Parallel execution
 

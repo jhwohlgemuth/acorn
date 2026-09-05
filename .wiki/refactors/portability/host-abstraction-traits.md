@@ -25,7 +25,7 @@ Concrete capabilities are imported directly by `analyzer/`, `io/api/`, `io/docum
 
 # Dependencies
 
-- **Prerequisites:** [std-only isolation](isolate-std-only-modules.md) produces an independently compiling analyzer kernel, and a concrete alternate host/browser/test implementation demonstrates each proposed seam.
+- **Prerequisites:** the [portability roadmap](roadmap.md) provides an independently compiling analyzer kernel; a concrete alternate host/browser/test implementation must still demonstrate each proposed seam.
 - **Follow-on:** [WASM feature path](wasm-feature-path.md) implements meaningful browser ports; native composition moves into `acorn-host`.
 
 # Acceptance criteria
@@ -34,6 +34,6 @@ Selected analyzer and API flows consume injected host capabilities rather than c
 
 # Related plans
 
-- [Isolate std-only modules](isolate-std-only-modules.md)
+- [Portability roadmap](roadmap.md)
 - [Complete the WASM feature path](wasm-feature-path.md)
 - [Plan dependency network](../../plan-network.md)

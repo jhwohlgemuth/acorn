@@ -3,7 +3,7 @@ use super::readability::score::ReadabilityScore;
 use crate::analyzer::model::ValeOutputItem;
 #[cfg(feature = "std")]
 use crate::io::document::{DocumentPath, DocumentQuery};
-use acorn_core::prelude::HashMap;
+use acorn_core::prelude::{format, HashMap, String, ToString, Vec};
 use acorn_core::util::MarkdownSupport;
 use acorn_schema::validation::{join_path, ValidationReport};
 use bon::Builder;
@@ -117,6 +117,7 @@ pub enum ErrorKind {
 /// Flattened schema validation issue.
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
+#[cfg_attr(not(feature = "analysis"), allow(dead_code))]
 pub struct ValidatorIssue {
     pub(crate) code: ErrorCode,
     pub(crate) path: Option<String>,
@@ -126,11 +127,6 @@ pub struct ValidatorIssue {
 /// Ordered analyzer representation of a portable validation report.
 #[derive(Clone, Debug, Default)]
 pub struct ValidatorIssues(Vec<ValidatorIssue>);
-impl fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
 impl From<&str> for ErrorCode {
     fn from(code: &str) -> Self {
         match code.to_lowercase().as_str() {
@@ -185,6 +181,11 @@ impl ErrorKind {
         }
     }
 }
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?}", self)
+    }
+}
 impl DocumentTarget for ValidatorIssue {
     /// Return title-friendly locator — "where to find the issue"
     fn locator(&self) -> String {
@@ -225,27 +226,6 @@ impl DocumentTarget for ValidatorIssue {
         }
     }
 }
-impl ValidatorIssues {
-    pub(crate) fn with_prefix(mut self, prefix: &str) -> Self {
-        self.0.iter_mut().for_each(|issue| {
-            let path = join_path(prefix, issue.path.as_deref().unwrap_or_default());
-            issue.path = (!path.is_empty()).then_some(path);
-        });
-        self
-    }
-    /// Return the number of analyzer issues.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-    /// Return whether there are no analyzer issues.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-    /// Iterate over analyzer issues in report order.
-    pub fn iter(&self) -> core::slice::Iter<'_, ValidatorIssue> {
-        self.0.iter()
-    }
-}
 impl From<ValidationReport> for ValidatorIssues {
     fn from(report: ValidationReport) -> Self {
         Self(
@@ -268,5 +248,26 @@ impl IntoIterator for ValidatorIssues {
     type IntoIter = alloc::vec::IntoIter<ValidatorIssue>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+impl ValidatorIssues {
+    pub(crate) fn with_prefix(mut self, prefix: &str) -> Self {
+        self.0.iter_mut().for_each(|issue| {
+            let path = join_path(prefix, issue.path.as_deref().unwrap_or_default());
+            issue.path = (!path.is_empty()).then_some(path);
+        });
+        self
+    }
+    /// Return the number of analyzer issues.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    /// Return whether there are no analyzer issues.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Iterate over analyzer issues in report order.
+    pub fn iter(&self) -> core::slice::Iter<'_, ValidatorIssue> {
+        self.0.iter()
     }
 }

@@ -25,5 +25,5 @@ pub use self::terminal::{
 pub fn is_uri_or_path(value: &str) -> bool {
     acorn_core::util::is_uri_or_path_portable(value)
 }
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests;

@@ -1,6 +1,7 @@
 use super::super::{build_analysis_context, should_sync_analyzer, sync_analyzer_before_check};
+use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{AnalysisContext, AnalysisOptions, CheckCategory, OutputFormat, Standard};
+use acorn::analyzer::{CheckCategory, OutputFormat, Standard};
 use jiff::SignedDuration;
 
 #[test]

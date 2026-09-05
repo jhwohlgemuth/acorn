@@ -99,7 +99,7 @@ This feature must consume the following plans as governing constraints instead o
 | Related plan | Relationship and ordering |
 |---|---|
 | [Crate boundary architecture](../refactors/crate-boundary-architecture.md) | Governs ownership. Portable agent configuration stays in the schema boundary; prompt/inference/fix orchestration moves toward `acorn-service`; ACP, process execution, doctor probes, and fix executors move toward `acorn-host`; OpenAI protocol DTOs move toward `acorn-api`; `acorn-lib` eventually re-exports compatibility paths only. Boundary preparation is a prerequisite, but full crate extraction is not. |
-| [Isolate std-only modules](../refactors/portability/isolate-std-only-modules.md) and [host abstraction traits](../refactors/portability/host-abstraction-traits.md) | Define the split between pure hydration/planning and native process, filesystem, HTTP, clock, and package-manager adapters. New ports should match these plans rather than introduce a second host abstraction family. |
+| [Portability roadmap](../refactors/portability/roadmap.md) and [host abstraction traits](../refactors/portability/host-abstraction-traits.md) | Define the split between pure hydration/planning and native process, filesystem, HTTP, clock, and package-manager adapters. New ports should match these plans rather than introduce a second host abstraction family. |
 | [Dependency feature defaults](../refactors/portability/dependency-feature-defaults.md) and [portability roadmap](../refactors/portability/roadmap.md) | Require explicit imports and optional native dependencies. ACP receives a separate non-default `acp` capability; minimal, alloc, and WASM graphs must remain unchanged. |
 | [Safe path](../refactors/core/safe-path.md) | Owns path normalization and containment. Document fix targets should adopt `SafePath` when available; until then, use one local compatibility wrapper designed for replacement rather than creating a competing public path type. |
 | [Analyzer result normalization](../refactors/analyzer/result-boundary-normalization.md) and [check batch](../refactors/analyzer/check-batch-monoid.md) | Are not blockers. Fix suggestion code consumes `AnalysisReport` through one normalization adapter and should use the implemented analysis context split without changing check construction solely for inference. |
@@ -909,7 +909,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [Portability roadmap](../refactors/portability/roadmap.md)
-- [Isolate std-only modules](../refactors/portability/isolate-std-only-modules.md)
+- [Portability roadmap](../refactors/portability/roadmap.md)
 - [Host abstraction traits](../refactors/portability/host-abstraction-traits.md)
 - [API client roadmap](../refactors/api/roadmap.md)
 - [Safe path](../refactors/core/safe-path.md)

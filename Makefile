@@ -93,6 +93,7 @@ check:
 	@cargo check -p acorn-lib
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
+	@cargo check -p acorn-lib --no-default-features --features analyzer
 	@cargo check -p acorn-lib --no-default-features
 	@$(MAKE) wasm
 	@cargo check -p acorn-lib --features std,analysis
@@ -105,6 +106,7 @@ wasm:
 	@cargo check -p acorn-schema --no-default-features --features alloc --target wasm32-unknown-unknown
 	@cargo check -p acorn-schema --no-default-features --features wasm --target wasm32-unknown-unknown
 	@cargo check -p acorn-lib --no-default-features --features wasm --target wasm32-unknown-unknown
+	@cargo check -p acorn-lib --no-default-features --features analyzer --target wasm32-unknown-unknown
 
 cover:
 	@cargo tarpaulin --out lcov --line --skip-clean --no-dead-code --engine llvm --profile coverage --locked

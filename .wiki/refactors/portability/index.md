@@ -1,9 +1,5 @@
 # Portability Plans
 
-## Next
-
-- [Isolate std-only modules](isolate-std-only-modules.md) - Complete the separation between portable domain logic and host services.
-
 ## Coordination
 
 - [Portability roadmap](roadmap.md) - Coordinate the active critical path and feature matrix; schedule its atomic child plans rather than the roadmap itself.

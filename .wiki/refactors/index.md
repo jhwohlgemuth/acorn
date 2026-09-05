@@ -1,9 +1,5 @@
 # Refactor Plans
 
-## Next
-
-- [Isolate std-only modules](portability/isolate-std-only-modules.md) - Prove an alloc-only analyzer model/calculation kernel in-tree before considering extraction.
-
 ## Coordination
 
 - [Crate boundary architecture](crate-boundary-architecture.md) - Split `acorn-lib` into explicitly owned portable domains, adapters, and services.

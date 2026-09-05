@@ -55,6 +55,7 @@ Portability is a capability spectrum, not a native-versus-WASM switch. Both `aco
 | `core` | Pure computation and APIs that require no host services | Foundation marker; never enables filesystem, network, process, terminal, or browser behavior |
 | `alloc` | Heap-backed strings, collections, serialization, schemas, validation, and deterministic transforms | Extends `core`; enables allocation support without enabling `std` |
 | `wasm` | Legacy facade compatibility for portable operations on `wasm32-unknown-unknown` | Currently extends `alloc`; it intentionally does not enable browser bindings or adapters |
+| `analyzer` | Portable check/error/readability models and supplied-text calculations | Extends `alloc`; verified independently on native and `wasm32-unknown-unknown` targets |
 | `std` | Native runtime support and adapter implementations | Extends `alloc`; enables filesystem, HTTP, database, process, document, terminal, and related host dependencies |
 | Capability features | Selectable product behavior such as `analysis`, `agentic`, `doctor`, `powerpoint`, and `swhid-compute` | Layer on the minimum runtime they currently need; broad `std` coupling is being split into narrower crates |
 
@@ -71,7 +72,7 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 `acorn-lib` currently contains these boundaries:
 
 - `schema/` and `validation/`: RAD, PID, standards, hardware, agent models, crosswalks, codecs, and allocation-compatible validation.
-- `analyzer/`: check/result models, readability, scoring, Vale integration, discovery, rendering, and analysis services. The `analysis` feature currently implies `std`.
+- `analyzer/`: alloc-capable check/result models, readability, and scoring behind `analyzer`; native context, discovery, Vale execution, path services, tabular export, and terminal rendering live under `analyzer::host` behind `analysis`.
 - `io/`: native adapters and services for APIs, databases, documents, archives, downloads, synchronization, source handling, workflows, and PowerPoint.
 - `doctor/`: native environment diagnostics behind the `doctor` feature.
 - `enrichment.rs`: enrichment contracts and transformations shared by schema and service work.
@@ -79,7 +80,7 @@ Code should import from the narrowest prelude that matches its behavior: `prelud
 
 Host behavior already moved out of schema modules includes path/file `InputOutput` implementations, migration, OpenCode file I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing. `LocationExt` and `RepositoryExt` add native behavior to portable `acorn-core` values without moving that behavior into the foundation crate.
 
-The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and analyzer dependencies on document paths, rendering, files, processes, HTTP, and databases.
+The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and selecting the analyzer check/error/readability kernel without its isolated native document, rendering, filesystem, process, HTTP, and database services.
 
 ### Interface crates
 

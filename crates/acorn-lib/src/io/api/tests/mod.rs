@@ -5,7 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::analyzer::discovery::CitationFormat;
+use crate::analyzer::host::discovery::CitationFormat;
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::{
     self, extract_template_keys, orcid, render, require_non_empty_secret, ror, Authenticator, Configuration, Credential, Endpoint, IntoBody,
@@ -26,78 +26,6 @@ mod localhost;
 mod needle;
 mod openalex;
 
-#[test]
-fn test_credential_from_env_uses_precedence_and_trims_values() {
-    temp_env::with_vars(
-        [
-            ("ACORN_TEST_PRIMARY_TOKEN", Some(" primary-token ")),
-            ("ACORN_TEST_FALLBACK_TOKEN", Some("fallback-token")),
-        ],
-        || {
-            let credential = Credential::from_env(&[
-                ("ACORN_TEST_PRIMARY_TOKEN", "PRIMARY-TOKEN"),
-                ("ACORN_TEST_FALLBACK_TOKEN", "FALLBACK-TOKEN"),
-            ])
-            .expect("the primary credential should resolve");
-            assert_eq!(ExposeSecret::expose_secret(&credential.token), "primary-token");
-            assert_eq!(credential.header, "PRIMARY-TOKEN");
-        },
-    );
-}
-#[test]
-fn test_credential_from_env_skips_empty_values() {
-    temp_env::with_vars(
-        [
-            ("ACORN_TEST_EMPTY_TOKEN", Some("  ")),
-            ("ACORN_TEST_NONEMPTY_TOKEN", Some("fallback-token")),
-        ],
-        || {
-            let credential = Credential::from_env(&[("ACORN_TEST_EMPTY_TOKEN", "EMPTY-TOKEN"), ("ACORN_TEST_NONEMPTY_TOKEN", "NONEMPTY-TOKEN")])
-                .expect("the non-empty credential should resolve");
-            assert_eq!(ExposeSecret::expose_secret(&credential.token), "fallback-token");
-            assert_eq!(credential.header, "NONEMPTY-TOKEN");
-        },
-    );
-}
-#[test]
-fn test_credential_from_env_returns_none_when_unconfigured() {
-    temp_env::with_vars([("ACORN_TEST_MISSING_TOKEN", None::<&str>)], || {
-        assert_eq!(Credential::from_env(&[("ACORN_TEST_MISSING_TOKEN", "MISSING-TOKEN")]), None);
-    });
-}
-#[test]
-fn test_credential_into_header_pair() {
-    let credential = Credential {
-        header: "TEST-TOKEN",
-        token: api::Secret::from(String::from("secret")),
-    };
-    let (header, token) = credential.into_header_pair();
-    assert_eq!(header, "TEST-TOKEN");
-    assert_eq!(ExposeSecret::expose_secret(&token), "secret");
-}
-#[test]
-fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 18);
-}
-#[test]
-fn test_tree_entry_type_deserializes_provider_aliases() {
-    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""file""#).unwrap(), TreeEntryType::File);
-    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""blob""#).unwrap(), TreeEntryType::File);
-    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""directory""#).unwrap(), TreeEntryType::Directory);
-    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""tree""#).unwrap(), TreeEntryType::Directory);
-}
-#[test]
-fn test_tree_entry_deserializes_huggingface_shape() {
-    let entries: Vec<TreeEntry> = serde_json::from_str(
-        r#"[
-            {"path":"model.Q4_K_M.gguf","type":"file","size":123},
-            {"path":"refs","type":"directory"}
-        ]"#,
-    )
-    .unwrap();
-    assert!(entries[0].is_file());
-    assert!(entries[1].is_directory());
-}
 #[tokio::test]
 #[ignore = "Requires internet connection and citeas.org to be up"]
 async fn test_citeas() {
@@ -121,6 +49,23 @@ async fn test_citeas() {
     };
 }
 #[test]
+fn test_citeas_options_from_persistent_identifiers() {
+    let doi = citeas::Options::from(DOI::from_string("10.11578/dc.20250604.1"));
+    let arxiv = citeas::Options::from(Arxiv::from_string("arXiv:2106.09685v2"));
+    let first_value = |options: &citeas::Options| {
+        options
+            .params()
+            .first()
+            .and_then(|parameter| parameter.values.first())
+            .and_then(|values| values.first())
+            .and_then(Clone::clone)
+    };
+    assert_eq!(first_value(&doi).as_deref(), Some("10.11578%2Fdc.20250604.1"));
+    assert_eq!(first_value(&arxiv).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
+    let publication = citeas::Options::from(PublicationIdentifierType::from("arXiv:2106.09685v2"));
+    assert_eq!(first_value(&publication).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
+}
+#[test]
 fn test_citeas_product_template_accepts_encoded_arxiv_url() {
     let endpoint = Endpoint::from_template("citeas").unwrap();
     let identifier = urlencoding::encode("https://arxiv.org/abs/2106.09685");
@@ -139,26 +84,74 @@ fn test_citeas_product_template_accepts_encoded_arxiv_url() {
     );
 }
 #[test]
-fn test_citeas_options_from_persistent_identifiers() {
-    let doi = citeas::Options::from(DOI::from_string("10.11578/dc.20250604.1"));
-    let arxiv = citeas::Options::from(Arxiv::from_string("arXiv:2106.09685v2"));
-    let first_value = |options: &citeas::Options| {
-        options
-            .params()
-            .first()
-            .and_then(|parameter| parameter.values.first())
-            .and_then(|values| values.first())
-            .and_then(Clone::clone)
-    };
-    assert_eq!(first_value(&doi).as_deref(), Some("10.11578%2Fdc.20250604.1"));
-    assert_eq!(first_value(&arxiv).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
-    let publication = citeas::Options::from(PublicationIdentifierType::from("arXiv:2106.09685v2"));
-    assert_eq!(first_value(&publication).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
+fn test_credential_from_env_returns_none_when_unconfigured() {
+    temp_env::with_vars([("ACORN_TEST_MISSING_TOKEN", None::<&str>)], || {
+        assert_eq!(Credential::from_env(&[("ACORN_TEST_MISSING_TOKEN", "MISSING-TOKEN")]), None);
+    });
 }
-#[tokio::test]
-async fn test_unknown_publication_identifier_cannot_resolve_citations() {
-    let result = PublicationIdentifierType::from("not-an-identifier").to_citations().await;
-    assert!(result.is_err());
+#[test]
+fn test_credential_from_env_skips_empty_values() {
+    temp_env::with_vars(
+        [
+            ("ACORN_TEST_EMPTY_TOKEN", Some("  ")),
+            ("ACORN_TEST_NONEMPTY_TOKEN", Some("fallback-token")),
+        ],
+        || {
+            let credential = Credential::from_env(&[("ACORN_TEST_EMPTY_TOKEN", "EMPTY-TOKEN"), ("ACORN_TEST_NONEMPTY_TOKEN", "NONEMPTY-TOKEN")])
+                .expect("the non-empty credential should resolve");
+            assert_eq!(ExposeSecret::expose_secret(&credential.token), "fallback-token");
+            assert_eq!(credential.header, "NONEMPTY-TOKEN");
+        },
+    );
+}
+#[test]
+fn test_credential_from_env_uses_precedence_and_trims_values() {
+    temp_env::with_vars(
+        [
+            ("ACORN_TEST_PRIMARY_TOKEN", Some(" primary-token ")),
+            ("ACORN_TEST_FALLBACK_TOKEN", Some("fallback-token")),
+        ],
+        || {
+            let credential = Credential::from_env(&[
+                ("ACORN_TEST_PRIMARY_TOKEN", "PRIMARY-TOKEN"),
+                ("ACORN_TEST_FALLBACK_TOKEN", "FALLBACK-TOKEN"),
+            ])
+            .expect("the primary credential should resolve");
+            assert_eq!(ExposeSecret::expose_secret(&credential.token), "primary-token");
+            assert_eq!(credential.header, "PRIMARY-TOKEN");
+        },
+    );
+}
+#[test]
+fn test_credential_into_header_pair() {
+    let credential = Credential {
+        header: "TEST-TOKEN",
+        token: api::Secret::from(String::from("secret")),
+    };
+    let (header, token) = credential.into_header_pair();
+    assert_eq!(header, "TEST-TOKEN");
+    assert_eq!(ExposeSecret::expose_secret(&token), "secret");
+}
+#[test]
+fn test_endpoint_context() {
+    let params = vec![
+        param!(
+            QueryPair,
+            "q",
+            (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""))
+        ),
+        param!(TemplateValue, "one", "two"),
+        param!(TemplateValue, "three", "four"),
+    ];
+    let data = Some(params);
+    let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
+    let context = endpoint.context_with::<orcid::SearchField, orcid::OutputColumn>(data);
+    assert_eq!(context.get("base").unwrap().as_str(), Some("https://example.org/v3.0"));
+    assert!(context.get("query").is_some());
+    assert_eq!(context.get("one").unwrap().as_str(), Some("two"));
+    assert_eq!(context.get("three").unwrap().as_str(), Some("four"));
+    let json = serde_json::to_string_pretty(&context.into_json()).unwrap();
+    insta::assert_snapshot!(json);
 }
 #[test]
 fn test_endpoint_from_location() {
@@ -205,46 +198,6 @@ fn test_endpoint_from_repository() {
     assert_eq!(endpoint.base(), expected_base);
 }
 #[test]
-fn test_search_resource_find_by_name() {
-    let resources = vec![
-        Resource {
-            name: "status".to_string(),
-            method: api::HttpMethod::Get,
-            template: "/status".to_string(),
-        },
-        Resource {
-            name: "search".to_string(),
-            method: api::HttpMethod::Get,
-            template: "/search{{ query }}".to_string(),
-        },
-    ];
-    let found = resources.find_by_name("SEARCH");
-    assert!(found.is_some());
-    assert_eq!(found.unwrap().name, "search");
-    assert!(resources.find_by_name("missing").is_none());
-}
-#[test]
-fn test_endpoint_context() {
-    let params = vec![
-        param!(
-            QueryPair,
-            "q",
-            (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""))
-        ),
-        param!(TemplateValue, "one", "two"),
-        param!(TemplateValue, "three", "four"),
-    ];
-    let data = Some(params);
-    let endpoint = Endpoint::at("example.org").root("v3.0").resources(vec![]).build();
-    let context = endpoint.context_with::<orcid::SearchField, orcid::OutputColumn>(data);
-    assert_eq!(context.get("base").unwrap().as_str(), Some("https://example.org/v3.0"));
-    assert!(context.get("query").is_some());
-    assert_eq!(context.get("one").unwrap().as_str(), Some("two"));
-    assert_eq!(context.get("three").unwrap().as_str(), Some("four"));
-    let json = serde_json::to_string_pretty(&context.into_json()).unwrap();
-    insta::assert_snapshot!(json);
-}
-#[test]
 fn test_endpoint_handle() {
     let xml = Ok(ResponseContent::Xml("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<expanded-search:expanded-search num-found=\"2\" xmlns:expanded-search=\"http://www.orcid.org/ns/expanded-search\">\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Carson</expanded-search:family-names>\n    </expanded-search:expanded-result>\n    <expanded-search:expanded-result>\n        <expanded-search:family-names>Wohlgemuth</expanded-search:family-names>\n    </expanded-search:expanded-result>\n</expanded-search:expanded-search>\n".to_string()));
     let endpoint = Endpoint::at("pub.orcid.org").root("v3.0").build();
@@ -267,6 +220,16 @@ fn test_endpoint_handle() {
     assert_eq!(response.content, "OK");
 }
 #[test]
+fn test_endpoint_handle_response_preserves_error_status() {
+    let response = HttpResponse {
+        body: br#"{"error":"missing"}"#.to_vec(),
+        headers: axum::http::HeaderMap::new(),
+        status_code: 404,
+    };
+    let error = Endpoint::default().handle_response::<api::TextResponse>(Ok(response)).unwrap_err();
+    assert_eq!(error.downcast_ref::<HttpResponseError>().map(HttpResponseError::status_code), Some(404));
+}
+#[test]
 fn test_endpoint_handle_response_preserves_transport_metadata() {
     let mut headers = axum::http::HeaderMap::new();
     headers.insert("link", axum::http::HeaderValue::from_static("next"));
@@ -280,16 +243,6 @@ fn test_endpoint_handle_response_preserves_transport_metadata() {
     assert_eq!(handled.value.content, "ok");
     assert_eq!(handled.headers, headers);
     assert_eq!(handled.status_code, 200);
-}
-#[test]
-fn test_endpoint_handle_response_preserves_error_status() {
-    let response = HttpResponse {
-        body: br#"{"error":"missing"}"#.to_vec(),
-        headers: axum::http::HeaderMap::new(),
-        status_code: 404,
-    };
-    let error = Endpoint::default().handle_response::<api::TextResponse>(Ok(response)).unwrap_err();
-    assert_eq!(error.downcast_ref::<HttpResponseError>().map(HttpResponseError::status_code), Some(404));
 }
 #[test]
 fn test_endpoint_parse() {
@@ -306,6 +259,10 @@ fn test_endpoint_parse() {
     assert!(status.database);
     assert!(!status.database_readonly);
     assert!(status.overall);
+}
+#[test]
+fn test_endpoints_length() {
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 18);
 }
 #[test]
 fn test_extract_template_keys() {
@@ -331,12 +288,35 @@ fn test_extract_template_keys() {
     assert_eq!(keys, expected);
 }
 #[test]
-fn test_render_replaces_known_values() {
-    let mut context = tera::Context::new();
-    context.insert("base", "https://example.org");
-    context.insert("identifier", "abc-123");
-    let rendered = render("{{ base }}/items/{{ identifier }}", &context);
-    assert_eq!(rendered, "https://example.org/items/abc-123");
+fn test_into_body() {
+    let body = "This is a test comment!!!";
+    let payload = vec![param!(Body & body)].into_body();
+    assert_eq!(payload, serde_json::json!("This is a test comment!!!"));
+}
+#[test]
+fn test_into_body_keyed_empty_values_as_object_null() {
+    let payload = vec![Param::of_type(ParamStyle::Body).values(vec![]).with_key("data")].into_body();
+    assert_eq!(payload, serde_json::json!({ "data": null }));
+}
+#[test]
+fn test_into_body_keyed_multiple_values_as_object_array() {
+    let payload = vec![param!(ParamStyle::Body, "items", vec![vec!["one"], vec!["two"]])].into_body();
+    assert_eq!(payload, serde_json::json!({ "items": ["one", "two"] }));
+}
+#[test]
+fn test_into_body_parses_json_string_for_body_key() {
+    let body = "{\"title\":\"ACORN\",\"active\":true}";
+    let payload = vec![param!(Body & body)].into_body();
+    assert_eq!(payload, serde_json::json!({ "title": "ACORN", "active": true }));
+}
+#[test]
+fn test_query_params_empty_field() {
+    let params = vec![
+        param!(FieldList, "query", "Oak Ridge"),
+        param!(QueryPair, "filter", ("status", "inactive")),
+    ];
+    let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
+    insta::assert_snapshot!(query);
 }
 #[test]
 fn test_render_inserts_empty_for_missing_values() {
@@ -349,6 +329,14 @@ fn test_render_prefills_empty_before_default_filter() {
     let context = tera::Context::new();
     let rendered = render("{{ query | default(value=\"all\") }}", &context);
     assert_eq!(rendered, "");
+}
+#[test]
+fn test_render_replaces_known_values() {
+    let mut context = tera::Context::new();
+    context.insert("base", "https://example.org");
+    context.insert("identifier", "abc-123");
+    let rendered = render("{{ base }}/items/{{ identifier }}", &context);
+    assert_eq!(rendered, "https://example.org/items/abc-123");
 }
 #[test]
 fn test_require_non_empty_secret_rejects_empty_values() {
@@ -364,6 +352,66 @@ fn test_require_non_empty_secret_trims_and_accepts_value() {
     let token = require_non_empty_secret(&api::Secret::from(String::from("  secret-token  ")), "RAiD", &["RAID_API_TOKEN"])
         .expect("non-empty token must pass");
     assert_eq!(ExposeSecret::expose_secret(&token), "secret-token");
+}
+#[test]
+fn test_ror_search_response() {
+    let json = read_file(fixture_path("").join("response_ror_ornl.json")).expect("Failed to read JSON fixture");
+    let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
+    insta::assert_snapshot!(format!("{:#?}", response));
+}
+#[test]
+fn test_search_resource_find_by_name() {
+    let resources = vec![
+        Resource {
+            name: "status".to_string(),
+            method: api::HttpMethod::Get,
+            template: "/status".to_string(),
+        },
+        Resource {
+            name: "search".to_string(),
+            method: api::HttpMethod::Get,
+            template: "/search{{ query }}".to_string(),
+        },
+    ];
+    let found = resources.find_by_name("SEARCH");
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().name, "search");
+    assert!(resources.find_by_name("missing").is_none());
+}
+#[test]
+fn test_tree_entry_deserializes_huggingface_shape() {
+    let entries: Vec<TreeEntry> = serde_json::from_str(
+        r#"[
+            {"path":"model.Q4_K_M.gguf","type":"file","size":123},
+            {"path":"refs","type":"directory"}
+        ]"#,
+    )
+    .unwrap();
+    assert!(entries[0].is_file());
+    assert!(entries[1].is_directory());
+}
+#[test]
+fn test_tree_entry_type_deserializes_provider_aliases() {
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""file""#).unwrap(), TreeEntryType::File);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""blob""#).unwrap(), TreeEntryType::File);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""directory""#).unwrap(), TreeEntryType::Directory);
+    assert_eq!(serde_json::from_str::<TreeEntryType>(r#""tree""#).unwrap(), TreeEntryType::Directory);
+}
+#[tokio::test]
+async fn test_unknown_publication_identifier_cannot_resolve_citations() {
+    let result = PublicationIdentifierType::from("not-an-identifier").to_citations().await;
+    assert!(result.is_err());
+}
+#[test]
+fn test_with_api_key_adds_trimmed_query_parameter() {
+    let params = Params::new().with_api_key("  secret-key  ").build();
+    let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
+    assert_eq!(query, "?api_key=secret-key");
+}
+#[test]
+fn test_with_api_key_maybe_skips_missing_and_empty_values() {
+    assert!(Params::new().with_api_key_maybe(None).build().is_empty());
+    assert!(Params::new().with_api_key_maybe(Some("   ")).build().is_empty());
 }
 #[test]
 fn test_with_auth_bearer_adds_authorization_header() {
@@ -390,54 +438,6 @@ fn test_with_auth_custom_header() {
 fn test_with_auth_custom_rejects_empty_token() {
     let params = Params::new().with_auth("   ", Some("PRIVATE-TOKEN")).build();
     assert!(params.is_empty());
-}
-#[test]
-fn test_with_api_key_adds_trimmed_query_parameter() {
-    let params = Params::new().with_api_key("  secret-key  ").build();
-    let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
-    assert_eq!(query, "?api_key=secret-key");
-}
-#[test]
-fn test_with_api_key_maybe_skips_missing_and_empty_values() {
-    assert!(Params::new().with_api_key_maybe(None).build().is_empty());
-    assert!(Params::new().with_api_key_maybe(Some("   ")).build().is_empty());
-}
-#[test]
-fn test_into_body() {
-    let body = "This is a test comment!!!";
-    let payload = vec![param!(Body & body)].into_body();
-    assert_eq!(payload, serde_json::json!("This is a test comment!!!"));
-}
-#[test]
-fn test_into_body_parses_json_string_for_body_key() {
-    let body = "{\"title\":\"ACORN\",\"active\":true}";
-    let payload = vec![param!(Body & body)].into_body();
-    assert_eq!(payload, serde_json::json!({ "title": "ACORN", "active": true }));
-}
-#[test]
-fn test_into_body_keyed_multiple_values_as_object_array() {
-    let payload = vec![param!(ParamStyle::Body, "items", vec![vec!["one"], vec!["two"]])].into_body();
-    assert_eq!(payload, serde_json::json!({ "items": ["one", "two"] }));
-}
-#[test]
-fn test_into_body_keyed_empty_values_as_object_null() {
-    let payload = vec![Param::of_type(ParamStyle::Body).values(vec![]).with_key("data")].into_body();
-    assert_eq!(payload, serde_json::json!({ "data": null }));
-}
-#[test]
-fn test_query_params_empty_field() {
-    let params = vec![
-        param!(FieldList, "query", "Oak Ridge"),
-        param!(QueryPair, "filter", ("status", "inactive")),
-    ];
-    let query = Param::to_query_string::<api::EmptyField, api::EmptyField>(params);
-    insta::assert_snapshot!(query);
-}
-#[test]
-fn test_ror_search_response() {
-    let json = read_file(fixture_path("").join("response_ror_ornl.json")).expect("Failed to read JSON fixture");
-    let response: ror::SearchResponse = serde_json::from_str(&json).expect("Failed to deserialize JSON");
-    insta::assert_snapshot!(format!("{:#?}", response));
 }
 mod gguf {
     use crate::io::api::huggingface::HuggingFaceError;
@@ -479,6 +479,61 @@ mod gguf {
             .to_string(),
             "failed to search Hugging Face models: request failed"
         );
+    }
+}
+#[cfg(test)]
+mod github_api {
+    use super::*;
+    use crate::io::api::github::{collect_tree, path_for, TreeEntry};
+
+    #[test]
+    fn test_template_endpoint_for() {
+        let endpoint = Endpoint::from_template("github::api").map(|e| e.with_domain("api.github.com")).unwrap();
+        assert_eq!(endpoint.base(), "https://api.github.com");
+        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
+    }
+    #[test]
+    fn test_path_for() {
+        assert_eq!(path_for("", "README.md"), "README.md");
+        assert_eq!(path_for("content", "index.json"), "content/index.json");
+    }
+    #[test]
+    fn test_collect_tree_partitions_paths_and_subtrees() {
+        let entries = vec![
+            TreeEntry {
+                path: "README.md".to_string(),
+                mode: "100644".to_string(),
+                entry_type: TreeEntryType::File,
+                sha: "blob-sha".to_string(),
+                size: Some(10),
+                url: "https://example.invalid/blob".to_string(),
+            },
+            TreeEntry {
+                path: "content".to_string(),
+                mode: "040000".to_string(),
+                entry_type: TreeEntryType::Directory,
+                sha: "tree-sha".to_string(),
+                size: None,
+                url: "https://example.invalid/tree".to_string(),
+            },
+        ];
+        let (paths, pending) = collect_tree(entries, "");
+        assert_eq!(paths, vec!["README.md".to_string()]);
+        assert_eq!(pending, vec![("tree-sha".to_string(), "content".to_string())]);
+    }
+    #[test]
+    fn test_collect_tree_prefixes_nested_entries() {
+        let entries = vec![TreeEntry {
+            path: "index.json".to_string(),
+            mode: "100644".to_string(),
+            entry_type: TreeEntryType::File,
+            sha: "blob-sha".to_string(),
+            size: Some(10),
+            url: "https://example.invalid/blob".to_string(),
+        }];
+        let (paths, pending) = collect_tree(entries, "content");
+        assert_eq!(paths, vec!["content/index.json".to_string()]);
+        assert!(pending.is_empty());
     }
 }
 #[cfg(test)]
@@ -551,61 +606,6 @@ mod handle_api {
     async fn test_resolve_rejects_empty_identifier() {
         let result = resolve_with(&endpoint("https://resolver.example"), &Handle::default()).await;
         assert!(result.unwrap_err().to_string().contains("valid Handle"));
-    }
-}
-#[cfg(test)]
-mod github_api {
-    use super::*;
-    use crate::io::api::github::{collect_tree, path_for, TreeEntry};
-
-    #[test]
-    fn test_template_endpoint_for() {
-        let endpoint = Endpoint::from_template("github::api").map(|e| e.with_domain("api.github.com")).unwrap();
-        assert_eq!(endpoint.base(), "https://api.github.com");
-        assert!(endpoint.resources.iter().any(|r| r.name == "tree"));
-    }
-    #[test]
-    fn test_path_for() {
-        assert_eq!(path_for("", "README.md"), "README.md");
-        assert_eq!(path_for("content", "index.json"), "content/index.json");
-    }
-    #[test]
-    fn test_collect_tree_partitions_paths_and_subtrees() {
-        let entries = vec![
-            TreeEntry {
-                path: "README.md".to_string(),
-                mode: "100644".to_string(),
-                entry_type: TreeEntryType::File,
-                sha: "blob-sha".to_string(),
-                size: Some(10),
-                url: "https://example.invalid/blob".to_string(),
-            },
-            TreeEntry {
-                path: "content".to_string(),
-                mode: "040000".to_string(),
-                entry_type: TreeEntryType::Directory,
-                sha: "tree-sha".to_string(),
-                size: None,
-                url: "https://example.invalid/tree".to_string(),
-            },
-        ];
-        let (paths, pending) = collect_tree(entries, "");
-        assert_eq!(paths, vec!["README.md".to_string()]);
-        assert_eq!(pending, vec![("tree-sha".to_string(), "content".to_string())]);
-    }
-    #[test]
-    fn test_collect_tree_prefixes_nested_entries() {
-        let entries = vec![TreeEntry {
-            path: "index.json".to_string(),
-            mode: "100644".to_string(),
-            entry_type: TreeEntryType::File,
-            sha: "blob-sha".to_string(),
-            size: Some(10),
-            url: "https://example.invalid/blob".to_string(),
-        }];
-        let (paths, pending) = collect_tree(entries, "content");
-        assert_eq!(paths, vec!["content/index.json".to_string()]);
-        assert!(pending.is_empty());
     }
 }
 #[cfg(test)]

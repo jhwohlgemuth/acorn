@@ -1,7 +1,7 @@
 use crate::screens;
 use crate::theme::Theme;
 use crate::{Screen, TuiOptions};
-use acorn::analyzer::discovery::{RemoteMatch, RemoteSearchResponse};
+use acorn::analyzer::host::discovery::{RemoteMatch, RemoteSearchResponse};
 use acorn::analyzer::Check;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn::io::api::huggingface;
@@ -14,6 +14,19 @@ use std::io::Stdout;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
+/// Gather input mode.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GatherMode {
+    /// Local document and PID discovery.
+    #[default]
+    Local,
+    /// DOE CODE projects.
+    OstiProjects,
+    /// DOE CODE people.
+    OstiPeople,
+    /// DOE CODE organizations.
+    OstiOrganizations,
+}
 /// Main application state
 pub struct App {
     /// Whether the app should quit
@@ -42,13 +55,27 @@ pub struct App {
     /// When the theme was last changed (for debounce)
     theme_last_changed: Instant,
 }
-/// Selection state shared by interactive screens.
+/// A GGUF repository presented by the interactive picker.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct State<T> {
-    /// Screen-specific data
-    pub data: T,
-    /// Currently selected item index
-    pub selected: usize,
+pub struct Candidate {
+    /// Hugging Face repository identifier
+    pub id: String,
+    /// Downloads during the repository's reported period
+    pub downloads: u64,
+    /// Repository like count
+    pub likes: Option<u64>,
+    /// Quantization formats detected in repository filenames
+    pub quantizations: Vec<String>,
+}
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub struct CheckState {
+    /// Check items (placeholder)
+    pub items: Vec<String>,
+    /// Selected index
+    pub selected_index: usize,
+    /// Whether loaded
+    pub loaded: bool,
 }
 /// Data for the splash screen command composer.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -60,15 +87,28 @@ pub struct DashboardData {
     /// Time at which the TUI started
     pub started_at: Instant,
 }
+/// Diagnostic data populated once on entering doctor screen
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
-pub struct CheckState {
-    /// Check items (placeholder)
-    pub items: Vec<String>,
-    /// Selected index
-    pub selected_index: usize,
-    /// Whether loaded
+pub struct DoctorData {
+    /// System information
+    pub system: Option<SystemData>,
+    /// Memory information
+    pub memory: Option<MemoryData>,
+    /// Network information
+    pub network: Option<NetworkData>,
+    /// Software information
+    pub software: Option<SoftwareData>,
+}
+#[derive(Clone, Debug)]
+pub struct DoctorState {
+    /// Cached diagnostic data
+    pub data: Option<DoctorData>,
+    /// Currently selected category index
+    pub selected_category: usize,
+    /// Whether diagnostics have been loaded
     pub loaded: bool,
+    /// Export status message to display
+    pub export_message: Option<String>,
 }
 /// Persistent identifier displayed by the gather screen.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -114,41 +154,6 @@ pub struct GatherState {
     /// Organization relationship filter.
     pub organization_role: RemoteOrganizationRole,
 }
-/// Gather input mode.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum GatherMode {
-    /// Local document and PID discovery.
-    #[default]
-    Local,
-    /// DOE CODE projects.
-    OstiProjects,
-    /// DOE CODE people.
-    OstiPeople,
-    /// DOE CODE organizations.
-    OstiOrganizations,
-}
-/// A GGUF repository presented by the interactive picker.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Candidate {
-    /// Hugging Face repository identifier
-    pub id: String,
-    /// Downloads during the repository's reported period
-    pub downloads: u64,
-    /// Repository like count
-    pub likes: Option<u64>,
-    /// Quantization formats detected in repository filenames
-    pub quantizations: Vec<String>,
-}
-impl From<huggingface::Candidate> for Candidate {
-    fn from(candidate: huggingface::Candidate) -> Self {
-        Self {
-            id: candidate.id,
-            downloads: candidate.downloads,
-            likes: candidate.likes,
-            quantizations: candidate.quantizations,
-        }
-    }
-}
 /// Data for selecting a GGUF repository.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GgufPickerData {
@@ -158,35 +163,6 @@ pub struct GgufPickerData {
     pub base_model: String,
     /// Selected repository ID
     pub result: Option<String>,
-}
-/// Data for selecting a terminal theme.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ThemePickerData {
-    /// Available theme names
-    pub names: Vec<&'static str>,
-}
-/// Diagnostic data populated once on entering doctor screen
-#[derive(Clone, Debug)]
-pub struct DoctorData {
-    /// System information
-    pub system: Option<SystemData>,
-    /// Memory information
-    pub memory: Option<MemoryData>,
-    /// Network information
-    pub network: Option<NetworkData>,
-    /// Software information
-    pub software: Option<SoftwareData>,
-}
-#[derive(Clone, Debug)]
-pub struct DoctorState {
-    /// Cached diagnostic data
-    pub data: Option<DoctorData>,
-    /// Currently selected category index
-    pub selected_category: usize,
-    /// Whether diagnostics have been loaded
-    pub loaded: bool,
-    /// Export status message to display
-    pub export_message: Option<String>,
 }
 #[derive(Clone, Debug)]
 pub struct InterfaceData {
@@ -229,6 +205,14 @@ pub struct SoftwareItem {
     /// Path to executable
     pub path: String,
 }
+/// Selection state shared by interactive screens.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct State<T> {
+    /// Screen-specific data
+    pub data: T,
+    /// Currently selected item index
+    pub selected: usize,
+}
 #[derive(Clone, Debug)]
 pub struct SystemData {
     /// OS name
@@ -243,6 +227,12 @@ pub struct SystemData {
     pub cpu_arch: String,
     /// CPU count
     pub cpu_count: String,
+}
+/// Data for selecting a terminal theme.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ThemePickerData {
+    /// Available theme names
+    pub names: Vec<&'static str>,
 }
 impl App {
     /// Create a new App with the given initial screen
@@ -434,10 +424,23 @@ impl App {
         self.load_doctor_data();
     }
 }
-impl<T> State<T> {
-    /// Create screen state with the first item selected.
-    pub fn new(data: T) -> Self {
-        Self { data, selected: 0 }
+impl From<huggingface::Candidate> for Candidate {
+    fn from(candidate: huggingface::Candidate) -> Self {
+        Self {
+            id: candidate.id,
+            downloads: candidate.downloads,
+            likes: candidate.likes,
+            quantizations: candidate.quantizations,
+        }
+    }
+}
+impl CheckState {
+    fn new() -> Self {
+        Self {
+            items: Vec::new(),
+            selected_index: 0,
+            loaded: false,
+        }
     }
 }
 impl DashboardData {
@@ -451,12 +454,13 @@ impl DashboardData {
         }
     }
 }
-impl CheckState {
+impl DoctorState {
     fn new() -> Self {
         Self {
-            items: Vec::new(),
-            selected_index: 0,
+            data: None,
+            selected_category: 0,
             loaded: false,
+            export_message: None,
         }
     }
 }
@@ -480,13 +484,9 @@ impl GatherState {
         }
     }
 }
-impl DoctorState {
-    fn new() -> Self {
-        Self {
-            data: None,
-            selected_category: 0,
-            loaded: false,
-            export_message: None,
-        }
+impl<T> State<T> {
+    /// Create screen state with the first item selected.
+    pub fn new(data: T) -> Self {
+        Self { data, selected: 0 }
     }
 }

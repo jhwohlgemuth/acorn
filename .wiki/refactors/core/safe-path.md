@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Separate pure lexical validation from filesystem canonicalization under [std-only isolation](../portability/isolate-std-only-modules.md); coordinate with archive and export plans.
+Separate pure lexical validation from filesystem canonicalization under the [portability roadmap](../portability/roadmap.md); coordinate with archive and export plans.
 
 # Context
 

@@ -21,7 +21,7 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 | Phase | Status | Focus | Outcome |
 |---|---|---|---|
-| Portable boundary hardening | In progress | Remaining analyzer host couplings, dependency features, std isolation | An alloc-only analyzer kernel compiles in-tree with no retained host rendering state |
+| Portable boundary hardening | Complete | Analyzer kernel feature, explicit host modules, native/WASM gates | An alloc-only analyzer kernel compiles in-tree with no retained host rendering state |
 | Export boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
 | Shared abstractions | Planned | Export context, safe paths, interpolation | Duplicated mappings and path logic are replaced |
 | Structural modularization | Planned | CLI startup and API clients | Boundaries become explicit and testable |

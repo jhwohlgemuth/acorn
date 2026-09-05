@@ -2,12 +2,14 @@ use crate::cli::{resolve_paths, CommandOptions, WatchOptions};
 use crate::commands::preflight;
 use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
+use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportOptions};
+use acorn::analyzer::host::render::{Render, RenderContext};
+use acorn::analyzer::host::runtime::StaticAnalyzer;
+use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
+use acorn::analyzer::host::tabular::checks_to_csv;
+use acorn::analyzer::host::vale::Vale;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::vale::Vale;
-use acorn::analyzer::{
-    analyze_paths, checks_to_csv, summary, AnalysisContext, AnalysisOptions, AnalysisReport, Check, CheckCategory, Checks, ExecutionOptions,
-    OutputFormat, Render, RenderContext, ReportOptions, Standard, StaticAnalyzer,
-};
+use acorn::analyzer::{summary, Check, CheckCategory, Checks, OutputFormat, Standard};
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};

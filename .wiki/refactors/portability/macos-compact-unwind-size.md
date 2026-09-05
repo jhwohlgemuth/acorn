@@ -369,5 +369,5 @@ Build-profile and feature-wiring changes should remain independently revertible.
 
 - [Tighten dependency feature defaults](dependency-feature-defaults.md)
 - [Portability roadmap](roadmap.md)
-- [Isolate std-only modules](isolate-std-only-modules.md)
+- [Portability roadmap](roadmap.md)
 - [no-std and WASM CI](no-std-wasm-ci.md)

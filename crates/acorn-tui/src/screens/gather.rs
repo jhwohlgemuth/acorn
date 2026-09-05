@@ -1,6 +1,6 @@
 use crate::app::{App, GatherDiscovery, GatherMode, GatherState};
 use crate::{Screen, TuiOptions};
-use acorn::analyzer::discovery::{RemoteProvider, RemoteSearchRequest};
+use acorn::analyzer::host::discovery::{RemoteProvider, RemoteSearchRequest};
 use acorn::analyzer::{Check, CheckCategory};
 use acorn::check_err;
 use acorn::io::database::schema::{IdentifierRow, Table};
@@ -26,6 +26,225 @@ struct GatherOutput {
     discoveries: Vec<GatherDiscovery>,
     input_count: usize,
 }
+fn failure(message: &str, source: &str) -> Check {
+    check_err!(CheckCategory::Schema, message: message.to_string(), uri: source.to_string())
+}
+fn gather(input: &str, options: &TuiOptions) -> GatherOutput {
+    let loaded = load_input(input.trim(), options.offline);
+    let input_count = loaded.len();
+    let checks = loaded
+        .iter()
+        .filter_map(|value| value.as_ref().err().map(|check| check.as_ref().clone()))
+        .collect::<Vec<_>>();
+    let sources = loaded.into_iter().filter_map(core::result::Result::ok).collect::<Vec<_>>();
+    let discoveries = sources
+        .iter()
+        .flat_map(|source| {
+            Identifier::find_all(&source.content)
+                .into_iter()
+                .map(|identifier| GatherDiscovery {
+                    identifier: identifier.value,
+                    identifier_type: identifier.kind.as_str().to_string(),
+                    source: source.source.clone(),
+                    source_format: source.format.clone(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let persistence_checks = persist(&discoveries, options);
+    GatherOutput {
+        checks: checks.into_iter().chain(persistence_checks).collect(),
+        discoveries,
+        input_count,
+    }
+}
+pub fn handle_event(app: &mut App, event: Event) {
+    match event {
+        | Event::Key(key) if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat => match key.code {
+            | KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => app.should_quit = true,
+            | KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                let mode = app.gather.mode;
+                app.gather = GatherState::new();
+                app.gather.mode = mode;
+            }
+            | KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
+                app.gather.organization_filter = !app.gather.organization_filter;
+            }
+            | KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
+                app.gather.organization_role = next_role(app.gather.organization_role);
+            }
+            | KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => start_remote(app, true),
+            | KeyCode::Char(character) => app.gather.input.push(character),
+            | KeyCode::Backspace => {
+                app.gather.input.pop();
+            }
+            | KeyCode::Down => {
+                let length = match app.gather.mode {
+                    | GatherMode::Local => app.gather.discoveries.len(),
+                    | _ => app.gather.remote_matches.len(),
+                };
+                app.gather.selected_index = next_index(app.gather.selected_index, length);
+            }
+            | KeyCode::Enter => match app.gather.mode {
+                | GatherMode::Local => {
+                    let output = gather(&app.gather.input, &app.options);
+                    app.gather.checks = output.checks;
+                    app.gather.discoveries = output.discoveries;
+                    app.gather.input_count = output.input_count;
+                    app.gather.selected_index = 0;
+                }
+                | _ => start_remote(app, false),
+            },
+            | KeyCode::PageDown if app.gather.mode != GatherMode::Local && app.gather.remote_has_more => {
+                app.gather.remote_offset = app.gather.remote_offset.saturating_add(20);
+                start_remote(app, false);
+            }
+            | KeyCode::PageUp if app.gather.mode != GatherMode::Local => {
+                app.gather.remote_offset = app.gather.remote_offset.saturating_sub(20);
+                start_remote(app, false);
+            }
+            | KeyCode::Esc => app.navigate_to(Screen::Dashboard),
+            | KeyCode::Tab => {
+                app.gather.mode = next_mode(app.gather.mode);
+                app.gather.selected_index = 0;
+                app.gather.remote_matches.clear();
+                app.gather.remote_error = None;
+            }
+            | KeyCode::Up => {
+                let length = match app.gather.mode {
+                    | GatherMode::Local => app.gather.discoveries.len(),
+                    | _ => app.gather.remote_matches.len(),
+                };
+                app.gather.selected_index = previous_index(app.gather.selected_index, length);
+            }
+            | _ => {}
+        },
+        | _ => {}
+    }
+}
+fn input_values(input: &str) -> Vec<String> {
+    let parsed = shell_words::split(input).unwrap_or_default();
+    match parsed.len() > 1 && parsed.iter().all(|value| is_explicit_input(value)) {
+        | true => parsed,
+        | false => vec![input.to_string()],
+    }
+}
+fn is_explicit_input(input: &str) -> bool {
+    uri_to_path(input).exists() || input.starts_with("http://") || input.starts_with("https://") || !Identifier::find_all(input).is_empty()
+}
+fn load_input(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
+    input_values(input).iter().flat_map(|value| load_value(value, offline)).collect()
+}
+fn load_path(path: PathBuf) -> core::result::Result<SourceDocument, Box<Check>> {
+    SourceDocument::from_path(path.clone()).map_err(|why| Box::new(failure(&why.to_string(), &path.display().to_string())))
+}
+fn load_remote(input: &str) -> core::result::Result<SourceDocument, Box<Check>> {
+    reqwest::blocking::get(input)
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .and_then(|response| response.bytes())
+        .map_err(|why| Box::new(failure(&why.to_string(), input)))
+        .and_then(|bytes| SourceDocument::from_bytes(&bytes, input).map_err(|why| Box::new(failure(&why.to_string(), input))))
+}
+fn load_value(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
+    let path = uri_to_path(input);
+    let remote = input.starts_with("http://") || input.starts_with("https://");
+    let persistent = Identifier::find_all(input).into_iter().any(|identifier| identifier.kind != PID::URL);
+    match (input.is_empty(), path.exists(), remote, persistent, offline) {
+        | (true, _, _, _, _) => vec![Err(Box::new(failure("Input cannot be empty", "<input>")))],
+        | (false, true, _, _, _) => files_all(path, None::<Vec<String>>)
+            .into_iter()
+            .filter(|path| path.is_file())
+            .map(load_path)
+            .collect(),
+        | (false, false, _, true, _) => vec![Ok(text_source(input, "pid"))],
+        | (false, false, true, false, true) => vec![Err(Box::new(failure("Remote input is unavailable in offline mode", input)))],
+        | (false, false, true, false, false) => vec![load_remote(input)],
+        | (false, false, false, false, _) => vec![Ok(text_source(input, "text"))],
+    }
+}
+fn next_index(index: usize, length: usize) -> usize {
+    match length {
+        | 0 => 0,
+        | _ => index.saturating_add(1) % length,
+    }
+}
+fn next_mode(mode: GatherMode) -> GatherMode {
+    match mode {
+        | GatherMode::Local => GatherMode::OstiProjects,
+        | GatherMode::OstiProjects => GatherMode::OstiPeople,
+        | GatherMode::OstiPeople => GatherMode::OstiOrganizations,
+        | GatherMode::OstiOrganizations => GatherMode::Local,
+    }
+}
+fn next_role(role: RemoteOrganizationRole) -> RemoteOrganizationRole {
+    match role {
+        | RemoteOrganizationRole::Any => RemoteOrganizationRole::SiteOwner,
+        | RemoteOrganizationRole::SiteOwner => RemoteOrganizationRole::Research,
+        | RemoteOrganizationRole::Research => RemoteOrganizationRole::Sponsor,
+        | RemoteOrganizationRole::Sponsor => RemoteOrganizationRole::Contributor,
+        | RemoteOrganizationRole::Contributor => RemoteOrganizationRole::Developer,
+        | RemoteOrganizationRole::Developer => RemoteOrganizationRole::Any,
+    }
+}
+fn persist(discoveries: &[GatherDiscovery], options: &TuiOptions) -> Vec<Check> {
+    match options.no_local_database {
+        | true => Vec::new(),
+        | false => {
+            let database = Database::<Table>::from_path(options.database_path.clone());
+            database
+                .migrate_table(Table::Discoveries)
+                .map(|_| {
+                    let discovered_at = Timestamp::now();
+                    discoveries
+                        .iter()
+                        .filter_map(|discovery| {
+                            database
+                                .insert(
+                                    IdentifierRow::init()
+                                        .discovered_at(discovered_at)
+                                        .identifier(discovery.identifier.clone())
+                                        .identifier_type(discovery.identifier_type.clone())
+                                        .resolution_status("not-requested")
+                                        .source(discovery.source.clone())
+                                        .source_format(discovery.source_format.clone())
+                                        .build(),
+                                )
+                                .err()
+                                .map(|why| failure(&why.to_string(), &discovery.source))
+                        })
+                        .collect()
+                })
+                .unwrap_or_else(|why| vec![failure(&why.to_string(), "<database>")])
+        }
+    }
+}
+pub(crate) fn poll_remote(app: &mut App) {
+    let result = app.gather_remote.as_ref().and_then(|receiver| receiver.try_recv().ok());
+    if let Some(result) = result {
+        app.gather.remote_loading = false;
+        app.gather_remote = None;
+        match result {
+            | Ok(response) => {
+                app.gather.remote_total = response.total;
+                app.gather.remote_offset = response.offset;
+                app.gather.remote_has_more = response.has_more;
+                app.gather.remote_matches = response.matches;
+                app.gather.selected_index = 0;
+            }
+            | Err(why) => {
+                app.gather.remote_matches.clear();
+                app.gather.remote_error = Some(why);
+            }
+        }
+    }
+}
+fn previous_index(index: usize, length: usize) -> usize {
+    match (index, length) {
+        | (_, 0) => 0,
+        | (0, _) => length.saturating_sub(1),
+        | _ => index.saturating_sub(1),
+    }
+}
 pub fn render(frame: &mut Frame, app: &mut App) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -43,21 +262,16 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     render_output(frame, rows[3], app);
     render_controls(frame, rows[4], app);
 }
-fn render_title(frame: &mut Frame, area: Rect, app: &App) {
-    let mode = if app.options.offline { "offline" } else { "online" };
-    let source = match app.gather.mode {
-        | GatherMode::Local => "local",
-        | GatherMode::OstiProjects => "OSTI projects",
-        | GatherMode::OstiPeople => "OSTI people",
-        | GatherMode::OstiOrganizations => "OSTI organizations",
+fn render_controls(frame: &mut Frame, area: Rect, app: &App) {
+    let controls = match app.gather.mode {
+        | GatherMode::Local => " [Tab] Mode · [Enter] Gather · [↑↓] Select · [Ctrl+L] Clear · [Esc] Back ",
+        | _ => " [Tab] Mode · [Enter] Search · [PgUp/PgDn] Page · [Ctrl+A] All · [Ctrl+O] Org · [Ctrl+R] Role · [Esc] Back ",
     };
     frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(" ACORN Gather ", Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("· {source} · {mode}"), Style::default().fg(app.theme.text_muted)),
-        ]))
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.accent)))
-        .alignment(Alignment::Center),
+        Paragraph::new(controls)
+            .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(app.theme.text_muted)),
         area,
     );
 }
@@ -80,33 +294,6 @@ fn render_input(frame: &mut Frame, area: Rect, app: &App) {
     );
     let offset = app.gather.input.chars().count().min(usize::from(area.width.saturating_sub(4))) as u16;
     frame.set_cursor_position((area.x.saturating_add(2).saturating_add(offset), area.y.saturating_add(1)));
-}
-fn render_summary(frame: &mut Frame, area: Rect, app: &App) {
-    let failures = app.gather.checks.iter().filter(|check| check.is_failure()).count();
-    let persistence = if app.options.no_local_database { "disabled" } else { "enabled" };
-    let summary = match app.gather.mode {
-        | GatherMode::Local => format!(
-            " Inputs: {}  ·  Discoveries: {}  ·  Failures: {}  ·  Database: {} ",
-            app.gather.input_count,
-            app.gather.discoveries.len(),
-            failures,
-            persistence,
-        ),
-        | _ if app.gather.remote_loading => " Loading OSTI results… ".to_string(),
-        | _ => format!(
-            " Matches: {}  ·  Project total: {}  ·  Offset: {}  ·  More: {} ",
-            app.gather.remote_matches.len(),
-            app.gather.remote_total,
-            app.gather.remote_offset,
-            app.gather.remote_has_more,
-        ),
-    };
-    frame.render_widget(
-        Paragraph::new(summary)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.border)))
-            .alignment(Alignment::Center),
-        area,
-    );
 }
 fn render_output(frame: &mut Frame, area: Rect, app: &App) {
     if app.gather.mode != GatherMode::Local {
@@ -234,100 +421,50 @@ fn render_remote_output(frame: &mut Frame, area: Rect, app: &App) {
         columns[1],
     );
 }
-fn render_controls(frame: &mut Frame, area: Rect, app: &App) {
-    let controls = match app.gather.mode {
-        | GatherMode::Local => " [Tab] Mode · [Enter] Gather · [↑↓] Select · [Ctrl+L] Clear · [Esc] Back ",
-        | _ => " [Tab] Mode · [Enter] Search · [PgUp/PgDn] Page · [Ctrl+A] All · [Ctrl+O] Org · [Ctrl+R] Role · [Esc] Back ",
+fn render_summary(frame: &mut Frame, area: Rect, app: &App) {
+    let failures = app.gather.checks.iter().filter(|check| check.is_failure()).count();
+    let persistence = if app.options.no_local_database { "disabled" } else { "enabled" };
+    let summary = match app.gather.mode {
+        | GatherMode::Local => format!(
+            " Inputs: {}  ·  Discoveries: {}  ·  Failures: {}  ·  Database: {} ",
+            app.gather.input_count,
+            app.gather.discoveries.len(),
+            failures,
+            persistence,
+        ),
+        | _ if app.gather.remote_loading => " Loading OSTI results… ".to_string(),
+        | _ => format!(
+            " Matches: {}  ·  Project total: {}  ·  Offset: {}  ·  More: {} ",
+            app.gather.remote_matches.len(),
+            app.gather.remote_total,
+            app.gather.remote_offset,
+            app.gather.remote_has_more,
+        ),
     };
     frame.render_widget(
-        Paragraph::new(controls)
-            .block(Block::default().borders(Borders::TOP).border_style(Style::default().fg(app.theme.border)))
-            .alignment(Alignment::Center)
-            .style(Style::default().fg(app.theme.text_muted)),
+        Paragraph::new(summary)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.border)))
+            .alignment(Alignment::Center),
         area,
     );
 }
-pub fn handle_event(app: &mut App, event: Event) {
-    match event {
-        | Event::Key(key) if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat => match key.code {
-            | KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => app.should_quit = true,
-            | KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                let mode = app.gather.mode;
-                app.gather = GatherState::new();
-                app.gather.mode = mode;
-            }
-            | KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
-                app.gather.organization_filter = !app.gather.organization_filter;
-            }
-            | KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => {
-                app.gather.organization_role = next_role(app.gather.organization_role);
-            }
-            | KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) && app.gather.mode != GatherMode::Local => start_remote(app, true),
-            | KeyCode::Char(character) => app.gather.input.push(character),
-            | KeyCode::Backspace => {
-                app.gather.input.pop();
-            }
-            | KeyCode::Down => {
-                let length = match app.gather.mode {
-                    | GatherMode::Local => app.gather.discoveries.len(),
-                    | _ => app.gather.remote_matches.len(),
-                };
-                app.gather.selected_index = next_index(app.gather.selected_index, length);
-            }
-            | KeyCode::Enter => match app.gather.mode {
-                | GatherMode::Local => {
-                    let output = gather(&app.gather.input, &app.options);
-                    app.gather.checks = output.checks;
-                    app.gather.discoveries = output.discoveries;
-                    app.gather.input_count = output.input_count;
-                    app.gather.selected_index = 0;
-                }
-                | _ => start_remote(app, false),
-            },
-            | KeyCode::PageDown if app.gather.mode != GatherMode::Local && app.gather.remote_has_more => {
-                app.gather.remote_offset = app.gather.remote_offset.saturating_add(20);
-                start_remote(app, false);
-            }
-            | KeyCode::PageUp if app.gather.mode != GatherMode::Local => {
-                app.gather.remote_offset = app.gather.remote_offset.saturating_sub(20);
-                start_remote(app, false);
-            }
-            | KeyCode::Esc => app.navigate_to(Screen::Dashboard),
-            | KeyCode::Tab => {
-                app.gather.mode = next_mode(app.gather.mode);
-                app.gather.selected_index = 0;
-                app.gather.remote_matches.clear();
-                app.gather.remote_error = None;
-            }
-            | KeyCode::Up => {
-                let length = match app.gather.mode {
-                    | GatherMode::Local => app.gather.discoveries.len(),
-                    | _ => app.gather.remote_matches.len(),
-                };
-                app.gather.selected_index = previous_index(app.gather.selected_index, length);
-            }
-            | _ => {}
-        },
-        | _ => {}
-    }
-}
-fn next_mode(mode: GatherMode) -> GatherMode {
-    match mode {
-        | GatherMode::Local => GatherMode::OstiProjects,
-        | GatherMode::OstiProjects => GatherMode::OstiPeople,
-        | GatherMode::OstiPeople => GatherMode::OstiOrganizations,
-        | GatherMode::OstiOrganizations => GatherMode::Local,
-    }
-}
-fn next_role(role: RemoteOrganizationRole) -> RemoteOrganizationRole {
-    match role {
-        | RemoteOrganizationRole::Any => RemoteOrganizationRole::SiteOwner,
-        | RemoteOrganizationRole::SiteOwner => RemoteOrganizationRole::Research,
-        | RemoteOrganizationRole::Research => RemoteOrganizationRole::Sponsor,
-        | RemoteOrganizationRole::Sponsor => RemoteOrganizationRole::Contributor,
-        | RemoteOrganizationRole::Contributor => RemoteOrganizationRole::Developer,
-        | RemoteOrganizationRole::Developer => RemoteOrganizationRole::Any,
-    }
+fn render_title(frame: &mut Frame, area: Rect, app: &App) {
+    let mode = if app.options.offline { "offline" } else { "online" };
+    let source = match app.gather.mode {
+        | GatherMode::Local => "local",
+        | GatherMode::OstiProjects => "OSTI projects",
+        | GatherMode::OstiPeople => "OSTI people",
+        | GatherMode::OstiOrganizations => "OSTI organizations",
+    };
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" ACORN Gather ", Style::default().fg(app.theme.accent).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("· {source} · {mode}"), Style::default().fg(app.theme.text_muted)),
+        ]))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(app.theme.accent)))
+        .alignment(Alignment::Center),
+        area,
+    );
 }
 fn start_remote(app: &mut App, all: bool) {
     if app.options.offline {
@@ -368,143 +505,6 @@ fn start_remote(app: &mut App, all: bool) {
                 });
             let _ = sender.send(result);
         });
-    }
-}
-pub(crate) fn poll_remote(app: &mut App) {
-    let result = app.gather_remote.as_ref().and_then(|receiver| receiver.try_recv().ok());
-    if let Some(result) = result {
-        app.gather.remote_loading = false;
-        app.gather_remote = None;
-        match result {
-            | Ok(response) => {
-                app.gather.remote_total = response.total;
-                app.gather.remote_offset = response.offset;
-                app.gather.remote_has_more = response.has_more;
-                app.gather.remote_matches = response.matches;
-                app.gather.selected_index = 0;
-            }
-            | Err(why) => {
-                app.gather.remote_matches.clear();
-                app.gather.remote_error = Some(why);
-            }
-        }
-    }
-}
-fn gather(input: &str, options: &TuiOptions) -> GatherOutput {
-    let loaded = load_input(input.trim(), options.offline);
-    let input_count = loaded.len();
-    let checks = loaded
-        .iter()
-        .filter_map(|value| value.as_ref().err().map(|check| check.as_ref().clone()))
-        .collect::<Vec<_>>();
-    let sources = loaded.into_iter().filter_map(core::result::Result::ok).collect::<Vec<_>>();
-    let discoveries = sources
-        .iter()
-        .flat_map(|source| {
-            Identifier::find_all(&source.content)
-                .into_iter()
-                .map(|identifier| GatherDiscovery {
-                    identifier: identifier.value,
-                    identifier_type: identifier.kind.as_str().to_string(),
-                    source: source.source.clone(),
-                    source_format: source.format.clone(),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    let persistence_checks = persist(&discoveries, options);
-    GatherOutput {
-        checks: checks.into_iter().chain(persistence_checks).collect(),
-        discoveries,
-        input_count,
-    }
-}
-fn load_input(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
-    input_values(input).iter().flat_map(|value| load_value(value, offline)).collect()
-}
-fn input_values(input: &str) -> Vec<String> {
-    let parsed = shell_words::split(input).unwrap_or_default();
-    match parsed.len() > 1 && parsed.iter().all(|value| is_explicit_input(value)) {
-        | true => parsed,
-        | false => vec![input.to_string()],
-    }
-}
-fn is_explicit_input(input: &str) -> bool {
-    uri_to_path(input).exists() || input.starts_with("http://") || input.starts_with("https://") || !Identifier::find_all(input).is_empty()
-}
-fn load_value(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
-    let path = uri_to_path(input);
-    let remote = input.starts_with("http://") || input.starts_with("https://");
-    let persistent = Identifier::find_all(input).into_iter().any(|identifier| identifier.kind != PID::URL);
-    match (input.is_empty(), path.exists(), remote, persistent, offline) {
-        | (true, _, _, _, _) => vec![Err(Box::new(failure("Input cannot be empty", "<input>")))],
-        | (false, true, _, _, _) => files_all(path, None::<Vec<String>>)
-            .into_iter()
-            .filter(|path| path.is_file())
-            .map(load_path)
-            .collect(),
-        | (false, false, _, true, _) => vec![Ok(text_source(input, "pid"))],
-        | (false, false, true, false, true) => vec![Err(Box::new(failure("Remote input is unavailable in offline mode", input)))],
-        | (false, false, true, false, false) => vec![load_remote(input)],
-        | (false, false, false, false, _) => vec![Ok(text_source(input, "text"))],
-    }
-}
-fn load_path(path: PathBuf) -> core::result::Result<SourceDocument, Box<Check>> {
-    SourceDocument::from_path(path.clone()).map_err(|why| Box::new(failure(&why.to_string(), &path.display().to_string())))
-}
-fn load_remote(input: &str) -> core::result::Result<SourceDocument, Box<Check>> {
-    reqwest::blocking::get(input)
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .and_then(|response| response.bytes())
-        .map_err(|why| Box::new(failure(&why.to_string(), input)))
-        .and_then(|bytes| SourceDocument::from_bytes(&bytes, input).map_err(|why| Box::new(failure(&why.to_string(), input))))
-}
-fn persist(discoveries: &[GatherDiscovery], options: &TuiOptions) -> Vec<Check> {
-    match options.no_local_database {
-        | true => Vec::new(),
-        | false => {
-            let database = Database::<Table>::from_path(options.database_path.clone());
-            database
-                .migrate_table(Table::Discoveries)
-                .map(|_| {
-                    let discovered_at = Timestamp::now();
-                    discoveries
-                        .iter()
-                        .filter_map(|discovery| {
-                            database
-                                .insert(
-                                    IdentifierRow::init()
-                                        .discovered_at(discovered_at)
-                                        .identifier(discovery.identifier.clone())
-                                        .identifier_type(discovery.identifier_type.clone())
-                                        .resolution_status("not-requested")
-                                        .source(discovery.source.clone())
-                                        .source_format(discovery.source_format.clone())
-                                        .build(),
-                                )
-                                .err()
-                                .map(|why| failure(&why.to_string(), &discovery.source))
-                        })
-                        .collect()
-                })
-                .unwrap_or_else(|why| vec![failure(&why.to_string(), "<database>")])
-        }
-    }
-}
-fn failure(message: &str, source: &str) -> Check {
-    check_err!(CheckCategory::Schema, message: message.to_string(), uri: source.to_string())
-}
-fn next_index(index: usize, length: usize) -> usize {
-    match length {
-        | 0 => 0,
-        | _ => index.saturating_add(1) % length,
-    }
-}
-fn previous_index(index: usize, length: usize) -> usize {
-    match (index, length) {
-        | (_, 0) => 0,
-        | (0, _) => length.saturating_sub(1),
-        | _ => index.saturating_sub(1),
     }
 }
 fn text_source(input: &str, format: &str) -> SourceDocument {

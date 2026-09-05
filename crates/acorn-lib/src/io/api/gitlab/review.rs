@@ -3,8 +3,10 @@ use super::{
     merge_request, merge_request_diffs, publish_commit_status, repository_file, upsert_merge_request_note, CommitStatusState, MergeRequestDetails,
     MergeRequestDiff, Options,
 };
-use crate::analyzer::discovery::discover_identifiers;
-use crate::analyzer::{analyze_paths, AnalysisContext, Check};
+use crate::analyzer::host::context::AnalysisContext;
+use crate::analyzer::host::discovery::discover_identifiers;
+use crate::analyzer::host::service::analyze_paths;
+use crate::analyzer::Check;
 use crate::io::api::{Configuration, RepositoryFileMetadata};
 use crate::io::ApiResult;
 use crate::util::constants::app::{APPLICATION, MAX_ANALYSIS_FILE_BYTES, MERGE_REQUEST_REPORT_MARKER};
@@ -53,22 +55,33 @@ pub enum Input {
         retryable: bool,
     },
 }
-impl Input {
-    fn path(&self) -> &str {
-        match self {
-            | Self::Pending { path } | Self::Checked { path, .. } | Self::Skipped { path, .. } | Self::Failed { path, .. } => path,
-        }
-    }
-    fn is_skipped(&self) -> bool {
-        matches!(self, Self::Skipped { .. })
-    }
-    fn supported(path: &str) -> bool {
-        match MimeType::from(path) {
-            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Text | MimeType::Yaml => true,
-            | MimeType::Vendor(extension) => extension == "docx",
-            | _ => false,
-        }
-    }
+/// Result of processing one head-specific merge request operation
+#[derive(Clone, Debug)]
+pub enum MergeRequestAnalysisOutcome {
+    /// The queued SHA is no longer the merge request head
+    Stale {
+        /// Queued SHA
+        queued_sha: String,
+        /// Current SHA
+        current_sha: String,
+    },
+    /// Analysis was published to GitLab
+    Published(MergeRequestAnalysisReport),
+}
+/// Structured merge request analysis result
+#[derive(Clone, Debug)]
+pub struct MergeRequestAnalysisReport {
+    /// Analyzed merge request head SHA
+    pub head_sha: String,
+    /// Inputs considered for analysis
+    pub inputs: Vec<Input>,
+    /// Structured ACORN checks
+    pub checks: Vec<Check>,
+    /// Artifact identifiers discovered in analyzed text
+    pub citation_candidates: Vec<Identifier>,
+}
+struct Workspace {
+    root: PathBuf,
 }
 impl From<&MergeRequestDiff> for Input {
     fn from(diff: &MergeRequestDiff) -> Self {
@@ -90,17 +103,22 @@ impl From<&MergeRequestDiff> for Input {
         )
     }
 }
-/// Structured merge request analysis result
-#[derive(Clone, Debug)]
-pub struct MergeRequestAnalysisReport {
-    /// Analyzed merge request head SHA
-    pub head_sha: String,
-    /// Inputs considered for analysis
-    pub inputs: Vec<Input>,
-    /// Structured ACORN checks
-    pub checks: Vec<Check>,
-    /// Artifact identifiers discovered in analyzed text
-    pub citation_candidates: Vec<Identifier>,
+impl Input {
+    fn path(&self) -> &str {
+        match self {
+            | Self::Pending { path } | Self::Checked { path, .. } | Self::Skipped { path, .. } | Self::Failed { path, .. } => path,
+        }
+    }
+    fn is_skipped(&self) -> bool {
+        matches!(self, Self::Skipped { .. })
+    }
+    fn supported(path: &str) -> bool {
+        match MimeType::from(path) {
+            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Text | MimeType::Yaml => true,
+            | MimeType::Vendor(extension) => extension == "docx",
+            | _ => false,
+        }
+    }
 }
 impl MergeRequestAnalysisReport {
     /// Whether the final commit status must fail
@@ -198,21 +216,12 @@ impl MergeRequestAnalysisReport {
         )
     }
 }
-/// Result of processing one head-specific merge request operation
-#[derive(Clone, Debug)]
-pub enum MergeRequestAnalysisOutcome {
-    /// The queued SHA is no longer the merge request head
-    Stale {
-        /// Queued SHA
-        queued_sha: String,
-        /// Current SHA
-        current_sha: String,
-    },
-    /// Analysis was published to GitLab
-    Published(MergeRequestAnalysisReport),
-}
-struct Workspace {
-    root: PathBuf,
+impl Drop for Workspace {
+    fn drop(&mut self) {
+        if let Err(why) = remove_dir_all(&self.root) {
+            tracing::warn!("Failed to remove merge request analysis workspace {} — {why}", self.root.display());
+        }
+    }
 }
 impl Workspace {
     fn create(iid: u64, head_sha: &str) -> ApiResult<Self> {
@@ -227,13 +236,6 @@ impl Workspace {
         write(&path, content)
             .map(|_| path.clone())
             .map_err(|why| eyre!("Failed to materialize merge request input {} — {why}", path.display()))
-    }
-}
-impl Drop for Workspace {
-    fn drop(&mut self) {
-        if let Err(why) = remove_dir_all(&self.root) {
-            tracing::warn!("Failed to remove merge request analysis workspace {} — {why}", self.root.display());
-        }
     }
 }
 /// Analyze one merge request head and publish its note and commit status
@@ -317,6 +319,19 @@ async fn build_report(
             | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
+    }
+}
+async fn fail_workflow(
+    options: &Options,
+    project_id: Option<u64>,
+    head_sha: &str,
+    target_url: Option<&str>,
+    why: Report,
+) -> ApiResult<MergeRequestAnalysisOutcome> {
+    let description = why.to_string().chars().take(255).collect::<String>();
+    match publish_commit_status(options, project_id, head_sha, CommitStatusState::Failed, &description, target_url).await {
+        | Ok(_) => Err(why),
+        | Err(status_error) => Err(eyre!("{why}; failed to publish terminal acorn/check status — {status_error}")),
     }
 }
 async fn fetch_input(
@@ -411,20 +426,6 @@ async fn publish_report(
         }
     }
 }
-async fn fail_workflow(
-    options: &Options,
-    project_id: Option<u64>,
-    head_sha: &str,
-    target_url: Option<&str>,
-    why: Report,
-) -> ApiResult<MergeRequestAnalysisOutcome> {
-    let description = why.to_string().chars().take(255).collect::<String>();
-    match publish_commit_status(options, project_id, head_sha, CommitStatusState::Failed, &description, target_url).await {
-        | Ok(_) => Err(why),
-        | Err(status_error) => Err(eyre!("{why}; failed to publish terminal acorn/check status — {status_error}")),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,6 +4,7 @@
 //! replacing ad-hoc `f64` comparisons in `check_readability_for` and report consumers.
 //!
 use super::ReadabilityType;
+use acorn_core::prelude::ToString;
 use acorn_core::util::is_finite_and_greater_than;
 use core::fmt::{self, Display, Formatter};
 use core::ops;
@@ -26,6 +27,22 @@ pub struct ReadabilityScore {
     metric: ReadabilityType,
     value: f64,
     threshold: f64,
+}
+impl Display for ReadabilityScore {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{} = {}/{}",
+            self.metric.to_string().to_uppercase(),
+            self.value,
+            self.threshold
+        )
+    }
+}
+impl PartialEq for ReadabilityScore {
+    fn eq(&self, other: &Self) -> bool {
+        self.metric == other.metric && self.value.to_bits() == other.value.to_bits() && self.threshold.to_bits() == other.threshold.to_bits()
+    }
 }
 impl ReadabilityScore {
     /// Create a new score for `metric` with `value` and `threshold`
@@ -85,22 +102,6 @@ impl ReadabilityScore {
         } else {
             ReadabilitySeverity::Pass
         }
-    }
-}
-impl Display for ReadabilityScore {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "{} = {}/{}",
-            self.metric.to_string().to_uppercase(),
-            self.value,
-            self.threshold
-        )
-    }
-}
-impl PartialEq for ReadabilityScore {
-    fn eq(&self, other: &Self) -> bool {
-        self.metric == other.metric && self.value.to_bits() == other.value.to_bits() && self.threshold.to_bits() == other.threshold.to_bits()
     }
 }
 fn normalize(value: f64) -> f64 {

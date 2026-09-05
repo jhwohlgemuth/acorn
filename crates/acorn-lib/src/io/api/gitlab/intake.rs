@@ -2,7 +2,7 @@
 
 use super::webhook;
 use super::{current_user, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options, WorkItem};
-use crate::analyzer::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
+use crate::analyzer::host::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
 use crate::io::api::citeas::{self, ToCitations};
 use crate::io::api::Configuration;
 use crate::io::ApiResult;
@@ -20,7 +20,6 @@ use itertools::Itertools;
 use serde::Serialize;
 
 const MAINTAINER_ACCESS_LEVEL: u64 = 40;
-
 /// Authorization result for one work-item command.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum Authorization {
@@ -292,36 +291,6 @@ impl From<ArtifactCandidate> for Cff {
         }
     }
 }
-fn cff_identifier_type(identifier: &Identifier) -> IdentifierType {
-    match identifier.kind {
-        | PID::URL => IdentifierType::Url,
-        | PID::SWHID => IdentifierType::Swh,
-        | _ => IdentifierType::Other,
-    }
-}
-fn person_from_name(name: &str) -> Person {
-    let (given_names, family_names) = name.rsplit_once(' ').map_or((None, Some(name.to_string())), |(given, family)| {
-        (Some(given.to_string()), Some(family.to_string()))
-    });
-    Person {
-        address: None,
-        affiliation: None,
-        alias: None,
-        city: None,
-        country: None,
-        email: None,
-        family_names,
-        fax: None,
-        given_names,
-        name_particle: None,
-        name_suffix: None,
-        orcid: None,
-        postal_code: None,
-        region: None,
-        tel: None,
-        website: None,
-    }
-}
 impl Report {
     /// Render the idempotent work-item report note.
     pub fn render(&self) -> String {
@@ -471,6 +440,13 @@ fn cff_contact(values: &[Agent]) -> Option<Candidate> {
         .exactly_one()
         .ok()
 }
+fn cff_identifier_type(identifier: &Identifier) -> IdentifierType {
+    match identifier.kind {
+        | PID::URL => IdentifierType::Url,
+        | PID::SWHID => IdentifierType::Swh,
+        | _ => IdentifierType::Other,
+    }
+}
 pub(crate) async fn classify_content(content: &str, options: &Options) -> Vec<ArtifactReport> {
     let candidates = discover_identifiers(content)
         .into_iter()
@@ -510,6 +486,29 @@ fn eligible_note(note: &Note, command_note_id: u64, bot_user_id: u64) -> Option<
             (*identifier < command_note_id && !invalid && !webhook::check_requested(body)).then_some(body)
         }
         | Note::MergeRequest { .. } => None,
+    }
+}
+fn person_from_name(name: &str) -> Person {
+    let (given_names, family_names) = name.rsplit_once(' ').map_or((None, Some(name.to_string())), |(given, family)| {
+        (Some(given.to_string()), Some(family.to_string()))
+    });
+    Person {
+        address: None,
+        affiliation: None,
+        alias: None,
+        city: None,
+        country: None,
+        email: None,
+        family_names,
+        fax: None,
+        given_names,
+        name_particle: None,
+        name_suffix: None,
+        orcid: None,
+        postal_code: None,
+        region: None,
+        tel: None,
+        website: None,
     }
 }
 pub(crate) fn verified_command_author(notes: &[Note], command_note_id: u64, actor: &HookActor) -> Option<u64> {

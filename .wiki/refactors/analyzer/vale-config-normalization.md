@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Separate pure configuration values from Vale process/file execution under [std-only isolation](../portability/isolate-std-only-modules.md).
+Separate pure configuration values from Vale process/file execution under the [portability roadmap](../portability/roadmap.md).
 
 # Evidence
 

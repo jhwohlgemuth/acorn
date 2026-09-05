@@ -3,7 +3,7 @@ use crate::cli::{
     arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void, WatchOptions,
 };
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::analyzer::discovery;
+use acorn::analyzer::host::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
 use acorn::util::Label;
@@ -86,6 +86,14 @@ fn preflight_inner(command: &str, options: &CommandOptions) -> eyre::Result<()> 
     };
     check_path().and_then(|_| check_reference()).and_then(|_| check_offline())
 }
+pub(crate) fn resolve_poll_interval(args: &Arguments) -> SignedDuration {
+    let command_interval = match &args.command {
+        | Some(Commands::Check(arguments)) => arguments.poll_interval,
+        | Some(Commands::Gather(arguments)) => arguments.poll_interval,
+        | _ => None,
+    };
+    command_interval.or(args.poll_interval).unwrap_or_else(|| SignedDuration::from_secs(1))
+}
 pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize) -> Void {
     let poll_interval = resolve_poll_interval(args);
     let options = WatchOptions {
@@ -95,25 +103,6 @@ pub fn run(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: us
     };
     let watch = args.watch.then_some(options);
     validate_watch_arguments(args).and_then(|()| run_command(args, offline, config, threads, watch))
-}
-pub(crate) fn resolve_poll_interval(args: &Arguments) -> SignedDuration {
-    let command_interval = match &args.command {
-        | Some(Commands::Check(arguments)) => arguments.poll_interval,
-        | Some(Commands::Gather(arguments)) => arguments.poll_interval,
-        | _ => None,
-    };
-    command_interval.or(args.poll_interval).unwrap_or_else(|| SignedDuration::from_secs(1))
-}
-pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
-    let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
-    let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
-    let paste = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.paste);
-    match (args.watch, watch_supported, ignore_sync_failure, paste) {
-        | (true, false, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
-        | (false, _, true, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
-        | (true, _, _, true) => Err(eyre!("Clipboard text cannot be used with --watch")),
-        | _ => Ok(()),
-    }
 }
 fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads: usize, watch: Option<WatchOptions>) -> Void {
     match &args.command {
@@ -585,6 +574,17 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             }
             Ok(())
         }
+    }
+}
+pub(crate) fn validate_watch_arguments(args: &Arguments) -> Void {
+    let watch_supported = matches!(args.command, Some(Commands::Check(_) | Commands::Gather(_)));
+    let ignore_sync_failure = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.ignore_sync_failure);
+    let paste = matches!(&args.command, Some(Commands::Check(arguments)) if arguments.paste);
+    match (args.watch, watch_supported, ignore_sync_failure, paste) {
+        | (true, false, _, _) => Err(eyre!("--watch is only supported by the check and gather commands")),
+        | (false, _, true, _) => Err(eyre!("--ignore-sync-failure requires --watch")),
+        | (true, _, _, true) => Err(eyre!("Clipboard text cannot be used with --watch")),
+        | _ => Ok(()),
     }
 }
 fn with_runtime<F>(fut: F) -> Void

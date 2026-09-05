@@ -4,14 +4,14 @@
 //! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "analyzer"))]
 extern crate alloc;
 
 #[doc(hidden)]
 #[cfg(feature = "cmd")]
 pub use acorn_macros::cmd_sh_words;
 
-#[cfg(feature = "analysis")]
+#[cfg(feature = "analyzer")]
 pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
@@ -37,7 +37,9 @@ use acorn_core::{Location, Release, Repository, Scheme};
 #[cfg(feature = "std")]
 use acorn_schema::schema::ControlledVocabulary;
 #[cfg(all(feature = "std", feature = "analysis"))]
-use analyzer::{link_check, Check};
+use analyzer::host::runtime::link_check;
+#[cfg(all(feature = "std", feature = "analysis"))]
+use analyzer::Check;
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 #[cfg(feature = "std")]

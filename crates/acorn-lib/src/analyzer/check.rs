@@ -1,147 +1,106 @@
 //! Check result types and helpers for analyzer output
-use super::context::{AnalysisContext, ReportOptions};
-use super::error::{DocumentTarget, ErrorKind, ValidatorIssues};
+use super::error::ErrorKind;
+use super::model::ValeOutputItemSeverity;
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
-use super::vale::{Vale, ValeOutputItem, ValeOutputItemSeverity};
-#[cfg(feature = "analysis")]
-use super::{to_dataframe, StaticAnalyzer};
+use crate::{check, check_ok};
+use acorn_core::prelude::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
-use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan};
+use acorn_core::util::MimeType;
 #[cfg(feature = "std")]
-use crate::io::InputOutput;
-use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
-use crate::util::{Label, StringConversion};
-use crate::{check, check_err, check_ok};
-use acorn_core::prelude::{Arc, HashMap};
-use acorn_core::util::{MimeType, ToProse};
-#[cfg(feature = "std")]
-use acorn_schema::schema::pid::raid::Metadata;
-#[cfg(feature = "std")]
-use acorn_schema::schema::research_activity::ResearchActivity;
 use acorn_schema::schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
+#[cfg(feature = "std")]
 use acorn_schema::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-use acorn_schema::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
+#[cfg(feature = "std")]
+use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio};
+#[cfg(feature = "std")]
 use acorn_schema::schema::OneOrMany;
-use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
-use async_trait::async_trait;
 use bon::Builder;
-use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
-use core::fmt;
-#[cfg(feature = "std")]
-use core::future::Future;
 use derive_more::Display;
-use futures::future::{join_all, BoxFuture};
-#[cfg(feature = "analysis")]
-use polars::{
-    frame::row::Row,
-    io::csv::write::CsvWriter,
-    prelude::{AnyValue, DataFrame, PolarsResult, SerWriter},
-};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-#[cfg(feature = "std")]
-use schemars::schema_for;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-#[cfg(feature = "analysis")]
-use std::io::Cursor;
-#[cfg(feature = "std")]
-use std::path::{Path, PathBuf};
 use strum::{EnumIs, EnumIter, VariantNames};
-use tracing::{debug, error, info};
 
 /// Collection of analyzer checks.
 pub type Checks = Vec<Check>;
 /// Utility type alias for a vector of [`ConversionWarning`]
-pub type ConversionWarnings = Vec<ConversionWarning>;
-/// Document indexes available to host renderers, keyed by display URI.
 #[cfg(feature = "std")]
-pub type DocumentIndexes = HashMap<String, Arc<DocumentIndex>>;
-/// Trait for adding analysis capabilities
-#[cfg(feature = "analysis")]
-#[async_trait]
-pub trait Analysis: SchemaCheck {
-    /// Run analysis for a given category
-    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check> {
-        match category {
-            | CheckCategory::Link => Self::check_websites(paths, options).await,
-            | CheckCategory::Prose => Self::check_prose(paths, options).await,
-            | CheckCategory::Quality => Self::check_quality(paths, options).await,
-            | CheckCategory::Readability => Self::check_readability(paths, options).await,
-            | CheckCategory::Schema => Self::check_schema(paths, options).await,
-            | CheckCategory::Crosswalk => Vec::new(),
-        }
-    }
-    /// Perform analysis of prose
-    async fn check_prose(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
-    }
-    /// Perform quality checks and verify data consistency
-    async fn check_quality(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
-    }
-    /// Calculate readability using a given metric
-    async fn check_readability(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
-    }
-    /// Execute validation checks for the given paths.
-    async fn check_schema(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        let futures = paths.par_iter().filter_map(<Self as SchemaCheck>::check_schema_path).collect::<Vec<_>>();
-        join_all(futures).await.into_iter().flatten().collect()
-    }
-    /// Check if URLs links are valid and readable
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> Vec<Check> {
-        Vec::new()
-    }
-    /// Returns the output path used for Vale analysis artifacts.
-    fn output_path(path: &Path, data: &Self) -> PathBuf;
-    /// Returns the metadata standard represented by the implementing type.
-    fn standard() -> Standard;
-    /// Flatten a collection of futures that each return a vector of checks into a single vector
-    #[cfg(feature = "std")]
-    async fn flatten_checks<I, F>(futures: I) -> Vec<Check>
-    where
-        I: IntoIterator<Item = F> + Send,
-        F: Future<Output = Vec<Check>> + Send,
-    {
-        join_all(futures).await.into_iter().flatten().collect()
-    }
-    /// Collect link checks from futures and attach URI to each check
-    #[cfg(feature = "std")]
-    async fn collect_checks<'a>(futures: impl IntoIterator<Item = futures::future::BoxFuture<'a, Check>> + Send, path: &Path) -> Vec<Check> {
-        let uri = Some(path.to_path_buf().file_name_with_parent());
-        join_all(futures).await.into_iter().map(|check| check.with_uri(uri.clone())).collect()
-    }
-}
+pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Trait for converting to a vector of checks
+#[cfg(feature = "std")]
 pub trait IntoChecks {
     /// Convert to a vector of checks
     fn to_checks(&self, uri: Option<String>) -> Vec<Check>;
 }
-/// Trait for converting to a ([Polars]) row
-///
-/// [Polars]: https://docs.rs/polars/latest/polars/
-#[cfg(feature = "analysis")]
-pub trait IntoRow<'a> {
-    /// Convert to a (Polars) row
-    fn to_row<T>(self) -> Row<'a>;
+/// Various check categories available for validating research activity data
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum CheckCategory {
+    /// Schema validation check
+    #[default]
+    #[display("schema")]
+    Schema,
+    /// Website availability check
+    #[display("link")]
+    Link,
+    /// Static analysis of prose
+    #[display("prose")]
+    Prose,
+    /// Quality control and data consistency check
+    #[display("quality")]
+    Quality,
+    /// Readability check using one of several metrics
+    #[display("readability")]
+    Readability,
+    /// Metadata crosswalk conversion warning
+    #[display("crosswalk")]
+    Crosswalk,
 }
-/// Render a collection of checks.
-pub trait Render {
-    /// Render checks in deterministic detailed or compact form.
-    #[cfg(feature = "std")]
-    fn render(&self, context: RenderContext<'_>);
+#[derive(Clone, Copy, Debug, Default, EnumIs, Eq, PartialEq)]
+/// Rendering behavior associated with a check.
+pub enum CheckKind {
+    /// Standard category-specific rendering.
+    #[default]
+    Standard,
+    /// Identifier discovery and persistence lifecycle rendering.
+    Lifecycle,
 }
-/// Supplies schema checks to [`Analysis`] implementations.
-#[cfg(feature = "analysis")]
-pub trait SchemaCheck {
-    /// Read and validate one schema document when the implementing type supports it
-    fn check_schema_path(_path: &PathBuf) -> Option<BoxFuture<'static, Vec<Check>>> {
-        None
-    }
+/// Severity level of a check result
+#[derive(Clone, Debug, Default, Deserialize, Display, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CheckSeverity {
+    /// Hard error requiring immediate attention
+    #[default]
+    #[display("error")]
+    Error,
+    /// Informational message
+    #[display("info")]
+    Info,
+    /// Advisory suggestion to improve content quality
+    #[display("suggestion")]
+    Suggestion,
+    /// Content issue that should be addressed
+    #[display("warning")]
+    Warning,
+}
+/// Output format used when rendering checks and discovery reports.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum OutputFormat {
+    /// JavaScript Object Notation
+    #[default]
+    Json,
+    /// Human-readable console output
+    Console,
+    /// GitHub-Flavored Markdown
+    Markdown,
+    /// Plain-text values, one per line
+    Raw,
+    /// YAML
+    Yaml,
 }
 /// Metadata standard used to gate processing behavior within commands
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, Eq)]
@@ -178,76 +137,10 @@ pub enum Standard {
     #[display("text")]
     Text,
 }
-/// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-pub enum CheckCategory {
-    /// Schema validation check
-    #[default]
-    #[display("schema")]
-    Schema,
-    /// Website availability check
-    #[display("link")]
-    Link,
-    /// Static analysis of prose
-    #[display("prose")]
-    Prose,
-    /// Quality control and data consistency check
-    #[display("quality")]
-    Quality,
-    /// Readability check using one of several metrics
-    #[display("readability")]
-    Readability,
-    /// Metadata crosswalk conversion warning
-    #[display("crosswalk")]
-    Crosswalk,
-}
-/// Severity level of a check result
-#[derive(Clone, Debug, Default, Deserialize, Display, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CheckSeverity {
-    /// Hard error requiring immediate attention
-    #[default]
-    #[display("error")]
-    Error,
-    /// Informational message
-    #[display("info")]
-    Info,
-    /// Advisory suggestion to improve content quality
-    #[display("suggestion")]
-    Suggestion,
-    /// Content issue that should be addressed
-    #[display("warning")]
-    Warning,
-}
-#[derive(Clone, Copy, Debug, Default, EnumIs, Eq, PartialEq)]
-/// Rendering behavior associated with a check.
-pub enum CheckKind {
-    /// Standard category-specific rendering.
-    #[default]
-    Standard,
-    /// Identifier discovery and persistence lifecycle rendering.
-    Lifecycle,
-}
-/// Output format used when rendering checks and discovery reports.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum OutputFormat {
-    /// JavaScript Object Notation
-    #[default]
-    Json,
-    /// Human-readable console output
-    Console,
-    /// GitHub-Flavored Markdown
-    Markdown,
-    /// Plain-text values, one per line
-    Raw,
-    /// YAML
-    Yaml,
-}
 /// Data structure for holding the result of a schema validation check
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
+#[cfg_attr(not(feature = "analysis"), allow(dead_code))]
 pub struct Check {
     /// Position of this issue in rendered output
     #[builder(default = 0)]
@@ -258,13 +151,13 @@ pub struct Check {
     pub locator: Option<String>,
     /// Per-item normalized prose locations retained without host document state.
     #[builder(default)]
-    prose_locators: Vec<Option<String>>,
+    pub(super) prose_locators: Vec<Option<String>>,
     /// Textual context of check (e.g., paragraph where prose issues were found)
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
-    data: Option<String>,
+    pub(super) data: Option<String>,
     #[builder(default)]
-    kind: CheckKind,
+    pub(super) kind: CheckKind,
     /// Whether or not the check was successful
     #[builder(default = false)]
     pub success: bool,
@@ -272,7 +165,7 @@ pub struct Check {
     #[builder(default)]
     pub severity: CheckSeverity,
     /// HTTP status code
-    status_code: Option<String>,
+    pub(super) status_code: Option<String>,
     /// Errors and issues found during check
     pub errors: Option<ErrorKind>,
     /// Path of file being validated
@@ -281,61 +174,8 @@ pub struct Check {
     #[builder(default = "".to_string())]
     pub message: String,
 }
-/// Host rendering inputs kept separate from portable check values.
-#[cfg(feature = "std")]
-#[derive(Clone, Copy, Debug)]
-pub struct RenderContext<'a> {
-    /// Source indexes used for precise diagnostics.
-    pub documents: Option<&'a DocumentIndexes>,
-    /// Output and failure-reporting policy.
-    pub options: &'a ReportOptions,
-}
-#[derive(Builder)]
-#[builder(start_fn = init)]
-struct DocumentReport<'a> {
-    title: &'a str,
-    index: usize,
-    kind: ReportKind<'static>,
-    heading: &'a str,
-    message: String,
-    color: Color,
-}
-impl CheckKind {
-    fn link_row(&self, check: &Check) -> (String, String, String) {
-        let Check {
-            severity,
-            context,
-            locator,
-            status_code,
-            message,
-            ..
-        } = check;
-        let details = if self.is_lifecycle() {
-            context
-                .as_ref()
-                .map_or_else(|| message.clone(), |context| format!("{message} {}", context.dimmed()))
-        } else {
-            let code = match status_code {
-                | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                | None | Some(_) => "".to_string(),
-            };
-            let context = context
-                .as_ref()
-                .map(|value| value.to_string().underline().italic().to_string())
-                .unwrap_or_else(|| "Missing".to_string());
-            format!("{context} {}{code}", message.dimmed())
-        };
-        (locator.clone().unwrap_or_default(), severity.colored(), details)
-    }
-}
 impl Check {
-    #[cfg(feature = "std")]
-    fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex> {
-        self.uri
-            .as_ref()
-            .and_then(|uri| documents.and_then(|documents| documents.get(uri)))
-            .map(Arc::as_ref)
-    }
+    #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
         Self { kind, ..self }
     }
@@ -382,255 +222,6 @@ impl Check {
             }
         }
     }
-    /// Fancy output in contrast with more compressed output of Display impl
-    #[cfg(feature = "std")]
-    pub fn report(&self, document: Option<&DocumentIndex>) {
-        let index = self.index;
-        let Check {
-            category,
-            locator,
-            context,
-            data,
-            errors,
-            kind,
-            severity,
-            status_code,
-            uri,
-            message,
-            ..
-        } = self.clone();
-        match &category {
-            | CheckCategory::Link => match kind {
-                | CheckKind::Lifecycle => {
-                    let title = uri.as_deref().or(locator.as_deref()).unwrap_or("resolution");
-                    let source_text = context.as_deref().unwrap_or(&message).to_string();
-                    let source = Source::from(source_text.clone());
-                    let span = 0..=source_text.len().saturating_sub(1);
-                    let _ = Report::build(severity.clone().into(), (title, 1..=1))
-                        .with_code(index)
-                        .with_config(Config::default().with_compact(false))
-                        .with_message(locator.clone().unwrap_or("Resolution".to_string()))
-                        .with_label(
-                            ariadne::Label::new((title, span))
-                                .with_message(message.italic())
-                                .with_color(severity.clone().into()),
-                        )
-                        .finish()
-                        .print((title, source));
-                }
-                | CheckKind::Standard => {
-                    let title = uri.clone().unwrap_or_else(|| "index.json".to_string());
-                    let kind: ReportKind<'static> = severity.clone().into();
-                    let code = match status_code.as_ref() {
-                        | Some(value) if !value.is_empty() => format!(" ({value})").dimmed().to_string(),
-                        | None | Some(_) => "".to_string(),
-                    };
-                    let text = match context.as_ref() {
-                        | Some(value) => value.trim().to_string(),
-                        | None => "No URL".to_string(),
-                    };
-                    let source_text = if text.is_empty() { " ".to_string() } else { text };
-                    let query = match locator.as_deref() {
-                        | Some(locator) => DocumentQuery::new()
-                            .with_path(DocumentPath::parse(locator))
-                            .with_needle(source_text.clone()),
-                        | None => DocumentQuery::new().with_needle(source_text.clone()),
-                    };
-                    let heading = locator.as_deref().unwrap_or(category.message());
-                    let report = DocumentReport::init()
-                        .title(&title)
-                        .index(index)
-                        .kind(kind)
-                        .heading(heading)
-                        .message(format!("{}{code}", message.italic()))
-                        .color(severity.clone().into())
-                        .build();
-                    let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
-                    if !rendered {
-                        print_unlocated(index, &severity, heading, format!("{message}{code}"));
-                    }
-                }
-            },
-            | CheckCategory::Prose => match &errors {
-                | Some(ErrorKind::Vale(values)) => {
-                    let title = uri.clone().unwrap_or("index.json".to_string());
-                    values.iter().enumerate().for_each(|(i, item)| {
-                        let ValeOutputItem {
-                            check, message, severity, ..
-                        } = item;
-                        let report = DocumentReport::init()
-                            .title(&title)
-                            .index(index.saturating_add(i))
-                            .kind(severity.into())
-                            .heading(check)
-                            .message(message.italic().to_string())
-                            .color(severity.into())
-                            .build();
-                        let rendered = document
-                            .zip(document.and_then(|document| self.prose_span(document, item)))
-                            .is_some_and(|(document, span)| document.print(&span, report));
-                        if !rendered {
-                            print_unlocated(index.saturating_add(i), &CheckSeverity::from(severity.clone()), check, message.clone());
-                        }
-                    });
-                }
-                | None | Some(_) => {}
-            },
-            | CheckCategory::Quality => {
-                let title = uri.as_deref().unwrap_or_default();
-                if self.success {
-                    info!("=> {} {title} has {}", Label::pass(), "no quality issues".green().bold());
-                } else {
-                    let details = context.as_deref().unwrap_or(&message).to_string();
-                    let heading = uri.as_deref().map_or_else(
-                        || category.message().to_string(),
-                        |uri| format!("{} — {}", category.message(), uri.cyan().underline()),
-                    );
-                    print_unlocated(index, &severity, &heading, details);
-                }
-            }
-            | CheckCategory::Readability => match &errors {
-                | Some(ErrorKind::Readability(_)) => {
-                    let score = severity.colorize(&message);
-                    let heading = uri.as_deref().map_or_else(
-                        || category.message().to_string(),
-                        |uri| format!("{} — {}", category.message(), uri.cyan().underline()),
-                    );
-                    let details = format!("Simplify language for a general audience — {score}\n");
-                    print_unlocated(index, &severity, &heading, details);
-                }
-                | None | Some(_) => {
-                    let title = uri.as_deref().unwrap_or_default();
-                    if let Some(value) = &data {
-                        info!(
-                            "=> {} {title} has {} {}",
-                            Label::pass(),
-                            "no readability issues".green().bold(),
-                            value.dimmed()
-                        );
-                    } else {
-                        info!("=> {} {title} has {}", Label::pass(), "no readability issues".green().bold(),);
-                    }
-                }
-            },
-            | CheckCategory::Schema => {
-                let title = uri.clone().unwrap_or_default();
-                match &errors {
-                    | Some(ErrorKind::Validator(report)) => {
-                        let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(&message);
-                        ValidatorIssues::from(report.clone())
-                            .with_prefix(prefix)
-                            .iter()
-                            .enumerate()
-                            .for_each(|(issue_index, issue)| {
-                                let locator = issue.locator();
-                                let query = issue.query();
-                                let report = DocumentReport::init()
-                                    .title(&title)
-                                    .index(index.saturating_add(issue_index))
-                                    .kind(severity.clone().into())
-                                    .heading(&locator)
-                                    .message(issue.message.italic().to_string())
-                                    .color(severity.clone().into())
-                                    .build();
-                                let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
-                                if !rendered {
-                                    print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
-                                }
-                            });
-                    }
-                    | None if !self.success => {
-                        let error_text = context.as_deref().unwrap_or(&message);
-                        print_unlocated(index, &severity, category.message(), error_text.to_string());
-                    }
-                    | None | Some(_) => {
-                        info!("=> {} {title} has {}", Label::pass(), "no schema validation issues".green().bold());
-                    }
-                }
-            }
-            | CheckCategory::Crosswalk => {
-                print_unlocated(index, &severity, locator.as_deref().unwrap_or(category.message()), message);
-            }
-        }
-    }
-    #[cfg(not(feature = "std"))]
-    pub fn report(&self) {
-        // Portable fallback without document rendering or Vale/HTTP
-        tracing::info!(category = %self.category, uri = ?self.uri, message = %self.message, "check report");
-    }
-    #[cfg(feature = "std")]
-    pub(crate) fn resolve_locator(self, document: &DocumentIndex) -> Self {
-        let prose_locators = match (&self.category, &self.errors) {
-            | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_locator(document, item)).collect(),
-            | _ => self.prose_locators.clone(),
-        };
-        let locator = prose_locators.first().cloned().flatten().or_else(|| self.locator.clone());
-        Self {
-            locator,
-            prose_locators,
-            ..self
-        }
-    }
-    #[cfg(feature = "std")]
-    fn prose_locator(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<String> {
-        self.prose_position(document, item)
-            .map(|position| format!("Line {}, Character {}", position.line, position.column))
-    }
-    #[cfg(feature = "std")]
-    fn prose_position(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentPosition> {
-        self.prose_span(document, item).and_then(|span| document.position(span.0.start))
-    }
-    #[cfg(feature = "std")]
-    fn prose_span(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentSpan> {
-        match self.data.as_deref() == Some(document.document().content.as_str()) {
-            | true => document.span_from_line_columns(item.line, &item.span),
-            | false => match document.resolve(&item.query()) {
-                | DocumentMatch::Unique(span) => Some(span),
-                | DocumentMatch::Missing | DocumentMatch::Ambiguous => None,
-            },
-        }
-    }
-    #[cfg(feature = "std")]
-    pub(crate) fn terse(&self, document: Option<&DocumentIndex>) -> String {
-        let uri = self.uri.as_deref().unwrap_or_default();
-        let positions = document.map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
-            | (CheckCategory::Link, CheckKind::Standard, _) => {
-                let context = self.context.as_deref().map(str::trim).unwrap_or("No URL");
-                let text = if context.is_empty() { " " } else { context };
-                let query = match self.locator.as_deref() {
-                    | Some(locator) => DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(text),
-                    | None => DocumentQuery::new().with_needle(text),
-                };
-                vec![document.locate(&query)]
-            }
-            | (CheckCategory::Prose, _, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_position(document, item)).collect(),
-            | (CheckCategory::Schema, _, Some(ErrorKind::Validator(report))) => {
-                let prefix = self.context.as_deref().or(self.locator.as_deref()).unwrap_or(&self.message);
-                ValidatorIssues::from(report.clone())
-                    .with_prefix(prefix)
-                    .iter()
-                    .map(|issue| document.locate(&issue.query()))
-                    .collect()
-            }
-            | _ => Vec::new(),
-        });
-        self.to_string()
-            .split('\n')
-            .enumerate()
-            .map(|(index, row)| {
-                let path = positions
-                    .get(index)
-                    .and_then(|position| *position)
-                    .map_or_else(|| format!(", path={uri}"), |position| format!(", path={uri}:{position}"));
-                format!("{row}{}", path.dimmed())
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-    #[cfg(not(feature = "std"))]
-    pub(crate) fn terse(&self) -> String {
-        self.to_string()
-    }
     /// Returns a new LinkCheckResult with the given context
     pub fn with_context(self, value: String) -> Self {
         Self {
@@ -642,7 +233,6 @@ impl Check {
     pub fn with_data(self, value: String) -> Self {
         Self { data: Some(value), ..self }
     }
-    #[cfg(feature = "std")]
     /// Returns a new LinkCheckResult with the given index
     pub fn with_index(self, value: usize) -> Self {
         Self { index: value, ..self }
@@ -656,175 +246,13 @@ impl Check {
         Self { uri: value, ..self }
     }
 }
-impl fmt::Display for Check {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const INDENT: &str = " ";
-        const COL_ONE_WIDTH: usize = 28;
-        const COL_TWO_WIDTH: usize = 29;
-        let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
-        match self.category {
-            | CheckCategory::Link => {
-                let (locator, severity, details) = self.kind.link_row(self);
-                f.write_str(&format_row(locator, severity, details))
-            }
-            | CheckCategory::Prose => {
-                #[cfg(feature = "std")]
-                {
-                    match &self.errors {
-                        | Some(ErrorKind::Vale(values)) => {
-                            let last = values.len().saturating_sub(1);
-                            values.iter().enumerate().try_for_each(|(index, item)| {
-                                let ValeOutputItem {
-                                    check, message, severity, ..
-                                } = item;
-                                let location = self
-                                    .prose_locators
-                                    .get(index)
-                                    .cloned()
-                                    .flatten()
-                                    .or_else(|| self.locator.clone())
-                                    .unwrap_or_else(|| "Unlocated".to_string());
-                                let severity = CheckSeverity::from(severity.clone());
-                                let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
-                                f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
-                                    .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                            })
-                        }
-                        | None | Some(_) => write!(f, ""),
-                    }
-                }
-                #[cfg(not(feature = "std"))]
-                {
-                    let details = self.message.clone();
-                    f.write_str(&format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details))
-                }
-            }
-            | CheckCategory::Quality => {
-                let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
-                let severity = match self.success {
-                    | true => CheckSeverity::Info,
-                    | false => self.severity.clone(),
-                };
-                let details = self
-                    .context
-                    .as_ref()
-                    .filter(|value| !value.is_empty())
-                    .or_else(|| (!self.message.is_empty()).then_some(&self.message))
-                    .map_or_else(|| "No quality issues".to_string(), Clone::clone);
-                f.write_str(&format_row(location, severity.colored(), details))
-            }
-            | CheckCategory::Readability => {
-                let Check {
-                    errors, message, severity, ..
-                } = self;
-                match &errors {
-                    | Some(ErrorKind::Readability(_)) => {
-                        let details = format!("Simplify language for a general audience {}", message.dimmed());
-                        f.write_fmt(format_args!(
-                            "{}",
-                            format_row("Overall reading level".to_string(), severity.colored(), details)
-                        ))
-                    }
-                    | None | Some(_) => write!(f, ""),
-                }
-            }
-            | CheckCategory::Schema => match &self.errors {
-                | Some(ErrorKind::Validator(report)) => {
-                    let Check {
-                        context,
-                        locator,
-                        message,
-                        severity,
-                        ..
-                    } = self;
-                    let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
-                    let rows = ValidatorIssues::from(report.clone()).with_prefix(prefix);
-                    let last = rows.len().saturating_sub(1);
-                    rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let location = issue.locator();
-                        let details = format!("{} {}{}", issue.message, "code=".dimmed(), issue.code.to_string().to_uppercase().dimmed());
-                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
-                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                    })
-                }
-                | None if !self.success => {
-                    let error_text = self.context.as_deref().unwrap_or(&self.message);
-                    write!(
-                        f,
-                        "{}",
-                        format_row(
-                            "Deserialization error".to_string(),
-                            self.severity.colored(),
-                            error_text.to_string().dimmed().to_string()
-                        )
-                    )
-                }
-                | None | Some(_) => write!(f, ""),
-            },
-            | CheckCategory::Crosswalk => {
-                let details = self.message.dimmed().to_string();
-                f.write_fmt(format_args!(
-                    "{}",
-                    format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details)
-                ))
-            }
-        }
-    }
-}
-impl Render for [Check] {
-    fn render(&self, context: RenderContext<'_>) {
-        let RenderContext { documents, options } = context;
-        let is_visible = Check::is_visible_at(options.verbosity);
-        let mut sorted_checks = self
-            .iter()
-            .filter(|check| !options.filter_by_verbosity || is_visible(check))
-            .cloned()
-            .collect::<Vec<_>>();
-        sorted_checks.sort_by_cached_key(|check| {
-            (
-                u8::from(&check.severity),
-                u8::from(&check.category),
-                check.locator.clone().unwrap_or_default().to_lowercase(),
-            )
-        });
-        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
-            println!();
-        }
-        match (options.quiet, options.format, options.terse) {
-            | (false, OutputFormat::Console, true) => sorted_checks
-                .iter()
-                .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
-            | (false, OutputFormat::Console, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
-                let document = check.document_from(documents);
-                check.with_index(index).report(document);
-            }),
-            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
-                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
-            }
-            | _ => {}
-        }
-    }
-}
-#[cfg(feature = "std")]
-impl<'a> RenderContext<'a> {
-    /// Create a rendering context without source indexes.
-    pub fn new(options: &'a ReportOptions) -> Self {
-        Self { documents: None, options }
-    }
-    /// Create a rendering context with source indexes.
-    pub fn with_documents(options: &'a ReportOptions, documents: &'a DocumentIndexes) -> Self {
-        Self {
-            documents: Some(documents),
-            options,
-        }
-    }
-}
 impl CheckCategory {
     /// Returns `true` if this category appears in the given list of category items
     pub fn is_in(&self, items: &[String]) -> bool {
         items.iter().any(|value| Self::from(value.as_str()) == *self)
     }
-    fn message(&self) -> &'static str {
+    #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
+    pub(super) fn message(&self) -> &'static str {
         match self {
             | Self::Link => "URL",
             | Self::Prose => "Prose",
@@ -833,16 +261,6 @@ impl CheckCategory {
             | Self::Schema => "Deserialization error",
             | Self::Crosswalk => "Crosswalk warning",
         }
-    }
-}
-impl From<String> for CheckCategory {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl From<&String> for CheckCategory {
-    fn from(value: &String) -> Self {
-        Self::from(value.as_str())
     }
 }
 impl From<&str> for CheckCategory {
@@ -858,40 +276,46 @@ impl From<&str> for CheckCategory {
         }
     }
 }
-impl From<&CheckCategory> for u8 {
-    fn from(value: &CheckCategory) -> Self {
-        match value {
-            | CheckCategory::Schema | CheckCategory::Link => 0,
-            | CheckCategory::Prose => 1,
-            | CheckCategory::Quality => 2,
-            | CheckCategory::Readability => 3,
-            | CheckCategory::Crosswalk => 4,
-        }
+impl From<&String> for CheckCategory {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl From<String> for CheckCategory {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 impl CheckSeverity {
-    fn colorize(&self, value: impl fmt::Display) -> String {
-        match self {
-            | Self::Error => value.red().to_string(),
-            | Self::Info => value.cyan().to_string(),
-            | Self::Suggestion => value.blue().to_string(),
-            | Self::Warning => value.yellow().to_string(),
-        }
-    }
-    /// Returns a colored string representation of the severity level
-    pub fn colored(&self) -> String {
-        match self {
-            | Self::Error => self.to_string().red().bold().to_string(),
-            | Self::Info => self.to_string().cyan().bold().to_string(),
-            | Self::Suggestion => self.to_string().blue().bold().to_string(),
-            | Self::Warning => self.to_string().yellow().bold().to_string(),
-        }
-    }
     /// Returns whether this severity should cause check failure.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Error | Self::Warning)
     }
 }
+impl CheckSeverity {
+    /// Returns whether this severity level is visible at the given log level.
+    ///
+    /// - [`CheckSeverity::Error`] and [`CheckSeverity::Warning`] are always visible.
+    /// - [`CheckSeverity::Suggestion`] is visible at `warn` level and above.
+    /// - [`CheckSeverity::Info`] is visible at `info` level and above.
+    pub fn is_visible_at(&self, level: Option<u8>) -> bool {
+        match self {
+            | Self::Error | Self::Warning => true,
+            | Self::Suggestion => matches!(level, Some(2..=u8::MAX)),
+            | Self::Info => matches!(level, Some(3..=u8::MAX)),
+        }
+    }
+}
+impl From<ValeOutputItemSeverity> for CheckSeverity {
+    fn from(value: ValeOutputItemSeverity) -> Self {
+        match value {
+            | ValeOutputItemSeverity::Error => CheckSeverity::Error,
+            | ValeOutputItemSeverity::Suggestion => CheckSeverity::Suggestion,
+            | ValeOutputItemSeverity::Warning => CheckSeverity::Warning,
+        }
+    }
+}
+#[cfg(feature = "std")]
 impl IntoChecks for ConversionWarnings {
     /// Convert crosswalk conversion warnings into Check objects with Warning severity.
     ///
@@ -914,105 +338,6 @@ impl IntoChecks for ConversionWarnings {
             .collect()
     }
 }
-impl CheckSeverity {
-    /// Returns whether this severity level is visible at the given log level.
-    ///
-    /// - [`CheckSeverity::Error`] and [`CheckSeverity::Warning`] are always visible.
-    /// - [`CheckSeverity::Suggestion`] is visible at `warn` level and above.
-    /// - [`CheckSeverity::Info`] is visible at `info` level and above.
-    pub fn is_visible_at(&self, level: Option<u8>) -> bool {
-        match self {
-            | Self::Error | Self::Warning => true,
-            | Self::Suggestion => matches!(level, Some(2..=u8::MAX)),
-            | Self::Info => matches!(level, Some(3..=u8::MAX)),
-        }
-    }
-}
-impl From<&CheckSeverity> for u8 {
-    fn from(value: &CheckSeverity) -> Self {
-        match value {
-            | CheckSeverity::Error => 0,
-            | CheckSeverity::Warning => 1,
-            | CheckSeverity::Suggestion => 2,
-            | CheckSeverity::Info => 3,
-        }
-    }
-}
-impl From<ValeOutputItemSeverity> for CheckSeverity {
-    fn from(value: ValeOutputItemSeverity) -> Self {
-        match value {
-            | ValeOutputItemSeverity::Error => CheckSeverity::Error,
-            | ValeOutputItemSeverity::Suggestion => CheckSeverity::Suggestion,
-            | ValeOutputItemSeverity::Warning => CheckSeverity::Warning,
-        }
-    }
-}
-impl From<CheckSeverity> for Color {
-    fn from(value: CheckSeverity) -> Self {
-        match value {
-            | CheckSeverity::Error => Color::Red,
-            | CheckSeverity::Info => Color::Cyan,
-            | CheckSeverity::Suggestion => Color::Blue,
-            | CheckSeverity::Warning => Color::Yellow,
-        }
-    }
-}
-impl From<CheckSeverity> for ReportKind<'_> {
-    fn from(value: CheckSeverity) -> Self {
-        match value {
-            | CheckSeverity::Error => ReportKind::Error,
-            | CheckSeverity::Info => ReportKind::Custom("Info", Color::Cyan),
-            | CheckSeverity::Suggestion => ReportKind::Custom("Suggestion", Color::Blue),
-            | CheckSeverity::Warning => ReportKind::Warning,
-        }
-    }
-}
-#[cfg(feature = "analysis")]
-impl<'a> IntoRow<'a> for Check {
-    fn to_row<Check>(self) -> Row<'a> {
-        let Self {
-            index,
-            category,
-            severity,
-            message,
-            locator,
-            uri,
-            context,
-            ..
-        } = self;
-        let data = [
-            &index.to_string(),
-            &severity.to_string(),
-            &category.to_string(),
-            &uri.unwrap_or_default(),
-            &locator.unwrap_or_default(),
-            &message,
-            &context.unwrap_or_default(),
-        ];
-        Row::new(data.into_iter().map(|x| AnyValue::String(x).into_static()).collect::<Vec<_>>())
-    }
-}
-impl DocumentIndex {
-    fn print(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
-        self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
-            let page = self.page_number(span.0.start);
-            let DocumentSpan(span) = excerpt.span;
-            let source = Source::from(excerpt.content);
-            let message = match page {
-                | Some(page) => format!("{} (PDF page {page})", report.message),
-                | None => report.message,
-            };
-            let _ = Report::build(report.kind, (report.title, span.clone()))
-                .with_code(report.index)
-                .with_config(Config::default().with_compact(false).with_index_type(IndexType::Byte))
-                .with_message(report.heading)
-                .with_label(ariadne::Label::new((report.title, span)).with_message(message).with_color(report.color))
-                .finish()
-                .print((report.title, source));
-            true
-        })
-    }
-}
 impl From<&Map<String, Value>> for Standard {
     fn from(object: &Map<String, Value>) -> Self {
         if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
@@ -1028,6 +353,7 @@ impl From<&Map<String, Value>> for Standard {
         }
     }
 }
+#[cfg(feature = "std")]
 impl Standard {
     /// Convert serialized content from one metadata standard to another.
     ///
@@ -1128,123 +454,27 @@ impl Standard {
             "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
         ))
     }
-    /// Print JSON or YAML schema for this standard to stdout
-    #[cfg(feature = "std")]
-    pub fn to_schema(&self, format: &str) {
-        match *self {
-            | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
-            | Standard::Raid => Metadata::to_schema(format),
-            | Standard::CitationFileFormat => print_schema::<cff::Cff>(format),
-            | Standard::Datacite => print_schema::<datacite::Record>(format),
-            | Standard::Dcat => print_schema::<dcat::Dataset>(format),
-            | Standard::Huwise => print_schema::<huwise::Dataset>(format),
-            | Standard::Invenio => print_schema::<invenio::Record>(format),
-            | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
-            | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
+}
+impl From<&CheckCategory> for u8 {
+    fn from(value: &CheckCategory) -> Self {
+        match value {
+            | CheckCategory::Schema | CheckCategory::Link => 0,
+            | CheckCategory::Prose => 1,
+            | CheckCategory::Quality => 2,
+            | CheckCategory::Readability => 3,
+            | CheckCategory::Crosswalk => 4,
         }
     }
 }
-#[cfg(feature = "analysis")]
-pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
-where
-    T: Analysis + InputOutput + ToProse,
-{
-    let resolved_options = options.cloned().unwrap_or_default();
-    let analyzer = resolved_options
-        .execution
-        .resolve_analyzer::<Vale, _>(resolved_options.execution.vale_config.clone().unwrap_or_default())
-        .await;
-    let sync = match resolved_options.execution.skip_sync {
-        | true => Ok(()),
-        | false => {
-            analyzer
-                .clone()
-                .sync(resolved_options.execution.offline, resolved_options.execution.quiet)
-                .await
-        }
-    };
-    match sync {
-        | Ok(_) => {
-            let analyzer = Arc::new(analyzer);
-            let results = paths.iter().map(|path| {
-                let analyzer = Arc::clone(&analyzer);
-                let path = path.clone();
-                async move {
-                    let uri = Some(path.file_name_with_parent());
-                    match T::read(&path) {
-                        | Ok(data) => {
-                            let output = T::output_path(&path, &data);
-                            let content = data.to_prose();
-                            analyzer
-                                .run(output, content, Some("JSON".into()))
-                                .await
-                                .into_iter()
-                                .map(|check| check.with_uri(uri.clone()))
-                                .collect()
-                        }
-                        | Err(why) => vec![check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)],
-                    }
-                }
-            });
-            join_all(results).await.into_iter().flatten().collect()
-        }
-        | Err(why) => {
-            error!("=> {} Vale sync — {why}", Label::fail());
-            vec![check_err!(CheckCategory::Prose)]
+impl From<&CheckSeverity> for u8 {
+    fn from(value: &CheckSeverity) -> Self {
+        match value {
+            | CheckSeverity::Error => 0,
+            | CheckSeverity::Warning => 1,
+            | CheckSeverity::Suggestion => 2,
+            | CheckSeverity::Info => 3,
         }
     }
-}
-#[cfg(feature = "std")]
-pub(super) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> Vec<Check>
-where
-    T: InputOutput + ToProse,
-{
-    let analysis_options = options.cloned().unwrap_or_default().analysis;
-    let readability_metric = analysis_options.readability_metric;
-    paths
-        .par_iter()
-        .flat_map(|path| match T::read(path) {
-            | Ok(data) => {
-                let content = data.to_prose();
-                let maximum = match analysis_options.readability_threshold {
-                    | Some(value) => {
-                        debug!(value, "=> {} Maximum allowed readability from .env", Label::using());
-                        value
-                    }
-                    | None => readability_metric.maximum_allowed(),
-                };
-                let calculated = readability_metric.calculate(&content);
-                debug!(calculated, "=> {} Readability index", Label::using());
-                let assessment = ReadabilityScore::new(readability_metric, calculated, maximum);
-                let message = assessment.to_string();
-                let uri = path.file_name_with_parent();
-                if assessment.is_excessive() {
-                    let errors = ErrorKind::Readability(assessment);
-                    let severity = match assessment.severity() {
-                        | ReadabilitySeverity::Fail => CheckSeverity::Warning,
-                        | ReadabilitySeverity::Pass => CheckSeverity::Info,
-                    };
-                    vec![check!(
-                        CheckCategory::Readability,
-                        false,
-                        severity: severity,
-                        uri: uri,
-                        errors: errors,
-                        message: message,
-                        data: content
-                    )]
-                } else {
-                    vec![check_ok!(
-                        CheckCategory::Readability,
-                        uri: uri,
-                        message: message,
-                        data: content
-                    )]
-                }
-            }
-            | Err(why) => vec![check_err!(CheckCategory::Readability, context: why.to_string())],
-        })
-        .collect::<Vec<Check>>()
 }
 /// Portable readability check over supplied text (no filesystem or env)
 #[cfg(feature = "alloc")]
@@ -1293,58 +523,8 @@ pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Opti
         )]
     }
 }
-/// Convert vector of [`Check`] values to a Polars [DataFrame]
-#[cfg(feature = "analysis")]
-pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
-    let names = ["index", "severity", "category", "uri", "locator", "message", "context"];
-    to_dataframe::<Check, _, &str>(
-        values
-            .iter()
-            .enumerate()
-            .map(|(index, check)| check.clone().with_index(index))
-            .collect::<Vec<_>>(),
-        names,
-    )
-}
-/// Convert vector of [`Check`] values to a CSV string
-#[cfg(feature = "analysis")]
-pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<String> {
-    match checks_to_dataframe(values) {
-        | Ok(mut dataframe) => {
-            let mut buf = Cursor::new(Vec::new());
-            match CsvWriter::new(&mut buf).include_header(include_headers).finish(&mut dataframe) {
-                | Ok(_) => Ok(String::from_utf8_lossy(&buf.into_inner()).into_owned()),
-                | Err(why) => Err(why),
-            }
-        }
-        | Err(why) => Err(why),
-    }
-}
-fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
-    match document.resolve(query) {
-        | DocumentMatch::Unique(span) => document.print(&span, report),
-        | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
-    }
-}
-fn print_unlocated(index: usize, severity: &CheckSeverity, heading: &str, message: String) {
-    let name = severity.to_string().to_case(Case::Title);
-    let code = format!("[{index:02}]");
-    let colorized_code = severity.colorize(code);
-    let colorized_name = severity.colorize(name);
-    println!("{colorized_code} {colorized_name}: {heading}");
-    println!("    {}\n", message.trim_end().italic());
-}
-/// Print JSON or YAML schema for type `T` to stdout
-#[cfg(feature = "std")]
-fn print_schema<T: schemars::JsonSchema>(format: &str) {
-    let schema = schema_for!(T);
-    let output = match format.to_lowercase().as_str() {
-        | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
-        | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
-    };
-    println!("{output}");
-}
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
+#[cfg(feature = "std")]
 fn process_crosswalk_warnings<T>(
     content: &str,
     mime: &MimeType,

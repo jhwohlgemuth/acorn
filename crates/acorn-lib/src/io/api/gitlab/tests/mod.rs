@@ -31,7 +31,8 @@ struct MergeRequestWorkflowState {
     notes: Arc<Mutex<Vec<serde_json::Value>>>,
     file_queries: Arc<Mutex<Vec<String>>>,
 }
-
+#[cfg(test)]
+mod bot;
 #[test]
 fn test_creator_slug_normalizes_and_falls_back() {
     assert_eq!(sluggify(" Alice.Example ", 42), "alice-example");
@@ -72,7 +73,7 @@ async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
         .internal_identifier("7")
         .sha("old-sha")
         .build();
-    let outcome = review::analyze_merge_request(&options, &crate::analyzer::AnalysisContext::default())
+    let outcome = review::analyze_merge_request(&options, &crate::analyzer::host::context::AnalysisContext::default())
         .await
         .unwrap();
     assert!(matches!(
@@ -150,8 +151,8 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
         .internal_identifier("7")
         .sha("large-sha")
         .build();
-    let check_options = crate::analyzer::AnalysisContext {
-        analysis: crate::analyzer::AnalysisOptions {
+    let check_options = crate::analyzer::host::context::AnalysisContext {
+        analysis: crate::analyzer::host::context::AnalysisOptions {
             skip: vec![
                 "schema".to_string(),
                 "link".to_string(),
@@ -160,13 +161,13 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
                 "readability".to_string(),
                 "crosswalk".to_string(),
             ],
-            ..crate::analyzer::AnalysisOptions::default()
+            ..crate::analyzer::host::context::AnalysisOptions::default()
         },
-        execution: crate::analyzer::ExecutionOptions {
+        execution: crate::analyzer::host::context::ExecutionOptions {
             offline: true,
-            ..crate::analyzer::ExecutionOptions::default()
+            ..crate::analyzer::host::context::ExecutionOptions::default()
         },
-        ..crate::analyzer::AnalysisContext::default()
+        ..crate::analyzer::host::context::AnalysisContext::default()
     };
     let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
     let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
@@ -285,8 +286,8 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
         .internal_identifier("7")
         .sha("abc123")
         .build();
-    let check_options = crate::analyzer::AnalysisContext {
-        analysis: crate::analyzer::AnalysisOptions {
+    let check_options = crate::analyzer::host::context::AnalysisContext {
+        analysis: crate::analyzer::host::context::AnalysisOptions {
             skip: vec![
                 "schema".to_string(),
                 "link".to_string(),
@@ -295,13 +296,13 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
                 "readability".to_string(),
                 "crosswalk".to_string(),
             ],
-            ..crate::analyzer::AnalysisOptions::default()
+            ..crate::analyzer::host::context::AnalysisOptions::default()
         },
-        execution: crate::analyzer::ExecutionOptions {
+        execution: crate::analyzer::host::context::ExecutionOptions {
             offline: true,
-            ..crate::analyzer::ExecutionOptions::default()
+            ..crate::analyzer::host::context::ExecutionOptions::default()
         },
-        ..crate::analyzer::AnalysisContext::default()
+        ..crate::analyzer::host::context::AnalysisContext::default()
     };
     let outcome = review::analyze_merge_request(&options, &check_options).await.unwrap();
     let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
@@ -401,8 +402,8 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
         .internal_identifier("7")
         .sha("missing-sha")
         .build();
-    let check_options = crate::analyzer::AnalysisContext {
-        analysis: crate::analyzer::AnalysisOptions {
+    let check_options = crate::analyzer::host::context::AnalysisContext {
+        analysis: crate::analyzer::host::context::AnalysisOptions {
             skip: vec![
                 "schema".to_string(),
                 "link".to_string(),
@@ -411,13 +412,13 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
                 "readability".to_string(),
                 "crosswalk".to_string(),
             ],
-            ..crate::analyzer::AnalysisOptions::default()
+            ..crate::analyzer::host::context::AnalysisOptions::default()
         },
-        execution: crate::analyzer::ExecutionOptions {
+        execution: crate::analyzer::host::context::ExecutionOptions {
             offline: true,
-            ..crate::analyzer::ExecutionOptions::default()
+            ..crate::analyzer::host::context::ExecutionOptions::default()
         },
-        ..crate::analyzer::AnalysisContext::default()
+        ..crate::analyzer::host::context::AnalysisContext::default()
     };
     let error = review::analyze_merge_request(&options, &check_options).await.unwrap_err().to_string();
     assert!(error.contains("could not be fetched"));
@@ -923,8 +924,6 @@ fn test_webhook_options_validate_reachability_and_credentials() {
             .is_ok()
     );
 }
-#[cfg(test)]
-mod bot;
 mod database;
 #[cfg(feature = "analysis")]
 mod intake;

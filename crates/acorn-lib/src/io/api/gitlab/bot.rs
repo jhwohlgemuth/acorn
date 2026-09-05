@@ -49,7 +49,7 @@ use super::webhook::{self, WebhookConfig};
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
 #[cfg(feature = "analysis")]
-use crate::analyzer::AnalysisContext;
+use crate::analyzer::host::context::AnalysisContext;
 use crate::io::api::{self, Configuration};
 use crate::io::ApiResult;
 use crate::param;
