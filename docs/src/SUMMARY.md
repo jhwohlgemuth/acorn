@@ -38,8 +38,13 @@
     - [sync](./cli-reference/commands/sync.md)
     - [tui](./cli-reference/commands/tui.md)
   - [Model workflows](./cli-reference/model-workflows.md)
+<<<<<<< Updated upstream
 - [🧰 Local inference and tools](./inference/README.md)
   - [Needle sidecar](./inference/needle.md)
+||||||| Stash base
+=======
+  - [Human acceptance test plan](./cli-reference/acceptance-test-plan.md)
+>>>>>>> Stashed changes
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)
   - [🐍 Python package](./packages/acorn-py.md)
