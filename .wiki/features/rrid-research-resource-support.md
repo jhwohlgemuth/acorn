@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-- The portable PID slice can start independently in the PID lane, but it must serialize edits to `schema/pid/mod.rs`, shared regex constants, and validation registries with [SWHID persistent-identifier support](swhid-persistent-identifier.md) and PID proof/test work.
+- The portable PID slice can start independently in the PID lane, but it must serialize edits to `schema/pid/mod.rs`, shared regex constants, and validation registries with [SWHID persistent-identifier hardening](swhid-persistent-identifier.md) and PID proof/test work.
 - The RAD resource model and DataCite crosswalk slice requires Slice 0 of [RAD metadata standards alignment](rad-metadata-standards-alignment.md), so omitted or approximated RRID relations produce structured conversion warnings rather than silent loss.
 - Resolver reporting must consume the current typed discovery lifecycle and coordinate with [link resolution checks](../refactors/analyzer/link-resolution-checks.md). It must not introduce a new generic host trait ahead of a proven alternate consumer.
 - The SciCrunch provider leaf must preserve the API contracts and extraction direction in the [API roadmap](../refactors/api/roadmap.md). Endpoint, credential, and DTO work must coordinate with the API shared-contract lane.
@@ -270,7 +270,7 @@ Additional verification:
 
 - [Persistent identifier lifecycle](../../docs/src/concepts/persistent-identifiers.md)
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md)
-- [SWHID persistent-identifier support](swhid-persistent-identifier.md)
+- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
 - [Website and resolution checks](../refactors/analyzer/link-resolution-checks.md)
 - [API provider capability matrix](../refactors/api/provider-capability-matrix.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)

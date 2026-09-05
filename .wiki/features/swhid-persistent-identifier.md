@@ -1,18 +1,18 @@
 ---
 type: Plan
-title: "Support SWHIDs through the persistent-identifier lifecycle"
-description: "Complete conformance, resolver, filesystem, and repository diagnostics for first-class Software Hash Identifier support."
+title: "Harden SWHIDs across the persistent-identifier lifecycle"
+description: "Harden the implemented Software Hash Identifier lifecycle with conformance, resolver, filesystem, and repository diagnostics."
 difficulty: high
 impact: high
-package: [acorn-lib, acorn-cli, acorn-schema, acorn-api]
+package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [feature, pid, swhid, software-heritage, software, discovery, resolution, cff, schema]
 status: in-progress
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/pid/swhid/`, `src/io/{swhid,api/swhid}.rs`, discovery and CFF/RAD adapters, `crates/acorn-cli/src/commands/swhid/`, fixtures, and focused tests.
-- **Create:** pinned conformance/differential vectors and resolver/filesystem/repository fixtures; after extraction, parsing remains in `acorn-schema`, protocol DTOs move to `acorn-api`, and native calculation/resolution moves to `acorn-host`.
+- **Update:** `crates/acorn-schema/src/schema/pid/swhid/{mod.rs,tests.rs}`, `crates/acorn-lib/src/io/{swhid.rs,api/swhid.rs}`, `crates/acorn-lib/src/analyzer/host/discovery/`, `crates/acorn-cli/src/commands/swhid/mod.rs`, documentation, and focused tests.
+- **Create:** pinned conformance/differential vectors and resolver/filesystem/repository fixtures. Future package extraction may move protocol DTOs to `acorn-api` and native calculation/resolution to `acorn-host`, but that is not part of this plan's current package boundary.
 - **Delete:** no public SWHID surface; remove duplicated resolver-to-check conversion only after the shared link contract owns it.
 
 # Dependencies
@@ -22,6 +22,15 @@ Coordinate resolver outcomes with [link resolution checks](../refactors/analyzer
 # Goal
 
 Finish hardening ACORN's first-class Software Hash Identifier (SWHID) support against the [ISO/IEC 18670:2025 standard](https://www.iso.org/standard/89985.html) and the [canonical SWHID v1.2 specification](https://www.swhid.org/specification/v1.2/).
+
+# Current evidence
+
+- The first-class lifecycle is implemented: portable parsing and discovery live in `crates/acorn-schema/src/schema/pid/swhid/`; RAD storage and CFF export are covered in `crates/acorn-schema/src/schema/research_activity/`; opt-in discovery resolution calls `crates/acorn-lib/src/io/api/swhid.rs`; local file, directory, and Git calculation lives in `crates/acorn-lib/src/io/swhid.rs`; and `acorn swhid` exposes calculation and verification.
+- Parser tests cover all five core object kinds, canonical qualifier ordering, representative valid and invalid qualifiers, resolver URL normalization, and idutils parity. They are not pinned SWHID specification vectors and do not differentially compare the official implementation.
+- Resolver behavior has no provider-specific fixture suite for status codes, malformed bodies, timeouts, or transport failures.
+- Calculation tests cover one content vector and a normal SHA-1 Git repository without mutation. They do not cover cross-platform directory semantics, special files, repository failure states, or explicit SHA-256 repository rejection.
+
+The feature itself is complete enough for public use, but this hardening plan remains active because its narrower acceptance criteria are not met. Reconcile or delete it only after the four remaining-work bullets below are completed or deliberately descoped.
 
 # Remaining work
 

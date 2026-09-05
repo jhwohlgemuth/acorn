@@ -25,6 +25,8 @@ Slice 0 (loss reporting + 4.7 audit) is the gating prerequisite for all later sl
 
 **Status 2026-09-03:** Slice 0 landed — `crates/acorn-schema/src/schema/standard/datacite.rs:1` now targets 4.7, `RelatedIdentifierType::{Raid,Swhid}` `datacite.rs:172`, `RelationType::Other` `datacite.rs:243`, `ResourceTypeGeneral::{Poster,Presentation}` `datacite.rs:323`, `RelatedItem`/`RelatedItems` + `relationTypeInformation` on `RelatedIdentifier`/`RelatedItem`, `validate_deposit_ready()` on `Record`/`Resource` `datacite.rs:1525`, crosswalk warnings propagated in `crosswalk/mod.rs:232` and `crosswalk/mapping.rs:194`, `analyzer/check.rs:1099` no longer swallows `Err`, `datacite_to_dcat` now uses `as_vec` for `doi->identifier`, and pinned fixtures under `tests/fixtures/schema/datacite/4.7/` with tests in `crates/acorn-schema/src/schema/standard/tests/datacite.rs` and `crates/acorn-schema/src/schema/standard/crosswalk/tests/mod.rs` are green (`cargo nextest -p acorn-schema` 278 passed, `make check-wasm` green, `rg "4\.6" crates/acorn-schema/src/schema/standard/datacite.rs` empty).
 
+**Status 2026-09-05:** Slices 1–3 and most of Slice 4's additive schema surface landed. Shared portable metadata primitives now live in `research_activity/common.rs`; activity metadata includes typed dates, contributors, organizations, funding, related resources, language, subjects, spatial coverage, access, and license; and `ResearchOutput` now includes DataCite publisher, publication year and typed dates, resource types, language, alternate and related identifiers, related items, version, rights, descriptions, subjects, formats, sizes, geographic locations, and distinct creators. Output contributor roles and organizational contributors, complete funder identifiers, output deposit-readiness conversion, and the standards adapters in Slice 5 remain.
+
 # Goal
 
 Make the research activity data (RAD) schema a standards-aligned activity model with explicit, testable interchange profiles. Use RAiD for activity-level semantics, DataCite for research outputs and DOI exchange, DCAT for dataset distributions, established persistent-identifier schemes for identity, and CRediT for output contributor roles.
@@ -33,8 +35,8 @@ Preserve RAD's concise authoring fields, including `title`, `subtitle`, and `sec
 
 # Current evidence
 
-- `crates/acorn-schema/src/schema/research_activity/mod.rs:160` stores activity identifiers in separate `doi`, `handle`, `raid`, `swhid`, and `ror` string collections. It represents one primary `contact` (`crates/acorn-schema/src/schema/mod.rs: ContactPoint`), while sponsors, partners, and related activities remain `Option<Vec<String>>` / `Vec<Keyword>` lists validated only by controlled-vocabulary normalization.
-- `crates/acorn-schema/src/schema/research_activity/output.rs:113` provides structured research outputs with contributors, affiliations, funding, awards, websites, keywords, and access metadata. It does not yet represent the complete DataCite property set, including creator/contributor distinction, publisher, language, version, typed relations, formats, sizes, geographic coverage, and multiple typed descriptions.
+- `crates/acorn-schema/src/schema/research_activity/mod.rs` retains the concise identifier collections and primary `contact` while adding canonical `typedDates`, `contributors`, `organizations`, `funders`, `relatedResources`, `languages`, `subjects`, `spatialCoverage`, `rights`, and `access` fields. Compatibility aliases normalize legacy `sponsors` and `related` input into structured fields; precedence and standards-adapter behavior still need Slice 5 coverage.
+- `crates/acorn-schema/src/schema/research_activity/output.rs:110` now provides the additive DataCite-facing fields listed in the 2026-09-05 status above. Its remaining profile gaps are controlled contributor roles, organizational contributors, complete funder identifiers, and a `ResearchOutput` conversion/readiness boundary; those gaps prevent claiming a complete round trip despite the expanded storage model.
 - `crates/acorn-schema/src/schema/standard/datacite.rs:1` now models DataCite Metadata Schema 4.7 in JSON (`Record`/`Attributes` `datacite.rs:515`) and XML (`Resource` `datacite.rs:1128`) forms with `RelatedIdentifierType::Raid`/`Swhid` `datacite.rs:168`, `RelationType::Other` `datacite.rs:237`, `ResourceTypeGeneral::Poster`/`Presentation` `datacite.rs:321`, `RelatedItem`/`RelatedItems` and `relationTypeInformation` on `RelatedIdentifier` `datacite.rs:968` + `RelatedItem` `datacite.rs:1080`, and `validate_deposit_ready()` gates `datacite.rs:1525`. The two forms expose symmetric 4.7 coverage; mandatory JSON properties remain optional on `Attributes` with deposit readiness enforced via `validate_deposit_ready()` rather than `Validate`. Reconciled 2026-09-03 against `acorn-schema` at `0.1.76` (Slice 0).
 - `crates/acorn-schema/src/schema/standard/crosswalk/` supports DataCite, DCAT, HuWise, and Invenio, but not RAD or `ResearchOutput`. `Standard::crosswalk` dispatch lives in `crates/acorn-lib/src/analyzer/check.rs:1044` (analysis feature) and will migrate with the crosswalk registry.
 - `crates/acorn-schema/src/schema/standard/crosswalk/mod.rs:238` `convert` now propagates `FieldMapping::apply` `mapping.rs:194` missing list into `ConversionWarning::omitted` (`from`/`to`/`field` with details) and `crates/acorn-schema/src/schema/standard/crosswalk/mapping.rs:194` `FieldMapping::apply` now propagates `MissingRequiredField`/`TransformationFailed` instead of swallowing. `crates/acorn-lib/src/analyzer/check.rs:1099` `collect_crosswalk_warnings` now propagates `Err` instead of `Err(_) => Vec::new()`, and `crates/acorn-schema/src/schema/standard/crosswalk/mapping.rs:482` `resource_type_to_iri`/`iri_to_resource_type` handle `Poster`/`Presentation`. Reconciled 2026-09-03 (Slice 0).
@@ -147,6 +149,8 @@ Deliverable: RAD can represent the RAiD concepts ACORN currently fabricates or d
 
 ## 4. Complete the output-level DataCite profile
 
+**Partially implemented 2026-09-05:** The additive fields below are present except controlled contributor roles, organizational contributors, and complete funder identifiers. Conversion, round-trip loss reporting, and output-specific deposit readiness remain.
+
 Extend `ResearchOutput` `output.rs:113` with:
 
 - creators distinct from other contributors
@@ -247,7 +251,7 @@ Additional checks:
 
 # Related concepts
 
-- [SWHID persistent-identifier support](swhid-persistent-identifier.md)
+- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
 - [Research activity changelog](research-activity-changelog.md)
 - [OCP infrastructure schema alignment](ocp-infrastructure-schema-alignment.md)
 - [CKAN/DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
