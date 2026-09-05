@@ -1,5 +1,6 @@
 //! Structured research outputs associated with a research activity
-use crate::schema::research_activity::common::TypedActivityDate;
+use crate::schema::research_activity::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
+use crate::schema::standard::datacite::{self, Description, GeoLocation, Publisher, ResourceTypeGeneral};
 use crate::schema::{Keyword, Website};
 use crate::validation::Validate;
 use acorn_core::prelude::alloc::{String, Vec};
@@ -132,7 +133,51 @@ pub struct ResearchOutput {
     /// Publication and related dates with explicit types (e.g. `Issued`).
     #[validate(nested)]
     pub dates: Option<Vec<TypedActivityDate>>,
-    /// People credited on this output.
+    /// Publisher with identifier (DataCite `publisher`, deposit mandatory).
+    #[validate(nested)]
+    pub publisher: Option<Publisher>,
+    /// Controlled general resource type (e.g. `Poster`, `Dataset`).
+    pub resource_type_general: Option<ResourceTypeGeneral>,
+    /// Specific resource type free text.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub resource_type: Option<String>,
+    /// ISO 639-1 language code.
+    #[validate(custom(function = "crate::schema::validate::is_iso_639_1_language_code"))]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub language: Option<String>,
+    /// Alternate identifiers (typed).
+    #[validate(nested)]
+    pub alternate_identifiers: Option<Vec<TypedIdentifier>>,
+    /// Typed related identifiers (DOI/RAiD/SWHID with `relationType`).
+    #[validate(nested)]
+    pub related_identifiers: Option<Vec<TypedRelatedResource>>,
+    /// Related items (DataCite 4.7 prop 20, distinct from identifiers).
+    #[validate(nested)]
+    pub related_items: Option<Vec<datacite::RelatedItem>>,
+    /// Semantic version.
+    #[validate(version)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub version: Option<String>,
+    /// Structured rights list (SPDX) — keep `access` for OA.
+    #[validate(nested)]
+    pub rights_list: Option<Vec<StructuredRights>>,
+    /// Typed descriptions.
+    #[validate(nested)]
+    pub descriptions: Option<Vec<Description>>,
+    /// Controlled subjects with scheme/valueURI (extends `keywords`).
+    #[validate(nested)]
+    pub subjects: Option<Vec<ControlledSubject>>,
+    /// Formats (MIME/extension).
+    pub formats: Option<Vec<String>>,
+    /// Sizes (e.g. `15 pages`, `6 MB`).
+    pub sizes: Option<Vec<String>>,
+    /// Geographic locations.
+    #[validate(nested)]
+    pub geo_locations: Option<Vec<GeoLocation>>,
+    /// Creators distinct from contributors (deposit mandatory `creators`).
+    #[validate(nested)]
+    pub creators: Option<Vec<Contributor>>,
+    /// People credited on this output (DataCite `contributors`).
     #[validate(nested)]
     pub contributors: Option<Vec<Contributor>>,
     /// Funding associated specifically with this output.
@@ -161,6 +206,27 @@ impl ResearchOutput {
             kind: self.kind.filter(|value| !value.trim().is_empty()).or(candidate.kind),
             publication_year: self.publication_year.or(candidate.publication_year),
             dates: self.dates.filter(|values| !values.is_empty()).or(candidate.dates),
+            publisher: self.publisher.or(candidate.publisher),
+            resource_type_general: self.resource_type_general.or(candidate.resource_type_general),
+            resource_type: self.resource_type.filter(|value| !value.trim().is_empty()).or(candidate.resource_type),
+            language: self.language.filter(|value| !value.trim().is_empty()).or(candidate.language),
+            alternate_identifiers: self
+                .alternate_identifiers
+                .filter(|values| !values.is_empty())
+                .or(candidate.alternate_identifiers),
+            related_identifiers: self
+                .related_identifiers
+                .filter(|values| !values.is_empty())
+                .or(candidate.related_identifiers),
+            related_items: self.related_items.filter(|values| !values.is_empty()).or(candidate.related_items),
+            version: self.version.filter(|value| !value.trim().is_empty()).or(candidate.version),
+            rights_list: self.rights_list.filter(|values| !values.is_empty()).or(candidate.rights_list),
+            descriptions: self.descriptions.filter(|values| !values.is_empty()).or(candidate.descriptions),
+            subjects: self.subjects.filter(|values| !values.is_empty()).or(candidate.subjects),
+            formats: self.formats.filter(|values| !values.is_empty()).or(candidate.formats),
+            sizes: self.sizes.filter(|values| !values.is_empty()).or(candidate.sizes),
+            geo_locations: self.geo_locations.filter(|values| !values.is_empty()).or(candidate.geo_locations),
+            creators: self.creators.filter(|values| !values.is_empty()).or(candidate.creators),
             contributors: self.contributors.filter(|values| !values.is_empty()).or(candidate.contributors),
             funding: self.funding.filter(|values| !values.is_empty()).or(candidate.funding),
             websites: self.websites.filter(|values| !values.is_empty()).or(candidate.websites),

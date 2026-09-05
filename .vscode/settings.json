@@ -27,7 +27,6 @@
     },
     "peacock.color": "#215732",
     "files.exclude": {
-        "**/target": true,
         "**/*.vo": true,
         "**/*.vok": true,
         "**/*.vos": true,
@@ -37,7 +36,8 @@
         "**/.svn": true,
         "**/.hg": true,
         "**/.DS_Store": true,
-        "**/Thumbs.db": true
+        "**/Thumbs.db": true,
+        "**/target": true
     },
     "files.watcherExclude": {
         "**/target/**": true
