@@ -76,15 +76,14 @@ The `PersistentIdentifier` trait provides common component access through `ident
 
 ## 3. Validate locally
 
-Use the typed `is_valid` method when a boolean is convenient. Schema fields use the helpers in `schema::validate`, which return `Result<(), ValidationError>` for composition with the RAD validators.
+Use the typed `is_valid` method when a boolean is convenient. For ergonomic string checks, use `PersistentIdentifierConvert`; for validator composition, use `validation::rules` which returns `Result<(), ValidationError>`.
 
 ```rust
-use acorn_schema::schema::pid::{DOI, PersistentIdentifierParse};
-use acorn_schema::schema::validate::is_doi;
+use acorn_schema::schema::pid::{DOI, PersistentIdentifierConvert, PersistentIdentifierParse};
 
 assert!(DOI::is_valid("10.11578/dc.20250604.1"));
-assert!(is_doi("10.11578/dc.20250604.1").is_ok());
-assert!(is_doi("not-a-doi").is_err());
+assert!("10.11578/dc.20250604.1".is_doi());
+assert!(!"not-a-doi".is_doi());
 ```
 
 The local checks do not make a network request. Identifier resolution is a later, optional operation.

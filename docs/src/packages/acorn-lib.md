@@ -29,14 +29,14 @@ These APIs complement ACORN's deterministic schema and artifact workflows; appli
   ```  
 - Use schema functions directly
   ```rust
-  use acorn_schema::schema::validate::{is_ark, is_arxiv, is_doi, is_isni, is_orcid, is_ror};
+  use acorn_schema::validation::rules::{ark, arxiv, doi, isni, orcid, ror};
 
-  assert!(is_ark("ark:/1234/w5678").is_ok());
-  assert!(is_arxiv("arXiv:2106.09685").is_ok());
-  assert!(is_doi("10.11578/dc.20250604.1").is_ok());
-  assert!(is_isni("https://isni.org/isni/0000000492299539").is_ok());
-  assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
-  assert!(is_ror("01qz5mb56").is_ok());
+  assert!(ark("ark:/1234/w5678").is_ok());
+  assert!(arxiv("arXiv:2106.09685").is_ok());
+  assert!(doi("10.11578/dc.20250604.1").is_ok());
+  assert!(isni("https://isni.org/isni/0000000492299539").is_ok());
+  assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
+  assert!(ror("01qz5mb56").is_ok());
   ```
 - If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to enable the `doctor` and `powerpoint` features[^features]
   ```sh

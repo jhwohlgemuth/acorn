@@ -115,10 +115,10 @@
 //! identifier helpers without any JS runtime at all:
 //!
 //! ```rust
-//! use acorn_schema::schema::validate::{is_doi, is_orcid};
+//! use acorn_schema::validation::rules::{doi, orcid};
 //!
-//! assert!(is_doi("10.11578/dc.20250604.1").is_ok());
-//! assert!(is_orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
+//! assert!(doi("10.11578/dc.20250604.1").is_ok());
+//! assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 //! ```
 use acorn::analyzer::error::ErrorKind;
 use acorn::analyzer::readability::ReadabilityType;

@@ -56,9 +56,9 @@ The `acorn-py` API strives to adhere to the Rust API as closely as possible. If 
 ### Validate DOIs
 🦀 Rust
 ```rust
-use acorn_schema::schema::validate::is_doi;
+use acorn_schema::validation::rules::doi;
 
-assert!(is_doi("10.11578/dc.20250604.1").is_ok());
+assert!(doi("10.11578/dc.20250604.1").is_ok());
 ```
 🐍 Python
 ```python
