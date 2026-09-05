@@ -175,7 +175,7 @@ impl Enrich<()> for ResearchActivity {
                                 .maybe_doi((!metadata.doi.is_empty()).then_some(DOI::format(&metadata.doi)))
                                 .title(metadata.title)
                                 .kind(metadata.resource_type)
-                                .maybe_publication_date((metadata.year > 0).then(|| metadata.year.to_string()))
+                                .maybe_publication_year((metadata.year > 0).then_some(metadata.year as i32))
                                 .maybe_websites(
                                     (!metadata.url.is_empty()).then(|| vec![Website::at(metadata.url).description("CiteAs resource").build()]),
                                 )

@@ -321,7 +321,11 @@ impl From<Work> for ResearchOutput {
             .maybe_doi(work.doi.map(|value| DOI::format(&value)))
             .title(work.title)
             .kind(work.kind)
-            .maybe_publication_date(work.publication_date)
+            .maybe_publication_year(
+                work.publication_date
+                    .as_ref()
+                    .and_then(|value| value.split('-').next()?.parse::<i32>().ok()),
+            )
             .maybe_contributors((!contributors.is_empty()).then_some(contributors))
             .maybe_funding((!funding.is_empty()).then_some(funding))
             .maybe_websites((!websites.is_empty()).then_some(websites))

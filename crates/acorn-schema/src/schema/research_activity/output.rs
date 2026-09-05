@@ -1,5 +1,5 @@
 //! Structured research outputs associated with a research activity
-use crate::schema::validate::is_partial_date;
+use crate::schema::research_activity::common::TypedActivityDate;
 use crate::schema::{Keyword, Website};
 use crate::validation::Validate;
 use acorn_core::prelude::alloc::{String, Vec};
@@ -125,10 +125,13 @@ pub struct ResearchOutput {
     /// Provider or standard output type, such as `article`, `dataset`, or `software`.
     #[serde(rename = "type", default, deserialize_with = "option_string_trim")]
     pub kind: Option<String>,
-    /// Publication or release date as an ISO 8601 date.
-    #[validate(custom(function = "is_partial_date"))]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub publication_date: Option<String>,
+    /// Publication year (deposit-ready, DataCite `publicationYear`).
+    #[validate(year)]
+    #[serde(rename = "publicationYear")]
+    pub publication_year: Option<i32>,
+    /// Publication and related dates with explicit types (e.g. `Issued`).
+    #[validate(nested)]
+    pub dates: Option<Vec<TypedActivityDate>>,
     /// People credited on this output.
     #[validate(nested)]
     pub contributors: Option<Vec<Contributor>>,
@@ -156,10 +159,8 @@ impl ResearchOutput {
                 | false => self.title,
             },
             kind: self.kind.filter(|value| !value.trim().is_empty()).or(candidate.kind),
-            publication_date: self
-                .publication_date
-                .filter(|value| !value.trim().is_empty())
-                .or(candidate.publication_date),
+            publication_year: self.publication_year.or(candidate.publication_year),
+            dates: self.dates.filter(|values| !values.is_empty()).or(candidate.dates),
             contributors: self.contributors.filter(|values| !values.is_empty()).or(candidate.contributors),
             funding: self.funding.filter(|values| !values.is_empty()).or(candidate.funding),
             websites: self.websites.filter(|values| !values.is_empty()).or(candidate.websites),
