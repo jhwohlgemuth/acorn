@@ -6,6 +6,38 @@ use std::fs::{create_dir_all, write};
 use tempfile::tempdir;
 
 #[tokio::test]
+async fn test_analyze_paths_collects_independent_failures_despite_early_exit_policy() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("CITATION.cff");
+    write(&path, "invalid: [").expect("invalid CFF fixture should be written");
+    let options = AnalysisContext::init()
+        .analysis(
+            AnalysisOptions::init()
+                .skip(
+                    [
+                        CheckCategory::Link,
+                        CheckCategory::Prose,
+                        CheckCategory::Readability,
+                        CheckCategory::Crosswalk,
+                    ]
+                    .into_iter()
+                    .map(|category| category.to_string())
+                    .collect(),
+                )
+                .build(),
+        )
+        .report(ReportOptions::init().exit_on_first_error(true).build())
+        .build();
+    let report = analyze_paths(&[path], &options).await;
+    let categories = &report.batches[0].categories;
+    assert_eq!(
+        categories.iter().map(|result| result.category.clone()).collect::<Vec<_>>(),
+        [CheckCategory::Schema, CheckCategory::Quality]
+    );
+    assert!(categories.iter().all(|result| result.checks.iter().any(Check::is_failure)));
+}
+
+#[tokio::test]
 async fn test_analyze_paths_dispatches_every_standard() {
     for standard in [
         Standard::CitationFileFormat,
@@ -35,6 +67,38 @@ async fn test_analyze_paths_dispatches_every_standard() {
         assert_eq!(report.batches[0].paths, [PathBuf::from("missing.input")]);
         assert!(report.batches[0].categories.is_empty());
     }
+}
+#[tokio::test]
+async fn test_analyze_paths_preserves_standard_and_path_group_order() {
+    let options = AnalysisContext::init()
+        .analysis(
+            AnalysisOptions::init()
+                .skip(CheckCategory::iter().map(|value| value.to_string()).collect())
+                .build(),
+        )
+        .build();
+    let paths = [
+        PathBuf::from("CITATION.cff"),
+        PathBuf::from("activity.json"),
+        PathBuf::from("notes.md"),
+        PathBuf::from("activity.yaml"),
+    ];
+    let report = analyze_paths(&paths, &options).await;
+    assert_eq!(
+        report
+            .batches
+            .iter()
+            .map(|batch| (batch.standard, batch.paths.clone()))
+            .collect::<Vec<_>>(),
+        [
+            (Standard::CitationFileFormat, vec![PathBuf::from("CITATION.cff")]),
+            (
+                Standard::ResearchActivityData,
+                vec![PathBuf::from("activity.json"), PathBuf::from("activity.yaml")]
+            ),
+            (Standard::Text, vec![PathBuf::from("notes.md")]),
+        ]
+    );
 }
 #[test]
 fn test_analyze_report_with_checks_groups_in_category_order_and_omits_empty_groups() {

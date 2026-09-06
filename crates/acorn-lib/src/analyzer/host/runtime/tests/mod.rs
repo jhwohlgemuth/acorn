@@ -8,7 +8,7 @@
 use crate::analyzer::check::Standard;
 use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
 use crate::analyzer::host::context::ExecutionOptions;
-use crate::analyzer::host::runtime::{collect_validation_checks, StaticAnalyzer, StaticAnalyzerConfig};
+use crate::analyzer::host::runtime::{check_schema_path, collect_validation_checks, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::analyzer::host::service::Analysis;
 use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::analyzer::host::vale::{
@@ -26,6 +26,7 @@ use acorn_schema::schema::OneOrMany;
 use acorn_schema::validation::{Validate, ValidationReport};
 use ariadne::Color;
 use ariadne::ReportKind;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
 use serde_json::Value;
 use std::fs::{create_dir_all, remove_file, write};
@@ -70,6 +71,14 @@ struct RepeatedNameModel {
 struct RepeatedNameParentModel {
     #[validate(nested)]
     child: RepeatedNameModel,
+}
+static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
+struct ValidationProbe;
+impl Validate for ValidationProbe {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        VALIDATION_CALLS.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
 }
 impl ValeOutputItem {
     fn fixture(line: u32, span: Vec<u32>, word_match: &str) -> Self {
@@ -243,6 +252,26 @@ async fn test_collect_validation_checks_awaits_async_rules() {
     assert_eq!(checks.as_slice()[0].context.as_deref(), Some("value"));
 }
 #[tokio::test]
+async fn test_collect_validation_checks_preserves_independent_failures() {
+    #[derive(Validate)]
+    struct IndependentModel {
+        #[validate(email)]
+        email: String,
+        #[validate(length(min = 3))]
+        name: String,
+    }
+    let checks = collect_validation_checks(&IndependentModel {
+        email: "invalid".to_string(),
+        name: "x".to_string(),
+    })
+    .await;
+    assert_eq!(checks.len(), 2);
+    assert_eq!(
+        checks.iter().filter_map(|check| check.context.as_deref()).collect::<Vec<_>>(),
+        ["email", "name"]
+    );
+}
+#[tokio::test]
 async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_display() {
     #[derive(Validate)]
     struct ChildModel {
@@ -272,6 +301,14 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
         "expected nested indexed path in display output: {rendered}"
     );
     assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
+}
+#[tokio::test]
+async fn test_schema_parse_failure_skips_dependent_validation() {
+    VALIDATION_CALLS.store(0, Ordering::SeqCst);
+    let checks = check_schema_path::<ValidationProbe, _>(PathBuf::from("invalid.json"), Err("parse failure")).await;
+    assert_eq!(VALIDATION_CALLS.load(Ordering::SeqCst), 0);
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks.as_slice()[0].context.as_deref(), Some("parse failure"));
 }
 #[test]
 fn test_conversion_warnings_use_into_checks_trait() {

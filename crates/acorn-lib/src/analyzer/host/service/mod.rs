@@ -157,8 +157,7 @@ async fn analyze<T: Analysis + Send + Sync>(
     categories: &[CheckCategory],
     documents: &DocumentIndexes,
 ) -> Vec<CategoryChecks> {
-    let mut results = Vec::with_capacity(categories.len());
-    for category in categories {
+    join_all(categories.iter().cloned().map(|category| async move {
         let checks = T::check(category.clone(), paths, Some(options))
             .await
             .into_iter()
@@ -170,12 +169,9 @@ async fn analyze<T: Analysis + Send + Sync>(
                 }
             })
             .collect();
-        results.push(CategoryChecks {
-            category: category.clone(),
-            checks,
-        });
-    }
-    results
+        CategoryChecks { category, checks }
+    }))
+    .await
 }
 /// Analyze paths and return structured results without rendering or process-exit behavior
 pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> AnalysisReport {

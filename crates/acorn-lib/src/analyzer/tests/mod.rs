@@ -4,6 +4,8 @@ use super::{Check, CheckBatch, CheckCategory, CheckSummary};
 use crate::{check_err, check_ok};
 use acorn_core::validation::ValidationError;
 use acorn_schema::validation::ValidationReport;
+use alloc::string::{String, ToString};
+use alloc::{vec, vec::Vec};
 
 fn batch(messages: &[&str]) -> CheckBatch {
     messages
