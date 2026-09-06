@@ -1,9 +1,11 @@
 # 🚀 Getting Started
 
 > [!IMPORTANT]
-> You do not need to install **ACORN** on your computer to use it in a <span title="Continuous Integration">CI</span> job. If you only need to validate or publish a repository automatically, configure ACORN in CI using this [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml). Use one of the options below when you want to run ACORN directly on your computer or in a container.
+> **Local install is optional.** If you only need automated validation or publishing, configure ACORN in CI with the [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml) — no local install required. The sections below are for running ACORN directly on your workstation or in a container.
 
 ## Installation
+
+If you are running ACORN locally, choose one method from the table below.
 
 ### Choose an installation method
 
@@ -18,6 +20,9 @@
 | ACORN contributor | [Install from source](#install-from-source) | You plan to modify, test, or debug ACORN itself. |
 
 ### Install with Scoop (Windows only)
+
+> Use this if you are on Windows and want straightforward `scoop update` upgrades.
+
 - Ensure you have [Scoop](https://scoop.sh/) installed.
 - Open your terminal and add the extras bucket to Scoop
     ```sh
@@ -37,6 +42,9 @@
     ```
 
 ### Install with Homebrew (Linux and MacOS)
+
+> Use this if you are on macOS or Linux and want a managed install via `brew`.
+
 - Add the custom tap:
     ```sh
     brew tap research-enablement/acorn https://code.ornl.gov/research-enablement/homebrew-acorn.git
@@ -59,6 +67,9 @@
     brew upgrade acorn-cli
     ```
 ### Install with Cargo
+
+> Use this if you already have Rust and Cargo or want a source-built binary.
+
 - Ensure you have Rust and Cargo installed. If not, you can install them using [rustup.rs](https://rustup.rs/).
 - Open your terminal and run the following command to install ACORN
     ```sh
@@ -70,6 +81,9 @@
     ```
 
 ### Run Inside a Container
+
+> Use this if you want isolation or a pinned version without a local install.
+
 - Ensure you have Docker[^oci] installed.
 - Pull the latest ACORN image with Docker[^oci]
     ```sh
@@ -87,6 +101,9 @@
 > ```
 
 ### Download pre-compiled binary
+
+> Use this if you want a single binary with minimal dependencies.
+
 - Download the latest release from the [ACORN GitLab Releases page](https://code.ornl.gov/research-enablement/acorn/-/releases)
     - 🪟 Windows
         - Open a PowerShell terminal, visit the releases page to find the latest version, and run:
@@ -114,6 +131,9 @@
         - Standalone macOS binaries are not currently published. Use the [Homebrew](#install-with-homebrew-linux-and-macos), [Cargo](#install-with-cargo), or [source](#install-from-source) installation above.
 
 ### Install from source
+
+> Use this if you are contributing to ACORN itself.
+
 - Clone the ACORN repository
     ```sh
     git clone https://code.ornl.gov/research-enablement/acorn.git

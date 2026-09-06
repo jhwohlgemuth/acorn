@@ -52,5 +52,4 @@ Add focused analyzer service tests with two independently failing categories, a 
 # Related concepts
 
 - [Category-inspired composition in ACORN](../../../docs/src/concepts/category-theory.md)
-- [Summary monoid](summary-monoid.md)
 - [Result boundary normalization](result-boundary-normalization.md)

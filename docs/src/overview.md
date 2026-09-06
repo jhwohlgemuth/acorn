@@ -37,14 +37,14 @@
 
 🌱 ACORN[^acronym] is a research assistant and metascience multi-tool that provides and operationalizes an ontology for research activity data (RAD). ACORN enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDFs, PPTX, etc.)
 
-ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
+ACORN is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine.
 
 **AI-enabled, without making AI mandatory.** ACORN's core validation, formatting, linking, and export workflows are deterministic. Optional tooling can discover and download local GGUF models, configure them for OpenCode, VS Code, Goose, and llama-swap, and provide compatible AI agents with ACORN-specific operating instructions through [`acorn skill`](cli-reference/commands/skill.md).
 
 > [!NOTE]
 > **AI-Assisted Development Disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/src/schema/research_activity/aspect/mod.rs#L154): humans author the majority of project code and retain review and decision authority over all changes; AI tools may directly create or edit code which is reviewed and refactored before being merged.
 
-[^acronym]: ACORN stands for "Accessible Content Optimization for Research Needs
+[^acronym]: ACORN stands for "Accessible Content Optimization for Research Needs"
 
 <br/>
 
@@ -60,13 +60,13 @@ Start with the outcome closest to your work:
 | Developer | [Build with ACORN](learn/developer.md) | use schemas, prompt and model APIs, agent skills, external Python bindings, and WebAssembly |
 | Platform engineer | [Operate ACORN](learn/platform-engineer.md) | operate local models, agent tools, runners, and automation services |
 
-Not sure yet? The [role guide](learn/index.html) shows every trail at a glance.
+Not sure yet? The [role guide](learn/README.md) shows every trail at a glance.
 
 ## Explore ACORN
 
 Choose a route to explore its concepts and commands.
 
-### Research activity data
+### Research Activity Data
 
 ```pikchr
 scale = 0.8
