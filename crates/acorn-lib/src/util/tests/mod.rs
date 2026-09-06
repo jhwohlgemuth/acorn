@@ -22,10 +22,9 @@ use proptest::prelude::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
-const FIXTURES: &str = "../../tests/fixtures";
-
 #[cfg(feature = "cmd")]
 mod cmd;
+const FIXTURES: &str = "../../tests/fixtures";
 
 #[test]
 fn test_base32_crockford() {
@@ -49,36 +48,6 @@ fn test_chunk_string() {
     assert_eq!("abcdefghi".chunk(3), vec!["abc", "def", "ghi"]);
     assert_eq!("abcdefghi".chunk(2), vec!["ab", "cd", "ef", "gh", "i"]);
     assert_eq!("abcdefghi".to_string().chunk(3), vec!["abc", "def", "ghi"]);
-}
-#[test]
-fn test_text_diff_changes_without_color_has_no_ansi_sequences() {
-    let changes = text_diff_changes_with_color("old\n", "new\n", false);
-    assert_eq!(
-        changes,
-        vec![
-            (similar::ChangeTag::Delete, "- old\n".to_string()),
-            (similar::ChangeTag::Insert, "+ new\n".to_string())
-        ]
-    );
-    assert!(changes.iter().all(|(_, line)| !line.contains('\u{1b}')));
-}
-#[test]
-fn test_last_values() {
-    let values: Vec<String> = Constant::last_values("acronyms").collect();
-    assert!(!values.is_empty());
-    assert!(values.iter().all(|v| !v.is_empty()));
-    let empty: Vec<String> = Constant::last_values("nonexistent-file").collect();
-    assert!(empty.is_empty());
-}
-#[test]
-fn test_nth_values() {
-    let first_column: Vec<String> = Constant::nth_values("acronyms", 0).collect();
-    assert!(!first_column.is_empty());
-    assert!(first_column.iter().all(|v| !v.is_empty()));
-    let out_of_bounds: Vec<String> = Constant::nth_values("acronyms", 999).collect();
-    assert!(out_of_bounds.is_empty());
-    let empty: Vec<String> = Constant::nth_values("nonexistent-file", 0).collect();
-    assert!(empty.is_empty());
 }
 #[test]
 fn test_detect_json() {
@@ -169,12 +138,20 @@ fn test_file_extension() {
     assert_eq!(file_extension("path/to/.hidden/folder"), None);
 }
 #[test]
-fn test_is_filetype_matches_extensions_and_compound_filenames() {
-    let allowed = ["index.json", "jsonc", "yaml", "yml"];
-    let paths = [PathBuf::from("project/index.JSON"), PathBuf::from("project/activity.YAML")];
-    assert!(paths.iter().all(is_filetype(allowed)));
-    assert!(!is_filetype(allowed)(&PathBuf::from("project/data.json")));
-    assert!(!is_filetype(allowed)(&PathBuf::from("project/README.md")));
+fn test_file_name_with_parent() {
+    let root = temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
+    // Folder
+    let directory = root.join("folder");
+    let created = ::std::fs::create_dir_all(&directory);
+    assert!(created.is_ok());
+    assert_eq!(file_name_with_parent(directory.clone()), "folder".to_string());
+    // File
+    let file = directory.join("example.txt");
+    let written = ::std::fs::write(&file, "content");
+    assert!(written.is_ok());
+    assert_eq!(file_name_with_parent(file), "folder/example.txt".to_string());
+    let removed = ::std::fs::remove_dir_all(&root);
+    assert!(removed.is_ok());
 }
 #[test]
 fn test_find_first() {
@@ -235,6 +212,112 @@ fn test_git_branch() {
     assert!(git_branch_name().is_some());
 }
 #[test]
+fn test_glob_matches() {
+    assert!(glob_matches("model.Q4_K_M.gguf", "*.gguf"));
+    assert!(!glob_matches("model.Q4_K_M.gguf", "*.safetensors"));
+    assert!(glob_matches("model.gguf", "model.ggu?"));
+    assert!(!glob_matches("model.gguf", "model.ggu??"));
+    assert!(glob_matches("tiny.model.gguf", "*.gguf"));
+    assert!(glob_matches("model.gguf", "model*"));
+    assert!(glob_matches("model.Q4_K_M.gguf", "model*.gguf"));
+    assert!(glob_matches("model.Q4_K_S.gguf", "model*.gguf"));
+    assert!(!glob_matches("other.Q4_K_M.gguf", "model*.gguf"));
+    assert!(glob_matches("model.gguf", "model.gguf"));
+    assert!(!glob_matches("model.gguf", "other.gguf"));
+    assert!(!glob_matches("model.gguf", ""));
+    assert!(glob_matches("a.b.c.gguf", "*.gguf"));
+    assert!(glob_matches("a.b.c.gguf", "*.*"));
+}
+#[test]
+fn test_is_filetype_matches_extensions_and_compound_filenames() {
+    let allowed = ["index.json", "jsonc", "yaml", "yml"];
+    let paths = [PathBuf::from("project/index.JSON"), PathBuf::from("project/activity.YAML")];
+    assert!(paths.iter().all(is_filetype(allowed)));
+    assert!(!is_filetype(allowed)(&PathBuf::from("project/data.json")));
+    assert!(!is_filetype(allowed)(&PathBuf::from("project/README.md")));
+}
+#[test]
+fn test_is_uri_or_path() {
+    assert!(is_uri_or_path("https://example.org/style.zip"));
+    assert!(is_uri_or_path("http://example.org/style.zip"));
+    assert!(is_uri_or_path("file:///tmp/style"));
+    assert!(is_uri_or_path("/tmp/style"));
+    assert!(is_uri_or_path("./local/style"));
+    assert!(is_uri_or_path("../parent/style"));
+    assert!(!is_uri_or_path("Google"));
+    assert!(!is_uri_or_path("proselint"));
+    assert!(!is_uri_or_path("write-good"));
+}
+#[test]
+fn test_last_values() {
+    let values: Vec<String> = Constant::last_values("acronyms").collect();
+    assert!(!values.is_empty());
+    assert!(values.iter().all(|v| !v.is_empty()));
+    let empty: Vec<String> = Constant::last_values("nonexistent-file").collect();
+    assert!(empty.is_empty());
+}
+#[test]
+fn test_markdown_input_output_normalize() {
+    assert_eq!("  geo-spatial & data, v1.0_2  ".normalize(), "geospatial and data v102");
+}
+#[test]
+fn test_merge_all_blank_is_empty() {
+    let positional = vec!["", "  "];
+    let config = Some([""]);
+    let result = merge(positional, config);
+    assert!(result.is_empty());
+}
+#[test]
+fn test_merge_chain_config_only() {
+    let positional: Vec<String> = vec![];
+    let config = Some(vec!["x".to_string(), "y".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["x", "y"]);
+}
+#[test]
+fn test_merge_chain_positional_only() {
+    let positional = vec!["a".to_string(), "b".to_string()];
+    let result = merge(&positional, None::<&[String]>);
+    assert_eq!(result, vec!["a", "b"]);
+}
+#[test]
+fn test_merge_dedup_first_seen_wins() {
+    let positional = vec!["m1".to_string(), "m2".to_string()];
+    let config = Some(vec!["m2".to_string(), "m3".to_string(), "m1".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["m1", "m2", "m3"]);
+}
+#[test]
+fn test_merge_filters_blank_entries() {
+    let positional = vec!["", "  ", "a"];
+    let config = Some(["", "b"]);
+    let result = merge(positional, config);
+    assert_eq!(result, vec!["a", "b"]);
+}
+#[test]
+fn test_merge_positional_takes_priority() {
+    let positional = vec!["b".to_string()];
+    let config = Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    let result = merge(&positional, config.as_deref());
+    assert_eq!(result, vec!["b", "a", "c"]);
+}
+#[test]
+fn test_merge_trims_whitespace() {
+    let positional = [" a ", "b"];
+    let config = Some(vec!["b".to_string(), " c ".to_string()]);
+    let result = merge(positional, config);
+    assert_eq!(result, vec!["a", "b", "c"]);
+}
+#[test]
+fn test_merge_unique_by_preserves_first_seen_values() {
+    let values = merge_unique_by(
+        vec!["10.1000/existing".to_string()],
+        vec!["10.1000/EXISTING".to_string(), "10.1000/new".to_string()],
+        |left, right| left.eq_ignore_ascii_case(right),
+    );
+    assert_eq!(values, vec!["10.1000/existing".to_string(), "10.1000/new".to_string()]);
+}
+#[test]
 fn test_mimetype() {
     let mime = MimeType::from("a.cff");
     assert_eq!(mime, MimeType::Cff);
@@ -262,6 +345,8 @@ fn test_mimetype() {
     assert_eq!(mime, MimeType::Jsonc);
     assert_eq!(MimeType::from("archive.tar"), MimeType::Tar);
     assert_eq!(MimeType::from("archive.tar.gz"), MimeType::Gzip);
+    assert_eq!(MimeType::from("archive.tar.zst"), MimeType::Zstd);
+    assert_eq!(MimeType::from("archive.tzst"), MimeType::Zstd);
     assert_eq!(MimeType::from("archive.7z"), MimeType::SevenZip);
     assert_eq!(MimeType::SevenZip.file_type(), "7z");
     assert_eq!(MimeType::Pdf.as_ref(), OsStr::new("pdf"));
@@ -273,6 +358,7 @@ fn test_mimetype_content_inference_prefers_semantic_documents() {
     assert_eq!(MimeType::infer(&docx), Some(MimeType::Docx));
     assert_eq!(MimeType::infer(b"PK\x03\x04generic zip payload"), Some(MimeType::Zip));
     assert_eq!(MimeType::infer(b"\x1f\x8b\x08\x00gzip payload"), Some(MimeType::Gzip));
+    assert_eq!(MimeType::infer(b"\x28\xb5\x2f\xfdzstd payload"), Some(MimeType::Zstd));
     assert_eq!(MimeType::infer(b"not a known binary format"), None);
 }
 #[test]
@@ -285,61 +371,18 @@ fn test_mimetype_text_inference_uses_supported_check_formats() {
     assert_eq!(MimeType::infer_from("Note: ordinary prose"), MimeType::Text);
 }
 #[test]
-fn test_merge_chain_positional_only() {
-    let positional = vec!["a".to_string(), "b".to_string()];
-    let result = merge(&positional, None::<&[String]>);
-    assert_eq!(result, vec!["a", "b"]);
+fn test_normalized_string_conversion() {
+    assert_eq!("  Mixed\nCASE  ".normalized(), "mixed case");
 }
 #[test]
-fn test_merge_chain_config_only() {
-    let positional: Vec<String> = vec![];
-    let config = Some(vec!["x".to_string(), "y".to_string()]);
-    let result = merge(&positional, config.as_deref());
-    assert_eq!(result, vec!["x", "y"]);
-}
-#[test]
-fn test_merge_positional_takes_priority() {
-    let positional = vec!["b".to_string()];
-    let config = Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    let result = merge(&positional, config.as_deref());
-    assert_eq!(result, vec!["b", "a", "c"]);
-}
-#[test]
-fn test_merge_dedup_first_seen_wins() {
-    let positional = vec!["m1".to_string(), "m2".to_string()];
-    let config = Some(vec!["m2".to_string(), "m3".to_string(), "m1".to_string()]);
-    let result = merge(&positional, config.as_deref());
-    assert_eq!(result, vec!["m1", "m2", "m3"]);
-}
-#[test]
-fn test_merge_filters_blank_entries() {
-    let positional = vec!["", "  ", "a"];
-    let config = Some(["", "b"]);
-    let result = merge(positional, config);
-    assert_eq!(result, vec!["a", "b"]);
-}
-#[test]
-fn test_merge_all_blank_is_empty() {
-    let positional = vec!["", "  "];
-    let config = Some([""]);
-    let result = merge(positional, config);
-    assert!(result.is_empty());
-}
-#[test]
-fn test_merge_trims_whitespace() {
-    let positional = [" a ", "b"];
-    let config = Some(vec!["b".to_string(), " c ".to_string()]);
-    let result = merge(positional, config);
-    assert_eq!(result, vec!["a", "b", "c"]);
-}
-#[test]
-fn test_merge_unique_by_preserves_first_seen_values() {
-    let values = merge_unique_by(
-        vec!["10.1000/existing".to_string()],
-        vec!["10.1000/EXISTING".to_string(), "10.1000/new".to_string()],
-        |left, right| left.eq_ignore_ascii_case(right),
-    );
-    assert_eq!(values, vec!["10.1000/existing".to_string(), "10.1000/new".to_string()]);
+fn test_nth_values() {
+    let first_column: Vec<String> = Constant::nth_values("acronyms", 0).collect();
+    assert!(!first_column.is_empty());
+    assert!(first_column.iter().all(|v| !v.is_empty()));
+    let out_of_bounds: Vec<String> = Constant::nth_values("acronyms", 999).collect();
+    assert!(out_of_bounds.is_empty());
+    let empty: Vec<String> = Constant::nth_values("nonexistent-file", 0).collect();
+    assert!(empty.is_empty());
 }
 #[test]
 fn test_param_body_shorthand_no_comma() {
@@ -358,16 +401,9 @@ fn test_param_body_shorthand_with_comma() {
     assert_eq!(payload, serde_json::json!("plain text"));
 }
 #[test]
-fn test_param_single_value() {
-    let param = param!(ParamStyle::FieldList, "fl", "family-name");
-    assert_eq!(param.name, "fl");
-    assert_eq!(param.values, vec![vec![Some("family-name".to_string())]]);
-}
-#[test]
-fn test_param_single_tuple() {
-    let param = param!(ParamStyle::QueryPair, "filter", ("status", "inactive"));
-    assert_eq!(param.name, "filter");
-    assert_eq!(param.values, vec![vec![Some("status".to_string()), Some("inactive".to_string())]]);
+fn test_param_flat_vec_notation() {
+    let param = param!(ParamStyle::FieldList, "fields", vec!["field1", "field2"]);
+    assert_eq!(param.values, vec![vec![Some("field1".to_string())], vec![Some("field2".to_string())]]);
 }
 #[test]
 fn test_param_multiple_tuples() {
@@ -386,6 +422,24 @@ fn test_param_multiple_tuples() {
     );
 }
 #[test]
+fn test_param_single_tuple() {
+    let param = param!(ParamStyle::QueryPair, "filter", ("status", "inactive"));
+    assert_eq!(param.name, "filter");
+    assert_eq!(param.values, vec![vec![Some("status".to_string()), Some("inactive".to_string())]]);
+}
+#[test]
+fn test_param_single_value() {
+    let param = param!(ParamStyle::FieldList, "fl", "family-name");
+    assert_eq!(param.name, "fl");
+    assert_eq!(param.values, vec![vec![Some("family-name".to_string())]]);
+}
+#[test]
+fn test_param_template_value() {
+    let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
+    assert_eq!(param.name, "identifier");
+    assert_eq!(param.values, vec![vec![Some("01qz5mb56".to_string())]]);
+}
+#[test]
 fn test_param_vec_notation() {
     let param = param!(ParamStyle::FieldList, "fields", vec![vec!["field1", "field2"], vec!["field3"],]);
     assert_eq!(param.name, "fields");
@@ -396,17 +450,6 @@ fn test_param_vec_notation() {
             vec![Some("field3".to_string())]
         ]
     );
-}
-#[test]
-fn test_param_flat_vec_notation() {
-    let param = param!(ParamStyle::FieldList, "fields", vec!["field1", "field2"]);
-    assert_eq!(param.values, vec![vec![Some("field1".to_string())], vec![Some("field2".to_string())]]);
-}
-#[test]
-fn test_param_template_value() {
-    let param = param!(ParamStyle::TemplateValue, "identifier", "01qz5mb56");
-    assert_eq!(param.name, "identifier");
-    assert_eq!(param.values, vec![vec![Some("01qz5mb56".to_string())]]);
 }
 #[test]
 fn test_param_with_quoted_value() {
@@ -449,12 +492,6 @@ fn test_regex_capture_lookup_with_invalid_pattern_returns_empty_lookup() {
     assert!(lookup.is_empty());
 }
 #[test]
-fn test_trim_unmatched_closing_parentheses() {
-    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182)"), "10.1000/182");
-    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/(182)"), "10.1000/(182)");
-    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182"), "10.1000/182");
-}
-#[test]
 fn test_regex_inverse() {
     assert_eq!(regex_inverse("\\.json$"), "^(?!.*(?:\\.json$)).*$".to_string());
     let joined = regex_join(&["\\.json$".to_string(), "^README".to_string()]).unwrap();
@@ -486,23 +523,6 @@ fn test_regex_to_glob() {
     assert!(regex_to_glob("").is_none());
     assert!(regex_to_glob("\\d+\\.gguf$").is_none());
     assert!(regex_to_glob("\\bmodel\\b").is_none());
-}
-#[test]
-fn test_glob_matches() {
-    assert!(glob_matches("model.Q4_K_M.gguf", "*.gguf"));
-    assert!(!glob_matches("model.Q4_K_M.gguf", "*.safetensors"));
-    assert!(glob_matches("model.gguf", "model.ggu?"));
-    assert!(!glob_matches("model.gguf", "model.ggu??"));
-    assert!(glob_matches("tiny.model.gguf", "*.gguf"));
-    assert!(glob_matches("model.gguf", "model*"));
-    assert!(glob_matches("model.Q4_K_M.gguf", "model*.gguf"));
-    assert!(glob_matches("model.Q4_K_S.gguf", "model*.gguf"));
-    assert!(!glob_matches("other.Q4_K_M.gguf", "model*.gguf"));
-    assert!(glob_matches("model.gguf", "model.gguf"));
-    assert!(!glob_matches("model.gguf", "other.gguf"));
-    assert!(!glob_matches("model.gguf", ""));
-    assert!(glob_matches("a.b.c.gguf", "*.gguf"));
-    assert!(glob_matches("a.b.c.gguf", "*.*"));
 }
 #[test]
 fn test_semantic_version() {
@@ -563,26 +583,6 @@ fn test_strip_suffixes() {
     assert_eq!(strip_suffixes(suffixes, "model"), "model");
 }
 #[test]
-fn test_to_ascii_alphanumeric() {
-    assert_eq!(to_ascii_alphanumeric("NVIDIA-Nemotron_3 Super"), "nvidianemotron3super");
-    assert_eq!("NVIDIA-Nemotron_3 Super".to_ascii_alphanumeric(), "nvidianemotron3super");
-}
-#[test]
-fn test_markdown_input_output_normalize() {
-    assert_eq!("  geo-spatial & data, v1.0_2  ".normalize(), "geospatial and data v102");
-}
-#[test]
-fn test_to_strings() {
-    let list: Vec<PathBuf> = vec![];
-    assert!(list.to_strings().is_empty());
-    let list = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
-    assert!(list.to_strings().contains(&"foo".to_string()));
-    let list = vec![Path::new("foo"), Path::new("bar"), Path::new("baz")];
-    assert!(list.to_strings().contains(&"foo".to_string()));
-    let list = vec!["foo", "bar", "baz"];
-    assert!(list.to_strings().contains(&"foo".to_string()));
-}
-#[test]
 fn test_suffix() {
     assert_eq!(suffix(0), "s");
     assert_eq!(suffix(1), "");
@@ -600,6 +600,18 @@ fn test_test_command() {
     }
 }
 #[test]
+fn test_text_diff_changes_without_color_has_no_ansi_sequences() {
+    let changes = text_diff_changes_with_color("old\n", "new\n", false);
+    assert_eq!(
+        changes,
+        vec![
+            (similar::ChangeTag::Delete, "- old\n".to_string()),
+            (similar::ChangeTag::Insert, "+ new\n".to_string())
+        ]
+    );
+    assert!(changes.iter().all(|(_, line)| !line.contains('\u{1b}')));
+}
+#[test]
 fn test_to_absolute_string() {
     let path = PathBuf::from(FIXTURES).join("test.txt");
     assert!(path.to_absolute_path().ends_with("test.txt"));
@@ -615,51 +627,41 @@ fn test_to_absolute_string() {
     }
 }
 #[test]
-fn test_normalized_string_conversion() {
-    assert_eq!("  Mixed\nCASE  ".normalized(), "mixed case");
+fn test_to_ascii_alphanumeric() {
+    assert_eq!(to_ascii_alphanumeric("NVIDIA-Nemotron_3 Super"), "nvidianemotron3super");
+    assert_eq!("NVIDIA-Nemotron_3 Super".to_ascii_alphanumeric(), "nvidianemotron3super");
 }
 #[test]
-fn test_file_name_with_parent() {
-    let root = temp_dir().join(format!("acorn-test-path-{}", generate_guid()));
-    // Folder
-    let directory = root.join("folder");
-    let created = ::std::fs::create_dir_all(&directory);
-    assert!(created.is_ok());
-    assert_eq!(file_name_with_parent(directory.clone()), "folder".to_string());
-    // File
-    let file = directory.join("example.txt");
-    let written = ::std::fs::write(&file, "content");
-    assert!(written.is_ok());
-    assert_eq!(file_name_with_parent(file), "folder/example.txt".to_string());
-    let removed = ::std::fs::remove_dir_all(&root);
-    assert!(removed.is_ok());
+fn test_to_strings() {
+    let list: Vec<PathBuf> = vec![];
+    assert!(list.to_strings().is_empty());
+    let list = vec![PathBuf::from("foo"), PathBuf::from("bar"), PathBuf::from("baz")];
+    assert!(list.to_strings().contains(&"foo".to_string()));
+    let list = vec![Path::new("foo"), Path::new("bar"), Path::new("baz")];
+    assert!(list.to_strings().contains(&"foo".to_string()));
+    let list = vec!["foo", "bar", "baz"];
+    assert!(list.to_strings().contains(&"foo".to_string()));
 }
 #[test]
-fn test_is_uri_or_path() {
-    assert!(is_uri_or_path("https://example.org/style.zip"));
-    assert!(is_uri_or_path("http://example.org/style.zip"));
-    assert!(is_uri_or_path("file:///tmp/style"));
-    assert!(is_uri_or_path("/tmp/style"));
-    assert!(is_uri_or_path("./local/style"));
-    assert!(is_uri_or_path("../parent/style"));
-    assert!(!is_uri_or_path("Google"));
-    assert!(!is_uri_or_path("proselint"));
-    assert!(!is_uri_or_path("write-good"));
+fn test_trim_unmatched_closing_parentheses() {
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182)"), "10.1000/182");
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/(182)"), "10.1000/(182)");
+    assert_eq!(trim_unmatched_trailing_parentheses("10.1000/182"), "10.1000/182");
 }
 proptest! {
     #[test]
-    fn prop_base32_round_trip(value in any::<u128>()) {
-        let encoded = base32_crockford_encode(value);
-        prop_assert_eq!(base32_crockford_decode(&encoded), Some(value));
-    }
-    #[test]
-    fn prop_base32_decode_is_separator_and_case_insensitive(value in any::<u128>()) {
+    fn test_prop_base32_decode_is_separator_and_case_insensitive(value in any::<u128>()) {
         let encoded = base32_crockford_encode(value).to_ascii_uppercase();
         let decorated = format!("  {encoded}-_  ");
         prop_assert_eq!(base32_crockford_decode(decorated), Some(value));
     }
     #[test]
-    fn prop_file_extension_extracts_suffix_for_simple_names(
+    fn test_prop_base32_round_trip(value in any::<u128>()) {
+        let encoded = base32_crockford_encode(value);
+        prop_assert_eq!(base32_crockford_decode(&encoded), Some(value));
+    }
+    #[test]
+    fn test_prop_file_extension_extracts_suffix_for_simple_names(
         stem in "[a-zA-Z0-9_]{1,32}",
         ext in "[a-zA-Z0-9]{1,10}"
     ) {
@@ -667,29 +669,29 @@ proptest! {
         prop_assert_eq!(file_extension(name), Some(ext));
     }
     #[test]
-    fn prop_file_extension_returns_none_without_dot(name in "[a-zA-Z0-9_/-]{1,64}") {
+    fn test_prop_file_extension_returns_none_without_dot(name in "[a-zA-Z0-9_/-]{1,64}") {
         prop_assume!(!name.contains('.'));
         prop_assert_eq!(file_extension(name), None);
     }
     #[test]
-    fn prop_suffix_only_singular_is_empty(value in any::<u16>()) {
-        let expected = if value == 1 { "" } else { "s" };
-        prop_assert_eq!(suffix(value), expected.to_string());
+    fn test_prop_format_bytes_below_1024_stays_in_bytes(value in 0u64..1024) {
+        prop_assert_eq!(format_bytes(value), format!("{value} B"));
     }
     #[test]
-    fn prop_regex_join_none_iff_all_patterns_empty(patterns in prop::collection::vec(".*", 0..20)) {
-        let joined = regex_join(&patterns);
-        let has_any_non_empty = patterns.iter().any(|x| !x.is_empty());
-        prop_assert_eq!(joined.is_some(), has_any_non_empty);
-    }
-    #[test]
-    fn prop_format_bytes_has_known_unit(value in any::<u64>()) {
+    fn test_prop_format_bytes_has_known_unit(value in any::<u64>()) {
         let formatted = format_bytes(value);
         let unit = formatted.split_whitespace().last();
         prop_assert!(matches!(unit, Some("B" | "KB" | "MB" | "GB" | "TB")));
     }
     #[test]
-    fn prop_format_bytes_below_1024_stays_in_bytes(value in 0u64..1024) {
-        prop_assert_eq!(format_bytes(value), format!("{value} B"));
+    fn test_prop_regex_join_none_iff_all_patterns_empty(patterns in prop::collection::vec(".*", 0..20)) {
+        let joined = regex_join(&patterns);
+        let has_any_non_empty = patterns.iter().any(|x| !x.is_empty());
+        prop_assert_eq!(joined.is_some(), has_any_non_empty);
+    }
+    #[test]
+    fn test_prop_suffix_only_singular_is_empty(value in any::<u16>()) {
+        let expected = if value == 1 { "" } else { "s" };
+        prop_assert_eq!(suffix(value), expected.to_string());
     }
 }

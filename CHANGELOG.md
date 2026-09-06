@@ -10,6 +10,8 @@
 
 ### Changed
 
+- Add a portable KitOps v1.15.0 ModelKit/Kitfile schema with strict authoring-YAML and resolved-JSON codecs, complete component metadata, deterministic validation, resolved layer identity, and OCI model/model-part selection.
+- Expand OCI model downloads for ACORN 0.2 with current ModelPack config verification, all standard component roles and archive encodings, supporting weight configuration, explicit ignored components, and richer dry-run provenance.
 - Add provider-neutral webhook delivery, inbound verification, and one-shot HTTPS callback dispatch contracts under `acorn::io::api::webhooks`; GitLab webhook imports remain available through compatibility aliases.
 - Make GitLab queue claims opaque and single-use. `OperationQueue::succeed` and `OperationQueue::fail` now consume a `ClaimedOperation`, and claim data is read through accessors instead of public fields.
 - Replace `hf-hub` with ACORN-owned Hugging Face metadata and search handling. Public model metadata APIs now use `acorn::io::api::huggingface::ModelInfo` and options-based requests through ACORN's typed endpoint layer, including support for legacy and relationship-object `baseModels` responses and same-origin pagination.

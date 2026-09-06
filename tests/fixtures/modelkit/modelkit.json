@@ -1,0 +1,15 @@
+{
+  "manifestVersion": "1.0.0",
+  "package": {"name": "acorn-resolved-example", "version": "2.1.0", "description": "Complete resolved ModelKit fixture", "license": "MIT", "authors": ["Ada Lovelace", "Grace Hopper"]},
+  "model": {
+    "name": "acorn-model", "path": "model/acorn-q4.gguf", "license": "Apache-2.0", "framework": "llama.cpp", "format": "GGUF", "version": "2.0.0", "description": "Primary quantized model",
+    "parts": [{"name": "projector", "path": "model/mmproj.gguf", "license": "Apache-2.0", "type": "projector.v1", "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}],
+    "parameters": {"contextLength": 8192, "chatTemplate": true, "stopTokens": [2, 3]},
+    "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+  },
+  "code": [{"path": "src", "description": "Inference runtime", "license": "MIT", "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}],
+  "datasets": [{"name": "evaluation", "path": "data/evaluation", "remotePath": "s3://acorn-fixtures/evaluation", "remoteHash": "sha256:fixture", "description": "Evaluation corpus", "license": "CC0-1.0", "parameters": {"split": "test", "samples": 128}}],
+  "docs": [{"path": "README.md", "description": "Model card and usage guide", "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}],
+  "prompts": [{"name": "system", "path": "prompts/system.txt", "description": "Default system prompt", "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}],
+  "mcpServers": [{"name": "filesystem", "path": "mcp/filesystem.mcpb", "description": "Filesystem MCP bundle", "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "diffId": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"}]
+}

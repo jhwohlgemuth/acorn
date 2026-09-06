@@ -1,5 +1,6 @@
 use super::super::*;
 use acorn_schema::schema::agent::opencode;
+use acorn_schema::schema::modelkit::kitfile::Kitfile;
 use acorn_schema::schema::standard::text::{Document, Text};
 use std::fs::{read_to_string, write};
 use tempfile::tempdir;
@@ -21,6 +22,16 @@ fn test_document_adapter_round_trips_text_formats() {
         let path = directory.path().join(format!("document.{extension}"));
         document.write(&path).expect("document should write");
         assert_eq!(Document::read(path).expect("document should read"), document);
+    }
+}
+#[test]
+fn test_kitfile_adapter_round_trips_json_and_yaml() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let kitfile = Kitfile::parse("manifestVersion: 1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should parse");
+    for extension in ["json", "yaml"] {
+        let path = directory.path().join(format!("Kitfile.{extension}"));
+        kitfile.write(&path).expect("Kitfile should write");
+        assert_eq!(Kitfile::read(path).expect("Kitfile should read"), kitfile);
     }
 }
 #[test]

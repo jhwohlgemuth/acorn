@@ -49,6 +49,7 @@ pub mod agent;
 pub mod discovery;
 pub mod geonames;
 pub mod graph;
+pub mod modelkit;
 pub mod namespaces;
 pub mod pid;
 pub mod research_activity;
@@ -77,18 +78,6 @@ use validate::has_image_extension;
 ///
 /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
-/// Generic wrapper for a single value or multiple values.
-///
-/// Supports schema fields and metadata entry points that accept either one item
-/// or a batch of items.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum OneOrMany<T> {
-    /// A single item.
-    One(T),
-    /// Multiple items.
-    Many(Vec<T>),
-}
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
@@ -127,6 +116,18 @@ pub enum MediaObject {
     Image(ImageObject),
     /// Video format media
     Video(VideoObject),
+}
+/// Generic wrapper for a single value or multiple values.
+///
+/// Supports schema fields and metadata entry points that accept either one item
+/// or a batch of items.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum OneOrMany<T> {
+    /// A single item.
+    One(T),
+    /// Multiple items.
+    Many(Vec<T>),
 }
 /// Organization sub type
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
@@ -585,6 +586,42 @@ pub struct Website {
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
 }
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+#[cfg(feature = "std")]
+impl View for ContactPoint {
+    fn render(&self) -> VirtualNode {
+        let ContactPoint {
+            given_name,
+            family_name,
+            job_title: role,
+            email,
+            telephone,
+            ..
+        } = self;
+        html! {
+            <section id="contact">
+                <div>
+                    <span class="label">Contact</span>
+                    <span class="spacer"> </span>
+                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
+                    <span class="spacer">|</span>
+                    <span class="title">{ role }</span>
+                    <span class="spacer">|</span>
+                    <span class="email">{ email }</span>
+                    <span class="spacer">|</span>
+                    <span class="phone">{ telephone }</span>
+                </div>
+            </section>
+        }
+    }
+}
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
     #[cfg(feature = "std")]
@@ -659,26 +696,58 @@ impl ContactPoint {
         self
     }
 }
-impl ControlledVocabulary {
-    /// Normalize candidate values against the named controlled-vocabulary asset.
-    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
-        Self(
-            values
-                .into_iter()
-                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-        )
-    }
-    /// Consume the vocabulary and return its canonical values.
-    pub fn into_values(self) -> Vec<Keyword> {
-        self.0
-    }
-}
 impl Default for ContactPoint {
     fn default() -> Self {
         Self::init().build()
+    }
+}
+impl LinkedData for ContactPoint {
+    fn with_context(&self) -> Self {
+        let mut clone = self.clone();
+        clone.context = Some(ContactPointContext::default());
+        clone.contact_point_type = Some(schema_org("person"));
+        clone
+    }
+}
+impl MarkdownSupport for ContactPoint {
+    fn to_markdown(&self) -> String {
+        let ContactPoint {
+            given_name,
+            family_name,
+            job_title,
+            identifier,
+            email,
+            telephone,
+            url,
+            organization,
+            affiliation,
+            ..
+        } = self;
+        let job_title = job_title.to_markdown_text();
+        let given_name = given_name.to_markdown_text();
+        let family_name = family_name.to_markdown_text();
+        let identifier = identifier.as_ref().map(MarkdownSupport::to_markdown_text);
+        let email = email.to_markdown_text();
+        let telephone = telephone.to_markdown_text();
+        let url = url.to_markdown_text();
+        let organization = organization.to_markdown_text();
+        let affiliation = affiliation.as_ref().map(MarkdownSupport::to_markdown_text);
+        [
+            Some("## Contact".to_string()),
+            Some(format!("- Job Title: {job_title}")),
+            Some(format!("- Given Name: {given_name}")),
+            Some(format!("- Family Name: {family_name}")),
+            identifier.as_ref().map(|value| format!("- Identifier: {value}")),
+            Some(format!("- Email: [{email}](mailto:{email})")),
+            Some(format!("- Telephone: {telephone}")),
+            Some(format!("- URL: {url}")),
+            Some(format!("- Organization: {organization}")),
+            affiliation.as_ref().map(|value| format!("- Affiliation: {value}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n")
     }
 }
 impl Default for ContactPointContext {
@@ -696,12 +765,21 @@ impl Default for ContactPointContext {
             .build()
     }
 }
-impl LinkedData for ContactPoint {
-    fn with_context(&self) -> Self {
-        let mut clone = self.clone();
-        clone.context = Some(ContactPointContext::default());
-        clone.contact_point_type = Some(schema_org("person"));
-        clone
+impl ControlledVocabulary {
+    /// Normalize candidate values against the named controlled-vocabulary asset.
+    pub fn normalize<T: Into<String>>(name: &str, values: impl IntoIterator<Item = T>) -> Self {
+        Self(
+            values
+                .into_iter()
+                .filter_map(|value| research_activity::resolve_from_csv_asset(name.to_string(), value.into()))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+        )
+    }
+    /// Consume the vocabulary and return its canonical values.
+    pub fn into_values(self) -> Vec<Keyword> {
+        self.0
     }
 }
 impl MediaObject {
@@ -724,6 +802,24 @@ impl MediaObject {
             | MediaObject::Image(_) => true,
             | _ => false,
         }
+    }
+}
+impl Validate for MediaObject {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        match self {
+            | Self::Image(img) => img.validate(),
+            | Self::Video(vid) => vid.validate(),
+        }
+    }
+}
+impl<T> Each for OneOrMany<T> {
+    type Item = T;
+    type Iter<'a>
+        = Iter<'a, T>
+    where
+        T: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        self.iter()
     }
 }
 impl<T> OneOrMany<T> {
@@ -797,14 +893,6 @@ impl<T> OneOrMany<T> {
         }
     }
 }
-impl<'a, T> IntoIterator for &'a OneOrMany<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 impl<T> Validate for OneOrMany<T>
 where
     T: Validate,
@@ -819,16 +907,6 @@ where
                 report
             })
             .finish()
-    }
-}
-impl<T> Each for OneOrMany<T> {
-    type Item = T;
-    type Iter<'a>
-        = Iter<'a, T>
-    where
-        T: 'a;
-    fn each_iter(&self) -> Self::Iter<'_> {
-        self.iter()
     }
 }
 impl Organization {
@@ -949,87 +1027,10 @@ impl OrganizationType {
         }
     }
 }
-impl MarkdownSupport for ContactPoint {
-    fn to_markdown(&self) -> String {
-        let ContactPoint {
-            given_name,
-            family_name,
-            job_title,
-            identifier,
-            email,
-            telephone,
-            url,
-            organization,
-            affiliation,
-            ..
-        } = self;
-        let job_title = job_title.to_markdown_text();
-        let given_name = given_name.to_markdown_text();
-        let family_name = family_name.to_markdown_text();
-        let identifier = identifier.as_ref().map(MarkdownSupport::to_markdown_text);
-        let email = email.to_markdown_text();
-        let telephone = telephone.to_markdown_text();
-        let url = url.to_markdown_text();
-        let organization = organization.to_markdown_text();
-        let affiliation = affiliation.as_ref().map(MarkdownSupport::to_markdown_text);
-        [
-            Some("## Contact".to_string()),
-            Some(format!("- Job Title: {job_title}")),
-            Some(format!("- Given Name: {given_name}")),
-            Some(format!("- Family Name: {family_name}")),
-            identifier.as_ref().map(|value| format!("- Identifier: {value}")),
-            Some(format!("- Email: [{email}](mailto:{email})")),
-            Some(format!("- Telephone: {telephone}")),
-            Some(format!("- URL: {url}")),
-            Some(format!("- Organization: {organization}")),
-            affiliation.as_ref().map(|value| format!("- Affiliation: {value}")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join("\n")
-    }
-}
 impl MarkdownSupport for Website {
     fn to_markdown(&self) -> String {
         let Website { description, url } = self;
         format!("[{}]({})", description, url)
-    }
-}
-impl Validate for MediaObject {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        match self {
-            | Self::Image(img) => img.validate(),
-            | Self::Video(vid) => vid.validate(),
-        }
-    }
-}
-#[cfg(feature = "std")]
-impl View for ContactPoint {
-    fn render(&self) -> VirtualNode {
-        let ContactPoint {
-            given_name,
-            family_name,
-            job_title: role,
-            email,
-            telephone,
-            ..
-        } = self;
-        html! {
-            <section id="contact">
-                <div>
-                    <span class="label">Contact</span>
-                    <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
-                    <span class="spacer">|</span>
-                    <span class="title">{ role }</span>
-                    <span class="spacer">|</span>
-                    <span class="email">{ email }</span>
-                    <span class="spacer">|</span>
-                    <span class="phone">{ telephone }</span>
-                </div>
-            </section>
-        }
     }
 }
 #[cfg(feature = "std")]

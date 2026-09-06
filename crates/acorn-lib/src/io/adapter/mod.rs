@@ -1,4 +1,4 @@
-//! Schema I/O adapter.
+//! Schema I/O adapter
 //!
 //! Hosts std-only path/file behavior for schema types so that [`acorn_schema::schema`]
 //! modules stay portable. This module later moves into `acorn-host`.
@@ -15,6 +15,7 @@ use crate::util::{Label, StringConversion};
 use acorn_core::prelude::{vec, Vec};
 use acorn_core::util::{file_extension, LinkedData, MarkdownSupport, MimeType, Unstructured};
 use acorn_schema::schema::agent::{opencode, Weights};
+use acorn_schema::schema::modelkit::kitfile::Kitfile;
 use acorn_schema::schema::pid::raid::Metadata;
 use acorn_schema::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::schema::standard::cff::Cff;
@@ -26,91 +27,11 @@ use owo_colors::OwoColorize;
 use std::path::PathBuf;
 use tracing::debug;
 
-impl InputOutput for opencode::Config {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone())
-            .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
-    }
-    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| {
-            parse_jsonc_cst::<Self>(&content)
-                .map(|(config, _)| config)
-                .map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
-        })
-    }
-    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        match MimeType::from_path(&target) {
-            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize OpenCode config — {why}"))
-            .and_then(|content| write_file(path.into(), content))
-    }
-    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
-    }
-}
 /// Native persistence operations for schema-owned model weights.
 pub trait WeightsExt {
     /// Refresh file-level weights for a model while preserving repository-level sources.
     fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()>;
 }
-impl WeightsExt for Weights {
-    fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
-        ModelRow::init()
-            .model_id(model_id.to_string())
-            .build()
-            .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id))
-            .and_then(|lookup| match lookup {
-                | Some(row) => {
-                    let existing = row
-                        .weights
-                        .as_deref()
-                        .and_then(|value| serde_json::from_str::<Weights>(value).ok())
-                        .unwrap_or_default();
-                    Weights(
-                        existing
-                            .0
-                            .into_iter()
-                            .filter(|weight| !(weight.quantization.is_some() && weight.url.contains("/resolve/")))
-                            .chain(self.0)
-                            .collect(),
-                    )
-                    .serialize()
-                    .map_err(color_eyre::Report::from)
-                    .and_then(|weights| {
-                        ModelRow {
-                            weights: Some(weights),
-                            ..row
-                        }
-                        .update_weights(database_path)
-                        .map(|_| ())
-                    })
-                }
-                | None => self.serialize().map_err(color_eyre::Report::from).and_then(|weights| {
-                    Database::<Table>::from_path(database_path)
-                        .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
-                        .map(|_| ())
-                }),
-            })
-    }
-}
-
 impl InputOutput for Cff {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Cff> {
         let source = path.into();
@@ -449,6 +370,41 @@ impl InputOutput for invenio::Record {
             .and_then(|content| write_file(output, content))
     }
 }
+impl InputOutput for Kitfile {
+    fn parse(content: &str) -> Option<Self> {
+        Self::from_yaml(content).ok()
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json => Self::read_json(path),
+            | MimeType::Yaml => Self::read_yaml(path),
+            | _ => Err(eyre!("Unsupported Kitfile extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| Self::from_resolved_json(content.as_bytes()).map_err(|why| eyre!(why)))
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_file(path).and_then(|content| Self::from_yaml(&content).map_err(|why| eyre!(why)))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let path = path.into();
+        match MimeType::from_path(&path) {
+            | MimeType::Json => self.write_json(path),
+            | MimeType::Yaml => self.write_yaml(path),
+            | _ => Err(eyre!("Unsupported Kitfile extension")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.to_resolved_json()
+            .map_err(|why| eyre!(why))
+            .and_then(|content| write_file(path, content))
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        self.to_yaml().map_err(|why| eyre!(why)).and_then(|content| write_file(path, content))
+    }
+}
 impl InputOutput for Metadata {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let path = path.into();
@@ -484,6 +440,45 @@ impl InputOutput for Metadata {
         serde_norway::to_string(self)
             .map_err(|why| eyre!(why))
             .and_then(|content| write_file(path, content))
+    }
+}
+impl InputOutput for opencode::Config {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone())
+            .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
+    }
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone()).and_then(|content| {
+            parse_jsonc_cst::<Self>(&content)
+                .map(|(config, _)| config)
+                .map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+        })
+    }
+    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let target = path.into();
+        match MimeType::from_path(&target) {
+            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize OpenCode config — {why}"))
+            .and_then(|content| write_file(path.into(), content))
+    }
+    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
 }
 impl InputOutput for ResearchActivity {
@@ -609,40 +604,6 @@ impl InputOutput for ResearchActivity {
             .and_then(|content| write_file(output, content))
     }
 }
-fn format_metadata(metadata: ResearchActivityMetadata, context: Option<PathBuf>) -> ResearchActivityMetadata {
-    let path_parent = match context {
-        | Some(path) => parent(path),
-        | None => PathBuf::from("."),
-    };
-    debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
-    let name = match image_paths(&path_parent) {
-        | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
-        | _ => None,
-    };
-    let media = match name {
-        | Some(value) => {
-            debug!(value, "=> {} First image", Label::using());
-            let first_graphic = match metadata.media.clone() {
-                | Some(values) if !values.is_empty() => {
-                    let caption = metadata.clone().first_image_caption();
-                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
-                | Some(_) | None => {
-                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
-                    MediaObject::Image(image_data)
-                }
-            };
-            let rest = match metadata.clone().media {
-                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
-                | Some(_) | None => vec![],
-            };
-            Some([vec![first_graphic], rest].concat())
-        }
-        | None => metadata.media.clone(),
-    };
-    ResearchActivityMetadata { media, ..metadata }.format()
-}
 impl InputOutput for Text {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
@@ -686,12 +647,6 @@ impl InputOutput for Text {
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         write_text(self, path)
     }
-}
-fn read_text(path: impl Into<PathBuf>) -> ApiResult<Text> {
-    read_file(path.into()).map(|content| Text { content })
-}
-fn write_text(value: &Text, path: impl Into<PathBuf>) -> ApiResult<()> {
-    write_file(path, value.content().to_string())
 }
 impl InputOutput for text::Document {
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
@@ -737,12 +692,92 @@ impl InputOutput for text::Document {
         write_document_text(self, path)
     }
 }
+impl WeightsExt for Weights {
+    fn persist(self, model_id: &str, database_path: Option<PathBuf>) -> ApiResult<()> {
+        ModelRow::init()
+            .model_id(model_id.to_string())
+            .build()
+            .select(database_path.clone(), |row| row.model_id.as_deref() == Some(model_id))
+            .and_then(|lookup| match lookup {
+                | Some(row) => {
+                    let existing = row
+                        .weights
+                        .as_deref()
+                        .and_then(|value| serde_json::from_str::<Weights>(value).ok())
+                        .unwrap_or_default();
+                    Weights(
+                        existing
+                            .0
+                            .into_iter()
+                            .filter(|weight| !(weight.quantization.is_some() && weight.url.contains("/resolve/")))
+                            .chain(self.0)
+                            .collect(),
+                    )
+                    .serialize()
+                    .map_err(color_eyre::Report::from)
+                    .and_then(|weights| {
+                        ModelRow {
+                            weights: Some(weights),
+                            ..row
+                        }
+                        .update_weights(database_path)
+                        .map(|_| ())
+                    })
+                }
+                | None => self.serialize().map_err(color_eyre::Report::from).and_then(|weights| {
+                    Database::<Table>::from_path(database_path)
+                        .insert(ModelRow::init().model_id(model_id.to_string()).weights(weights).build())
+                        .map(|_| ())
+                }),
+            })
+    }
+}
+fn format_metadata(metadata: ResearchActivityMetadata, context: Option<PathBuf>) -> ResearchActivityMetadata {
+    let path_parent = match context {
+        | Some(path) => parent(path),
+        | None => PathBuf::from("."),
+    };
+    debug!(path = path_parent.to_absolute_path(), "=> {} Parent directory", Label::using());
+    let name = match image_paths(&path_parent) {
+        | value if !value.is_empty() => value.first().and_then(|v| v.file_name().map(|f| f.to_string_lossy().to_string())),
+        | _ => None,
+    };
+    let media = match name {
+        | Some(value) => {
+            debug!(value, "=> {} First image", Label::using());
+            let first_graphic = match metadata.media.clone() {
+                | Some(values) if !values.is_empty() => {
+                    let caption = metadata.clone().first_image_caption();
+                    let image_data = ImageObject::init().caption(caption.to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+                | Some(_) | None => {
+                    let image_data = ImageObject::init().caption("".to_string()).content_url(value.clone()).build();
+                    MediaObject::Image(image_data)
+                }
+            };
+            let rest = match metadata.clone().media {
+                | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
+                | Some(_) | None => vec![],
+            };
+            Some([vec![first_graphic], rest].concat())
+        }
+        | None => metadata.media.clone(),
+    };
+    ResearchActivityMetadata { media, ..metadata }.format()
+}
 fn read_document(path: impl Into<PathBuf>) -> ApiResult<text::Document> {
     SourceDocument::at(path).extract().map(|content| text::Document { content })
 }
 fn read_document_text(path: impl Into<PathBuf>) -> ApiResult<text::Document> {
     read_file(path.into()).map(|content| text::Document { content })
 }
+fn read_text(path: impl Into<PathBuf>) -> ApiResult<Text> {
+    read_file(path.into()).map(|content| Text { content })
+}
 fn write_document_text(value: &text::Document, path: impl Into<PathBuf>) -> ApiResult<()> {
+    write_file(path, value.content().to_string())
+}
+fn write_text(value: &Text, path: impl Into<PathBuf>) -> ApiResult<()> {
     write_file(path, value.content().to_string())
 }

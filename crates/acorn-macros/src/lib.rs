@@ -7,16 +7,105 @@ use syn::{
     PathArguments, Token, Type,
 };
 
-/// Derive deterministic, allocation-compatible ACORN validation.
-///
-/// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
-/// and `#[validate(each(async(function = "path")))]` on supported collections.
-#[proc_macro_derive(Validate, attributes(validate))]
-pub fn derive_validate(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+#[derive(Debug)]
+enum CmdWord {
+    Literal(String),
+    Var(String),
+    Splat(String),
 }
-
+#[derive(Clone)]
+enum ValidationRule {
+    Required(RuleOptions),
+    Length(Box<LengthOptions>),
+    Range(Box<RangeOptions>),
+    Contains(Expr, RuleOptions),
+    Date(RuleOptions),
+    Timestamp(RuleOptions),
+    Nonempty(RuleOptions),
+    Url(RuleOptions),
+    Email(RuleOptions),
+    Custom(syn::Path, RuleOptions),
+    Async(syn::Path, RuleOptions),
+    Nested,
+    Pid(syn::Ident, RuleOptions),
+    Scalar(syn::Ident, RuleOptions),
+    Version(RuleOptions),
+    Year(RuleOptions),
+    Each(Box<ValidationRule>),
+    Not(Box<ValidationRule>, RuleOptions),
+    Optional(Box<ValidationRule>),
+    Or(Vec<ValidationRule>, RuleOptions),
+}
+#[derive(Clone, Default)]
+struct LengthOptions {
+    min: Option<Expr>,
+    max: Option<Expr>,
+    equal: Option<Expr>,
+    rule: RuleOptions,
+}
+#[derive(Clone, Default)]
+struct RangeOptions {
+    min: Option<Expr>,
+    max: Option<Expr>,
+    rule: RuleOptions,
+}
+struct RowConfig {
+    order_by: Option<String>,
+    table: Option<String>,
+}
+#[derive(Clone, Default)]
+struct RuleOptions {
+    code: Option<LitStr>,
+    message: Option<LitStr>,
+}
+struct SchemaRule {
+    function: syn::Path,
+    skip_on_field_errors: bool,
+    asynchronous: bool,
+    context: Option<Expr>,
+    code: Option<LitStr>,
+    message: Option<LitStr>,
+    guard: Option<Expr>,
+}
+impl RuleOptions {
+    fn has_overrides(&self) -> bool {
+        self.code.is_some() || self.message.is_some()
+    }
+}
+impl ValidationRule {
+    fn is_async(&self) -> bool {
+        match self {
+            | Self::Async(_, _) => true,
+            | Self::Each(inner) | Self::Not(inner, _) | Self::Optional(inner) => inner.is_async(),
+            | Self::Or(alternatives, _) => alternatives.iter().any(Self::is_async),
+            | _ => false,
+        }
+    }
+}
+fn acorn_path() -> proc_macro2::TokenStream {
+    for candidate in ["acorn-schema", "acorn-lib", "acorn-core"] {
+        if let Ok(found) = crate_name(candidate) {
+            return match found {
+                | FoundCrate::Itself => quote! { crate },
+                | FoundCrate::Name(name) => {
+                    let mapped = match name.as_str() {
+                        | "acorn_lib" => "acorn".to_string(),
+                        | other => other.replace('-', "_"),
+                    };
+                    let ident = format_ident!("{}", mapped);
+                    quote! { ::#ident }
+                }
+            };
+        }
+    }
+    quote! { ::acorn }
+}
+/// Parses a literal `cmd!("...")` command into shell words with `{var}` and `{args...}` interpolation.
+#[proc_macro]
+pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as LitStr);
+    expand_cmd_sh_words(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 /// Generates row metadata and query helpers for database row structs.
 ///
 /// Attributes:
@@ -55,21 +144,33 @@ pub fn derive_database_row(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_database_row(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
-/// Parses a literal `cmd!("...")` command into shell words with `{var}` and `{args...}` interpolation.
-#[proc_macro]
-pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as LitStr);
-    expand_cmd_sh_words(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+/// Derive deterministic, allocation-compatible ACORN validation.
+///
+/// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
+/// and `#[validate(each(async(function = "path")))]` on supported collections.
+#[proc_macro_derive(Validate, attributes(validate))]
+pub fn derive_validate(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
-struct RowConfig {
-    order_by: Option<String>,
-    table: Option<String>,
+fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str]) -> syn::Result<()> {
+    nested.into_iter().try_for_each(|meta| {
+        allowed
+            .iter()
+            .any(|name| meta.path().is_ident(name) || is_path_ident(meta.path(), name))
+            .then_some(())
+            .ok_or_else(|| syn::Error::new_spanned(meta, "unknown validation argument"))
+    })
 }
-#[derive(Debug)]
-enum CmdWord {
-    Literal(String),
-    Var(String),
-    Splat(String),
+fn error_tokens(
+    _acorn: &proc_macro2::TokenStream,
+    code: &str,
+    options: &RuleOptions,
+    default_message: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    let code = options.code.as_ref().map(|value| quote! { #value }).unwrap_or_else(|| quote! { #code });
+    let message = options.message.as_ref().map(|value| quote! { #value }).unwrap_or(default_message);
+    quote! { ::acorn_core::validation::ValidationError::new(#code).with_message((#message)) }
 }
 fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::TokenStream> {
     let words = parse_cmd_words(&input.value()).map_err(|message| syn::Error::new(input.span(), message))?;
@@ -97,111 +198,6 @@ fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::TokenStream> 
     Ok(quote! {
         [#(#parts),*].concat()
     })
-}
-fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
-    let chars = command.chars().collect::<Vec<_>>();
-    let mut words = Vec::new();
-    let mut current = String::new();
-    let mut index = 0;
-    while index < chars.len() {
-        match chars[index] {
-            | ch if ch.is_whitespace() => {
-                push_literal(&mut words, &mut current);
-                index += 1;
-            }
-            | '\'' => {
-                index += 1;
-                while index < chars.len() && chars[index] != '\'' {
-                    current.push(chars[index]);
-                    index += 1;
-                }
-                if index == chars.len() {
-                    return Err("cmd!(sh ...): unterminated single quote".to_string());
-                }
-                index += 1;
-            }
-            | '"' => {
-                index += 1;
-                while index < chars.len() && chars[index] != '"' {
-                    if chars[index] == '{' && read_interpolation(&chars, index).is_some() {
-                        return Err("cmd!(...): interpolation must occupy an unquoted shell word".to_string());
-                    }
-                    if chars[index] == '\\' {
-                        index += 1;
-                        if index == chars.len() {
-                            return Err("cmd!(...): trailing escape in double quote".to_string());
-                        }
-                    }
-                    current.push(chars[index]);
-                    index += 1;
-                }
-                if index == chars.len() {
-                    return Err("cmd!(...): unterminated double quote".to_string());
-                }
-                index += 1;
-            }
-            | '\\' => {
-                index += 1;
-                if index == chars.len() {
-                    return Err("cmd!(...): trailing escape".to_string());
-                }
-                current.push(chars[index]);
-                index += 1;
-            }
-            | '{' => match read_interpolation(&chars, index) {
-                | Some((name, false, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
-                    words.push(CmdWord::Var(name));
-                    index = next;
-                }
-                | Some((name, true, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
-                    words.push(CmdWord::Splat(name));
-                    index = next;
-                }
-                | Some(_) => return Err("cmd!(...): interpolation must occupy a full shell word".to_string()),
-                | None => {
-                    current.push(chars[index]);
-                    index += 1;
-                }
-            },
-            | ch => {
-                current.push(ch);
-                index += 1;
-            }
-        }
-    }
-    push_literal(&mut words, &mut current);
-    if words.is_empty() {
-        Err("cmd!(...): empty command string".to_string())
-    } else {
-        Ok(words)
-    }
-}
-fn push_literal(words: &mut Vec<CmdWord>, current: &mut String) {
-    if !current.is_empty() {
-        words.push(CmdWord::Literal(core::mem::take(current)));
-    }
-}
-fn read_interpolation(chars: &[char], start: usize) -> Option<(String, bool, usize)> {
-    let close = chars
-        .iter()
-        .enumerate()
-        .skip(start + 1)
-        .find_map(|(index, ch)| (*ch == '}').then_some(index))?;
-    let content = chars[start + 1..close].iter().collect::<String>();
-    if let Some(name) = content.strip_suffix("...") {
-        is_ident(name).then(|| (name.to_string(), true, close + 1))
-    } else if is_ident(&content) {
-        Some((content, false, close + 1))
-    } else {
-        None
-    }
-}
-fn is_ident(value: &str) -> bool {
-    let mut chars = value.chars();
-    chars.next().is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
-fn next_is_word_boundary(chars: &[char], index: usize) -> bool {
-    chars.get(index).is_none_or(|ch| ch.is_whitespace())
 }
 fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let _name = &input.ident;
@@ -261,174 +257,206 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     })
 }
-fn is_option_bool(ty: &syn::Type) -> bool {
-    match ty {
-        | syn::Type::Path(type_path) => type_path
-            .path
-            .segments
-            .last()
-            .filter(|segment| segment.ident == "Option")
-            .and_then(|segment| match &segment.arguments {
-                | syn::PathArguments::AngleBracketed(args) => args.args.first(),
-                | _ => None,
-            })
-            .and_then(|arg| match arg {
-                | syn::GenericArgument::Type(syn::Type::Path(inner_path)) => inner_path.path.segments.last(),
-                | _ => None,
-            })
-            .is_some_and(|segment| segment.ident == "bool"),
-        | _ => false,
-    }
-}
-fn is_option_timestamp(ty: &syn::Type) -> bool {
-    match ty {
-        | syn::Type::Path(type_path) => type_path
-            .path
-            .segments
-            .last()
-            .filter(|segment| segment.ident == "Option")
-            .and_then(|segment| match &segment.arguments {
-                | syn::PathArguments::AngleBracketed(args) => args.args.first(),
-                | _ => None,
-            })
-            .and_then(|arg| match arg {
-                | syn::GenericArgument::Type(syn::Type::Path(inner_path)) => inner_path.path.segments.last(),
-                | _ => None,
-            })
-            .is_some_and(|segment| segment.ident == "Timestamp"),
-        | _ => false,
-    }
-}
-fn extract_row_config(attrs: &[syn::Attribute]) -> syn::Result<RowConfig> {
-    let mut order_by = None;
-    let mut table = None;
-    for attr in attrs {
-        if attr.path().is_ident("row") {
-            if let Meta::List(meta_list) = &attr.meta {
-                let parsed_list =
-                    meta_list.parse_args_with(syn::punctuated::Punctuated::<syn::MetaNameValue, syn::token::Comma>::parse_terminated)?;
-                for parsed in parsed_list {
-                    if parsed.path.is_ident("order_by") {
-                        if let syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(lit_str), ..
-                        }) = &parsed.value
-                        {
-                            order_by = Some(lit_str.value());
-                        }
-                    }
-                    if parsed.path.is_ident("table") {
-                        match &parsed.value {
-                            | syn::Expr::Lit(syn::ExprLit {
-                                lit: syn::Lit::Str(lit_str), ..
-                            }) => {
-                                table = Some(lit_str.value());
-                            }
-                            | syn::Expr::Path(path_expr) => {
-                                if let Some(segment) = path_expr.path.segments.last() {
-                                    table = Some(segment.ident.to_string());
-                                }
-                            }
-                            | _ => {}
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(RowConfig { order_by, table })
-}
-fn infer_table_name(name: &syn::Ident) -> String {
-    let struct_name = name.to_string();
-    let trimmed = struct_name.strip_suffix("Row").unwrap_or(&struct_name);
-    let mut output = String::new();
-    for (i, c) in trimmed.chars().enumerate() {
-        if c.is_ascii_uppercase() {
-            if i != 0 {
-                output.push('_');
-            }
-            output.push(c.to_ascii_lowercase());
-        } else {
-            output.push(c);
-        }
-    }
-    output
-}
-#[derive(Clone)]
-enum ValidationRule {
-    Required(RuleOptions),
-    Length(Box<LengthOptions>),
-    Range(Box<RangeOptions>),
-    Contains(Expr, RuleOptions),
-    Date(RuleOptions),
-    Timestamp(RuleOptions),
-    Nonempty(RuleOptions),
-    Url(RuleOptions),
-    Email(RuleOptions),
-    Custom(syn::Path, RuleOptions),
-    Async(syn::Path, RuleOptions),
-    Nested,
-    Pid(syn::Ident, RuleOptions),
-    Scalar(syn::Ident, RuleOptions),
-    Version(RuleOptions),
-    Year(RuleOptions),
-    Each(Box<ValidationRule>),
-    Not(Box<ValidationRule>, RuleOptions),
-    Or(Vec<ValidationRule>, RuleOptions),
-}
-#[derive(Clone, Default)]
-struct RuleOptions {
-    code: Option<LitStr>,
-    message: Option<LitStr>,
-}
-#[derive(Clone, Default)]
-struct LengthOptions {
-    min: Option<Expr>,
-    max: Option<Expr>,
-    equal: Option<Expr>,
-    rule: RuleOptions,
-}
-#[derive(Clone, Default)]
-struct RangeOptions {
-    min: Option<Expr>,
-    max: Option<Expr>,
-    rule: RuleOptions,
-}
-struct SchemaRule {
-    function: syn::Path,
-    skip_on_field_errors: bool,
+fn expand_field_rule(
+    acorn: &proc_macro2::TokenStream,
+    rule: &ValidationRule,
+    ident: &syn::Ident,
+    ty: &Type,
+    path: &str,
     asynchronous: bool,
-    context: Option<Expr>,
-    code: Option<LitStr>,
-    message: Option<LitStr>,
-    guard: Option<Expr>,
-}
-impl ValidationRule {
-    fn is_async(&self) -> bool {
-        match self {
-            | Self::Async(_, _) => true,
-            | Self::Each(inner) | Self::Not(inner, _) => inner.is_async(),
-            | Self::Or(alternatives, _) => alternatives.iter().any(Self::is_async),
-            | _ => false,
+) -> syn::Result<proc_macro2::TokenStream> {
+    if matches!(rule, ValidationRule::Each(_)) {
+        let inner = type_argument(ty, "Option").unwrap_or(ty);
+        if !is_collection(inner) {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "each can only validate Vec, arrays, slices, OneOrMany, or optional wrappers",
+            ));
         }
     }
-}
-fn acorn_path() -> proc_macro2::TokenStream {
-    for candidate in ["acorn-schema", "acorn-lib", "acorn-core"] {
-        if let Ok(found) = crate_name(candidate) {
-            return match found {
-                | FoundCrate::Itself => quote! { crate },
-                | FoundCrate::Name(name) => {
-                    let mapped = match name.as_str() {
-                        | "acorn_lib" => "acorn".to_string(),
-                        | other => other.replace('-', "_"),
-                    };
-                    let ident = format_ident!("{}", mapped);
-                    quote! { ::#ident }
+    if matches!(rule, ValidationRule::Optional(_)) {
+        let inner = type_argument(ty, "Option").unwrap_or(ty);
+        if !is_optional_string(inner) {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "optional can only validate String, str, or optional wrappers",
+            ));
+        }
+    }
+    if let ValidationRule::Required(options) = rule {
+        let error = error_tokens(acorn, "required", options, quote! { "required" });
+        return match type_argument(ty, "Option") {
+            | Some(_) => Ok(quote! {
+                if self.#ident.is_none() {
+                    __report.add(#path, #error);
                 }
-            };
+            }),
+            | None => Err(syn::Error::new_spanned(ty, "required can only validate Option fields")),
+        };
+    }
+    let (value, inner_ty, wrapper) = match type_argument(ty, "Option") {
+        | Some(inner) => (
+            quote! { __value },
+            inner,
+            Some(quote! { if let ::core::option::Option::Some(__value) = self.#ident.as_ref() }),
+        ),
+        | None => (quote! { &self.#ident }, ty, None),
+    };
+    let body = expand_rule_body(acorn, rule, &value, inner_ty, path, asynchronous)?;
+    Ok(match wrapper {
+        | Some(wrapper) => quote! { #wrapper { #body } },
+        | None => body,
+    })
+}
+fn expand_rule_body(
+    acorn: &proc_macro2::TokenStream,
+    rule: &ValidationRule,
+    value: &proc_macro2::TokenStream,
+    ty: &Type,
+    path: &str,
+    asynchronous: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
+    match rule {
+        | ValidationRule::Required(_) => Err(syn::Error::new_spanned(ty, "required cannot be nested in this rule")),
+        | ValidationRule::Nested => {
+            if is_collection(ty) {
+                if asynchronous {
+                    Ok(quote! {
+                        for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
+                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(__item).await {
+                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
+                            }
+                        }
+                    })
+                } else {
+                    Ok(quote! {
+                        #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
+                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
+                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
+                            }
+                        });
+                    })
+                }
+            } else if type_argument(ty, "Box").is_some() {
+                if asynchronous {
+                    Ok(quote! {
+                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(&**(#value)).await {
+                            __report.append_prefixed(#path, __nested);
+                        }
+                    })
+                } else {
+                    Ok(quote! {
+                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(&**(#value)) {
+                            __report.append_prefixed(#path, __nested);
+                        }
+                    })
+                }
+            } else if asynchronous {
+                Ok(quote! {
+                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(#value).await {
+                        __report.append_prefixed(#path, __nested);
+                    }
+                })
+            } else {
+                Ok(quote! {
+                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(#value) {
+                        __report.append_prefixed(#path, __nested);
+                    }
+                })
+            }
+        }
+        | ValidationRule::Each(inner) => match inner.as_ref() {
+            | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Required(_) | ValidationRule::Optional(_) => {
+                Err(syn::Error::new_spanned(ty, "each accepts one non-nested scalar rule"))
+            }
+            | ValidationRule::Async(function, options) => {
+                let expression = override_error(quote! { #function(__item).await }, options)?;
+                Ok(quote! {
+                    for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
+                        if let ::core::result::Result::Err(mut __error) = #expression {
+                            __error.add_param("value".into(), __item);
+                            __report.add(#acorn::validation::index_path(#path, __index), __error);
+                        }
+                    }
+                })
+            }
+            | _ => {
+                let expression = scalar_expression(acorn, inner, quote! { __item })?;
+                Ok(quote! {
+                    #acorn::validation::apply_each(&mut __report, #path, #value, |__item| #expression);
+                })
+            }
+        },
+        | ValidationRule::Async(function, options) => {
+            let expression = override_error(quote! { #function(#value).await }, options)?;
+            Ok(quote! {
+                if let ::core::result::Result::Err(mut __error) = #expression {
+                    __error.add_param("value".into(), #value);
+                    __report.add(#path, __error);
+                }
+            })
+        }
+        | ValidationRule::Optional(inner) => {
+            let expression = scalar_expression(acorn, inner, value.clone())?;
+            let optional = optional_value(value, ty);
+            Ok(quote! {
+                if !#acorn::validation::Optional::is_absent(#optional) {
+                    if let ::core::result::Result::Err(mut __error) = #expression {
+                        __error.add_param("value".into(), #value);
+                        __report.add(#path, __error);
+                    }
+                }
+            })
+        }
+        | _ => {
+            let expression = scalar_expression(acorn, rule, value.clone())?;
+            Ok(quote! {
+                if let ::core::result::Result::Err(mut __error) = #expression {
+                    __error.add_param("value".into(), #value);
+                    __report.add(#path, __error);
+                }
+            })
         }
     }
-    quote! { ::acorn }
+}
+fn expand_schema_rule(rule: &SchemaRule, asynchronous: bool) -> proc_macro2::TokenStream {
+    let function = &rule.function;
+    let condition = if rule.skip_on_field_errors {
+        quote! { __report.is_empty() }
+    } else {
+        quote! { true }
+    };
+    let context = rule.context.as_ref().map(|expr| quote! { #expr }).unwrap_or_else(|| quote! { () });
+    let call = if asynchronous {
+        quote! { #function(self, &__context).await }
+    } else {
+        quote! { #function(self, &__context) }
+    };
+    let code = rule.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
+    let message = rule.message.as_ref().map(|value| quote! { __error = __error.with_message((#value)); });
+    let remap = if code.is_some() || message.is_some() {
+        quote! {
+            let mut __error = __issue.error;
+            #code
+            #message
+            __report.add(__issue.path, __error);
+        }
+    } else {
+        quote! { __report.add(__issue.path, __issue.error); }
+    };
+    let guard = rule.guard.as_ref().map(|expr| quote! { if #expr }).unwrap_or_else(|| quote! {});
+    quote! {
+        if #condition {
+            let __context = #context;
+            #guard {
+                if let ::core::result::Result::Err(__schema_report) = #call {
+                    for __issue in ::core::iter::IntoIterator::into_iter(__schema_report.into_issues()) {
+                        #remap
+                    }
+                }
+            }
+        }
+    }
 }
 fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let acorn = acorn_path();
@@ -523,96 +551,352 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
         }
     })
 }
-fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
-    let tokens = match &attribute.meta {
-        | Meta::List(list) => normalize_async_tokens(list.tokens.clone()),
-        | _ => proc_macro2::TokenStream::new(),
-    };
-    Punctuated::<Meta, Token![,]>::parse_terminated
-        .parse2(tokens)
-        .map(Punctuated::into_iter)
-        .map(Iterator::collect)
-        .unwrap_or_else(|_| {
-            vec![Meta::Path(syn::Path::from(syn::Ident::new(
-                "invalid_validate_attribute",
-                proc_macro2::Span::call_site(),
-            )))]
-        })
-}
-fn expand_schema_rule(rule: &SchemaRule, asynchronous: bool) -> proc_macro2::TokenStream {
-    let function = &rule.function;
-    let condition = if rule.skip_on_field_errors {
-        quote! { __report.is_empty() }
-    } else {
-        quote! { true }
-    };
-    let context = rule.context.as_ref().map(|expr| quote! { #expr }).unwrap_or_else(|| quote! { () });
-    let call = if asynchronous {
-        quote! { #function(self, &__context).await }
-    } else {
-        quote! { #function(self, &__context) }
-    };
-    let code = rule.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
-    let message = rule
-        .message
-        .as_ref()
-        .map(|value| quote! { __error = __error.with_message((#value).into()); });
-    let remap = if code.is_some() || message.is_some() {
-        quote! {
-            let mut __error = __issue.error;
-            #code
-            #message
-            __report.add(__issue.path, __error);
-        }
-    } else {
-        quote! { __report.add(__issue.path, __issue.error); }
-    };
-    let guard = rule.guard.as_ref().map(|expr| quote! { if #expr }).unwrap_or_else(|| quote! {});
-    quote! {
-        if #condition {
-            let __context = #context;
-            #guard {
-                if let ::core::result::Result::Err(__schema_report) = #call {
-                    for __issue in ::core::iter::IntoIterator::into_iter(__schema_report.into_issues()) {
-                        #remap
+fn extract_row_config(attrs: &[syn::Attribute]) -> syn::Result<RowConfig> {
+    let mut order_by = None;
+    let mut table = None;
+    for attr in attrs {
+        if attr.path().is_ident("row") {
+            if let Meta::List(meta_list) = &attr.meta {
+                let parsed_list =
+                    meta_list.parse_args_with(syn::punctuated::Punctuated::<syn::MetaNameValue, syn::token::Comma>::parse_terminated)?;
+                for parsed in parsed_list {
+                    if parsed.path.is_ident("order_by") {
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(lit_str), ..
+                        }) = &parsed.value
+                        {
+                            order_by = Some(lit_str.value());
+                        }
+                    }
+                    if parsed.path.is_ident("table") {
+                        match &parsed.value {
+                            | syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Str(lit_str), ..
+                            }) => {
+                                table = Some(lit_str.value());
+                            }
+                            | syn::Expr::Path(path_expr) => {
+                                if let Some(segment) = path_expr.path.segments.last() {
+                                    table = Some(segment.ident.to_string());
+                                }
+                            }
+                            | _ => {}
+                        }
                     }
                 }
             }
         }
     }
+    Ok(RowConfig { order_by, table })
 }
-fn parse_schema_rule(meta: &Meta) -> syn::Result<Option<SchemaRule>> {
-    match meta {
-        | Meta::List(list) if list.path.is_ident("schema") || is_path_ident(&list.path, "async") => {
-            let nested = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
-            ensure_keys(&nested, &["function", "skip_on_field_errors", "context", "code", "message", "if"])?;
-            let function = nested
-                .iter()
-                .find_map(|value| meta_string(value, "function"))
-                .ok_or_else(|| syn::Error::new_spanned(list, "validation rule requires function = \"path\""))?
-                .parse()?;
-            let skip_on_field_errors = nested.iter().find_map(|value| meta_bool(value, "skip_on_field_errors")).unwrap_or(true);
-            let context = nested.iter().find_map(|value| meta_expr(value, "context"));
-            let code = nested.iter().find_map(|value| meta_string(value, "code"));
-            let message = nested.iter().find_map(|value| meta_string(value, "message"));
-            let guard = nested
-                .iter()
-                .find(|value| is_path_ident(value.path(), "if"))
-                .map(meta_guard)
-                .transpose()?
-                .flatten();
-            Ok(Some(SchemaRule {
-                function,
-                skip_on_field_errors,
-                asynchronous: is_path_ident(&list.path, "async"),
-                context,
-                code,
-                message,
-                guard,
-            }))
+fn infer_table_name(name: &syn::Ident) -> String {
+    let struct_name = name.to_string();
+    let trimmed = struct_name.strip_suffix("Row").unwrap_or(&struct_name);
+    let mut output = String::new();
+    for (i, c) in trimmed.chars().enumerate() {
+        if c.is_ascii_uppercase() {
+            if i != 0 {
+                output.push('_');
+            }
+            output.push(c.to_ascii_lowercase());
+        } else {
+            output.push(c);
         }
-        | _ => Err(syn::Error::new_spanned(meta, "only schema(...) and async(...) are supported on a struct")),
     }
+    output
+}
+fn is_collection(ty: &Type) -> bool {
+    match ty {
+        | Type::Array(_) | Type::Slice(_) => true,
+        | Type::Reference(reference) => is_collection(&reference.elem),
+        | _ => ["Vec", "OneOrMany", "BTreeMap"].iter().any(|name| type_argument(ty, name).is_some()),
+    }
+}
+fn is_ident(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next().is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+}
+fn is_option_bool(ty: &syn::Type) -> bool {
+    match ty {
+        | syn::Type::Path(type_path) => type_path
+            .path
+            .segments
+            .last()
+            .filter(|segment| segment.ident == "Option")
+            .and_then(|segment| match &segment.arguments {
+                | syn::PathArguments::AngleBracketed(args) => args.args.first(),
+                | _ => None,
+            })
+            .and_then(|arg| match arg {
+                | syn::GenericArgument::Type(syn::Type::Path(inner_path)) => inner_path.path.segments.last(),
+                | _ => None,
+            })
+            .is_some_and(|segment| segment.ident == "bool"),
+        | _ => false,
+    }
+}
+fn is_option_timestamp(ty: &syn::Type) -> bool {
+    match ty {
+        | syn::Type::Path(type_path) => type_path
+            .path
+            .segments
+            .last()
+            .filter(|segment| segment.ident == "Option")
+            .and_then(|segment| match &segment.arguments {
+                | syn::PathArguments::AngleBracketed(args) => args.args.first(),
+                | _ => None,
+            })
+            .and_then(|arg| match arg {
+                | syn::GenericArgument::Type(syn::Type::Path(inner_path)) => inner_path.path.segments.last(),
+                | _ => None,
+            })
+            .is_some_and(|segment| segment.ident == "Timestamp"),
+        | _ => false,
+    }
+}
+fn is_optional_string(ty: &Type) -> bool {
+    match ty {
+        | Type::Path(path) => path.path.segments.last().is_some_and(|segment| segment.ident == "String"),
+        | Type::Reference(reference) => match reference.elem.as_ref() {
+            | Type::Path(path) => path.path.segments.last().is_some_and(|segment| segment.ident == "str"),
+            | _ => false,
+        },
+        | _ => false,
+    }
+}
+fn is_path_ident(path: &syn::Path, name: &str) -> bool {
+    path.get_ident().is_some_and(|ident| ident.to_string().trim_start_matches("r#") == name)
+}
+fn is_recursive_box(ty: &Type, name: &syn::Ident) -> bool {
+    let inner = type_argument(ty, "Option").unwrap_or(ty);
+    type_argument(inner, "Box").is_some_and(|boxed| match boxed {
+        | Type::Path(path) => path.path.segments.last().is_some_and(|segment| segment.ident == *name),
+        | _ => false,
+    })
+}
+fn meta_bool(meta: &Meta, name: &str) -> Option<bool> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Bool(value), .. }) => Some(value.value),
+            | _ => None,
+        },
+        | _ => None,
+    }
+}
+fn meta_expr(meta: &Meta, name: &str) -> Option<Expr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().ok(),
+            | expression => Some(expression.clone()),
+        },
+        | _ => None,
+    }
+}
+fn meta_guard(meta: &Meta) -> syn::Result<Option<Expr>> {
+    if !is_path_ident(meta.path(), "if") {
+        return Ok(None);
+    }
+    match meta {
+        | Meta::NameValue(value) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().map(Some),
+            | expression => Ok(Some(expression.clone())),
+        },
+        | _ => Err(syn::Error::new_spanned(meta, "if requires a boolean expression")),
+    }
+}
+fn meta_string(meta: &Meta, name: &str) -> Option<LitStr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
+            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => Some(value.clone()),
+            | _ => None,
+        },
+        | _ => None,
+    }
+}
+fn meta_value_expr(meta: &Meta, name: &str) -> Option<Expr> {
+    match meta {
+        | Meta::NameValue(value) if value.path.is_ident(name) => Some(value.value.clone()),
+        | _ => None,
+    }
+}
+fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
+    match meta {
+        | Meta::List(list) => Punctuated::<Meta, Token![,]>::parse_terminated
+            .parse2(normalize_async_tokens(list.tokens.clone()))
+            .map(Punctuated::into_iter)
+            .map(Iterator::collect),
+        | _ => Ok(Vec::new()),
+    }
+}
+fn next_is_word_boundary(chars: &[char], index: usize) -> bool {
+    chars.get(index).is_none_or(|ch| ch.is_whitespace())
+}
+fn normalize_async_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    tokens
+        .into_iter()
+        .map(|token| match token {
+            | proc_macro2::TokenTree::Ident(ident) if ident == "async" || ident == "if" => {
+                let name = ident.to_string();
+                proc_macro2::TokenTree::Ident(proc_macro2::Ident::new_raw(&name, ident.span()))
+            }
+            | proc_macro2::TokenTree::Group(group) => {
+                let mut normalized = proc_macro2::Group::new(group.delimiter(), normalize_async_tokens(group.stream()));
+                normalized.set_span(group.span());
+                proc_macro2::TokenTree::Group(normalized)
+            }
+            | token => token,
+        })
+        .collect()
+}
+fn optional_value(value: &proc_macro2::TokenStream, ty: &Type) -> proc_macro2::TokenStream {
+    match ty {
+        | Type::Reference(_) => quote! { *(#value) },
+        | _ => value.clone(),
+    }
+}
+fn options_from_nested(nested: &[Meta]) -> RuleOptions {
+    RuleOptions {
+        code: nested.iter().find_map(|value| meta_string(value, "code")),
+        message: nested.iter().find_map(|value| meta_string(value, "message")),
+    }
+}
+fn override_error(expression: proc_macro2::TokenStream, options: &RuleOptions) -> syn::Result<proc_macro2::TokenStream> {
+    let code = options.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
+    let message = options.message.as_ref().map(|value| quote! { __error = __error.with_message((#value)); });
+    Ok(quote! {
+        (#expression).map_err(|mut __error| {
+            #code
+            #message
+            __error
+        })
+    })
+}
+fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
+    let chars = command.chars().collect::<Vec<_>>();
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut index = 0;
+    while index < chars.len() {
+        match chars[index] {
+            | ch if ch.is_whitespace() => {
+                push_literal(&mut words, &mut current);
+                index += 1;
+            }
+            | '\'' => {
+                index += 1;
+                while index < chars.len() && chars[index] != '\'' {
+                    current.push(chars[index]);
+                    index += 1;
+                }
+                if index == chars.len() {
+                    return Err("cmd!(sh ...): unterminated single quote".to_string());
+                }
+                index += 1;
+            }
+            | '"' => {
+                index += 1;
+                while index < chars.len() && chars[index] != '"' {
+                    if chars[index] == '{' && read_interpolation(&chars, index).is_some() {
+                        return Err("cmd!(...): interpolation must occupy an unquoted shell word".to_string());
+                    }
+                    if chars[index] == '\\' {
+                        index += 1;
+                        if index == chars.len() {
+                            return Err("cmd!(...): trailing escape in double quote".to_string());
+                        }
+                    }
+                    current.push(chars[index]);
+                    index += 1;
+                }
+                if index == chars.len() {
+                    return Err("cmd!(...): unterminated double quote".to_string());
+                }
+                index += 1;
+            }
+            | '\\' => {
+                index += 1;
+                if index == chars.len() {
+                    return Err("cmd!(...): trailing escape".to_string());
+                }
+                current.push(chars[index]);
+                index += 1;
+            }
+            | '{' => match read_interpolation(&chars, index) {
+                | Some((name, false, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+                    words.push(CmdWord::Var(name));
+                    index = next;
+                }
+                | Some((name, true, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
+                    words.push(CmdWord::Splat(name));
+                    index = next;
+                }
+                | Some(_) => return Err("cmd!(...): interpolation must occupy a full shell word".to_string()),
+                | None => {
+                    current.push(chars[index]);
+                    index += 1;
+                }
+            },
+            | ch => {
+                current.push(ch);
+                index += 1;
+            }
+        }
+    }
+    push_literal(&mut words, &mut current);
+    if words.is_empty() {
+        Err("cmd!(...): empty command string".to_string())
+    } else {
+        Ok(words)
+    }
+}
+fn parse_length_options(meta: &Meta) -> syn::Result<LengthOptions> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(&nested, &["min", "max", "equal", "code", "message"])?;
+    Ok(LengthOptions {
+        min: nested.iter().find_map(|value| meta_expr(value, "min")),
+        max: nested.iter().find_map(|value| meta_expr(value, "max")),
+        equal: nested.iter().find_map(|value| meta_expr(value, "equal")),
+        rule: options_from_nested(&nested),
+    })
+}
+fn parse_or_rule(meta: &Meta) -> syn::Result<ValidationRule> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(nested.iter().filter(|value| matches!(value, Meta::NameValue(_))), &["code", "message"])?;
+    let alternatives = nested
+        .iter()
+        .filter(|value| !matches!(value, Meta::NameValue(_)))
+        .try_fold(Vec::new(), |mut alternatives, candidate| match parse_rule(candidate, true)? {
+            | ValidationRule::Or(_, options) if options.has_overrides() => {
+                Err(syn::Error::new_spanned(candidate, "nested or cannot override code or message"))
+            }
+            | ValidationRule::Or(nested, _) => {
+                alternatives.extend(nested);
+                Ok(alternatives)
+            }
+            | ValidationRule::Required(_)
+            | ValidationRule::Nested
+            | ValidationRule::Each(_)
+            | ValidationRule::Optional(_)
+            | ValidationRule::Async(_, _) => Err(syn::Error::new_spanned(candidate, "or accepts only synchronous scalar rules")),
+            | alternative => {
+                alternatives.push(alternative);
+                Ok(alternatives)
+            }
+        })?;
+    if alternatives.len() < 2 {
+        Err(syn::Error::new_spanned(meta, "or requires at least two scalar rules"))
+    } else {
+        Ok(ValidationRule::Or(alternatives, options_from_nested(&nested)))
+    }
+}
+fn parse_range_options(meta: &Meta) -> syn::Result<RangeOptions> {
+    let nested = nested_meta(meta)?;
+    ensure_keys(&nested, &["min", "max", "code", "message"])?;
+    Ok(RangeOptions {
+        min: nested.iter().find_map(|value| meta_expr(value, "min")),
+        max: nested.iter().find_map(|value| meta_expr(value, "max")),
+        rule: options_from_nested(&nested),
+    })
 }
 fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
     let path = meta.path();
@@ -691,12 +975,28 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
                 | ValidationRule::Nested
                 | ValidationRule::Each(_)
                 | ValidationRule::Not(_, _)
+                | ValidationRule::Optional(_)
                 | ValidationRule::Or(_, _)
                 | ValidationRule::Async(_, _)
         ) {
             return Err(syn::Error::new_spanned(rules[0], "not accepts one synchronous scalar rule"));
         }
         Ok(ValidationRule::Not(Box::new(inner), options_from_nested(&nested)))
+    } else if path.is_ident("optional") {
+        let nested = nested_meta(meta)?;
+        if nested.len() != 1 {
+            return Err(syn::Error::new_spanned(meta, "optional accepts exactly one scalar rule"));
+        }
+        let candidate = &nested[0];
+        if candidate.path().is_ident("required")
+            || candidate.path().is_ident("nested")
+            || candidate.path().is_ident("each")
+            || candidate.path().is_ident("optional")
+            || is_path_ident(candidate.path(), "async")
+        {
+            return Err(syn::Error::new_spanned(candidate, "optional accepts one synchronous scalar rule"));
+        }
+        Ok(ValidationRule::Optional(Box::new(parse_rule(candidate, true)?)))
     } else if path.is_ident("or") {
         parse_or_rule(meta)
     } else {
@@ -726,317 +1026,78 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
         }
     }
 }
-fn parse_or_rule(meta: &Meta) -> syn::Result<ValidationRule> {
-    let nested = nested_meta(meta)?;
-    ensure_keys(nested.iter().filter(|value| matches!(value, Meta::NameValue(_))), &["code", "message"])?;
-    let alternatives = nested
-        .iter()
-        .filter(|value| !matches!(value, Meta::NameValue(_)))
-        .try_fold(Vec::new(), |mut alternatives, candidate| match parse_rule(candidate, true)? {
-            | ValidationRule::Or(_, options) if options.has_overrides() => {
-                Err(syn::Error::new_spanned(candidate, "nested or cannot override code or message"))
-            }
-            | ValidationRule::Or(nested, _) => {
-                alternatives.extend(nested);
-                Ok(alternatives)
-            }
-            | ValidationRule::Required(_) | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Async(_, _) => {
-                Err(syn::Error::new_spanned(candidate, "or accepts only synchronous scalar rules"))
-            }
-            | alternative => {
-                alternatives.push(alternative);
-                Ok(alternatives)
-            }
-        })?;
-    if alternatives.len() < 2 {
-        Err(syn::Error::new_spanned(meta, "or requires at least two scalar rules"))
-    } else {
-        Ok(ValidationRule::Or(alternatives, options_from_nested(&nested)))
-    }
-}
-fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
-    match meta {
-        | Meta::List(list) => Punctuated::<Meta, Token![,]>::parse_terminated
-            .parse2(normalize_async_tokens(list.tokens.clone()))
-            .map(Punctuated::into_iter)
-            .map(Iterator::collect),
-        | _ => Ok(Vec::new()),
-    }
-}
-fn is_path_ident(path: &syn::Path, name: &str) -> bool {
-    path.get_ident().is_some_and(|ident| ident.to_string().trim_start_matches("r#") == name)
-}
-fn normalize_async_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
-    tokens
-        .into_iter()
-        .map(|token| match token {
-            | proc_macro2::TokenTree::Ident(ident) if ident == "async" || ident == "if" => {
-                let name = ident.to_string();
-                proc_macro2::TokenTree::Ident(proc_macro2::Ident::new_raw(&name, ident.span()))
-            }
-            | proc_macro2::TokenTree::Group(group) => {
-                let mut normalized = proc_macro2::Group::new(group.delimiter(), normalize_async_tokens(group.stream()));
-                normalized.set_span(group.span());
-                proc_macro2::TokenTree::Group(normalized)
-            }
-            | token => token,
-        })
-        .collect()
-}
 fn parse_rule_options(meta: &Meta) -> syn::Result<RuleOptions> {
     let nested = nested_meta(meta)?;
     ensure_keys(&nested, &["code", "message"])?;
     Ok(options_from_nested(&nested))
 }
-fn options_from_nested(nested: &[Meta]) -> RuleOptions {
-    RuleOptions {
-        code: nested.iter().find_map(|value| meta_string(value, "code")),
-        message: nested.iter().find_map(|value| meta_string(value, "message")),
-    }
-}
-fn parse_length_options(meta: &Meta) -> syn::Result<LengthOptions> {
-    let nested = nested_meta(meta)?;
-    ensure_keys(&nested, &["min", "max", "equal", "code", "message"])?;
-    Ok(LengthOptions {
-        min: nested.iter().find_map(|value| meta_expr(value, "min")),
-        max: nested.iter().find_map(|value| meta_expr(value, "max")),
-        equal: nested.iter().find_map(|value| meta_expr(value, "equal")),
-        rule: options_from_nested(&nested),
-    })
-}
-fn parse_range_options(meta: &Meta) -> syn::Result<RangeOptions> {
-    let nested = nested_meta(meta)?;
-    ensure_keys(&nested, &["min", "max", "code", "message"])?;
-    Ok(RangeOptions {
-        min: nested.iter().find_map(|value| meta_expr(value, "min")),
-        max: nested.iter().find_map(|value| meta_expr(value, "max")),
-        rule: options_from_nested(&nested),
-    })
-}
-fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str]) -> syn::Result<()> {
-    nested.into_iter().try_for_each(|meta| {
-        allowed
-            .iter()
-            .any(|name| meta.path().is_ident(name) || is_path_ident(meta.path(), name))
-            .then_some(())
-            .ok_or_else(|| syn::Error::new_spanned(meta, "unknown validation argument"))
-    })
-}
-fn meta_guard(meta: &Meta) -> syn::Result<Option<Expr>> {
-    if !is_path_ident(meta.path(), "if") {
-        return Ok(None);
-    }
+fn parse_schema_rule(meta: &Meta) -> syn::Result<Option<SchemaRule>> {
     match meta {
-        | Meta::NameValue(value) => match &value.value {
-            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().map(Some),
-            | expression => Ok(Some(expression.clone())),
-        },
-        | _ => Err(syn::Error::new_spanned(meta, "if requires a boolean expression")),
-    }
-}
-fn meta_expr(meta: &Meta, name: &str) -> Option<Expr> {
-    match meta {
-        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
-            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => value.parse().ok(),
-            | expression => Some(expression.clone()),
-        },
-        | _ => None,
-    }
-}
-fn meta_value_expr(meta: &Meta, name: &str) -> Option<Expr> {
-    match meta {
-        | Meta::NameValue(value) if value.path.is_ident(name) => Some(value.value.clone()),
-        | _ => None,
-    }
-}
-fn meta_string(meta: &Meta, name: &str) -> Option<LitStr> {
-    match meta {
-        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
-            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => Some(value.clone()),
-            | _ => None,
-        },
-        | _ => None,
-    }
-}
-fn meta_bool(meta: &Meta, name: &str) -> Option<bool> {
-    match meta {
-        | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
-            | Expr::Lit(ExprLit { lit: Lit::Bool(value), .. }) => Some(value.value),
-            | _ => None,
-        },
-        | _ => None,
-    }
-}
-fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
-    match ty {
-        | Type::Path(value) => value
-            .path
-            .segments
-            .last()
-            .filter(|segment| segment.ident == wrapper)
-            .and_then(|segment| match &segment.arguments {
-                | PathArguments::AngleBracketed(arguments) => arguments.args.iter().find_map(|argument| match argument {
-                    | GenericArgument::Type(ty) => Some(ty),
-                    | _ => None,
-                }),
-                | _ => None,
-            }),
-        | _ => None,
-    }
-}
-fn is_recursive_box(ty: &Type, name: &syn::Ident) -> bool {
-    let inner = type_argument(ty, "Option").unwrap_or(ty);
-    type_argument(inner, "Box").is_some_and(|boxed| match boxed {
-        | Type::Path(path) => path.path.segments.last().is_some_and(|segment| segment.ident == *name),
-        | _ => false,
-    })
-}
-fn is_collection(ty: &Type) -> bool {
-    match ty {
-        | Type::Array(_) | Type::Slice(_) => true,
-        | Type::Reference(reference) => is_collection(&reference.elem),
-        | _ => ["Vec", "OneOrMany", "BTreeMap"].iter().any(|name| type_argument(ty, name).is_some()),
-    }
-}
-fn expand_field_rule(
-    acorn: &proc_macro2::TokenStream,
-    rule: &ValidationRule,
-    ident: &syn::Ident,
-    ty: &Type,
-    path: &str,
-    asynchronous: bool,
-) -> syn::Result<proc_macro2::TokenStream> {
-    if matches!(rule, ValidationRule::Each(_)) {
-        let inner = type_argument(ty, "Option").unwrap_or(ty);
-        if !is_collection(inner) {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "each can only validate Vec, arrays, slices, OneOrMany, or optional wrappers",
-            ));
+        | Meta::List(list) if list.path.is_ident("schema") || is_path_ident(&list.path, "async") => {
+            let nested = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?;
+            ensure_keys(&nested, &["function", "skip_on_field_errors", "context", "code", "message", "if"])?;
+            let function = nested
+                .iter()
+                .find_map(|value| meta_string(value, "function"))
+                .ok_or_else(|| syn::Error::new_spanned(list, "validation rule requires function = \"path\""))?
+                .parse()?;
+            let skip_on_field_errors = nested.iter().find_map(|value| meta_bool(value, "skip_on_field_errors")).unwrap_or(true);
+            let context = nested.iter().find_map(|value| meta_expr(value, "context"));
+            let code = nested.iter().find_map(|value| meta_string(value, "code"));
+            let message = nested.iter().find_map(|value| meta_string(value, "message"));
+            let guard = nested
+                .iter()
+                .find(|value| is_path_ident(value.path(), "if"))
+                .map(meta_guard)
+                .transpose()?
+                .flatten();
+            Ok(Some(SchemaRule {
+                function,
+                skip_on_field_errors,
+                asynchronous: is_path_ident(&list.path, "async"),
+                context,
+                code,
+                message,
+                guard,
+            }))
         }
+        | _ => Err(syn::Error::new_spanned(meta, "only schema(...) and async(...) are supported on a struct")),
     }
-    if let ValidationRule::Required(options) = rule {
-        let error = error_tokens(acorn, "required", options, quote! { "required" });
-        return match type_argument(ty, "Option") {
-            | Some(_) => Ok(quote! {
-                if self.#ident.is_none() {
-                    __report.add(#path, #error);
-                }
-            }),
-            | None => Err(syn::Error::new_spanned(ty, "required can only validate Option fields")),
-        };
-    }
-    let (value, inner_ty, wrapper) = match type_argument(ty, "Option") {
-        | Some(inner) => (
-            quote! { __value },
-            inner,
-            Some(quote! { if let ::core::option::Option::Some(__value) = self.#ident.as_ref() }),
-        ),
-        | None => (quote! { &self.#ident }, ty, None),
+}
+fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
+    let tokens = match &attribute.meta {
+        | Meta::List(list) => normalize_async_tokens(list.tokens.clone()),
+        | _ => proc_macro2::TokenStream::new(),
     };
-    let body = expand_rule_body(acorn, rule, &value, inner_ty, path, asynchronous)?;
-    Ok(match wrapper {
-        | Some(wrapper) => quote! { #wrapper { #body } },
-        | None => body,
-    })
+    Punctuated::<Meta, Token![,]>::parse_terminated
+        .parse2(tokens)
+        .map(Punctuated::into_iter)
+        .map(Iterator::collect)
+        .unwrap_or_else(|_| {
+            vec![Meta::Path(syn::Path::from(syn::Ident::new(
+                "invalid_validate_attribute",
+                proc_macro2::Span::call_site(),
+            )))]
+        })
 }
-fn expand_rule_body(
-    acorn: &proc_macro2::TokenStream,
-    rule: &ValidationRule,
-    value: &proc_macro2::TokenStream,
-    ty: &Type,
-    path: &str,
-    asynchronous: bool,
-) -> syn::Result<proc_macro2::TokenStream> {
-    match rule {
-        | ValidationRule::Required(_) => Err(syn::Error::new_spanned(ty, "required cannot be nested in this rule")),
-        | ValidationRule::Nested => {
-            if is_collection(ty) {
-                if asynchronous {
-                    Ok(quote! {
-                        for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
-                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(__item).await {
-                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
-                            }
-                        }
-                    })
-                } else {
-                    Ok(quote! {
-                        #acorn::validation::Each::each_iter(#value).enumerate().for_each(|(__index, __item)| {
-                            if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(__item) {
-                                __report.append_prefixed(&#acorn::validation::index_path(#path, __index), __nested);
-                            }
-                        });
-                    })
-                }
-            } else if type_argument(ty, "Box").is_some() {
-                if asynchronous {
-                    Ok(quote! {
-                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(&**(#value)).await {
-                            __report.append_prefixed(#path, __nested);
-                        }
-                    })
-                } else {
-                    Ok(quote! {
-                        if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(&**(#value)) {
-                            __report.append_prefixed(#path, __nested);
-                        }
-                    })
-                }
-            } else if asynchronous {
-                Ok(quote! {
-                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate_async(#value).await {
-                        __report.append_prefixed(#path, __nested);
-                    }
-                })
-            } else {
-                Ok(quote! {
-                    if let ::core::result::Result::Err(__nested) = #acorn::validation::Validate::validate(#value) {
-                        __report.append_prefixed(#path, __nested);
-                    }
-                })
-            }
-        }
-        | ValidationRule::Each(inner) => match inner.as_ref() {
-            | ValidationRule::Nested | ValidationRule::Each(_) | ValidationRule::Required(_) => {
-                Err(syn::Error::new_spanned(ty, "each accepts one non-nested scalar rule"))
-            }
-            | ValidationRule::Async(function, options) => {
-                let expression = override_error(quote! { #function(__item).await }, options)?;
-                Ok(quote! {
-                    for (__index, __item) in #acorn::validation::Each::each_iter(#value).enumerate() {
-                        if let ::core::result::Result::Err(mut __error) = #expression {
-                            __error.add_param("value".into(), __item);
-                            __report.add(#acorn::validation::index_path(#path, __index), __error);
-                        }
-                    }
-                })
-            }
-            | _ => {
-                let expression = scalar_expression(acorn, inner, quote! { __item })?;
-                Ok(quote! {
-                    #acorn::validation::apply_each(&mut __report, #path, #value, |__item| #expression);
-                })
-            }
-        },
-        | ValidationRule::Async(function, options) => {
-            let expression = override_error(quote! { #function(#value).await }, options)?;
-            Ok(quote! {
-                if let ::core::result::Result::Err(mut __error) = #expression {
-                    __error.add_param("value".into(), #value);
-                    __report.add(#path, __error);
-                }
-            })
-        }
-        | _ => {
-            let expression = scalar_expression(acorn, rule, value.clone())?;
-            Ok(quote! {
-                if let ::core::result::Result::Err(mut __error) = #expression {
-                    __error.add_param("value".into(), #value);
-                    __report.add(#path, __error);
-                }
-            })
-        }
+fn push_literal(words: &mut Vec<CmdWord>, current: &mut String) {
+    if !current.is_empty() {
+        words.push(CmdWord::Literal(core::mem::take(current)));
+    }
+}
+fn read_interpolation(chars: &[char], start: usize) -> Option<(String, bool, usize)> {
+    let close = chars
+        .iter()
+        .enumerate()
+        .skip(start + 1)
+        .find_map(|(index, ch)| (*ch == '}').then_some(index))?;
+    let content = chars[start + 1..close].iter().collect::<String>();
+    if let Some(name) = content.strip_suffix("...") {
+        is_ident(name).then(|| (name.to_string(), true, close + 1))
+    } else if is_ident(&content) {
+        Some((content, false, close + 1))
+    } else {
+        None
     }
 }
 fn scalar_expression(
@@ -1162,35 +1223,24 @@ fn scalar_expression(
         | _ => Err(syn::Error::new(proc_macro2::Span::call_site(), "rule is not scalar")),
     }
 }
-impl RuleOptions {
-    fn has_overrides(&self) -> bool {
-        self.code.is_some() || self.message.is_some()
+fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
+    match ty {
+        | Type::Path(value) => value
+            .path
+            .segments
+            .last()
+            .filter(|segment| segment.ident == wrapper)
+            .and_then(|segment| match &segment.arguments {
+                | PathArguments::AngleBracketed(arguments) => arguments.args.iter().find_map(|argument| match argument {
+                    | GenericArgument::Type(ty) => Some(ty),
+                    | _ => None,
+                }),
+                | _ => None,
+            }),
+        | _ => None,
     }
 }
-fn error_tokens(
-    _acorn: &proc_macro2::TokenStream,
-    code: &str,
-    options: &RuleOptions,
-    default_message: proc_macro2::TokenStream,
-) -> proc_macro2::TokenStream {
-    let code = options.code.as_ref().map(|value| quote! { #value }).unwrap_or_else(|| quote! { #code });
-    let message = options.message.as_ref().map(|value| quote! { #value }).unwrap_or(default_message);
-    quote! { ::acorn_core::validation::ValidationError::new(#code).with_message((#message).into()) }
-}
-fn override_error(expression: proc_macro2::TokenStream, options: &RuleOptions) -> syn::Result<proc_macro2::TokenStream> {
-    let code = options.code.as_ref().map(|value| quote! { __error = __error.with_code(#value); });
-    let message = options
-        .message
-        .as_ref()
-        .map(|value| quote! { __error = __error.with_message((#value).into()); });
-    Ok(quote! {
-        (#expression).map_err(|mut __error| {
-            #code
-            #message
-            __error
-        })
-    })
-}
+
 #[cfg(test)]
 mod tests {
     #![allow(

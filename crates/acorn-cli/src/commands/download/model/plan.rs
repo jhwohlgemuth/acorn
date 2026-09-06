@@ -12,14 +12,14 @@ use acorn::io::database::schema::ModelRow;
 use acorn::io::database::Row;
 use acorn::io::oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport};
 use acorn::io::{first_env_var, ApiResult, Source, SourceAction};
-use acorn::util::constants::app::{DEFAULT_HUGGINGFACE_MODEL_REVISION, OCI_PREFIX};
+use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
+use acorn::util::constants::oci::OCI_PREFIX;
 use acorn::util::{Label, StringConversion};
 use acorn_core::prelude::{HashMap, HashSet, String, Vec};
 use acorn_core::util::{merge, MimeType};
 use acorn_core::{Location, Repository};
-use acorn_schema::schema::agent::{
-    ModelDetails, ModelSelector, ModelSelectors, OciModelDetails, OciModelExtraction, OciModelLayer, Quantization, Weight, WeightGroups, Weights,
-};
+use acorn_schema::oci::{self, ModelExtraction, ModelFile, ModelLayer, ModelLayerRole};
+use acorn_schema::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, Weight, WeightGroups, Weights};
 use acorn_schema::schema::hardware::memory::Memory;
 use acorn_schema::schema::OneOrMany;
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
@@ -95,6 +95,23 @@ pub(crate) struct ResolvedModelDownload {
     resolution: RepositoryResolution<ModelDetails>,
     oci: Option<OciPlanResolution>,
 }
+impl From<&ModelDownloadPlan> for ModelDetails {
+    fn from(plan: &ModelDownloadPlan) -> Self {
+        let is_open = Some(!plan.auth.is_required());
+        Self {
+            id: Some(plan.selector.identifier()),
+            name: Some(plan.name()),
+            weights: Some(Weights::from_source(&plan.selector, is_open)),
+            ..Default::default()
+        }
+    }
+}
+impl From<ResolvedModelDownload> for ModelDetails {
+    fn from(value: ResolvedModelDownload) -> Self {
+        value.resolution.into()
+    }
+}
+impl core::error::Error for ModelDownloadError {}
 impl fmt::Display for ModelDownloadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -109,22 +126,6 @@ impl fmt::Display for ModelDownloadError {
             | Self::NoFilterMatches => write!(formatter, "No models matched --filter/--ignore"),
             | Self::OfflineRemoteModels(value) => write!(formatter, "Offline mode cannot download remote models: {value}"),
             | Self::NoModelsFound => write!(formatter, "No models found"),
-        }
-    }
-}
-impl core::error::Error for ModelDownloadError {}
-impl ResolvedModelDownload {
-    pub(super) fn plan(&self) -> &ModelDownloadPlan {
-        &self.plan
-    }
-    pub(super) async fn execute(&self, options: CommandOptions) -> ApiResult<ModelDetails> {
-        match &self.oci {
-            | Some(resolved) => self.plan.download_from_oci(options, resolved),
-            | None => self
-                .plan
-                .execute(options)
-                .await
-                .map(|identifier| self.plan.details.clone().unwrap_or_else(|| (&self.plan).into()).with_id(&identifier)),
         }
     }
 }
@@ -342,6 +343,7 @@ impl ModelDownloadPlan {
         let weights = resolution
             .files
             .iter()
+            .filter(|file| matches!(file.role, ModelLayerRole::Model | ModelLayerRole::ModelWeight))
             .map(|OciFile { path, installed_size, .. }| Weight {
                 label: path.clone(),
                 url: format!("{identifier}#{path}"),
@@ -355,26 +357,51 @@ impl ModelDownloadPlan {
             name: Some(self.name()),
             fallback: Some(resolution.requested_reference.clone()),
             open_weights: Some(!self.auth.is_required()),
-            oci: Some(OciModelDetails {
+            oci: Some(oci::ModelDetails {
                 registry: resolution.registry.clone(),
                 repository: resolution.repository.clone(),
                 requested_reference: resolution.requested_reference.clone(),
                 resolved_digest: resolution.resolved_digest.clone(),
                 artifact_type: resolution.artifact_type.clone(),
+                package_format: resolution.package_format,
+                inventory_status: resolution.inventory_status,
                 total_size: resolution.total_size,
                 transfer_size: resolution.transfer_size,
                 installed_size: resolution.installed_size,
                 layers: resolution
                     .layers
                     .iter()
-                    .map(|layer| OciModelLayer {
+                    .map(|layer| ModelLayer {
                         media_type: MimeType::OciLayer(layer.media_type.clone()),
                         digest: layer.digest.clone(),
                         transfer_size: layer.transfer_size,
                         role: layer.role,
                         path: layer.path.clone(),
-                        extraction: OciModelExtraction::from(Into::<&str>::into(layer.extraction)),
+                        extraction: ModelExtraction::from(Into::<&str>::into(layer.extraction)),
                         inventory_deferred: layer.inventory_deferred,
+                    })
+                    .collect(),
+                ignored_layers: resolution
+                    .ignored_layers
+                    .iter()
+                    .map(|layer| ModelLayer {
+                        media_type: MimeType::OciLayer(layer.media_type.clone()),
+                        digest: layer.digest.clone(),
+                        transfer_size: layer.transfer_size,
+                        role: layer.role,
+                        path: layer.path.clone(),
+                        extraction: ModelExtraction::from(Into::<&str>::into(layer.extraction)),
+                        inventory_deferred: layer.inventory_deferred,
+                    })
+                    .collect(),
+                materialized_files: resolution
+                    .files
+                    .iter()
+                    .map(|file| ModelFile {
+                        path: file.path.clone(),
+                        role: file.role,
+                        layer_digest: file.layer_digest.clone(),
+                        installed_size: file.installed_size,
                     })
                     .collect(),
                 files: resolution.files.iter().map(|file| file.path.clone()).collect(),
@@ -709,22 +736,6 @@ impl ModelDownloadPlan {
         })
     }
 }
-impl From<&ModelDownloadPlan> for ModelDetails {
-    fn from(plan: &ModelDownloadPlan) -> Self {
-        let is_open = Some(!plan.auth.is_required());
-        Self {
-            id: Some(plan.selector.identifier()),
-            name: Some(plan.name()),
-            weights: Some(Weights::from_source(&plan.selector, is_open)),
-            ..Default::default()
-        }
-    }
-}
-impl From<ResolvedModelDownload> for ModelDetails {
-    fn from(value: ResolvedModelDownload) -> Self {
-        value.resolution.into()
-    }
-}
 impl ModelDownloadPlans {
     pub(super) fn filter(self, filter: &[String], ignore: &[String]) -> ApiResult<Self> {
         FilterSet::compile(ignore, filter).map(|filters| {
@@ -865,6 +876,21 @@ impl ModelDownloadPlans {
             .collect::<Vec<_>>()
             .await;
         results.into_iter().flatten().collect()
+    }
+}
+impl ResolvedModelDownload {
+    pub(super) fn plan(&self) -> &ModelDownloadPlan {
+        &self.plan
+    }
+    pub(super) async fn execute(&self, options: CommandOptions) -> ApiResult<ModelDetails> {
+        match &self.oci {
+            | Some(resolved) => self.plan.download_from_oci(options, resolved),
+            | None => self
+                .plan
+                .execute(options)
+                .await
+                .map(|identifier| self.plan.details.clone().unwrap_or_else(|| (&self.plan).into()).with_id(&identifier)),
+        }
     }
 }
 fn profile_options(
@@ -1028,6 +1054,7 @@ pub(crate) fn run_gguf_picker(candidates: huggingface::Candidates, options: &hug
         acorn_tui::run_with(acorn_tui::Screen::GgufPicker, Some(state))?.ok_or_else(|| eyre!("GGUF repository selection cancelled"))
     }
 }
+
 #[cfg(test)]
 mod metadata_filter_tests {
     use super::*;
@@ -1139,10 +1166,13 @@ mod metadata_filter_tests {
             requested_reference: "v1".to_string(),
             resolved_digest: format!("sha256:{}", "a".repeat(64)),
             artifact_type: None,
+            package_format: oci::ModelArtifactKind::Annotated,
+            inventory_status: oci::ModelInventoryStatus::Complete,
             total_size: 0,
             transfer_size: 0,
             installed_size: Some(0),
             layers: Vec::new(),
+            ignored_layers: Vec::new(),
             files: Vec::new(),
             filter: Vec::new(),
             ignore: Vec::new(),

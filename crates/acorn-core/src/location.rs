@@ -1,5 +1,6 @@
 //! Portable location and repository values.
 use crate::prelude::alloc::{format, Box, String, ToString, Vec};
+use crate::validation::digest;
 use core::convert::Infallible;
 use core::str::FromStr;
 use derive_more::Display;
@@ -106,10 +107,11 @@ pub struct Release {
     /// Provider response message.
     pub message: Option<String>,
 }
-impl FromStr for Location {
-    type Err = Infallible;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(value))
+impl<'a> From<&'a Location> for &'a str {
+    fn from(value: &'a Location) -> Self {
+        match value {
+            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
+        }
     }
 }
 impl From<&str> for Location {
@@ -129,11 +131,10 @@ impl From<&String> for Location {
         Self::from(value.as_str())
     }
 }
-impl<'a> From<&'a Location> for &'a str {
-    fn from(value: &'a Location) -> Self {
-        match value {
-            | Location::Simple(value) | Location::Detailed { uri: value, .. } => value,
-        }
+impl FromStr for Location {
+    type Err = Infallible;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(value))
     }
 }
 impl Location {
@@ -145,11 +146,108 @@ impl Location {
     pub fn is_local(&self) -> bool {
         let value = <&str>::from(self).trim();
         let lexical = value.starts_with("file:") || value.starts_with("./") || value.starts_with("../");
+        matches!(self, Self::Detailed { scheme: Scheme::File, .. }) || lexical || self.is_absolute()
+    }
+    /// Return whether this location is a local path, including an unprefixed relative path.
+    pub fn is_path(&self) -> bool {
+        let value: &str = self.into();
+        let has_uri_scheme = UriRef::parse(value).ok().and_then(|uri| uri.scheme()).is_some();
+        self.is_local() || !(has_uri_scheme || self.is_oci_reference())
+    }
+    /// Return whether this location is an absolute POSIX or Windows path.
+    pub fn is_absolute(&self) -> bool {
+        let value = <&str>::from(self);
         #[cfg(feature = "std")]
-        let absolute = std::path::Path::new(value).is_absolute();
+        let platform_absolute = std::path::Path::new(value).is_absolute();
         #[cfg(not(feature = "std"))]
-        let absolute = false;
-        matches!(self, Self::Detailed { scheme: Scheme::File, .. }) || lexical || absolute
+        let platform_absolute = value.starts_with('/');
+        let bytes = value.as_bytes();
+        let windows_absolute =
+            value.starts_with('\\') || matches!((bytes.first(), bytes.get(1)), (Some(first), Some(b':')) if first.is_ascii_alphabetic());
+        platform_absolute || windows_absolute
+    }
+    /// Return whether this location uses the S3 URI scheme.
+    pub fn is_s3(&self) -> bool {
+        has_named_uri_scheme(self.into(), "s3")
+    }
+    /// Return whether this location is a syntactically valid OCI artifact reference.
+    pub fn is_oci_reference(&self) -> bool {
+        let value: &str = self.into();
+        let has_reference_marker = value.contains(':') || value.contains('@');
+        let selected = value.split(',').next().unwrap_or_default();
+        let (repository, reference, digest_reference) = match selected.rsplit_once('@') {
+            | Some((repository, reference)) => {
+                let slash = repository.rfind('/').and_then(|index| index.checked_add(1)).unwrap_or(0);
+                let repository = repository
+                    .get(slash..)
+                    .and_then(|suffix| suffix.rfind(':'))
+                    .and_then(|index| slash.checked_add(index))
+                    .and_then(|boundary| repository.get(..boundary))
+                    .unwrap_or(repository);
+                (repository, reference, true)
+            }
+            | None => {
+                let slash = selected.rfind('/').and_then(|index| index.checked_add(1)).unwrap_or(0);
+                selected
+                    .get(slash..)
+                    .and_then(|suffix| suffix.rfind(':'))
+                    .and_then(|index| slash.checked_add(index))
+                    .and_then(|boundary| boundary.checked_add(1).map(|start| (boundary, start)))
+                    .and_then(|(boundary, start)| selected.get(..boundary).zip(selected.get(start..)))
+                    .map_or((selected, "", false), |(repository, reference)| (repository, reference, false))
+            }
+        };
+        let repository = repository.split_once('/').map_or(repository, |(first, rest)| {
+            match first.contains('.') || first.contains(':') || first == "localhost" {
+                | true => rest,
+                | false => repository,
+            }
+        });
+        let lowercase = repository == repository.to_ascii_lowercase();
+        let valid_parts = repository.split('/').all(|part| {
+            let valid_bytes = part
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-'));
+            let valid_start = part.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric);
+            let valid_end = part.as_bytes().last().is_some_and(u8::is_ascii_alphanumeric);
+            !part.is_empty() && valid_bytes && valid_start && valid_end
+        });
+        let valid_repository = !repository.is_empty() && lowercase && valid_parts;
+        let valid_reference = match (reference.is_empty(), digest_reference) {
+            | (true, false) => selected
+                .split_once('/')
+                .is_some_and(|(registry, repository)| registry.contains(':') && !repository.is_empty()),
+            | (false, true) => digest(reference).is_ok(),
+            | (false, false) => {
+                !reference.is_empty()
+                    && reference.len() <= 128
+                    && reference
+                        .bytes()
+                        .enumerate()
+                        .all(|(index, byte)| byte.is_ascii_alphanumeric() || byte == b'_' || (index > 0 && matches!(byte, b'.' | b'-')))
+            }
+            | (true, true) => false,
+        };
+        has_reference_marker && (digest(value).is_ok() || (valid_repository && valid_reference))
+    }
+    /// Normalize path separators and lexical `.` and `..` components.
+    pub fn normalize(&self) -> String {
+        let value: &str = self.into();
+        let replaced = value.replace('\\', "/");
+        let segments = replaced.split('/').fold(Vec::new(), |mut values: Vec<&str>, segment| {
+            match segment {
+                | "" | "." => (),
+                | ".." if values.last().is_some_and(|value| *value != "..") => {
+                    values.pop();
+                }
+                | _ => values.push(segment),
+            }
+            values
+        });
+        match segments.is_empty() {
+            | true => ".".to_string(),
+            | false => segments.join("/"),
+        }
     }
     /// Get a stable location hash suitable for path components.
     pub fn hash(&self) -> String {
@@ -334,13 +432,32 @@ impl From<&str> for Scheme {
         }
     }
 }
+fn has_named_uri_scheme(value: &str, expected: &str) -> bool {
+    UriRef::parse(value)
+        .ok()
+        .and_then(|uri| uri.scheme().map(|scheme| scheme.as_str().eq_ignore_ascii_case(expected)))
+        .unwrap_or(false)
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn location_preserves_registry_ports_and_ipv6() {
+    fn test_default_repository_is_local_git() {
+        assert!(Repository::default().is_local());
+    }
+    #[test]
+    fn test_location_classifies_and_normalizes_portable_paths_and_oci_references() {
+        assert!(Location::from("model.gguf").is_path());
+        assert!(Location::from("C:\\models\\model.gguf").is_absolute());
+        assert_eq!(Location::from("docs/../README.md").normalize(), "README.md");
+        assert!(Location::from("s3://bucket/key").is_s3());
+        assert!(Location::from("registry.example.org/org/model:latest").is_oci_reference());
+        assert!(!Location::from("https://example.org/model").is_local());
+    }
+    #[test]
+    fn test_location_preserves_registry_ports_and_ipv6() {
         assert_eq!(
             Location::from("https://registry.example.org:5000").registry().as_deref(),
             Some("registry.example.org:5000")
@@ -351,14 +468,10 @@ mod tests {
         );
     }
     #[test]
-    fn repository_classification_requires_provider_domain() {
+    fn test_repository_classification_requires_provider_domain() {
         let github = Repository::from_remote("https://github.com/openai/codex", "gitlab.com").expect("GitHub repository");
         assert!(github.is_git_hub());
         assert_eq!(github.project_path().as_deref(), Some("openai/codex"));
         assert!(Repository::from_remote("https://example.org/group/project", "gitlab.com").is_none());
-    }
-    #[test]
-    fn default_repository_is_local_git() {
-        assert!(Repository::default().is_local());
     }
 }

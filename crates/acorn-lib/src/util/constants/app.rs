@@ -1,7 +1,5 @@
 use jiff::SignedDuration;
 
-/// ACORN-specific OCI layer media type for model files.
-pub const ACORN_MODEL_LAYER: &str = "application/vnd.acorn.model.file.v1";
 /// Default ACORN HTTP User-Agent header value when std is available.
 #[cfg(feature = "std")]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
@@ -68,10 +66,6 @@ pub const DEFAULT_VSCODE_CONFIG_PATH: &str = "Code/User/chatLanguageModels.json"
 pub const DISCLAIMER: &str = "Oak Ridge National Laboratory is managed by UT-Batelle LLC for the US Department of Energy";
 /// Character cutoff used when shortening paths for display.
 pub const DISPLAY_PATH_CHARACTER_COUNT: usize = 20;
-/// Docker image configuration media type used to identify runnable images.
-pub const DOCKER_IMAGE_CONFIG: &str = "application/vnd.docker.container.image.v1+json";
-/// Docker manifest-list media type accepted for model artifact indirection.
-pub const DOCKER_MANIFEST_LIST: &str = "application/vnd.docker.distribution.manifest.list.v2+json";
 /// Default Docker daemon socket path.
 pub const DOCKER_SOCKET: &str = "/var/run/docker.sock";
 /// Maximum number of converted documents retained in the process-local cache.
@@ -92,10 +86,6 @@ pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
-/// KitOps ModelKit configuration media type.
-pub const KITOPS_MODELKIT_CONFIG: &str = "application/vnd.kitops.modelkit.config.v1+json";
-/// Gzip-compressed KitOps ModelKit model layer media type.
-pub const KITOPS_MODELKIT_MODEL_GZIP: &str = "application/vnd.kitops.modelkit.model.v1.tar+gzip";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 /// ASCII art logo for ACORN
@@ -161,46 +151,14 @@ pub const MAX_GITLAB_OPERATION_BACKOFF_SECONDS: i64 = 300;
 pub const MAX_PDF_PAGES: u32 = 1_000;
 /// Hidden marker used to find the bot-authored merge request analysis note
 pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis -->";
-/// Minimum supported ORAS CLI version.
-pub const MINIMUM_ORAS_VERSION: (u64, u64, u64) = (1, 3, 0);
-/// Standard manifest filename for ACORN-compatible ModelKits.
-pub const MODELKIT_MANIFEST: &str = "needle-modelkit.json";
-/// CNCF ModelPack configuration media type.
-pub const MODELPACK_CONFIG: &str = "application/vnd.cncf.model.config.v1+json";
-/// CNCF ModelPack artifact type.
-pub const MODELPACK_MANIFEST: &str = "application/vnd.cncf.model.manifest.v1+json";
-/// Prefix shared by CNCF ModelPack model-weight layer media types.
-pub const MODELPACK_WEIGHT_PREFIX: &str = "application/vnd.cncf.model.weight.v1.";
-/// CNCF ModelPack raw model-weight layer media type.
-pub const MODELPACK_WEIGHT_RAW: &str = "application/vnd.cncf.model.weight.v1.raw";
-/// CNCF ModelPack uncompressed TAR model-weight layer media type.
-pub const MODELPACK_WEIGHT_TAR: &str = "application/vnd.cncf.model.weight.v1.tar";
-/// CNCF ModelPack gzip-compressed TAR model-weight layer media type.
-pub const MODELPACK_WEIGHT_TAR_GZIP: &str = "application/vnd.cncf.model.weight.v1.tar+gzip";
-/// CNCF ModelPack zstd-compressed TAR model-weight layer media type.
-pub const MODELPACK_WEIGHT_TAR_ZSTD: &str = "application/vnd.cncf.model.weight.v1.tar+zstd";
 /// Official Hugging Face repository containing Needle 2 standalone runners.
 pub const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle2";
 /// Immutable upstream Needle 2 revision used by default acquisition.
 pub const NEEDLE_REVISION: &str = "98fbd955b0347e78059be0c253cc1ffa09b87bc7";
-/// OCI image configuration media type used to identify runnable images.
-pub const OCI_IMAGE_CONFIG: &str = "application/vnd.oci.image.config.v1+json";
-/// OCI image index media type accepted for model artifact indirection.
-pub const OCI_IMAGE_INDEX: &str = "application/vnd.oci.image.index.v1+json";
-/// OCI image manifest media type accepted for model artifacts.
-pub const OCI_IMAGE_MANIFEST: &str = "application/vnd.oci.image.manifest.v1+json";
-/// Uncompressed OCI image layer media type accepted for model files.
-pub const OCI_LAYER: &str = "application/vnd.oci.image.layer.v1.tar";
-/// Compressed OCI image layer media type accepted for model files.
-pub const OCI_LAYER_GZIP: &str = "application/vnd.oci.image.layer.v1.tar+gzip";
-/// Explicit URI prefix used to route model references through OCI.
-pub const OCI_PREFIX: &str = "oci://";
 /// Maximum number of online synchronization attempts.
 pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
 /// OpenAlex work fields used for research-output enrichment.
 pub const OPENALEX_WORK_FIELDS: &str = "id,doi,title,type,publication_date,authorships,grants,open_access,primary_location,best_oa_location,keywords";
-/// Millisecond delays used when retrying a temporarily busy ORAS executable.
-pub const ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS: [u64; 3] = [10, 25, 50];
 /// Organization name.
 pub const ORGANIZATION: &str = "ornl";
 /// Aqua brand color.

@@ -1,6 +1,7 @@
 //! Structured model for working with prompt files (body text and front-matter metadata)
 //!
 //! Aims to support Google [dotprompt](https://github.com/google/dotprompt) and [agent skills](https://agentskills.io/specification) specificaitons
+use crate::oci;
 use crate::schema::hardware::memory::Memory;
 use crate::schema::research_activity::aspect::data::Modality;
 use crate::schema::validate::{is_partial_date, validate_license};
@@ -8,7 +9,7 @@ use crate::schema::OneOrMany;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::validation::{IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
-use acorn_core::util::{strip_suffixes, MarkdownSupport, MimeType, SemanticVersion, StringInterpolation};
+use acorn_core::util::{strip_suffixes, MarkdownSupport, SemanticVersion, StringInterpolation};
 use acorn_core::validation::ValidationError;
 use acorn_core::{AcornError, AcornResult, Location};
 use bon::Builder;
@@ -29,10 +30,8 @@ use tracing::warn;
 
 pub mod opencode;
 pub mod tools;
-
 /// Suffixes removed when deriving fallback model search names.
 pub const FALLBACK_MODEL_SUFFIXES: &[&str] = &["-fp8", "-maas"];
-
 /// Authentication schemes declared by a model provider.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 pub enum AuthenticationScheme {
@@ -52,7 +51,6 @@ pub enum AuthenticationScheme {
     /// Provider-specific authentication.
     Custom(String),
 }
-
 /// Benchmark evaluation harness or framework
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Harness {
@@ -162,28 +160,6 @@ pub enum ModelResolutionReason {
     /// The model has no usable identifier or name.
     #[display("model has no identifier or name")]
     MissingIdentifier,
-}
-/// Extraction mode applied to a selected OCI model layer.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OciModelExtraction {
-    /// Materialize the blob directly.
-    #[default]
-    None,
-    /// Extract an uncompressed TAR archive.
-    Tar,
-    /// Extract a gzip-compressed TAR archive.
-    TarGzip,
-}
-/// Role of a selected OCI model layer.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum OciModelLayerRole {
-    /// Generic model payload.
-    #[default]
-    Model,
-    /// CNCF ModelPack model-weight payload.
-    ModelWeight,
 }
 /// Prompt file assets embedded in this crate
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
@@ -532,7 +508,7 @@ pub struct ModelDetails {
     pub open_weights: Option<bool>,
     /// OCI artifact resolution and immutable provenance.
     #[validate(nested)]
-    pub oci: Option<OciModelDetails>,
+    pub oci: Option<oci::ModelDetails>,
     /// Number of parameters (in billions) (e.g., 14 for "14B")
     pub parameters: Option<i64>,
     /// Resolved local path to model weights
@@ -564,63 +540,6 @@ pub struct ModelSelector(String);
 /// A normalized collection of model lookup values.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ModelSelectors(Vec<ModelSelector>);
-/// OCI artifact provenance recorded for a resolved model.
-#[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct OciModelDetails {
-    /// Registry host and optional port.
-    pub registry: String,
-    /// Repository path within the registry.
-    pub repository: String,
-    /// Original explicit OCI reference.
-    pub requested_reference: String,
-    /// Resolved immutable manifest digest.
-    pub resolved_digest: String,
-    /// Declared artifact type, when present.
-    pub artifact_type: Option<String>,
-    /// Backward-compatible total selected transfer size in bytes.
-    pub total_size: u64,
-    /// Total selected compressed transfer size in bytes.
-    #[serde(default)]
-    pub transfer_size: u64,
-    /// Installed logical-file size when known before transfer.
-    pub installed_size: Option<u64>,
-    /// Selected OCI transfer layers.
-    #[serde(default)]
-    #[validate(nested)]
-    pub layers: Vec<OciModelLayer>,
-    /// Selected repository-relative file paths.
-    pub files: Vec<String>,
-    /// Harbor tag names returned by optional registry enrichment.
-    pub harbor_tags: Option<Vec<String>>,
-    /// Harbor label names returned by optional registry enrichment.
-    pub harbor_labels: Option<Vec<String>>,
-    /// Harbor push timestamp returned by optional registry enrichment.
-    pub harbor_push_time: Option<String>,
-}
-/// OCI transfer-layer provenance recorded for a resolved model.
-#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct OciModelLayer {
-    /// Descriptor media type.
-    #[serde(deserialize_with = "deserialize_oci_media_type", serialize_with = "serialize_oci_media_type")]
-    #[schemars(with = "String")]
-    pub media_type: MimeType,
-    /// Descriptor digest.
-    #[validate(digest)]
-    pub digest: String,
-    /// Compressed transfer size in bytes.
-    #[validate(range(min = 0))]
-    pub transfer_size: u64,
-    /// Artifact-specific layer role.
-    pub role: OciModelLayerRole,
-    /// Declared logical file path, when known.
-    pub path: Option<String>,
-    /// Extraction mode applied to the layer.
-    pub extraction: OciModelExtraction,
-    /// Whether logical files are unknown until extraction.
-    pub inventory_deferred: bool,
-}
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -759,9 +678,17 @@ pub struct WeightGroups(pub Vec<WeightGroup>);
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Weights(pub Vec<Weight>);
-impl Validate for Weights {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        self.0.validate()
+impl fmt::Display for AuthenticationScheme {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Bearer => "Bearer",
+            | Self::Basic => "Basic",
+            | Self::ApiKey => "ApiKey",
+            | Self::OAuth2 => "OAuth2",
+            | Self::AwsSignatureV4 => "AWS Signature V4",
+            | Self::GoogleCloud => "Google Cloud",
+            | Self::Custom(scheme) => scheme,
+        })
     }
 }
 impl MarkdownSupport for Benchmark {
@@ -1203,15 +1130,6 @@ impl ModelSelectors {
         }
     }
 }
-impl From<&str> for OciModelExtraction {
-    fn from(value: &str) -> Self {
-        match value {
-            | "tar" => Self::Tar,
-            | "tar_gzip" => Self::TarGzip,
-            | _ => Self::None,
-        }
-    }
-}
 impl MarkdownSupport for OneOrMany<Benchmark> {
     fn to_markdown(&self) -> String {
         match self {
@@ -1292,19 +1210,6 @@ impl PromptTemplate {
 impl Default for PromptTemplateConfiguration {
     fn default() -> Self {
         PromptTemplateConfiguration::init().build()
-    }
-}
-impl fmt::Display for AuthenticationScheme {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Bearer => "Bearer",
-            | Self::Basic => "Basic",
-            | Self::ApiKey => "ApiKey",
-            | Self::OAuth2 => "OAuth2",
-            | Self::AwsSignatureV4 => "AWS Signature V4",
-            | Self::GoogleCloud => "Google Cloud",
-            | Self::Custom(scheme) => scheme,
-        })
     }
 }
 impl From<&str> for Provider {
@@ -1539,6 +1444,11 @@ impl MarkdownSupport for Weights {
             .join("\n")
     }
 }
+impl Validate for Weights {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.0.validate()
+    }
+}
 impl Weights {
     /// Group Hugging Face GGUF files by repository, revision, and quantization.
     pub fn groups(self) -> WeightGroups {
@@ -1644,12 +1554,6 @@ where
         | None => Ok(None),
     }
 }
-fn deserialize_oci_media_type<'de, D>(deserializer: D) -> Result<MimeType, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    String::deserialize(deserializer).map(MimeType::OciLayer)
-}
 fn deserialize_optional_typed_value<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -1659,18 +1563,12 @@ where
         .map(|value| value.filter(|value| !value.is_null()))
         .map(|value| value.map(value_to_string_or_other::<T>))
 }
-fn serialize_oci_media_type<S>(value: &MimeType, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&value.to_string())
-}
 fn validate_open_weights(details: &ModelDetails, _context: &()) -> Result<(), ValidationReport> {
     let ModelDetails { open_weights, weights, .. } = details;
     let has_open_weight = weights.iter().flat_map(|weights| &weights.0).any(|weight| weight.is_open == Some(true));
     if has_open_weight && !open_weights.unwrap_or(false) {
         Err(ValidationError::new("open_weights")
-            .with_message("open_weights must be true when any weight has is_open: true".into())
+            .with_message("open_weights must be true when any weight has is_open: true")
             .into_report(""))
     } else {
         Ok(())

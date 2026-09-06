@@ -128,6 +128,12 @@ pub enum Standard {
     /// InvenioRDM
     #[display("invenio")]
     Invenio,
+    /// KitOps authoring Kitfile.
+    #[display("kitfile")]
+    Kitfile,
+    /// Resolved KitOps ModelKit OCI configuration.
+    #[display("modelkit")]
+    ModelKit,
     /// Research Activity Identifier metadata (RAiD)
     #[display("raid")]
     Raid,
@@ -175,6 +181,13 @@ pub struct Check {
 /// Ordered collection of analyzer checks.
 #[derive(Clone, Debug, Default)]
 pub struct CheckBatch(Vec<Check>);
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
 impl Check {
     #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
     pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
@@ -303,13 +316,6 @@ impl IntoIterator for CheckBatch {
         self.0.into_iter()
     }
 }
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 impl CheckCategory {
     /// Returns `true` if this category appears in the given list of category items
     pub fn is_in(&self, items: &[String]) -> bool {
@@ -402,21 +408,6 @@ impl IntoChecks for ConversionWarnings {
             .collect()
     }
 }
-impl From<&Map<String, Value>> for Standard {
-    fn from(object: &Map<String, Value>) -> Self {
-        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
-            Standard::Dcat
-        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
-            Standard::Huwise
-        } else if object.contains_key("attributes") && object.contains_key("id") {
-            Standard::Datacite
-        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
-            Standard::Invenio
-        } else {
-            Standard::Dcat
-        }
-    }
-}
 #[cfg(feature = "std")]
 impl Standard {
     /// Convert serialized content from one metadata standard to another.
@@ -473,7 +464,14 @@ impl Standard {
                     .and_then(|b| b.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | _ => Err(self.unsupported_crosswalk(target)),
+            | Standard::Kitfile
+            | Standard::ModelKit
+            | Standard::CitationFileFormat
+            | Standard::Document
+            | Standard::DublinCore
+            | Standard::Raid
+            | Standard::ResearchActivityData
+            | Standard::Text => Err(self.unsupported_crosswalk(target)),
         }
     }
     /// Convert serialized content from one metadata standard to another, returning both the converted content and any field-level warnings.
@@ -517,6 +515,26 @@ impl Standard {
         CrosswalkError::BuildFailed(format!(
             "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
         ))
+    }
+}
+impl From<&Map<String, Value>> for Standard {
+    fn from(object: &Map<String, Value>) -> Self {
+        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+            Standard::Dcat
+        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
+            Standard::Huwise
+        } else if object.contains_key("attributes") && object.contains_key("id") {
+            Standard::Datacite
+        } else if object.contains_key("manifestVersion") {
+            match object.values().any(contains_layer_identity) {
+                | true => Standard::ModelKit,
+                | false => Standard::Kitfile,
+            }
+        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+            Standard::Invenio
+        } else {
+            Standard::Dcat
+        }
     }
 }
 impl From<&CheckCategory> for u8 {
@@ -591,6 +609,13 @@ pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Opti
             data: text.to_string()
         )]
     })
+}
+fn contains_layer_identity(value: &Value) -> bool {
+    match value {
+        | Value::Object(object) => object.contains_key("digest") || object.contains_key("diffId") || object.values().any(contains_layer_identity),
+        | Value::Array(values) => values.iter().any(contains_layer_identity),
+        | _ => false,
+    }
 }
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
 #[cfg(feature = "std")]

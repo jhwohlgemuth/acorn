@@ -2,7 +2,7 @@
 use super::render::{DocumentIndexes, RenderContext};
 use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
 use crate::analyzer::host::context::{AnalysisContext, ReportOptions};
-use crate::analyzer::host::runtime::StaticAnalyzer;
+use crate::analyzer::host::runtime::{KitfileStandard, ModelKitStandard, StaticAnalyzer};
 use crate::analyzer::host::vale::Vale;
 use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use crate::io::document::{DocumentIndex, MarkdownParser, SourceDocument};
@@ -195,6 +195,8 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::Document => analyze::<Document>(&paths, options, &categories, &documents).await,
             | Standard::Huwise => analyze::<huwise::Dataset>(&paths, options, &categories, &documents).await,
             | Standard::Invenio => analyze::<invenio::Record>(&paths, options, &categories, &documents).await,
+            | Standard::Kitfile => analyze::<KitfileStandard>(&paths, options, &categories, &documents).await,
+            | Standard::ModelKit => analyze::<ModelKitStandard>(&paths, options, &categories, &documents).await,
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
             | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
             | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,

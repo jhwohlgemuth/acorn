@@ -30,6 +30,7 @@ use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::SemanticVersion;
 use acorn_core::validation::ValidationError;
 use acorn_core::{Location, Repository};
+use acorn_schema::schema::modelkit::kitfile::Kitfile;
 use acorn_schema::schema::pid::raid;
 use acorn_schema::schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID};
 use acorn_schema::schema::research_activity::ResearchActivity;
@@ -129,6 +130,8 @@ impl_schema_check!(
     huwise::Dataset,
     ResearchActivity
 );
+pub(super) struct KitfileStandard;
+pub(super) struct ModelKitStandard;
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Cff {
@@ -571,6 +574,36 @@ impl Analysis for invenio::Record {
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for KitfileStandard {
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+    fn standard() -> Standard {
+        Standard::Kitfile
+    }
+}
+impl SchemaCheck for KitfileStandard {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
+        Some(check_schema_path(path.clone(), Kitfile::read_yaml(path.to_path_buf())).boxed())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for ModelKitStandard {
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+    fn standard() -> Standard {
+        Standard::ModelKit
+    }
+}
+impl SchemaCheck for ModelKitStandard {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
+        Some(check_schema_path(path.clone(), Kitfile::read_json(path.to_path_buf())).boxed())
     }
 }
 #[cfg(feature = "analysis")]

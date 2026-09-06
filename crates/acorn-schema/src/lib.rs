@@ -19,10 +19,11 @@ macro_rules! schema_error {
     };
 }
 
+pub mod enrichment;
+pub mod oci;
+pub mod schema;
 #[macro_use]
 pub mod util;
-pub mod enrichment;
-pub mod schema;
 pub mod validation;
 
 pub use validation::{Each, Validate, ValidationIssue, ValidationReport};

@@ -121,6 +121,11 @@ lazy_static! {
 pub type ApiFuture<'a> = Pin<Box<dyn Future<Output = ApiResult<()>> + 'a>>;
 /// An RSA key pair consisting of a private key and its corresponding public key
 pub type RsaKeyPair = (rsa::RsaPrivateKey, rsa::RsaPublicKey);
+/// Convert an extension filter value into a normalized file extension.
+pub trait FileExtension {
+    /// Return the file extension represented by this value.
+    fn extension(&self) -> String;
+}
 /// Add `from_command` trait to `SemanticVersion`
 pub trait FromCommand {
     /// Convert a command name to a `SemanticVersion` value
@@ -135,11 +140,6 @@ pub trait FromPath {
     fn from_path<P>(value: &P) -> Self
     where
         P: AsRef<Path> + ?Sized;
-}
-/// Convert an extension filter value into a normalized file extension.
-pub trait FileExtension {
-    /// Return the file extension represented by this value.
-    fn extension(&self) -> String;
 }
 /// Trait for I/O operations such as read and write
 pub trait InputOutput: Sized {
@@ -199,7 +199,7 @@ pub trait InputOutput: Sized {
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
 }
-/// Convert filesystem paths to portable configuration strings
+/// Convert filesystem paths to portable configuration strings.
 pub trait PathConversion: AsRef<Path> {
     /// Borrow this value as a filesystem path.
     fn to_path(&self) -> &Path {
@@ -229,7 +229,7 @@ pub trait PathExt {
     /// Return whether two paths identify the same absolute path.
     fn same_as(&self, other: &Path) -> bool;
 }
-/// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code
+/// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code.
 /// ### Note
 /// At a minimum, choosing an executor also determines level of isolation and security for code execution.
 #[derive(Clone, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
@@ -273,7 +273,7 @@ pub enum Executor {
     /// Custom or unspecified execution method
     Other(String),
 }
-/// Progress indicator types for with_progress
+/// Progress indicator types for `with_progress`.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum ProgressType {
     /// Progress bar with spinner, count, and percentage indicator
@@ -340,6 +340,59 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl PathConversion for &Path {
+    fn relative(&self) -> ApiResult<PathBuf> {
+        <Path as PathConversion>::relative(self)
+    }
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathExt for &Path {
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_safe(&self) -> bool {
+        <Path as PathExt>::is_safe(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
+    }
+}
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
+    }
+}
+impl StringConversion for &str {
+    fn normalized(&self) -> String {
+        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn percent_encode(&self) -> String {
+        encode(self).into_owned()
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        Path::new(self).cross_platform_display()
+    }
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(*self)
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_string(*self)
+    }
+}
 impl From<CstValue<'_>> for CstInputValue {
     fn from(value: CstValue<'_>) -> Self {
         match value.0 {
@@ -365,52 +418,6 @@ impl AsRef<str> for Executor {
             | Executor::VirtualMachine => "virtual_machine",
             | Executor::Other(value) => value.as_str(),
         }
-    }
-}
-impl fmt::Display for Executor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_ref())
-    }
-}
-impl From<&str> for Executor {
-    /// Parses a string into a `Executor` value
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            | "apptainer" | "singularity" => Executor::Apptainer,
-            | "docker" => Executor::Docker,
-            | "podman" => Executor::Podman,
-            | "sandbox" => Executor::Sandbox,
-            | "shell" => Executor::Shell,
-            | "ssh" => Executor::Ssh,
-            | "kubernetes" | "k8s" => Executor::Kubernetes,
-            | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
-            | other => Executor::Other(other.to_string()),
-        }
-    }
-}
-impl FileExtension for String {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
-    }
-}
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
-    }
-}
-impl FileExtension for MimeType {
-    fn extension(&self) -> String {
-        self.clone().file_type()
-    }
-}
-impl From<Executor> for std::ffi::OsString {
-    fn from(value: Executor) -> Self {
-        Self::from(value.to_string())
-    }
-}
-impl From<Executor> for String {
-    fn from(value: Executor) -> Self {
-        value.to_string()
     }
 }
 impl Executor {
@@ -496,29 +503,30 @@ impl Executor {
         }
     }
 }
-impl FromCommand for SemanticVersion {
-    /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
-    /// ### Example
-    /// ```ignore
-    /// use acorn_schema::schema::validate::SemanticVersion;
-    ///
-    /// let version = SemanticVersion::from_command("cargo").to_string();
-    /// assert_eq!(version, "1.90.0");
-    /// ```
-    #[cfg(feature = "std")]
-    fn from_command<S>(name: S) -> Option<SemanticVersion>
-    where
-        S: Into<String> + core::marker::Copy,
-    {
-        let command = name.into();
-        command_exists(command.clone()).then(|| {
-            ["--version", "version", "-version", "-v"]
-                .into_iter()
-                .find_map(|argument| match cmd!(&command, [argument]) {
-                    | Ok(output) if output.status.success() => Some(SemanticVersion::from(output.stdout().as_str())),
-                    | Ok(_) | Err(_) => None,
-                })
-        })?
+impl fmt::Display for Executor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_ref())
+    }
+}
+impl From<&str> for Executor {
+    /// Parses a string into a `Executor` value
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            | "apptainer" | "singularity" => Executor::Apptainer,
+            | "docker" => Executor::Docker,
+            | "podman" => Executor::Podman,
+            | "sandbox" => Executor::Sandbox,
+            | "shell" => Executor::Shell,
+            | "ssh" => Executor::Ssh,
+            | "kubernetes" | "k8s" => Executor::Kubernetes,
+            | "virtual machine" | "virtual_machine" | "vm" => Executor::VirtualMachine,
+            | other => Executor::Other(other.to_string()),
+        }
+    }
+}
+impl FileExtension for MimeType {
+    fn extension(&self) -> String {
+        self.clone().file_type()
     }
 }
 impl FromPath for MimeType {
@@ -538,6 +546,25 @@ impl FromPath for MimeType {
         P: AsRef<Path> + ?Sized,
     {
         MimeType::from(value.as_ref().display().to_string())
+    }
+}
+impl PathConversion for Path {
+    fn relative(&self) -> ApiResult<PathBuf> {
+        let normalized = self
+            .components()
+            .filter_map(|component| match component {
+                | Component::CurDir => None,
+                | Component::Normal(value) => Some(Ok(value)),
+                | _ => Some(Err(eyre!("Unsafe archive path: {}", self.display()))),
+            })
+            .collect::<ApiResult<PathBuf>>();
+        normalized
+    }
+    fn cross_platform_display(&self) -> String {
+        let value = self.display().to_string();
+        #[cfg(windows)]
+        let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
+        value
     }
 }
 impl PathExt for Path {
@@ -589,53 +616,6 @@ impl PathExt for Path {
         self == other || absolute_paths.is_ok_and(|(left, right)| left == right)
     }
 }
-impl PathExt for &Path {
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_safe(&self) -> bool {
-        <Path as PathExt>::is_safe(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
-    }
-}
-impl PathConversion for Path {
-    fn relative(&self) -> ApiResult<PathBuf> {
-        let normalized = self
-            .components()
-            .filter_map(|component| match component {
-                | Component::CurDir => None,
-                | Component::Normal(value) => Some(Ok(value)),
-                | _ => Some(Err(eyre!("Unsafe archive path: {}", self.display()))),
-            })
-            .collect::<ApiResult<PathBuf>>();
-        normalized
-    }
-    fn cross_platform_display(&self) -> String {
-        let value = self.display().to_string();
-        #[cfg(windows)]
-        let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
-        value
-    }
-}
-impl PathConversion for &Path {
-    fn relative(&self) -> ApiResult<PathBuf> {
-        <Path as PathConversion>::relative(self)
-    }
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
 impl PathConversion for PathBuf {
     fn relative(&self) -> ApiResult<PathBuf> {
         <Path as PathConversion>::relative(self)
@@ -644,9 +624,37 @@ impl PathConversion for PathBuf {
         <Path as PathConversion>::cross_platform_display(self)
     }
 }
-impl fmt::Display for Remote {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
+impl StringConversion for PathBuf {
+    fn normalized(&self) -> String {
+        self.to_string_lossy().as_ref().normalized()
+    }
+    fn percent_encode(&self) -> String {
+        self.to_string_lossy().as_ref().percent_encode()
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
+    }
+    fn to_cross_platform_path(&self) -> String {
+        self.cross_platform_display()
+    }
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self.clone())
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_string(self.clone())
+    }
+}
+impl ProgressType {
+    fn template(&self) -> Option<&'static str> {
+        match self {
+            | ProgressType::Bar => Some(Label::PROGRESS_BAR_TEMPLATE),
+            | ProgressType::Spinner => Some(Label::PROGRESS_SPINNER_TEMPLATE),
+            | ProgressType::Counter => Some(Label::PROGRESS_COUNTER_TEMPLATE),
+            | ProgressType::Silent => None,
+        }
+    }
+    fn is_indeterminate(&self) -> bool {
+        matches!(self, ProgressType::Spinner)
     }
 }
 impl core::str::FromStr for Remote {
@@ -677,6 +685,11 @@ impl core::str::FromStr for Remote {
             }
             | Err(_) => Err(invalid()),
         }
+    }
+}
+impl fmt::Display for Remote {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 impl Remote {
@@ -713,47 +726,44 @@ impl Remote {
         args!["--host", self.as_str(), ..command]
     }
 }
-impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
-    fn to_strings(&self) -> Vec<String> {
-        self.iter()
-            .map(|p| <P as Into<PathBuf>>::into(p.clone()).to_string_lossy().to_string())
-            .collect()
-    }
-    fn to_absolute_strings(&self) -> Vec<String> {
-        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_path()).collect()
+impl FromCommand for SemanticVersion {
+    /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
+    /// ### Example
+    /// ```ignore
+    /// use acorn_schema::schema::validate::SemanticVersion;
+    ///
+    /// let version = SemanticVersion::from_command("cargo").to_string();
+    /// assert_eq!(version, "1.90.0");
+    /// ```
+    #[cfg(feature = "std")]
+    fn from_command<S>(name: S) -> Option<SemanticVersion>
+    where
+        S: Into<String> + core::marker::Copy,
+    {
+        let command = name.into();
+        command_exists(command.clone()).then(|| {
+            ["--version", "version", "-version", "-v"]
+                .into_iter()
+                .find_map(|argument| match cmd!(&command, [argument]) {
+                    | Ok(output) if output.status.success() => Some(SemanticVersion::from(output.stdout().as_str())),
+                    | Ok(_) | Err(_) => None,
+                })
+        })?
     }
 }
-impl ProgressType {
-    fn template(&self) -> Option<&'static str> {
-        match self {
-            | ProgressType::Bar => Some(Label::PROGRESS_BAR_TEMPLATE),
-            | ProgressType::Spinner => Some(Label::PROGRESS_SPINNER_TEMPLATE),
-            | ProgressType::Counter => Some(Label::PROGRESS_COUNTER_TEMPLATE),
-            | ProgressType::Silent => None,
-        }
-    }
-    fn is_indeterminate(&self) -> bool {
-        matches!(self, ProgressType::Spinner)
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
     }
 }
-impl StringConversion for PathBuf {
-    fn normalized(&self) -> String {
-        self.to_string_lossy().as_ref().normalized()
+impl FileExtension for String {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
     }
-    fn percent_encode(&self) -> String {
-        self.to_string_lossy().as_ref().percent_encode()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
-    }
-    fn to_cross_platform_path(&self) -> String {
-        self.cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(self.clone())
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(self.clone())
+}
+impl From<Executor> for String {
+    fn from(value: Executor) -> Self {
+        value.to_string()
     }
 }
 impl StringConversion for String {
@@ -776,24 +786,14 @@ impl StringConversion for String {
         to_absolute_string(self.clone())
     }
 }
-impl StringConversion for &str {
-    fn normalized(&self) -> String {
-        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
+    fn to_strings(&self) -> Vec<String> {
+        self.iter()
+            .map(|p| <P as Into<PathBuf>>::into(p.clone()).to_string_lossy().to_string())
+            .collect()
     }
-    fn percent_encode(&self) -> String {
-        encode(self).into_owned()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        Path::new(self).cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(*self)
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(*self)
+    fn to_absolute_strings(&self) -> Vec<String> {
+        self.iter().map(|p| <P as Into<PathBuf>>::into(p.clone()).to_absolute_path()).collect()
     }
 }
 /// Applies a new style template to an existing progress bar
@@ -1036,51 +1036,6 @@ pub fn file_name_with_parent(value: impl Into<PathBuf>) -> String {
         } else {
             format!("{parent_name}/{name}")
         }
-    }
-}
-/// Shortens an absolute path for display by replacing removable middle components with an ellipsis
-/// ### Note
-/// The character count is an approximate leading-prefix cutoff.
-/// The cutoff rounds right to the next component boundary while preserving the root folder and final child.
-pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
-    let displayed = path.as_ref().cross_platform_display();
-    let character_total = displayed.chars().count();
-    let separator_positions = displayed
-        .char_indices()
-        .enumerate()
-        .filter_map(|(character, (byte, value))| (value == MAIN_SEPARATOR).then_some((character, byte)))
-        .collect::<Vec<_>>();
-    let component_ranges = displayed
-        .split(MAIN_SEPARATOR)
-        .scan(0usize, |byte, component| {
-            let start = *byte;
-            *byte = byte.saturating_add(component.len()).saturating_add(MAIN_SEPARATOR.len_utf8());
-            Some((start, start.saturating_add(component.len()), component))
-        })
-        .filter(|(_, _, component)| !component.is_empty())
-        .collect::<Vec<_>>();
-    let has_drive_prefix = matches!(displayed.as_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic());
-    let first_folder_index = match (displayed.starts_with(r"\\"), has_drive_prefix) {
-        | (true, _) => 2,
-        | (false, true) => 1,
-        | (false, false) => 0,
-    };
-    let minimum_cutoff = component_ranges.get(first_folder_index).map(|(_, end, _)| *end);
-    let last_child_start = component_ranges.last().map(|(start, _, _)| *start);
-    match (character_total <= character_count, minimum_cutoff, last_child_start) {
-        | (true, _, _) | (_, None, _) | (_, _, None) => displayed,
-        | (false, Some(minimum), Some(last)) => separator_positions
-            .into_iter()
-            .find(|(character, byte)| *character >= character_count && *byte >= minimum && byte.saturating_add(MAIN_SEPARATOR.len_utf8()) < last)
-            .map_or(displayed.clone(), |(_, cutoff)| {
-                format!(
-                    "{}{}...{}{}",
-                    displayed.get(..cutoff).unwrap_or_default(),
-                    MAIN_SEPARATOR,
-                    MAIN_SEPARATOR,
-                    displayed.get(last..).unwrap_or_default()
-                )
-            }),
     }
 }
 /// Returns a vector of `PathBuf` containing all files in a directory that match at least one of the given extensions.
@@ -1519,6 +1474,21 @@ where
     debug!("=> {} {binary:#?}", Label::using());
     binary.is_executable()
 }
+/// Move a file without replacing different content already present at the target.
+pub(crate) fn move_file(source: impl AsRef<Path>, target: impl AsRef<Path>) -> ApiResult<()> {
+    let source = source.as_ref();
+    let target = target.as_ref();
+    match target.exists() {
+        | true => match (file_checksum(source, None), file_checksum(target, None)) {
+            | (Some(left), Some(right)) if left.checksum_value == right.checksum_value => fs::remove_file(source).map_err(Into::into),
+            | _ => Err(eyre!("Target file already exists with different content: {}", target.display())),
+        },
+        | false => target
+            .parent()
+            .map_or(Ok(()), |parent| create_dir_all(parent).map_err(Into::into))
+            .and_then(|()| fs::rename(source, target).map_err(Into::into)),
+    }
+}
 /// Returns the absolute path of the parent directory for the given path.
 pub fn parent<P>(path: P) -> PathBuf
 where
@@ -1712,6 +1682,51 @@ pub fn retry<T, E>(run: impl Fn() -> Result<T, E>, should_retry: impl Fn(&E) -> 
         }
         | result => result,
     })
+}
+/// Shortens an absolute path for display by replacing removable middle components with an ellipsis.
+/// ### Note
+/// The character count is an approximate leading-prefix cutoff.
+/// The cutoff rounds right to the next component boundary while preserving the root folder and final child.
+pub fn slice_path(path: impl AsRef<Path>, character_count: usize) -> String {
+    let displayed = path.as_ref().cross_platform_display();
+    let character_total = displayed.chars().count();
+    let separator_positions = displayed
+        .char_indices()
+        .enumerate()
+        .filter_map(|(character, (byte, value))| (value == MAIN_SEPARATOR).then_some((character, byte)))
+        .collect::<Vec<_>>();
+    let component_ranges = displayed
+        .split(MAIN_SEPARATOR)
+        .scan(0usize, |byte, component| {
+            let start = *byte;
+            *byte = byte.saturating_add(component.len()).saturating_add(MAIN_SEPARATOR.len_utf8());
+            Some((start, start.saturating_add(component.len()), component))
+        })
+        .filter(|(_, _, component)| !component.is_empty())
+        .collect::<Vec<_>>();
+    let has_drive_prefix = matches!(displayed.as_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic());
+    let first_folder_index = match (displayed.starts_with(r"\\"), has_drive_prefix) {
+        | (true, _) => 2,
+        | (false, true) => 1,
+        | (false, false) => 0,
+    };
+    let minimum_cutoff = component_ranges.get(first_folder_index).map(|(_, end, _)| *end);
+    let last_child_start = component_ranges.last().map(|(start, _, _)| *start);
+    match (character_total <= character_count, minimum_cutoff, last_child_start) {
+        | (true, _, _) | (_, None, _) | (_, _, None) => displayed,
+        | (false, Some(minimum), Some(last)) => separator_positions
+            .into_iter()
+            .find(|(character, byte)| *character >= character_count && *byte >= minimum && byte.saturating_add(MAIN_SEPARATOR.len_utf8()) < last)
+            .map_or(displayed.clone(), |(_, cutoff)| {
+                format!(
+                    "{}{}...{}{}",
+                    displayed.get(..cutoff).unwrap_or_default(),
+                    MAIN_SEPARATOR,
+                    MAIN_SEPARATOR,
+                    displayed.get(last..).unwrap_or_default()
+                )
+            }),
+    }
 }
 /// Returns path to a folder in the operating system's cache directory that is unique to the given
 /// `namespace` with a random UUID as the name of the final folder.

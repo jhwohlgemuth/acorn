@@ -7,6 +7,7 @@ use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPo
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::Label;
 use acorn_core::prelude::{Arc, HashMap};
+use acorn_schema::schema::modelkit::kitfile;
 use acorn_schema::schema::pid::raid::Metadata;
 use acorn_schema::schema::research_activity::ResearchActivity;
 use acorn_schema::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
@@ -44,6 +45,40 @@ pub struct RenderContext<'a> {
     pub documents: Option<&'a DocumentIndexes>,
     /// Output and failure-reporting policy.
     pub options: &'a ReportOptions,
+}
+impl Render for [Check] {
+    fn render(&self, context: RenderContext<'_>) {
+        let RenderContext { documents, options } = context;
+        let is_visible = Check::is_visible_at(options.verbosity);
+        let mut sorted_checks = self
+            .iter()
+            .filter(|check| !options.filter_by_verbosity || is_visible(check))
+            .cloned()
+            .collect::<Vec<_>>();
+        sorted_checks.sort_by_cached_key(|check| {
+            (
+                u8::from(&check.severity),
+                u8::from(&check.category),
+                check.locator.clone().unwrap_or_default().to_lowercase(),
+            )
+        });
+        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
+            println!();
+        }
+        match (options.quiet, options.format, options.terse) {
+            | (false, OutputFormat::Console, true) => sorted_checks
+                .iter()
+                .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
+            | (false, OutputFormat::Console, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
+                let document = check.document_from(documents);
+                check.with_index(index).report(document);
+            }),
+            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
+                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
+            }
+            | _ => {}
+        }
+    }
 }
 impl Check {
     #[cfg(feature = "std")]
@@ -414,40 +449,6 @@ impl fmt::Display for Check {
         }
     }
 }
-impl Render for [Check] {
-    fn render(&self, context: RenderContext<'_>) {
-        let RenderContext { documents, options } = context;
-        let is_visible = Check::is_visible_at(options.verbosity);
-        let mut sorted_checks = self
-            .iter()
-            .filter(|check| !options.filter_by_verbosity || is_visible(check))
-            .cloned()
-            .collect::<Vec<_>>();
-        sorted_checks.sort_by_cached_key(|check| {
-            (
-                u8::from(&check.severity),
-                u8::from(&check.category),
-                check.locator.clone().unwrap_or_default().to_lowercase(),
-            )
-        });
-        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
-            println!();
-        }
-        match (options.quiet, options.format, options.terse) {
-            | (false, OutputFormat::Console, true) => sorted_checks
-                .iter()
-                .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
-            | (false, OutputFormat::Console, false) => sorted_checks.into_iter().enumerate().for_each(|(index, check)| {
-                let document = check.document_from(documents);
-                check.with_index(index).report(document);
-            }),
-            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
-                sorted_checks.iter().for_each(|check| eprintln!("{check}"));
-            }
-            | _ => {}
-        }
-    }
-}
 impl CheckKind {
     fn link_row(&self, check: &Check) -> (String, String, String) {
         let Check {
@@ -562,6 +563,7 @@ impl Standard {
             | Standard::Dcat => print_schema::<dcat::Dataset>(format),
             | Standard::Huwise => print_schema::<huwise::Dataset>(format),
             | Standard::Invenio => print_schema::<invenio::Record>(format),
+            | Standard::Kitfile | Standard::ModelKit => print_schema::<kitfile::Kitfile>(format),
             | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
             | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
         }

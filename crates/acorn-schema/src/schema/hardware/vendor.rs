@@ -342,7 +342,7 @@ pub(super) fn validate_vendor(resource: &Resource) -> Result<(), ValidationRepor
             | (Some(arch), Some(vendor)) => match arch.vendor() {
                 | Some(arch_vendor) if arch_vendor != *vendor => {
                     let msg = format!("Architecture is not produced by vendor {vendor}");
-                    let error = ValidationError::new("vendor_mismatch").with_message(msg.into());
+                    let error = ValidationError::new("vendor_mismatch").with_message(msg);
                     let mut errors = ValidationReport::new();
                     errors.add("vendor", error);
                     Err(errors)

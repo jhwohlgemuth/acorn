@@ -17,6 +17,8 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CHECK_MODELPACK_DRIFT == "true"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -38,6 +40,17 @@ stages:
   - build
   - release
   - docs
+
+modelpack-drift:
+  stage: test
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  tags:
+    - cpu
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CHECK_MODELPACK_DRIFT == "true"
+  script:
+    - sh scripts/check-modelpack-drift.sh
 
 prepare-environment:
   stage: prepare

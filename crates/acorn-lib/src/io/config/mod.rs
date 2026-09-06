@@ -48,16 +48,6 @@ pub enum AuthenticationRequirement {
     /// Authentication is required for this model source
     Required,
 }
-/// Registry-specific metadata provider for an OCI registry profile.
-#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RegistryKind {
-    /// Generic OCI Distribution-compatible registry.
-    #[default]
-    OCI,
-    /// Harbor registry with optional v2 API enrichment.
-    Harbor,
-}
 /// Model config entry — either a bare selector string or a detailed download entry
 /// ### Notes
 /// Models can be specified in several ways in the `models` array:
@@ -163,7 +153,17 @@ pub enum ModelEntry {
     /// Detailed model download entry
     Entry(ModelEntryOptions),
 }
-/// Runner status for CI/CD pipelines
+/// Registry-specific metadata provider for an OCI registry profile.
+#[derive(Clone, Debug, Default, Display, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RegistryKind {
+    /// Generic OCI Distribution-compatible registry.
+    #[default]
+    OCI,
+    /// Harbor registry with optional v2 API enrichment.
+    Harbor,
+}
+/// Runner status for CI/CD pipelines.
 #[derive(Clone, Debug, Default, Display, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunnerStatus {
@@ -346,44 +346,6 @@ impl FilterSet {
         !ignored && filtered
     }
 }
-impl Validate for RegistryProfile {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        let location = Location::from(&self.endpoint);
-        let scheme = location.scheme();
-        let is_valid_scheme = scheme.is_https() || scheme.is_http() && self.plain_http;
-        let is_valid_endpoint = location.host().is_some() && is_valid_scheme;
-        let is_valid_environment = self.credential_env.as_ref().is_none_or(|value| {
-            let valid_characters = value
-                .chars()
-                .enumerate()
-                .all(|(index, character)| character == '_' || character.is_ascii_uppercase() || index > 0 && character.is_ascii_digit());
-            !value.is_empty() && valid_characters
-        });
-        let has_paired_identity = matches!((&self.client_cert, &self.client_key), (Some(_), Some(_)) | (None, None));
-        let pairs = [
-            (!is_valid_endpoint).then(|| {
-                let message = "Registry profile requires an HTTPS endpoint unless plainHttp is explicitly enabled".into();
-                ("endpoint", ValidationError::new("scheme").with_message(message))
-            }),
-            (!is_valid_environment).then(|| {
-                let message = "Registry profile has an invalid credentialEnv name".into();
-                ("credential_env", ValidationError::new("format").with_message(message))
-            }),
-            (!has_paired_identity).then(|| {
-                let message = "Registry profile must configure clientCert and clientKey together".into();
-                ("client_cert", ValidationError::new("paired").with_message(message))
-            }),
-        ];
-        let data = pairs.into_iter().flatten().fold(ValidationReport::new(), |mut errors, (field, error)| {
-            errors.add(field, error);
-            errors
-        });
-        match data.is_empty() {
-            | true => Ok(()),
-            | false => Err(data),
-        }
-    }
-}
 impl ModelEntry {
     /// Normalize model entries into unique synchronization requests
     pub fn requests(entries: &[Self]) -> ApiResult<Vec<sync::ModelRequest>> {
@@ -468,6 +430,44 @@ impl ModelEntry {
 impl fmt::Display for ModelEntryOptions {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.name)
+    }
+}
+impl Validate for RegistryProfile {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let location = Location::from(&self.endpoint);
+        let scheme = location.scheme();
+        let is_valid_scheme = scheme.is_https() || scheme.is_http() && self.plain_http;
+        let is_valid_endpoint = location.host().is_some() && is_valid_scheme;
+        let is_valid_environment = self.credential_env.as_ref().is_none_or(|value| {
+            let valid_characters = value
+                .chars()
+                .enumerate()
+                .all(|(index, character)| character == '_' || character.is_ascii_uppercase() || index > 0 && character.is_ascii_digit());
+            !value.is_empty() && valid_characters
+        });
+        let has_paired_identity = matches!((&self.client_cert, &self.client_key), (Some(_), Some(_)) | (None, None));
+        let pairs = [
+            (!is_valid_endpoint).then(|| {
+                let message = "Registry profile requires an HTTPS endpoint unless plainHttp is explicitly enabled";
+                ("endpoint", ValidationError::new("scheme").with_message(message))
+            }),
+            (!is_valid_environment).then(|| {
+                let message = "Registry profile has an invalid credentialEnv name";
+                ("credential_env", ValidationError::new("format").with_message(message))
+            }),
+            (!has_paired_identity).then(|| {
+                let message = "Registry profile must configure clientCert and clientKey together";
+                ("client_cert", ValidationError::new("paired").with_message(message))
+            }),
+        ];
+        let data = pairs.into_iter().flatten().fold(ValidationReport::new(), |mut errors, (field, error)| {
+            errors.add(field, error);
+            errors
+        });
+        match data.is_empty() {
+            | true => Ok(()),
+            | false => Err(data),
+        }
     }
 }
 impl RunnerDetails {

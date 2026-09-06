@@ -102,6 +102,7 @@ fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem
         .resolve_locator(&document);
     (check, document)
 }
+
 #[tokio::test]
 async fn test_cff_check_quality_returns_ok_for_readable_file() {
     let path = unique_path("cff-quality-valid", "cff");
@@ -760,6 +761,16 @@ fn test_source_text_formats_array_values_as_markdown_list() {
     assert!(source.contains("- \"beta\""));
 }
 #[test]
+fn test_standard_detection_distinguishes_kitfile_and_modelkit() {
+    let kitfile = serde_json::json!({"manifestVersion": "1.0.0", "docs": [{"path": "README.md"}]});
+    let modelkit = serde_json::json!({
+        "manifestVersion": "1.0.0",
+        "docs": [{"path": "README.md", "digest": "sha256:fixture"}]
+    });
+    assert_eq!(Standard::from(kitfile.as_object().unwrap()), Standard::Kitfile);
+    assert_eq!(Standard::from(modelkit.as_object().unwrap()), Standard::ModelKit);
+}
+#[test]
 fn test_standard_detection_uses_dcat_jsonld_type() {
     let value: Value = serde_json::json!({
         "@type": "dcat:Dataset",
@@ -777,6 +788,8 @@ fn test_standard_to_schema_does_not_panic() {
         Standard::Dcat,
         Standard::Huwise,
         Standard::Invenio,
+        Standard::Kitfile,
+        Standard::ModelKit,
         Standard::Raid,
         Standard::Text,
         Standard::Document,

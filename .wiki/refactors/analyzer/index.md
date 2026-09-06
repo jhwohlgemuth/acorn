@@ -8,6 +8,8 @@ These plans improve the in-tree analysis boundary defined by the [crate boundary
 
 ## Additional plans
 
+The summary, Vale normalization, and applicative validation plans apply the small, law-driven composition patterns described in [the category-inspired composition concept](../../../docs/src/concepts/category-theory.md); they do not introduce a category-theory framework.
+
 - [Website and resolution checks](link-resolution-checks.md) - Route URL reachability and PID resolution through one link-analysis contract.
 - [Summary monoid](summary-monoid.md) - Fold checks into one additive summary.
 - [Vale configuration normalization](vale-config-normalization.md) - Compose configuration transformations.

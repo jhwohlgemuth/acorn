@@ -427,6 +427,9 @@ pub enum MimeType {
     /// See <https://en.wikipedia.org/wiki/ZIP_(file_format)>
     #[display("application/zip")]
     Zip,
+    /// Zstandard-compressed data.
+    #[display("application/zstd")]
+    Zstd,
     /// Unknown MIME type
     #[display("application/vnd.{}", _0)]
     Vendor(String),
@@ -529,6 +532,31 @@ where
         }
     }
 }
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for MimeType {
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        std::ffi::OsStr::new(self.file_type_ref())
+    }
+}
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
 impl From<&str> for MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -597,6 +625,7 @@ impl From<&str> for MimeType {
                 | "txt" => MimeType::Text,
                 | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
                 | "yml" | "yaml" => MimeType::Yaml,
+                | "zst" | "tzst" => MimeType::Zstd,
                 | value => MimeType::Vendor(value.to_string()),
             },
             | None => MimeType::Unknown(name),
@@ -611,31 +640,6 @@ impl From<&String> for MimeType {
 impl From<String> for MimeType {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
-    }
-}
-#[cfg(feature = "std")]
-impl AsRef<std::ffi::OsStr> for MimeType {
-    fn as_ref(&self) -> &std::ffi::OsStr {
-        std::ffi::OsStr::new(self.file_type_ref())
-    }
-}
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
     }
 }
 impl MimeType {
@@ -659,6 +663,7 @@ impl MimeType {
                 | "application/x-7z-compressed" => Some(Self::SevenZip),
                 | "application/zip" => Some(Self::Zip),
                 | "application/x-tar" => Some(Self::Tar),
+                | "application/zstd" | "application/x-zstd" => Some(Self::Zstd),
                 | "image/jpeg" => Some(Self::Jpeg),
                 | "image/png" => Some(Self::Png),
                 | _ => None,
@@ -725,33 +730,19 @@ impl MimeType {
             | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",
             | MimeType::Zip => "zip",
+            | MimeType::Zstd => "tar.zst",
             | MimeType::Vendor(extension) => extension,
             | _ => "unknown-file-type",
         }
     }
 }
-fn is_research_activity_markdown(content: &str) -> bool {
-    frontmatter_and_body(content).0.is_some_and(|frontmatter| {
-        serde_norway::from_str::<Value>(&frontmatter).ok().is_some_and(|value| match value {
-            | Value::Object(fields) => {
-                fields.get("schema").and_then(Value::as_str) == Some("acorn/research-activity") || is_research_activity_value(&fields)
-            }
-            | _ => false,
-        })
-    })
-}
-fn is_research_activity_yaml(content: &str) -> bool {
-    serde_norway::from_str::<Value>(content).ok().is_some_and(|value| match value {
-        | Value::Object(fields) => is_research_activity_value(&fields),
-        | _ => false,
-    })
-}
-fn is_research_activity_value(fields: &serde_json::Map<String, Value>) -> bool {
-    ["contact", "meta", "sections", "title"]
-        .iter()
-        .filter(|field| fields.contains_key(**field))
-        .count()
-        >= 2
+impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
+    fn to_markdown(&self) -> String {
+        match &self {
+            | Some(values) => values.to_markdown(),
+            | None => "[]".to_string(),
+        }
+    }
 }
 impl Default for SemanticVersion {
     fn default() -> Self {
@@ -786,6 +777,15 @@ impl From<&str> for SemanticVersion {
         }
     }
 }
+impl From<(u64, u64, u64)> for SemanticVersion {
+    fn from(value: (u64, u64, u64)) -> Self {
+        Self::init()
+            .major(u32::try_from(value.0).unwrap_or(u32::MAX))
+            .minor(u32::try_from(value.1).unwrap_or(u32::MAX))
+            .patch(u32::try_from(value.2).unwrap_or(u32::MAX))
+            .build()
+    }
+}
 impl PartialEq<(u64, u64, u64)> for SemanticVersion {
     fn eq(&self, other: &(u64, u64, u64)) -> bool {
         (u64::from(self.major), u64::from(self.minor), u64::from(self.patch)) == *other
@@ -794,15 +794,6 @@ impl PartialEq<(u64, u64, u64)> for SemanticVersion {
 impl PartialOrd<(u64, u64, u64)> for SemanticVersion {
     fn partial_cmp(&self, other: &(u64, u64, u64)) -> Option<core::cmp::Ordering> {
         Some((u64::from(self.major), u64::from(self.minor), u64::from(self.patch)).cmp(other))
-    }
-}
-impl From<(u64, u64, u64)> for SemanticVersion {
-    fn from(value: (u64, u64, u64)) -> Self {
-        Self::init()
-            .major(u32::try_from(value.0).unwrap_or(u32::MAX))
-            .minor(u32::try_from(value.1).unwrap_or(u32::MAX))
-            .patch(u32::try_from(value.2).unwrap_or(u32::MAX))
-            .build()
     }
 }
 impl SemanticVersion {
@@ -829,7 +820,7 @@ impl SemanticVersion {
         };
         parsed
             .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
-            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version".into()))
+            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version"))
     }
     /// Parse the numeric components of a semantic version string
     pub fn from_string(value: impl AsRef<str>) -> Self {
@@ -840,7 +831,27 @@ impl SemanticVersion {
     pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
         (*self >= minimum)
             .then_some(())
-            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}").into()))
+            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}")))
+    }
+}
+impl MarkdownSupport for str {
+    fn to_markdown(&self) -> String {
+        self.to_string()
+    }
+}
+impl StringExt for str {
+    fn is_numeric(&self) -> bool {
+        self.chars().all(char::is_numeric)
+    }
+}
+impl MarkdownSupport for String {
+    fn to_markdown(&self) -> String {
+        self.clone()
+    }
+}
+impl StringExt for String {
+    fn is_numeric(&self) -> bool {
+        self.as_str().is_numeric()
     }
 }
 impl<T: AsRef<str>> StringInterpolation<T> for T
@@ -869,46 +880,6 @@ where
             .join(LINE_SEPARATOR)
     }
 }
-impl MarkdownSupport for str {
-    fn to_markdown(&self) -> String {
-        self.to_string()
-    }
-}
-impl StringExt for str {
-    fn is_numeric(&self) -> bool {
-        self.chars().all(char::is_numeric)
-    }
-}
-impl StringExt for String {
-    fn is_numeric(&self) -> bool {
-        self.as_str().is_numeric()
-    }
-}
-impl MarkdownSupport for String {
-    fn to_markdown(&self) -> String {
-        self.clone()
-    }
-}
-impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
-    fn to_markdown(&self) -> String {
-        if self.is_empty() {
-            "[]".to_string()
-        } else {
-            self.iter()
-                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
-                .collect::<Vec<String>>()
-                .join("")
-        }
-    }
-}
-impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
-    fn to_markdown(&self) -> String {
-        match &self {
-            | Some(values) => values.to_markdown(),
-            | None => "[]".to_string(),
-        }
-    }
-}
 impl<T: AsRef<str>> ToStringChunks<T> for T
 where
     T: ToString,
@@ -921,29 +892,16 @@ where
             .collect::<Vec<_>>()
     }
 }
-/// Returns a base32 encoded string using the [base 32 Crockford](https://www.crockford.com/base32.html) alphabet
-/// ### Note
-/// > Uses Crockford base32 alphabet (excludes I, L, O, U to avoid confusion)
-///
-/// ### Example
-/// ```rust
-/// use acorn_core::util::base32_crockford_encode;
-///
-/// let encoded = base32_crockford_encode(1234);
-/// assert_eq!(encoded, "16j");
-/// ```
-pub fn base32_crockford_encode(value: u128) -> String {
-    if value == 0 {
-        "0".to_string()
-    } else {
-        const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
-        successors(Some(value), |&n| (n >= MODULUS).then_some(n / MODULUS))
-            .map(|n| char::from(*CROCKFORD_BASE32_ALPHABET.get((n % MODULUS) as usize).unwrap_or(&0)))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<String>()
-            .to_ascii_lowercase()
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
+    fn to_markdown(&self) -> String {
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
     }
 }
 /// Decode a base32 Crockford string into a u128 value.
@@ -973,6 +931,31 @@ pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
                 | None => None,
             }
         })
+}
+/// Returns a base32 encoded string using the [base 32 Crockford](https://www.crockford.com/base32.html) alphabet
+/// ### Note
+/// > Uses Crockford base32 alphabet (excludes I, L, O, U to avoid confusion)
+///
+/// ### Example
+/// ```rust
+/// use acorn_core::util::base32_crockford_encode;
+///
+/// let encoded = base32_crockford_encode(1234);
+/// assert_eq!(encoded, "16j");
+/// ```
+pub fn base32_crockford_encode(value: u128) -> String {
+    if value == 0 {
+        "0".to_string()
+    } else {
+        const MODULUS: u128 = CROCKFORD_BASE32_ALPHABET.len() as u128;
+        successors(Some(value), |&n| (n >= MODULUS).then_some(n / MODULUS))
+            .map(|n| char::from(*CROCKFORD_BASE32_ALPHABET.get((n % MODULUS) as usize).unwrap_or(&0)))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<String>()
+            .to_ascii_lowercase()
+    }
 }
 /// Convert ASCII letters into a case-insensitive glob pattern.
 pub fn case_insensitive_glob(value: &str) -> String {
@@ -1142,6 +1125,29 @@ where
         lookup.get("body").cloned().unwrap_or_else(|| content.trim().to_string()),
     )
 }
+fn is_research_activity_markdown(content: &str) -> bool {
+    frontmatter_and_body(content).0.is_some_and(|frontmatter| {
+        serde_norway::from_str::<Value>(&frontmatter).ok().is_some_and(|value| match value {
+            | Value::Object(fields) => {
+                fields.get("schema").and_then(Value::as_str) == Some("acorn/research-activity") || is_research_activity_value(&fields)
+            }
+            | _ => false,
+        })
+    })
+}
+fn is_research_activity_value(fields: &serde_json::Map<String, Value>) -> bool {
+    ["contact", "meta", "sections", "title"]
+        .iter()
+        .filter(|field| fields.contains_key(**field))
+        .count()
+        >= 2
+}
+fn is_research_activity_yaml(content: &str) -> bool {
+    serde_norway::from_str::<Value>(content).ok().is_some_and(|value| match value {
+        | Value::Object(fields) => is_research_activity_value(&fields),
+        | _ => false,
+    })
+}
 #[doc(hidden)]
 pub fn is_uri_or_path_portable(value: &str) -> bool {
     value.starts_with('/') || value.starts_with("./") || value.starts_with("../") || UriRef::parse(value).is_ok_and(|uri| uri.scheme().is_some())
@@ -1213,6 +1219,10 @@ where
         | Err(_) => HashMap::new(),
     }
 }
+/// Invert a regex pattern using negative lookahead so matches become exclusions.
+pub fn regex_inverse(pattern: impl AsRef<str>) -> String {
+    format!("^(?!.*(?:{})).*$", pattern.as_ref())
+}
 /// Combine a list of regex patterns into a single alternation regex string.
 pub fn regex_join(patterns: &[String]) -> Option<String> {
     let groups = patterns
@@ -1224,10 +1234,6 @@ pub fn regex_join(patterns: &[String]) -> Option<String> {
         | true => None,
         | false => Some(groups.join("|")),
     }
-}
-/// Invert a regex pattern using negative lookahead so matches become exclusions.
-pub fn regex_inverse(pattern: impl AsRef<str>) -> String {
-    format!("^(?!.*(?:{})).*$", pattern.as_ref())
 }
 /// Attempt to convert a safe regex pattern to a glob pattern.
 ///

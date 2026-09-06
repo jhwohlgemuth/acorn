@@ -18,6 +18,7 @@
     - [💾 Data](./concepts/aspect/data.md)
   - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [Metadata enrichment](./concepts/enrichment.md)
+  - [Rooted in Category Theory](./concepts/category-theory.md)
   - [...But Is It Agentic?](./concepts/agentic.md)
   - [Citations](./concepts/citations.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)

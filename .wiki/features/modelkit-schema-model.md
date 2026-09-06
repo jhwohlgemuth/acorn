@@ -16,13 +16,13 @@ tags:
   - oci
   - yaml
   - json
-status: planned
+status: in-progress
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/mod.rs`, `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/util/constants/app.rs`, and dedicated tests for those modules.
-- **Create:** `crates/acorn-schema/src/schema/modelkit/mod.rs`, focused child modules only if the implementation no longer fits one reviewable file, and producer-derived fixtures under `tests/fixtures/modelkit/`.
+- **Update:** `crates/acorn-schema/src/schema/mod.rs`, `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/util/constants/oci.rs`, and dedicated tests for those modules.
+- **Create:** `crates/acorn-schema/src/schema/modelkit/mod.rs`, the adjacent `kitfile.rs` implementation module, and producer-derived fixtures under `tests/fixtures/modelkit/`.
 - **Delete:** The private `ModelKitConfig` and `ModelKitModel` DTOs in `crates/acorn-lib/src/io/oci.rs` after that consumer migrates to the portable model. No generic OCI manifest, transport, or archive types move as part of this plan.
 
 # Dependencies
@@ -33,6 +33,18 @@ status: planned
 - This plan occupies the **Schema features** lane in the [parallel execution guide](../parallel-execution.md). `schema/mod.rs` is a module-index lock; `io/oci.rs` and ModelKit constants are handed to the Provider-leaves integration owner for the final consumer migration.
 
 # Portable ModelKit and Kitfile schema model
+
+## Implementation progress (2026-09-05)
+
+- `acorn-schema::schema::modelkit` now publicly models every field in the pinned KitOps v1.15.0 `KitFile`, `Package`, `Model`, `ModelPart`, `DataSet`, `Code`, `Docs`, `Prompt`, `MCPServer`, and `LayerInfo` types.
+- Strict authoring-YAML and resolved-config JSON entry points reject unknown and duplicate keys, trailing input, YAML-only tagged values, and derived identity in authoring YAML. Resolved JSON preserves `digest` and `diffId`; YAML projection removes them.
+- Portable validation covers content presence, version warnings, local/ModelKit/S3 path policy, normalized duplicate and remote-dataset collisions, model-part types, MCP Bundle rules, the shared lowercase SHA-256 digest rule, and independent all-or-none digest/diff-ID completeness. Intentional differences are the documented non-empty-content requirement, portable path cleaning, prompt duplicate-path participation, and MCP identity completeness.
+- Package/model versions and licenses now compose shared scalar validators through `optional(rule)`, remote dataset paths use a dedicated field validator, model format is typed with a forward-compatible fallback, and portable path/reference classification and normalization live on `acorn_core::Location`.
+- `Kitfile` I/O now implements the shared `InputOutput` contract for authoring YAML and resolved JSON through the host adapter.
+- `Kitfile` and `ModelKit` are selectable analyzer standards and run through the shared `Check` schema-validation flow, including automatic standard detection.
+- The OCI consumer now uses the public resolved decoder, distinguishes valid model-free packages at the command-policy boundary, and associates the primary GGUF plus GGUF model parts through resolved layer digests. The private `ModelKitConfig`/`ModelKitModel` DTOs were deleted.
+- Verbatim fixtures are pinned to KitOps v1.15.0 commit `6b8162ae5da4d46f1d2af2beb43e7fb077f052f4`; complete authoring and resolved fixtures exercise every modeled field. Focused schema, codec, analyzer, alloc-only, and OCI consumer tests pass, as does the pinned upstream `go test ./pkg/artifact` suite.
+- Repository validation passed `make lint` and `make test` (1,482 passed and 14 skipped); earlier validation also passed `make check-wasm` and `make book`. The repository-wide `make audit` gate remains unaccepted because its existing cargo-udeps configuration reports `keyring`, `arboard`, and `itertools`; this implementation added no dependency.
 
 ## Goal
 
@@ -49,12 +61,12 @@ The OCI image manifest is already parsed and validated inside `acorn-lib::io::oc
 
 | Concern | Current ACORN behavior | Target behavior |
 |---|---|---|
-| Public schema | No ModelKit or Kitfile type exists in `acorn-schema`. | Public `modelkit` types expose the supported 1.0.0 contract with `JsonSchema`, serde, equality, and validation support. |
-| OCI config parsing | `io/oci.rs` privately decodes only `model.path`. | Decode and validate the complete resolved config, while the model downloader reads only the normalized model fields it needs. |
-| YAML versus JSON | No authoring codec exists; derived layer metadata is invisible. | Authoring YAML never emits or accepts producer-derived layer identity; resolved JSON preserves and validates it. |
-| Content coverage | Model-free kits are rejected by the model downloader before they can be represented. | The schema accepts valid model-free kits containing datasets, code, docs, prompts, or MCP servers; the downloader applies its separate “must contain a model” policy. |
-| Validation | Only the selected model path receives OCI-local safety checks. | Pure validation covers version policy, content presence, path/reference kinds, duplicate and overlapping paths, remote dataset integrity, model-part types, MCP Bundle constraints, and unique MCP server names. |
-| Compatibility | No pinned producer fixture or drift boundary exists for ModelKit config fields. | Golden YAML/JSON fixtures and differential tests record behavior against one pinned KitOps release and identify documentation/producer differences. |
+| Public schema | Public `modelkit` types expose the pinned 1.0.0 contract with `JsonSchema`, serde, equality, and validation support. | Review additions deliberately when the pinned producer baseline changes. |
+| OCI config parsing | `io/oci.rs` uses the public resolved decoder and reads normalized model/model-part layer identities. | Extend materialization formats separately from schema compatibility when required. |
+| YAML versus JSON | Authoring YAML rejects and omits derived identity; resolved JSON preserves and validates it. | Retain the explicit codec boundary. |
+| Content coverage | Model-free kits containing another content section are valid schema values; the model downloader applies its separate missing-model policy. | Preserve package validity independently of command policy. |
+| Validation | Pure validation aggregates deterministic path/reference, collision, remote dataset, model-part, MCP, and layer-identity issues. | Expand pinned differential fixtures when KitOps behavior changes. |
+| Compatibility | Verbatim producer fixtures pin YAML/JSON normalization and MCP validation to KitOps v1.15.0. | Add a reproducible pinned-binary differential job before retiring the plan. |
 
 ## Recommended model
 
@@ -164,4 +176,4 @@ Exit condition: the existing ModelKit download tests use the public schema, mode
 - The Kitfile format documents package, model, model parts, datasets, code, docs, prompts, MCP Bundles, and JSON-compatible parameter values (with string/number/map caveats): <https://kitops.org/docs/kitfile/format/>.
 - The pinned producer types, `LoadModel`, `MarshalToYAML`/`MarshalToJSON`, `Validate`, `GetPathType`, `IsModelKitReference`, `ParseReference`, and `KitfileHasLayerInfo` behavior are defined by KitOps v1.15.0 at commit [`6b8162ae5da4d46f1d2af2beb43e7fb077f052f4`](https://github.com/kitops-ml/kitops/blob/6b8162ae5da4d46f1d2af2beb43e7fb077f052f4/pkg/artifact/kitfile.go) and [`util.go`](https://github.com/kitops-ml/kitops/blob/6b8162ae5da4d46f1d2af2beb43e7fb077f052f4/pkg/artifact/util.go). Test fixtures proving the contract are at `pkg/artifact/testdata/validation/*.yaml` and `pkg/artifact/testdata/parameters/*.yaml`, exercised by `kitfile_test.go` (`TestValidateKitfile`, `TestParameterMarshalUnmarshal`, `TestCollectLicenses`).
 - KitOps' TypeScript types independently expose the public Kitfile and OCI manifest shapes, but currently omit newer MCP-server fields; this is evidence for pinning the Go producer source rather than merging unversioned documentation ad hoc: <https://kitops.org/docs/kitops-ts/types/>.
-- ACORN currently defines only `ModelKitConfig { model }` and `ModelKitModel { path }` in `crates/acorn-lib/src/io/oci.rs:99`; the remainder of a valid resolved config is discarded (observed via that file’s `modelkit_content` at `crates/acorn-lib/src/io/oci.rs:800`).
+- ACORN's implementation is in `crates/acorn-schema/src/schema/modelkit/`; producer provenance is recorded beside `tests/fixtures/modelkit/`, and `crates/acorn-lib/src/io/oci.rs` consumes the public resolved representation.

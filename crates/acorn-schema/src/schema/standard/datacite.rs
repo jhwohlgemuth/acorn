@@ -18,7 +18,7 @@ use crate::schema::validate::{
     validate_publisher_identifier,
 };
 use crate::schema::OneOrMany;
-use crate::validation::Validate;
+use crate::validation::{Property, PropertySet, Validate};
 use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
 use core::fmt;
@@ -905,13 +905,6 @@ pub struct NameIdentifier {
     #[serde(rename = "schemeUri", alias = "@schemeURI")]
     pub scheme_uri: Option<String>,
 }
-struct Property {
-    name: &'static str,
-    present: bool,
-}
-struct PropertySet<const N: usize> {
-    properties: [Property; N],
-}
 /// Publisher information per DataCite 4.7 property 4
 ///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/publisher/> for details
@@ -1319,28 +1312,30 @@ impl PartialEq for GeoLocationPoint {
         self.longitude.to_bits() == other.longitude.to_bits() && self.latitude.to_bits() == other.latitude.to_bits()
     }
 }
-impl Property {
-    const fn new(name: &'static str, present: bool) -> Self {
-        Self { name, present }
-    }
-    fn validate(self) -> Result<(), String> {
-        self.present.then_some(()).ok_or_else(|| self.name.to_string())
+#[cfg(feature = "std")]
+impl TryFrom<&dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
+        Record::try_from(dataset.clone())
     }
 }
-impl<const N: usize> PropertySet<N> {
-    const fn new(properties: [Property; N]) -> Self {
-        Self { properties }
+#[cfg(feature = "std")]
+impl TryFrom<dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
+        let mapping = dcat_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
-    fn validate(self) -> Result<(), Vec<String>> {
-        let missing = self
-            .properties
-            .into_iter()
-            .filter_map(|property| property.validate().err())
-            .collect::<Vec<_>>();
-        match missing.is_empty() {
-            | true => Ok(()),
-            | false => Err(missing),
-        }
+}
+#[cfg(feature = "std")]
+impl TryFrom<huwise::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
+        let mapping = huwise_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
 impl Record {
@@ -1602,37 +1597,11 @@ impl ToProse for Record {
             .join("\n\n")
     }
 }
-#[cfg(feature = "std")]
-impl TryFrom<&dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
-        Record::try_from(dataset.clone())
-    }
-}
 impl TryFrom<&invenio::Record> for Record {
     type Error = CrosswalkError;
 
     fn try_from(record: &invenio::Record) -> Result<Self, Self::Error> {
         Record::try_from(record.clone())
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
-        let mapping = dcat_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<huwise::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
-        let mapping = huwise_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
 impl TryFrom<invenio::Record> for Record {

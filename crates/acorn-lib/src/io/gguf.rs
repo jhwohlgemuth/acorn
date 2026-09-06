@@ -2,10 +2,13 @@
 use crate::io::config::FilterSet;
 use crate::io::oci::{OciExtraction, OciFile, OciFiles, OciLayer, OciResolution};
 use crate::io::{ApiResult, PathExt};
-use crate::util::constants::app::{MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD};
+use crate::util::constants::oci::{
+    MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
+    MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
+};
 use acorn_core::prelude::{HashSet, String, ToString, Vec};
 use acorn_core::validation::ValidationError;
-use acorn_schema::schema::agent::OciModelLayerRole;
+use acorn_schema::oci::ModelLayerRole;
 use acorn_schema::schema::agent::Quantization;
 use acorn_schema::validation::{IntoValidationReport, ValidationReport};
 use color_eyre::eyre::eyre;
@@ -319,28 +322,48 @@ impl OciFiles {
 impl OciLayer {
     pub(super) fn is_valid(layer: &Self, _context: &()) -> Result<(), ValidationReport> {
         let path = layer.path.as_deref().map(Path::new);
-        let has_valid_path = path.is_none_or(|path| path.is_safe() && path.is_gguf());
+        let has_safe_path = path.is_none_or(PathExt::is_safe);
+        let has_gguf_path = path.is_some_and(|path| path.is_safe() && path.is_gguf());
         let is_raw = path.is_some() && layer.extraction == OciExtraction::None && !layer.inventory_deferred;
         let is_tar = path.is_none() && layer.extraction == OciExtraction::Tar && layer.inventory_deferred;
         let is_tar_gzip = path.is_none() && layer.extraction == OciExtraction::TarGzip && layer.inventory_deferred;
-        let result = match (has_valid_path, layer.media_type.as_str(), layer.role) {
-            | (false, _, _) => Err(ValidationError::new("path").with_message("ModelPack filepath must be a safe GGUF path".into())),
-            | (true, MODELPACK_WEIGHT_RAW, OciModelLayerRole::ModelWeight) if is_raw => Ok(()),
-            | (true, MODELPACK_WEIGHT_TAR, OciModelLayerRole::ModelWeight) if is_tar => Ok(()),
-            | (true, MODELPACK_WEIGHT_TAR_GZIP, OciModelLayerRole::ModelWeight) if is_tar_gzip => Ok(()),
-            | (true, MODELPACK_WEIGHT_TAR_ZSTD, OciModelLayerRole::ModelWeight) => {
-                Err(ValidationError::new("media_type").with_message("ModelPack tar+zstd weight layers are not supported".into()))
-            }
-            | (true, _, OciModelLayerRole::Model) => Ok(()),
-            | _ => Err(ValidationError::new("layer").with_message("Unsupported ModelPack weight layer shape".into())),
+        let is_tar_zstd = path.is_none() && layer.extraction == OciExtraction::TarZstd && layer.inventory_deferred;
+        let valid_shape = match layer.role {
+            | ModelLayerRole::ModelWeight => match layer.media_type.as_str() {
+                | MODELPACK_WEIGHT_RAW => has_gguf_path && is_raw,
+                | MODELPACK_WEIGHT_TAR => is_tar,
+                | MODELPACK_WEIGHT_TAR_GZIP => is_tar_gzip,
+                | MODELPACK_WEIGHT_TAR_ZSTD => is_tar_zstd,
+                | _ => false,
+            },
+            | ModelLayerRole::WeightConfig => match layer.media_type.as_str() {
+                | MODELPACK_WEIGHT_CONFIG_RAW => has_safe_path && is_raw,
+                | MODELPACK_WEIGHT_CONFIG_TAR => is_tar,
+                | MODELPACK_WEIGHT_CONFIG_TAR_GZIP => is_tar_gzip,
+                | MODELPACK_WEIGHT_CONFIG_TAR_ZSTD => is_tar_zstd,
+                | _ => false,
+            },
+            | ModelLayerRole::Model | ModelLayerRole::Documentation | ModelLayerRole::Code | ModelLayerRole::Dataset => has_safe_path,
         };
-        result.map_err(|error| error.into_report(""))
+        match (has_safe_path, valid_shape) {
+            | (false, _) => Err(ValidationError::new("path")
+                .with_message("OCI layer filepath must be safe")
+                .into_report("")),
+            | (_, true) => Ok(()),
+            | _ => Err(ValidationError::new("layer")
+                .with_message("Unsupported OCI model layer shape")
+                .into_report("")),
+        }
     }
 }
-pub(super) fn select_staged_files(staging: &Path, resolution: &OciResolution, origins: &[(String, String)]) -> ApiResult<Vec<OciFile>> {
+pub(super) fn select_staged_files(
+    staging: &Path,
+    resolution: &OciResolution,
+    origins: &[(String, String, ModelLayerRole)],
+) -> ApiResult<Vec<OciFile>> {
     origins
         .iter()
-        .map(|(path, digest)| match Path::new(path).is_gguf() {
+        .map(|(path, digest, role)| match Path::new(path).is_gguf() {
             | false => Err(eyre!("OCI model layer materialized non-GGUF file '{path}'")),
             | true => fs::metadata(staging.join(path))
                 .map_err(|why| eyre!("Failed to inspect OCI model file '{path}' — {why}"))
@@ -351,6 +374,7 @@ pub(super) fn select_staged_files(staging: &Path, resolution: &OciResolution, or
                     path: path.clone(),
                     installed_size: Some(metadata.len()),
                     layer_digest: digest.clone(),
+                    role: *role,
                 }),
         })
         .collect::<ApiResult<Vec<_>>>()
@@ -360,8 +384,8 @@ pub(super) fn select_staged_files(staging: &Path, resolution: &OciResolution, or
             let selected_paths = selected.0.iter().map(|file| file.path.clone()).collect::<HashSet<_>>();
             origins
                 .iter()
-                .filter(|(path, _)| !selected_paths.contains(path.as_str()))
-                .try_for_each(|(path, _)| {
+                .filter(|(path, _, _)| !selected_paths.contains(path.as_str()))
+                .try_for_each(|(path, _, _)| {
                     remove_file(staging.join(path)).map_err(|why| eyre!("Failed to remove unselected OCI file '{path}' — {why}"))
                 })
                 .map(|()| selected)

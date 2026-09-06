@@ -23,16 +23,6 @@ use derive_more::Display;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 use strum::EnumIs;
-pub(crate) mod osti;
-/// Remote Docker target arguments shared by container-producing create commands.
-#[derive(Clone, Debug, Args)]
-pub(crate) struct RemoteTarget {
-    /// SSH endpoint of the remote Docker daemon
-    ///
-    /// The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
-    #[arg(long, value_name = "URI", value_parser = parse_ssh_remote, help_heading = "OPTIONS")]
-    pub(crate) remote: Option<Remote>,
-}
 /// Bot command arguments.
 pub(crate) mod bot {
     use super::{parse_executor, Executor, RemoteTarget, ValueEnum, Verbosity};
@@ -157,7 +147,7 @@ pub(crate) mod bot {
         }
 
         #[test]
-        fn bind_address_uses_default_host_with_port() {
+        fn test_bind_address_uses_default_host_with_port() {
             assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
             assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
             assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
@@ -166,6 +156,7 @@ pub(crate) mod bot {
         }
     }
 }
+pub(crate) mod osti;
 /// Archive container format used for BagIt import and export.
 #[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
 pub(crate) enum ArchiveType {
@@ -391,7 +382,7 @@ pub struct Check {
     pub(crate) skip_verify_checksum: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Readability test to use
@@ -632,7 +623,7 @@ pub(crate) struct Export {
     pub(crate) reference: Option<PathBuf>,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Fail if conversion loses data (only for crosswalk exports)
@@ -640,12 +631,12 @@ pub(crate) struct Export {
     pub(crate) strict: bool,
     /// Metadata standard to use for source data inference (default: auto-detect)
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) from: Option<Standard>,
     /// Target metadata standard for crosswalk conversion
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
     #[command(flatten)]
@@ -694,7 +685,7 @@ pub(crate) struct Format {
     pub(crate) merge_request: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     #[command(flatten)]
@@ -917,6 +908,15 @@ pub(crate) struct ModelSyncArgs {
     /// Preview resolution and synchronization without writes.
     #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
+}
+/// Remote Docker target arguments shared by container-producing create commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct RemoteTarget {
+    /// SSH endpoint of the remote Docker daemon
+    ///
+    /// The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
+    #[arg(long, value_name = "URI", value_parser = parse_ssh_remote, help_heading = "OPTIONS")]
+    pub(crate) remote: Option<Remote>,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]

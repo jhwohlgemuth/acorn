@@ -53,6 +53,12 @@ use markdown::Document;
 pub use output::ResearchOutput;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrStructured<T> {
+    String(String),
+    Structured(T),
+}
 #[derive(Debug, Display)]
 enum Vocabulary {
     #[display("keywords")]
@@ -63,94 +69,6 @@ enum Vocabulary {
     Sponsors,
     #[display("technology")]
     Technology,
-}
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum StringOrStructured<T> {
-    String(String),
-    Structured(T),
-}
-fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de> + From<String>,
-{
-    Option::<OneOrMany<StringOrStructured<T>>>::deserialize(deserializer).map(|values| {
-        values.map(|values| {
-            values
-                .into_vec()
-                .into_iter()
-                .map(|value| match value {
-                    | StringOrStructured::String(value) => T::from(value),
-                    | StringOrStructured::Structured(value) => value,
-                })
-                .collect()
-        })
-    })
-}
-fn deserialize_string_or_structured<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de> + From<String>,
-{
-    Option::<StringOrStructured<T>>::deserialize(deserializer).map(|value| {
-        value.map(|value| match value {
-            | StringOrStructured::String(value) => T::from(value),
-            | StringOrStructured::Structured(value) => value,
-        })
-    })
-}
-impl From<String> for ActivityContributor {
-    fn from(value: String) -> Self {
-        Self::init().name(value.trim().to_string()).build()
-    }
-}
-impl From<String> for ActivityOrganization {
-    fn from(value: String) -> Self {
-        Self::init().name(value.trim().to_string()).build()
-    }
-}
-impl From<String> for Funding {
-    fn from(value: String) -> Self {
-        Self::init().name(value.trim().to_string()).build()
-    }
-}
-impl From<String> for TypedRelatedResource {
-    fn from(value: String) -> Self {
-        Self::init()
-            .identifier(TypedIdentifier::init().value(value.trim().to_string()).build())
-            .relation_type("Related")
-            .category(RelatedResourceCategory::Related)
-            .build()
-    }
-}
-impl From<String> for Language {
-    fn from(value: String) -> Self {
-        Self::init().id(value.trim().to_string()).build()
-    }
-}
-impl From<String> for ControlledSubject {
-    fn from(value: String) -> Self {
-        Self::init().subject(value.trim().to_string()).build()
-    }
-}
-impl From<String> for SpatialCoverage {
-    fn from(value: String) -> Self {
-        Self {
-            id: value.trim().to_string(),
-            schema_uri: None,
-            place: Vec::new(),
-        }
-    }
-}
-impl From<String> for StructuredRights {
-    fn from(value: String) -> Self {
-        match value.trim() {
-            | "open" => Self::init().access(RightsAccess::Open).build(),
-            | "embargoed" => Self::init().access(RightsAccess::Embargoed).build(),
-            | value => Self::init().rights(value.to_string()).build(),
-        }
-    }
 }
 /// Provenance for fields contributed by one enrichment provider.
 #[skip_serializing_none]
@@ -474,7 +392,7 @@ pub struct ResearchActivityMetadata {
     #[serde(default, deserialize_with = "deserialize_string_or_structured")]
     pub access: Option<StructuredRights>,
 }
-/// Linked data (e.g., JSON-LD) context for metadata
+/// Linked data (e.g., JSON-LD) context for metadata.
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -628,6 +546,16 @@ pub struct Sections {
     #[builder(default = Research::init().build())]
     pub research: Research,
 }
+impl From<String> for ActivityContributor {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
+impl From<String> for ActivityOrganization {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
 impl From<&ResearchActivity> for Cff {
     fn from(rad: &ResearchActivity) -> Self {
         let sections = rad.sections.clone();
@@ -710,6 +638,21 @@ impl From<&ResearchActivity> for Cff {
 impl From<ResearchActivity> for Cff {
     fn from(rad: ResearchActivity) -> Self {
         Cff::from(&rad)
+    }
+}
+impl From<String> for ControlledSubject {
+    fn from(value: String) -> Self {
+        Self::init().subject(value.trim().to_string()).build()
+    }
+}
+impl From<String> for Funding {
+    fn from(value: String) -> Self {
+        Self::init().name(value.trim().to_string()).build()
+    }
+}
+impl From<String> for Language {
+    fn from(value: String) -> Self {
+        Self::init().id(value.trim().to_string()).build()
     }
 }
 impl MarkdownSupport for Research {
@@ -1061,17 +1004,71 @@ impl MarkdownSupport for Sections {
         )
     }
 }
+impl From<String> for SpatialCoverage {
+    fn from(value: String) -> Self {
+        Self {
+            id: value.trim().to_string(),
+            schema_uri: None,
+            place: Vec::new(),
+        }
+    }
+}
+impl From<String> for StructuredRights {
+    fn from(value: String) -> Self {
+        match value.trim() {
+            | "open" => Self::init().access(RightsAccess::Open).build(),
+            | "embargoed" => Self::init().access(RightsAccess::Embargoed).build(),
+            | value => Self::init().rights(value.to_string()).build(),
+        }
+    }
+}
+impl From<String> for TypedRelatedResource {
+    fn from(value: String) -> Self {
+        Self::init()
+            .identifier(TypedIdentifier::init().value(value.trim().to_string()).build())
+            .relation_type("Related")
+            .category(RelatedResourceCategory::Related)
+            .build()
+    }
+}
 impl Vocabulary {
     /// Resolve values to intended values according to associated controlled vocabulary
     fn resolve(self, values: Option<Vec<String>>) -> Vec<String> {
         ControlledVocabulary::normalize(&self.to_string(), values.unwrap_or_default()).into_values()
     }
 }
+fn default_access_context() -> String {
+    dcterms("accessRights")
+}
+fn default_contributors_context() -> String {
+    schema_org("contributor")
+}
+fn default_funders_context() -> String {
+    codemeta("sponsor")
+}
 fn default_handle_context() -> String {
     codemeta("identifier")
 }
+fn default_languages_context() -> String {
+    dcterms("language")
+}
+fn default_organizations_context() -> String {
+    schema_org("Organization")
+}
 fn default_outputs_context() -> String {
     schema_org("CreativeWork")
+}
+fn default_related_resources_context() -> String {
+    dcterms("relation")
+}
+fn default_rights_context() -> String {
+    dcterms("rights")
+}
+fn default_spatial_coverage_context() -> String {
+    dcterms("spatial")
+}
+fn default_subjects_context() -> String {
+    dcterms("subject")
 }
 fn default_swhid_context() -> String {
     codemeta("identifier")
@@ -1079,32 +1076,35 @@ fn default_swhid_context() -> String {
 fn default_typed_dates_context() -> String {
     dcterms("date")
 }
-fn default_contributors_context() -> String {
-    schema_org("contributor")
+fn deserialize_string_or_structured<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + From<String>,
+{
+    Option::<StringOrStructured<T>>::deserialize(deserializer).map(|value| {
+        value.map(|value| match value {
+            | StringOrStructured::String(value) => T::from(value),
+            | StringOrStructured::Structured(value) => value,
+        })
+    })
 }
-fn default_organizations_context() -> String {
-    schema_org("Organization")
-}
-fn default_funders_context() -> String {
-    codemeta("sponsor")
-}
-fn default_related_resources_context() -> String {
-    dcterms("relation")
-}
-fn default_languages_context() -> String {
-    dcterms("language")
-}
-fn default_subjects_context() -> String {
-    dcterms("subject")
-}
-fn default_spatial_coverage_context() -> String {
-    dcterms("spatial")
-}
-fn default_rights_context() -> String {
-    dcterms("rights")
-}
-fn default_access_context() -> String {
-    dcterms("accessRights")
+fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + From<String>,
+{
+    Option::<OneOrMany<StringOrStructured<T>>>::deserialize(deserializer).map(|values| {
+        values.map(|values| {
+            values
+                .into_vec()
+                .into_iter()
+                .map(|value| match value {
+                    | StringOrStructured::String(value) => T::from(value),
+                    | StringOrStructured::Structured(value) => value,
+                })
+                .collect()
+        })
+    })
 }
 /// Custom validator function for [approach](Sections::approach)
 pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
@@ -1255,7 +1255,7 @@ pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<Stri
     super::resolve_from_list_of_lists(value, data, name)
 }
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
-    let mut err = ValidationError::new(code).with_message(message.into());
+    let mut err = ValidationError::new(code).with_message(message);
     err.add_param("index".into(), &index);
     err
 }

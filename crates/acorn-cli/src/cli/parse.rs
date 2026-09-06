@@ -72,6 +72,10 @@ pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
         )),
     }
 }
+/// Parse an enrichment provider name.
+pub(crate) fn parse_enrichment_provider(value: &str) -> Result<Provider, String> {
+    value.parse::<Provider>().map_err(|why| why.to_string())
+}
 /// Parse a CLI executor name into an `Executor` variant.
 pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
     match s.to_lowercase().as_str() {
@@ -91,14 +95,6 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
         )),
     }
 }
-/// Parse an enrichment provider name.
-pub(crate) fn parse_enrichment_provider(value: &str) -> Result<Provider, String> {
-    value.parse::<Provider>().map_err(|why| why.to_string())
-}
-/// Parse an SSH URI used to target a remote Docker daemon.
-pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
-    value.parse()
-}
 /// Parse a CLI readability metric name into a `ReadabilityType` variant.
 pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {
     match s.to_lowercase().as_str() {
@@ -115,6 +111,10 @@ pub(crate) fn parse_readability(s: &str) -> Result<ReadabilityType, String> {
         )),
     }
 }
+/// Parse an SSH URI used to target a remote Docker daemon.
+pub(crate) fn parse_ssh_remote(value: &str) -> Result<Remote, String> {
+    value.parse()
+}
 /// Parse a CLI standard name into an `Standard` variant.
 pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
     match s.to_lowercase().as_str() {
@@ -125,12 +125,14 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "dcmi" => Ok(Standard::DublinCore),
         | "document" | "docx" | "pdf" => Ok(Standard::Document),
         | "invenio" => Ok(Standard::Invenio),
+        | "kitfile" => Ok(Standard::Kitfile),
+        | "modelkit" => Ok(Standard::ModelKit),
         | "huwise" => Ok(Standard::Huwise),
         | "raid" => Ok(Standard::Raid),
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             rads, cff, datacite, dcat, dcmi, document, invenio, huwise, raid, text"
+             rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text"
         )),
     }
 }

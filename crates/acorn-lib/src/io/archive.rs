@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use tar::{Archive as TarArchive, Builder as TarBuilder};
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
+use zstd::stream::read::Decoder as ZstdDecoder;
 
 /// Archive creation operations implemented by archive candidates
 pub trait ArchiveCreation {
@@ -39,6 +40,8 @@ pub trait ArchiveExtraction {
     fn extract_tar(self, destination: Option<PathBuf>) -> ApiResult<PathBuf>;
     /// Extracts a gzip-compressed TAR archive
     fn extract_tar_gzip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf>;
+    /// Extracts a Zstandard-compressed TAR archive.
+    fn extract_tar_zstd(self, destination: Option<PathBuf>) -> ApiResult<PathBuf>;
     /// Extracts a ZIP archive
     fn extract_zip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf>;
 }
@@ -301,6 +304,12 @@ impl ArchiveExtraction for ArchiveCandidate {
             .map_err(Into::into)
             .and_then(|decoder| extract_tar_reader(decoder, destination))
     }
+    fn extract_tar_zstd(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
+        File::open(self.0)
+            .map_err(Into::into)
+            .and_then(|file| ZstdDecoder::new(file).map_err(Into::into))
+            .and_then(|decoder| extract_tar_reader(decoder, destination))
+    }
     fn extract_zip(self, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
         extraction_root(destination).and_then(|root| {
             File::open(&self.0)
@@ -308,7 +317,7 @@ impl ArchiveExtraction for ArchiveCandidate {
                 .and_then(|file| ZipArchive::new(file).map_err(Into::into))
                 .and_then(|mut archive| match archive.len() > MAX_ARCHIVE_ENTRIES {
                     | true => Err(ArchiveError::TooManyEntries.into()),
-                    | false => (0..archive.len()).try_fold(Vec::new(), |seen, index| {
+                    | false => (0..archive.len()).try_fold((Vec::new(), 0_u64), |(seen, total), index| {
                         archive.by_index(index).map_err(Into::into).and_then(|mut entry| {
                             entry
                                 .enclosed_name()
@@ -316,12 +325,21 @@ impl ArchiveExtraction for ArchiveCandidate {
                                 .and_then(|path| path.relative())
                                 .and_then(|relative| validate_entry(&root, seen, relative, entry.is_dir(), entry.size()))
                                 .and_then(|(seen, target)| {
+                                    total
+                                        .checked_add(entry.size())
+                                        .ok_or_else(|| ArchiveError::ExpandedSizeOverflow.into())
+                                        .and_then(|total| match total > MAX_ARCHIVE_EXPANDED_BYTES {
+                                            | true => Err(ArchiveError::ExpandedSizeLimit.into()),
+                                            | false => Ok((seen, target, total)),
+                                        })
+                                })
+                                .and_then(|(seen, target, total)| {
                                     let mode = entry.unix_mode().unwrap_or_default() & 0o170000;
                                     match mode == 0o120000 {
                                         | true => Err(ArchiveError::ZipLink(target).into()),
                                         | false => {
                                             let is_directory = entry.is_dir();
-                                            write_entry(&mut entry, &target, is_directory).map(|()| seen)
+                                            write_entry(&mut entry, &target, is_directory).map(|()| (seen, total))
                                         }
                                     }
                                 })
@@ -408,6 +426,7 @@ impl ArchiveFormat for MimeType {
             | Self::SevenZip => source.extract_7z(destination),
             | Self::Tar => source.extract_tar(destination),
             | Self::Zip => source.extract_zip(destination),
+            | Self::Zstd => source.extract_tar_zstd(destination),
             | _ => Err(ArchiveError::UnsupportedFormat(self.clone()).into()),
         }
     }
@@ -428,7 +447,7 @@ fn extract_tar_reader<R: Read>(reader: R, destination: Option<PathBuf>) -> ApiRe
             .and_then(|entries| {
                 entries
                     .enumerate()
-                    .try_fold(Vec::new(), |seen, (index, entry)| match index >= MAX_ARCHIVE_ENTRIES {
+                    .try_fold((Vec::new(), 0_u64), |(seen, total), (index, entry)| match index >= MAX_ARCHIVE_ENTRIES {
                         | true => Err(ArchiveError::TooManyEntries.into()),
                         | false => entry.map_err(Into::into).and_then(|mut entry| {
                             entry
@@ -439,13 +458,23 @@ fn extract_tar_reader<R: Read>(reader: R, destination: Option<PathBuf>) -> ApiRe
                                     let is_directory = entry.header().entry_type().is_dir();
                                     let is_file = entry.header().entry_type().is_file();
                                     match (relative.as_os_str().is_empty(), is_directory, is_file) {
-                                        | (true, true, _) => Ok((seen, root.clone(), true)),
+                                        | (true, true, _) => Ok((seen, root.clone(), true, total)),
                                         | (false, true, _) | (false, _, true) => validate_entry(&root, seen, relative, is_directory, entry.size())
-                                            .map(|(seen, target)| (seen, target, is_directory)),
+                                            .and_then(|(seen, target)| {
+                                                total
+                                                    .checked_add(entry.size())
+                                                    .ok_or_else(|| ArchiveError::ExpandedSizeOverflow.into())
+                                                    .and_then(|total| match total > MAX_ARCHIVE_EXPANDED_BYTES {
+                                                        | true => Err(ArchiveError::ExpandedSizeLimit.into()),
+                                                        | false => Ok((seen, target, is_directory, total)),
+                                                    })
+                                            }),
                                         | _ => Err(ArchiveError::UnsupportedTarEntry.into()),
                                     }
                                 })
-                                .and_then(|(seen, target, is_directory)| write_entry(&mut entry, &target, is_directory).map(|()| seen))
+                                .and_then(|(seen, target, is_directory, total)| {
+                                    write_entry(&mut entry, &target, is_directory).map(|()| (seen, total))
+                                })
                         }),
                     })
             })

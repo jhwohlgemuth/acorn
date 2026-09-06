@@ -22,7 +22,7 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/io/gguf.rs`, `crates/acorn-lib/src/io/archive.rs` if bounded Zstandard extraction cannot remain OCI-local, `crates/acorn-lib/assets/constants/application.json`, `crates/acorn-schema/src/schema/agent/mod.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, adjacent unit tests, `docs/src/cli-reference/model-workflows.md`, `docs/src/cli-reference/commands/download.md`, and generated CLI help if arguments change.
+- **Update:** `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/io/gguf.rs`, `crates/acorn-lib/src/io/archive.rs`, `crates/acorn-lib/src/util/constants/oci.rs`, `crates/acorn-schema/src/oci.rs`, `crates/acorn-cli/src/commands/download/model/plan.rs`, adjacent unit tests, `docs/src/cli-reference/commands/download.md`, and generated CLI help if arguments change.
 - **Create:** Producer-derived, non-secret fixtures under a dedicated OCI model fixture directory; local Distribution/Harbor interoperability scripts or tests under the existing integration-test structure.
 - **Delete:** None. Do not remove the Hugging Face download path or generic annotated-OCI compatibility path.
 
@@ -46,17 +46,23 @@ This is an incremental consumer plan. Packaging, pushing, retagging, deleting, s
 
 Completion should make ACORN eligible to be proposed as a ModelPack implementation: it must demonstrably consume artifacts conforming to the current specification, remain publicly available from a public source repository, and show active maintenance. Upstream review and publication of the listing are external decisions, not ACORN acceptance criteria.
 
+## Implementation progress (2026-09-05)
+
+- Landed in the working implementation: typed current-schema ModelPack config decoding, byte-exact config descriptor verification for ModelPack and ModelKit, the complete five-role/four-encoding ModelPack media matrix, bounded shared TAR+Zstandard extraction, weight-configuration installation, explicit ignored lifecycle layers, content-aware collision handling, package/inventory reporting, and the public 0.2 OCI schema contract.
+- Focused fake-registry tests cover raw and archived ModelPack pulls, supporting weight configuration, ignored documentation, Zstandard extraction, annotated OCI, ModelKit, index resolution, and corrupt config bytes. Scheduled/manual CI now checks the pinned ModelPack and KitOps upstream baselines without regenerating source.
+- Still required before this concept becomes `done`: independent modctl ModelPack fixtures, the Distribution/Harbor Linux/Windows matrix, stable diagnostic categories, and release/listing evidence. External evidence must not be claimed from synthetic fixtures.
+
 ## Current evidence and gap analysis
 
 | Capability | Current ACORN behavior | Target behavior |
 |---|---|---|
 | Artifact discrimination | Distinguishes ModelPack, ModelKit, annotated artifacts, runnable images, and invalid ModelPack discriminator pairs. | Preserve strict discrimination, expose the detected format in plans/diagnostics, and test producer variations without falling back from malformed ModelPack to generic OCI. |
-| ModelPack config | Fetches the config blob and checks only that it is a JSON object. | Decode a typed current-schema config, validate required `descriptor`, `config`, and `modelfs` members, verify the config blob's size and digest, retain useful metadata, and report unsupported future shapes distinctly from corrupt data. |
-| ModelPack layers | Selects weight-prefixed layers; supports raw, TAR, and gzip TAR; only raw paths become known during dry-run. | Classify weight, weight-config, documentation, code, and dataset roles; support raw, TAR, gzip TAR, and Zstandard TAR; apply a separate GGUF materialization policy to weight candidates. |
+| ModelPack config | Decodes the required current-schema structure and verifies config size and SHA-256 digest. | Retain useful model metadata and distinguish unsupported future shapes from corrupt current data. |
+| ModelPack layers | Classifies all five roles and four encodings; installs weights/config and reports documentation/code/dataset layers as ignored. | Confirm behavior against pinned independent producer fixtures and registries. |
 | ModelPack paths | Reads `org.cncf.model.filepath` for direct layers and discovers archive contents after extraction. | Validate `org.cncf.model.filepath` and `org.cncf.model.file.metadata+json`, use annotations for truthful dry-run inventories when available, and reconcile declared metadata with extracted files. |
-| ModelKit config | Reads a minimal `model.path`, requires one KitOps gzip model layer, and rejects ModelKits without a model. | Parse the supported ModelKit config contract defensively, tolerate unrelated package components, plan the model layer independently, diagnose model-free and ambiguous kits precisely, and use KitOps metadata only for ModelKit or as optional enrichment of a standards-valid ModelPack. |
+| ModelKit config | Uses the public pinned Kitfile schema, validates full resolved configuration, accepts unrelated package components, and associates GGUF model/model-part paths through layer identity. | Add broader pinned-binary and registry evidence without coupling ModelPack parsing to KitOps metadata. |
 | Model selection | Requires GGUF and supports filters, ignores, and quantization selection. | Keep GGUF validation as a policy above package parsing; support split GGUF and projector associations consistently across raw and archived producers. |
-| Trust and recovery | Resolves immutable digests, validates transferred blob size/digest, extracts through safe staging, and publishes atomically. | Add config-blob verification, bounded expansion, cancellation cleanup, stable redacted error categories, and explicit language that content digests prove integrity rather than publisher identity. |
+| Trust and recovery | Resolves immutable digests, validates config and selected blobs, applies cumulative archive limits, extracts through safe staging, and publishes atomically. | Add stable redacted error categories and registry interruption evidence; continue stating that digests prove integrity rather than publisher identity. |
 | Interoperability evidence | Fake-ORAS tests cover a narrow ModelKit plus raw and gzip ModelPack cases; one live ModelKit was dry-run manually. | Pin reproducible fixtures produced by KitOps and an independent ModelPack implementation and run a generic Distribution/Harbor matrix on Linux and Windows. |
 
 ## Recommendation
@@ -151,12 +157,13 @@ Run focused OCI, GGUF, archive, and model-download tests first, then formatting,
 
 ## Evidence
 
-- The partial implementation is centered in `crates/acorn-lib/src/io/oci.rs` and `crates/acorn-cli/src/commands/download/model/plan.rs`. It already has distinct artifact classification, digest-pinned resolution, typed layer/file plans, safe staging, and atomic publication.
-- Current ModelPack config handling deserializes to `serde_json::Value` and verifies only that the result is an object. Current native ModelKit handling reads only `model.path` and requires exactly one gzip model layer.
-- Current tests cover annotated GGUF, native ModelKit GGUF, raw and gzip ModelPack, deferred archive inventory, blob digest/size checks, single-child indexes, GGUF validation, and the broad model-resource versus OCI-GGUF policy boundary.
+- The implementation is centered in `crates/acorn-lib/src/io/oci.rs`, the shared archive/GGUF boundaries, the public `acorn-schema::oci` contract, and `crates/acorn-cli/src/commands/download/model/plan.rs`. OCI media constants are isolated in `util::constants::oci`; descriptor and manifest operations own their validation and resolution behavior.
+- Current ModelPack config handling validates byte-exact descriptor size and SHA-256 before decoding a deny-unknown-fields current-schema DTO. Native ModelKit handling validates through `acorn-schema::schema::modelkit` and applies GGUF selection only after complete package parsing.
+- Current tests cover annotated GGUF, native ModelKit GGUF, all twenty ModelPack role/encoding media types, selected weight configuration, explicitly ignored package roles, deferred archive inventory, Zstandard extraction, blob digest/size checks, single-child indexes, GGUF validation, and the broad model-resource versus OCI-GGUF policy boundary.
+- Repository validation passed `make lint` and the full `make test` suite (1,482 passed and 14 skipped); earlier validation also passed `make check-wasm` and `make book`. `make audit` remains unaccepted because existing workspace dependencies are reported unused and the current advisory database reports unresolved dependency vulnerabilities; these findings were not introduced by the ModelPack implementation.
 - The ModelPack specification requires the OCI image manifest media type, `application/vnd.cncf.model.manifest.v1+json` artifact type, `application/vnd.cncf.model.config.v1+json` config media type, and defines weight/config/document/code/dataset layer families: <https://github.com/modelpack/model-spec/blob/main/docs/spec.md>.
 - The current ModelPack config schema requires `descriptor`, `config`, and `modelfs`, and defines model metadata and capabilities: <https://github.com/modelpack/model-spec/blob/main/schema/config-schema.json>.
 - ModelPack defines `org.cncf.model.filepath`, file-metadata JSON, and an untested-media-type annotation: <https://github.com/modelpack/model-spec/blob/main/docs/annotations.md>.
 - The ModelPack implementation directory accepts projects that produce and/or consume current-spec conformant artifacts, have a public source repository, and are actively maintained; listings receive equal treatment and appear alphabetically: <https://modelpack.org/implementations>.
 - KitOps documents ModelKit and ModelPack as separate formats, supports both transparently, creates ModelPack with `kit pack --use-model-pack`, and notes that independent ModelPacks may rely on `org.cncf.model.filepath`: <https://github.com/kitops-ml/kitops/blob/main/docs/src/docs/modelkit/intro.md>.
-- The external specification baseline reviewed for this plan was ModelPack commit [`d7a6481cddb3bd30d646dd5ea5e700171baaeadb`](https://github.com/modelpack/model-spec/commit/d7a6481cddb3bd30d646dd5ea5e700171baaeadb) from 2026-08-14. Fixture provenance must be pinned again when implementation begins.
+- The external specification baseline is ModelPack commit [`d7a6481cddb3bd30d646dd5ea5e700171baaeadb`](https://github.com/modelpack/model-spec/commit/d7a6481cddb3bd30d646dd5ea5e700171baaeadb) from 2026-08-14 and KitOps release `v1.15.0`; `scripts/check-modelpack-drift.sh` deliberately fails when either upstream baseline changes.

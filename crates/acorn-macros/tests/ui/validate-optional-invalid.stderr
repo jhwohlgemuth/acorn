@@ -1,0 +1,47 @@
+error: optional accepts one synchronous scalar rule
+ --> tests/ui/validate-optional-invalid.rs:5:25
+  |
+5 |     #[validate(optional(async(function = "validate")))]
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: optional accepts one synchronous scalar rule
+  --> tests/ui/validate-optional-invalid.rs:10:25
+   |
+10 |     #[validate(optional(each(version)))]
+   |                         ^^^^^^^^^^^^^
+
+error: optional accepts exactly one scalar rule
+  --> tests/ui/validate-optional-invalid.rs:15:16
+   |
+15 |     #[validate(optional())]
+   |                ^^^^^^^^^^
+
+error: optional accepts exactly one scalar rule
+  --> tests/ui/validate-optional-invalid.rs:20:16
+   |
+20 |     #[validate(optional(version, email))]
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: optional accepts one synchronous scalar rule
+  --> tests/ui/validate-optional-invalid.rs:25:25
+   |
+25 |     #[validate(optional(nested))]
+   |                         ^^^^^^
+
+error: optional accepts one synchronous scalar rule
+  --> tests/ui/validate-optional-invalid.rs:30:25
+   |
+30 |     #[validate(optional(optional(version)))]
+   |                         ^^^^^^^^^^^^^^^^^
+
+error: optional accepts one synchronous scalar rule
+  --> tests/ui/validate-optional-invalid.rs:35:25
+   |
+35 |     #[validate(optional(required))]
+   |                         ^^^^^^^^
+
+error: optional can only validate String, str, or optional wrappers
+  --> tests/ui/validate-optional-invalid.rs:41:12
+   |
+41 |     value: u8,
+   |            ^^

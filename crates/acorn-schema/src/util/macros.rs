@@ -16,7 +16,7 @@ macro_rules! regex_validator {
         pub fn $fn_name(value: &str) -> Result<(), acorn_core::validation::ValidationError> {
             match $regex.is_match(value) {
                 | Ok(true) => Ok(()),
-                | _ => Err(acorn_core::validation::ValidationError::new($code).with_message($message.into())),
+                | _ => Err(acorn_core::validation::ValidationError::new($code).with_message($message)),
             }
         }
     };
@@ -27,7 +27,7 @@ macro_rules! regex_validator {
             match $regex.is_match(value) {
                 | Ok(true) => Ok(()),
                 | _ => Err(acorn_core::validation::ValidationError::new($code)
-                    .with_message(concat!("Provide valid ", $code).into())),
+                    .with_message(concat!("Provide valid ", $code))),
             }
         }
     };

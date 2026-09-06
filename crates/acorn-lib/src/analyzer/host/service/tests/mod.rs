@@ -15,6 +15,8 @@ async fn test_analyze_paths_dispatches_every_standard() {
         Standard::DublinCore,
         Standard::Huwise,
         Standard::Invenio,
+        Standard::Kitfile,
+        Standard::ModelKit,
         Standard::Raid,
         Standard::ResearchActivityData,
         Standard::Text,
@@ -170,6 +172,30 @@ async fn test_flatten_checks_preserves_future_and_batch_order() {
         checks.iter().map(|check| check.message.as_str()).collect::<Vec<_>>(),
         ["first", "second", "third"]
     );
+}
+#[tokio::test]
+async fn test_kitfile_and_modelkit_use_schema_check_flow() {
+    let directory = tempdir().unwrap();
+    let cases = [
+        (Standard::Kitfile, "Kitfile", "manifestVersion: 1.0.0\npackage:\n  name: empty\n"),
+        (
+            Standard::ModelKit,
+            "modelkit.json",
+            r#"{"manifestVersion":"1.0.0","model":{"path":"model.gguf","digest":"invalid"}}"#,
+        ),
+    ];
+    for (standard, name, content) in cases {
+        let path = directory.path().join(name);
+        write(&path, content).unwrap();
+        let options = AnalysisContext::init()
+            .analysis(AnalysisOptions::init().standard(standard).build())
+            .build();
+        let report = analyze_paths(&[path], &options).await;
+        assert!(report
+            .checks()
+            .iter()
+            .any(|check| check.category == CheckCategory::Schema && check.is_failure()));
+    }
 }
 #[test]
 fn test_skipped_categories_include_explicit_and_implicit_values_once() {

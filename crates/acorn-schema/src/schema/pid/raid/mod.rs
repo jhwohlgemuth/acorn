@@ -23,80 +23,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-/// Read normalized discovery values from a collection of RAiD metadata records.
-pub struct Extractor<'a> {
-    records: &'a [Metadata],
-}
-impl<'a> Extractor<'a> {
-    /// Create an extractor over RAiD metadata records.
-    pub fn new(records: &'a [Metadata]) -> Self {
-        Self { records }
-    }
-    fn titles(&self) -> impl Iterator<Item = &Title> {
-        self.records.iter().flat_map(|record| record.title.iter().flatten())
-    }
-    /// Return the primary title, falling back to the first non-empty title.
-    pub fn title(&self) -> Option<String> {
-        self.titles()
-            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Primary)))
-            .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
-            .cloned()
-            .or_else(|| {
-                self.titles()
-                    .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
-                    .cloned()
-            })
-    }
-    /// Return the single distinct explicit contact identifier and email.
-    pub fn contact(&self) -> Option<(Option<String>, Option<String>)> {
-        let contacts = self
-            .records
-            .iter()
-            .flat_map(|record| record.contributor.iter().flatten())
-            .filter(|contributor| contributor.contact)
-            .map(|contributor| {
-                (
-                    contributor.id.clone().filter(|value| !value.trim().is_empty()),
-                    contributor.email.clone().filter(|value| !value.trim().is_empty()),
-                )
-            })
-            .filter(|(identifier, email)| identifier.is_some() || email.is_some())
-            .collect::<BTreeSet<_>>();
-        (contacts.len() == 1).then(|| contacts.into_iter().next()).flatten()
-    }
-    /// Return controlled organization names mapped as sponsors or partners by RAiD role.
-    pub fn organization_names(&self, sponsors: bool) -> Vec<String> {
-        self.records
-            .iter()
-            .flat_map(|record| {
-                let organizations = record.organization.as_deref().unwrap_or_default();
-                organizations.iter().filter(move |organization| {
-                    let is_funder = organization.role.iter().any(|role| matches!(role.id, OrganizationRoleType::Funder));
-                    let is_partner = (organizations.len() == 1 && organization.role.is_empty())
-                        || organization.role.iter().any(|role| !matches!(role.id, OrganizationRoleType::Funder));
-                    match sponsors {
-                        | true => is_funder,
-                        | false => is_partner,
-                    }
-                })
-            })
-            .filter_map(|organization| {
-                let vocabularies = match sponsors {
-                    | true => ["sponsors", "partners"],
-                    | false => ["partners", "sponsors"],
-                };
-                let ror = organization.id.trim_end_matches('/').rsplit('/').next().unwrap_or(&organization.id);
-                vocabularies.iter().flat_map(vocabulary::csv).find_map(|row| match row.as_slice() {
-                    | [name, _, value, ..] if value.eq_ignore_ascii_case(ror) => Some(name.clone()),
-                    | _ => None,
-                })
-            })
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect()
-    }
-}
-
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
 pub enum AccessType {
@@ -647,6 +573,10 @@ pub struct DescriptionIdentifier {
     #[validate(url)]
     pub schema_uri: String,
 }
+/// Read normalized discovery values from a collection of RAiD metadata records.
+pub struct Extractor<'a> {
+    records: &'a [Metadata],
+}
 /// Metadata schema block containing information about the associated type
 #[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init, on(String, into))]
@@ -909,7 +839,24 @@ pub struct RAID {
     /// Metadata associated with identifier. See <https://metadata.raid.org> for more information.
     pub metadata: Option<Metadata>,
 }
-/// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
+/// Metadata schema block containing the RAiD name and associated properties
+///
+/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RegistrationAgency {
+    /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
+    ///
+    /// *Default* ROR of the RAiD Registration Agency
+    #[validate(ror)]
+    pub id: String,
+    /// URI of the identifier scheme used to identify RAiDs
+    /// ### Example
+    /// > `https://raid.org/`
+    #[validate(url)]
+    pub schema_uri: Option<String>,
+}
+// Metadata schema block containing inputs, outputs, and process documents related to a RAiD plus associated properties
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct RelatedObject {
@@ -969,23 +916,6 @@ pub struct RelatedRaidIdentifier {
     /// Related RAiD type identifier
     pub id: RelatedRaidType,
     /// URI of the related RAiD type identifier schema
-    #[validate(url)]
-    pub schema_uri: Option<String>,
-}
-/// Metadata schema block containing the RAiD name and associated properties
-///
-/// See <https://metadata.raid.org/en/v1.6/core/identifier.html#identifier-registrationagency>
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct RegistrationAgency {
-    /// Persistent identifier of the RAiD Registration Agency that minted the RAiD
-    ///
-    /// *Default* ROR of the RAiD Registration Agency
-    #[validate(ror)]
-    pub id: String,
-    /// URI of the identifier scheme used to identify RAiDs
-    /// ### Example
-    /// > `https://raid.org/`
     #[validate(url)]
     pub schema_uri: Option<String>,
 }
@@ -1075,6 +1005,21 @@ pub struct Title {
     #[validate(year)]
     pub end_date: Option<String>,
 }
+/// Metadata schema block containing information about the title type
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[display("{id}")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TitleIdentifier {
+    /// Title type
+    ///
+    /// <div class="warning">Only one title should be identified as "Primary"</div>
+    pub id: TitleType,
+    /// URI of the title type schema
+    #[builder(default = "https://vocabulary.raid.org/title.type.schema/376".to_string())]
+    #[validate(url)]
+    pub schema_uri: String,
+}
 /// Metadata schema block containing information about Traditional Knowledge / Biocultural Labels and Notices
 /// ### Note
 /// > Part of "extended" metadata that allows some customization by Registration Agencies
@@ -1091,25 +1036,106 @@ pub struct TraditionalKnowledgeLabel {
     #[validate(url)]
     pub schema_uri: Option<String>,
 }
-/// Metadata schema block containing information about the title type
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, Display, JsonSchema, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[display("{id}")]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct TitleIdentifier {
-    /// Title type
-    ///
-    /// <div class="warning">Only one title should be identified as "Primary"</div>
-    pub id: TitleType,
-    /// URI of the title type schema
-    #[builder(default = "https://vocabulary.raid.org/title.type.schema/376".to_string())]
-    #[validate(url)]
-    pub schema_uri: String,
-}
 impl AlternateUrl {
     /// Return the alternate project URL.
     pub fn url(&self) -> &str {
         &self.url
+    }
+}
+impl Contributor {
+    fn is_contact(&self) -> bool {
+        self.contact
+    }
+    fn is_leader(&self) -> bool {
+        self.leader
+    }
+}
+impl<'a> Extractor<'a> {
+    /// Create an extractor over RAiD metadata records.
+    pub fn new(records: &'a [Metadata]) -> Self {
+        Self { records }
+    }
+    fn titles(&self) -> impl Iterator<Item = &Title> {
+        self.records.iter().flat_map(|record| record.title.iter().flatten())
+    }
+    /// Return the primary title, falling back to the first non-empty title.
+    pub fn title(&self) -> Option<String> {
+        self.titles()
+            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Primary)))
+            .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
+            .cloned()
+            .or_else(|| {
+                self.titles()
+                    .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
+                    .cloned()
+            })
+    }
+    /// Return the single distinct explicit contact identifier and email.
+    pub fn contact(&self) -> Option<(Option<String>, Option<String>)> {
+        let contacts = self
+            .records
+            .iter()
+            .flat_map(|record| record.contributor.iter().flatten())
+            .filter(|contributor| contributor.contact)
+            .map(|contributor| {
+                (
+                    contributor.id.clone().filter(|value| !value.trim().is_empty()),
+                    contributor.email.clone().filter(|value| !value.trim().is_empty()),
+                )
+            })
+            .filter(|(identifier, email)| identifier.is_some() || email.is_some())
+            .collect::<BTreeSet<_>>();
+        (contacts.len() == 1).then(|| contacts.into_iter().next()).flatten()
+    }
+    /// Return controlled organization names mapped as sponsors or partners by RAiD role.
+    pub fn organization_names(&self, sponsors: bool) -> Vec<String> {
+        self.records
+            .iter()
+            .flat_map(|record| {
+                let organizations = record.organization.as_deref().unwrap_or_default();
+                organizations.iter().filter(move |organization| {
+                    let is_funder = organization.role.iter().any(|role| matches!(role.id, OrganizationRoleType::Funder));
+                    let is_partner = (organizations.len() == 1 && organization.role.is_empty())
+                        || organization.role.iter().any(|role| !matches!(role.id, OrganizationRoleType::Funder));
+                    match sponsors {
+                        | true => is_funder,
+                        | false => is_partner,
+                    }
+                })
+            })
+            .filter_map(|organization| {
+                let vocabularies = match sponsors {
+                    | true => ["sponsors", "partners"],
+                    | false => ["partners", "sponsors"],
+                };
+                let ror = organization.id.trim_end_matches('/').rsplit('/').next().unwrap_or(&organization.id);
+                vocabularies.iter().flat_map(vocabulary::csv).find_map(|row| match row.as_slice() {
+                    | [name, _, value, ..] if value.eq_ignore_ascii_case(ror) => Some(name.clone()),
+                    | _ => None,
+                })
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+}
+impl Metadata {
+    /// Print research activity identifier (RAiD) metadata schema as JSON or YAML schema
+    #[cfg(feature = "std")]
+    pub fn to_schema(format: &str) {
+        let schema = schema_for!(Metadata);
+        let output = match format.to_lowercase().as_str() {
+            | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
+            | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
+        };
+        println!("{output}");
+    }
+}
+impl Organization {
+    fn is_lead_research_organization(&self) -> bool {
+        self.role
+            .iter()
+            .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
     }
 }
 impl Default for RAID {
@@ -1200,37 +1226,10 @@ impl PersistentIdentifierParse for RAID {
         prefix_is_valid && suffix_is_valid
     }
 }
-impl Metadata {
-    /// Print research activity identifier (RAiD) metadata schema as JSON or YAML schema
-    #[cfg(feature = "std")]
-    pub fn to_schema(format: &str) {
-        let schema = schema_for!(Metadata);
-        let output = match format.to_lowercase().as_str() {
-            | "yaml" | "yml" => serde_norway::to_string(&schema).unwrap_or_default(),
-            | _ => serde_json::to_string_pretty(&schema).unwrap_or_default(),
-        };
-        println!("{output}");
-    }
-}
-impl Contributor {
-    fn is_contact(&self) -> bool {
-        self.contact
-    }
-    fn is_leader(&self) -> bool {
-        self.leader
-    }
-}
-impl Organization {
-    fn is_lead_research_organization(&self) -> bool {
-        self.role
-            .iter()
-            .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
-    }
-}
 fn has_start_date(value: &Date) -> Result<(), ValidationError> {
     match value.start_date.as_ref() {
         | Some(start_date) if !start_date.trim().is_empty() => Ok(()),
-        | _ => Err(ValidationError::new("date").with_message("Provide valid start date".into())),
+        | _ => Err(ValidationError::new("date").with_message("Provide valid start date")),
     }
 }
 fn validate_contributor_identifier(value: &Contributor, _context: &()) -> Result<(), ValidationReport> {
@@ -1238,15 +1237,15 @@ fn validate_contributor_identifier(value: &Contributor, _context: &()) -> Result
         | (Some(identifier), Some("https://orcid.org")) => identifier
             .is_orcid()
             .then_some(())
-            .ok_or_else(|| ValidationError::new("ORCiD").with_message("Provide valid ORCiD value".into()))
+            .ok_or_else(|| ValidationError::new("ORCiD").with_message("Provide valid ORCiD value"))
             .map_err(|error| error.into_report("")),
         | (Some(identifier), Some("https://isni.org")) => identifier
             .is_isni()
             .then_some(())
-            .ok_or_else(|| ValidationError::new("ISNI").with_message("Provide valid ISNI value".into()))
+            .ok_or_else(|| ValidationError::new("ISNI").with_message("Provide valid ISNI value"))
             .map_err(|error| error.into_report("")),
         | (Some(_), Some(_)) => Err(ValidationError::new("contributor.identifier")
-            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/".into())
+            .with_message("Contributor schemaUri must be https://orcid.org/ or https://isni.org/")
             .into_report("")),
         | _ => Ok(()),
     }
@@ -1256,13 +1255,13 @@ fn validate_contributors(value: &Metadata, _context: &()) -> Result<(), Validati
         let contact = match contributors.iter().any(Contributor::is_contact) {
             | true => ValidationReport::default(),
             | false => ValidationError::new("contact")
-                .with_message("Mark at least one contributor as contact".into())
+                .with_message("Mark at least one contributor as contact")
                 .into_report("contributor.contact"),
         };
         let leader = match contributors.iter().any(Contributor::is_leader) {
             | true => ValidationReport::default(),
             | false => ValidationError::new("leader")
-                .with_message("Mark at least one contributor as leader".into())
+                .with_message("Mark at least one contributor as leader")
                 .into_report("contributor.leader"),
         };
         contact.merge("", leader).finish()
@@ -1283,13 +1282,14 @@ fn validate_organization(value: &Metadata, _context: &()) -> Result<(), Validati
         match (organizations.is_empty(), lead_count) {
             | (true, _) | (_, 1) => Ok(()),
             | (_, 0) => Err(ValidationError::new("organization")
-                .with_message("Mark one organization as lead research organization".into())
+                .with_message("Mark one organization as lead research organization")
                 .into_report("organization")),
             | _ => Err(ValidationError::new("organization")
-                .with_message("Only one organization can be lead research organization".into())
+                .with_message("Only one organization can be lead research organization")
                 .into_report("organization")),
         }
     })
 }
+
 #[cfg(all(test, feature = "std"))]
 mod tests;

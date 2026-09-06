@@ -26,13 +26,6 @@ use serde_with::skip_serializing_none;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-/// Human-readable alias for a synchronized model
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
-#[serde(transparent)]
-pub struct Alias {
-    #[validate(length(min = 1))]
-    value: String,
-}
 /// Additional llama-server command-line argument
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(from = "String", into = "String")]
@@ -41,6 +34,13 @@ pub enum Argument {
     Reserved(String),
     /// User-provided llama-server argument
     Value(String),
+}
+/// Human-readable alias for a synchronized model
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+#[serde(transparent)]
+pub struct Alias {
+    #[validate(length(min = 1))]
+    value: String,
 }
 /// Root llama-swap configuration
 ///
@@ -110,60 +110,49 @@ pub(super) struct ModelValidation<'a> {
     config: &'a Config,
     model_ids: &'a [String],
 }
-impl SyncTarget for Config {
-    const COMMAND: &'static str = "llama-swap";
-    fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            models_directory: overrides.models_directory.or(self.models_directory),
-            executable: overrides.executable.or(self.executable),
-            context_size: overrides.context_size.or(self.context_size),
-            ttl: overrides.ttl.or(self.ttl),
-            extra_args: overrides.extra_args.or(self.extra_args),
-            environment: overrides.environment.or(self.environment),
-            models: overrides.models.or(self.models),
+impl Alias {
+    fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+impl From<&str> for Alias {
+    fn from(value: &str) -> Self {
+        Self { value: value.to_string() }
+    }
+}
+impl fmt::Display for Argument {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Reserved(value) | Self::Value(value) => value.fmt(formatter),
         }
     }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            models_directory: overrides.models_directory.or(self.models_directory),
-            ..self
+}
+impl From<&str> for Argument {
+    fn from(value: &str) -> Self {
+        Self::from(value.to_string())
+    }
+}
+impl From<String> for Argument {
+    fn from(value: String) -> Self {
+        match value.split_once('=').map_or(value.as_str(), |(option, _)| option) {
+            | "--port" | "--model" | "-m" => Self::Reserved(value),
+            | _ => Self::Value(value),
         }
     }
-    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
-        explicit
-            .map(|path| PathBuf::from(path.to_string().to_cross_platform_path()))
-            .map_or_else(|| home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH), Ok)
-    }
-    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        Self::resolve_path(self.path.as_deref()).and_then(|path| {
-            path.is_file()
-                .then(|| read_file(path.clone()))
-                .transpose()
-                .map(|content| content.unwrap_or_default())
-                .and_then(|before| {
-                    match before.is_empty() {
-                        | true => Ok(Value::Mapping(Default::default())),
-                        | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
-                    }
-                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
-                    .and_then(|merged| {
-                        serde_norway::to_string(&merged)
-                            .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
-                            .and_then(|content| {
-                                serde_norway::from_str::<Value>(&content)
-                                    .map(|_| RenderedOutput {
-                                        target: "llama-swap",
-                                        path,
-                                        before,
-                                        content,
-                                    })
-                                    .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
-                            })
-                    })
-                })
-        })
+}
+impl Validate for Argument {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        match self {
+            | Self::Reserved(_) => {
+                let mut errors = ValidationReport::new();
+                errors.add(
+                    "argument",
+                    ValidationError::new("reserved").with_message("Cannot contain --port, --model, or -m"),
+                );
+                Err(errors)
+            }
+            | Self::Value(_) => Ok(()),
+        }
     }
 }
 impl Config {
@@ -318,59 +307,70 @@ impl Config {
         .collect()
     }
 }
-impl Alias {
-    fn as_str(&self) -> &str {
-        &self.value
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "llama-swap";
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            executable: overrides.executable.or(self.executable),
+            context_size: overrides.context_size.or(self.context_size),
+            ttl: overrides.ttl.or(self.ttl),
+            extra_args: overrides.extra_args.or(self.extra_args),
+            environment: overrides.environment.or(self.environment),
+            models: overrides.models.or(self.models),
+        }
+    }
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            models_directory: overrides.models_directory.or(self.models_directory),
+            ..self
+        }
+    }
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        explicit
+            .map(|path| PathBuf::from(path.to_string().to_cross_platform_path()))
+            .map_or_else(|| home_directory(DEFAULT_LLAMA_SWAP_CONFIG_PATH), Ok)
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match before.is_empty() {
+                        | true => Ok(Value::Mapping(Default::default())),
+                        | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing llama-swap config: {why}")),
+                    }
+                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
+                    .and_then(|merged| {
+                        serde_norway::to_string(&merged)
+                            .map_err(|why| eyre!("Failed to serialize llama-swap config: {why}"))
+                            .and_then(|content| {
+                                serde_norway::from_str::<Value>(&content)
+                                    .map(|_| RenderedOutput {
+                                        target: "llama-swap",
+                                        path,
+                                        before,
+                                        content,
+                                    })
+                                    .map_err(|why| eyre!("Generated llama-swap YAML is invalid: {why}"))
+                            })
+                    })
+                })
+        })
     }
 }
-impl From<&str> for Alias {
+impl fmt::Display for EnvironmentVariable {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(formatter)
+    }
+}
+impl From<&str> for EnvironmentVariable {
     fn from(value: &str) -> Self {
         Self { value: value.to_string() }
-    }
-}
-impl fmt::Display for Argument {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            | Self::Reserved(value) | Self::Value(value) => value.fmt(formatter),
-        }
-    }
-}
-impl From<String> for Argument {
-    fn from(value: String) -> Self {
-        match value.split_once('=').map_or(value.as_str(), |(option, _)| option) {
-            | "--port" | "--model" | "-m" => Self::Reserved(value),
-            | _ => Self::Value(value),
-        }
-    }
-}
-impl From<&str> for Argument {
-    fn from(value: &str) -> Self {
-        Self::from(value.to_string())
-    }
-}
-impl From<Argument> for String {
-    fn from(value: Argument) -> Self {
-        value.to_string()
-    }
-}
-impl<'a> From<(&'a Config, &'a [String])> for ModelValidation<'a> {
-    fn from((config, model_ids): (&'a Config, &'a [String])) -> Self {
-        Self { config, model_ids }
-    }
-}
-impl Validate for Argument {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        match self {
-            | Self::Reserved(_) => {
-                let mut errors = ValidationReport::new();
-                errors.add(
-                    "argument",
-                    ValidationError::new("reserved").with_message("Cannot contain --port, --model, or -m".into()),
-                );
-                Err(errors)
-            }
-            | Self::Value(_) => Ok(()),
-        }
     }
 }
 impl Validate for ModelValidation<'_> {
@@ -411,14 +411,14 @@ impl Validate for ModelValidation<'_> {
             .map(|_| ())
     }
 }
-impl fmt::Display for EnvironmentVariable {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(formatter)
+impl<'a> From<(&'a Config, &'a [String])> for ModelValidation<'a> {
+    fn from((config, model_ids): (&'a Config, &'a [String])) -> Self {
+        Self { config, model_ids }
     }
 }
-impl From<&str> for EnvironmentVariable {
-    fn from(value: &str) -> Self {
-        Self { value: value.to_string() }
+impl From<Argument> for String {
+    fn from(value: Argument) -> Self {
+        value.to_string()
     }
 }
 fn is_keyvalue_string(value: &str) -> Result<(), ValidationError> {
@@ -427,7 +427,7 @@ fn is_keyvalue_string(value: &str) -> Result<(), ValidationError> {
         .is_some_and(|(key, _)| !key.trim().is_empty() && !key.chars().any(char::is_whitespace));
     match is_valid {
         | true => Ok(()),
-        | false => Err(ValidationError::new("keyvalue").with_message("Provide a valid KEY=VALUE entry".into())),
+        | false => Err(ValidationError::new("keyvalue").with_message("Provide a valid KEY=VALUE entry")),
     }
 }
 fn is_managed(model: &Value) -> bool {
@@ -500,7 +500,7 @@ fn merge_model(existing: Value, generated: Value) -> Value {
 }
 fn validation_errors(code: &'static str, message: String) -> ValidationReport {
     let mut errors = ValidationReport::new();
-    errors.add("models", ValidationError::new(code).with_message(message.into()));
+    errors.add("models", ValidationError::new(code).with_message(message));
     errors
 }
 

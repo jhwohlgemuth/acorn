@@ -3,21 +3,30 @@ use crate::args;
 use crate::io::api;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
-use crate::io::{extract, file_checksum, retry, walk, ApiResult, FromCommand, PathExt};
-use crate::util::cmd::{redact, run_output, run_output_with_stdin, try_from_output};
-use crate::util::constants::app::{
-    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, MINIMUM_ORAS_VERSION,
-    MODELPACK_CONFIG, MODELPACK_MANIFEST, MODELPACK_WEIGHT_PREFIX, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, OCI_IMAGE_CONFIG,
-    OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX, ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS,
+use crate::io::{extract, file_checksum, move_file, retry, walk, ApiResult, FromCommand, PathExt};
+use crate::util::cmd::{redact, run_output, run_output_with_stdin};
+use crate::util::constants::oci::{
+    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP,
+    KITOPS_MODELKIT_MODEL_PART_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CODE_RAW, MODELPACK_CODE_TAR, MODELPACK_CODE_TAR_GZIP, MODELPACK_CODE_TAR_ZSTD,
+    MODELPACK_CONFIG, MODELPACK_DATASET_RAW, MODELPACK_DATASET_TAR, MODELPACK_DATASET_TAR_GZIP, MODELPACK_DATASET_TAR_ZSTD, MODELPACK_DOC_RAW,
+    MODELPACK_DOC_TAR, MODELPACK_DOC_TAR_GZIP, MODELPACK_DOC_TAR_ZSTD, MODELPACK_MANIFEST, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR,
+    MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP,
+    MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
+    ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS,
 };
 use acorn_core::prelude::{HashMap, HashSet, String, ToString, Vec};
 use acorn_core::util::{MimeType, SemanticVersion};
 use acorn_core::validation::ValidationError;
 use acorn_core::Location;
-use acorn_schema::schema::agent::{OciModelLayerRole, Quantization};
+use acorn_schema::oci::{ModelArtifactKind, ModelInventoryStatus, ModelLayerRole, ModelPackConfig, ModelPackFileMetadata};
+use acorn_schema::schema::agent::Quantization;
+use acorn_schema::schema::modelkit::kitfile::Kitfile;
 use acorn_schema::validation::{rules, IntoValidationReport, Validate, ValidationReport};
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
+use data_encoding::HEXLOWER;
+use ring::digest::{digest, SHA256};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -26,6 +35,9 @@ use std::fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, ren
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
+pub(crate) trait KitfileExt {
+    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)>;
+}
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {
     /// Resolve and validate an artifact manifest without materializing files.
@@ -52,6 +64,8 @@ pub enum OciExtraction {
     Tar,
     /// Extract a gzip-compressed TAR archive.
     TarGzip,
+    /// Extract a Zstandard-compressed TAR archive.
+    TarZstd,
 }
 /// An OCI tag or immutable digest.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -95,16 +109,15 @@ pub(crate) struct Manifest {
     #[validate(nested)]
     pub(crate) layers: Vec<Descriptor>,
 }
-#[derive(Clone, Debug, Deserialize)]
-struct ModelKitConfig {
-    model: Option<ModelKitModel>,
-}
-#[derive(Clone, Debug, Deserialize)]
-struct ModelKitModel {
+#[derive(Clone, Debug)]
+struct ModelKitDeclaredFile {
     path: String,
+    digest: Option<String>,
+    media_type: &'static str,
 }
 /// One file descriptor selected from an OCI artifact manifest.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, Validate)]
+#[builder(start_fn = init)]
 #[validate(schema(function = "OciFile::is_valid", skip_on_field_errors = false))]
 #[serde(rename_all = "camelCase")]
 pub struct OciFile {
@@ -121,11 +134,14 @@ pub struct OciFile {
     pub installed_size: Option<u64>,
     /// Digest of the transfer layer that materializes this file.
     pub layer_digest: String,
+    /// Artifact-specific component role.
+    pub role: ModelLayerRole,
 }
 #[derive(Clone, Debug, Default)]
 pub(crate) struct OciFiles(pub(crate) Vec<OciFile>);
 /// One selected OCI transfer layer.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Validate)]
+#[derive(Builder, Clone, Debug, Eq, PartialEq, Serialize, Validate)]
+#[builder(start_fn = init)]
 #[validate(schema(function = "OciLayer::is_valid", skip_on_field_errors = false))]
 #[serde(rename_all = "camelCase")]
 pub struct OciLayer {
@@ -138,7 +154,7 @@ pub struct OciLayer {
     #[validate(range(min = 0))]
     pub transfer_size: u64,
     /// Artifact-specific layer role.
-    pub role: OciModelLayerRole,
+    pub role: ModelLayerRole,
     /// Declared logical path for direct layers, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -150,6 +166,7 @@ pub struct OciLayer {
 #[derive(Clone, Debug, Default)]
 struct OciPlan {
     layers: Vec<OciLayer>,
+    ignored_layers: Vec<OciLayer>,
     files: OciFiles,
 }
 /// A validated, explicit OCI artifact reference
@@ -175,6 +192,10 @@ pub struct OciResolution {
     pub resolved_digest: String,
     /// Declared artifact type, when present.
     pub artifact_type: Option<String>,
+    /// Recognized artifact packaging convention.
+    pub package_format: ModelArtifactKind,
+    /// Confidence of the logical inventory.
+    pub inventory_status: ModelInventoryStatus,
     /// Total selected transfer size in bytes.
     pub total_size: u64,
     /// Total selected transfer size in bytes.
@@ -184,6 +205,8 @@ pub struct OciResolution {
     pub installed_size: Option<u64>,
     /// Selected transfer layers.
     pub layers: Vec<OciLayer>,
+    /// Valid layers intentionally excluded from model installation.
+    pub ignored_layers: Vec<OciLayer>,
     /// Known logical files. This is empty when all selected archive inventories are deferred.
     pub files: Vec<OciFile>,
     /// Include filters retained for deferred archive inventory selection.
@@ -219,6 +242,16 @@ pub struct OciTransportOptions {
 pub struct OrasTransport {
     pub(crate) binary: PathBuf,
     pub(crate) options: OciTransportOptions,
+}
+impl From<OciExtraction> for &'static str {
+    fn from(value: OciExtraction) -> Self {
+        match value {
+            | OciExtraction::None => "none",
+            | OciExtraction::Tar => "tar",
+            | OciExtraction::TarGzip => "tar_gzip",
+            | OciExtraction::TarZstd => "tar_zstd",
+        }
+    }
 }
 impl ArtifactKind {
     fn validate(self, manifest: &Manifest) -> ApiResult<Self> {
@@ -277,6 +310,43 @@ impl Descriptor {
             })
             .map(|()| self)
     }
+    pub(crate) fn validate_blob(&self, content: &[u8]) -> ApiResult<()> {
+        let actual_size = content.len() as u64;
+        let actual_digest = format!("sha256:{}", HEXLOWER.encode(digest(&SHA256, content).as_ref()));
+        match (actual_size == self.size, actual_digest == self.digest) {
+            | (false, _) => Err(eyre!(
+                "OCI config blob {} size mismatch: expected {}, found {actual_size}",
+                self.digest,
+                self.size
+            )),
+            | (_, false) => Err(eyre!("OCI config blob {} digest mismatch", self.digest)),
+            | _ => Ok(()),
+        }
+    }
+    fn modelpack_metadata(&self) -> ApiResult<Option<ModelPackFileMetadata>> {
+        self.annotations.get("org.cncf.model.file.metadata+json").map_or(Ok(None), |value| {
+            serde_json::from_str::<ModelPackFileMetadata>(value)
+                .map(Some)
+                .map_err(|why| eyre!("Invalid ModelPack file metadata annotation — {why}"))
+        })
+    }
+    fn modelpack_direct_path(&self, metadata: Option<&ModelPackFileMetadata>) -> ApiResult<Option<String>> {
+        let filepath = self.annotations.get("org.cncf.model.filepath").cloned();
+        let metadata_path = metadata.map(|value| value.name.clone());
+        let metadata_size = metadata.map(|value| value.size);
+        match (filepath, metadata_path, metadata_size) {
+            | (Some(path), Some(name), _) if path != name => Err(eyre!("Conflicting ModelPack filepath and file metadata name")),
+            | (_, _, Some(size)) if u64::try_from(size).ok() != Some(self.size) => {
+                Err(eyre!("ModelPack file metadata size does not match its raw layer"))
+            }
+            | (path, name, _) => path.or(name).map_or(Ok(None), |path| {
+                Path::new(&path)
+                    .is_safe()
+                    .then_some(Some(path.clone()))
+                    .ok_or_else(|| eyre!("Unsafe ModelPack filepath '{path}'"))
+            }),
+        }
+    }
 }
 impl Index {
     fn is_valid(index: &Self, _context: &()) -> Result<(), ValidationReport> {
@@ -284,20 +354,92 @@ impl Index {
         let no_manifest = index.manifests.is_empty();
         match (unsupported_mime_type, no_manifest) {
             | (false, _) => Err(ValidationError::new("media_type")
-                .with_message(format!("Unsupported OCI index media type '{}'", index.media_type).into())
+                .with_message(format!("Unsupported OCI index media type '{}'", index.media_type))
                 .into_report("")),
             | (_, true) => Err(ValidationError::new("manifests")
-                .with_message("OCI model index has no manifests".into())
+                .with_message("OCI model index has no manifests")
                 .into_report("")),
             | _ => Ok(()),
         }
+    }
+}
+impl KitfileExt for Kitfile {
+    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
+        self.model
+            .as_ref()
+            .ok_or_else(|| eyre!("KitOps ModelKit is valid but does not contain a model for this command"))
+            .and_then(|model| match Location::from(&model.path) {
+                | location if location.is_oci_reference() => Err(eyre!("Nested ModelKit model references are not supported by download model")),
+                | _ if model.path.is_empty() => Err(eyre!("KitOps ModelKit does not declare a primary model path")),
+                | _ if !Path::new(&model.path).is_safe() => Err(eyre!("Unsafe KitOps ModelKit model path '{}'", model.path)),
+                | _ if !Path::new(&model.path).is_gguf() => Err(eyre!(
+                    "OCI model downloads support GGUF payloads; unsupported KitOps ModelKit file '{}'",
+                    model.path
+                )),
+                | _ => {
+                    let primary = ModelKitDeclaredFile {
+                        path: model.path.clone(),
+                        digest: model.layer.digest.clone(),
+                        media_type: KITOPS_MODELKIT_MODEL_GZIP,
+                    };
+                    model
+                        .parts
+                        .iter()
+                        .filter(|part| Path::new(&part.path).is_gguf())
+                        .try_fold(vec![primary], |mut files, part| match Path::new(&part.path).is_safe() {
+                            | false => Err(eyre!("Unsafe KitOps ModelKit model-part path '{}'", part.path)),
+                            | true => {
+                                files.push(ModelKitDeclaredFile {
+                                    path: part.path.clone(),
+                                    digest: part.layer.digest.clone(),
+                                    media_type: KITOPS_MODELKIT_MODEL_PART_GZIP,
+                                });
+                                Ok(files)
+                            }
+                        })
+                }
+            })
+            .and_then(|declared| {
+                declared
+                    .into_iter()
+                    .try_fold((HashSet::new(), Vec::new()), |(mut used, mut selected), file| {
+                        manifest.resolve_modelkit_descriptor(&file, &used).and_then(|descriptor| {
+                            descriptor
+                                .validate()
+                                .map_err(|why| eyre!("Invalid KitOps ModelKit model layer — {why}"))
+                                .map(|()| {
+                                    used.insert(descriptor.digest.clone());
+                                    let layer = OciLayer::init()
+                                        .media_type(descriptor.media_type.clone())
+                                        .digest(descriptor.digest.clone())
+                                        .transfer_size(descriptor.size)
+                                        .role(ModelLayerRole::Model)
+                                        .path(file.path.clone())
+                                        .extraction(OciExtraction::TarGzip)
+                                        .inventory_deferred(true)
+                                        .build();
+                                    let known = OciFile::init()
+                                        .media_type(descriptor.media_type.clone())
+                                        .digest(descriptor.digest.clone())
+                                        .size(descriptor.size)
+                                        .path(file.path)
+                                        .layer_digest(descriptor.digest.clone())
+                                        .role(ModelLayerRole::Model)
+                                        .build();
+                                    selected.push((layer, known));
+                                    (used, selected)
+                                })
+                        })
+                    })
+                    .map(|(_, selected)| selected.into_iter().unzip())
+            })
     }
 }
 impl Manifest {
     fn is_valid(manifest: &Self, _context: &()) -> Result<(), ValidationReport> {
         Self::structure_valid(manifest, &()).and_then(|()| match manifest.config.media_type.as_str() {
             | OCI_IMAGE_CONFIG | DOCKER_IMAGE_CONFIG => Err(ValidationError::new("artifact_type")
-                .with_message("OCI reference identifies a runnable container image".into())
+                .with_message("OCI reference identifies a runnable container image")
                 .into_report("")),
             | _ => Ok(()),
         })
@@ -309,21 +451,50 @@ impl Manifest {
         let has_valid_layers = manifest.layers.iter().all(|layer| layer.validate().is_ok());
         match (is_manifest, has_no_layers, has_valid_config && has_valid_layers) {
             | (false, _, _) => Err(ValidationError::new("media_type")
-                .with_message(
-                    format!(
-                        "Unsupported OCI manifest media type '{}'; expected {OCI_IMAGE_MANIFEST}",
-                        manifest.media_type
-                    )
-                    .into(),
-                )
+                .with_message(format!(
+                    "Unsupported OCI manifest media type '{}'; expected {OCI_IMAGE_MANIFEST}",
+                    manifest.media_type
+                ))
                 .into_report("")),
             | (_, true, _) => Err(ValidationError::new("layers")
-                .with_message("OCI model artifact has no files".into())
+                .with_message("OCI model artifact has no files")
                 .into_report("")),
             | (_, _, false) => Err(ValidationError::new("descriptor")
-                .with_message("OCI manifest contains an invalid descriptor".into())
+                .with_message("OCI manifest contains an invalid descriptor")
                 .into_report("")),
             | _ => Ok(()),
+        }
+    }
+    fn resolve_modelkit_descriptor<'a>(&'a self, file: &ModelKitDeclaredFile, used: &HashSet<String>) -> ApiResult<&'a Descriptor> {
+        match file.digest.as_ref() {
+            | Some(digest) => self
+                .layers
+                .iter()
+                .find(|descriptor| &descriptor.digest == digest)
+                .ok_or_else(|| eyre!("KitOps ModelKit layer digest {digest} is absent from the manifest"))
+                .and_then(|descriptor| match descriptor.media_type == file.media_type {
+                    | true => Ok(descriptor),
+                    | false => Err(eyre!(
+                        "KitOps ModelKit path '{}' resolves to incompatible layer media type '{}'",
+                        file.path,
+                        descriptor.media_type
+                    )),
+                }),
+            | None => {
+                let candidates = self
+                    .layers
+                    .iter()
+                    .filter(|descriptor| descriptor.media_type == file.media_type && !used.contains(&descriptor.digest))
+                    .collect::<Vec<_>>();
+                match candidates.as_slice() {
+                    | [descriptor] => Ok(descriptor),
+                    | [] => Err(eyre!("KitOps ModelKit path '{}' has no supported manifest layer", file.path)),
+                    | _ => Err(eyre!(
+                        "KitOps ModelKit path '{}' is ambiguous because its resolved config has no layer digest",
+                        file.path
+                    )),
+                }
+            }
         }
     }
 }
@@ -341,6 +512,15 @@ impl From<Descriptor> for MimeType {
         Self::from(&descriptor)
     }
 }
+impl From<ArtifactKind> for ModelArtifactKind {
+    fn from(value: ArtifactKind) -> Self {
+        match value {
+            | ArtifactKind::ModelPack => Self::ModelPack,
+            | ArtifactKind::ModelKit => Self::ModelKit,
+            | _ => Self::Annotated,
+        }
+    }
+}
 impl From<Descriptor> for OciFile {
     fn from(descriptor: Descriptor) -> Self {
         let path = descriptor.annotations.get("org.opencontainers.image.title").cloned().unwrap_or_default();
@@ -351,6 +531,7 @@ impl From<Descriptor> for OciFile {
             path,
             installed_size: Some(descriptor.size),
             layer_digest: descriptor.digest,
+            role: ModelLayerRole::Model,
         }
     }
 }
@@ -359,7 +540,7 @@ impl OciFile {
         Path::new(&file.path)
             .is_safe()
             .then_some(())
-            .ok_or_else(|| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path).into()))
+            .ok_or_else(|| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path)))
             .map_err(|error| error.into_report(""))
     }
 }
@@ -413,20 +594,19 @@ impl OciFiles {
 }
 impl From<Descriptor> for OciLayer {
     fn from(descriptor: Descriptor) -> Self {
-        let path = descriptor.annotations.get("org.cncf.model.filepath").cloned();
-        let extraction = match descriptor.media_type.as_str() {
-            | MODELPACK_WEIGHT_TAR => OciExtraction::Tar,
-            | MODELPACK_WEIGHT_TAR_GZIP => OciExtraction::TarGzip,
-            | _ => OciExtraction::None,
-        };
+        let (role, extraction, selected) = modelpack_layer_type(&descriptor.media_type).unwrap_or((ModelLayerRole::Model, OciExtraction::None, true));
+        let metadata = descriptor.modelpack_metadata().ok().flatten();
+        let path = (extraction == OciExtraction::None)
+            .then(|| descriptor.modelpack_direct_path(metadata.as_ref()).ok().flatten())
+            .flatten();
         Self {
             media_type: descriptor.media_type,
             digest: descriptor.digest,
             transfer_size: descriptor.size,
-            role: OciModelLayerRole::ModelWeight,
-            path: (extraction == OciExtraction::None).then_some(path).flatten(),
+            role,
+            path,
             extraction,
-            inventory_deferred: extraction != OciExtraction::None,
+            inventory_deferred: selected && extraction != OciExtraction::None,
         }
     }
 }
@@ -458,6 +638,7 @@ impl From<(Vec<OciLayer>, Vec<OciFile>)> for OciPlan {
     fn from((layers, files): (Vec<OciLayer>, Vec<OciFile>)) -> Self {
         Self {
             layers,
+            ignored_layers: Vec::new(),
             files: OciFiles(files),
         }
     }
@@ -476,13 +657,24 @@ impl OciPlan {
                 .0
                 .iter()
                 .skip(index.saturating_add(1))
-                .find(|other| other.path == file.path)
+                .find(|other| other.path == file.path && other.digest != file.digest)
                 .map(|_| file.path.as_str())
         });
         match (conflicting_digest, duplicate_path) {
             | (Some(digest), _) => Err(eyre!("OCI artifact repeats layer digest '{digest}' with conflicting descriptors")),
-            | (_, Some(path)) => Err(eyre!("OCI model artifact contains duplicate logical path '{path}'")),
-            | _ => Ok(self),
+            | (_, Some(path)) => Err(eyre!("OCI model artifact contains conflicting logical path '{path}'")),
+            | _ => {
+                let files = self.files.0.into_iter().fold(Vec::new(), |files, file| {
+                    match files.iter().any(|known: &OciFile| known.path == file.path && known.digest == file.digest) {
+                        | true => files,
+                        | false => files.into_iter().chain([file]).collect(),
+                    }
+                });
+                Ok(Self {
+                    files: OciFiles(files),
+                    ..self
+                })
+            }
         }
     }
 }
@@ -517,7 +709,7 @@ impl OciReference {
         let is_valid_reference = reference.reference.is_valid();
         (is_valid_registry && is_valid_repository && is_valid_reference)
             .then_some(())
-            .ok_or_else(|| ValidationError::new("reference").with_message("Invalid registry, repository, tag, or digest".into()))
+            .ok_or_else(|| ValidationError::new("reference").with_message("Invalid registry, repository, tag, or digest"))
             .map_err(|error| error.into_report(""))
     }
     /// Parse an explicit `oci://registry/repository:tag` or digest reference.
@@ -657,16 +849,33 @@ impl OciTransport for OrasTransport {
             .and_then(|descriptor| self.resolve_descriptor(reference, descriptor))
             .and_then(|(descriptor, manifest, kind)| {
                 self.content(reference, &manifest, kind)
-                    .map(OciPlan::from)
                     .and_then(OciPlan::validate)
-                    .and_then(|plan| plan.files.select_known(filter, ignore, quantization).map(|files| (plan.layers, files.0)))
-                    .and_then(|(layers, files)| {
+                    .and_then(|plan| {
+                        let (models, supporting): (Vec<_>, Vec<_>) = plan
+                            .files
+                            .0
+                            .into_iter()
+                            .partition(|file| matches!(file.role, ModelLayerRole::Model | ModelLayerRole::ModelWeight));
+                        OciFiles(models).select_known(filter, ignore, quantization).map(|models| {
+                            (
+                                plan.layers,
+                                plan.ignored_layers,
+                                models.0.into_iter().chain(supporting).collect::<Vec<_>>(),
+                            )
+                        })
+                    })
+                    .and_then(|(layers, ignored_layers, files)| {
                         let transfer_size = layers.iter().try_fold(0u64, |total, layer| {
                             total
                                 .checked_add(layer.transfer_size)
                                 .ok_or_else(|| eyre!("OCI artifact transfer size overflow"))
                         });
                         let deferred = layers.iter().any(|layer| layer.inventory_deferred);
+                        let inventory_status = match (deferred, files.iter().all(|file| file.installed_size.is_some())) {
+                            | (true, _) => ModelInventoryStatus::Deferred,
+                            | (false, true) => ModelInventoryStatus::Complete,
+                            | _ => ModelInventoryStatus::Declared,
+                        };
                         let installed_size = match (deferred, files.iter().all(|file| file.installed_size.is_some())) {
                             | (true, _) | (_, false) => Ok(None),
                             | _ => files
@@ -685,10 +894,13 @@ impl OciTransport for OrasTransport {
                                 requested_reference: reference.to_string(),
                                 resolved_digest: descriptor.digest,
                                 artifact_type: manifest.artifact_type,
+                                package_format: kind.into(),
+                                inventory_status,
                                 total_size: transfer_size,
                                 transfer_size,
                                 installed_size,
                                 layers,
+                                ignored_layers,
                                 files,
                                 filter: filter.to_vec(),
                                 ignore: ignore.to_vec(),
@@ -776,6 +988,13 @@ impl OrasTransport {
         }
     }
     fn invoke(&self, args: Vec<OsString>) -> ApiResult<String> {
+        self.invoke_bytes(args).and_then(|content| {
+            String::from_utf8(content)
+                .map(|value| value.trim().to_string())
+                .map_err(|why| eyre!("ORAS stdout is not valid UTF-8 — {why}"))
+        })
+    }
+    fn invoke_bytes(&self, args: Vec<OsString>) -> ApiResult<Vec<u8>> {
         let binary = self.binary.to_string_lossy();
         let token: ApiResult<Option<api::Secret>> = match self.options.credential_env.as_ref() {
             | Some(name) => env::var(name)
@@ -794,56 +1013,27 @@ impl OrasTransport {
                 |why| why.kind() == ErrorKind::ExecutableFileBusy,
                 Some(&ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS),
             );
-            try_from_output(output).map_err(|why| eyre!("ORAS request failed — {}", redact(&why)))
+            match output {
+                | Ok(output) if output.status.success() => Ok(output.stdout),
+                | Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                    let message = if stderr.is_empty() {
+                        format!("process exited with status {}", output.status)
+                    } else {
+                        stderr
+                    };
+                    Err(eyre!("ORAS request failed — {}", redact(&message)))
+                }
+                | Err(why) => Err(eyre!("ORAS request failed — {}", redact(&format!("command execution failed: {why}")))),
+            }
         })
     }
     fn modelkit_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
         let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
-        self.invoke(args!["blob", "fetch", "--output", "-", config_reference])
-            .and_then(|content| serde_json::from_str::<ModelKitConfig>(&content).map_err(|why| eyre!("Invalid KitOps ModelKit config — {why}")))
-            .and_then(|config| config.model.ok_or_else(|| eyre!("KitOps ModelKit does not contain a model")))
-            .and_then(|model| {
-                let path = model.path;
-                match (Path::new(&path).is_safe(), Path::new(&path).is_gguf()) {
-                    | (false, _) => Err(eyre!("Unsafe KitOps ModelKit model path '{path}'")),
-                    | (_, false) => Err(eyre!(
-                        "OCI model downloads support GGUF payloads; unsupported KitOps ModelKit file '{path}'"
-                    )),
-                    | _ => Ok(path),
-                }
-            })
-            .and_then(|path| {
-                let layers = manifest
-                    .layers
-                    .iter()
-                    .filter(|layer| layer.media_type == KITOPS_MODELKIT_MODEL_GZIP)
-                    .collect::<Vec<_>>();
-                match layers.as_slice() {
-                    | [layer] => layer
-                        .validate()
-                        .map_err(|why| eyre!("Invalid KitOps ModelKit model layer — {why}"))
-                        .map(|()| {
-                            let selected = OciLayer {
-                                media_type: layer.media_type.clone(),
-                                digest: layer.digest.clone(),
-                                transfer_size: layer.size,
-                                role: OciModelLayerRole::Model,
-                                path: Some(path.clone()),
-                                extraction: OciExtraction::TarGzip,
-                                inventory_deferred: true,
-                            };
-                            let file = OciFile {
-                                digest: layer.digest.clone(),
-                                path,
-                                layer_digest: layer.digest.clone(),
-                                ..OciFile::default()
-                            };
-                            (vec![selected], vec![file])
-                        }),
-                    | [] => Err(eyre!("KitOps ModelKit has no supported model layer")),
-                    | _ => Err(eyre!("KitOps ModelKit has multiple model layers")),
-                }
-            })
+        self.invoke_bytes(args!["blob", "fetch", "--output", "-", config_reference])
+            .and_then(|content| manifest.config.validate_blob(&content).map(|()| content))
+            .and_then(|content| Kitfile::from_resolved_json(&content).map_err(|why| eyre!("Invalid KitOps ModelKit config — {why}")))
+            .and_then(|config| config.modelkit_content(manifest))
     }
     fn annotated_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
         manifest
@@ -858,7 +1048,7 @@ impl OrasTransport {
                             media_type: descriptor.media_type,
                             digest: descriptor.digest,
                             transfer_size: descriptor.size,
-                            role: OciModelLayerRole::Model,
+                            role: ModelLayerRole::Model,
                             path: Some(file.path.clone()),
                             extraction: OciExtraction::None,
                             inventory_deferred: false,
@@ -870,56 +1060,76 @@ impl OrasTransport {
             .collect::<ApiResult<Vec<_>>>()
             .map(|selected| selected.into_iter().unzip())
     }
-    fn modelpack_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
+    fn modelpack_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<OciPlan> {
         let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
-        self.invoke(args!["blob", "fetch", "--output", "-", config_reference])
-            .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).map_err(|why| eyre!("Invalid ModelPack config — {why}")))
-            .and_then(|config| {
-                config
-                    .is_object()
-                    .then_some(())
-                    .ok_or_else(|| eyre!("Invalid ModelPack config — expected a JSON object"))
-            })
+        self.invoke_bytes(args!["blob", "fetch", "--output", "-", config_reference])
+            .and_then(|content| manifest.config.validate_blob(&content).map(|()| content))
+            .and_then(|content| serde_json::from_slice::<ModelPackConfig>(&content).map_err(|why| eyre!("Invalid ModelPack config — {why}")))
+            .and_then(validate_modelpack_config)
             .and_then(|()| {
                 manifest
                     .layers
                     .iter()
-                    .filter(|layer| layer.media_type.starts_with(MODELPACK_WEIGHT_PREFIX))
-                    .cloned()
-                    .map(OciLayer::from)
-                    .map(|layer| {
-                        layer
-                            .validate()
-                            .map_err(|why| eyre!("Invalid ModelPack weight layer — {why}"))
-                            .map(|()| layer)
+                    .map(|descriptor| {
+                        descriptor.modelpack_metadata().and_then(|metadata| match metadata.as_ref() {
+                            | Some(metadata) if !Path::new(&metadata.name).is_safe() || metadata.size < 0 => {
+                                Err(eyre!("Unsafe ModelPack file metadata annotation"))
+                            }
+                            | _ => descriptor.modelpack_direct_path(metadata.as_ref()).and_then(|path| {
+                                modelpack_layer_type(&descriptor.media_type)
+                                    .ok_or_else(|| eyre!("Unsupported ModelPack layer media type '{}'", descriptor.media_type))
+                                    .and_then(|(_, extraction, selected)| match (extraction, path) {
+                                        | (OciExtraction::None, None) => {
+                                            Err(eyre!("Direct ModelPack layer {} has no materialization path", descriptor.digest))
+                                        }
+                                        | _ => {
+                                            let layer = OciLayer::from(descriptor.clone());
+                                            layer
+                                                .validate()
+                                                .map_err(|why| eyre!("Invalid ModelPack layer — {why}"))
+                                                .map(|()| (layer, selected))
+                                        }
+                                    })
+                            }),
+                        })
                     })
                     .collect::<ApiResult<Vec<_>>>()
             })
-            .and_then(|selected| match selected.is_empty() {
-                | true => Err(eyre!("ModelPack does not contain a supported model-weight layer")),
-                | false => {
-                    let files = selected
-                        .iter()
-                        .filter_map(|layer| {
-                            layer.path.as_ref().map(|path| OciFile {
-                                media_type: gguf::MIME_TYPE.to_string(),
-                                digest: layer.digest.clone(),
-                                size: layer.transfer_size,
-                                path: path.clone(),
-                                installed_size: Some(layer.transfer_size),
-                                layer_digest: layer.digest.clone(),
+            .and_then(|layers| {
+                let (selected, ignored): (Vec<_>, Vec<_>) = layers.into_iter().partition(|(_, selected)| *selected);
+                let selected = selected.into_iter().map(|(layer, _)| layer).collect::<Vec<_>>();
+                let ignored_layers = ignored.into_iter().map(|(layer, _)| layer).collect::<Vec<_>>();
+                match selected.iter().any(|layer| layer.role == ModelLayerRole::ModelWeight) {
+                    | false => Err(eyre!("ModelPack does not contain a supported model-weight layer")),
+                    | true => {
+                        let files = selected
+                            .iter()
+                            .filter_map(|layer| {
+                                layer.path.as_ref().map(|path| OciFile {
+                                    media_type: layer.media_type.clone(),
+                                    digest: layer.digest.clone(),
+                                    size: layer.transfer_size,
+                                    path: path.clone(),
+                                    installed_size: Some(layer.transfer_size),
+                                    layer_digest: layer.digest.clone(),
+                                    role: layer.role,
+                                })
                             })
+                            .collect();
+                        Ok(OciPlan {
+                            layers: selected,
+                            ignored_layers,
+                            files: OciFiles(files),
                         })
-                        .collect();
-                    Ok((selected, files))
+                    }
                 }
             })
     }
-    fn content(&self, reference: &OciReference, manifest: &Manifest, kind: ArtifactKind) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
+    fn content(&self, reference: &OciReference, manifest: &Manifest, kind: ArtifactKind) -> ApiResult<OciPlan> {
         match kind {
             | ArtifactKind::ModelPack => self.modelpack_content(reference, manifest),
-            | ArtifactKind::ModelKit => self.modelkit_content(reference, manifest),
-            | ArtifactKind::Annotated => self.annotated_content(manifest),
+            | ArtifactKind::ModelKit => self.modelkit_content(reference, manifest).map(OciPlan::from),
+            | ArtifactKind::Annotated => self.annotated_content(manifest).map(OciPlan::from),
             | ArtifactKind::RunnableImage => Err(eyre!("OCI reference identifies a runnable container image")),
             | ArtifactKind::InvalidModelPack | ArtifactKind::Unsupported => Err(eyre!("OCI artifact classification was not validated")),
         }
@@ -990,15 +1200,17 @@ impl OrasTransport {
                 }
             })
     }
-    fn pull_layer(&self, reference: &OciReference, layer: &OciLayer, staging: &Path, index: usize) -> ApiResult<Vec<(String, String)>> {
+    fn pull_layer(
+        &self,
+        reference: &OciReference,
+        layer: &OciLayer,
+        staging: &Path,
+        index: usize,
+    ) -> ApiResult<Vec<(String, String, ModelLayerRole)>> {
         let blob_reference = reference.with_digest(&layer.digest).trim_start_matches(OCI_PREFIX).to_string();
-        let direct = match layer.extraction {
-            | OciExtraction::None => layer.path.as_ref().map(|path| staging.join(path)),
-            | _ => None,
-        };
         let archive = staging.join(format!(".acorn-oci-layer-{index}"));
         let extraction_root = staging.join(format!(".acorn-oci-extract-{index}"));
-        let output = direct.as_ref().unwrap_or(&archive);
+        let output = &archive;
         output
             .parent()
             .map_or(Ok(()), |parent| {
@@ -1013,13 +1225,19 @@ impl OrasTransport {
                 | OciExtraction::None => Ok(None),
                 | OciExtraction::Tar => extract(archive.clone(), Some(extraction_root.clone()), Some(MimeType::Tar)).map(Some),
                 | OciExtraction::TarGzip => extract(archive.clone(), Some(extraction_root.clone()), Some(MimeType::Gzip)).map(Some),
+                | OciExtraction::TarZstd => extract(archive.clone(), Some(extraction_root.clone()), Some(MimeType::Zstd)).map(Some),
             })
             .and_then(|extracted| match extracted {
                 | None => layer
                     .path
                     .clone()
-                    .map(|path| vec![(path, layer.digest.clone())])
-                    .ok_or_else(|| eyre!("Direct OCI layer has no materialization path")),
+                    .map(|path| (path.clone(), staging.join(&path)))
+                    .ok_or_else(|| eyre!("Direct OCI layer has no materialization path"))
+                    .and_then(|(path, target)| {
+                        move_file(&archive, &target)
+                            .map_err(|why| eyre!("Failed to materialize direct OCI layer — {why}"))
+                            .map(|()| vec![(path, layer.digest.clone(), layer.role)])
+                    }),
                 | Some(root) => move_extracted(&root, staging)
                     .and_then(|paths| {
                         remove_file(&archive)
@@ -1031,7 +1249,7 @@ impl OrasTransport {
                             .map_err(|why| eyre!("Failed to remove OCI extraction directory — {why}"))
                             .map(|()| paths)
                     })
-                    .map(|paths| paths.into_iter().map(|path| (path, layer.digest.clone())).collect()),
+                    .map(|paths| paths.into_iter().map(|path| (path, layer.digest.clone(), layer.role)).collect()),
             })
     }
     fn pull_files(&self, reference: &OciReference, resolution: &OciResolution, staging: &Path) -> ApiResult<Vec<OciFile>> {
@@ -1043,7 +1261,30 @@ impl OrasTransport {
                 self.pull_layer(reference, layer, staging, index)
                     .map(|paths| origins.into_iter().chain(paths).collect())
             })
-            .and_then(|origins| gguf::select_staged_files(staging, resolution, &origins))
+            .and_then(|origins| {
+                let (models, supporting): (Vec<_>, Vec<_>) = origins
+                    .into_iter()
+                    .partition(|(_, _, role)| matches!(role, ModelLayerRole::Model | ModelLayerRole::ModelWeight));
+                gguf::select_staged_files(staging, resolution, &models).and_then(|models| {
+                    supporting
+                        .into_iter()
+                        .map(|(path, digest, role)| {
+                            fs::metadata(staging.join(&path))
+                                .map_err(|why| eyre!("Failed to inspect OCI supporting file '{path}' — {why}"))
+                                .map(|metadata| OciFile {
+                                    media_type: "application/octet-stream".to_string(),
+                                    digest: digest.clone(),
+                                    size: metadata.len(),
+                                    path,
+                                    installed_size: Some(metadata.len()),
+                                    layer_digest: digest,
+                                    role,
+                                })
+                        })
+                        .collect::<ApiResult<Vec<_>>>()
+                        .map(|supporting| models.into_iter().chain(supporting).collect())
+                })
+            })
     }
     pub(crate) fn transport_args(&self, args: Vec<OsString>, password_stdin: bool) -> Vec<OsString> {
         let options = &self.options;
@@ -1069,17 +1310,34 @@ impl OrasTransport {
         ]
     }
 }
-impl From<OciExtraction> for &'static str {
-    fn from(value: OciExtraction) -> Self {
-        match value {
-            | OciExtraction::None => "none",
-            | OciExtraction::Tar => "tar",
-            | OciExtraction::TarGzip => "tar_gzip",
-        }
-    }
-}
 fn default_manifest_media_type() -> String {
     OCI_IMAGE_MANIFEST.to_string()
+}
+pub(crate) fn modelpack_layer_type(media_type: &str) -> Option<(ModelLayerRole, OciExtraction, bool)> {
+    let value = match media_type {
+        | MODELPACK_WEIGHT_RAW => (ModelLayerRole::ModelWeight, OciExtraction::None, true),
+        | MODELPACK_WEIGHT_TAR => (ModelLayerRole::ModelWeight, OciExtraction::Tar, true),
+        | MODELPACK_WEIGHT_TAR_GZIP => (ModelLayerRole::ModelWeight, OciExtraction::TarGzip, true),
+        | MODELPACK_WEIGHT_TAR_ZSTD => (ModelLayerRole::ModelWeight, OciExtraction::TarZstd, true),
+        | MODELPACK_WEIGHT_CONFIG_RAW => (ModelLayerRole::WeightConfig, OciExtraction::None, true),
+        | MODELPACK_WEIGHT_CONFIG_TAR => (ModelLayerRole::WeightConfig, OciExtraction::Tar, true),
+        | MODELPACK_WEIGHT_CONFIG_TAR_GZIP => (ModelLayerRole::WeightConfig, OciExtraction::TarGzip, true),
+        | MODELPACK_WEIGHT_CONFIG_TAR_ZSTD => (ModelLayerRole::WeightConfig, OciExtraction::TarZstd, true),
+        | MODELPACK_DOC_RAW => (ModelLayerRole::Documentation, OciExtraction::None, false),
+        | MODELPACK_DOC_TAR => (ModelLayerRole::Documentation, OciExtraction::Tar, false),
+        | MODELPACK_DOC_TAR_GZIP => (ModelLayerRole::Documentation, OciExtraction::TarGzip, false),
+        | MODELPACK_DOC_TAR_ZSTD => (ModelLayerRole::Documentation, OciExtraction::TarZstd, false),
+        | MODELPACK_CODE_RAW => (ModelLayerRole::Code, OciExtraction::None, false),
+        | MODELPACK_CODE_TAR => (ModelLayerRole::Code, OciExtraction::Tar, false),
+        | MODELPACK_CODE_TAR_GZIP => (ModelLayerRole::Code, OciExtraction::TarGzip, false),
+        | MODELPACK_CODE_TAR_ZSTD => (ModelLayerRole::Code, OciExtraction::TarZstd, false),
+        | MODELPACK_DATASET_RAW => (ModelLayerRole::Dataset, OciExtraction::None, false),
+        | MODELPACK_DATASET_TAR => (ModelLayerRole::Dataset, OciExtraction::Tar, false),
+        | MODELPACK_DATASET_TAR_GZIP => (ModelLayerRole::Dataset, OciExtraction::TarGzip, false),
+        | MODELPACK_DATASET_TAR_ZSTD => (ModelLayerRole::Dataset, OciExtraction::TarZstd, false),
+        | _ => return None,
+    };
+    Some(value)
 }
 fn move_extracted(root: &Path, staging: &Path) -> ApiResult<Vec<String>> {
     walk(root).and_then(|paths| {
@@ -1088,15 +1346,7 @@ fn move_extracted(root: &Path, staging: &Path) -> ApiResult<Vec<String>> {
             .try_for_each(|path| {
                 let source = root.join(path);
                 let target = staging.join(path);
-                match target.exists() {
-                    | true => Err(eyre!("OCI archive layers contain duplicate logical path '{path}'")),
-                    | false => target
-                        .parent()
-                        .map_or(Ok(()), |parent| {
-                            create_dir_all(parent).map_err(|why| eyre!("Failed to create OCI output directory — {why}"))
-                        })
-                        .and_then(|()| rename(source, target).map_err(|why| eyre!("Failed to materialize OCI archive file '{path}' — {why}"))),
-                }
+                move_file(source, target).map_err(|why| eyre!("Failed to materialize OCI archive file '{path}' — {why}"))
             })
             .map(|()| paths.into_iter().collect())
     })
@@ -1109,4 +1359,15 @@ fn safe_path_component(value: &str) -> String {
             | _ => character,
         })
         .collect()
+}
+fn validate_modelpack_config(config: ModelPackConfig) -> ApiResult<()> {
+    match (config.modelfs.kind.as_str(), config.modelfs.diff_ids.is_empty()) {
+        | ("layers", false) => config
+            .modelfs
+            .diff_ids
+            .iter()
+            .try_for_each(|value| rules::digest(value).map_err(|why| eyre!("Invalid ModelPack diffId '{value}' — {why}"))),
+        | ("layers", true) => Err(eyre!("Invalid ModelPack config — modelfs.diffIds cannot be empty")),
+        | (kind, _) => Err(eyre!("Invalid ModelPack config — unsupported modelfs.type '{kind}'")),
+    }
 }
