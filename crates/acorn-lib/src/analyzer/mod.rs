@@ -10,4 +10,4 @@ mod tests;
 
 #[cfg(feature = "std")]
 pub use check::IntoChecks;
-pub use check::{check_readability_for_text, summary, Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard};
+pub use check::{check_readability_for_text, Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, OutputFormat, Standard};

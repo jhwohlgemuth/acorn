@@ -9,7 +9,7 @@ use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
 use acorn::analyzer::host::tabular::checks_to_csv;
 use acorn::analyzer::host::vale::Vale;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{summary, Check, CheckBatch, CheckCategory, OutputFormat, Standard};
+use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, OutputFormat, Standard};
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
@@ -195,7 +195,7 @@ fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, ren
         let rows = (file_count > 1)
             .then(|| vec!["Files checked".to_string(), file_count.to_string()])
             .into_iter()
-            .chain(summary(issues.as_slice()))
+            .chain(CheckSummary::from(issues).rows())
             .collect();
         print_values_as_table::<String>(headers, rows, None);
     };

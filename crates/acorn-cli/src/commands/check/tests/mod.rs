@@ -22,7 +22,7 @@ use crate::test::server::spawn_source_server;
 use crate::test::util::fixture_path;
 use acorn::analyzer::host::service::{classify_paths, Analysis};
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{Check, CheckCategory, Standard};
+use acorn::analyzer::{Check, CheckCategory, CheckSummary, Standard};
 use acorn::io::TextOrigin;
 use acorn::LocationExt;
 use acorn_core::util::MimeType;
@@ -35,6 +35,29 @@ use std::fs::{read, read_to_string};
 use std::path::PathBuf;
 
 const OFFLINE: bool = true;
+#[test]
+fn summary_rows_preserve_cli_labels_and_order() {
+    let rows = CheckSummary {
+        schema: 1,
+        link: 2,
+        prose: 3,
+        quality: 4,
+        readability: 5,
+        crosswalk: 6,
+    }
+    .rows();
+    assert_eq!(
+        rows,
+        vec![
+            vec!["Schema items found", "1"],
+            vec!["Link items found", "2"],
+            vec!["Prose items found", "3"],
+            vec!["Quality items found", "4"],
+            vec!["Readability items found", "5"],
+            vec!["Crosswalk items found", "6"],
+        ]
+    );
+}
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
 where
     T: Analysis + Send,

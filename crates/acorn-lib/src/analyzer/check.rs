@@ -181,6 +181,22 @@ pub struct Check {
 /// Ordered collection of analyzer checks.
 #[derive(Clone, Debug, Default)]
 pub struct CheckBatch(Vec<Check>);
+/// Additive issue counts for analyzer checks.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct CheckSummary {
+    /// Schema validation issue count.
+    pub schema: usize,
+    /// Link issue count.
+    pub link: usize,
+    /// Prose issue count.
+    pub prose: usize,
+    /// Quality issue count.
+    pub quality: usize,
+    /// Readability issue count.
+    pub readability: usize,
+    /// Metadata crosswalk warning count.
+    pub crosswalk: usize,
+}
 impl<'a> IntoIterator for &'a CheckBatch {
     type Item = &'a Check;
     type IntoIter = core::slice::Iter<'a, Check>;
@@ -294,6 +310,48 @@ impl CheckBatch {
         self.0
     }
 }
+impl CheckSummary {
+    /// Create the additive identity containing no issues.
+    pub const fn zero() -> Self {
+        Self {
+            schema: 0,
+            link: 0,
+            prose: 0,
+            quality: 0,
+            readability: 0,
+            crosswalk: 0,
+        }
+    }
+    /// Combine two summaries by adding corresponding category counts.
+    pub fn combine(self, other: Self) -> Self {
+        Self {
+            schema: self.schema.saturating_add(other.schema),
+            link: self.link.saturating_add(other.link),
+            prose: self.prose.saturating_add(other.prose),
+            quality: self.quality.saturating_add(other.quality),
+            readability: self.readability.saturating_add(other.readability),
+            crosswalk: self.crosswalk.saturating_add(other.crosswalk),
+        }
+    }
+    /// Return category counts in stable display order.
+    pub fn counts(&self) -> [(CheckCategory, usize); 6] {
+        [
+            (CheckCategory::Schema, self.schema),
+            (CheckCategory::Link, self.link),
+            (CheckCategory::Prose, self.prose),
+            (CheckCategory::Quality, self.quality),
+            (CheckCategory::Readability, self.readability),
+            (CheckCategory::Crosswalk, self.crosswalk),
+        ]
+    }
+    /// Convert category counts to presentation rows.
+    pub fn rows(&self) -> Vec<Vec<String>> {
+        self.counts()
+            .iter()
+            .map(|(category, count)| vec![format!("{} items found", category.to_string().to_case(Case::Title)), count.to_string()])
+            .collect()
+    }
+}
 impl core::iter::FromIterator<Check> for CheckBatch {
     fn from_iter<T: IntoIterator<Item = Check>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
@@ -307,6 +365,49 @@ impl core::iter::FromIterator<CheckBatch> for CheckBatch {
 impl From<Vec<Check>> for CheckBatch {
     fn from(checks: Vec<Check>) -> Self {
         Self(checks)
+    }
+}
+impl From<&Check> for CheckSummary {
+    fn from(check: &Check) -> Self {
+        let count = check.issue_count();
+        match check.category {
+            | CheckCategory::Schema => Self {
+                schema: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Link => Self { link: count, ..Self::zero() },
+            | CheckCategory::Prose => Self {
+                prose: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Quality => Self {
+                quality: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Readability => Self {
+                readability: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Crosswalk => Self {
+                crosswalk: count,
+                ..Self::zero()
+            },
+        }
+    }
+}
+impl From<&[Check]> for CheckSummary {
+    fn from(checks: &[Check]) -> Self {
+        checks.iter().fold(Self::zero(), |summary, check| summary.combine(check.into()))
+    }
+}
+impl From<&CheckBatch> for CheckSummary {
+    fn from(checks: &CheckBatch) -> Self {
+        Self::from(checks.as_slice())
+    }
+}
+impl From<CheckBatch> for CheckSummary {
+    fn from(checks: CheckBatch) -> Self {
+        Self::from(&checks)
     }
 }
 impl IntoIterator for CheckBatch {
@@ -663,26 +764,4 @@ where
                 .collect(),
         }
     })
-}
-/// Create summary data table from given issues
-pub fn summary(issues: &[Check]) -> Vec<Vec<String>> {
-    [
-        CheckCategory::Schema,
-        CheckCategory::Link,
-        CheckCategory::Prose,
-        CheckCategory::Quality,
-        CheckCategory::Readability,
-        CheckCategory::Crosswalk,
-    ]
-    .iter()
-    .map(|category| {
-        let count = issues
-            .iter()
-            .filter(|issue| issue.category == *category)
-            .map(|issue| issue.issue_count())
-            .sum::<usize>()
-            .to_string();
-        vec![format!("{} items found", category.to_string().to_case(Case::Title)), count]
-    })
-    .collect::<Vec<_>>()
 }

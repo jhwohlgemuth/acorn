@@ -122,7 +122,7 @@
 //! ```
 use acorn::analyzer::error::ErrorKind;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{check_readability_for_text, summary, Check};
+use acorn::analyzer::{check_readability_for_text, Check, CheckSummary};
 use acorn_schema::schema::research_activity::ResearchActivity;
 use acorn_schema::{Validate, ValidationIssue};
 use serde::Serialize;
@@ -255,7 +255,7 @@ fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<
         let checks = check_readability_for_text(text, metric, uri);
         ReadabilityResult {
             checks: checks.iter().map(ReadabilityCheck::from).collect(),
-            summary: summary(checks.as_slice()),
+            summary: CheckSummary::from(&checks).rows(),
         }
     })
 }
@@ -333,7 +333,17 @@ mod tests {
         let result = analyze_readability("This is a short sentence.", "fkgl", Some("memory://sample".to_string())).unwrap();
         assert_eq!(result.checks.len(), 1);
         assert_eq!(result.checks.first().and_then(|check| check.uri.as_deref()), Some("memory://sample"));
-        assert_eq!(result.summary.len(), 6);
+        assert_eq!(
+            result.summary,
+            vec![
+                vec!["Schema items found", "0"],
+                vec!["Link items found", "0"],
+                vec!["Prose items found", "0"],
+                vec!["Quality items found", "0"],
+                vec!["Readability items found", "1"],
+                vec!["Crosswalk items found", "0"],
+            ]
+        );
     }
     #[test]
     fn validate_research_activity_collects_parse_diagnostics() {

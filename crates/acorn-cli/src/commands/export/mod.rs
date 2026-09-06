@@ -2,7 +2,7 @@ use crate::cli::arguments::{ArchiveType, FileFormat};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
-use acorn::analyzer::{summary, Check, CheckCategory, IntoChecks, Standard};
+use acorn::analyzer::{Check, CheckCategory, CheckSummary, IntoChecks, Standard};
 use acorn::io::bagit::{Bag, BagInfo, Save};
 #[cfg(feature = "chart")]
 use acorn::io::chart::ChartOptions;
@@ -576,7 +576,7 @@ async fn export_as_format_crosswalk(
                                 for check in &all_warnings {
                                     info!("  {check}");
                                 }
-                                print_values_as_table::<String>(vec!["", "Count"], summary(&all_warnings), None);
+                                print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(all_warnings.as_slice()).rows(), None);
                             }
                             if dry_run {
                                 info!(

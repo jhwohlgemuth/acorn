@@ -14,7 +14,7 @@ use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::analyzer::host::vale::{
     preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity,
 };
-use crate::analyzer::{summary, Check, CheckCategory, CheckSeverity, IntoChecks};
+use crate::analyzer::{Check, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::test::utils::unique_path;
 use crate::{check, check_ok};
@@ -805,8 +805,7 @@ fn test_summary_includes_crosswalk_warnings() {
         ConversionWarning::no_equivalent("datacite", "dcat", "attributes.subjects"),
     ];
     let checks = warnings.to_checks(None);
-    let rows = summary(checks.as_slice());
-    assert!(rows.contains(&vec!["Crosswalk items found".to_string(), "2".to_string()]));
+    assert_eq!(CheckSummary::from(checks).crosswalk, 2);
 }
 #[test]
 fn test_terse_output_includes_resolved_line_and_column() {
