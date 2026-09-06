@@ -8,7 +8,10 @@
 
 - **`crates/acorn-lib/`**: Core library with schemas, validation, analysis, and export logic
 - **`crates/acorn-cli/`**: CLI application with 8 main commands
-- **`crates/acorn-py/`**: Python bindings using maturin (for PyO3)
+- **`crates/acorn-core/`**: Portable errors, root values, and utilities
+- **`crates/acorn-schema/`**: Portable schemas, validation, crosswalks, and codecs
+- **`crates/acorn-tui/`**: Terminal interface
+- **`crates/acorn-wasm/`**: JavaScript and WebAssembly bindings
 - **`docs/`**: mdBook documentation
 
 ### Key Modules
@@ -122,7 +125,7 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 ## Key Integration Points
 
 **Workspace Configuration** (`Cargo.toml`)
-- Workspace members: `acorn-cli`, `acorn-lib` (acorn-py excluded)
+- Workspace members: `acorn-cli`, `acorn-core`, `acorn-lib`, `acorn-macros`, `acorn-schema`, `acorn-tui`, `acorn-wasm`, and `xtask`
 - Shared dependencies: `serde`, `serde_json`, `serde_yml`, `tracing`, `rayon`, `color-eyre`
 - Lints: Missing docs forbidden, unsafe code forbidden, intra-doc links forbidden
 
@@ -135,11 +138,6 @@ cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable
 - CLI assets: `crates/acorn-cli/assets/` (fonts, images, styles)
 - Library assets: `crates/acorn-lib/assets/constants/` (constants and configuration)
 - All assets are embedded in the binary via `rust-embed` crate
-
-**Python Bindings** (`crates/acorn-py/`)
-- Built with `maturin` (PyO3 wrapper)
-- Compiled to wheels in `target/wheels/`
-- Tests in `crates/acorn-py/tests/`: `test_pid.py`, `test_schema.py`, `test_validate.py`
 
 ## When Adding Features
 

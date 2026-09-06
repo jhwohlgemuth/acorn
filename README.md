@@ -27,7 +27,7 @@
 <span title="Accessible Content Optimization for Research Needs">ACORN</span> is a collection of technology artifacts, but its primary entry point is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
 
 ## Installation
-See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation), [🦀Rust crate](http://acorn.ornl.gov/packages/acorn-lib.html#installation), and [🐍Python package](http://acorn.ornl.gov/packages/acorn-py.html#installation). Contributors can also check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
+See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust crate](http://acorn.ornl.gov/packages/acorn-lib.html#installation). Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can also check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
 
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)

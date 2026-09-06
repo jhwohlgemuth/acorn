@@ -37,7 +37,7 @@ This roadmap is governed by the [crate boundary architecture](../crate-boundary-
 
 # Parallel execution
 
-This roadmap coordinates work and does not own a concurrent implementation branch. Active extraction work holds the library-root and module-index integration locks. Orthogonal leaf work may proceed in analyzer readability, remote create, Python bindings, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
+This roadmap coordinates work and does not own a concurrent implementation branch. Active extraction work holds the library-root and module-index integration locks. Orthogonal leaf work may proceed in analyzer readability, remote create, OOXML, and a provider-specific API module when those agents avoid manifests, module indexes, CLI roots, and shared build/CI files. Use the verified batch in the [parallel execution guide](../../parallel-execution.md).
 
 # Implementation order
 

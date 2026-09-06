@@ -125,33 +125,6 @@ test-portability:
     - command -v wasm-pack >/dev/null || cargo install --locked wasm-pack@0.15.0
     - make check-portable
 
-test-python:
-  stage: test
-  image: ghcr.io/prefix-dev/pixi@sha256:e059bf6b10fca60158d8cfd81a150a81318f23a427212ac782210c46149af90b
-  resource_group: tests
-  tags:
-    - cpu
-  hooks:
-    pre_get_sources_script:
-      - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
-  inherit:
-    variables: true
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-        - crates/${BINARY_NAME}-py/**/*
-        - Cargo.toml
-        - Cargo.lock
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - crates/${BINARY_NAME}-py/**/*
-        - Cargo.toml
-        - Cargo.lock
-  script:
-    - cd crates/${BINARY_NAME}-py && pixi run test
-
 test-docs:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest

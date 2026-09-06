@@ -264,7 +264,6 @@ fn read_json(path: PathBuf) -> ApiResult<MySchema> {
 The project uses Cargo workspaces with three main crates:
 - **acorn-cli**: CLI application with commands (check, export, format, link, download, doctor)
 - **acorn-lib**: Core library with schemas, validation, analysis, and utilities
-- **acorn-py**: Python bindings (PyO3)
 
 ### Current Version
 The current version is defined in `[workspace.package].version` in `Cargo.toml`.

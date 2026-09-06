@@ -21,10 +21,6 @@ const INTERNAL_DEPS: &[InternalDep] = &[
         name: "acorn-macros",
     },
     InternalDep {
-        manifest: "crates/acorn-py/Cargo.toml",
-        name: "acorn-lib",
-    },
-    InternalDep {
         manifest: "crates/acorn-tui/Cargo.toml",
         name: "acorn-lib",
     },

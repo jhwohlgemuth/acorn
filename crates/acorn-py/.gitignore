@@ -1,6 +1,0 @@
-# pixi environments
-.pixi
-.pytest_cache/
-.ruff_cache/
-.venv
-__pycache__/

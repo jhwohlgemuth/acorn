@@ -7,7 +7,7 @@ Goal: integrate ACORN's data model, validation, and optional agent tooling into 
 1. [Install ACORN](../getting-started.md) and inspect `acorn help`.
 2. Learn the [ACORN research activity model](../concepts/acorn.md).
 3. Use the [`acorn-lib` Rust crate](../packages/acorn-lib.md) for native and agent-enabled applications, and extract ACORN's operating instructions with [`acorn skill`](../cli-reference/commands/skill.md).
-4. Use the [`acorn-py` package](../packages/acorn-py.md) for Python workflows.
+4. For Python workflows, follow the standalone [`acorn-py` project](https://code.ornl.gov/research-enablement/acorn-py).
 5. Review the [WebAssembly-supported surface](../packages/acorn-web.md) before targeting a browser or edge runtime.
 
 When adding a CLI integration, prefer the generated `CommandLineHelp.md` in the repository as the exact option reference and the curated [command pages](../cli-reference/commands/index.html) for workflow guidance.

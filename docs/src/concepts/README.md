@@ -19,7 +19,7 @@ REI provides:
     - [ASPECT](/concepts/aspect/index.html) - Attribute of <span title="Accessible Content Optimization for Research Needs">ACORN</span> that describes technology associated with a given research activity
 - A command-line application written in Rust - [`acorn-cli`](https://crates.io/crates/acorn-cli)
 - A Rust crate for working with <span title="Research Activity Data">RAD</span> - [`acorn-lib`](https://docs.rs/acorn-lib/latest/acorn/)
-- A Python package for working with <span title="Research Activity Data">RAD</span> - [`acorn-py`](https://pypi.org/project/acorn-py/)
+- An independently maintained Python package for working with <span title="Research Activity Data">RAD</span> - [`acorn-py`](https://code.ornl.gov/research-enablement/acorn-py)
 - A catalog of research activity data at <span title="Oak Ridge National Laboratory">ORNL</span> - [research.ornl.gov](https://research.ornl.gov)
 
 ### 🪣 Buckets

@@ -22,7 +22,6 @@ acorn/
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
 │   ├── acorn-lib/      # Analysis and host services not yet extracted
 │   ├── acorn-macros/   # Validation and command procedural macros
-│   ├── acorn-py/       # Python bindings
 │   ├── acorn-schema/   # Portable schemas, validation, crosswalks, and codecs
 │   ├── acorn-tui/      # Terminal interface
 │   └── acorn-wasm/     # In-memory JavaScript validation and analysis bindings
@@ -44,7 +43,6 @@ acorn-schema
     +----------> acorn-lib <----- acorn-macros
     |                |
     |                +----------> acorn-cli <----- acorn-tui
-    |                +----------> acorn-py
     |                +----------> acorn-tui
     +---------------------------> acorn-wasm <----- acorn-lib::analyzer
 ```
@@ -93,7 +91,7 @@ The remaining critical portability edges are agent source resolution, embedded t
 
 ### Interface crates
 
-`acorn-cli`, `acorn-tui`, and `acorn-py` are composition roots. They select concrete runtime capabilities and translate library results into terminal, Python, or application behavior. CLI argument parsing and exit/report presentation stay outside portable domain crates.
+`acorn-cli` and `acorn-tui` are composition roots. They select concrete runtime capabilities and translate library results into terminal or application behavior. CLI argument parsing and exit/report presentation stay outside portable domain crates.
 
 ### Export and assets
 
@@ -115,8 +113,8 @@ acorn-schema
 native adapters:  acorn-host + acorn-store + acorn-cmd
 browser adapters: acorn-wasm
 
-CLI / TUI / Python = services + native adapters
-JS / WASM          = services + browser adapters
+CLI / TUI  = services + native adapters
+JS / WASM  = services + browser adapters
 acorn-lib          = remaining host implementations during migration
 ```
 

@@ -53,8 +53,8 @@ acorn-schema
 native adapters:  acorn-host + acorn-store + acorn-cmd
 browser adapters: acorn-wasm
 
-CLI / TUI / Python = service + native adapters
-JS / WASM          = service + browser adapters
+CLI / TUI  = service + native adapters
+JS / WASM  = service + browser adapters
 ```
 
 The diagram shows the dominant direction rather than every direct edge. Port traits live with the domain or service that consumes them. `acorn-host`, `acorn-store`, and `acorn-wasm` implement those ports, while interface crates act as composition roots and select concrete adapters. `acorn-service` must not depend on a native adapter. During migration, `acorn-lib` remains a host implementation package; it does not sit beside the graph as a re-export facade.
@@ -68,7 +68,6 @@ crates/
 ├── acorn-cli
 ├── acorn-lib
 ├── acorn-macros
-├── acorn-py
 ├── acorn-tui
 ├── acorn-core
 ├── acorn-schema
@@ -178,7 +177,7 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 2. Compile the in-tree Phase 1 boundaries and `acorn-schema` without default features and with supported alloc combinations; compile browser composition separately through `acorn-wasm` for `wasm32-unknown-unknown`.
 3. Inspect resolved feature trees and confirm foundational crates do not contain HTTP, database, process, terminal, embedded-asset, or async-runtime dependencies.
 4. Test direct owning-crate imports plus host I/O extension traits, and scan for ownership-masking re-exports.
-5. Build and smoke-test the CLI, TUI, Python bindings, and JS/WASM bindings against their direct dependencies and composition roots.
+5. Build and smoke-test the CLI, TUI, and JS/WASM bindings against their direct dependencies and composition roots.
 6. Run `cargo package` or `cargo publish --dry-run` for each publishable crate in dependency order.
 7. Measure binary and compile-time changes under their existing plans; crate extraction alone is not evidence of a size improvement.
 

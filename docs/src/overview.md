@@ -57,7 +57,7 @@ Start with the outcome closest to your work:
 | I am a… | Start here | You will learn to… |
 |---|---|---|
 | Researcher | [Validate your first RAD](learn/quick-quest.md) | check, improve, link, and export a project record |
-| Developer | [Build with ACORN](learn/developer.md) | use schemas, prompt and model APIs, agent skills, Python, and WebAssembly |
+| Developer | [Build with ACORN](learn/developer.md) | use schemas, prompt and model APIs, agent skills, external Python bindings, and WebAssembly |
 | Platform engineer | [Operate ACORN](learn/platform-engineer.md) | operate local models, agent tools, runners, and automation services |
 
 Not sure yet? The [role guide](learn/index.html) shows every trail at a glance.

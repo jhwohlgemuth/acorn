@@ -48,5 +48,5 @@
 >>>>>>> Stashed changes
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)
-  - [🐍 Python package](./packages/acorn-py.md)
+  - [🐍 External Python bindings](./packages/acorn-py.md)
   - [WebAssembly development](./packages/acorn-web.md)

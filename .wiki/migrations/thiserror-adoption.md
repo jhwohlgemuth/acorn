@@ -52,7 +52,7 @@ The migration is viable and worthwhile if it remains bounded to errors ACORN own
 - `crates/acorn-lib/src/error.rs` already defines the intended split: portable `AcornError`/`AcornResult` for owned domain failures and `ApiResult<T> = Result<T, color_eyre::eyre::Report>` for host boundaries.
 - ACORN currently handwrites `Display` plus `Error` implementations for `AcornError`, `HuggingFaceError`, `OutputFailure`, `WebhookError`, `SyncError`, `ShardError`, and `ModelDownloadError`. `CrosswalkError` has a handwritten `Display` implementation but does not currently implement `Error`.
 - The default and no-default dependency graphs already resolve `thiserror` 2.0.18 transitively. Making it direct therefore does not introduce a new crate version into the current lockfile.
-- `acorn-cli` and `acorn-tui` use `color-eyre` as application error reporters. `acorn-py` maps failures to Python exceptions, `acorn-macros` primarily returns `syn::Error`, and `xtask` prints internal `String` failures.
+- `acorn-cli` and `acorn-tui` use `color-eyre` as application error reporters. `acorn-macros` primarily returns `syn::Error`, and `xtask` prints internal `String` failures.
 - Several DTOs are named `Error`, `ErrorResponse`, or `ErrorResponseFailure`; these represent remote response payloads and are not candidates for deriving `std::error::Error` merely because of their names.
 - Thiserror documents that its derive is equivalent to handwritten `Error` implementations and does not become part of a library's public API.[^1]
 
@@ -67,7 +67,6 @@ Keep the following taxonomy:
 | Portable domain and schema code | Small owned error structs or enums derived with `thiserror::Error` |
 | Reusable adapters and services | Operation-specific typed errors when callers can recover or classify; otherwise convert to `ApiResult` at the host boundary |
 | CLI and TUI composition roots | `color_eyre::Report` with contextual diagnostics |
-| Python bindings | Map stable typed/library errors to appropriate `PyErr` values at the binding boundary |
 | Proc macros | Continue using `syn::Error` and span-aware string messages |
 | Remote error payload DTOs | Continue as serialization types; do not derive `Error` unless they become actual Rust failure contracts |
 | Maintenance binaries such as `xtask` | Retain simple application errors until a concrete need for classification or source inspection appears |
@@ -107,7 +106,7 @@ Classify each `Result<_, String>` occurrence as one of:
 2. A public or cross-module operation whose caller needs to distinguish failures: introduce a local typed error.
 3. An application boundary that only renders and exits: retain or convert directly to `color-eyre::Report` with context.
 
-Prioritize public crosswalk and document-parsing paths where stringification currently prevents classification. Defer `xtask`, TUI, Python, and proc-macro changes unless the audit finds a concrete recovery or source-chain requirement.
+Prioritize public crosswalk and document-parsing paths where stringification currently prevents classification. Defer `xtask`, TUI, and proc-macro changes unless the audit finds a concrete recovery or source-chain requirement.
 
 ## 4. Preserve rich boundary diagnostics
 
@@ -145,7 +144,7 @@ cargo check -p acorn-lib --no-default-features --target wasm32-unknown-unknown -
 4. Source chains are tested and contain only intentionally wrapped underlying errors.
 5. Proc-macro diagnostics, remote error DTOs, and private string callbacks are not converted without a caller-driven reason.
 6. Default, no-default, alloc, and WASM builds pass without resolving `color-eyre` in portable configurations.
-7. CLI, TUI, webhook, and Python boundary behavior remains unchanged unless separately approved.
+7. CLI, TUI, and webhook boundary behavior remains unchanged unless separately approved.
 8. Extracted crates own capability-specific error types and do not depend on a central catch-all error enum.
 
 # Related plans

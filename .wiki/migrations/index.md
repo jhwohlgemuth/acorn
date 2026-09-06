@@ -2,7 +2,6 @@
 
 ## In progress
 
-- [acorn-py standalone repository](acorn-py-repository-extraction.md) — Prepared the independently versioned sibling repository; remote CI, registry dependency conversion, release validation, and ACORN cleanup remain.
 
 ## Planned
 
