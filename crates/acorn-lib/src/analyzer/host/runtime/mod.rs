@@ -21,7 +21,7 @@ use crate::util::constants::vale::{
     CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::util::process::CommandOutput;
-use crate::util::{is_uri_or_path, Constant, Label, StringConversion};
+use crate::util::{Constant, Label, StringConversion};
 use crate::RepositoryExt;
 use crate::{check, check_err, check_ok};
 use crate::{cmd, skip};
@@ -113,8 +113,8 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
 pub trait StaticAnalyzerConfig {
     /// Convert to INI
     async fn ini(self) -> Ini;
-    /// Save configuration
-    async fn save(self) -> Self;
+    /// Save configuration while respecting offline execution policy.
+    async fn save(self, is_offline: bool) -> Self;
     /// Set parent path of configuration
     fn with_path(self, path: PathBuf) -> Self;
     /// Resolve package source: convert bare package name to download URL or pass through existing URL/path
@@ -1146,60 +1146,23 @@ impl StaticAnalyzer<ValeConfig> for Vale {
 #[async_trait]
 impl StaticAnalyzerConfig for ValeConfig {
     async fn ini(self) -> Ini {
-        let ValeConfig {
-            packages,
-            vocabularies,
-            disabled,
-            ..
-        } = self;
-        let package_names = packages.clone();
-        let mut conf = Ini::new();
-        let package_repository = Repository::GitLab {
-            id: None,
-            location: Box::new(Location::Simple(VALE_PACKAGE_REPOSITORY_URL.to_string())),
-        };
-        let package_url = match package_repository.latest_release().await {
-            | Some(release) => {
-                let tag = release.tag_name;
-                format!("{VALE_PACKAGE_REPOSITORY_URL}/-/archive/{tag}/vale-package-{tag}.zip")
-            }
-            | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
-        };
-        let package_sources = package_names
-            .iter()
-            .map(Self::resolve_package)
-            .chain(core::iter::once(package_url))
-            .collect::<Vec<String>>();
-        // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
-        conf.with_section::<String>(None)
-            .set("StylesPath", "styles")
-            .set("Vocab", vocabularies.join(", "))
-            .set("Packages", package_sources.join(", "));
-        conf.with_section(Some("*")).set(
-            "BasedOnStyles",
-            format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, package_names.join(", ")),
-        );
-        disabled.iter().for_each(|rule| {
-            conf.with_section(Some("*")).set(rule, "NO");
-        });
-        conf
+        let config = self.normalize();
+        let package_url = vale_package_url(false).await;
+        config.materialize(&package_url)
     }
     fn resolve_package(value: impl AsRef<str>) -> String {
-        let value = value.as_ref().trim();
-        if is_uri_or_path(value) {
-            value.to_string()
-        } else {
-            format!("https://github.com/errata-ai/{value}/releases/latest/download/{value}.zip")
-        }
+        ValeConfig::resolve_package(value)
     }
-    async fn save(self) -> ValeConfig {
-        let path = self.clone().path;
+    async fn save(self, is_offline: bool) -> ValeConfig {
+        let config = self.normalize();
+        let path = config.path.clone();
         let parent = path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
         match create_dir_all(parent.clone()) {
             | Ok(_) => {}
             | Err(why) => error!(directory = parent.to_absolute_path(), "=> {} Create — {why}", Label::fail()),
         }
-        match self.clone().ini().await.write_to_file(path.clone()) {
+        let package_url = vale_package_url(is_offline).await;
+        match config.clone().materialize(&package_url).write_to_file(path.clone()) {
             | Ok(_) => {
                 debug!(path = path.to_absolute_path(), "=> {} Saved configuration", Label::using());
             }
@@ -1207,11 +1170,55 @@ impl StaticAnalyzerConfig for ValeConfig {
                 error!("=> {} Save configuration — {why}", Label::fail());
             }
         }
-        self
+        config
     }
-    fn with_path(mut self, path: PathBuf) -> Self {
-        self.path = path;
-        self
+    fn with_path(self, path: PathBuf) -> Self {
+        Self { path, ..self }
+    }
+}
+impl ValeConfig {
+    pub(crate) fn materialize(self, package_url: &str) -> Ini {
+        let ValeConfig {
+            packages,
+            vocabularies,
+            disabled,
+            ..
+        } = self.clone();
+        let package_sources = self
+            .resolve_package_sources()
+            .packages
+            .into_iter()
+            .chain(core::iter::once(package_url.to_string()))
+            .collect::<Vec<String>>();
+        let mut conf = Ini::new();
+        // CAUTION: Order of attributes in INI file matter. "StylesPath" must come before "Vocab"
+        conf.with_section::<String>(None)
+            .set("StylesPath", "styles")
+            .set("Vocab", vocabularies.join(", "))
+            .set("Packages", package_sources.join(", "));
+        conf.with_section(Some("*"))
+            .set("BasedOnStyles", format!("Vale, {}, {}", CUSTOM_VALE_PACKAGE_NAME, packages.join(", ")));
+        disabled.iter().for_each(|rule| {
+            conf.with_section(Some("*")).set(rule, "NO");
+        });
+        conf
+    }
+}
+async fn vale_package_url(is_offline: bool) -> String {
+    match is_offline {
+        | true => DEFAULT_VALE_PACKAGE_URL.to_string(),
+        | false => {
+            let package_repository = Repository::gitlab()
+                .location(Location::Simple(VALE_PACKAGE_REPOSITORY_URL.to_string()))
+                .call();
+            match package_repository.latest_release().await {
+                | Some(release) => {
+                    let tag = release.tag_name;
+                    format!("{VALE_PACKAGE_REPOSITORY_URL}/-/archive/{tag}/vale-package-{tag}.zip")
+                }
+                | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
+            }
+        }
     }
 }
 async fn check_schema_path<T, E>(path: PathBuf, document: Result<T, E>) -> CheckBatch

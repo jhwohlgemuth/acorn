@@ -112,9 +112,9 @@ impl ExecutionOptions {
     pub async fn resolve_analyzer<Analyzer, Config>(&self, config: Config) -> Analyzer
     where
         Analyzer: StaticAnalyzer<Config>,
-        Config: StaticAnalyzerConfig,
+        Config: StaticAnalyzerConfig + Send,
     {
-        Analyzer::resolve(config.save().await, self.offline, self.skip_verify_checksum).await
+        Analyzer::resolve(config.save(self.offline).await, self.offline, self.skip_verify_checksum).await
     }
     /// Return execution policy with analyzer synchronization disabled.
     pub fn without_sync(self) -> Self {

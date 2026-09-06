@@ -116,6 +116,13 @@ pub trait Searchable<T> {
 pub trait StringExt {
     /// Check whether all characters in a string are numeric.
     fn is_numeric(&self) -> bool;
+    /// Trim list values and discard empty strings when supported.
+    fn trim_and_compact(self) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
 }
 /// Add enhanced string interpolation functionality
 pub trait StringInterpolation<T>
@@ -854,6 +861,25 @@ impl StringExt for String {
         self.as_str().is_numeric()
     }
 }
+impl StringExt for Vec<&str> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
+    }
+}
+impl StringExt for Vec<String> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect()
+    }
+}
 impl<T: AsRef<str>> StringInterpolation<T> for T
 where
     T: ToString,
@@ -1319,4 +1345,25 @@ pub fn to_rfc3339(value: Timestamp) -> String {
 /// Convert a vector of string slices to a vector of strings
 pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StringExt;
+    use crate::prelude::alloc::{String, ToString};
+
+    #[test]
+    fn test_string_ext_default_compaction_is_identity() {
+        let value = " value ".to_string();
+        assert_eq!(value.clone().trim_and_compact(), value);
+    }
+    #[test]
+    fn test_string_ext_vectors_trim_compact_and_detect_numeric_values() {
+        let borrowed = vec![" alpha ", "", " 42 "].trim_and_compact();
+        assert_eq!(borrowed, vec!["alpha", "42"]);
+        assert!(borrowed.is_numeric());
+        let owned = vec![" alpha ".to_string(), String::new(), " 42 ".to_string()].trim_and_compact();
+        assert_eq!(owned, vec!["alpha".to_string(), "42".to_string()]);
+        assert!(owned.is_numeric());
+    }
 }

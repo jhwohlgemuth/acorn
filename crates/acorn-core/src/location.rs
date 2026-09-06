@@ -1,6 +1,7 @@
 //! Portable location and repository values.
 use crate::prelude::alloc::{format, Box, String, ToString, Vec};
 use crate::validation::digest;
+use bon::bon;
 use core::convert::Infallible;
 use core::str::FromStr;
 use derive_more::Display;
@@ -335,6 +336,7 @@ impl Default for Repository {
         }
     }
 }
+#[bon]
 impl Repository {
     /// Classify a repository URL by provider domain.
     pub fn from_remote(value: &str, domain: &str) -> Option<Self> {
@@ -361,6 +363,14 @@ impl Repository {
                 location: Box::new(location),
             }),
             | _ => None,
+        }
+    }
+    /// Build a GitLab repository reference.
+    #[builder]
+    pub fn gitlab(id: Option<u64>, location: Location) -> Self {
+        Self::GitLab {
+            id,
+            location: Box::new(location),
         }
     }
     /// Get repository domain.
@@ -473,5 +483,11 @@ mod tests {
         assert!(github.is_git_hub());
         assert_eq!(github.project_path().as_deref(), Some("openai/codex"));
         assert!(Repository::from_remote("https://example.org/group/project", "gitlab.com").is_none());
+    }
+    #[test]
+    fn test_repository_gitlab_builder() {
+        let repository = Repository::gitlab().location(Location::from("https://gitlab.com/group/project")).call();
+        assert!(repository.is_git_lab());
+        assert_eq!(repository.project_path().as_deref(), Some("group/project"));
     }
 }

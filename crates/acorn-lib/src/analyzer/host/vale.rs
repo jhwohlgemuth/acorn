@@ -7,12 +7,13 @@ pub use crate::analyzer::model::{ValeOutput, ValeOutputItem, ValeOutputItemActio
 use crate::io::document::DocumentQuery;
 use crate::util::constants::app::{APPLICATION, ORGANIZATION};
 use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
-use crate::util::Label;
-use acorn_core::util::SemanticVersion;
+use crate::util::{is_uri_or_path, Label};
+use acorn_core::util::{SemanticVersion, StringExt};
 use ariadne::{Color, ReportKind};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
+use itertools::Itertools;
 use std::env::consts;
 use std::path::PathBuf;
 use tracing::{error, trace};
@@ -32,7 +33,7 @@ pub struct Vale {
 /// Vale configuration
 ///
 /// See <https://vale.sh/docs/vale-ini> for more information
-#[derive(Builder, Clone, Debug, Display)]
+#[derive(Builder, Clone, Debug, Display, Eq, PartialEq)]
 #[display("{:?}", path)]
 #[builder(start_fn = init)]
 pub struct ValeConfig {
@@ -75,16 +76,68 @@ impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
 }
 impl Default for ValeConfig {
     fn default() -> Self {
-        fn to_string(values: Vec<&str>) -> Vec<String> {
-            values.iter().map(|s| s.to_string()).collect()
-        }
-        let config = ValeConfig::init()
-            .packages(to_string(ENABLED_VALE_PACKAGES.to_vec()))
-            .vocabularies(to_string(vec![&ORGANIZATION.to_uppercase(), APPLICATION]))
-            .disabled(to_string(DISABLED_VALE_RULES.to_vec()))
-            .build();
+        let config = ValeConfig::init().build().normalize();
         trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
         config
+    }
+}
+impl ValeConfig {
+    /// Apply the deterministic Vale configuration policy in its declared order.
+    ///
+    /// Package names are normalized before defaults are merged, then all list fields are stably deduplicated.
+    /// Applying the pipeline more than once produces the same configuration.
+    pub fn normalize(self) -> Self {
+        [Self::normalize_packages, Self::merge_policy, Self::deduplicate]
+            .into_iter()
+            .fold(self, |config, transform| transform(config))
+    }
+    pub(crate) fn resolve_package(value: impl AsRef<str>) -> String {
+        let value = value.as_ref().trim();
+        match is_uri_or_path(value) {
+            | true => value.to_string(),
+            | false => format!("https://github.com/errata-ai/{value}/releases/latest/download/{value}.zip"),
+        }
+    }
+    pub(crate) fn resolve_package_sources(self) -> Self {
+        Self {
+            packages: self.packages.into_iter().map(Self::resolve_package).collect(),
+            ..self
+        }
+    }
+    pub(crate) fn normalize_packages(self) -> Self {
+        Self {
+            packages: self.packages.trim_and_compact(),
+            vocabularies: self.vocabularies.trim_and_compact(),
+            disabled: self.disabled.trim_and_compact(),
+            ..self
+        }
+    }
+    pub(crate) fn merge_policy(self) -> Self {
+        let policy = Self::policy();
+        Self {
+            path: self.path,
+            packages: policy.packages.into_iter().chain(self.packages).collect(),
+            vocabularies: policy.vocabularies.into_iter().chain(self.vocabularies).collect(),
+            disabled: policy.disabled.into_iter().chain(self.disabled).collect(),
+        }
+    }
+    pub(crate) fn deduplicate(self) -> Self {
+        Self {
+            packages: self.packages.into_iter().unique().collect(),
+            vocabularies: self.vocabularies.into_iter().unique().collect(),
+            disabled: self.disabled.into_iter().unique().collect(),
+            ..self
+        }
+    }
+    fn policy() -> Self {
+        fn strings(values: impl IntoIterator<Item = impl AsRef<str>>) -> Vec<String> {
+            values.into_iter().map(|value| value.as_ref().to_string()).collect()
+        }
+        Self::init()
+            .packages(strings(ENABLED_VALE_PACKAGES))
+            .vocabularies(strings([ORGANIZATION.to_uppercase(), APPLICATION.to_string()]))
+            .disabled(strings(DISABLED_VALE_RULES))
+            .build()
     }
 }
 impl ValeOutput {

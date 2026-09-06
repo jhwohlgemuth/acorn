@@ -114,15 +114,15 @@ Schema validation already follows this distinction. Applying it across analyzer 
 
 ## Normalize, Then Materialize
 
-An endomorphism transforms a value back into the same type. Planned Vale configuration normalization uses that shape:
+An endomorphism transforms a value back into the same type. Vale configuration normalization uses that shape:
 
 ```text
 ValeConfig → normalize packages → merge policy → deduplicate → ValeConfig
 ```
 
-Each pure step can be tested independently and composed in a declared order. ACORN already has a pure package-source transformation that trims input, preserves paths and URIs, and expands named Vale packages. Other Vale work currently mixes deterministic INI construction with asynchronous release discovery before saving configuration to disk.
+Each pure step is tested independently and composed in a declared order. Package-source transformation trims input, preserves paths and URIs, and expands named Vale packages. The normalized value is then passed to deterministic INI construction before host code performs release discovery and writes the configuration to disk. Offline materialization selects the pinned package fallback without release discovery.
 
-The plan is to normalize first, then let host operations discover remote releases, select fallbacks, create directories, write the INI file, and launch Vale. Network and filesystem operations are effects, not configuration normalization. Keeping that boundary visible supports ACORN's [portability](aspect/portability.md) and offline guarantees.
+Host operations discover remote releases, select fallbacks, create directories, write the INI file, and launch Vale only after normalization. Network and filesystem operations are effects, not configuration normalization. Keeping that boundary visible supports ACORN's [portability](aspect/portability.md) and offline guarantees.
 
 A consuming method implemented with local `mut` is not automatically impure from its caller's perspective. A builder that consumes and returns a value may still compose cleanly. The meaningful question is whether the transformation's result depends on hidden external state.
 
@@ -147,6 +147,6 @@ The practical test is simple: does an operation have an identity, an associative
 | Ordered `ValidationReport` accumulation | Implemented | Report independent schema failures together while preserving dependent skips. |
 | Additive analyzer summary | Planned | Calculate once and render consistently across interfaces. |
 | Applicative analyzer orchestration | Planned audit/refactor | Make collect-all, ordering, and prerequisite boundaries explicit. |
-| Vale configuration endomorphisms | Planned | Separate deterministic normalization from host effects. |
+| Vale configuration endomorphisms | Implemented | Separate deterministic normalization from host effects. |
 
 These patterns help ACORN grow higher-level workflows from dependable parts. Composition explains how the branches fit together; the next question is [...but is it agentic?](agentic.md)
