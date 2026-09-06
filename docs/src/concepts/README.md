@@ -4,23 +4,23 @@
 
 ## Motivation
 For the last few decades, scientific progress has been driven largely by publishing papers in, ideally peer-reviewed, scientific journals. Publishing affords researchers recognition, career advancement, and funding opportunities. This model can be effective, but it has some serious limitations <span title="Accessible Content Optimization for Research Needs">ACORN</span> aims to address.
-1. **Publish or perish**[^publish]: Scientists and researchers often care more about *publishing* than about sharing knowledge. This is not without reason, as publications are a key metric for career advancement and funding. However, this can lead to a focus on quantity over quality and a reluctance to share negative results or data that does not support a hypothesis.
-2. **Reproducibility crisis**[^reproducibility]: Many scientific results are difficult or impossible to reproduce, leading to questions about their validity. This is compounded by the fact that many publications do not provide access to the underlying data or code used in the research.
-3. **No clear way to demonstrate science**: [Publications, people, and budgets do not tell the whole story](/motivation.html#-how-is-it-novel). Science needs a cross-domain standard to collect and communicate the full context of scientific endeavors, including data, code, methods, and results.
+1. **Publication pressure**[^publish]: Unfortunately, researchers are often burdened by the pressure to publish often, which, while sometimes beneficial to the community, hinders researchers from allotting more time and energy to conducting science. Publications remain a key metric for career advancement and funding, which can tilt incentives toward quantity and a reluctance to share negative results or data that does not support a hypothesis.
+2. **Reproducibility gaps**[^reproducibility]: Many valuable results are difficult to reproduce. This is not for lack of intent — researchers often want to share — but sharing underlying data and code is not always required, so reproducibility is unfortunately sometimes left behind, raising questions about validity.
+3. **No clear way to demonstrate science**: [Publications, people, and budgets do not tell the whole story](/motivation.html#-how-is-it-novel). Science needs a cross-domain standard to collect and communicate the full context of scientific endeavors, including data, code, methods, and results. ACORN does not replace these systems; its research activity data record links and contextualizes people, publications, budgets, and approvals together.
 
-<span title="Accessible Content Optimization for Research Needs">ACORN</span> addresses these issues by codifying the details of a research project and providing an automated framework for sharing and analyzing scientific knowledge. Predicated on the idea of applying "science all the way down", <span title="Accessible Content Optimization for Research Needs">ACORN</span> applies rigorous scientific principles to the management and dissemination of scientific knowledge.
+<span title="Accessible Content Optimization for Research Needs">ACORN</span> addresses these issues by codifying the details of a research project and providing an automated framework for sharing and analyzing scientific knowledge. Predicated on the idea of applying "science all the way down," <span title="Accessible Content Optimization for Research Needs">ACORN</span> applies rigorous scientific principles to the management and dissemination of scientific knowledge.
 
 ## Research Enablement
-ACORN is managed by the Research Enablement Initiative at Oak Ridge National Laboratory (ORNL). REI aims to improve the way scientific research is conducted, shared, and evaluated. It is a team of developers, communication experts, and information scientists passionate about open science, transparency, and improving the researcher experience.
+ACORN is managed by the Research Enablement Initiative (REI) at Oak Ridge National Laboratory (ORNL). REI aims to improve the way scientific research is conducted, shared, and evaluated. It is a team of developers, communication experts, and information scientists passionate about open science, transparency, and improving the researcher experience.
 
 REI provides:
 - A cross-domain model of research activity data (<span title="Research Activity Data">RAD</span>)
-    - [ACORN](/concepts/acorn.html) - Schema, controlled vocabularies, and ontologies for describing research activities
-    - [ASPECT](/concepts/aspect/index.html) - Attribute of <span title="Accessible Content Optimization for Research Needs">ACORN</span> that describes technology associated with a given research activity
+    - [ACORN](acorn.md) - Schema, controlled vocabularies, and ontologies for describing research activities
+    - [ASPECT](aspect/README.md) - Attribute of <span title="Accessible Content Optimization for Research Needs">ACORN</span> that describes technology associated with a given research activity
 - A command-line application written in Rust - [`acorn-cli`](https://crates.io/crates/acorn-cli)
 - A Rust crate for working with <span title="Research Activity Data">RAD</span> - [`acorn-lib`](https://docs.rs/acorn-lib/latest/acorn/)
 - An independently maintained Python package for working with <span title="Research Activity Data">RAD</span> - [`acorn-py`](https://code.ornl.gov/research-enablement/acorn-py)
-- A catalog of research activity data at <span title="Oak Ridge National Laboratory">ORNL</span> - [research.ornl.gov](https://research.ornl.gov)
+- A catalog of research activity data at <span title="Oak Ridge National Laboratory">ORNL</span> - [research.ornl.gov](https://research.ornl.gov) *(catalog in preview — contact REI for access)*
 
 ### 🪣 Buckets
 RAD lives in versioned folder collections called "buckets". Each bucket contains a set of files and media assets that describe research activities. For multiple examples, see [ORNL's buckets](https://code.ornl.gov/research-enablement/buckets).

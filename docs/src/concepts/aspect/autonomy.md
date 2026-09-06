@@ -37,6 +37,7 @@ arrow thick thick from first circle.e to first diamond.w color 0x00662C
 ```
 
 ### Human as primary (HMT 2)
+Human directs execution while the machine proposes next steps and executes subtasks under continuous human approval. The human retains decision authority throughout.
 
 ```pikchr
 scale = 0.7
@@ -51,6 +52,7 @@ arrow dashed from first box.s down 2cm then right until even with first diamond 
 ```
 
 ### Machine as primary (HMT 3)
+Machine directs execution while the human intervenes on exceptions, policy checks, or contested steps. The machine carries the workflow.
 
 ```pikchr
 scale = 0.7
@@ -65,6 +67,7 @@ arrow dashed from first circle.s down 2cm then right until even with first diamo
 ```
 
 ### Human supervisor (HMT 4)
+Machine operates independently and the human monitors progress, sets bounds, and provides supervisory override. Human attention is on oversight rather than step execution.
 
 ```pikchr
 scale = 0.7
@@ -78,6 +81,7 @@ arrow thick thick from first box.e to first diamond.w color 0x00662C
 ```
 
 ### Machine only (HMT 5)
+Machine executes end-to-end with no human in the loop. All perception, decision, and action are machine-controlled within its authorized scope.
 
 ```pikchr
 scale = 0.7

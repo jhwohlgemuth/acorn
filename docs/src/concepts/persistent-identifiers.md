@@ -2,7 +2,10 @@
 
 ACORN treats a persistent identifier (PID) as evidence that moves through several distinct stages. Finding a PID does not by itself prove that it is valid, and parsing it does not contact its registration authority.
 
+Together steps 1-7 form the evidence pipeline that turns unstructured text into candidate research activities: steps 1-4 prepare and clean identifiers locally; steps 5-7 decide their role, optionally enrich from authorities, and persist exact identities. The pipeline is local-first and additive — resolution and persistence are optional extensions.
+
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '16px'}}}%%
 flowchart LR
     input["Text<br/>or metadata"] --> find["Find<br/>candidates"]
     find --> parse["Parse<br/>components"]
@@ -21,6 +24,10 @@ flowchart LR
 
 The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, SWHID, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
+**About the table:** *Role* indicates what the identifier proves — `Project identity` can create or match a research activity, while `Supporting evidence`, `Person evidence`, and `Organization evidence` are retained in reports but do not form candidates on their own. *Validation* describes the local type-checking performed (syntax, components, and checksum where the spec defines one) — it does not contact a registry. *Normalized* is the display form stored in RAD fields and reports (contrasted with the namespaced `identity_key` used for exact matching, e.g., `doi:10...`). Display forms that are bare identifiers or URLs reflect the canonical output for that kind.
+
+Validation is local. It checks syntax, components, and a checksum where the implemented identifier specification defines one; it does not resolve the identifier or confirm that a registration record exists.
+
 | Kind | Validation | Normalized | Role |
 |---|---|---|---|
 | ARK | NAAN and assigned-name structure | ARK, retaining a supplied resolver | Project identity |
@@ -36,15 +43,19 @@ The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, RO
 | Patent | Supported US number and kind-code structure | Spaced US patent number | Project identity |
 | URL | HTTP(S) syntax | URL without a trailing slash | Supporting evidence |
 
-Validation is local. It checks syntax, components, and a checksum where the implemented identifier specification defines one; it does not resolve the identifier or confirm that a registration record exists.
-
 ACORN's regression suite maintains shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, and SWHID. Here, parity means ACORN runs corresponding upstream cases for these overlapping identifier types; it does not mean the libraries have identical APIs, normalization policies, or support for other identifier families.
 
 Schema validation recognizes ISNI in DataCite name, affiliation, publisher, and funder identifiers; InvenioRDM person or organization identifiers; and RAiD contributors whose `schemaUri` is `https://isni.org`.
 
+## A. Prepare evidence locally (steps 1-4)
+
+Steps 1-4 are preparatory sub-components that clean and standardize evidence before any persistence decision.
+
 ## 1. Find candidates
 
-Each typed PID implements `PersistentIdentifierParse::find_all`. The finder scans unstructured text with the PID's recognition pattern and returns parsed values:
+Each typed PID implements `PersistentIdentifierParse::find_all`. The finder scans unstructured text with the PID's recognition pattern and returns parsed values. Full API at [`docs.rs` — `PersistentIdentifierParse`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierParse.html).
+
+<details><summary>Implementation detail — Rust</summary>
 
 ```rust
 use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
@@ -56,11 +67,15 @@ assert_eq!(found.len(), 1);
 assert_eq!(found[0].identifier(), "10.11578/dc.20250604.1");
 ```
 
+</details>
+
 The `gather` command runs the supported finders across file, document, URL, standard-input, and literal-text content. It removes duplicate normalized discoveries from the report while retaining the source reference for discovery history. To avoid classifying ordinary paths as Handles, unstructured discovery requires `hdl:` or an `hdl.handle.net` resolver URL; structured fields and direct parsing also accept bare Handles.
 
 ## 2. Parse components
 
-`from_string` decomposes one value into a typed structure. Parsing is intentionally separate from validation: malformed input can produce an empty or partial value, so callers that require a usable PID must validate it.
+`from_string` decomposes one value into a typed structure. Parsing is intentionally separate from validation: malformed input can produce an empty or partial value, so callers that require a usable PID must validate it. See [`docs.rs` — `PersistentIdentifierParse::from_string`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierParse.html#tymethod.from_string).
+
+<details><summary>Implementation detail — Rust</summary>
 
 ```rust
 use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
@@ -72,11 +87,15 @@ assert_eq!(doi.suffix().as_deref(), Some("dc.20250604.1"));
 assert_eq!(doi.url(), "https://doi.org/10.11578/dc.20250604.1");
 ```
 
+</details>
+
 The `PersistentIdentifier` trait provides common component access through `identifier`, `prefix`, `suffix`, `check_digit`, `schema_uri`, and `url`. The meaning of a component depends on the PID specification.
 
 ## 3. Validate locally
 
-Use the typed `is_valid` method when a boolean is convenient. For ergonomic string checks, use `PersistentIdentifierConvert`; for validator composition, use `validation::rules` which returns `Result<(), ValidationError>`.
+Use the typed `is_valid` method when a boolean is convenient. For ergonomic string checks, use `PersistentIdentifierConvert`; for validator composition, use `validation::rules` which returns `Result<(), ValidationError>`. See [`docs.rs` — `PersistentIdentifierConvert`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierConvert.html).
+
+<details><summary>Implementation detail — Rust</summary>
 
 ```rust
 use acorn_schema::schema::pid::{DOI, PersistentIdentifierConvert, PersistentIdentifierParse};
@@ -86,11 +105,15 @@ assert!("10.11578/dc.20250604.1".is_doi());
 assert!(!"not-a-doi".is_doi());
 ```
 
+</details>
+
 The local checks do not make a network request. Identifier resolution is a later, optional operation.
 
 ## 4. Normalize a representation
 
-`format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result:
+`format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result. See [`docs.rs` — `Identifier::normalized`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.Identifier.html#method.normalized).
+
+<details><summary>Implementation detail — Rust</summary>
 
 ```rust
 use acorn_schema::schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
@@ -117,11 +140,18 @@ assert_eq!(normalized.value, "10.11578/dc.20250604.1");
 assert_eq!(normalized.identity_key(), "doi:10.11578/dc.20250604.1");
 ```
 
+</details>
+
 This distinction matters: the normalized display is suitable for RAD fields and reports, while the identity key is suitable for exact matching.
 
 arXiv identifiers convert to their work-level DataCite DOI with `DOI::from(arxiv)`, producing the `10.48550/arXiv.*` namespace and omitting any revision suffix. The reverse conversion uses `ARXIV::try_from(doi)` because publisher DOIs and other DOI namespaces do not encode an arXiv identifier.
 
 Research activity metadata stores both DOI and arXiv publication identifiers in `meta.doi`; validation and export classify each value by its format. Handles are stored in `meta.handle` and cross into CFF as `other` identifiers. SWHIDs are stored separately in `meta.swhid` and exported to CFF with identifier type `swh`.
+
+## B. Decide, enrich, and persist — primary purposes (steps 5-7)
+
+> [!IMPORTANT]
+> Classification, optional resolution/enrichment, and exact-identity persistence are the primary purposes of the lifecycle. Steps 1-4 prepare evidence; steps 5-7 decide what it proves and whether it creates candidate research activities.
 
 ## 5. Classify the evidence
 
@@ -134,7 +164,16 @@ A provider can explicitly relate person or organization evidence to a project, b
 
 ## 6. Resolve and enrich optional metadata
 
-`acorn gather --resolve` runs after local discovery. arXiv and DOI evidence is sent to CiteAs, Handle evidence to the public Handle proxy REST API, ORCID evidence to ORCID, RAiD evidence to the RAiD resolver, and SWHID evidence to the Software Heritage resolver. Handle resolution retains the complete public record as provenance and maps only direct HTTP(S) `URL` string values to websites on a project candidate found in the same source; it does not interpret `10320/loc` or make a Handle project identity. SWHID resolution confirms archive presence and returns resolver metadata, not citation data. ISNI is normalized and retained as local evidence but does not currently have a remote resolver integration. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
+`acorn gather --resolve` runs after local discovery and contacts authorities per identifier kind:
+
+- **arXiv / DOI** → CiteAs
+- **Handle** → public Handle proxy REST API
+- **ORCID** → ORCID API
+- **RAiD** → RAiD resolver
+- **SWHID** → Software Heritage resolver
+- **ISNI** → local-only (no remote resolver; normalized and retained as evidence)
+
+Handle resolution retains the complete public record as provenance and maps only direct HTTP(S) `URL` string values to websites on a project candidate found in the same source; it does not interpret `10320/loc` or make a Handle project identity. SWHID resolution confirms archive presence and returns resolver metadata, not citation data. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
 
 Remote DOE CODE project matches enter the same candidate pipeline with a provider identity such as `osti-project:<code_id>` and a DOI when one is available. DOE CODE supplies project descriptions, websites, and role-separated organization names. A `--lab` filter additionally associates the selected laboratory's known ROR. With `--resolve`, valid ORCIDs enrich person reports, project DOIs and person ORCIDs receive structured resolver outcomes and resolved raw rendering, repository URLs can contribute provider-reported programming languages, and provider-confirmed links are checked for liveness. These optional online operations retain the original DOE CODE result when they fail. DOE CODE people and organization searches remain report-only.
 

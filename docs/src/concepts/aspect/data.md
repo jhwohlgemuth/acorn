@@ -71,12 +71,12 @@ arrow from E.e to F.w thick color 0x00662C
 
 Data quality leverages a precious metals metaphor to describe data quality.
 
-Data quality describes the level of processing and readiness of the data for analysis and use. The levels were developed with inspiration from data readiness levels [^1], anaylsis-ready data[^2], and multiple other data quality frameworks. For example, the transition from gold to platinum maps nearly directly to a transition from band B to band A in the data readiness levels. The key difference is ASPECT's quality levels are more intuitive and directly actionable for researchers working with data in the context of research activities. See [the geospatial data section below](#geospatial-data) for an example of how data processing levels relates to data quality.
+Data quality describes the level of processing and readiness of the data for analysis and use. The levels were developed with inspiration from data readiness levels [^1] and analysis-ready data[^2]. For example, the transition from gold to platinum maps nearly directly to a transition from band B to band A in the data readiness levels. The key difference is ASPECT's quality levels are more intuitive and directly actionable for researchers working with data in the context of research activities. See the geospatial data section below for an example of how data processing levels relates to data quality.
 
 ### 🌎 Geospatial Data
 Geospatial data describes features and events tied to location. Common formats include raster data, such as satellite imagery, and vector data, such as points, lines, and polygons. These datasets support mapping, navigation, and spatial analysis. For geospatial work, *data processing level* is an important additional quality dimension.
 
-Based on NASA's Data Processing Levels[^nasa-dpl], geospatial data can be described with the following processing levels
+For many electro-optical imagery collections, NASA's Data Processing Levels[^nasa-dpl] define the following processing levels. SAR and other modalities use different level schemes, and not all providers adhere to NASA levels; NASA and several commercial providers publish similar level metadata.
 - Level 0 — Raw
 - Level 1A — Annotated
 - Level 1B — Processed Annotated
@@ -88,9 +88,9 @@ Based on NASA's Data Processing Levels[^nasa-dpl], geospatial data can be descri
 - Level 3A — Periodic Summaries
 - Level 4 — Model Output
 
-Most remote sensing sources (e.g. satellites) provide metadata that includes the data processing level. Processing the geospatial data with techniques such as atmospheric correction, pansharpening, and orthorectification can improve the quality and usability of the data for various applications, thereby increasing the associated processing level. For example, orthorectification corrects for terrain-induced distortions, improving the spatial accuracy of the data and increasing its processing level from Level 1B to Level 2B.
+Many remote sensing sources provide metadata that may include the data processing level, depending on the provider. Processing the geospatial data with techniques such as atmospheric correction, pansharpening, and orthorectification can change the usability of the data for various applications, thereby changing its associated processing level. For example, orthorectification corrects for terrain-induced distortions, improving the spatial accuracy of the data and changing its processing level from Level 1B to Level 2B.
 
-Geospatial data processing level relates to ASPECT's data quality attribute in that higher processing levels typically indicate higher quality data. For instance, Level 2B data, which has been processed to correct for atmospheric effects and terrain distortions, would generally be considered higher quality than Level 1B data, which is only annotated and not fully processed. However, the specific quality designation (e.g., gold, silver) would depend on additional factors such as the use case and the presence of any remaining artifacts or limitations in the data. For example, orthorectification might be the difference between gold and silver quality data for AI/ML applications.
+Geospatial data processing level relates to ASPECT's data quality attribute, but higher levels do not automatically mean higher quality. Level 1B data (closer to raw) preserves measured values more faithfully, while Level 2B data trades some fidelity for usability through additional processing. Which is "higher quality" depends on use case — analysis-ready workflows may prefer Level 2B, calibration work may prefer Level 1B. The specific quality designation (e.g., gold, silver) would depend on additional factors such as the use case and the presence of any remaining artifacts or limitations in the data. For example, orthorectification might be the difference between silver and gold quality data for AI/ML applications.
 
 [^1]: Data Readiness Levels: [https://arxiv.org/abs/1705.02245](https://arxiv.org/abs/1705.02245)
 [^2]: Analysis Ready Data (ARD): [https://ieeexplore.ieee.org/document/8899846](https://ieeexplore.ieee.org/document/8899846)

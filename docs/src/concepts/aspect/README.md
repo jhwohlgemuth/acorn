@@ -3,16 +3,14 @@
 
 <img src="../../_assets/aspect_attributes.png" alt="ASPECT Attributes" width="200" />
 
-*portability* | *maturity* | *autonomy* | *motivity*
+*portability* | *autonomy* | *maturity* | *motivity*
 
 The **ASPECT** framework is a standardized methodology for classifying and describing technology. It defines underlying dimensions of technology and uses them to map projects into a shared space, allowing clearer insight into their capabilities, requirements, and relationships.
 
-**ASPECT** was designed to unify our understanding of automation, AI/ML technology, and "classical" software. We focus on "technology" instead of "***AI/ML*** technology" because the latter is a subset of the former. Focusing on AI/ML as the end goal is not fruitful or correct. In fact, doing so is backward. AI/ML software is not novel in any meaningful sense. Even if it was, it would still be 100% predicated on the scientific principles of software.
-
-In the context of technology, AI/ML and automation are the same.
+**ASPECT** treats automation, AI/ML, and classical software as subsets of technology, providing one shared classification space.
 
 > [!TIP]
-> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-lib/latest/acorn/schema/research_activity/aspect/index.html)
+> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-schema/latest/acorn_schema/schema/research_activity/aspect/index.html)
 
 ## Key Components
 
@@ -88,12 +86,11 @@ ASPECT can be visualized in a badge-like form for visual project portfolio manag
 <p align="center">
   <img src="../../_assets/aspect_example.png" alt="ASPECT Example" width="165" />
 </p>
-<p align="center"><em><b>Figure 1</b>: ASPECT badge for a project</em></p>
+<p align="center"><em>ASPECT badge for a project</em></p>
 
-
-**Figure 1** is an example of an ASPECT badge that provides immediate feedback on the state of the project and its technology components. It can be used in project dashboards, reports, and presentations to communicate the current status and future goals of the project in a clear and concise manner. **Figure 2** below shows the same badge as depicted in *figure 1*, but with the attributes annotated for clarity.
+The badge below provides immediate feedback on the state of the project and its technology components. It can be used in project dashboards, reports, and presentations to communicate the current status and future goals of the project in a clear and concise manner. The annotated version clarifies the placement of each attribute.
 
 <p align="center">
-  <img src="../../_assets/aspect_example_annotated.png" alt="Annotated ASPECT Example" width="500" />
+  <img src="../../_assets/aspect_example_annotated.png" alt="Annotated ASPECT Example" width="500" style="background: white; padding: 8px; border-radius: 8px;" />
 </p>
-<p align="center"><em><b>Figure 2</b>: Annotated ASPECT badge</em></p>
+<p align="center"><em>Annotated ASPECT badge</em></p>

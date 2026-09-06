@@ -20,7 +20,6 @@
   - [Metadata enrichment](./concepts/enrichment.md)
   - [Rooted in Category Theory](./concepts/category-theory.md)
   - [...But Is It Agentic?](./concepts/agentic.md)
-  - [Citations](./concepts/citations.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)
   - [Configuration](./cli-reference/configuration.md)
   - [Commands](./cli-reference/commands/README.md)
@@ -39,14 +38,11 @@
     - [sync](./cli-reference/commands/sync.md)
     - [tui](./cli-reference/commands/tui.md)
   - [Model workflows](./cli-reference/model-workflows.md)
-<<<<<<< Updated upstream
+  - [Human acceptance test plan](./cli-reference/acceptance-test-plan.md)
 - [🧰 Local inference and tools](./inference/README.md)
   - [Needle sidecar](./inference/needle.md)
-||||||| Stash base
-=======
-  - [Human acceptance test plan](./cli-reference/acceptance-test-plan.md)
->>>>>>> Stashed changes
 - [🖥️ Packages](./packages/README.md)
   - [🦀 Rust crate](./packages/acorn-lib.md)
   - [🐍 External Python bindings](./packages/acorn-py.md)
   - [WebAssembly development](./packages/acorn-web.md)
+- [Citations](./concepts/citations.md)

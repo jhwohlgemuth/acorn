@@ -11,18 +11,20 @@ Similar niche terms like "affordance" in <span title="Human Computer Interaction
 
 ## Levels
 
-**Motivity** is partitioned into six ordinal levels that describe how a technology interacts with its environment. The framework is built around three primitives: **perception** (one-way input binding), **projection** (one-way output binding), and **comprehension** (internal state and computation).
+**Motivity** is partitioned into six ordinal levels that describe how a technology interacts with its environment. The framework is built around three primitives: **perception** (one-way input binding), **projection** (one-way output binding), and **comprehension** (internal state and computation). Levels are ordered by increasing interaction complexity, not by primitive order.
 
 > [!NOTE]
 > Throughout this document, "comprehension" refers to a technology's ability to receive, store, and act on data — not to general intelligence, consciousness, or AGI. A hash function, a state machine, and a lookup table all exhibit comprehension in this sense: they maintain internal state and their behavior depends on it.
 
-| Level | Name | Perception | Comprehension | Projection | Stateless/Stateful | Examples |
-|-------|------|------------|--------------|------------|--------------------|---------|
+*Stateless* means no memory between interactions; *stateful* means the technology retains internal state that influences future behavior.
+
+| Level | Name | Perception | Projection | Comprehension | Stateless/Stateful | Examples |
+|-------|------|------------|------------|---------------|--------------------|---------|
 | 0 | **Inert** | ✗ | ✗ | ✗ | — | A hammer or simple pulley system |
-| 1 | **Computational** | ✗ | ✓ | ✗ | Stateful (internal) | Digital model[^twin], simulation |
+| 1 | **Computational** | ✗ | ✗ | ✓ | Stateful (internal) | Digital model[^twin], simulation |
 | 2 | **Perceptive** | ✓ | ✗ | ✗ | Stateless | Data shadow[^twin], sensor log |
-| 3 | **Projective** | ✗ | ✗ | ✓ | Stateless | Cron job that emails status |
-| 4 | **Reactive** | ✓ | ✗ | ✓ | Stateless | Smart light switch, relay |
+| 3 | **Projective** | ✗ | ✓ | ✗ | Stateless | Cron job that emails status |
+| 4 | **Reactive** | ✓ | ✓ | ✗ | Stateless | Smart light switch, relay |
 | 5 | **Adaptive** | ✓ | ✓ | ✓ | Stateful | Digital twin[^twin], autonomous agent |
 
 ### Inert (Level 0)

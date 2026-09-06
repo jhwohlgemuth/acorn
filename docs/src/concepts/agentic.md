@@ -2,12 +2,15 @@
 
 🌱 **It is growing in that direction.** ACORN approaches agentic development through **Intelligence in Depth (IID)**: the deliberate layering of AI capabilities so that each layer adds structure, context, continuity, or control.
 
+> [!NOTE]
+> IID terminology is ACORN-internal and is being prepared for formal publication in the [Journal of Open Research Software (JORS)](https://openresearchsoftware.metajnl.com). Cite this page as a pre-publication description and contact the authors for prior-art claims.
+
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
 <p>IID layers prompting, templates, workflows, skills and context, memory, and agent harnesses. Each layer adds capability and control while staying local-first and file-oriented.</p>
 </blockquote>
 
-Two protocols are optional extensions: the Model Context Protocol (MCP)[^mcp] can connect agents to context and tools, while the Agent Client Protocol (ACP)[^acp] lets clients communicate with and supervise agents.
+Two protocols are optional extensions: the Model Context Protocol (MCP)[^mcp] — a standard for agents to access context and tools — and the Agent Client Protocol (ACP)[^acp] — a standard for clients to communicate with and supervise agents.
 
 IID adapts the idea of defense in depth: an information security strategy that integrates people, technology, and operations across multiple layers.[^defense-in-depth] Instead of expecting one prompt or one model to carry an entire workflow, IID distributes intelligence across reusable prompts, controlled workflows, skills and connected capabilities, memory, and an interoperable agent harness. The layers reinforce one another, but each remains useful on its own:
 
@@ -26,9 +29,9 @@ arrow right 0.35in thick color 0x00662C
 Harness: box "Harness" "(+ ACP)" wid 0.92in ht 0.55in rad 0.08in fill white thickness 0
 ```
 
-*Arrows indicate composition and control flow, not increasing maturity or quality.*
+*Arrows indicate composition and control flow along the IID sequence.*
 
-IID is an ordered architecture, not an [ASPECT maturity](aspect/maturity.md) scale. The sequence shows how each layer can structure, supply, or govern the layers before it. A system is not more mature for using an agent harness; it should use the shallowest sequence that reliably satisfies the task. IID is therefore not a synonym for maximum [autonomy](aspect/autonomy.md).
+IID is an ordered architecture distinct from the [ASPECT maturity](aspect/maturity.md) scale. The sequence shows how each layer can structure, supply, or govern the layers before it. A system should use the shallowest sequence that reliably satisfies the task; IID describes layered control, while [autonomy](aspect/autonomy.md) describes human-machine teaming.
 
 ## Intelligence in Depth
 
@@ -37,9 +40,9 @@ IID is an ordered architecture, not an [ASPECT maturity](aspect/maturity.md) sca
 Two principles constrain every IID layer:
 
 - **Local-first.** Data, models, validation, and orchestration remain on the user's machine by default. The network and remote services are explicit choices, not prerequisites. Local-first preserves user ownership and offline operation without prohibiting synchronization or collaboration.[^local-first]
-- **File over app.** Durable instructions, context, state, and results live in files the user can control, retrieve, and read. Applications are replaceable tools that operate on those files rather than the only place the work can exist.[^file-over-app]
+  - **File over app.** Durable instructions, context, state, and results live in files the user can control, retrieve, and read. Applications are replaceable tools that operate on those files rather than the only place the work can exist. This is a practice of **sovereignty** — often called *data sovereignty* or *digital sovereignty* — where the user retains ownership, control, and portability of their work independent of any single application or provider.[^sovereignty][^file-over-app]
 
-Together they produce a third rule: **protocols are adapters, not dependencies**. MCP, ACP, and model APIs can connect IID to external capabilities without becoming the source of truth.
+Together they produce a third rule: **protocols are adapters**. MCP, ACP, and model APIs can connect IID to external capabilities while files remain the source of truth.
 
 ### IID Layers
 
@@ -47,7 +50,7 @@ Together they produce a third rule: **protocols are adapters, not dependencies**
 
    *Example:* An application sends one research narrative to `acorn-lib`'s OpenAI-compatible chat-completion API with the instruction "Summarize this activity," then returns the model's response.
 
-   **OpenAI-compatible** describes the connection format, not who provides the model. A compatible server accepts supported OpenAI-style HTTP endpoints and JSON requests and responses. That server may be OpenAI's service or another implementation, including a local server such as llama-swap; the term does not mean OpenAI created, hosts, or endorses the server or model.
+    **OpenAI-compatible** describes the connection format, not who provides the model. A compatible server accepts supported OpenAI-style HTTP endpoints and JSON requests and responses. That server may be OpenAI's service or another implementation, including a local server such as llama-swap; the term does not mean OpenAI created, hosts, or endorses the server or model. ACORN chose this format because it is widely emulated by local and hosted servers (llama-swap, vLLM, LiteLLM) and minimizes custom client code. Support for additional formats can be added; contributions for a new model provider are welcome.
 
 2. **Prompt templates** turn instructions into reusable, version-controlled `.prompt` files with defined inputs, configuration, and expected outputs. Templates make model behavior easier to share, test, and improve. Google's Dotprompt specification documents this executable `.prompt` file pattern.[^dotprompt]
 
@@ -71,18 +74,23 @@ Together they produce a third rule: **protocols are adapters, not dependencies**
 
 ### Applying the Guiding Principles
 
-| IID layer | Local-first and file-over-app application |
-| --- | --- |
-| **One-time prompting** | Prefer a local model when it satisfies the task; make remote transmission explicit and allow the prompt and result to be saved. |
-| **Prompt templates** | Keep reusable instructions in portable, version-controlled `.prompt` files rather than an application-only prompt library. |
-| **Workflow composition and iteration** | Persist inputs, control flow, exit criteria, budgets, checkpoints, and results so a workflow is inspectable and resumable outside one application session. |
-| **Skills, context, and capabilities** | Package instructions and references in `SKILL.md`-based directories; use MCP only when live resources or tools add value. |
-| **Connected memory** | Preserve selected facts, decisions, and provenance in inspectable records; databases may index them without becoming an opaque source of truth. |
-| **Agent harness and interoperability** | Configure workflows through files and CLI options; treat applications and ACP agents as replaceable interfaces. |
+The table below summarizes how the guiding principles apply at each IID layer. Use the shallowest layer that satisfies the task; deeper layers add control and continuity when needed.
+
+| # | IID layer | Local-first and file-over-app application |
+| --- | --- | --- |
+| 1 | **One-time prompting** | Prefer a local model when it satisfies the task; make remote transmission explicit and allow the prompt and result to be saved. |
+| 2 | **Prompt templates** | Keep reusable instructions in portable, version-controlled `.prompt` files rather than an application-only prompt library. |
+| 3 | **Workflow composition and iteration** | Persist inputs, control flow, exit criteria, budgets, checkpoints, and results so a workflow is inspectable and resumable outside one application session. |
+| 4 | **Skills, context, and capabilities** | Package instructions and references in `SKILL.md`-based directories; use MCP only when live resources or tools add value. |
+| 5 | **Connected memory** | Preserve selected facts, decisions, and provenance in inspectable records; databases may index them without becoming an opaque source of truth. |
+| 6 | **Agent harness and interoperability** | Configure workflows through files and CLI options; treat applications and ACP agents as replaceable interfaces. |
+
+> [!IMPORTANT]
+> This is ACORN's most important conceptual page. IID is dense by design — consider reading it in two passes: layers 1-3 (prompting, templates, workflows) followed by layers 4-6 (skills, memory, harness). A future split into two pages is planned if length remains a barrier.
 
 ## How IID Shapes ACORN
 
-ACORN exists to maintain, validate, connect, analyze, and communicate research activity data. That work needs trustworthy structure and provenance before it needs [autonomy](aspect/autonomy.md). ACORN therefore keeps schema validation, identifier checks, formatting, linking, and artifact generation deterministic. AI is an optional consumer of—and contributor to—those workflows, not a replacement for their rules.
+ACORN exists to maintain, validate, connect, analyze, and communicate research activity data. That work needs trustworthy structure and provenance before it advances autonomy. ACORN therefore keeps schema validation, identifier checks, formatting, linking, and artifact generation deterministic. AI contributes to those workflows as an optional consumer and producer, with deterministic rules as the foundation.
 
 IID guides ACORN development in five ways:
 
@@ -90,11 +98,11 @@ IID guides ACORN development in five ways:
 - **Make capability composable.** Prompts, skills, model APIs, local-model configuration, and future tools are useful independently and can be combined without forcing every user into a full agent stack.
 - **Keep agency accountable.** Iteration needs explicit exit criteria and budgets; memory needs provenance and lifecycle rules; tools need permissions; and consequential actions need validation or human approval.
 - **Work locally by default.** Deterministic core operations, prompt hydration, and locally available models should continue to work without a remote AI service. Network use must remain explicit and respect ACORN's offline boundary.
-- **Keep files authoritative.** Research records, `.prompt` templates, `SKILL.md` instructions, configuration, and generated artifacts should remain portable. Applications consume or synchronize this state rather than owning its only copy.
+  - **Keep files authoritative and sovereign.** Research records, `.prompt` templates, `SKILL.md` instructions, configuration, and generated artifacts should remain portable and under user control. Applications consume or synchronize this state rather than owning its only copy — preserving digital sovereignty even as tools change.
 
-Local-first does not mean local-only: ACORN can still synchronize applications and use remote services when selected. It is also distinct from [portability](aspect/portability.md), which describes where the complete capability can run after accounting for its model, tool, and service dependencies. File over app does not require every internal value to be a flat file. Databases may provide rebuildable indexes and operational storage, while credentials belong in environment variables or dedicated secret stores rather than portable project files.
+Local-first coexists with remote use: ACORN can synchronize applications and use remote services when selected. Local-first is distinct from [portability](aspect/portability.md), which describes where the complete capability can run after accounting for its model, tool, and service dependencies. File over app keeps durable state in files and expresses sovereignty in practice — the user, not the application, is the authority over their data and artifacts; databases may provide rebuildable indexes and operational storage, while credentials belong in environment variables or dedicated secret stores rather than portable project files.
 
-MCP and ACP are optional, complementary extension points rather than requirements for IID. MCP answers **what context and capabilities an agent can access**; ACP answers **how a client communicates with and supervises an agent**. Skills remain portable instruction and resource packages independent of both protocols. A system can implement context engineering or an agent harness without MCP or ACP. The protocols also do not replace model APIs, which provide direct model invocation.
+MCP and ACP are optional, complementary extensions. MCP provides **what context and capabilities an agent can access**; ACP provides **how a client communicates with and supervises an agent**. Skills remain portable instruction and resource packages independent of both protocols. A system can implement context engineering or an agent harness without MCP or ACP. The protocols also complement model APIs, which provide direct model invocation.
 
 | Optional extension | Initial ACORN role | Purpose |
 | --- | --- | --- |
@@ -104,16 +112,16 @@ MCP and ACP are optional, complementary extension points rather than requirement
 
 ## Current ACORN Support
 
-The table reports ACORN's implementation coverage for each IID layer. It does not score ACORN's maturity or imply that every workflow should use every layer.
+The table below reports ACORN's implementation coverage for each IID layer (1-6). Coverage is ordered by layer number and describes current support.
 
-| Layer | Status | ACORN support |
-| --- | --- | --- |
-| **1. One-time prompting** | Available as a library API | [`acorn-lib`](../packages/acorn-lib.md#ai-and-agent-apis) exposes completion, chat-completion, response, embedding, image, and audio operations through supported OpenAI-style HTTP endpoints and JSON formats. Applications supply the model request and decide when to invoke it; ACORN does not yet provide a general-purpose interactive prompt command. |
-| **2. Prompt templates** | Implemented | `acorn-lib` embeds and renders versionable `.prompt` templates for summarization, translation, teaching, simple explanation, claim extraction, and gap finding. Templates accept structured configuration such as source text, output limits, sampling parameters, and stop sequences. |
-| **3. Workflow composition and iteration** | Not yet implemented | ACORN does not yet provide a general model workflow executor with explicit control flow, exit criteria, evolving state, progress checks, and resource budgets. Existing operational loops, such as file watching or service polling, are not IID model workflows. |
-| **4. Skills, context, and capability engineering** | Partially implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes ACORN's bundled, task-oriented skill to compatible agents. ACORN also models agent, permission, reference, and MCP configuration for OpenCode. MCP is an optional extension at this layer; the CLI advertises a server path, but [`acorn serve mcp`](../cli-reference/commands/serve.md) currently returns a not-implemented error. |
-| **5. Connected memory** | Available building blocks | ACORN's local database persists research candidates, activity history, model metadata, and other provenance-bearing records. These stores can become grounded inputs to agent memory, but ACORN does not yet manage conversational memory, cross-session agent recall, or memory selection and retention policies. |
-| **6. Agent harness and interoperability** | Partially implemented | ACORN can manage local model metadata and weights, [synchronize model configuration](../cli-reference/model-workflows.md) into OpenCode, VS Code, Goose, and llama-swap, distribute its agent skill, and run a GitLab bot service. It also models harness and benchmark metadata. ACP is an optional extension at this layer; ACORN does not yet implement an ACP client. A unified runtime that composes prompts, workflows, context, connected memory, tools, agents, permissions, evaluation, and approvals remains future work. |
+| # | Layer | Status | ACORN support |
+| --- | --- | --- | --- |
+| 1 | **One-time prompting** | Available as a library API | [`acorn-lib`](../packages/acorn-lib.md#ai-and-agent-apis) exposes completion, chat-completion, response, embedding, image, and audio operations through supported OpenAI-style HTTP endpoints and JSON formats. Applications supply the model request and decide when to invoke it; ACORN does not yet provide a general-purpose interactive prompt command. |
+| 2 | **Prompt templates** | Implemented | `acorn-lib` embeds and renders versionable `.prompt` templates for summarization, translation, teaching, simple explanation, claim extraction, and gap finding. Templates accept structured configuration such as source text, output limits, sampling parameters, and stop sequences. |
+| 3 | **Workflow composition and iteration** | Not yet implemented | ACORN does not yet provide a general model workflow executor with explicit control flow, exit criteria, evolving state, progress checks, and resource budgets. Existing operational loops, such as file watching or service polling, are not IID model workflows. |
+| 4 | **Skills, context, and capability engineering** | Partially implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes ACORN's bundled, task-oriented skill to compatible agents. ACORN also models agent, permission, reference, and MCP configuration for OpenCode. MCP is an optional extension at this layer; the CLI advertises a server path, but [`acorn serve mcp`](../cli-reference/commands/serve.md) currently returns a not-implemented error. |
+| 5 | **Connected memory** | Available building blocks | ACORN's local database persists research candidates, activity history, model metadata, and other provenance-bearing records. These stores can become grounded inputs to agent memory, but ACORN does not yet manage conversational memory, cross-session agent recall, or memory selection and retention policies. |
+| 6 | **Agent harness and interoperability** | Partially implemented | ACORN can manage local model metadata and weights, [synchronize model configuration](../cli-reference/model-workflows.md) into OpenCode, VS Code, Goose, and llama-swap, distribute its agent skill, and run a GitLab bot service. It also models harness and benchmark metadata. ACP is an optional extension at this layer; ACORN does not yet implement an ACP client. A unified runtime that composes prompts, workflows, context, connected memory, tools, agents, permissions, evaluation, and approvals remains future work. |
 
 The sequence is composable, not all-or-nothing. ACORN can strengthen each layer independently—for example, by adding prompt evaluation before workflow execution, exposing deterministic ACORN operations as tools before granting broader agency, and defining memory provenance before retaining agent state. The result should be an agentic ACORN whose intelligence grows in depth without weakening the dependable research infrastructure at its core.
 
@@ -124,4 +132,5 @@ The sequence is composable, not all-or-nothing. ACORN can strengthen each layer 
 [^mcp]: Model Context Protocol, ["Architecture"](https://modelcontextprotocol.io/specification/2025-06-18/architecture) and ["Server features"](https://modelcontextprotocol.io/specification/2025-06-18/server/index).
 [^acp]: Agent Client Protocol, ["Architecture"](https://agentclientprotocol.com/get-started/architecture).
 [^local-first]: Martin Kleppmann, Adam Wiggins, Peter van Hardenberg, and Mark McGranaghan, ["Local-first software: You own your data, in spite of the cloud"](https://www.inkandswitch.com/essay/local-first/), Ink & Switch, 2019, doi: [10.1145/3359591.3359737](https://doi.org/10.1145/3359591.3359737).
+[^sovereignty]: Data and digital sovereignty emphasize user ownership, control, and portability across providers; see e.g., [Wikipedia: Data sovereignty](https://en.wikipedia.org/wiki/Data_sovereignty) and [Wikipedia: Digital sovereignty](https://en.wikipedia.org/wiki/Digital_sovereignty).
 [^file-over-app]: Steph Ango, ["File over app"](https://stephango.com/file-over-app), 2023.

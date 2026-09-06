@@ -5,7 +5,7 @@
 
 ## Installation
 
-If you are running ACORN locally, choose one method from the table below.
+If you are running ACORN locally, choose one method from the table below. For background on the concepts behind these workflows, see [Concepts](../concepts/README.md).
 
 ### Choose an installation method
 
