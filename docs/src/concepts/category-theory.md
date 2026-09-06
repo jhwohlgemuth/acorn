@@ -52,7 +52,7 @@ The portable schema `ValidationReport` has a similar collect-all shape. Independ
 
 ## Additive Summaries
 
-The current analyzer summary scans the checks for each category and immediately produces table strings. The planned summary monoid separates the count from its presentation:
+Analyzer diagnostics are summarized by an additive `CheckSummary` monoid that separates the domain count from its presentation:
 
 ```rust,ignore
 #[derive(Clone, Copy, Default)]
@@ -79,16 +79,16 @@ impl CheckSummary {
 }
 ```
 
-The all-zero summary is the identity, and field-wise addition is associative. Partial reports can therefore be summarized independently and reduced to one value:
+`CheckSummary::zero()` (`crates/acorn-lib/src/analyzer/check.rs:313`) is the identity and `combine` (`check.rs:326`) is associative with `counts()`/`rows()` for rendering (`check.rs:337,348`). Laws are tested in `crates/acorn-lib/src/analyzer/tests/mod.rs:94,107,123`. Partial reports can therefore be summarized independently and reduced to one value:
 
 ```rust,ignore
 let total = reports
     .iter()
-    .map(|report| CheckSummary::from_checks(report.checks().as_slice()))
-    .fold(CheckSummary::default(), CheckSummary::combine);
+    .map(|report| CheckSummary::from(report.checks().as_slice()))
+    .fold(CheckSummary::zero(), CheckSummary::combine);
 ```
 
-The CLI can render `total` as a table while WebAssembly serializes it for JavaScript. The domain value defines what the counts mean; each interface owns how they look. This plan does not merge the analyzer summary with the separate discovery summary, which counts different things.
+The CLI renders `total` as a table while WebAssembly serializes it for JavaScript. The domain value defines what the counts mean; each interface owns how they look. The remaining `analyzer-composition` slice moves any lingering table-string scanning off the domain and onto the hosts. This monoid does not merge with the separate discovery summary, which counts different things.
 
 ## Independent Checks, Dependent Steps
 
@@ -110,19 +110,19 @@ bytes → deserialize → validate value → resolve identifiers
 
 Identifier resolution cannot consume a value that failed to deserialize. Hiding that dependency behind collect-all machinery would make the control flow less accurate. ACORN keeps prerequisite chains in ordinary `Result` control flow and reserves applicative-style accumulation for genuinely independent work.
 
-Schema validation already follows this distinction. Applying it across analyzer orchestration remains a planned audit and refactor: the analyzer currently collects every category but does so through explicit sequential loops. The goal is to make independence and ordering clear, not merely to replace a loop or add concurrency. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the underlying collection contract.
+Schema validation already follows this distinction via ordered `ValidationReport` accumulation independent branches, with whole-value and async rules skipped after prerequisite field errors. The same distinction is being applied across analyzer orchestration in the consolidated [analyzer composition plan](../../../.wiki/refactors/analyzer/analyzer-composition.md): the service currently collects every category through explicit sequential loops (`host/service/mod.rs:30` `Analysis::check`, `154` `analyze<T>`, `177` `analyze_paths`), and the plan makes independence (`schema | link | prose | quality | readability | crosswalk` on the same input) and ordering (stable report order) explicit in a shared traversal/fold. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the underlying collection contract.
 
 ## Normalize, Then Materialize
 
-An endomorphism transforms a value back into the same type. Vale configuration normalization uses that shape:
+An endomorphism transforms a value back into the same type. Vale configuration normalization already uses that shape (`crates/acorn-lib/src/analyzer/host/vale.rs:89`):
 
 ```text
 ValeConfig → normalize packages → merge policy → deduplicate → ValeConfig
 ```
 
-Each pure step is tested independently and composed in a declared order. Package-source transformation trims input, preserves paths and URIs, and expands named Vale packages. The normalized value is then passed to deterministic INI construction before host code performs release discovery and writes the configuration to disk. Offline materialization selects the pinned package fallback without release discovery.
+Each pure step (`normalize_packages` `host/vale.rs:107`, `merge_policy` `115`, `deduplicate` `124`) is tested independently and composed in declared order as `normalize()` (`host/vale.rs:89` fold; `tests/mod.rs:787` ordering/idempotence). Package-source transformation `resolve_package` (`host/vale.rs:94`) trims input, preserves paths and URIs, and expands named Vale packages. The normalized value is then passed to deterministic `ini` construction before host code performs release discovery and writes the configuration to disk. Offline materialization selects the pinned fallback (`DEFAULT_VALE_PACKAGE_URL` / `vale-package` at `v0.0.1`) without release discovery.
 
-Host operations discover remote releases, select fallbacks, create directories, write the INI file, and launch Vale only after normalization. Network and filesystem operations are effects, not configuration normalization. Keeping that boundary visible supports ACORN's [portability](aspect/portability.md) and offline guarantees.
+Host operations discover remote releases, select fallbacks, create directories, write the INI file, and launch Vale only after normalization (`host/runtime/mod.rs:217` `check_prose_for`, `728` `StaticAnalyzer<ValeConfig>`, `1005` `sync`). Network and filesystem operations are effects, not configuration normalization. Keeping that boundary visible supports ACORN's [portability](aspect/portability.md) and offline guarantees.
 
 A consuming method implemented with local `mut` is not automatically impure from its caller's perspective. A builder that consumes and returns a value may still compose cleanly. The meaningful question is whether the transformation's result depends on hidden external state.
 
@@ -141,12 +141,12 @@ The practical test is simple: does an operation have an identity, an associative
 
 ## Current Direction
 
-| Pattern | Status | Intended benefit |
-| --- | --- | --- |
-| Ordered `CheckBatch` combination | Implemented | Flatten partial analyzer results without losing order. |
-| Ordered `ValidationReport` accumulation | Implemented | Report independent schema failures together while preserving dependent skips. |
-| Additive analyzer summary | Planned | Calculate once and render consistently across interfaces. |
-| Applicative analyzer orchestration | Planned audit/refactor | Make collect-all, ordering, and prerequisite boundaries explicit. |
-| Vale configuration endomorphisms | Implemented | Separate deterministic normalization from host effects. |
+| Pattern | Status | Intended benefit | Evidence |
+| --- | --- | --- | --- |
+| Ordered `CheckBatch` combination | Implemented | Flatten partial analyzer results without losing order. | `check.rs:279` `empty` / `289` `combine`; `tests/mod.rs:21,26,36` |
+| Ordered `ValidationReport` accumulation | Implemented | Report independent schema failures together while preserving dependent skips. | `acorn_schema::validation::ValidationReport` + `acorn_core::validation` derive |
+| Additive analyzer summary | Implemented | Calculate once and render consistently across interfaces. | `check.rs:313` `CheckSummary::zero` / `326` `combine` / `337` `counts` / `348` `rows`; `tests/mod.rs:94,107,123,57` |
+| Applicative vs dependent orchestration | In progress | Make collect-all (`schema \| link \| prose \| quality \| readability \| crosswalk`) vs prerequisite chains (`bytes → deserialize → validate → resolve`) explicit. | Consolidated in `.wiki/refactors/analyzer/analyzer-composition.md` slices 3-4; current `host/service/mod.rs:30,154,177` loops pending fold |
+| Vale configuration endomorphisms | Implemented | Separate deterministic normalization from host effects. | `host/vale.rs:89` `normalize` pipeline; `tests/mod.rs:787,854` |
 
-These patterns help ACORN grow higher-level workflows from dependable parts. Composition explains how the branches fit together; the next question is [...but is it agentic?](agentic.md)
+These patterns help ACORN grow higher-level workflows from dependable parts. The remaining orchestration and link work is tracked as a single consolidated plan: [analyzer composition and traversal](../../../.wiki/refactors/analyzer/analyzer-composition.md). Composition explains how the branches fit together; the next question is [...but is it agentic?](agentic.md)

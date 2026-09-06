@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-Coordinate resolver outcomes with [link resolution checks](../refactors/analyzer/link-resolution-checks.md) and preserve the portable schema boundary from [crate extraction](../refactors/crate-boundary-architecture.md).
+Coordinate resolver outcomes with [analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md) and preserve the portable schema boundary from [crate extraction](../refactors/crate-boundary-architecture.md).
 
 # Goal
 
@@ -66,6 +66,6 @@ The feature itself is complete enough for public use, but this hardening plan re
 # Related concepts
 
 - [Persistent identifier lifecycle](../../docs/src/concepts/persistent-identifiers.md)
-- [Website and resolution checks](../refactors/analyzer/link-resolution-checks.md)
+- [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [API provider capability matrix](../refactors/api/provider-capability-matrix.md)

@@ -11,7 +11,7 @@
 
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Stage prompt hydration, ACP/OpenAI-compatible inference, structured fix suggestions, and verified deterministic remediation.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) - Align activity metadata with RAiD and output interchange with DataCite, DCAT, persistent identifiers, and contributor-role vocabularies.
-- [First-class RRID research-resource support](rrid-research-resource-support.md) - Add portable RRID parsing and discovery, explicit RAD research resources, standards interchange, and optional authoritative resolution and search.
+- [First-class RRID research-resource support](rrid-research-resource-support.md) - Add portable RRID parsing and discovery, typed RAD relations, standards interchange, and contract-gated SciCrunch resolution and search.
 - [Research activity changelog](research-activity-changelog.md) - Add a manually authored, timestamped timeline of code and other research developments with explicit progress states and provenance for future dynamically discovered entries.
 - [Open Compute infrastructure schema alignment](ocp-infrastructure-schema-alignment.md) - Add portable infrastructure and OCP contribution, recognition, and management-profile models while consolidating schema validation and standard module layout.
 - [ZON serialization support](zon-format-support.md) - Add a pinned strict ZON codec and integrate `.zonf` with RAD I/O, CLI workflows, crosswalks, discovery, and GitLab review.

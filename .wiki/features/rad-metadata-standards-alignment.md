@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/standards-traversal.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The [research activity changelog](research-activity-changelog.md) consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
+This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The [research activity changelog](research-activity-changelog.md) consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
 
 # Prerequisite slice
 
@@ -255,5 +255,5 @@ Additional checks:
 - [Research activity changelog](research-activity-changelog.md)
 - [OCP infrastructure schema alignment](ocp-infrastructure-schema-alignment.md)
 - [CKAN/DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
-- [Standards traversal](../refactors/analyzer/standards-traversal.md)
+- [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)
 - [Lifecycle, credit, license, and award fields](../refactors/core/research-activity-lifecycle-credit-fields.md)

@@ -2,13 +2,18 @@
 
 These plans improve the in-tree analysis boundary defined by the [crate boundary architecture](../crate-boundary-architecture.md). They do not by themselves authorize crate extraction.
 
-## Recommended next
+## Active plan
 
-- [Standards traversal](standards-traversal.md) - Deduplicate near-isomorphic standard analysis flows after check batching stabilizes; portable validation is already flat.
+- [Analyzer composition and traversal](analyzer-composition.md) - Unified `CheckBatch`/`CheckSummary` composition, `ValeConfig` endomorphisms, link evidence, result-boundary recovery, and shared traversal over standards. Replaces `link-resolution-checks`, `result-boundary-normalization`, and `standards-traversal`.
 
-## Additional plans
+The single plan applies the small, law-driven composition patterns described in [the category-inspired composition concept](../../../docs/src/concepts/category-theory.md); it does not introduce a category-theory framework. Prior leaf plans were consolidated to avoid overlapping renames of `analyzer/{check,service}.rs` and `host/runtime.rs`.
 
-The remaining plans apply the small, law-driven composition patterns described in [the category-inspired composition concept](../../../docs/src/concepts/category-theory.md); they do not introduce a category-theory framework.
+## Implementation slices
 
-- [Website and resolution checks](link-resolution-checks.md) - Route URL reachability and PID resolution through one link-analysis contract.
-- [Result boundary normalization](result-boundary-normalization.md) - Standardize conversion and recovery.
+Land in order while keeping pure calculation separate from host I/O:
+
+1. Result-boundary recovery combinators (`check`, `error`, `service` boundaries).
+2. Shared link evidence/evaluator with correct `offline` vs `disable_website_checks` vs `--resolve` policy.
+3. Shared traversal/fold over standards (per-standard adapters remain).
+4. Explicit applicative (collect-all) vs dependent (`Result` chain) boundaries; `--exit-on-first-error` stays outer policy.
+5. Domain `CheckSummary` vs CLI/WASM rendering split.

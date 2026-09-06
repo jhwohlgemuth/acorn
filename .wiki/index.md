@@ -17,7 +17,7 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-1. Continue with [standards traversal](refactors/analyzer/standards-traversal.md) over the implemented ordered `CheckBatch` contract.
+1. Continue with [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md) over the implemented ordered `CheckBatch`/`CheckSummary` and `ValeConfig` endomorphism contracts.
 2. Continue narrowing broad dependency feature defaults while keeping minimal, alloc, analyzer, native, and WASM checks green.
 3. Revisit consumer-owned ports and [WASM browser services](refactors/portability/wasm-feature-path.md) only after concrete native and browser consumers prove a narrow seam.
 
