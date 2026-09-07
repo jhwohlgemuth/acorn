@@ -12,6 +12,7 @@
 
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Stage prompt hydration, ACP/OpenAI-compatible inference, structured fix suggestions, and verified deterministic remediation.
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
+- [MCP Bundle (.mcpb) export for the ACORN MCP server](mcpb-bundle-export.md) - Package the RMCP stdio server as a portable MCPB ZIP with a 0.3 `manifest.json` and Kitfile `mcpServers` OCI wiring.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) - Align activity metadata with RAiD and output interchange with DataCite, DCAT, persistent identifiers, and contributor-role vocabularies.
 - [First-class RRID research-resource support](rrid-research-resource-support.md) - Add portable RRID parsing and discovery, typed RAD relations, standards interchange, and contract-gated SciCrunch resolution and search.
 - [Open Compute infrastructure schema alignment](ocp-infrastructure-schema-alignment.md) - Add portable infrastructure and OCP contribution, recognition, and management-profile models while consolidating schema validation and standard module layout.
