@@ -1,5 +1,5 @@
 use acorn_core::util::assets::EmbeddedAssets;
-use acorn_schema::schema::discovery::{RemoteEntity, RemoteOrganizationRole};
+use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use acorn_schema::util::assets::Constant;
 use clap::ValueEnum;
 use derive_more::Display;

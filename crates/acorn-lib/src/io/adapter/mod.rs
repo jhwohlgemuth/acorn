@@ -1,6 +1,6 @@
 //! Schema I/O adapter
 //!
-//! Hosts std-only path/file behavior for schema types so that [`acorn_schema::schema`]
+//! Hosts std-only path/file behavior for schema types so that [`acorn_schema`]
 //! modules stay portable. This module later moves into `acorn-host`.
 pub mod migrate;
 #[cfg(test)]
@@ -14,14 +14,14 @@ use crate::io::{image_paths, jsonc_parse_value, parent, parse_jsonc_cst, read_fi
 use crate::util::{Label, StringConversion};
 use acorn_core::prelude::{vec, Vec};
 use acorn_core::util::{file_extension, LinkedData, MarkdownSupport, MimeType, Unstructured};
-use acorn_schema::schema::agent::{opencode, Weights};
-use acorn_schema::schema::modelkit::kitfile::Kitfile;
-use acorn_schema::schema::pid::raid::Metadata;
-use acorn_schema::schema::research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata};
-use acorn_schema::schema::standard::cff::Cff;
-use acorn_schema::schema::standard::text::Text;
-use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio, text};
-use acorn_schema::schema::{ImageObject, MediaObject, OneOrMany};
+use acorn_schema::agent::{opencode, Weights};
+use acorn_schema::modelkit::kitfile::Kitfile;
+use acorn_schema::pid::raid::Metadata;
+use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata};
+use acorn_schema::standard::cff::Cff;
+use acorn_schema::standard::text::Text;
+use acorn_schema::standard::{datacite, dcat, huwise, invenio, text};
+use acorn_schema::{ImageObject, MediaObject, OneOrMany};
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;

@@ -4,7 +4,7 @@ use crate::io::api;
 use crate::io::{read_file, ApiResult};
 use crate::util::constants::app::DEFAULT_VSCODE_CONFIG_PATH;
 use crate::util::StringConversion;
-use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;

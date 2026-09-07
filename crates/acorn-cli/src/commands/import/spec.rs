@@ -3,7 +3,7 @@ use acorn::io::api::openapi::import_resources_from_openapi;
 use acorn::io::api::{Authentication, Endpoint, Secret};
 use acorn::io::{write_file, Source};
 use acorn::util::Label;
-use acorn_schema::schema::agent::AuthenticationScheme;
+use acorn_schema::agent::AuthenticationScheme;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Result};
 use owo_colors::OwoColorize;

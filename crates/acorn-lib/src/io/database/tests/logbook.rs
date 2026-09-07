@@ -1,7 +1,7 @@
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, ResearchActivityCandidate};
-use acorn_schema::schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
-use acorn_schema::schema::ClassificationLevel;
+use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
+use acorn_schema::ClassificationLevel;
 use nanoid::nanoid;
 use std::env::temp_dir;
 

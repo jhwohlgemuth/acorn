@@ -3,7 +3,7 @@ use super::{Endpoint, RemoteResource};
 use crate::error::ApiResult;
 use crate::param;
 use acorn_core::prelude::{vec, String, Vec};
-use acorn_schema::schema::pid::{Handle, PersistentIdentifier};
+use acorn_schema::pid::{Handle, PersistentIdentifier};
 use acorn_schema::util::constants::HTTP_URL;
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;

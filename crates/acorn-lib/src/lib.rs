@@ -35,7 +35,7 @@ use acorn_core::util::MimeType;
 #[cfg(feature = "std")]
 use acorn_core::{Location, Release, Repository, Scheme};
 #[cfg(feature = "std")]
-use acorn_schema::schema::ControlledVocabulary;
+use acorn_schema::ControlledVocabulary;
 #[cfg(all(feature = "std", feature = "analysis"))]
 use analyzer::host::runtime::link_check;
 #[cfg(all(feature = "std", feature = "analysis"))]

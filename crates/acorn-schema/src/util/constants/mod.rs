@@ -16,45 +16,45 @@ pub const DEFAULT_GRAPHIC_HREF: &str = "00.png";
 pub const DEFAULT_GRAPHIC_CAPTION: &str = "";
 /// Maxumum number of [`ResearchActivity`] [`approaches`]
 ///
-/// [`ResearchActivity`]: ../schema/struct.ResearchActivity.html
-/// [`approaches`]: ../schema/struct.Sections.html#structfield.approach
+/// [`ResearchActivity`]: ../../struct.ResearchActivity.html
+/// [`approaches`]: ../../struct.Sections.html#structfield.approach
 pub const MAX_COUNT_APPROACH: u64 = 6;
 /// Maxumum number of [`ResearchActivity`] [`capabilities`]
 ///
-/// [`ResearchActivity`]: ../schema/struct.ResearchActivity.html
-/// [`capabilities`]: ../schema/struct.Sections.html#structfield.capabilities
+/// [`ResearchActivity`]: ../../struct.ResearchActivity.html
+/// [`capabilities`]: ../../struct.Sections.html#structfield.capabilities
 pub const MAX_COUNT_CAPABILITIES: u64 = 6;
-/// Maxumum number of [impact statements](../schema/struct.Sections.html#structfield.impact)
+/// Maxumum number of [impact statements](../../struct.Sections.html#structfield.impact)
 pub const MAX_COUNT_IMPACT: u64 = 6;
-/// Maximum number of [research areas](../schema/struct.Research.html#structfield.areas)
+/// Maximum number of [research areas](../../struct.Research.html#structfield.areas)
 pub const MAX_COUNT_RESEARCH_AREAS: u64 = 4;
 /// Maximum number of characters for an [`approach`] statement
 ///
-/// [`approach`]: ../schema/struct.Sections.html#structfield.approach
+/// [`approach`]: ../../struct.Sections.html#structfield.approach
 pub const MAX_LENGTH_APPROACH: usize = 150;
 /// Maximum number of characters for a single [`capability`] description
 ///
-/// [`capability`]: ../schema/struct.Sections.html#structfield.capabilities
+/// [`capability`]: ../../struct.Sections.html#structfield.capabilities
 pub const MAX_LENGTH_CAPABILIY: usize = 300;
 /// Maximum number of characters for a single image caption
 pub const MAX_LENGTH_IMAGE_CAPTION: u64 = 100;
 /// Maximum number of characters for a single impact description
 pub const MAX_LENGTH_IMPACT: usize = 150;
-/// Maximum number of characters for a single [research area](../schema/struct.Research.html#structfield.areas) description
+/// Maximum number of characters for a single [research area](../../struct.Research.html#structfield.areas) description
 pub const MAX_LENGTH_RESEARCH_AREA: usize = 40;
-/// Maximum number of characters for an single [research focus](../schema/struct.Research.html#structfield.focus) description
+/// Maximum number of characters for an single [research focus](../../struct.Research.html#structfield.focus) description
 pub const MAX_LENGTH_RESEARCH_FOCUS: u64 = 150;
-/// Maximum number of characters for a  [challenge](../schema/struct.Sections.html#structfield.challenge) section
+/// Maximum number of characters for a  [challenge](../../struct.Sections.html#structfield.challenge) section
 pub const MAX_LENGTH_SECTION_CHALLENGE: u64 = 500;
-/// Maximum number of characters for a [mission](../schema/struct.Sections.html#structfield.mission) section
+/// Maximum number of characters for a [mission](../../struct.Sections.html#structfield.mission) section
 pub const MAX_LENGTH_SECTION_MISSION: u64 = 250;
 /// Maximum number of characters for a [`subtitle`]
 ///
-/// [`subtitle`]: ../schema/struct.ResearchActivity.html#structfield.subtitle
+/// [`subtitle`]: ../../struct.ResearchActivity.html#structfield.subtitle
 pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 /// Maximum number of characters for a [`title`]
 ///
-/// [`title`]: ../schema/struct.ResearchActivity.html#structfield.title
+/// [`title`]: ../../struct.ResearchActivity.html#structfield.title
 pub const MAX_LENGTH_TITLE: u64 = 45;
 /// Pattern text for ARK regular expression defined by [`RE_ARK`]
 pub const RE_ARK_TEXT: &str = r#"(?<nma>https?\:\/\/[^\/]+\/)?(?<label>ark\:\/?)(?<naan>[a-zA-Z0-9]{2,9})\/(?<assigned_name>[a-z0-9A-Z]+)(?:\/(?<parts>[a-zA-Z0-9/_-]+))?(?:\.(?<variants>[a-zA-Z0-9._-]+))?"#;

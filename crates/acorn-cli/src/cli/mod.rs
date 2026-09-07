@@ -5,7 +5,7 @@ use acorn::io::{
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn_core::util::{regex_inverse, regex_join, MimeType};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},

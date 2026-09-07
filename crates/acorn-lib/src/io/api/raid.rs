@@ -6,7 +6,7 @@ use crate::io::api::{self, require_non_empty_secret, ApiResult, Configuration, E
 use crate::param;
 use crate::util::constants::env::RAID_TOKEN_VARIABLE_NAMES;
 use crate::util::Label;
-use acorn_schema::schema::pid::raid::Metadata;
+use acorn_schema::pid::raid::Metadata;
 use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;

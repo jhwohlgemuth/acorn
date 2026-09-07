@@ -10,7 +10,7 @@ use futures::TryFutureExt;
 use std::env;
 use std::fs::remove_dir_all;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[derive(Clone)]
 pub struct DatabaseConfig {
@@ -24,7 +24,38 @@ pub struct DatabaseConfig {
     pub cache_ttl: Option<u64>,
     pub initial_download: bool,
 }
+/// Determine whether a database error is a transient lock conflict.
+fn is_database_lock_error(report: &Report) -> bool {
+    let message = report.to_string();
+    message.contains("Conflicting lock is held")
+        || message.contains("Could not set lock")
+        || message.contains("database is locked")
+        || (message.contains("IO Error") && message.to_ascii_lowercase().contains("lock"))
+}
+
 pub async fn initialize_database(config: &DatabaseConfig) -> Result<(), Report> {
+    initialize_database_with_policy(config, false).await
+}
+
+/// Initialize the database, optionally warning instead of failing on lock conflicts.
+///
+/// When `warn_on_lock` is true, a lock conflict is logged and treated as success
+/// so that validation-only commands (`check`, `format`, `link`) can proceed
+/// without cache while `download`/`sync` remain fail-closed.
+pub async fn initialize_database_with_policy(config: &DatabaseConfig, warn_on_lock: bool) -> Result<(), Report> {
+    let result = initialize_database_inner(config).await;
+    match result {
+        | Ok(()) => Ok(()),
+        | Err(report) if warn_on_lock && is_database_lock_error(&report) => {
+            warn!("=> {} Database lock unavailable — proceeding without cache ({report})", Label::warning());
+            eprintln!("=> {} Database lock unavailable — proceeding without cache", Label::warning());
+            Ok(())
+        }
+        | Err(report) => Err(report),
+    }
+}
+
+async fn initialize_database_inner(config: &DatabaseConfig) -> Result<(), Report> {
     if config.no_local_database {
         Ok(())
     } else {

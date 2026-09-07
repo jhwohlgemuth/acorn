@@ -11,7 +11,7 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/pid/swhid/{mod.rs,tests.rs}`, `crates/acorn-lib/src/io/{swhid.rs,api/swhid.rs}`, `crates/acorn-lib/src/analyzer/host/discovery/`, `crates/acorn-cli/src/commands/swhid/mod.rs`, documentation, and focused tests.
+- **Update:** `crates/acorn-schema/src/pid/swhid/{mod.rs,tests.rs}`, `crates/acorn-lib/src/io/{swhid.rs,api/swhid.rs}`, `crates/acorn-lib/src/analyzer/host/discovery/`, `crates/acorn-cli/src/commands/swhid/mod.rs`, documentation, and focused tests.
 - **Create:** pinned conformance/differential vectors and resolver/filesystem/repository fixtures. Future package extraction may move protocol DTOs to `acorn-api` and native calculation/resolution to `acorn-host`, but that is not part of this plan's current package boundary.
 - **Delete:** no public SWHID surface; remove duplicated resolver-to-check conversion only after the shared link contract owns it.
 
@@ -25,7 +25,7 @@ Finish hardening ACORN's first-class Software Hash Identifier (SWHID) support ag
 
 # Current evidence
 
-- The first-class lifecycle is implemented: portable parsing and discovery live in `crates/acorn-schema/src/schema/pid/swhid/`; RAD storage and CFF export are covered in `crates/acorn-schema/src/schema/research_activity/`; opt-in discovery resolution calls `crates/acorn-lib/src/io/api/swhid.rs`; local file, directory, and Git calculation lives in `crates/acorn-lib/src/io/swhid.rs`; and `acorn swhid` exposes calculation and verification.
+- The first-class lifecycle is implemented: portable parsing and discovery live in `crates/acorn-schema/src/pid/swhid/`; RAD storage and CFF export are covered in `crates/acorn-schema/src/research_activity/`; opt-in discovery resolution calls `crates/acorn-lib/src/io/api/swhid.rs`; local file, directory, and Git calculation lives in `crates/acorn-lib/src/io/swhid.rs`; and `acorn swhid` exposes calculation and verification.
 - Parser tests cover all five core object kinds, canonical qualifier ordering, representative valid and invalid qualifiers, resolver URL normalization, and idutils parity. They are not pinned SWHID specification vectors and do not differentially compare the official implementation.
 - Resolver behavior has no provider-specific fixture suite for status codes, malformed bodies, timeouts, or transport failures.
 - Calculation tests cover one content vector and a normal SHA-1 Git repository without mutation. They do not cover cross-platform directory semantics, special files, repository failure states, or explicit SHA-256 repository rejection.

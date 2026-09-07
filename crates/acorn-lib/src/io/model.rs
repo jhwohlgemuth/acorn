@@ -1,7 +1,7 @@
 //! Model list file parsing.
 use crate::io::{ApiResult, Source};
 use acorn_core::prelude::String;
-use acorn_schema::schema::agent::{ModelList, ModelSelectors};
+use acorn_schema::agent::{ModelList, ModelSelectors};
 
 /// Host I/O operations for schema-owned model selector collections.
 #[async_trait::async_trait]

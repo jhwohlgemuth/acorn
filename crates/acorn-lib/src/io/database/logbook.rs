@@ -3,7 +3,7 @@ use super::schema::{LogbookEntryRow, ResearchActivityRevisionRow, ResearchActivi
 use super::{transaction, Database, Row};
 use crate::io::ApiResult;
 use acorn_core::util::to_rfc3339;
-use acorn_schema::schema::research_activity::{LogbookEntry, ResearchActivity};
+use acorn_schema::research_activity::{LogbookEntry, ResearchActivity};
 use acorn_schema::validation::rules;
 use color_eyre::eyre::eyre;
 use jiff::Timestamp;

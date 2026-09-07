@@ -10,7 +10,7 @@ The ASPECT framework classifies technology across portability, maturity, autonom
 The same classifications apply to automation, AI and machine learning, and classical software.
 
 > [!TIP]
-> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-schema/latest/acorn_schema/schema/research_activity/aspect/index.html)
+> [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-schema/latest/acorn_schema/research_activity/aspect/index.html)
 
 ## Components
 

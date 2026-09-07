@@ -21,9 +21,9 @@ use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
-use acorn_schema::schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
-use acorn_schema::schema::standard::datacite;
-use acorn_schema::schema::standard::invenio;
+use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
+use acorn_schema::standard::datacite;
+use acorn_schema::standard::invenio;
 use clap_verbosity_flag::Verbosity;
 #[cfg(feature = "pdf")]
 use color_eyre::eyre::eyre;

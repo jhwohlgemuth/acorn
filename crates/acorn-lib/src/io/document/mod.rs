@@ -6,7 +6,7 @@ use crate::util::constants::app::{DOCUMENT_CACHE_LIMIT, MAX_DOCUMENT_BYTES, MAX_
 use crate::util::StringConversion;
 use acorn_core::util::MimeType;
 use acorn_core::{Location, Scheme};
-use acorn_schema::schema::pid::{Identifier, PID};
+use acorn_schema::pid::{Identifier, PID};
 use anydoc::Format;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};

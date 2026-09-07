@@ -8,15 +8,15 @@ use acorn_core::prelude::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::MimeType;
 #[cfg(feature = "std")]
-use acorn_schema::schema::standard::crosswalk::mapping::{
+use acorn_schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
 #[cfg(feature = "std")]
-use acorn_schema::schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
+use acorn_schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
 #[cfg(feature = "std")]
-use acorn_schema::schema::standard::{datacite, dcat, huwise, invenio};
+use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 #[cfg(feature = "std")]
-use acorn_schema::schema::OneOrMany;
+use acorn_schema::OneOrMany;
 use bon::Builder;
 use convert_case::{Case, Casing};
 use derive_more::Display;

@@ -8,8 +8,8 @@ use crate::util::constants::oci::{
 };
 use acorn_core::prelude::{HashSet, String, ToString, Vec};
 use acorn_core::validation::ValidationError;
+use acorn_schema::agent::Quantization;
 use acorn_schema::oci::ModelLayerRole;
-use acorn_schema::schema::agent::Quantization;
 use acorn_schema::validation::{IntoValidationReport, ValidationReport};
 use color_eyre::eyre::eyre;
 use std::fs::{self, remove_file, File};

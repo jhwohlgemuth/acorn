@@ -7,10 +7,10 @@ use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPo
 use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
 use crate::util::Label;
 use acorn_core::prelude::{Arc, HashMap};
-use acorn_schema::schema::modelkit::kitfile;
-use acorn_schema::schema::pid::raid::Metadata;
-use acorn_schema::schema::research_activity::ResearchActivity;
-use acorn_schema::schema::standard::{cff, datacite, dcat, huwise, invenio, text};
+use acorn_schema::modelkit::kitfile;
+use acorn_schema::pid::raid::Metadata;
+use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::{cff, datacite, dcat, huwise, invenio, text};
 use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;

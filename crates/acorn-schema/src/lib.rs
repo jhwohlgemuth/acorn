@@ -19,11 +19,33 @@ macro_rules! schema_error {
     };
 }
 
+#[cfg(feature = "alloc")]
+pub mod agent;
+pub mod discovery;
 pub mod enrichment;
+pub mod geonames;
+pub mod graph;
+pub mod hardware;
+pub mod modelkit;
+pub mod namespaces;
 pub mod oci;
-pub mod schema;
+pub mod pid;
+pub mod research_activity;
+pub mod standard;
 #[macro_use]
 pub mod util;
+mod types;
+pub mod validate;
 pub mod validation;
+pub(crate) mod vocabulary;
 
+pub use hardware::memory::{Memory, MemoryUnit};
+pub use hardware::{
+    AcceleratorArchitecture, Architecture, Backend, CpuArchitecture, DspArchitecture, FpgaArchitecture, GpuArchitecture, Model, Paradigm, Regime,
+    Resource, SensorModality, Topology, Vendor, Vendored,
+};
+pub use types::*;
 pub use validation::{Each, Validate, ValidationIssue, ValidationReport};
+
+#[cfg(test)]
+mod tests;

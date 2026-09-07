@@ -1,5 +1,5 @@
 #![no_main]
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_core::util::ToProse;
 use acorn_schema::validation::Validate;
 use libfuzzer_sys::fuzz_target;

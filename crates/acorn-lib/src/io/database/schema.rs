@@ -8,7 +8,7 @@ use crate::io::{create_progress_bar, finish_progress_bar, ApiResult, ProgressTyp
 use crate::util::{print_values_as_table, Label};
 use acorn_core::util::to_rfc3339;
 use acorn_macros::DatabaseRow;
-use acorn_schema::schema::agent::Weights;
+use acorn_schema::agent::Weights;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use bon::Builder;
@@ -286,7 +286,7 @@ pub struct LogbookEntryRow {
     pub research_activity_iid: Option<String>,
     /// Stable identifier within the research activity logbook.
     pub entry_identifier: Option<String>,
-    /// Complete serialized [`acorn_schema::schema::research_activity::LogbookEntry`].
+    /// Complete serialized [`acorn_schema::research_activity::LogbookEntry`].
     #[validate(json)]
     pub entry_json: Option<String>,
     /// Logbook entry timestamp retained for indexed ordering.

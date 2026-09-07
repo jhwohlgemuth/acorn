@@ -17,7 +17,7 @@ use crate::param;
 use crate::test::utils::fixture_path;
 use acorn_core::util::Searchable;
 use acorn_core::{Location, Repository, Scheme};
-use acorn_schema::schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
+use acorn_schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use secrecy::ExposeSecret;
 
 mod harbor;
@@ -541,7 +541,7 @@ mod handle_api {
     use crate::io::api::handle::{resolve_with, Record};
     use crate::io::api::Endpoint;
     use crate::test::server::TestServer;
-    use acorn_schema::schema::pid::{Handle, PersistentIdentifierParse};
+    use acorn_schema::pid::{Handle, PersistentIdentifierParse};
     use axum::extract::Path;
     use axum::http::StatusCode;
     use axum::routing::get;
@@ -1060,7 +1060,7 @@ mod models_dev {
     use crate::io::database::schema::{ModelRow, ProviderRow, Table};
     use crate::io::database::{Database, Operations};
     use crate::test::utils::unique_path;
-    use acorn_schema::schema::agent::{Metric, ModelDetails, ProviderDetails};
+    use acorn_schema::agent::{Metric, ModelDetails, ProviderDetails};
     use std::collections::HashMap;
 
     fn assert_models_dev_schema_variants(models: &HashMap<String, ModelDetails>) {
@@ -1150,7 +1150,7 @@ mod models_dev {
 
     #[test]
     fn test_model_row_infers_quantization_from_model_id() {
-        use acorn_schema::schema::agent::{Quantization, Weights};
+        use acorn_schema::agent::{Quantization, Weights};
         let model = ModelDetails {
             id: Some("llama-3-2-3b-instruct-q4_k_m".to_string()),
             weights: None,
@@ -1248,10 +1248,10 @@ mod models_dev {
     }
     #[test]
     fn test_model_row_modalities_are_comma_separated() {
-        use acorn_schema::schema::research_activity::aspect::data::Modality;
+        use acorn_schema::research_activity::aspect::data::Modality;
         let model = ModelDetails {
             id: Some("gpt-4o".to_string()),
-            modalities: Some(acorn_schema::schema::agent::Modalities {
+            modalities: Some(acorn_schema::agent::Modalities {
                 input: vec![Modality::Text, Modality::Audio, Modality::Image],
                 output: vec![Modality::Text, Modality::Video],
             }),
@@ -1265,7 +1265,7 @@ mod models_dev {
     fn test_model_row_modalities_omitted_when_empty() {
         let model = ModelDetails {
             id: Some("gpt-4o".to_string()),
-            modalities: Some(acorn_schema::schema::agent::Modalities {
+            modalities: Some(acorn_schema::agent::Modalities {
                 input: vec![],
                 output: vec![],
             }),

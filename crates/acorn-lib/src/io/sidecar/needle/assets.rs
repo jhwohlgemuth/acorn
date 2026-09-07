@@ -7,7 +7,7 @@ use crate::io::{make_executable, read_file, verify_checksum, ApiResult, Fingerpr
 use crate::util::constants::app::{APPLICATION, NEEDLE_REPOSITORY, NEEDLE_REVISION, ORGANIZATION, QUALIFIER};
 use crate::util::constants::oci::MODELKIT_MANIFEST;
 use acorn_core::prelude::String;
-use acorn_schema::schema::agent::tools::NeedleToolDefinition;
+use acorn_schema::agent::tools::NeedleToolDefinition;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use directories::ProjectDirs;

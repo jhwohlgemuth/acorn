@@ -1,7 +1,7 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
-use acorn_schema::schema::agent::tools::ToolExposure;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::agent::tools::ToolExposure;
+use acorn_schema::research_activity::ResearchActivity;
 use serde_json::{json, Value};
 
 #[test]

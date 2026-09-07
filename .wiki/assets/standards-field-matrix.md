@@ -12,9 +12,9 @@ Slice 0 fixtures (referenced per row): `tests/fixtures/schema/datacite/4.7/valid
 
 | Level | Gate | Mandatory Fields | Source |
 |---|---|---|---|
-| Valid RAD | `Validate` derive | `ResearchActivity.title` len 4..MAX, `ResearchActivityMetadata.identifier` kebabcase, `ContactPoint`, `Sections`, vocab-normalized keywords/technology | `crates/acorn-schema/src/schema/research_activity/mod.rs:160`, `crates/acorn-schema/src/validation/` |
-| RAiD-ready | `pid/raid/mod.rs` `Metadata::validate` | `access` (required), `contributor` ≥1 (leader/contact flags), `date.startDate`, `title` Primary≥1, `organization` LeadResearchOrganisation | `crates/acorn-schema/src/schema/pid/raid/mod.rs` |
-| Deposit-ready | `validate_deposit_ready(&Record)` / `&Resource` | `doi`/`identifier`, `titles`, `creators`, `publisher`, `publicationYear`, `resourceTypes`/`resourceType` (general) | `crates/acorn-schema/src/schema/standard/datacite.rs:1525` (distinct from `Validate`) |
+| Valid RAD | `Validate` derive | `ResearchActivity.title` len 4..MAX, `ResearchActivityMetadata.identifier` kebabcase, `ContactPoint`, `Sections`, vocab-normalized keywords/technology | `crates/acorn-schema/src/research_activity/mod.rs:160`, `crates/acorn-schema/src/validation/` |
+| RAiD-ready | `pid/raid/mod.rs` `Metadata::validate` | `access` (required), `contributor` ≥1 (leader/contact flags), `date.startDate`, `title` Primary≥1, `organization` LeadResearchOrganisation | `crates/acorn-schema/src/pid/raid/mod.rs` |
+| Deposit-ready | `validate_deposit_ready(&Record)` / `&Resource` | `doi`/`identifier`, `titles`, `creators`, `publisher`, `publicationYear`, `resourceTypes`/`resourceType` (general) | `crates/acorn-schema/src/standard/datacite.rs:1525` (distinct from `Validate`) |
 
 Recommended `rad-metadata-standards-alignment.md:107` vs optional: `subjects`, `contributors`, `dates`, `relatedIdentifiers`, `descriptions`, `geoLocations`; Optional: `language`, `alternateIdentifiers`, `sizes`, `formats`, `version`, `rightsList`, `fundingReferences`, `relatedItems` (DataCite 4.7 prop 20) — validated but not deposit-blocking.
 

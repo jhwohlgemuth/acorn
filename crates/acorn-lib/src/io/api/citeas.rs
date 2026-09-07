@@ -7,7 +7,7 @@ use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResour
 use crate::param;
 use crate::util::Label;
 use acorn_core::util::Searchable;
-use acorn_schema::schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
+use acorn_schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;

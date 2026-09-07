@@ -35,12 +35,12 @@ use crate::util::StringConversion;
 use crate::{args, LocationExt, RepositoryExt};
 use acorn_core::util::{MimeType, SemanticVersion};
 use acorn_core::{Location, Repository, Scheme};
+#[cfg(unix)]
+use acorn_schema::agent::Quantization;
 use acorn_schema::enrichment::Provider;
+#[cfg(unix)]
+use acorn_schema::modelkit;
 use acorn_schema::oci::ModelLayerRole;
-#[cfg(unix)]
-use acorn_schema::schema::agent::Quantization;
-#[cfg(unix)]
-use acorn_schema::schema::modelkit;
 use acorn_schema::validation::Validate;
 use axum::http::header::RETRY_AFTER;
 use axum::http::{HeaderMap, HeaderValue};

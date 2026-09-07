@@ -21,8 +21,8 @@ status: in-progress
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/mod.rs`, `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/util/constants/oci.rs`, and dedicated tests for those modules.
-- **Create:** `crates/acorn-schema/src/schema/modelkit/mod.rs`, the adjacent `kitfile.rs` implementation module, and producer-derived fixtures under `tests/fixtures/modelkit/`.
+- **Update:** `crates/acorn-schema/src/mod.rs`, `crates/acorn-lib/src/io/oci.rs`, `crates/acorn-lib/src/util/constants/oci.rs`, and dedicated tests for those modules.
+- **Create:** `crates/acorn-schema/src/modelkit/mod.rs`, the adjacent `kitfile.rs` implementation module, and producer-derived fixtures under `tests/fixtures/modelkit/`.
 - **Delete:** The private `ModelKitConfig` and `ModelKitModel` DTOs in `crates/acorn-lib/src/io/oci.rs` after that consumer migrates to the portable model. No generic OCI manifest, transport, or archive types move as part of this plan.
 
 # Dependencies
@@ -30,13 +30,13 @@ status: in-progress
 - Pin the compatibility baseline to KitOps v1.15.0, tag commit `6b8162ae5da4d46f1d2af2beb43e7fb077f052f4`, for both `pkg/artifact/kitfile.go` (canonical types, `Validate`, `GetPathType`/`IsModelKitReference`, `LayerInfo` `yaml:"-"`) and `pkg/artifact/kitfile.md` (130-line format reference). `kitfile.md` is a strict subset — it omits `package.license`, `model.format`, `modelpart.license`, `dataset.remotePath`/`remoteHash`/`parameters`, `prompt.name`, and `LayerInfo` detail. Treat the Go source as canonical where they diverge and record the divergence in tests. Record the exact upstream files+commit used by each fixture. Re-evaluate the pin immediately before implementation.
 - Land the portable schema and codecs before the ModelKit slice of [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md). That plan remains responsible for OCI classification, blob verification, layer selection, extraction, and GGUF policy.
 - Reuse `acorn-schema`'s ordered `ValidationReport`, portable allocation types, `serde`, `schemars`, `serde_norway`, and `serde_json`. Do not add a runtime KitOps dependency or invoke the `kit` executable from the schema crate.
-- This plan occupies the **Schema features** lane in the [parallel execution guide](../parallel-execution.md). `schema/mod.rs` is a module-index lock; `io/oci.rs` and ModelKit constants are handed to the Provider-leaves integration owner for the final consumer migration.
+- This plan occupies the **Schema features** lane in the [parallel execution guide](../parallel-execution.md). `lib.rs` is a module-index lock; `io/oci.rs` and ModelKit constants are handed to the Provider-leaves integration owner for the final consumer migration.
 
 # Portable ModelKit and Kitfile schema model
 
 ## Implementation progress (2026-09-05)
 
-- `acorn-schema::schema::modelkit` now publicly models every field in the pinned KitOps v1.15.0 `KitFile`, `Package`, `Model`, `ModelPart`, `DataSet`, `Code`, `Docs`, `Prompt`, `MCPServer`, and `LayerInfo` types.
+- `acorn-schema::modelkit` now publicly models every field in the pinned KitOps v1.15.0 `KitFile`, `Package`, `Model`, `ModelPart`, `DataSet`, `Code`, `Docs`, `Prompt`, `MCPServer`, and `LayerInfo` types.
 - Strict authoring-YAML and resolved-config JSON entry points reject unknown and duplicate keys, trailing input, YAML-only tagged values, and derived identity in authoring YAML. Resolved JSON preserves `digest` and `diffId`; YAML projection removes them.
 - Portable validation covers content presence, version warnings, local/ModelKit/S3 path policy, normalized duplicate and remote-dataset collisions, model-part types, MCP Bundle rules, the shared lowercase SHA-256 digest rule, and independent all-or-none digest/diff-ID completeness. Intentional differences are the documented non-empty-content requirement, portable path cleaning, prompt duplicate-path participation, and MCP identity completeness.
 - Package/model versions and licenses now compose shared scalar validators through `optional(rule)`, remote dataset paths use a dedicated field validator, model format is typed with a forward-compatible fallback, and portable path/reference classification and normalization live on `acorn_core::Location`.
@@ -176,4 +176,4 @@ Exit condition: the existing ModelKit download tests use the public schema, mode
 - The Kitfile format documents package, model, model parts, datasets, code, docs, prompts, MCP Bundles, and JSON-compatible parameter values (with string/number/map caveats): <https://kitops.org/docs/kitfile/format/>.
 - The pinned producer types, `LoadModel`, `MarshalToYAML`/`MarshalToJSON`, `Validate`, `GetPathType`, `IsModelKitReference`, `ParseReference`, and `KitfileHasLayerInfo` behavior are defined by KitOps v1.15.0 at commit [`6b8162ae5da4d46f1d2af2beb43e7fb077f052f4`](https://github.com/kitops-ml/kitops/blob/6b8162ae5da4d46f1d2af2beb43e7fb077f052f4/pkg/artifact/kitfile.go) and [`util.go`](https://github.com/kitops-ml/kitops/blob/6b8162ae5da4d46f1d2af2beb43e7fb077f052f4/pkg/artifact/util.go). Test fixtures proving the contract are at `pkg/artifact/testdata/validation/*.yaml` and `pkg/artifact/testdata/parameters/*.yaml`, exercised by `kitfile_test.go` (`TestValidateKitfile`, `TestParameterMarshalUnmarshal`, `TestCollectLicenses`).
 - KitOps' TypeScript types independently expose the public Kitfile and OCI manifest shapes, but currently omit newer MCP-server fields; this is evidence for pinning the Go producer source rather than merging unversioned documentation ad hoc: <https://kitops.org/docs/kitops-ts/types/>.
-- ACORN's implementation is in `crates/acorn-schema/src/schema/modelkit/`; producer provenance is recorded beside `tests/fixtures/modelkit/`, and `crates/acorn-lib/src/io/oci.rs` consumes the public resolved representation.
+- ACORN's implementation is in `crates/acorn-schema/src/modelkit/`; producer provenance is recorded beside `tests/fixtures/modelkit/`, and `crates/acorn-lib/src/io/oci.rs` consumes the public resolved representation.

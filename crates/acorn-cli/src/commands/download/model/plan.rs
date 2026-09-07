@@ -18,11 +18,11 @@ use acorn::util::{Label, StringConversion};
 use acorn_core::prelude::{HashMap, HashSet, String, Vec};
 use acorn_core::util::{merge, MimeType};
 use acorn_core::{Location, Repository};
+use acorn_schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, Weight, WeightGroups, Weights};
+use acorn_schema::hardware::memory::Memory;
 use acorn_schema::oci::{self, ModelExtraction, ModelFile, ModelLayer, ModelLayerRole};
-use acorn_schema::schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, Weight, WeightGroups, Weights};
-use acorn_schema::schema::hardware::memory::Memory;
-use acorn_schema::schema::OneOrMany;
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
+use acorn_schema::OneOrMany;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -1058,7 +1058,7 @@ pub(crate) fn run_gguf_picker(candidates: huggingface::Candidates, options: &hug
 #[cfg(test)]
 mod metadata_filter_tests {
     use super::*;
-    use acorn_schema::schema::agent::Weight;
+    use acorn_schema::agent::Weight;
 
     fn weight(path: &str, quantization: Quantization, size: Option<u64>) -> Weight {
         Weight {

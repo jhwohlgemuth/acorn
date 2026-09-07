@@ -1,7 +1,7 @@
 //! Local file-system and Git SWHID calculation.
 use crate::error::ApiResult;
-use acorn_schema::schema::pid::swhid::ObjectType;
-use acorn_schema::schema::pid::SWHID;
+use acorn_schema::pid::swhid::ObjectType;
+use acorn_schema::pid::SWHID;
 use color_eyre::eyre::{eyre, WrapErr};
 use core::str::FromStr;
 use std::fs::read;

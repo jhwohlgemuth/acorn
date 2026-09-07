@@ -4,7 +4,7 @@ use crate::cli::arguments;
 use crate::cli::Void;
 use acorn::io::swhid::calculate;
 use acorn::util::Label;
-use acorn_schema::schema::pid::SWHID;
+use acorn_schema::pid::SWHID;
 use color_eyre::eyre::eyre;
 use core::str::FromStr;
 

@@ -26,10 +26,10 @@ use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirem
 use acorn::util::constants::env::{HUGGINGFACE_TOKEN_VARIABLE_NAMES, MODEL_WHITELIST};
 use acorn_core::prelude::HashSet;
 use acorn_core::util::{merge, MarkdownSupport};
-use acorn_schema::schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
-use acorn_schema::schema::hardware::memory::Memory;
-use acorn_schema::schema::research_activity::ResearchActivity;
-use acorn_schema::schema::OneOrMany;
+use acorn_schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
+use acorn_schema::hardware::memory::Memory;
+use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::OneOrMany;
 use alloc::sync::Arc;
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;

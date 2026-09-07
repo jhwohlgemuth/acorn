@@ -1,9 +1,9 @@
 //! Search the public [DOE CODE API](https://www.osti.gov/doecodeapi/services/docs/search).
 use crate::io::api::{ApiResult, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use acorn_core::util::Searchable;
-use acorn_schema::schema::discovery::{Organization, Person, ProjectOrganization, ProjectPerson, RemoteEntity, RemoteOrganizationRole};
-use acorn_schema::schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, ORCID, PID};
-use acorn_schema::schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
+use acorn_schema::discovery::{Organization, Person, ProjectOrganization, ProjectPerson, RemoteEntity, RemoteOrganizationRole};
+use acorn_schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, ORCID, PID};
+use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use alloc::collections::{BTreeMap, BTreeSet};
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -469,7 +469,7 @@ pub async fn record(code_id: u64) -> ApiResult<Project> {
 /// ## Examples
 /// ```no_run
 /// use acorn::io::api::osti::{self, Options, SearchView};
-/// use acorn_schema::schema::discovery::RemoteOrganizationRole;
+/// use acorn_schema::discovery::RemoteOrganizationRole;
 ///
 /// let options = Options {
 ///     query: "scientific visualization".into(),

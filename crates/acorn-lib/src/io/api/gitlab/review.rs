@@ -12,7 +12,7 @@ use crate::io::ApiResult;
 use crate::util::constants::app::{APPLICATION, MAX_ANALYSIS_FILE_BYTES, MERGE_REQUEST_REPORT_MARKER};
 use crate::util::generate_guid;
 use acorn_core::util::{MarkdownSupport, MimeType};
-use acorn_schema::schema::pid::Identifier;
+use acorn_schema::pid::Identifier;
 use color_eyre::eyre::{eyre, Report};
 use core::iter::once;
 use futures::stream::{self, StreamExt};

@@ -9,10 +9,10 @@ use acorn_core::prelude::{format, String, ToString, Vec};
 use acorn_core::util::merge_unique_by;
 use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
-use acorn_schema::schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
-use acorn_schema::schema::research_activity::output::ResearchOutput;
-use acorn_schema::schema::research_activity::{EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
-use acorn_schema::schema::Website;
+use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
+use acorn_schema::research_activity::output::ResearchOutput;
+use acorn_schema::research_activity::{EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
+use acorn_schema::Website;
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
@@ -251,7 +251,7 @@ impl Enrich<()> for ResearchActivity {
                     match matches.as_slice() {
                         | [result] => (
                             Self {
-                                contact: acorn_schema::schema::ContactPoint {
+                                contact: acorn_schema::ContactPoint {
                                     identifier: result.orcid_id.clone(),
                                     ..self.contact.clone()
                                 },

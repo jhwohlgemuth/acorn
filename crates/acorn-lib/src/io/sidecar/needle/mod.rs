@@ -14,7 +14,7 @@ use crate::io::sidecar::Sidecar;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::util::constants::app::{DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS};
 use acorn_core::prelude::{create_dir, PathBuf, String, Vec};
-use acorn_schema::schema::agent::tools::ToolResult;
+use acorn_schema::agent::tools::ToolResult;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};

@@ -3,7 +3,7 @@
 //! See [Geonames web services documentation](https://www.geonames.org/export/web-services.html) for more information
 use crate::io::api::{ApiResult, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
 use acorn_core::util::Searchable;
-use acorn_schema::schema::geonames::Countries;
+use acorn_schema::geonames::Countries;
 use color_eyre::eyre::eyre;
 
 /// Type alias for GeoNames API reponse for country data, which is returned as TSV text that can be parsed into structured data

@@ -7,7 +7,7 @@ use acorn::analyzer::host::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
 use acorn::util::Label;
-use acorn_schema::schema::discovery::RemoteOrganizationRole;
+use acorn_schema::discovery::RemoteOrganizationRole;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
@@ -34,7 +34,7 @@ pub mod sync;
 pub mod tui;
 pub mod watch;
 
-pub use db::{initialize_database, DatabaseConfig};
+pub use db::{initialize_database, initialize_database_with_policy, DatabaseConfig};
 use download::model::Whitelist;
 
 macro_rules! preflight {
@@ -130,7 +130,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 verbose,
                 ..
             } = arguments.as_ref();
-            initialize_database(config).await?;
+            initialize_database_with_policy(config, true).await?;
             check::run(
                 path,
                 paste,
@@ -367,7 +367,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 verbose,
                 ..
             } = arguments.as_ref();
-            initialize_database(config).await?;
+            initialize_database_with_policy(config, true).await?;
             format::run(
                 path,
                 branch,
@@ -472,7 +472,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 verbose,
                 ..
             } = arguments.as_ref();
-            initialize_database(config).await?;
+            initialize_database_with_policy(config, true).await?;
             link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
         }),
         | Some(Commands::Skill) => skill::run(),

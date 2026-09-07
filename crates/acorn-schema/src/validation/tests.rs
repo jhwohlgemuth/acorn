@@ -1,5 +1,5 @@
 use super::{report_of, IntoValidationReport, Validate, ValidationError, ValidationReport};
-use crate::schema::OneOrMany;
+use crate::OneOrMany;
 use acorn_core::prelude::alloc::{Box, String, ToString, Vec};
 use acorn_core::util::SemanticVersion;
 use alloc::collections::BTreeMap;

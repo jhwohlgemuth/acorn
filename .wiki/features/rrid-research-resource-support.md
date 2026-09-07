@@ -11,13 +11,13 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/pid/mod.rs`, `crates/acorn-schema/src/util/constants/{mod,app}.rs`, `crates/acorn-schema/src/validation/mod.rs`, `crates/acorn-schema/src/schema/validate/mod.rs`, `crates/acorn-schema/src/schema/research_activity/common.rs`, `crates/acorn-schema/src/schema/standard/datacite.rs`, and adjacent tests; `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/`, endpoint configuration, and database discovery tests; focused gather code/tests in `crates/acorn-cli` and `crates/acorn-tui`; PID, gather, and acceptance documentation; generated CLI help only if arguments change.
-- **Create:** `crates/acorn-schema/src/schema/pid/rrid/{mod,tests}.rs`; `.wiki/assets/rrid-contract-matrix.md`; immutable fixtures under `tests/fixtures/rrid/`; `crates/acorn-lib/src/io/api/rrid.rs` only after the provider contract gate passes.
+- **Update:** `crates/acorn-schema/src/pid/mod.rs`, `crates/acorn-schema/src/util/constants/{mod,app}.rs`, `crates/acorn-schema/src/validation/mod.rs`, `crates/acorn-schema/src/validate/mod.rs`, `crates/acorn-schema/src/research_activity/common.rs`, `crates/acorn-schema/src/standard/datacite.rs`, and adjacent tests; `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/`, endpoint configuration, and database discovery tests; focused gather code/tests in `crates/acorn-cli` and `crates/acorn-tui`; PID, gather, and acceptance documentation; generated CLI help only if arguments change.
+- **Create:** `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; `.wiki/assets/rrid-contract-matrix.md`; immutable fixtures under `tests/fixtures/rrid/`; `crates/acorn-lib/src/io/api/rrid.rs` only after the provider contract gate passes.
 - **Delete:** None. Do not remove or repurpose the existing hardware/compute `ResearchActivityMetadata.resources` field.
 
 # Dependencies
 
-- The portable PID slice can start independently in the PID lane, but it must serialize edits to `schema/pid/mod.rs`, shared regex constants, and validation registries with [SWHID persistent-identifier hardening](swhid-persistent-identifier.md) and PID proof/test work.
+- The portable PID slice can start independently in the PID lane, but it must serialize edits to `pid/mod.rs`, shared regex constants, and validation registries with [SWHID persistent-identifier hardening](swhid-persistent-identifier.md) and PID proof/test work.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) Slice 0 and the reusable `TypedIdentifier`/`TypedRelatedResource` surface have landed. RRID can use that surface; adapter changes must still coordinate with the remaining alignment work and shared fixtures.
 - Resolver reporting must consume the current typed discovery lifecycle and coordinate with [link resolution checks](../refactors/analyzer/analyzer-composition.md). It must not introduce a new generic host trait ahead of a proven alternate consumer.
 - The SciCrunch provider leaf must preserve the API contracts and extraction direction in the [API roadmap](../refactors/api/roadmap.md). Endpoint, credential, and DTO work must coordinate with the API shared-contract lane.
@@ -52,7 +52,7 @@ Keep the schema change small. Reuse `relatedResources`, preserve explicit relati
 
 # Current evidence
 
-- `crates/acorn-schema/src/schema/pid/mod.rs` has typed parsing and discovery for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, and SWHID. `PIDINST` and `Unknown` are non-discoverable classifications. There is no `RRID` variant, typed parser, converter method, normalization branch, or identity policy.
+- `crates/acorn-schema/src/pid/mod.rs` has typed parsing and discovery for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, and SWHID. `PIDINST` and `Unknown` are non-discoverable classifications. There is no `RRID` variant, typed parser, converter method, normalization branch, or identity policy.
 - `Identifier::find_all` iterates `PID::is_discoverable`, normalizes results, and removes duplicates. Adding only a regex is insufficient: the PID enum, `From` conversions, `PersistentIdentifierConvert`, serialization, discovery, normalization, and tests must move together.
 - `Record::resolve` in `crates/acorn-lib/src/analyzer/host/discovery/mod.rs` has provider-specific branches for arXiv, DOI, Handle, ORCID, RAiD, ROR, and SWHID. Unsupported types are retained with `ResolutionStatus::Unsupported`; this is the correct extension point for RRID resolution.
 - Gather persistence stores the normalized identifier, lowercase PID wire name, optional metadata, resolution status, and source in the generic `discoveries` table. RRID discovery history therefore needs no database migration.
@@ -123,7 +123,7 @@ Each slice must declare an exact write set at start. Shared `mod.rs`, CLI roots,
 
 ## 1. Add the portable `RRID` PID type
 
-**Primary write set:** new `crates/acorn-schema/src/schema/pid/rrid/{mod,tests}.rs`; integration-owned changes to `schema/pid/mod.rs`, `util/constants/{mod,app}.rs`, `validation/mod.rs`, `schema/validate/mod.rs`, and their focused tests.
+**Primary write set:** new `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; integration-owned changes to `pid/mod.rs`, `util/constants/{mod,app}.rs`, `validation/mod.rs`, `validate/mod.rs`, and their focused tests.
 
 - Implement `RRID` as an immutable parsed value with `Display`, `FromStr`, `JsonSchema`, serde support, `PersistentIdentifier`, and `PersistentIdentifierParse` parity with other PID leaves.
 - Keep parsing and canonicalization as pure functions. Store the opaque payload once; derive display and URL forms without mutable state.

@@ -6,8 +6,8 @@
 use crate::io::{read_file, write_file};
 use crate::util::Label;
 use acorn_core::util::StringInterpolation;
-use acorn_schema::schema::research_activity::ResearchActivity;
-use acorn_schema::schema::{Notes, Other};
+use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::{Notes, Other};
 use fancy_regex::Regex;
 use quick_xml::escape::escape;
 use std::path::PathBuf;

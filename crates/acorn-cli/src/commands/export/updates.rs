@@ -6,7 +6,7 @@ use crate::cli::arguments::{FileFormat, Target};
 use crate::cli::resolve_paths;
 use acorn::io::{zip_entries, ApiResult, InputOutput};
 use acorn_core::util::MarkdownSupport;
-use acorn_schema::schema::research_activity::{LogbookUpdates, ResearchActivity};
+use acorn_schema::research_activity::{LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
 use quick_xml::escape::escape;
 use std::fs::{create_dir_all, write};

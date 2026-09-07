@@ -2,7 +2,7 @@ use crate::cli::{resolve_paths, CommandOptions};
 use acorn::io::{FromPath, InputOutput};
 use acorn::util::{print_changes, Label, StringConversion};
 use acorn_core::util::MimeType;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;

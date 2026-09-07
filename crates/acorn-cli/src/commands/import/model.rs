@@ -12,7 +12,7 @@ use acorn::io::{sync, ApiResult, ModelSelectorsExt, Source};
 use acorn::util::Label;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::suffix;
-use acorn_schema::schema::agent::{ModelSelectors, Weights};
+use acorn_schema::agent::{ModelSelectors, Weights};
 use color_eyre::eyre::eyre;
 use futures::future::join_all;
 use itertools::Itertools;

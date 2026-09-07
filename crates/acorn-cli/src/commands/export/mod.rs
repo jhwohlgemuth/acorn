@@ -16,7 +16,7 @@ use acorn::{fail, skip};
 use acorn_core::prelude::HashMap;
 use acorn_core::prelude::{Arc, HashSet};
 use acorn_core::util::{format_bytes, regex_join, suffix, MimeType};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;

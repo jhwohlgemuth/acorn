@@ -5,8 +5,8 @@ use crate::io::api::gitlab::intake::{analyze_work_item, verified_command_author,
 use crate::io::api::gitlab::{webhook, HookActor, Note, WorkItem, WorkItemUser};
 use crate::test::server::TestServer;
 use crate::util::constants::app::WORK_ITEM_REPORT_MARKER;
-use acorn_schema::schema::pid::{Identifier, PID};
-use acorn_schema::schema::standard::cff::Cff;
+use acorn_schema::pid::{Identifier, PID};
+use acorn_schema::standard::cff::Cff;
 use alloc::sync::Arc;
 use axum::extract::State;
 use axum::http::StatusCode;

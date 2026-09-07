@@ -11,7 +11,7 @@ use crate::io::{
 };
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::{text_diff_changes_with_color, Label};
-use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;

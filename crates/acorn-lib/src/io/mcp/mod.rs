@@ -6,7 +6,7 @@ mod tools;
 pub use tools::{ToolCallContext, ToolRegistry};
 
 use crate::error::ApiResult;
-use acorn_schema::schema::agent::tools::{ToolDefinition, ToolEffects};
+use acorn_schema::agent::tools::{ToolDefinition, ToolEffects};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;

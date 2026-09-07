@@ -22,7 +22,7 @@ flowchart LR
 
 ## Supported identifiers
 
-The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, SWHID, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-lib/latest/acorn/schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
+The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, SWHID, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
 **About the table:** *Role* indicates what the identifier proves — `Project identity` can create or match a research activity, while `Supporting evidence`, `Person evidence`, and `Organization evidence` are retained in reports but do not form candidates on their own. *Validation* describes the local type-checking performed (syntax, components, and checksum where the spec defines one) — it does not contact a registry. *Normalized* is the display form stored in RAD fields and reports (contrasted with the namespaced `identity_key` used for exact matching, e.g., `doi:10...`). Display forms that are bare identifiers or URLs reflect the canonical output for that kind.
 
@@ -53,12 +53,12 @@ Steps 1-4 are preparatory sub-components that clean and standardize evidence bef
 
 ## 1. Find candidates
 
-Each typed PID implements `PersistentIdentifierParse::find_all`. The finder scans unstructured text with the PID's recognition pattern and returns parsed values. Full API at [`docs.rs` — `PersistentIdentifierParse`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierParse.html).
+Each typed PID implements `PersistentIdentifierParse::find_all`. The finder scans unstructured text with the PID's recognition pattern and returns parsed values. Full API at [`docs.rs` — `PersistentIdentifierParse`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/trait.PersistentIdentifierParse.html).
 
 <details><summary>Implementation detail — Rust</summary>
 
 ```rust
-use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
+use acorn_schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
 
 let text = "The dataset is available at https://doi.org/10.11578/dc.20250604.1.";
 let found = DOI::find_all(text);
@@ -73,12 +73,12 @@ The `gather` command runs the supported finders across file, document, URL, stan
 
 ## 2. Parse components
 
-`from_string` decomposes one value into a typed structure. Parsing is intentionally separate from validation: malformed input can produce an empty or partial value, so callers that require a usable PID must validate it. See [`docs.rs` — `PersistentIdentifierParse::from_string`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierParse.html#tymethod.from_string).
+`from_string` decomposes one value into a typed structure. Parsing is intentionally separate from validation: malformed input can produce an empty or partial value, so callers that require a usable PID must validate it. See [`docs.rs` — `PersistentIdentifierParse::from_string`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/trait.PersistentIdentifierParse.html#tymethod.from_string).
 
 <details><summary>Implementation detail — Rust</summary>
 
 ```rust
-use acorn_schema::schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
+use acorn_schema::pid::{DOI, PersistentIdentifier, PersistentIdentifierParse};
 
 let doi = DOI::from_string("https://doi.org/10.11578/dc.20250604.1");
 
@@ -93,12 +93,12 @@ The `PersistentIdentifier` trait provides common component access through `ident
 
 ## 3. Validate locally
 
-Use the typed `is_valid` method when a boolean is convenient. For ergonomic string checks, use `PersistentIdentifierConvert`; for validator composition, use `validation::rules` which returns `Result<(), ValidationError>`. See [`docs.rs` — `PersistentIdentifierConvert`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/trait.PersistentIdentifierConvert.html).
+Use the typed `is_valid` method when a boolean is convenient. For ergonomic string checks, use `PersistentIdentifierConvert`; for validator composition, use `validation::rules` which returns `Result<(), ValidationError>`. See [`docs.rs` — `PersistentIdentifierConvert`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/trait.PersistentIdentifierConvert.html).
 
 <details><summary>Implementation detail — Rust</summary>
 
 ```rust
-use acorn_schema::schema::pid::{DOI, PersistentIdentifierConvert, PersistentIdentifierParse};
+use acorn_schema::pid::{DOI, PersistentIdentifierConvert, PersistentIdentifierParse};
 
 assert!(DOI::is_valid("10.11578/dc.20250604.1"));
 assert!("10.11578/dc.20250604.1".is_doi());
@@ -111,12 +111,12 @@ The local checks do not make a network request. Identifier resolution is a later
 
 ## 4. Normalize a representation
 
-`format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result. See [`docs.rs` — `Identifier::normalized`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.Identifier.html#method.normalized).
+`format` parses a value and renders the type's standard display form. It is a formatting operation, not a validity result. See [`docs.rs` — `Identifier::normalized`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/struct.Identifier.html#method.normalized).
 
 <details><summary>Implementation detail — Rust</summary>
 
 ```rust
-use acorn_schema::schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
+use acorn_schema::pid::{DOI, ISNI, ORCID, PersistentIdentifierParse};
 
 assert_eq!(DOI::format("https://doi.org/10.11578/dc.20250604.1"), "10.11578/dc.20250604.1");
 assert_eq!(ISNI::format("0000 0004 9229 9539"), "https://isni.org/isni/0000000492299539");
@@ -126,7 +126,7 @@ assert_eq!(ORCID::format("0000-0002-2057-9115"), "https://orcid.org/0000-0002-20
 For discovery and ingestion, `Identifier::normalized` is the safer combined boundary. It trims surrounding prose punctuation, parses according to the declared kind, formats the result, validates it, and returns `None` when the value is unsupported or invalid. `PID::Unknown` asks ACORN to detect a supported kind.
 
 ```rust
-use acorn_schema::schema::pid::{Identifier, PID};
+use acorn_schema::pid::{Identifier, PID};
 
 let raw = Identifier {
     kind: PID::DOI,

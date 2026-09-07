@@ -51,7 +51,7 @@
 //!
 //! ```
 //! # mod validation { pub use acorn_schema::validation::*; }
-//! # mod schema { pub use acorn_schema::schema::*; }
+//! # mod schema { pub use acorn_schema::*; }
 //! use acorn_core::validation::ValidationError;
 //! use acorn_schema::validation::{report_of, IntoValidationReport, Validate, ValidationReport};
 //! use serde::Serialize;
@@ -107,7 +107,7 @@
 //!
 //! ```
 //! # mod validation { pub use acorn_schema::validation::*; }
-//! # mod schema { pub use acorn_schema::schema::*; }
+//! # mod schema { pub use acorn_schema::*; }
 //! use acorn_core::validation::ValidationError;
 //! use acorn_schema::validation::Validate;
 //! use serde::Serialize;
@@ -146,7 +146,7 @@
 //!
 //! ```
 //! # mod validation { pub use acorn_schema::validation::*; }
-//! # mod schema { pub use acorn_schema::schema::*; }
+//! # mod schema { pub use acorn_schema::*; }
 //! use acorn_core::validation::ValidationError;
 //! use acorn_schema::validation::{IntoValidationReport, Validate, ValidationReport};
 //! use serde::Serialize;
@@ -185,8 +185,8 @@ use serde::{Deserialize, Serialize};
 /// Built-in scalar validation rules used by the derive macro.
 pub mod rules {
     use super::ValidationError;
-    use crate::schema::geonames::{CodeFormat, GeonamesParser};
-    use crate::schema::pid::{Patent, PersistentIdentifierConvert};
+    use crate::geonames::{CodeFormat, GeonamesParser};
+    use crate::pid::{Patent, PersistentIdentifierConvert};
     use crate::util::constants::{RE_FAKE_PHONE, RE_PHONE, RE_UNIX_EPOCH};
     use crate::util::Constant;
     use acorn_core::prelude::alloc::{format, ToString};

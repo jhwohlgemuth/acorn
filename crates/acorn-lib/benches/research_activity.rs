@@ -7,7 +7,7 @@
     missing_docs
 )]
 use acorn_core::util::MarkdownSupport;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::Validate;
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};

@@ -10,7 +10,7 @@ use acorn::io::database::schema::{ModelRow, Table};
 use acorn::io::database::{Database, Row};
 use acorn::io::ModelSelectorsExt;
 use acorn_core::prelude::String;
-use acorn_schema::schema::agent::{ModelList, ModelSelector, ModelSelectors, Weights};
+use acorn_schema::agent::{ModelList, ModelSelector, ModelSelectors, Weights};
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;

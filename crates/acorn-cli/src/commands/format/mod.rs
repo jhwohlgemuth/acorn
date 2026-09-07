@@ -8,7 +8,7 @@ use acorn::util::{print_changes_with_color, Label, StringConversion};
 use acorn_core::util::MimeType;
 use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;

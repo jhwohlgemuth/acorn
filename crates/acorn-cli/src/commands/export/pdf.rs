@@ -8,7 +8,7 @@ use acorn::io::chart::ChartOptions;
 use acorn::io::{ApiResult, InputOutput};
 use acorn::util::constants::app::CHROME_VERSION;
 use acorn::util::{Label, StringConversion};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::page::PrintToPdfParams;
 use chromiumoxide::fetcher::{BrowserFetcher, BrowserFetcherOptions, BrowserKind, Version};

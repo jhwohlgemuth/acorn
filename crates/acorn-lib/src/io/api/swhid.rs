@@ -1,7 +1,7 @@
 //! Software Heritage SWHID resolution API.
 use crate::error::ApiResult;
 use crate::io::http::{get, response_body_bytes};
-use acorn_schema::schema::pid::SWHID;
+use acorn_schema::pid::SWHID;
 use acorn_schema::util::constants::app::SOFTWARE_HERITAGE_RESOLVER_URI;
 use color_eyre::eyre::eyre;
 

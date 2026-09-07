@@ -4,9 +4,9 @@ mod robustness;
 use super::migrate::Migration;
 use super::*;
 use crate::test::utils::fixture_path;
-use acorn_schema::schema::agent::opencode;
-use acorn_schema::schema::standard::cff::IdentifierType;
-use acorn_schema::schema::standard::text::Document;
+use acorn_schema::agent::opencode;
+use acorn_schema::standard::cff::IdentifierType;
+use acorn_schema::standard::text::Document;
 use std::fs::{read, write};
 use tempfile::tempdir;
 

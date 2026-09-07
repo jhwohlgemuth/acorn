@@ -42,7 +42,7 @@ ACORN is context-aware at the data and workflow level. It keeps project descript
 ACORN's validation, formatting, linking, and export workflows are deterministic. Optional AI tooling can discover and download local GGUF models, configure them for OpenCode, VS Code, Goose, and llama-swap, and provide compatible agents with ACORN-specific operating instructions through [`acorn skill`](cli-reference/commands/skill.md).
 
 > [!NOTE]
-> **AI assistance disclosure, Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/src/schema/research_activity/aspect/mod.rs#L154): humans author most project code, while AI tools may directly create or edit auxiliary files such as documentation and tests. Humans retain review and decision authority. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
+> **AI assistance disclosure, Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/src/research_activity/aspect/mod.rs#L154): humans author most project code, while AI tools may directly create or edit auxiliary files such as documentation and tests. Humans retain review and decision authority. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
 
 [^acronym]: ACORN stands for "Accessible Content Optimization for Research Needs"
 

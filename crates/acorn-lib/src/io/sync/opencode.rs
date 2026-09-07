@@ -6,7 +6,7 @@
 use super::{Options, RenderedOutput, SyncTarget};
 use crate::io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion};
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
-use acorn_schema::schema::agent::opencode;
+use acorn_schema::agent::opencode;
 use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;

@@ -3,7 +3,7 @@ use crate::io::api::huggingface::{
     ModelInfoExtension, Options, RepositoryResolution, SearchOptions,
 };
 use crate::io::api::Endpoint;
-use acorn_schema::schema::agent::{ModelDetails, Weight, Weights};
+use acorn_schema::agent::{ModelDetails, Weight, Weights};
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use axum::http::{HeaderMap, HeaderValue};
 use serde_json::{json, Value};

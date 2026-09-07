@@ -730,7 +730,7 @@ impl FromCommand for SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
     /// ### Example
     /// ```ignore
-    /// use acorn_schema::schema::validate::SemanticVersion;
+    /// use acorn_schema::validate::SemanticVersion;
     ///
     /// let version = SemanticVersion::from_command("cargo").to_string();
     /// assert_eq!(version, "1.90.0");

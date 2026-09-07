@@ -24,7 +24,7 @@
 use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
 use crate::util::Label;
 use acorn_core::util::Searchable;
-use acorn_schema::schema::pid::{PersistentIdentifierParse, ROR};
+use acorn_schema::pid::{PersistentIdentifierParse, ROR};
 use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;

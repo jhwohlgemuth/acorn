@@ -1,7 +1,7 @@
 use super::super::*;
-use acorn_schema::schema::agent::opencode;
-use acorn_schema::schema::modelkit::kitfile::Kitfile;
-use acorn_schema::schema::standard::text::{Document, Text};
+use acorn_schema::agent::opencode;
+use acorn_schema::modelkit::kitfile::Kitfile;
+use acorn_schema::standard::text::{Document, Text};
 use std::fs::{read_to_string, write};
 use tempfile::tempdir;
 

@@ -15,6 +15,7 @@ fn normalized_process(args: &[String]) -> String {
         .env("NO_COLOR", "1")
         .env("CLICOLOR", "0")
         .env("TERM", "dumb")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args(args)
         .output()
         .unwrap();
@@ -78,6 +79,8 @@ fn fixture(name: &str) -> PathBuf {
 fn test_check_diagnostics_remain_on_stdout() {
     let output = Command::cargo_bin("acorn")
         .unwrap()
+        .env("NO_COLOR", "1")
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args([
             "--offline",
             "check",
@@ -230,6 +233,7 @@ fn test_check_validation_compatibility_snapshots() {
 fn test_check_pdf_as_document_text() {
     Command::cargo_bin("acorn")
         .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args([
             "--offline",
             "check",
@@ -247,6 +251,7 @@ fn test_check_pdf_as_document_text() {
 fn test_dcat_check_valid_dataset() {
     Command::cargo_bin("acorn")
         .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args(["check", "--standard", "dcat", &dcat_fixture("dcat-us-dataset.json").to_string_lossy()])
         .assert()
         .success();
@@ -256,6 +261,7 @@ fn test_dcat_check_valid_dataset() {
 fn test_dcat_check_valid_catalog() {
     Command::cargo_bin("acorn")
         .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args(["check", "--standard", "dcat", &dcat_fixture("dcat-us-catalog.json").to_string_lossy()])
         .assert()
         .success();
@@ -265,6 +271,7 @@ fn test_dcat_check_valid_catalog() {
 fn test_dcat_check_invalid_dataset() {
     Command::cargo_bin("acorn")
         .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
         .args([
             "check",
             "--standard",

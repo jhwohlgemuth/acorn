@@ -101,7 +101,7 @@
 //! ```
 //!
 //! ```rust,no_run
-//! use acorn_schema::schema::research_activity::ResearchActivity;
+//! use acorn_schema::research_activity::ResearchActivity;
 //! use acorn_schema::Validate;
 //! use eserde::json::from_str;
 //!
@@ -123,7 +123,7 @@
 use acorn::analyzer::error::ErrorKind;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{check_readability_for_text, Check, CheckSummary};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::{Validate, ValidationIssue};
 use serde::Serialize;
 use serde_json::{Map, Value};

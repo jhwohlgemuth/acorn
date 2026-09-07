@@ -1,7 +1,7 @@
 use crate::io::api::openalex::{self, Options, Work};
 use crate::io::api::Endpoint;
 use crate::io::workflow::EnrichmentResult;
-use acorn_schema::schema::research_activity::ResearchOutput;
+use acorn_schema::research_activity::ResearchOutput;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::eyre;
 

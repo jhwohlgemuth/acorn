@@ -156,8 +156,8 @@ test-all:
 	@cargo nextest run --run-ignored all
 
 test-ci: lint
-	@cargo test --lib --bins --tests
-	@cargo test --lib --bins --tests --no-default-features
+	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests
+	@XDG_CACHE_HOME=$(CURDIR)/.cache cargo test --lib --bins --tests --no-default-features
 
 fuzz:
 	@cargo +nightly fuzz run --fuzz-dir fuzz $(FUZZ_TARGET) $(FUZZ_ARGS)

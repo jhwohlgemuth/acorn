@@ -12,7 +12,7 @@ use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, Arc
 use acorn::util::{Label, StringConversion};
 use acorn_core::prelude::Arc;
 use acorn_core::util::MimeType;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use itertools::izip;
 use nanoid::nanoid;
@@ -405,7 +405,7 @@ mod tests {
     use super::{add_aspect_chart, add_slide, prepare_destination};
     use crate::test::util::{temp_test_dir, TestCleanup};
     use acorn::io::{read_file, write_file};
-    use acorn_schema::schema::research_activity::ResearchActivity;
+    use acorn_schema::research_activity::ResearchActivity;
     use std::env::temp_dir;
     use std::fs::{create_dir_all, read};
     use std::path::Path;

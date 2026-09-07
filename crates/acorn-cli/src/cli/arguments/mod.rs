@@ -13,9 +13,9 @@ use acorn::util::constants::app::{
 };
 use acorn::util::constants::env::{CHROME_PATH, MINIMUM_DOWNLOAD_COUNT, SEARCH_LIMIT};
 use acorn_core::util::MimeType;
+use acorn_schema::agent::Quantization;
 use acorn_schema::enrichment::Provider;
-use acorn_schema::schema::agent::Quantization;
-use acorn_schema::schema::hardware::memory::Memory;
+use acorn_schema::hardware::memory::Memory;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;

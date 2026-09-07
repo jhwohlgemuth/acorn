@@ -5,7 +5,7 @@ use super::*;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{orcid, osti};
 use crate::io::read_file;
-use acorn_schema::schema::discovery::{Person, ProjectOrganization};
+use acorn_schema::discovery::{Person, ProjectOrganization};
 use std::fs::remove_file;
 
 #[tokio::test]
@@ -746,7 +746,7 @@ fn test_remote_request_converts_to_osti_options() {
     let request = RemoteSearchRequest::init()
         .provider(RemoteProvider::Osti)
         .entity(RemoteEntity::Organization)
-        .organization_role(acorn_schema::schema::discovery::RemoteOrganizationRole::Research)
+        .organization_role(acorn_schema::discovery::RemoteOrganizationRole::Research)
         .limit(50)
         .offset(25)
         .all(true)
@@ -755,10 +755,7 @@ fn test_remote_request_converts_to_osti_options() {
     assert_eq!(options.query, "");
     assert_eq!(options.view, osti::SearchView::Organizations);
     assert_eq!(options.organization.as_deref(), Some("ORNL"));
-    assert_eq!(
-        options.organization_role,
-        acorn_schema::schema::discovery::RemoteOrganizationRole::Research
-    );
+    assert_eq!(options.organization_role, acorn_schema::discovery::RemoteOrganizationRole::Research);
     assert_eq!(options.limit, 50);
     assert_eq!(options.start, 25);
     assert!(options.all);

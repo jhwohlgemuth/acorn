@@ -16,7 +16,7 @@ ASPECT leverages a simplified mapping from augmented technology readiness levels
 | Proven | 9 | System is proven through successful real-world operation. |
 
 > [!TIP]
-> [Read docs.rs documentation for maturity levels](https://docs.rs/acorn-schema/latest/acorn_schema/schema/research_activity/aspect/maturity/index.html)
+> [Read docs.rs documentation for maturity levels](https://docs.rs/acorn-schema/latest/acorn_schema/research_activity/aspect/maturity/index.html)
 
 [^lavin]: A. Lavin et al., "Technology readiness levels for machine learning systems," Nat Commun, vol. 13, no. 1, p. 6039, Oct. 2022, doi: 10.1038/s41467-022-33128-9.
 [^wikipedia]: Technology Readiness Level: [https://en.wikipedia.org/wiki/Technology_readiness_level](https://en.wikipedia.org/wiki/Technology_readiness_level)

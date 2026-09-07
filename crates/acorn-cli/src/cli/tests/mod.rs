@@ -15,7 +15,7 @@ use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::{MarkdownSupport, MimeType};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
 use std::fs::{create_dir_all, write};

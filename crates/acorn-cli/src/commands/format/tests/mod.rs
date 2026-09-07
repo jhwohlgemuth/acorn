@@ -13,7 +13,7 @@
 use crate::commands::format::run;
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn_schema::enrichment::Provider;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::fs;

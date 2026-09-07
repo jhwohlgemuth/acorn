@@ -5,7 +5,7 @@ use super::*;
 use acorn::io::write_file;
 use acorn::io::InputOutput;
 use acorn_core::Location;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use assert_cmd::Command;
 use std::env::temp_dir;
 use std::path::PathBuf;

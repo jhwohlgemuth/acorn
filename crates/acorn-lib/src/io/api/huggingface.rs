@@ -15,7 +15,7 @@ use crate::util::Label;
 use acorn_core::prelude::HashMap;
 use acorn_core::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric};
 use acorn_core::{Location, Repository};
-use acorn_schema::schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
+use acorn_schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;

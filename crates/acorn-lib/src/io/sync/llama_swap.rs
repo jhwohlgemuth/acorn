@@ -13,7 +13,7 @@ use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
 use crate::util::StringConversion;
 use crate::util::ToStrings;
 use acorn_core::validation::ValidationError;
-use acorn_schema::schema::agent::ModelDetails;
+use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::{Validate, ValidationReport};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;

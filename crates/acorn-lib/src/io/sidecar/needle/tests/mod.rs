@@ -1,6 +1,6 @@
 use super::{assets, write_tools};
 use crate::io::sidecar::{ModelKitManifest, ResolvedAssets};
-use acorn_schema::schema::agent::tools::NeedleToolDefinition;
+use acorn_schema::agent::tools::NeedleToolDefinition;
 
 #[test]
 fn test_custom_catalog_must_match_exactly() {

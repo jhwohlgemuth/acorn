@@ -25,7 +25,7 @@ Give each shared behavior one owner and make callers depend on that owner direct
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/pid/{handle,swhid}/mod.rs`, `schema/mod.rs`, and `validation/mod.rs`; `crates/acorn-core/src/util/alloc.rs`; `crates/acorn-lib/src/io/sync/` and provider API modules; `crates/acorn-cli/src/commands/{download,import}/`; `crates/acorn-tui/src/screens/` and `widgets/status_bar.rs`; adjacent focused tests.
+- **Update:** `crates/acorn-schema/src/pid/{handle,swhid}/mod.rs`, `lib.rs`, and `validation/mod.rs`; `crates/acorn-core/src/util/alloc.rs`; `crates/acorn-lib/src/io/sync/` and provider API modules; `crates/acorn-cli/src/commands/{download,import}/`; `crates/acorn-tui/src/screens/` and `widgets/status_bar.rs`; adjacent focused tests.
 - **Create:** dedicated shared test helpers only when at least two existing test modules consume them.
 - **Delete:** screen-local status-bar renderers after the widget accepts their required theme and key-label representation.
 

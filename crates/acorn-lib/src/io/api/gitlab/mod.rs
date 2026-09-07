@@ -12,7 +12,7 @@ use crate::util::constants::app::{GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_PRIVA
 use crate::util::Label;
 use acorn_core::prelude::HashMap;
 use acorn_core::util::{Searchable, SemanticVersion};
-use acorn_schema::schema::validate::is_iso_date_or_rfc3339_timestamp;
+use acorn_schema::validate::is_iso_date_or_rfc3339_timestamp;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use bon::Builder;

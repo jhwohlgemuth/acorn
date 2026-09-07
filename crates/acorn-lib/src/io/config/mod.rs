@@ -16,8 +16,8 @@ use crate::util::Label;
 use acorn_core::prelude::HashSet;
 use acorn_core::validation::ValidationError;
 use acorn_core::{Location, Repository};
-use acorn_schema::schema::agent::{ModelDetails, Quantization};
-use acorn_schema::schema::hardware::memory::Memory;
+use acorn_schema::agent::{ModelDetails, Quantization};
+use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::{Validate, ValidationReport};
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
@@ -230,7 +230,7 @@ pub struct ModelEntryOptions {
     pub ignore: Option<Vec<String>>,
     /// Ordered exact GGUF quantization allowlist
     #[serde(default)]
-    pub quantization: Option<acorn_schema::schema::OneOrMany<Quantization>>,
+    pub quantization: Option<acorn_schema::OneOrMany<Quantization>>,
     /// Maximum GPU memory available for model weights
     #[serde(default)]
     pub gpu_memory: Option<Memory>,

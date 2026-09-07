@@ -1,5 +1,5 @@
 //! Embedded constant assets
-use crate::schema::vocabulary;
+use crate::vocabulary;
 use acorn_core::prelude::alloc::String;
 use acorn_core::util::assets::EmbeddedAssets;
 /// Embedded ACORN constant assets

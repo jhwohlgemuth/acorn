@@ -31,8 +31,8 @@ use crate::io::ApiResult;
 use crate::param;
 use crate::util::Label;
 use acorn_core::util::Searchable;
-use acorn_schema::schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
-use acorn_schema::schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
+use acorn_schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
+use acorn_schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -62,7 +62,7 @@ pub enum SearchField {
     GivenNames,
     /// Keyword
     Keyword,
-    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::pid::ORCID) identifier
     /// ### Examples
     /// - `0000-0002-2057-9115` (Jason Wohlgemuth)
     /// - `0009-0005-5568-6526` (Audrey Carson)
@@ -94,7 +94,7 @@ pub enum OutputColumn {
     GivenNames,
     /// Family names
     FamilyName,
-    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::pid::ORCID) identifier
     Orcid,
     /// Other name
     OtherName,
@@ -160,7 +160,7 @@ pub struct SearchResponse {
 #[derive(Builder, Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct SearchResult {
-    /// [`ORCID`](acorn_schema::schema::pid::ORCID) identifier
+    /// [`ORCID`](acorn_schema::pid::ORCID) identifier
     #[serde(rename = "orcid-id")]
     pub orcid_id: Option<String>,
     /// Given names (first name(s))

@@ -11,7 +11,7 @@ The ACORN CLI application uses `acorn-lib` for host capabilities such as filesys
 
 The library also provides building blocks for optional AI-enabled applications:
 
-- `acorn_schema::schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
+- `acorn_schema::agent` models language models, providers, benchmark harnesses, prompt files, and agent-oriented OpenCode configuration.
 - Embedded prompt templates support summarization, translation, teaching, claim extraction, and gap finding.
 - `acorn::io::api::openai` provides a client for completions, chat completions, responses, embeddings, model discovery, and related operations using supported OpenAI-style HTTP endpoints and JSON formats. It can call OpenAI's service or another compatible server, including a local one such as llama-swap; "OpenAI-compatible" describes the connection format, not the model provider.
 

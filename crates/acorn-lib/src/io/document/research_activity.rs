@@ -2,7 +2,7 @@
 use super::{DocumentEntry, DocumentParser, SourceDocument};
 use acorn_core::prelude::{format, Vec};
 use acorn_core::util::MarkdownSupport;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use convert_case::{Case, Casing};
 
 pub(crate) struct MarkdownParser;

@@ -4,7 +4,7 @@ use crate::error::ApiResult;
 use crate::io::{jsonc_parse_value, read_file, FromPath};
 use crate::util::Label;
 use acorn_core::util::MimeType;
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;

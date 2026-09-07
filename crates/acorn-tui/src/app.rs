@@ -5,7 +5,7 @@ use acorn::analyzer::host::discovery::{RemoteMatch, RemoteSearchResponse};
 use acorn::analyzer::Check;
 use acorn::doctor::{MemoryInformation, NetworkInformation, SystemInformation, SystemSoftwareInformation, TableFormatPrint};
 use acorn::io::api::huggingface;
-use acorn_schema::schema::discovery::RemoteOrganizationRole;
+use acorn_schema::discovery::RemoteOrganizationRole;
 use color_eyre::eyre::Result;
 use crossterm::event;
 use ratatui::backend::CrosstermBackend;

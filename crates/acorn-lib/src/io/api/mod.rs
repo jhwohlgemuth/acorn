@@ -12,7 +12,7 @@ use crate::util::{Constant, Label};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::{detect_json, detect_xml, Searchable};
 use acorn_core::{Location, Repository, Scheme};
-use acorn_schema::schema::agent::AuthenticationScheme;
+use acorn_schema::agent::AuthenticationScheme;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use axum::http::header::{HeaderName, HeaderValue};

@@ -243,7 +243,7 @@ Also verify:
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Folder moves unintentionally change public paths or relative imports. | High | Move one entry at a time and compile existing import sites after each move. |
-| Consolidated validation broadens internal visibility. | Medium | Use `pub(in crate::schema)` for relocated standard-specific helpers. |
+| Consolidated validation broadens internal visibility. | Medium | Use `pub(crate)` for relocated standard-specific helpers. |
 | Generic claims are mistaken for official recognition. | High | Keep claim assessment and OCP recognition as separate types with distinct validation. |
 | OCP projects or contribution categories evolve. | Medium | Use open newtypes and explicit fallback variants instead of closed project enums. |
 | Detailed infrastructure exposes operationally sensitive information. | High | Exclude credentials, management endpoints, hostnames, serial numbers, and fine-grained facility locations from the portable public model. |
