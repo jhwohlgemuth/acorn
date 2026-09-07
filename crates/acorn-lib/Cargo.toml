@@ -143,63 +143,44 @@ core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
 analyzer = ["alloc"]
-unicode = ["std", "console/std"]
-agentic = ["std", "dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["analyzer", "std", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
+std-core = ["alloc", "acorn-core/std", "acorn-schema/alloc", "jiff/std", "dep:color-eyre"]
+net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:lychee-lib", "dep:tokio", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa"]
+archive = ["std-core", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
+template = ["std-core", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
+progress = ["std-core", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]
+cli-util = ["std-core", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_executable", "dep:glob", "dep:shell-words", "dep:arboard", "dep:infer"]
+db = ["std-core", "dep:rusqlite"]
+unicode = ["std-core", "console/std"]
+agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower"]
+analysis = ["analyzer", "std-core", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
 chart = ["dep:resvg"]
-default = ["analysis", "agentic", "cmd", "shell-lint", "unicode"]
-doctor = ["std", "dep:sysinfo"]
-duckdb = ["std", "dep:duckdb"]
-powerpoint = ["std"]
+default = ["std"]
+doctor = ["std-core", "dep:sysinfo"]
+duckdb = ["std-core", "dep:duckdb"]
+powerpoint = ["std-core"]
 needle = ["agentic", "cmd"]
 std = [
-  "alloc",
-  "acorn-core/std",
-  "acorn-schema/std",
-  "dep:ammonia",
-  "dep:anydoc",
-  "dep:arboard",
-  "dep:async-trait",
-  "dep:color-eyre",
-  "jiff/std",
-  "dep:axum",
-  "dep:http",
-  "dep:comfy-table",
-  "dep:console",
-  "dep:directories",
-  "dep:dotenvy",
-  "dep:flate2",
-  "dep:futures",
-  "dep:glob",
-  "dep:httpdate",
-  "dep:indicatif",
-  "dep:infer",
-  "dep:is_executable",
-  "dep:lychee-lib",
-  "dep:nanoid",
-  "dep:owo-colors",
-  "dep:percy-dom",
-  "dep:pdf-inspector",
-  "dep:rand",
-  "dep:reqwest",
-  "dep:ring",
-  "dep:rsa",
-  "dep:rust-embed",
-  "dep:rusqlite",
-  "dep:sevenz-rust2",
-  "dep:shell-words",
-  "dep:similar",
-  "dep:tar",
-  "dep:tera",
-  "dep:tokio",
-  "dep:tower",
-  "dep:which",
-  "dep:zip",
-  "dep:zstd",
+  "std-core",
+  "agentic",
+  "analysis",
+  "unicode",
+  "cmd",
+  "shell-lint",
+  "doctor",
+  "powerpoint",
+  "duckdb",
+  "swhid-compute",
+  "net",
+  "archive",
+  "template",
+  "progress",
+  "cli-util",
+  "db",
+  "chart",
 ]
-cmd = ["std"]
-shell-lint = ["std", "dep:shuck-linter", "dep:shuck-parser"]
-swhid-compute = ["std", "dep:swhid"]
+cmd = ["std-core"]
+shell-lint = ["std-core", "dep:shuck-linter", "dep:shuck-parser"]
+swhid-compute = ["std-core", "dep:swhid"]
 
 [lints]
 workspace = true
