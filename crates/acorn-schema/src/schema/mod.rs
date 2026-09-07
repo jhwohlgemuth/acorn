@@ -81,7 +81,7 @@ pub type Keyword = String;
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
-#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, PartialEq, PartialOrd, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, Serialize, Deserialize, Eq, Ord, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ClassificationLevel {
     /// ### Unclassified (U)

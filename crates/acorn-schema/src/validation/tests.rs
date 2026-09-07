@@ -100,6 +100,13 @@ struct FlatAlternativeRules {
     #[validate(or(url, email, not(nonempty)))]
     value: String,
 }
+#[derive(Serialize, Validate)]
+struct JsonRules {
+    #[validate(json)]
+    value: String,
+    #[validate(json)]
+    optional: Option<String>,
+}
 struct ManualAsyncValidation;
 struct ManualValidation;
 #[derive(Serialize, Validate)]
@@ -462,6 +469,22 @@ fn test_first_class_scalar_rules_use_builtin_validation() {
     );
 }
 #[test]
+fn test_json_rule_validates_direct_and_optional_values() {
+    let valid = JsonRules {
+        value: r#"{"name":"ACORN"}"#.to_string(),
+        optional: None,
+    };
+    assert!(valid.validate().is_ok());
+    let report = JsonRules {
+        value: "{".to_string(),
+        optional: Some("not JSON".to_string()),
+    }
+    .validate()
+    .expect_err("malformed JSON should fail");
+    assert_eq!(report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(), ["value", "optional"]);
+    assert!(report.iter().all(|issue| issue.error.code == "json"));
+}
+#[test]
 fn test_lossy_version_extraction_remains_available() {
     assert_eq!(SemanticVersion::from("tool v1.2.3 (build 9)"), SemanticVersion::from((1, 2, 3)));
 }
@@ -770,6 +793,14 @@ fn test_timestamp_and_nonempty_cover_direct_optional_and_each_values() {
             .and_then(|issue| issue.error.message.as_deref()),
         Some("text is required")
     );
+}
+#[test]
+fn test_parse_timestamp_returns_the_validated_instant() {
+    assert_eq!(
+        super::rules::parse_timestamp("2026-08-29T12:30:00-04:00").map(|timestamp| timestamp.to_string()),
+        Ok("2026-08-29T16:30:00Z".to_string())
+    );
+    assert!(super::rules::parse_timestamp("2026-08-29").is_err());
 }
 #[test]
 fn test_timestamp_requires_a_complete_valid_instant_with_an_explicit_offset() {

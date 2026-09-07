@@ -2,12 +2,14 @@
 #[cfg(feature = "analysis")]
 use crate::analyzer::Standard;
 use crate::error::ApiResult;
+use crate::io::database::schema::Table;
+use crate::io::database::Database;
 use crate::io::enrichment::{Enrich, Pipeline};
 use acorn_core::prelude::{Box, String, Vec};
-use acorn_core::util::MimeType;
+use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_core::Location;
 use acorn_schema::schema::agent::tools::{NeedleToolDefinition, ToolDefinition, ToolExposure, ToolResult};
-use acorn_schema::schema::research_activity::ResearchActivity;
+use acorn_schema::schema::research_activity::{GraduationCandidates, ResearchActivity};
 use acorn_schema::validation::Validate;
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;
@@ -47,6 +49,28 @@ enum ExportFormat {
     Pdf,
     Powerpoint,
     Yaml,
+}
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum UpdatesExportFormat {
+    #[default]
+    Markdown,
+    Docx,
+    Pdf,
+}
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct ApplyLogbookGraduationInput {
+    activity: ResearchActivity,
+    accepted_ids: Vec<String>,
+}
+#[derive(Debug, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct ApplyLogbookGraduationOutput {
+    activity: ResearchActivity,
+    archived_count: usize,
+    research_activity_iid: String,
+    revision_iid: String,
 }
 #[cfg(feature = "analysis")]
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -93,6 +117,16 @@ struct FormatAndEnrichOutput {
     conflicts: Vec<String>,
     failures: Vec<String>,
 }
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ProposeLogbookGraduationInput {
+    activity: ResearchActivity,
+}
+#[derive(Debug, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ProposeLogbookGraduationOutput {
+    candidates: GraduationCandidates,
+}
 #[derive(Clone)]
 struct Registered {
     handler: ToolHandler,
@@ -123,6 +157,23 @@ pub struct ToolRegistry {
 struct Unregistered;
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct UpdatesExportInput {
+    activity: ResearchActivity,
+    since: String,
+    #[serde(default)]
+    format: UpdatesExportFormat,
+}
+#[derive(Debug, JsonSchema, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct UpdatesExportOutput {
+    content: String,
+    since: String,
+    format: UpdatesExportFormat,
+    entry_count: usize,
+    archived_count: usize,
+}
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct ValidationInput<T> {
     /// Value to validate.
     activity: T,
@@ -142,6 +193,18 @@ struct VersionInput {}
 #[serde(deny_unknown_fields)]
 struct VersionOutput {
     version: String,
+}
+impl ApplyLogbookGraduationInput {
+    async fn apply(self) -> ApiResult<ApplyLogbookGraduationOutput> {
+        Database::<Table>::default()
+            .graduate_logbook(self.activity, &self.accepted_ids)
+            .map(|persisted| ApplyLogbookGraduationOutput {
+                activity: persisted.activity,
+                archived_count: persisted.archived_count,
+                research_activity_iid: persisted.research_activity_iid,
+                revision_iid: persisted.revision_iid,
+            })
+    }
 }
 #[cfg(feature = "analysis")]
 impl CrosswalkFormat {
@@ -211,6 +274,12 @@ impl ToolRegistry {
             "Normalize research activity data and enrich it using configured metadata providers.",
         );
         format_definition.effects.open_world = true;
+        let mut apply_graduation_definition = ToolDefinition::new::<ApplyLogbookGraduationInput, ApplyLogbookGraduationOutput>(
+            "acorn.apply_logbook_graduation",
+            "Apply logbook graduation",
+            "Transactionally back up the research activity, copy accepted logbook values into canonical metadata, and archive the retained entries.",
+        );
+        apply_graduation_definition.effects.read_only = false;
         let registry = Self::default()
             .register(
                 ToolDefinition::new::<VersionInput, VersionOutput>(
@@ -253,7 +322,28 @@ impl ToolRegistry {
                     ),
                     export,
                 )
-            });
+            })
+            .and_then(|registry| {
+                registry.register(
+                    ToolDefinition::new::<UpdatesExportInput, UpdatesExportOutput>(
+                        "acorn.export_research_activity_updates",
+                        "Export research activity updates",
+                        "Render logbook entries at or after an inclusive RFC 3339 timestamp.",
+                    ),
+                    UpdatesExportInput::export,
+                )
+            })
+            .and_then(|registry| {
+                registry.register(
+                    ToolDefinition::new::<ProposeLogbookGraduationInput, ProposeLogbookGraduationOutput>(
+                        "acorn.propose_logbook_graduation",
+                        "Propose logbook graduation",
+                        "Return reviewable logbook entries that can be copied into canonical activity metadata.",
+                    ),
+                    propose_logbook_graduation,
+                )
+            })
+            .and_then(|registry| registry.register(apply_graduation_definition, ApplyLogbookGraduationInput::apply));
         #[cfg(feature = "analysis")]
         let registry = registry.and_then(|registry| {
             registry.register(
@@ -357,7 +447,20 @@ impl ToolRegistry {
         }
     }
 }
-
+impl UpdatesExportInput {
+    async fn export(self) -> ApiResult<UpdatesExportOutput> {
+        self.activity
+            .updates_since(&self.since)
+            .map(|updates| UpdatesExportOutput {
+                content: updates.to_markdown(),
+                since: updates.since.clone(),
+                format: self.format,
+                entry_count: updates.entries.len(),
+                archived_count: updates.archived_count(),
+            })
+            .map_err(|why| eyre!(why))
+    }
+}
 #[cfg(feature = "analysis")]
 async fn crosswalk(input: CrosswalkInput) -> ApiResult<CrosswalkOutput> {
     input
@@ -402,6 +505,11 @@ async fn format_and_enrich(input: FormatAndEnrichInput) -> ApiResult<FormatAndEn
             conflicts: result.conflicts,
             failures: result.failures,
         })
+}
+async fn propose_logbook_graduation(input: ProposeLogbookGraduationInput) -> ApiResult<ProposeLogbookGraduationOutput> {
+    Ok(ProposeLogbookGraduationOutput {
+        candidates: input.activity.into(),
+    })
 }
 async fn validate<T: Validate>(input: ValidationInput<T>) -> ApiResult<ValidationOutput> {
     Ok(match input.activity.validate() {

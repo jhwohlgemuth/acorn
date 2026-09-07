@@ -44,6 +44,7 @@ dependencies = [
  "owo-colors",
  "percy-dom",
  "pretty_assertions",
+ "quick-xml 0.39.4",
  "rayon",
  "reqwest 0.13.4",
  "rusqlite",

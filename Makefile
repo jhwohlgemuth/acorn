@@ -128,7 +128,7 @@ doc:
 doctest:
 	@cargo test --doc
 
-lint: shellcheck
+lint: shellcheck sqlcheck
 	@cargo fmt --check
 	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
 
@@ -137,6 +137,11 @@ shellcheck:
 		for file in $$(find scripts -type f -name '*.sh'); do tr -d '\r' < "$$file" > "$$file.tmp" && mv "$$file.tmp" "$$file"; done; \
 		find scripts -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck; \
 	else echo "shellcheck not found, skipping"; fi
+
+sqlcheck:
+	@if command -v sqruff >/dev/null 2>&1; then \
+		sqruff fix crates/acorn-lib/assets/migrations && sqruff lint crates/acorn-lib/assets/migrations; \
+	else echo "sqruff not found, skipping"; fi
 
 publish-book: book
 	@git clone "https://user:${ACCESS_TOKEN}@code-int.ornl.gov/sites/acorn.git" site
@@ -303,6 +308,7 @@ DEV_DEPENDENCIES = \
 	mdbook \
 	mdbook-mermaid \
 	mdbook-pikchr \
+	sqruff \
 	wasm-pack
 TARGETS = \
 	i586-unknown-linux-musl \
@@ -336,6 +342,7 @@ TASKS = \
 	bench-report \
 	lint \
 	shellcheck \
+	sqlcheck \
 	fuzz \
 	fuzz-repro \
 	help \

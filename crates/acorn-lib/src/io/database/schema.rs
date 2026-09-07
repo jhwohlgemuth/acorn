@@ -9,11 +9,13 @@ use crate::util::{print_values_as_table, Label};
 use acorn_core::util::to_rfc3339;
 use acorn_macros::DatabaseRow;
 use acorn_schema::schema::agent::Weights;
+use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::Timestamp;
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -45,9 +47,13 @@ pub enum Table {
     Providers = 8,
     /// Persistent identifiers discovered by gather
     Discoveries = 9,
+    /// Logbook entries linked to canonical research activities
+    LogbookEntries = 10,
+    /// Immutable snapshots of canonical research activity data
+    ResearchActivityRevisions = 11,
 }
 /// Activity log entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = activity, order_by = "executed_at DESC")]
 pub struct ActivityRow {
@@ -56,6 +62,7 @@ pub struct ActivityRow {
     /// Command that was executed
     pub command: Option<String>,
     /// When the command was executed
+    #[validate(timestamp)]
     pub executed_at: Option<Timestamp>,
     /// Path provided by user (if any)
     pub user_path: Option<String>,
@@ -63,7 +70,7 @@ pub struct ActivityRow {
     pub success: Option<bool>,
 }
 /// Catalog/index entry from bucket
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = catalog, order_by = "title")]
 pub struct CatalogRow {
@@ -78,22 +85,25 @@ pub struct CatalogRow {
     /// Research activity title
     pub title: Option<String>,
     /// When the entry was last updated
+    #[validate(timestamp)]
     pub updated_at: Option<Timestamp>,
 }
 /// Persistent identifier discovery history entry.
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = discoveries, order_by = "discovered_at DESC")]
 pub struct IdentifierRow {
     /// Unique identifier for the discovery entry.
     pub id: Option<i64>,
     /// When the identifier was discovered.
+    #[validate(timestamp)]
     pub discovered_at: Option<Timestamp>,
     /// Normalized persistent identifier.
     pub identifier: Option<String>,
     /// Persistent identifier type.
     pub identifier_type: Option<String>,
     /// Serialized resolved metadata, when requested and available.
+    #[validate(json)]
     pub metadata: Option<String>,
     /// Resolution outcome.
     pub resolution_status: Option<String>,
@@ -103,7 +113,7 @@ pub struct IdentifierRow {
     pub source_format: Option<String>,
 }
 /// SPDX license entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = licenses)]
 pub struct LicenseRow {
@@ -121,7 +131,7 @@ pub struct LicenseRow {
     pub is_open_source: Option<bool>,
 }
 /// Programming language metadata entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = programming_languages, order_by = "name")]
 pub struct ProgrammingLanguageRow {
@@ -139,7 +149,7 @@ pub struct ProgrammingLanguageRow {
     pub group_name: Option<String>,
 }
 /// Models.dev model metadata entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = models)]
 pub struct ModelRow {
@@ -181,9 +191,9 @@ pub struct ModelRow {
     pub limit_output: Option<i64>,
     /// Maximum input token count
     pub limit_input: Option<i64>,
-    /// Input modalities supported (JSON array)
+    /// Comma-separated input modalities supported
     pub modality_input: Option<String>,
-    /// Output modalities supported (JSON array)
+    /// Comma-separated output modalities supported
     pub modality_output: Option<String>,
     /// Cost per million input tokens
     pub cost_input: Option<f64>,
@@ -200,16 +210,20 @@ pub struct ModelRow {
     /// Cost per million output audio tokens
     pub cost_output_audio: Option<f64>,
     /// Pricing for context windows exceeding 200K tokens (JSON)
+    #[validate(json)]
     pub cost_over_200k: Option<String>,
     /// Pricing tiers (JSON array)
+    #[validate(json)]
     pub cost_tiers: Option<String>,
     /// Benchmark evaluation results (JSON array)
+    #[validate(json)]
     pub benchmarks: Option<String>,
     /// Download sources for model weights (JSON array)
+    #[validate(json)]
     pub weights: Option<String>,
 }
 /// Models.dev provider metadata entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = providers)]
 pub struct ProviderRow {
@@ -226,8 +240,9 @@ pub struct ProviderRow {
     /// Documentation URL
     pub documentation: Option<String>,
     /// Supported authentication methods (JSON array)
+    #[validate(json)]
     pub authentication: Option<String>,
-    /// Environment variables required (JSON array)
+    /// Comma-separated environment variables required
     pub env: Option<String>,
     /// npm package name for the provider's SDK
     pub npm: Option<String>,
@@ -241,7 +256,7 @@ pub struct ProviderRow {
     pub models: Option<String>,
 }
 /// Link check cache entry
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = link_cache)]
 pub struct LinkCacheRow {
@@ -254,12 +269,40 @@ pub struct LinkCacheRow {
     /// Whether the URL was reachable
     pub is_reachable: Option<bool>,
     /// When the URL was checked
+    #[validate(timestamp)]
     pub checked_at: Option<Timestamp>,
     /// When the cache entry expires
+    #[validate(timestamp)]
     pub expires_at: Option<Timestamp>,
 }
+/// A logbook entry linked to its canonical research activity.
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = logbook_entries, order_by = "timestamp DESC")]
+pub struct LogbookEntryRow {
+    /// Backend-local numeric identifier.
+    pub id: Option<i64>,
+    /// Portable research activity identifier.
+    pub research_activity_iid: Option<String>,
+    /// Stable identifier within the research activity logbook.
+    pub entry_identifier: Option<String>,
+    /// Complete serialized [`acorn_schema::schema::research_activity::LogbookEntry`].
+    #[validate(json)]
+    pub entry_json: Option<String>,
+    /// Logbook entry timestamp retained for indexed ordering.
+    #[validate(timestamp)]
+    pub timestamp: Option<Timestamp>,
+    /// Whether the entry has been graduated into canonical metadata.
+    pub archived: Option<bool>,
+    /// When this entry was first persisted.
+    #[validate(timestamp)]
+    pub created_at: Option<Timestamp>,
+    /// When this entry was last synchronized.
+    #[validate(timestamp)]
+    pub updated_at: Option<Timestamp>,
+}
 /// Canonical evolving research activity candidate.
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = research_activities, order_by = "updated_at DESC")]
 pub struct ResearchActivityRow {
@@ -268,18 +311,43 @@ pub struct ResearchActivityRow {
     /// Portable NanoID identifier.
     pub iid: Option<String>,
     /// Canonical partial or complete RAD JSON.
+    #[validate(json)]
     pub rad_json: Option<String>,
     /// Sorted normalized project identity keys as JSON.
+    #[validate(json)]
     pub identity_keys_json: Option<String>,
     /// Deduplicated provenance observations as JSON.
+    #[validate(json)]
     pub provenance_json: Option<String>,
     /// When the candidate was created.
+    #[validate(timestamp)]
     pub created_at: Option<Timestamp>,
     /// When the candidate was last enriched.
+    #[validate(timestamp)]
     pub updated_at: Option<Timestamp>,
 }
+/// Immutable backup of canonical research activity data before a mutation.
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[row(table = research_activity_revisions, order_by = "created_at DESC")]
+pub struct ResearchActivityRevisionRow {
+    /// Backend-local numeric identifier.
+    pub id: Option<i64>,
+    /// Portable revision identifier.
+    pub iid: Option<String>,
+    /// Portable identifier of the canonical research activity.
+    pub research_activity_iid: Option<String>,
+    /// Complete serialized research activity before mutation.
+    #[validate(json)]
+    pub rad_json: Option<String>,
+    /// Operation that caused the backup.
+    pub reason: Option<String>,
+    /// When the backup was created.
+    #[validate(timestamp)]
+    pub created_at: Option<Timestamp>,
+}
 /// Validation/check result history
-#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, DatabaseRow, Debug, Default, Deserialize, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[row(table = validation_history, order_by = "checked_at DESC")]
 pub struct ValidationRow {
@@ -294,7 +362,27 @@ pub struct ValidationRow {
     /// Validation message or error details
     pub message: Option<String>,
     /// When the validation was performed
+    #[validate(timestamp)]
     pub checked_at: Option<Timestamp>,
+}
+impl Table {
+    pub(super) fn unique_iid(&self, connection: &Connection) -> ApiResult<String> {
+        let table = self.name();
+        (0..8)
+            .map(|_| nanoid!())
+            .find_map(|iid| {
+                connection
+                    .query_row(
+                        &format!("SELECT COUNT(*) FROM {table} WHERE iid = ?"),
+                        backend::params![iid.clone()],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .ok()
+                    .filter(|count| *count == 0)
+                    .map(|_| iid)
+            })
+            .ok_or_else(|| eyre!("Failed to generate a unique identifier for {table}"))
+    }
 }
 impl From<&str> for Table {
     fn from(value: &str) -> Self {
@@ -304,7 +392,9 @@ impl From<&str> for Table {
             | "discoveries" | "discovery" => Self::Discoveries,
             | "licenses" | "license" => Self::Licenses,
             | "link_cache" | "linkcache" => Self::LinkCache,
+            | "logbook_entries" | "logbookentries" | "logbook" => Self::LogbookEntries,
             | "validation_history" | "validationhistory" => Self::ValidationHistory,
+            | "research_activity_revisions" | "researchactivityrevisions" | "revisions" => Self::ResearchActivityRevisions,
             | "research_activities" | "researchactivities" => Self::ResearchActivities,
             | "programming_languages" | "programminglanguages" | "languages" | "language" => Self::ProgrammingLanguages,
             | "models" | "model" => Self::Models,
@@ -483,6 +573,25 @@ impl From<BackendRow<'_>> for LinkCacheRow {
         LinkCacheRow::from(&row)
     }
 }
+impl From<&BackendRow<'_>> for LogbookEntryRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        LogbookEntryRow {
+            id: row.get(0).ok(),
+            research_activity_iid: row.get(1).ok(),
+            entry_identifier: row.get(2).ok(),
+            entry_json: row.get(3).ok(),
+            timestamp: row.parse_rfc3339(4),
+            archived: row.get::<_, i32>(5).ok().map(|value| value != 0),
+            created_at: row.parse_rfc3339(6),
+            updated_at: row.parse_rfc3339(7),
+        }
+    }
+}
+impl From<BackendRow<'_>> for LogbookEntryRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        LogbookEntryRow::from(&row)
+    }
+}
 impl From<&BackendRow<'_>> for ResearchActivityRow {
     fn from(row: &BackendRow<'_>) -> Self {
         ResearchActivityRow {
@@ -499,6 +608,23 @@ impl From<&BackendRow<'_>> for ResearchActivityRow {
 impl From<BackendRow<'_>> for ResearchActivityRow {
     fn from(row: BackendRow<'_>) -> Self {
         ResearchActivityRow::from(&row)
+    }
+}
+impl From<&BackendRow<'_>> for ResearchActivityRevisionRow {
+    fn from(row: &BackendRow<'_>) -> Self {
+        ResearchActivityRevisionRow {
+            id: row.get(0).ok(),
+            iid: row.get(1).ok(),
+            research_activity_iid: row.get(2).ok(),
+            rad_json: row.get(3).ok(),
+            reason: row.get(4).ok(),
+            created_at: row.parse_rfc3339(5),
+        }
+    }
+}
+impl From<BackendRow<'_>> for ResearchActivityRevisionRow {
+    fn from(row: BackendRow<'_>) -> Self {
+        ResearchActivityRevisionRow::from(&row)
     }
 }
 impl From<&BackendRow<'_>> for ValidationRow {
@@ -591,6 +717,20 @@ impl From<LinkCacheRow> for Vec<String> {
         ]
     }
 }
+impl From<LogbookEntryRow> for Vec<String> {
+    fn from(row: LogbookEntryRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.research_activity_iid.unwrap_or_default(),
+            row.entry_identifier.unwrap_or_default(),
+            row.entry_json.unwrap_or_default(),
+            row.timestamp.map_or_else(String::new, to_rfc3339),
+            row.archived.map_or_else(String::new, |value| value.to_string()),
+            row.created_at.map_or_else(String::new, to_rfc3339),
+            row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
 impl From<ResearchActivityRow> for Vec<String> {
     fn from(row: ResearchActivityRow) -> Self {
         vec![
@@ -601,6 +741,18 @@ impl From<ResearchActivityRow> for Vec<String> {
             row.provenance_json.unwrap_or_default(),
             row.created_at.map_or_else(String::new, to_rfc3339),
             row.updated_at.map_or_else(String::new, to_rfc3339),
+        ]
+    }
+}
+impl From<ResearchActivityRevisionRow> for Vec<String> {
+    fn from(row: ResearchActivityRevisionRow) -> Self {
+        vec![
+            row.id.map_or_else(String::new, |value| value.to_string()),
+            row.iid.unwrap_or_default(),
+            row.research_activity_iid.unwrap_or_default(),
+            row.rad_json.unwrap_or_default(),
+            row.reason.unwrap_or_default(),
+            row.created_at.map_or_else(String::new, to_rfc3339),
         ]
     }
 }
@@ -754,6 +906,20 @@ impl fmt::Display for LinkCacheRow {
         .and_then(|_| write_optional_timestamp(f, "expires_at", self.expires_at.as_ref()))
     }
 }
+impl fmt::Display for LogbookEntryRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "LogbookEntryRow = id: {}, research_activity_iid: {}, entry_identifier: {}, archived: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.research_activity_iid.as_ref()),
+            display_or_none(self.entry_identifier.as_ref()),
+            self.archived.unwrap_or(false)
+        )
+        .and_then(|_| write_optional_timestamp(f, "timestamp", self.timestamp.as_ref()))
+        .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
+    }
+}
 impl fmt::Display for ResearchActivityRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -764,6 +930,19 @@ impl fmt::Display for ResearchActivityRow {
         )
         .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
         .and_then(|_| write_optional_timestamp(f, "updated_at", self.updated_at.as_ref()))
+    }
+}
+impl fmt::Display for ResearchActivityRevisionRow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ResearchActivityRevisionRow = id: {}, iid: {}, research_activity_iid: {}, reason: {}",
+            display_or_none(self.id.as_ref()),
+            display_or_none(self.iid.as_ref()),
+            display_or_none(self.research_activity_iid.as_ref()),
+            display_or_none(self.reason.as_ref())
+        )
+        .and_then(|_| write_optional_timestamp(f, "created_at", self.created_at.as_ref()))
     }
 }
 impl fmt::Display for ValidationRow {
@@ -830,8 +1009,10 @@ impl TableSchemaProvider for Table {
             Table::Discoveries,
             Table::Licenses,
             Table::LinkCache,
+            Table::LogbookEntries,
             Table::ValidationHistory,
             Table::ResearchActivities,
+            Table::ResearchActivityRevisions,
             Table::ProgrammingLanguages,
             Table::Models,
             Table::Providers,
@@ -839,146 +1020,21 @@ impl TableSchemaProvider for Table {
     }
     /// Returns CREATE TABLE SQL statement
     fn create_statement(&self) -> String {
-        let columns = match self {
-            | Table::Activity => {
-                r#"
-                    command TEXT NOT NULL,
-                    executed_at TEXT NOT NULL,
-                    user_path TEXT,
-                    success INTEGER NOT NULL DEFAULT 1
-                "#
-            }
-            | Table::Catalog => {
-                r#"
-                    bucket_name TEXT NOT NULL,
-                    bucket_url TEXT NOT NULL,
-                    identifier TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(bucket_name, identifier)
-                "#
-            }
-            | Table::Discoveries => {
-                r#"
-                    discovered_at TEXT NOT NULL,
-                    identifier TEXT NOT NULL,
-                    identifier_type TEXT NOT NULL,
-                    metadata TEXT,
-                    resolution_status TEXT NOT NULL,
-                    source TEXT NOT NULL,
-                    source_format TEXT NOT NULL
-                "#
-            }
-            | Table::Licenses => {
-                r#"
-                    identifier TEXT NOT NULL UNIQUE,
-                    name TEXT NOT NULL,
-                    is_deprecated INTEGER NOT NULL,
-                    is_free_software INTEGER NOT NULL,
-                    is_open_source INTEGER NOT NULL
-                "#
-            }
-            | Table::LinkCache => {
-                r#"
-                    url TEXT NOT NULL UNIQUE,
-                    status_code INTEGER NOT NULL,
-                    is_reachable INTEGER NOT NULL,
-                    checked_at TEXT NOT NULL,
-                    expires_at TEXT NOT NULL
-                "#
-            }
-            | Table::ValidationHistory => {
-                r#"
-                    path TEXT NOT NULL,
-                    check_type TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    message TEXT NOT NULL,
-                    checked_at TEXT NOT NULL
-                "#
-            }
-            | Table::ResearchActivities => {
-                r#"
-                    iid TEXT NOT NULL UNIQUE,
-                    rad_json TEXT NOT NULL,
-                    identity_keys_json TEXT NOT NULL,
-                    provenance_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                "#
-            }
-            | Table::ProgrammingLanguages => {
-                r#"
-                    language_id INTEGER,
-                    name TEXT NOT NULL UNIQUE,
-                    language_type TEXT,
-                    color TEXT,
-                    group_name TEXT
-                "#
-            }
-            | Table::Models => {
-                r#"
-                    model_id TEXT NOT NULL UNIQUE,
-                    name TEXT,
-                    family TEXT,
-                    variant TEXT,
-                    version TEXT,
-                    attachment INTEGER,
-                    open_weights INTEGER,
-                    reasoning INTEGER,
-                    structured_output INTEGER,
-                    temperature INTEGER,
-                    tool_call INTEGER,
-                    parameters INTEGER,
-                    release_date TEXT,
-                    knowledge TEXT,
-                    last_updated TEXT,
-                    limit_context INTEGER,
-                    limit_output INTEGER,
-                    limit_input INTEGER,
-                    modality_input TEXT,
-                    modality_output TEXT,
-                    cost_input REAL,
-                    cost_output REAL,
-                    cost_cache_read REAL,
-                    cost_cache_write REAL,
-                    cost_reasoning REAL,
-                    cost_input_audio REAL,
-                    cost_output_audio REAL,
-                    cost_over_200k TEXT,
-                    cost_tiers TEXT,
-                    benchmarks TEXT,
-                    weights TEXT
-                "#
-            }
-            | Table::Providers => {
-                r#"
-                    provider_id TEXT NOT NULL UNIQUE,
-                    name TEXT,
-                    description TEXT,
-                    endpoint TEXT,
-                    documentation TEXT,
-                    authentication TEXT,
-                    env TEXT,
-                    npm TEXT,
-                    url TEXT,
-                    established_date TEXT,
-                    last_updated TEXT,
-                    models TEXT
-                "#
-            }
+        let migration = match self {
+            | Table::Activity => include_str!("../../../assets/migrations/0000_create_activity.sql"),
+            | Table::Catalog => include_str!("../../../assets/migrations/0001_create_catalog.sql"),
+            | Table::Licenses => include_str!("../../../assets/migrations/0002_create_licenses.sql"),
+            | Table::LinkCache => include_str!("../../../assets/migrations/0003_create_link_cache.sql"),
+            | Table::ValidationHistory => include_str!("../../../assets/migrations/0004_create_validation_history.sql"),
+            | Table::ResearchActivities => include_str!("../../../assets/migrations/0005_create_research_activities.sql"),
+            | Table::ProgrammingLanguages => include_str!("../../../assets/migrations/0006_create_programming_languages.sql"),
+            | Table::Models => include_str!("../../../assets/migrations/0007_create_models.sql"),
+            | Table::Providers => include_str!("../../../assets/migrations/0008_create_providers.sql"),
+            | Table::Discoveries => include_str!("../../../assets/migrations/0009_create_discoveries.sql"),
+            | Table::LogbookEntries => include_str!("../../../assets/migrations/0010_create_logbook_entries.sql"),
+            | Table::ResearchActivityRevisions => include_str!("../../../assets/migrations/0011_create_research_activity_revisions.sql"),
         };
-
-        format!(
-            r#"
-                CREATE TABLE IF NOT EXISTS {} (
-                    {},
-                    {}
-                )
-                "#,
-            self.name(),
-            id_column_definition(),
-            columns.trim()
-        )
+        migration.replace("{id_column}", id_column_definition())
     }
     /// Returns the table name as a string
     fn name(&self) -> &'static str {
@@ -988,8 +1044,10 @@ impl TableSchemaProvider for Table {
             | Table::Discoveries => "discoveries",
             | Table::Licenses => "licenses",
             | Table::LinkCache => "link_cache",
+            | Table::LogbookEntries => "logbook_entries",
             | Table::ValidationHistory => "validation_history",
             | Table::ResearchActivities => "research_activities",
+            | Table::ResearchActivityRevisions => "research_activity_revisions",
             | Table::ProgrammingLanguages => "programming_languages",
             | Table::Models => "models",
             | Table::Providers => "providers",
@@ -1074,8 +1132,10 @@ impl TableSchemaProvider for Table {
             | Table::Licenses => print_rows::<LicenseRow>(self, path.as_ref()),
             | Table::ProgrammingLanguages => print_rows::<ProgrammingLanguageRow>(self, path.as_ref()),
             | Table::LinkCache => print_rows::<LinkCacheRow>(self, path.as_ref()),
+            | Table::LogbookEntries => print_rows::<LogbookEntryRow>(self, path.as_ref()),
             | Table::ValidationHistory => print_rows::<ValidationRow>(self, path.as_ref()),
             | Table::ResearchActivities => print_rows::<ResearchActivityRow>(self, path.as_ref()),
+            | Table::ResearchActivityRevisions => print_rows::<ResearchActivityRevisionRow>(self, path.as_ref()),
             | Table::Models => print_rows::<ModelRow>(self, path.as_ref()),
             | Table::Providers => print_rows::<ProviderRow>(self, path.as_ref()),
         }
@@ -1267,6 +1327,48 @@ impl Row for LinkCacheRow {
         Self::build_select_query(self, base)
     }
 }
+impl Row for LogbookEntryRow {
+    fn table(&self) -> Table {
+        Table::LogbookEntries
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            research_activity_iid,
+            entry_identifier,
+            entry_json,
+            timestamp,
+            archived,
+            created_at,
+            updated_at,
+            ..
+        } = self.clone();
+        let required = required5(research_activity_iid, entry_identifier, entry_json, timestamp, archived);
+        match required {
+            | Ok((research_activity_iid, entry_identifier, entry_json, timestamp, archived)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+                    let updated_at = to_rfc3339(updated_at.unwrap_or_else(Timestamp::now));
+                    let params = backend::params![
+                        id,
+                        research_activity_iid,
+                        entry_identifier,
+                        entry_json,
+                        to_rfc3339(timestamp),
+                        i32::from(archived),
+                        created_at,
+                        updated_at,
+                    ];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
 impl Row for ProgrammingLanguageRow {
     fn table(&self) -> Table {
         Table::ProgrammingLanguages
@@ -1317,6 +1419,36 @@ impl Row for ResearchActivityRow {
             | Ok((iid, rad_json, identity_keys_json, provenance_json)) => match self.next_row_id(conn) {
                 | Ok(id) => {
                     let params = backend::params![id, iid, rad_json, identity_keys_json, provenance_json, created_at, updated_at];
+                    execute_insert(&self, conn, params)
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    fn build_select_query(&self, base: &str) -> SelectQuery {
+        Self::build_select_query(self, base)
+    }
+}
+impl Row for ResearchActivityRevisionRow {
+    fn table(&self) -> Table {
+        Table::ResearchActivityRevisions
+    }
+    fn insert(self, conn: &Connection) -> ApiResult<usize> {
+        let Self {
+            iid,
+            research_activity_iid,
+            rad_json,
+            reason,
+            created_at,
+            ..
+        } = self.clone();
+        let required = required4(iid, research_activity_iid, rad_json, reason);
+        match required {
+            | Ok((iid, research_activity_iid, rad_json, reason)) => match self.next_row_id(conn) {
+                | Ok(id) => {
+                    let created_at = to_rfc3339(created_at.unwrap_or_else(Timestamp::now));
+                    let params = backend::params![id, iid, research_activity_iid, rad_json, reason, created_at];
                     execute_insert(&self, conn, params)
                 }
                 | Err(why) => Err(why),
@@ -1519,8 +1651,12 @@ where
     let fields = table_columns.join(", ");
     let placeholders = table_columns.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
     let query = format!("INSERT INTO {table_name} ({fields}) VALUES ({placeholders})");
-    conn.execute(&query, params)
-        .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
+    row.validate()
+        .map_err(|why| eyre!("=> {} Invalid {table_name} row — {why}", Label::fail()))
+        .and_then(|()| {
+            conn.execute(&query, params)
+                .map_err(|why| eyre!("=> {} Failed to insert row: {why}", Label::fail()))
+        })
 }
 fn write_optional_field<T>(f: &mut fmt::Formatter<'_>, label: &str, value: Option<&T>) -> fmt::Result
 where

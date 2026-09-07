@@ -13,7 +13,7 @@
 //! automatically via the `TestCleanup` Drop implementation.
 //!
 //! Tests run in offline mode; PDF visual snapshots remain ignored because they launch an external browser and renderer.
-use crate::cli::arguments::FileFormat;
+use crate::cli::arguments::{FileFormat, Target};
 #[cfg(feature = "pdf")]
 use crate::commands::export::pdf::{browser_executable, configured_browser_executable};
 use crate::commands::export::{run, tools};
@@ -21,6 +21,7 @@ use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
+use acorn_schema::schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
 use acorn_schema::schema::standard::datacite;
 use acorn_schema::schema::standard::invenio;
 use clap_verbosity_flag::Verbosity;
@@ -52,7 +53,7 @@ const TEST_THREADS: usize = 4;
 static PDF_VISUAL_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
-fn export_tools_writes_native_catalog_and_refuses_overwrite() {
+fn test_export_tools_writes_native_catalog_and_refuses_overwrite() {
     let destination = temp_test_dir("export-tools");
     let _cleanup = TestCleanup::new(destination.clone());
     tools(Some(&destination), false).expect("export tools");
@@ -62,6 +63,74 @@ fn export_tools_writes_native_catalog_and_refuses_overwrite() {
         .as_array()
         .is_some_and(|tools| { !tools.is_empty() && tools.iter().all(|tool| tool.get("parameters").is_some()) }));
     assert!(tools(Some(&destination), false).is_err());
+}
+#[tokio::test]
+async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
+    let directory = temp_test_dir("export-updates");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let source = directory.join("activity.json");
+    let output = directory.join("output");
+    let activity = ResearchActivity {
+        logbook: Some(
+            Logbook::init()
+                .entries(vec![
+                    LogbookEntry::init()
+                        .identifier("included")
+                        .timestamp("2026-09-01T12:00:00Z")
+                        .category("infrastructure")
+                        .state("completed")
+                        .summary("Included update")
+                        .build(),
+                    LogbookEntry::init()
+                        .identifier("excluded")
+                        .timestamp("2026-08-01T12:00:00Z")
+                        .category("software")
+                        .state("completed")
+                        .summary("Excluded update")
+                        .build(),
+                ])
+                .build(),
+        ),
+        ..ResearchActivity::default()
+    };
+    write(&source, serde_json::to_string_pretty(&activity)?)?;
+    for format in [FileFormat::Markdown, FileFormat::Docx] {
+        run(
+            &Some(output.clone()),
+            &Some(source.clone()),
+            &None,
+            &None,
+            &None,
+            &[],
+            &[],
+            false,
+            false,
+            &format,
+            None,
+            &None,
+            &None,
+            &None,
+            &false,
+            &false,
+            &false,
+            &[],
+            false,
+            false,
+            Target::Updates,
+            Some("2026-09-01T00:00:00Z"),
+            TEST_THREADS,
+            &silent(),
+            OFFLINE,
+        )
+        .await?;
+    }
+    let stem = "some-research-project-updates-2026-09-01T00:00:00Z";
+    let markdown = read_to_string(output.join(format!("{stem}.md")))?;
+    assert!(markdown.contains("Included update"));
+    assert!(!markdown.contains("Excluded update"));
+    let docx = read(output.join(format!("{stem}.docx")))?;
+    assert!(docx.starts_with(b"PK"));
+    Ok(())
 }
 #[cfg(feature = "pdf")]
 fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
@@ -163,6 +232,8 @@ async fn assert_pdf_visual_snapshot(test_name: &str, include_aspect: bool, snaps
             &[],
             false,
             false,
+            Target::FactSheet,
+            None,
             TEST_THREADS,
             &silent(),
             OFFLINE,
@@ -234,6 +305,8 @@ async fn test_export_bag_format() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -282,6 +355,8 @@ async fn test_export_powerpoint_format() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -340,6 +415,8 @@ async fn test_export_json_format() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -373,6 +450,8 @@ async fn test_export_offline_rejects_remote_merge_request() {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -410,6 +489,8 @@ async fn test_export_yaml_format() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -451,6 +532,8 @@ async fn test_export_markdown_format() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -508,6 +591,8 @@ async fn test_export_with_combine_flag() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -549,6 +634,8 @@ async fn test_export_crosswalk_datacite_to_invenio() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,
@@ -602,6 +689,8 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
         &[],
         false,
         false,
+        Target::FactSheet,
+        None,
         TEST_THREADS,
         &silent(),
         OFFLINE,

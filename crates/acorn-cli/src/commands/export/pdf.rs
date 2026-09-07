@@ -154,6 +154,23 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
         | Err(e) => Err(e),
     }
 }
+pub(crate) async fn render_html_to_pdf(page: &Page, content: &str, output_path: &Path) -> ApiResult<()> {
+    match page.set_content(content).await {
+        | Ok(_) => page
+            .save_pdf(
+                PrintToPdfParams {
+                    prefer_css_page_size: Some(true),
+                    print_background: Some(true),
+                    ..PrintToPdfParams::default()
+                },
+                output_path,
+            )
+            .await
+            .map_err(|why| eyre!("Failed to render updates PDF at {} — {why}", output_path.display()))
+            .map(|_| ()),
+        | Err(why) => Err(eyre!("Failed to render updates PDF HTML — {why}")),
+    }
+}
 pub(crate) async fn initialize_page(offline: bool, chrome_path: Option<&Path>) -> ApiResult<PdfSession> {
     match browser_executable(offline, chrome_path).await {
         | Ok(executable) => match browser_profile_dir() {

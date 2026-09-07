@@ -19,7 +19,7 @@ fluent-uri = { workspace = true }
 hashbrown = { version = "0.17.0", features = ["default-hasher", "serde"], default-features = false }
 jiff = { workspace = true }
 jsonc-parser = { workspace = true }
-quick-xml = { version = "0.39.1", features = ["serialize"], default-features = false }
+quick-xml = { workspace = true, features = ["serialize"] }
 infer = { workspace = true, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
 schemars = { version = "1.2.1", features = ["derive"], default-features = false }

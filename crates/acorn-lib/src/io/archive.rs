@@ -1,5 +1,5 @@
 //! Archive creation and extraction utilities.
-use crate::io::{files_all, standard_project_folder, ApiResult, PathConversion};
+use crate::io::{files_all, standard_project_folder, ApiResult, PathConversion, PathExt};
 use crate::util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES};
 use acorn_core::util::MimeType;
 use color_eyre::Report;
@@ -10,7 +10,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use sevenz_rust2::{ArchiveEntry, ArchiveReader, ArchiveWriter, Password};
 use std::fs::{create_dir_all, remove_file, File, OpenOptions};
-use std::io::{self, ErrorKind, Read, Write};
+use std::io::{self, Cursor, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use tar::{Archive as TarArchive, Builder as TarBuilder};
 use zip::write::SimpleFileOptions;
@@ -529,4 +529,27 @@ fn write_entry(reader: &mut dyn Read, target: &Path, is_directory: bool) -> ApiR
             .and_then(|()| OpenOptions::new().write(true).create_new(true).open(target).map_err(Into::into))
             .and_then(|mut output| io::copy(reader, &mut output).map(|_| ()).map_err(Into::into)),
     }
+}
+/// Create an in-memory ZIP archive from validated relative entry names and byte content
+pub fn zip_entries(entries: &[(&str, &[u8])]) -> ApiResult<Vec<u8>> {
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    entries
+        .iter()
+        .try_fold(
+            (ZipWriter::new(Cursor::new(Vec::new())), Vec::<PathBuf>::new()),
+            |(mut archive, seen), (name, content)| {
+                let relative = PathBuf::from(name);
+                match (relative.is_safe(), seen.contains(&relative)) {
+                    | (false, _) => Err(ArchiveError::UnsafeZipPath((*name).into()).into()),
+                    | (_, true) => Err(ArchiveError::DuplicatePath(relative).into()),
+                    | (true, false) => archive
+                        .start_file(name, options)
+                        .and_then(|()| archive.write_all(content).map_err(Into::into))
+                        .map(|()| (archive, seen.into_iter().chain(once(relative)).collect()))
+                        .map_err(Into::into),
+                }
+            },
+        )
+        .and_then(|(archive, _)| archive.finish().map_err(Into::into))
+        .map(Cursor::into_inner)
 }

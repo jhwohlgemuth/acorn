@@ -1,0 +1,54 @@
+{
+  "summary": "Recent project developments",
+  "entries": [
+    {
+      "identifier": "new-contributor",
+      "timestamp": "2026-08-28T09:30:00-04:00",
+      "category": "personnel",
+      "state": "in-progress",
+      "summary": "Doe, Jane",
+      "items": ["Joined the research team"]
+    },
+    {
+      "identifier": "workflow-release",
+      "timestamp": "2026-09-01T15:00:00Z",
+      "category": "software",
+      "state": "completed",
+      "origin": "discovered",
+      "discovery": {
+        "provider": "osti",
+        "source": "doi:10.0000/example",
+        "discoveredAt": "2026-09-01T16:00:00Z"
+      },
+      "summary": "Released the reproducible workflow",
+      "items": ["Published version 1.0"]
+    },
+    {
+      "identifier": "sponsor-facility-tour",
+      "timestamp": "2026-09-02T14:00:00-04:00",
+      "category": "engagement",
+      "eventType": "tour",
+      "state": "completed",
+      "summary": "Hosted a facility tour for a project sponsor",
+      "items": ["Demonstrated laboratory capabilities and active research"]
+    },
+    {
+      "identifier": "annual-research-conference",
+      "timestamp": "2026-09-03T09:00:00-04:00",
+      "category": "engagement",
+      "eventType": "conference",
+      "state": "completed",
+      "summary": "Attended the annual research conference",
+      "items": ["Participated in technical sessions and networking"]
+    },
+    {
+      "identifier": "regional-collaboration-event",
+      "timestamp": "2026-09-04T13:00:00-04:00",
+      "category": "collaboration",
+      "eventType": "meeting",
+      "state": "completed",
+      "summary": "Co-hosted a regional collaboration event",
+      "items": ["Convened research partners to identify shared opportunities"]
+    }
+  ]
+}

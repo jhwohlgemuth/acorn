@@ -206,6 +206,8 @@ pub enum FileFormat {
     Bag,
     #[display("CFF")]
     Cff,
+    #[display("DOCX")]
+    Docx,
     #[display("JSON")]
     Json,
     #[display("MD")]
@@ -303,6 +305,9 @@ pub enum Target {
     /// Poster sized presentation format intended for large printing and presentation
     #[display("poster")]
     Poster,
+    /// Standalone, since-filtered research activity logbook updates
+    #[display("updates")]
+    Updates,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -629,6 +634,24 @@ pub(crate) struct Export {
     /// Fail if conversion loses data (only for crosswalk exports)
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS", conflicts_with = "schema")]
     pub(crate) strict: bool,
+    /// Artifact target to export
+    #[arg(
+        long,
+        default_value = "fact-sheet",
+        value_name = "TARGET",
+        help_heading = "OPTIONS",
+        conflicts_with = "schema"
+    )]
+    pub(crate) target: Target,
+    /// Inclusive RFC 3339 timestamp for updates exports
+    #[arg(
+        long,
+        value_name = "TIMESTAMP",
+        required_if_eq("target", "updates"),
+        help_heading = "OPTIONS",
+        conflicts_with = "schema"
+    )]
+    pub(crate) since: Option<String>,
     /// Metadata standard to use for source data inference (default: auto-detect)
     ///
     /// Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
@@ -1118,6 +1141,7 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Pdf => MimeType::Pdf,
             | FileFormat::Bag => MimeType::Zip,
             | FileFormat::Cff => MimeType::Cff,
+            | FileFormat::Docx => MimeType::Docx,
             | FileFormat::Json => MimeType::Json,
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,

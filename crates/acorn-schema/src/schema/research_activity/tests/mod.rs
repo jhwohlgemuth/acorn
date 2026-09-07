@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use crate::enrichment::Provider;
 use crate::schema::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::schema::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
 use crate::schema::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
@@ -13,12 +14,21 @@ use crate::schema::research_activity::*;
 use crate::schema::standard::cff::{Agent, Cff, IdentifierType};
 use crate::schema::*;
 use crate::validation::Validate;
-use acorn_core::util::SemanticVersion;
+use acorn_core::util::{MarkdownSupport, SemanticVersion};
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
+}
+fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
+    LogbookEntry::init()
+        .identifier(identifier)
+        .timestamp(timestamp)
+        .category("personnel")
+        .state("in-progress")
+        .summary("Doe, Jane")
+        .build()
 }
 
 #[test]
@@ -737,6 +747,227 @@ fn test_is_attribute_publication_identifier() {
     assert!(is_attribute_publication_identifier_list(&valid).is_ok());
     let invalid = ["https://not.doi.org/10.1000/182".to_string()];
     assert!(is_attribute_publication_identifier_list(&invalid).is_err());
+}
+#[test]
+fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata() {
+    let classification_entry = LogbookEntry::init()
+        .identifier("classification-raised")
+        .timestamp("2026-09-05T12:00:00Z")
+        .category("administration")
+        .classification(ClassificationLevel::Secret)
+        .event_type("other")
+        .state("completed")
+        .summary("Raised the activity classification")
+        .build();
+    let activity = ResearchActivity {
+        meta: ResearchActivityMetadata {
+            classification: Some(ClassificationLevel::Confidential),
+            ..ResearchActivityMetadata::default()
+        },
+        logbook: Some(Logbook::init().entries(vec![classification_entry]).build()),
+        ..ResearchActivity::default()
+    };
+    assert!(activity.validate().is_err());
+    let candidates = GraduationCandidates::from(&activity);
+    assert_eq!(candidates.0.len(), 1);
+    assert_eq!(candidates.0[0].target, GraduationTarget::Classification);
+    assert_eq!(candidates.0[0].value, "SECRET");
+    let graduated = activity
+        .graduate(&["classification-raised".to_string()])
+        .expect("classification graduation");
+    assert_eq!(graduated.meta.classification, Some(ClassificationLevel::Secret));
+    assert!(graduated.logbook.as_ref().expect("logbook").entries[0].archived);
+    assert!(graduated.validate().is_ok());
+
+    let invalid_entry = LogbookEntry::init()
+        .identifier("misclassified-event")
+        .timestamp("2026-09-05T12:00:00Z")
+        .category("research")
+        .classification(ClassificationLevel::Confidential)
+        .state("completed")
+        .summary("Used the wrong classification event taxonomy")
+        .build();
+    let report = invalid_entry.validate().expect_err("classification taxonomy must be enforced");
+    let codes = report.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>();
+    assert_eq!(codes, ["logbook_classification_category", "logbook_classification_event"]);
+}
+#[test]
+fn test_logbook_context_uses_activitystreams_ordered_collection() {
+    assert_eq!(
+        ResearchActivityContext::default().logbook,
+        "https://www.w3.org/ns/activitystreams#OrderedCollection"
+    );
+}
+#[test]
+fn test_logbook_discovered_identifier_is_stable_and_bounded() {
+    let source = "source value/".repeat(20);
+    let identifier = Provider::OpenAlex.discovered_identifier(&source);
+    assert_eq!(identifier, Provider::OpenAlex.discovered_identifier(&source));
+    assert!(identifier.len() <= 100);
+    assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+}
+#[test]
+fn test_logbook_graduation_archives_without_deleting_or_duplicating() {
+    let activity = ResearchActivity {
+        logbook: Some(
+            Logbook::init()
+                .entries(vec![logbook_entry("new-contributor", "2026-09-01T08:00:00-04:00")])
+                .build(),
+        ),
+        ..ResearchActivity::default()
+    };
+    let candidates = GraduationCandidates::from(&activity);
+    assert_eq!(candidates.0.len(), 1);
+    let graduated = activity.graduate(&["new-contributor".to_string()]).expect("graduation should succeed");
+    assert_eq!(graduated.meta.contributors.as_ref().expect("contributors")[0].name, "Doe, Jane");
+    let retained = &graduated.logbook.as_ref().expect("logbook").entries[0];
+    assert!(retained.archived);
+    assert_eq!(retained.state, LogbookState::Completed);
+    assert!(GraduationCandidates::from(graduated).0.is_empty());
+}
+#[test]
+fn test_logbook_json_markdown_and_yaml_preserve_entry_order_and_defaults() {
+    let logbook = Logbook::init()
+        .entries(vec![
+            logbook_entry("first", "2026-09-01T12:00:00Z"),
+            logbook_entry("second", "2026-09-02T12:00:00Z"),
+        ])
+        .build();
+    let json = serde_json::to_string(&logbook).expect("serialize JSON");
+    let parsed: Logbook = serde_json::from_str(&json).expect("parse JSON");
+    assert_eq!(parsed.entries[0].identifier, "first");
+    assert_eq!(parsed.entries[0].origin, LogbookEntryOrigin::Manual);
+    let markdown = logbook.to_markdown();
+    assert!(markdown.contains("## 2026-09-01T12:00:00Z — InProgress"));
+    let yaml = serde_norway::to_string(&logbook).expect("serialize YAML");
+    let parsed: Logbook = serde_norway::from_str(&yaml).expect("parse YAML");
+    assert_eq!(parsed.entries[1].identifier, "second");
+}
+#[test]
+fn test_logbook_string_conversions_are_case_insensitive_with_safe_defaults() {
+    assert_eq!(LogbookCategory::from("Administration"), LogbookCategory::Administration);
+    assert_eq!(LogbookCategory::from("Code"), LogbookCategory::Software);
+    assert_eq!(LogbookCategory::from("Collaboration"), LogbookCategory::Collaboration);
+    assert_eq!(LogbookCategory::from("Data"), LogbookCategory::Data);
+    assert_eq!(LogbookCategory::from("Engagement"), LogbookCategory::Engagement);
+    assert_eq!(LogbookCategory::from("Conference"), LogbookCategory::Engagement);
+    assert_eq!(LogbookCategory::from("Funding"), LogbookCategory::Funding);
+    assert_eq!(LogbookCategory::from("Infrastructure"), LogbookCategory::Infrastructure);
+    assert_eq!(LogbookCategory::from("Technical"), LogbookCategory::Infrastructure);
+    assert_eq!(LogbookCategory::from("Method"), LogbookCategory::Method);
+    assert_eq!(LogbookCategory::from("Personnel"), LogbookCategory::Personnel);
+    assert_eq!(LogbookCategory::from("Publication"), LogbookCategory::Publication);
+    assert_eq!(LogbookCategory::from("Research"), LogbookCategory::Research);
+    assert_eq!(LogbookCategory::from("Software"), LogbookCategory::Software);
+    assert_eq!(LogbookCategory::from("Tour"), LogbookCategory::Engagement);
+    assert_eq!(LogbookCategory::from(String::from("unknown")), LogbookCategory::Other);
+    [
+        (r#""code""#, LogbookCategory::Software),
+        (r#""conference""#, LogbookCategory::Engagement),
+        (r#""general""#, LogbookCategory::Other),
+        (r#""technical""#, LogbookCategory::Infrastructure),
+        (r#""tour""#, LogbookCategory::Engagement),
+    ]
+    .into_iter()
+    .for_each(|(value, expected)| assert_eq!(serde_json::from_str::<LogbookCategory>(value).expect("legacy category"), expected));
+    assert_eq!(LogbookEventType::from("Conference"), LogbookEventType::Conference);
+    assert_eq!(LogbookEventType::from("Workshop"), LogbookEventType::Workshop);
+    assert_eq!(LogbookEventType::from(String::from("unknown")), LogbookEventType::Other);
+    assert_eq!(LogbookState::from("COMPLETED"), LogbookState::Completed);
+    assert_eq!(LogbookState::from(String::from("unknown")), LogbookState::InProgress);
+}
+#[test]
+fn test_logbook_taxonomies_map_every_variant_to_published_ontology_classes() {
+    let categories = [
+        (LogbookCategory::Administration, "https://schema.org/OrganizeAction"),
+        (LogbookCategory::Collaboration, "http://www.w3.org/ns/prov#Association"),
+        (LogbookCategory::Data, "http://www.w3.org/ns/dcat#Dataset"),
+        (LogbookCategory::Engagement, "https://schema.org/Event"),
+        (LogbookCategory::Funding, "https://schema.org/Grant"),
+        (LogbookCategory::Infrastructure, "http://www.w3.org/ns/prov#Entity"),
+        (LogbookCategory::Method, "http://www.w3.org/ns/prov#Plan"),
+        (LogbookCategory::Other, "http://www.w3.org/2004/02/skos/core#Concept"),
+        (LogbookCategory::Personnel, "http://www.w3.org/ns/prov#Person"),
+        (LogbookCategory::Publication, "https://schema.org/CreativeWork"),
+        (LogbookCategory::Research, "https://schema.org/ResearchProject"),
+        (LogbookCategory::Software, "https://schema.org/SoftwareSourceCode"),
+    ];
+    let event_types = [
+        (LogbookEventType::Conference, "http://purl.org/ontology/bibo/Conference"),
+        (LogbookEventType::Exhibition, "https://schema.org/ExhibitionEvent"),
+        (LogbookEventType::Meeting, "https://schema.org/Event"),
+        (LogbookEventType::Other, "https://schema.org/Event"),
+        (LogbookEventType::Presentation, "https://schema.org/Event"),
+        (LogbookEventType::Tour, "https://schema.org/Event"),
+        (LogbookEventType::Training, "https://schema.org/EducationEvent"),
+        (LogbookEventType::Workshop, "http://purl.org/ontology/bibo/Workshop"),
+    ];
+    categories
+        .into_iter()
+        .for_each(|(category, expected)| assert_eq!(category.namespace().get_unchecked("").to_string(), expected));
+    event_types
+        .into_iter()
+        .for_each(|(event_type, expected)| assert_eq!(event_type.namespace().get_unchecked("").to_string(), expected));
+}
+#[test]
+fn test_logbook_updates_filter_by_instant_and_sort_newest_first() {
+    let activity = ResearchActivity {
+        logbook: Some(
+            Logbook::init()
+                .entries(vec![
+                    logbook_entry("same-instant", "2026-09-01T08:00:00-04:00"),
+                    logbook_entry("newer", "2026-09-01T13:00:01Z"),
+                    logbook_entry("older", "2026-08-31T23:59:59Z"),
+                ])
+                .build(),
+        ),
+        ..ResearchActivity::default()
+    };
+    let all = activity.logbook.as_ref().expect("logbook").entries_all().expect("valid entry timestamps");
+    let updates = activity.updates_since("2026-09-01T12:00:00Z").expect("valid since timestamp");
+    assert_eq!(
+        all.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        ["newer", "same-instant", "older"]
+    );
+    assert_eq!(updates.entries.len(), 2);
+    assert_eq!(updates.entries[0].identifier, "newer");
+    assert_eq!(updates.entries[1].identifier, "same-instant");
+    assert!(activity.updates_since("2026-09-01").is_err());
+}
+#[test]
+fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
+    let discovered = LogbookEntry::init()
+        .identifier("discovered")
+        .timestamp("2026-09-01")
+        .category("software")
+        .state("upcoming")
+        .origin(LogbookEntryOrigin::Discovered)
+        .summary(" ")
+        .build();
+    let logbook = Logbook::init().entries(vec![discovered]).build();
+    let report = logbook.validate().expect_err("invalid logbook");
+    let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
+    assert!(issues.contains("timestamp"));
+    assert!(issues.contains("logbook_origin"), "{issues}");
+    let duplicates = Logbook::init()
+        .entries(vec![
+            logbook_entry("duplicate", "2026-09-01T08:00:00-04:00"),
+            logbook_entry("duplicate", "2026-09-02T08:00:00-04:00"),
+        ])
+        .build();
+    let report = duplicates.validate().expect_err("duplicate logbook identifiers");
+    let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
+    assert!(issues.contains("Logbook entry identifiers must be unique"), "{issues}");
+}
+#[test]
+fn test_logbook_whiteboard_fixtures_are_compatible() {
+    let json: Logbook =
+        serde_json::from_str(include_str!("../../../../../../tests/fixtures/schema/logbook/whiteboard.json")).expect("parse JSON fixture");
+    let yaml: Logbook =
+        serde_norway::from_str(include_str!("../../../../../../tests/fixtures/schema/logbook/whiteboard.yaml")).expect("parse YAML fixture");
+    assert!(json.validate().is_ok());
+    assert!(yaml.validate().is_ok());
+    assert_eq!(json.entries.len(), yaml.entries.len());
 }
 #[test]
 fn test_malformed_fixture_has_multiple_eserde_errors() {

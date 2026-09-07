@@ -1,6 +1,6 @@
 #[cfg(feature = "std")]
 use super::Research;
-use super::{ResearchActivity, ResearchActivityContext, ResearchActivityMetadata, Sections as ResearchSections};
+use super::{Logbook, ResearchActivity, ResearchActivityContext, ResearchActivityMetadata, Sections};
 use crate::schema::research_activity::aspect::AspectFramework;
 use crate::schema::{ContactPoint, ContactPointContext, Other};
 use crate::util::constants::app::RAD_MARKDOWN_SCHEMA;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 struct Body {
     title: String,
     subtitle: Option<String>,
-    sections: ResearchSections,
+    sections: Sections,
     contact: ContactPoint,
 }
 #[cfg(feature = "std")]
@@ -64,6 +64,8 @@ struct Header {
     #[serde(skip_serializing_if = "Option::is_none")]
     aspect: Option<AspectFramework>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    logbook: Option<Logbook>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     notes: Option<Other>,
     #[serde(default, skip_serializing_if = "ContactMetadata::is_empty")]
     contact: ContactMetadata,
@@ -100,7 +102,7 @@ impl BodySections {
                 contact.map(|contact| Body {
                     title: self.title,
                     subtitle: self.subtitle,
-                    sections: ResearchSections {
+                    sections: Sections {
                         mission,
                         challenge,
                         approach,
@@ -400,6 +402,7 @@ impl From<&ResearchActivity> for Document {
                 research_activity_type: activity.research_activity_type.clone(),
                 meta: activity.meta.clone(),
                 aspect: activity.aspect.clone(),
+                logbook: activity.logbook.clone(),
                 notes: activity.notes.clone(),
                 contact: ContactMetadata {
                     context: activity.contact.context.clone(),
@@ -461,6 +464,7 @@ impl TryFrom<Document> for ResearchActivity {
             research_activity_type: document.frontmatter.research_activity_type,
             meta: document.frontmatter.meta,
             aspect: document.frontmatter.aspect,
+            logbook: document.frontmatter.logbook,
             title: document.body.title,
             subtitle: document.body.subtitle,
             sections: document.body.sections,

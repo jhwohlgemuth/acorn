@@ -1,4 +1,4 @@
-use crate::cli::arguments::{ArchiveType, FileFormat};
+use crate::cli::arguments::{ArchiveType, FileFormat, Target};
 use crate::cli::parse::infer_standard_from_content;
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
@@ -31,6 +31,7 @@ use tracing::{debug, info};
 #[cfg(feature = "pdf")]
 mod pdf;
 mod powerpoint;
+mod updates;
 
 /// Export the canonical Needle-native catalog to `tools.json` atomically.
 pub fn tools(output: Option<&Path>, dry_run: bool) -> ApiResult<()> {
@@ -79,6 +80,8 @@ pub async fn run(
     skip: &[CheckCategory],
     dry_run: bool,
     strict: bool,
+    target: Target,
+    since: Option<&str>,
     threads: usize,
     verbose: &Verbosity,
     offline: bool,
@@ -118,11 +121,13 @@ pub async fn run(
                         .combine(*combine)
                         .dry_run(dry_run)
                         .strict(strict)
+                        .target(target)
+                        .maybe_since(since.map(str::to_string))
                         .skip(skip.to_vec())
                         .progress_type(progress_type)
                         .options(options)
                         .build();
-                    let exporter = exporter_for(&request.format);
+                    let exporter = request.exporter();
                     match (from.is_some() || to.is_some()) && format.is_structured() {
                         | true => exporter.crosswalk(request, *from, *to).await,
                         | false => exporter.export(request).await,
@@ -171,12 +176,16 @@ struct ExportRequest {
     progress_type: ProgressType,
     #[builder(default)]
     options: CommandOptions,
+    #[builder(default)]
+    target: Target,
+    since: Option<String>,
 }
 struct BagExportHandler;
 struct CffExportHandler;
 struct PdfExportHandler;
 struct PowerPointExportHandler;
 struct StructuredExportHandler;
+struct UpdatesExportHandler;
 impl ExportHandler for BagExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
@@ -235,6 +244,18 @@ impl ExportHandler for CffExportHandler {
             )
             .await
         })
+    }
+}
+impl ExportRequest {
+    fn exporter(&self) -> Box<dyn ExportHandler> {
+        match (self.target, &self.format) {
+            | (Target::Updates, _) | (_, FileFormat::Docx) => Box::new(UpdatesExportHandler),
+            | (_, FileFormat::Cff) => Box::new(CffExportHandler),
+            | (_, FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml) => Box::new(StructuredExportHandler),
+            | (_, FileFormat::Bag) => Box::new(BagExportHandler),
+            | (_, FileFormat::Pdf) => Box::new(PdfExportHandler),
+            | (_, FileFormat::Powerpoint) => Box::new(PowerPointExportHandler),
+        }
     }
 }
 impl ExportHandler for PdfExportHandler {
@@ -403,6 +424,11 @@ impl ExportHandler for StructuredExportHandler {
             )
             .await
         })
+    }
+}
+impl ExportHandler for UpdatesExportHandler {
+    fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
+        Box::pin(async move { updates::export(request).await })
     }
 }
 async fn export_as_format(
@@ -609,15 +635,5 @@ async fn export_as_format_crosswalk(
         )),
     }
 }
-fn exporter_for(format: &FileFormat) -> Box<dyn ExportHandler> {
-    match format {
-        | FileFormat::Cff => Box::new(CffExportHandler),
-        | FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml => Box::new(StructuredExportHandler),
-        | FileFormat::Bag => Box::new(BagExportHandler),
-        | FileFormat::Pdf => Box::new(PdfExportHandler),
-        | FileFormat::Powerpoint => Box::new(PowerPointExportHandler),
-    }
-}
-
 #[cfg(test)]
 mod tests;

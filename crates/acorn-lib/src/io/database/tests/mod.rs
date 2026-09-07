@@ -8,7 +8,8 @@
 use crate::io::database::backend::params;
 use crate::io::database::macros::build_query;
 use crate::io::database::schema::{
-    ActivityRow, CatalogRow, LinkCacheRow, ModelRow, ProgrammingLanguageRow, ResearchActivityRow, Table, ValidationRow,
+    ActivityRow, CatalogRow, LinkCacheRow, LogbookEntryRow, ModelRow, ProgrammingLanguageRow, ResearchActivityRevisionRow, ResearchActivityRow,
+    Table, ValidationRow,
 };
 use crate::io::database::{resolve_database_path, Database, Operations, Row, TableSchemaProvider};
 use crate::util::constants::env::DATABASE_PATH;
@@ -20,6 +21,7 @@ const TEST_ENV_DATABASE_PATH: &str = "target/test_artifacts/from-env-acorn.db";
 
 mod discovery;
 mod display;
+mod logbook;
 
 #[test]
 fn test_activity_insert_round_trip_with_database_handle() {
@@ -55,6 +57,19 @@ fn test_activity_insert_round_trip_with_database_handle() {
         })
         .unwrap();
     assert_eq!(stored, "2026-03-10T15:37:24.123456+00:00");
+}
+#[test]
+fn test_model_row_insert_rejects_malformed_json() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let path = PathBuf::from(format!("target/test_artifacts/model-validation-{unique}.duckdb"));
+    let database = Database::<Table>::from_path(Some(path));
+    database.migrate().unwrap();
+    let inserted = database.insert(ModelRow::init().model_id(format!("acme/model-{unique}")).weights("{").build());
+    assert!(inserted.is_err(), "malformed JSON row should fail insertion");
+    assert_eq!(database.row_count(Table::Models).unwrap(), 0);
 }
 #[test]
 fn test_model_weights_update_round_trip() {
@@ -252,9 +267,11 @@ fn test_row_table_implementation() {
     assert_eq!(ActivityRow::default().table(), Table::Activity);
     assert_eq!(CatalogRow::default().table(), Table::Catalog);
     assert_eq!(LinkCacheRow::default().table(), Table::LinkCache);
+    assert_eq!(LogbookEntryRow::default().table(), Table::LogbookEntries);
     assert_eq!(ProgrammingLanguageRow::default().table(), Table::ProgrammingLanguages);
     assert_eq!(ValidationRow::default().table(), Table::ValidationHistory);
     assert_eq!(ResearchActivityRow::default().table(), Table::ResearchActivities);
+    assert_eq!(ResearchActivityRevisionRow::default().table(), Table::ResearchActivityRevisions);
 }
 #[test]
 fn test_table_from_str() {
@@ -263,12 +280,14 @@ fn test_table_from_str() {
     assert_eq!(Table::from("licenses"), Table::Licenses);
     assert_eq!(Table::from("license"), Table::Licenses);
     assert_eq!(Table::from("link_cache"), Table::LinkCache);
+    assert_eq!(Table::from("logbook_entries"), Table::LogbookEntries);
     assert_eq!(Table::from("programming_languages"), Table::ProgrammingLanguages);
     assert_eq!(Table::from("programminglanguages"), Table::ProgrammingLanguages);
     assert_eq!(Table::from("languages"), Table::ProgrammingLanguages);
     assert_eq!(Table::from("language"), Table::ProgrammingLanguages);
     assert_eq!(Table::from("validation_history"), Table::ValidationHistory);
     assert_eq!(Table::from("research_activities"), Table::ResearchActivities);
+    assert_eq!(Table::from("research_activity_revisions"), Table::ResearchActivityRevisions);
     assert_eq!(Table::from("unknown-table"), Table::Activity);
 }
 #[test]

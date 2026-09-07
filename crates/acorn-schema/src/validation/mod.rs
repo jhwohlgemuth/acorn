@@ -26,7 +26,7 @@
 //! | `range(min = ..., max = ...)` | Constrain an ordered numeric value. |
 //! | `contains(pattern = ...)` | Require a string or collection pattern. |
 //! | `date`, `timestamp`, `year` | Validate supported calendar representations. |
-//! | `email`, `url`, `nonempty`, `version` | Validate common scalar text. |
+//! | `email`, `json`, `url`, `nonempty`, `version` | Validate common scalar text. |
 //! | `ark`, `arxiv`, `doi`, `handle`, `isbn`, `isni`, `orcid`, `patent`, `raid`, `ror`, `swhid` | Delegate persistent identifiers to canonical schema validators. |
 //! | `phone`, `commit`, `latitude`, `longitude`, `state`, `kebabcase`, `camelCase`, `snake_case` | Validate ACORN scalar shapes. |
 //! | `custom(function = "path")` | Call a synchronous scalar validator. |
@@ -359,16 +359,8 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("date").with_message("Provide valid ISO 8601 date (e.g., YYYY-MM-DD)"))
     }
-    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use acorn_schema::validation::rules;
-    /// assert!(rules::timestamp("2026-08-29T12:30:00Z").is_ok());
-    /// assert!(rules::timestamp("2026-08-29").is_err());
-    /// ```
-    pub fn timestamp(value: &str) -> Result<(), ValidationError> {
+    /// Parse a complete RFC 3339 timestamp with an explicit UTC offset.
+    pub fn parse_timestamp(value: &str) -> Result<Timestamp, ValidationError> {
         let bytes = value.as_bytes();
         let numeric_offset = bytes.len().checked_sub(6).and_then(|start| bytes.get(start..)).is_some_and(|offset| {
             offset.len() == 6
@@ -379,16 +371,27 @@ pub mod rules {
                     .enumerate()
                     .all(|(index, byte)| if index == 2 { *byte == b':' } else { byte.is_ascii_digit() })
         });
-        let structure = Pieces::parse(value).ok();
-        let valid = structure.is_some_and(|parts| {
-            parts.time().is_some()
-                && parts.time_zone_annotation().is_none()
-                && (value.ends_with('Z') || numeric_offset)
-                && value.parse::<Timestamp>().is_ok()
-        });
-        valid
-            .then_some(())
+        Pieces::parse(value)
+            .ok()
+            .filter(|parts| parts.time().is_some() && parts.time_zone_annotation().is_none() && (value.ends_with('Z') || numeric_offset))
             .ok_or_else(|| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
+            .and_then(|_| {
+                value
+                    .parse::<Timestamp>()
+                    .map_err(|_| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
+            })
+    }
+    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use acorn_schema::validation::rules;
+    /// assert!(rules::timestamp("2026-08-29T12:30:00Z").is_ok());
+    /// assert!(rules::timestamp("2026-08-29").is_err());
+    /// ```
+    pub fn timestamp(value: impl ToString) -> Result<(), ValidationError> {
+        parse_timestamp(&value.to_string()).map(|_| ())
     }
     /// Validate a ten-digit Unix epoch timestamp.
     pub fn unix_epoch(value: impl Borrow<usize>) -> Result<(), ValidationError> {
@@ -508,6 +511,12 @@ pub mod rules {
             .parse::<Ipv6Addr>()
             .map(|_| ())
             .map_err(|_| ValidationError::new("ipv6").with_message("Provide valid IPv6 address"))
+    }
+    /// Validate serialized JSON.
+    pub fn json(value: impl AsRef<str>) -> Result<(), ValidationError> {
+        serde_json::from_str::<serde_json::Value>(value.as_ref())
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("json").with_message("Provide valid JSON"))
     }
     /// Validate a four-digit year that is not in the future when a clock is available.
     ///

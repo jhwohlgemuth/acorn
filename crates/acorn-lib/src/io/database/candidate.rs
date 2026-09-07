@@ -1,6 +1,6 @@
 use super::backend::{self, BackendRow, Connection};
 use super::schema::{ResearchActivityRow, Table};
-use super::{Database, Row};
+use super::{transaction, Database, Row};
 use crate::io::api::handle::Record;
 use crate::io::ApiResult;
 use acorn_core::util::to_rfc3339;
@@ -132,23 +132,9 @@ impl Database<Table> {
         let candidate = ResearchActivityCandidate::new(candidate.rad_json, candidate.identity_keys, candidate.provenance);
         match candidate.identity_keys.is_empty() {
             | true => Err(eyre!("Research activity candidate has no project identity keys")),
-            | false => self.migrate_table(Table::ResearchActivities).and_then(|()| {
-                self.with_connection(|conn| {
-                    conn.execute_batch("BEGIN TRANSACTION")
-                        .map_err(|why| eyre!("Failed to begin research activity transaction — {why}"))?;
-                    let result = conn.persist_candidate(candidate);
-                    match result {
-                        | Ok(value) => conn
-                            .execute_batch("COMMIT")
-                            .map_err(|why| eyre!("Failed to commit research activity transaction — {why}"))
-                            .map(|()| value),
-                        | Err(why) => {
-                            let _ = conn.execute_batch("ROLLBACK");
-                            Err(why)
-                        }
-                    }
-                })
-            }),
+            | false => self
+                .migrate_table(Table::ResearchActivities)
+                .and_then(|()| self.with_connection(|connection| transaction(connection, |connection| connection.persist_candidate(candidate)))),
         }
     }
 }

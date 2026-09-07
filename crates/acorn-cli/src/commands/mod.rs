@@ -306,6 +306,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     skip,
                     dry_run,
                     strict,
+                    target,
+                    since,
                     verbose,
                     ..
                 } = arguments.as_ref();
@@ -331,6 +333,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     skip,
                     *dry_run,
                     *strict,
+                    *target,
+                    since.as_deref(),
                     threads,
                     verbose,
                     offline,

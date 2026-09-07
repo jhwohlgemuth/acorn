@@ -20,7 +20,7 @@ use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
     read_large_file, remove_fields, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair,
-    Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, Source, SourceAction, TextOrigin,
+    zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, Source, SourceAction, TextOrigin,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::constants::oci::{
@@ -55,7 +55,7 @@ use std::ffi::OsString;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 #[cfg(unix)]
 use std::fs::{metadata, read, set_permissions, Permissions};
-use std::io;
+use std::io::{self, Cursor, Read};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::MAIN_SEPARATOR;
@@ -112,6 +112,23 @@ fn test_archive_extracts_zstandard_tar() {
     write(&zstd_path, compressed).unwrap();
     extract(zstd_path, Some(destination.clone()), None).unwrap();
     assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
+}
+#[test]
+fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
+    assert!(zip_entries(&[("../outside", b"unsafe")]).is_err());
+    assert!(zip_entries(&[("same", b"first"), ("same", b"second")]).is_err());
+}
+#[test]
+fn test_archive_zip_entries_write_named_content() {
+    let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).expect("read ZIP archive");
+    let mut content = String::new();
+    archive
+        .by_name("word/document.xml")
+        .expect("find named entry")
+        .read_to_string(&mut content)
+        .expect("read named entry");
+    assert_eq!(content, "document");
 }
 #[test]
 fn test_archive_rejects_destination_inside_source() {

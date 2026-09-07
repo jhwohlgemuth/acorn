@@ -81,6 +81,7 @@ nanoid = { version = "0.5.0", default-features = false }
 notify = { version = "8.2.0" }
 notify-debouncer-mini = { version = "0.7.0" }
 owo-colors = { version = "4.3.0", features = ["alloc"], default-features = true }
+quick-xml = { version = "0.39.1", default-features = false }
 rayon = { version = "1.12.0", default-features = false }
 rmcp = { version = "1.5.0", features = ["server", "transport-io"], default-features = false }
 shell-words = { version = "1.1.0", default-features = false }

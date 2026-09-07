@@ -24,6 +24,8 @@ pub const DEFAULT_ROR_SCHEMA_URI: &str = "https://ror.org/";
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.5/properties/identifier/#a-identifiertype>
 pub const DATACITE_IDENTIFIER_TYPE_CONTROLLED_VOCABULARY: &[&str; 1] = &["DOI"];
 lazy_static! {
+    /// RDF namespace for the [ActivityStreams vocabulary](https://www.w3.org/TR/activitystreams-vocabulary/).
+    pub static ref AS: Namespace<&'static str> = Namespace::new_unchecked("https://www.w3.org/ns/activitystreams#");
     /// RDF namespace for bibliographic ontology ([BIBO](http://purl.org/ontology/bibo/))
     ///
     /// Describes bibliographic things on the semantic Web in RDF.
@@ -42,10 +44,18 @@ lazy_static! {
     pub static ref FOAF: Namespace<&'static str> = Namespace::new_unchecked("http://xmlns.com/foaf/0.1/");
     /// RDF namespace for [ORCiD](https://orcid.org/)
     pub static ref ORCID: Namespace<&'static str> = Namespace::new_unchecked("https://orcid.org/");
+    /// RDF namespace for [PROV-O](https://www.w3.org/TR/prov-o/).
+    pub static ref PROV: Namespace<&'static str> = Namespace::new_unchecked("http://www.w3.org/ns/prov#");
     /// RDF namespace for [ROR](https://ror.org/)
     pub static ref ROR: Namespace<&'static str> = Namespace::new_unchecked("https://ror.org/");
     /// RDF namespace for [schema.org](https://schema.org/)
     pub static ref SCHEMA_ORG: Namespace<&'static str> = Namespace::new_unchecked("https://schema.org/");
+    /// RDF namespace for [SKOS](https://www.w3.org/TR/skos-reference/).
+    pub static ref SKOS: Namespace<&'static str> = Namespace::new_unchecked("http://www.w3.org/2004/02/skos/core#");
+}
+/// Resolve an ActivityStreams term to its full IRI string.
+pub fn activity_streams(suffix: &str) -> String {
+    AS.get_unchecked(suffix).to_string()
 }
 /// Resolve a BIBO term to its full IRI string
 pub fn bibo(suffix: &str) -> String {
@@ -67,7 +77,15 @@ pub fn dcterms(suffix: &str) -> String {
 pub fn foaf(suffix: &str) -> String {
     FOAF.get_unchecked(suffix).to_string()
 }
+/// Resolve a PROV-O term to its full IRI string.
+pub fn prov(suffix: &str) -> String {
+    PROV.get_unchecked(suffix).to_string()
+}
 /// Resolve a schema.org term to its full IRI string
 pub fn schema_org(suffix: &str) -> String {
     SCHEMA_ORG.get_unchecked(suffix).to_string()
+}
+/// Resolve a SKOS term to its full IRI string.
+pub fn skos(suffix: &str) -> String {
+    SKOS.get_unchecked(suffix).to_string()
 }

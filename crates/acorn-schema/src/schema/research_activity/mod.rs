@@ -4,7 +4,7 @@
 //!
 use crate::enrichment::Provider;
 use crate::schema::hardware::Resource;
-use crate::schema::namespaces::{bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
+use crate::schema::namespaces::{activity_streams, bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::schema::pid::raid::{Language, SpatialCoverage};
 use crate::schema::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
 use crate::schema::research_activity::output::Funding;
@@ -21,7 +21,7 @@ use crate::util::constants::{
     MAX_LENGTH_SECTION_MISSION,
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
-use crate::validation::Validate;
+use crate::validation::{Validate, ValidationReport};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::MimeType;
@@ -41,6 +41,7 @@ use serde_with::skip_serializing_none;
 
 pub mod aspect;
 pub mod common;
+pub mod logbook;
 mod markdown;
 pub mod output;
 pub mod s3a;
@@ -48,6 +49,10 @@ use aspect::AspectFramework;
 pub use common::{
     ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
     RelatedResourceCategory, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
+};
+pub use logbook::{
+    GraduationCandidate, GraduationCandidates, GraduationTarget, Logbook, LogbookCategory, LogbookDiscovery, LogbookEntry, LogbookEntryOrigin,
+    LogbookError, LogbookEventType, LogbookState, LogbookUpdates,
 };
 use markdown::Document;
 pub use output::ResearchOutput;
@@ -111,6 +116,7 @@ pub struct Research {
 #[builder(start_fn = init)]
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
+#[validate(schema(function = "ResearchActivity::is_valid", skip_on_field_errors = false))]
 pub struct ResearchActivity {
     /// Linked data (e.g., JSON-LD) context for research activity
     #[serde(rename = "@context")]
@@ -140,6 +146,12 @@ pub struct ResearchActivity {
     #[builder(default)]
     #[eserde(compat)]
     pub sections: Sections,
+    /// Time-coded developments augmenting canonical metadata and contact data.
+    ///
+    /// Entry timestamps are distinct from activity dates, record update timestamps, and lifecycle status.
+    #[validate(nested)]
+    #[eserde(compat)]
+    pub logbook: Option<Logbook>,
     /// Contact point (i.e. point of contact) for research activity
     #[validate(nested)]
     #[builder(default)]
@@ -164,6 +176,9 @@ pub struct ResearchActivityContext {
     pub subtitle: String,
     /// Research activity sections of prose
     pub sections: String,
+    /// Time-coded research developments represented as an ActivityStreams ordered collection.
+    #[serde(default = "default_logbook_context")]
+    pub logbook: String,
     /// Research activity contact point
     pub contact: String,
     /// Research activity notes
@@ -705,6 +720,28 @@ impl MarkdownSupport for ResearchActivity {
     }
 }
 impl ResearchActivity {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        let activity_classification = self.meta.classification.clone().unwrap_or_default();
+        self.logbook
+            .as_ref()
+            .into_iter()
+            .flat_map(|logbook| &logbook.entries)
+            .enumerate()
+            .find(|(_, entry)| {
+                entry
+                    .classification
+                    .as_ref()
+                    .is_some_and(|classification| classification > &activity_classification)
+            })
+            .map(|(index, entry)| {
+                let mut error = ValidationError::new("logbook_classification")
+                    .with_message("Research activity classification must equal or exceed every logbook entry classification");
+                error.add_param("activityClassification".into(), &activity_classification);
+                error.add_param("entryClassification".into(), &entry.classification);
+                ValidationReport::from_error(format!("logbook.entries[{index}].classification"), error)
+            })
+            .map_or(Ok(()), Err)
+    }
     /// Creates a new `ResearchActivity`
     pub fn new() -> Self {
         ResearchActivity::default()
@@ -777,6 +814,7 @@ impl ResearchActivity {
             title,
             subtitle,
             sections,
+            logbook,
             contact,
             notes,
             ..
@@ -786,6 +824,7 @@ impl ResearchActivity {
             .title(title)
             .maybe_subtitle(subtitle)
             .sections(sections)
+            .maybe_logbook(logbook)
             .contact(contact)
             .maybe_notes(notes)
             .build()
@@ -839,6 +878,7 @@ impl Default for ResearchActivityContext {
             .title(dcterms("title"))
             .subtitle(schema_org("alternativeHeadline"))
             .sections(schema_org("CreativeWork"))
+            .logbook(default_logbook_context())
             .contact(dcat("contactPoint"))
             .notes(schema_org("Text"))
             .build()
@@ -1051,6 +1091,9 @@ fn default_handle_context() -> String {
 }
 fn default_languages_context() -> String {
     dcterms("language")
+}
+fn default_logbook_context() -> String {
+    activity_streams("OrderedCollection")
 }
 fn default_organizations_context() -> String {
     schema_org("Organization")

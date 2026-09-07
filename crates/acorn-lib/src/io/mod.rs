@@ -80,7 +80,7 @@ use which::which;
 pub mod adapter;
 pub mod api;
 mod archive;
-pub use archive::{archive, extract, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
+pub use archive::{archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
 pub mod bagit;
 pub mod cache;
 #[cfg(feature = "chart")]

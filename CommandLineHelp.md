@@ -525,7 +525,7 @@ Export research activity data to a specific target
 
   Default value: `pdf`
 
-  Possible values: `pdf`, `bag`, `cff`, `json`, `markdown`, `powerpoint`, `yaml`
+  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `markdown`, `powerpoint`, `yaml`
 
 * `--archive-format <FORMAT>` — BagIt archive container format
 
@@ -570,6 +570,21 @@ Export research activity data to a specific target
 
   Default value: `rads`
 * `--strict` — Fail if conversion loses data (only for crosswalk exports)
+* `--target <TARGET>` — Artifact target to export
+
+  Default value: `fact-sheet`
+
+  Possible values:
+  - `fact-sheet`:
+    US letter sized single page PDF document presenting a certain research activity data
+  - `highlight`:
+    Single slide PowerPoint presentation for a certain research activity data
+  - `poster`:
+    Poster sized presentation format intended for large printing and presentation
+  - `updates`:
+    Standalone, since-filtered research activity logbook updates
+
+* `--since <TIMESTAMP>` — Inclusive RFC 3339 timestamp for updates exports
 * `--from <STANDARD>` — Metadata standard to use for source data inference (default: auto-detect)
 
    Supported standards: rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)

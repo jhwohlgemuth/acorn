@@ -1,5 +1,7 @@
+#![allow(clippy::indexing_slicing)]
 use super::*;
 use acorn_schema::schema::agent::tools::ToolExposure;
+use acorn_schema::schema::research_activity::ResearchActivity;
 use serde_json::{json, Value};
 
 #[test]
@@ -7,7 +9,7 @@ fn test_catalog_is_deterministic_and_shared() {
     let registry = ToolRegistry::acorn().expect("registry");
     let definitions = registry.definitions();
     let needle = registry.needle_tools();
-    assert_eq!(definitions.len(), if cfg!(feature = "analysis") { 6 } else { 5 });
+    assert_eq!(definitions.len(), if cfg!(feature = "analysis") { 9 } else { 8 });
     assert_eq!(definitions.len(), needle.len());
     assert!(definitions
         .windows(2)
@@ -63,6 +65,44 @@ fn test_export_formats_include_binary_artifacts() {
     ["json", "markdown", "pdf", "powerpoint", "yaml"]
         .iter()
         .for_each(|format| assert!(input_schema.contains(&format!("\"{format}\""))));
+}
+#[tokio::test]
+async fn test_logbook_tools_filter_propose_and_gate_apply() {
+    let registry = ToolRegistry::acorn().expect("registry");
+    let mut activity = serde_json::to_value(ResearchActivity::default()).expect("default activity");
+    activity["logbook"] = json!({"entries": [{
+        "identifier": "new-contributor",
+        "timestamp": "2026-09-01T12:00:00Z",
+        "category": "personnel",
+        "state": "in-progress",
+        "summary": "Doe, Jane"
+    }]});
+    let updates = registry
+        .call(
+            "acorn.export_research_activity_updates",
+            json!({"activity": activity, "since": "2026-09-01T08:00:00-04:00", "format": "markdown"}),
+            ToolExposure { needle: false, mcp: true },
+        )
+        .await
+        .expect("updates result");
+    assert_eq!(updates.structured_content.get("entryCount").and_then(Value::as_u64), Some(1));
+    let proposed = registry
+        .call(
+            "acorn.propose_logbook_graduation",
+            json!({"activity": activity}),
+            ToolExposure { needle: false, mcp: true },
+        )
+        .await
+        .expect("graduation proposals");
+    assert_eq!(proposed.structured_content["candidates"].as_array().map(Vec::len), Some(1));
+    let denied = registry
+        .call_with_context(
+            "acorn.apply_logbook_graduation",
+            json!({"activity": activity, "acceptedIds": ["new-contributor"]}),
+            ToolCallContext::mcp(true),
+        )
+        .await;
+    assert!(denied.is_err_and(|why| why.to_string().contains("mutation approval")));
 }
 #[test]
 fn test_mcp_catalog_uses_the_canonical_registry() {
