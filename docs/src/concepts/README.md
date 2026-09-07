@@ -1,42 +1,29 @@
 # Concepts
 
-<span title="Accessible Content Optimization for Research Needs">ACORN</span> is built around a few core concepts to ensure its effectiveness. This section will introduce these concepts and explain their significance in the context of <span title="Accessible Content Optimization for Research Needs">ACORN</span> and science.
+These pages describe the data model and design ideas behind ACORN. Start with [Why ACORN?](../motivation.md) for the problem the project addresses, then use this section as a reference for its schemas, identifiers, and technology classifications.
 
-## Motivation
-For the last few decades, scientific progress has been driven largely by publishing papers in, ideally peer-reviewed, scientific journals. Publishing affords researchers recognition, career advancement, and funding opportunities. This model can be effective, but it has some serious limitations <span title="Accessible Content Optimization for Research Needs">ACORN</span> aims to address.
-1. **Publication pressure**[^publish]: Unfortunately, researchers are often burdened by the pressure to publish often, which, while sometimes beneficial to the community, hinders researchers from allotting more time and energy to conducting science. Publications remain a key metric for career advancement and funding, which can tilt incentives toward quantity and a reluctance to share negative results or data that does not support a hypothesis.
-2. **Reproducibility gaps**[^reproducibility]: Many valuable results are difficult to reproduce. This is not for lack of intent — researchers often want to share — but sharing underlying data and code is not always required, so reproducibility is unfortunately sometimes left behind, raising questions about validity.
-3. **No clear way to demonstrate science**: [Publications, people, and budgets do not tell the whole story](/motivation.html#-how-is-it-novel). Science needs a cross-domain standard to collect and communicate the full context of scientific endeavors, including data, code, methods, and results. ACORN does not replace these systems; its research activity data record links and contextualizes people, publications, budgets, and approvals together.
-
-<span title="Accessible Content Optimization for Research Needs">ACORN</span> addresses these issues by codifying the details of a research project and providing an automated framework for sharing and analyzing scientific knowledge. Predicated on the idea of applying "science all the way down," <span title="Accessible Content Optimization for Research Needs">ACORN</span> applies rigorous scientific principles to the management and dissemination of scientific knowledge.
-
-## Research Enablement
+## Research enablement
 ACORN is managed by the Research Enablement Initiative (REI) at Oak Ridge National Laboratory (ORNL). REI aims to improve the way scientific research is conducted, shared, and evaluated. It is a team of developers, communication experts, and information scientists passionate about open science, transparency, and improving the researcher experience.
 
 REI provides:
-- A cross-domain model of research activity data (<span title="Research Activity Data">RAD</span>)
-    - [ACORN](acorn.md) - Schema, controlled vocabularies, and ontologies for describing research activities
-    - [ASPECT](aspect/README.md) - Attribute of <span title="Accessible Content Optimization for Research Needs">ACORN</span> that describes technology associated with a given research activity
-- A command-line application written in Rust - [`acorn-cli`](https://crates.io/crates/acorn-cli)
-- A Rust crate for working with <span title="Research Activity Data">RAD</span> - [`acorn-lib`](https://docs.rs/acorn-lib/latest/acorn/)
-- An independently maintained Python package for working with <span title="Research Activity Data">RAD</span> - [`acorn-py`](https://code.ornl.gov/research-enablement/acorn-py)
-- A catalog of research activity data at <span title="Oak Ridge National Laboratory">ORNL</span> - [research.ornl.gov](https://research.ornl.gov) *(catalog in preview — contact REI for access)*
 
-### 🪣 Buckets
+- A cross-domain model of research activity data (<span title="Research Activity Data">RAD</span>)
+    - [ACORN](acorn.md): schemas, controlled vocabularies, and ontologies for describing research activities
+    - [ASPECT](aspect/): classifications for technology associated with a research activity
+- A Rust command-line application, [`acorn-cli`](https://crates.io/crates/acorn-cli)
+- Rust libraries for schemas and RAD workflows, [`acorn-schema`](https://crates.io/crates/acorn-schema) and [`acorn-lib`](https://docs.rs/acorn-lib/latest/acorn/)
+- An independently maintained Python package, [`acorn-py`](https://code.ornl.gov/research-enablement/acorn-py)
+- The ORNL research activity catalog, [research.ornl.gov](https://research.ornl.gov) (currently in preview; contact REI for access)
+
+### Buckets
 RAD lives in versioned folder collections called "buckets". Each bucket contains a set of files and media assets that describe research activities. For multiple examples, see [ORNL's buckets](https://code.ornl.gov/research-enablement/buckets).
 
-Buckets can be combined via a flat-file[^flat] [configuration file](/cli-reference/configuration.html) using the ACORN CLI tool. This allows users to aggregate data from multiple sources and generate outputs such as reports based on the combined data.
+The ACORN CLI combines buckets through a flat-file[^flat] [configuration file](/cli-reference/configuration.html). This lets users aggregate multiple sources and generate reports from the combined data.
 
-Buckets are flexible and extensible - *they do not require a cloud provider or expensive infrastructure to use*. They can be stored in any version-controlled repository, such as GitLab, GitHub, or even a local file system.
+Buckets can be stored in a version-controlled GitLab or GitHub repository or on a local file system. They do not require a cloud provider.
 
-Buckets are designed to enable federation and scaling while maintaining low-level control over permissions and access. This allows organizations to share data across teams and departments while maintaining control over who can access and modify the data.
+Organizations can combine buckets across teams while retaining control over each repository's access and permissions.
 
 > [!TIP]
 > See the [research enablement wiki](https://code.ornl.gov/groups/research-enablement/-/wikis/Buckets) for more information on buckets.
-
-
-[^publish]: D. R. Grimes, C. T. Bauch, and J. P. A. Ioannidis, "Modelling science trustworthiness under publish or perish pressure,"" Royal Society Open Science, vol. 5, no. 1, p. 171511, Jan. 2018, doi: [10.1098/rsos.171511](https://royalsocietypublishing.org/rsos/article/5/1/171511/93707/Modelling-science-trustworthiness-under-publish-or).
-
-[^reproducibility]: M. Baker, "1,500 scientists lift the lid on reproducibility,"" Nature, vol. 533, no. 7604, Art. no. 7604, May 2016, doi: [10.1038/533452a](https://www.nature.com/articles/533452a).
-
 [^flat]: A flat-file is a simple text file that contains data in a structured format, such as [JSON](https://www.json.org/json-en.html) or [YAML](https://yaml.org/). Flat-files are easy to read and write, and can be used to store configuration data for applications.

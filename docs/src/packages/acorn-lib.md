@@ -1,4 +1,4 @@
-# 🦀 Rust crate
+# Rust core library
 [<img alt="crates.io" src="https://img.shields.io/crates/v/acorn-lib.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/acorn-lib)
 [<img alt="docs.rs" src="https://img.shields.io/docsrs/acorn-lib?style=for-the-badge&color=%2300662C&logo=rust" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Size" src="https://img.shields.io/crates/size/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
@@ -7,7 +7,7 @@
 
 The ACORN CLI application uses `acorn-lib` for host capabilities such as filesystem and network I/O, analysis services, persistence, and artifact generation. Portable [schemas](../concepts/acorn.md), validation, and [persistent identifiers](../concepts/persistent-identifiers.md) are owned by the separate `acorn-schema` crate.
 
-## AI And Agent APIs
+## AI and agent APIs
 
 The library also provides building blocks for optional AI-enabled applications:
 
@@ -17,36 +17,20 @@ The library also provides building blocks for optional AI-enabled applications:
 
 These APIs complement ACORN's deterministic schema and artifact workflows; applications decide when and how a model is invoked.
 
-> [!IMPORTANT]
-> When ACORN validates a PID, it does not rely only on recognition patterns. It also validates parsed structure and, for ISBNs[^isbn], ISNIs[^isni], ORCIDs[^orcid], and RORs[^ror], the check digits implemented for that identifier. Validation is local and does not confirm registration with an external authority.
->
-> The PID regression tests maintain shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, and SWHID. This parity applies to the listed overlapping cases, not every behavior or identifier family supported by those projects.
-
 ## Installation
-- Add the owning schema crate as a dependency[^version]
-  ```sh
-  cargo add acorn-schema
-  ```  
-- Use schema functions directly
-  ```rust
-  use acorn_schema::validation::rules::{ark, arxiv, doi, isni, orcid, ror};
 
-  assert!(ark("ark:/1234/w5678").is_ok());
-  assert!(arxiv("arXiv:2106.09685").is_ok());
-  assert!(doi("10.11578/dc.20250604.1").is_ok());
-  assert!(isni("https://isni.org/isni/0000000492299539").is_ok());
-  assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
-  assert!(ror("01qz5mb56").is_ok());
-  ```
-- If you want to use the full capability of `acorn-lib` to build your own CLI app, be sure to enable the `doctor` and `powerpoint` features[^features]
-  ```sh
-  cargo add acorn-lib --features doctor,powerpoint
-  ```
+Add the library with its default features:
 
+```sh
+cargo add acorn-lib
+```
 
-[^version]: Check [crates.io](https://crates.io/crates/acorn-schema) for the latest version
+Applications that need system diagnostics or PowerPoint support can enable those features explicitly:[^features]
+
+```sh
+cargo add acorn-lib --features doctor,powerpoint
+```
+
+For the portable data model without host services, use [`acorn-schema`](acorn-schema.md).
+
 [^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.
-[^isbn]: [`ISBN`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ISBN.html)
-[^isni]: [`ISNI`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ISNI.html)
-[^orcid]: [`ORCID`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ORCID.html)
-[^ror]: [`ROR`](https://docs.rs/acorn-schema/latest/acorn_schema/schema/pid/struct.ROR.html)

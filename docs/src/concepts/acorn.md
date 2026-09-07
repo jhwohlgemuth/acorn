@@ -2,6 +2,14 @@
 
 The research activity schema organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON/YAML form.
 
+## Context awareness
+
+ACORN's context awareness comes from explicit data. A research activity record places its narrative alongside project identity, persistent identifiers, people, organizations, technology, media, and relationships. Linked-data mappings and provenance show how that information connects and where it came from.
+
+Commands use this context for different purposes. `acorn check` evaluates values against the appropriate schema and rules, `acorn format` normalizes controlled values, `acorn link` maps fields to defined ontologies, and `acorn export` carries the same project information into other formats. Optional model and agent workflows can receive the record, relevant evidence, and validation results as task context.
+
+Context-aware operation does not mean that ACORN knows facts absent from its inputs or that it has consciousness. Missing or unsupported information remains missing until a person or a defined provider supplies it. This boundary lets context reveal documented connections and gaps without turning an inference into project data.
+
 > [!NOTE]
 > ACORN provides field-level support for selected representations from several ISO standards: ISO 8601 dates and years, ISO 3166-1 alpha-2 country codes, ISO 639-1 language codes (with schema-specific support for other ISO 639 forms), ISO 2108 ISBNs, and ISO 7064 checksums used by ISNI, ORCID, and ROR identifiers. ACORN also parses and validates RAiD identifiers, which are governed by ISO 23527. This support validates the forms used by ACORN schemas; it does not claim complete implementation of, or certification against, each standard. See [Persistent identifier lifecycle](persistent-identifiers.md) for the exact local identifier checks.
 

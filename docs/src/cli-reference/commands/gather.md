@@ -1,7 +1,7 @@
 # 🌾 Gather
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Discover identifiers and candidate records from documents, URLs, or text with <code>acorn gather &lt;INPUT&gt;</code>.</p>
 </blockquote>
 

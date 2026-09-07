@@ -1,6 +1,6 @@
 # ✅ Check
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Validate RAD structure, links, and prose with <code>acorn check &lt;PATH&gt;</code>.</p>
 </blockquote>
 
@@ -106,22 +106,18 @@ Link checks require network access. Use `acorn --offline check ./CITATION.cff` o
 > [!NOTE]
 > Directory and Git-change discovery currently select `.json`, `.jsonc`, and `.yaml` files, but not `.cff` files. Pass each `CITATION.cff` path directly.
 
-## Check Categories
-- 🏛️ **Schema Validation**: Ensure that all data files conform to the expected schema
-- ✨ **Prose Quality**: Analyze written content for standards such as grammar, spelling, and word counts
-- 👓 **Readability**: Evaluate readability of written content using established metrics[^metrics]
-- 🔗 **Link Integrity**: Verify all hyperlinks within the content are valid and reachable
-- 📊 **Data Consistency**: Check for dataset consistency and completeness
-- 🚦 **Convention Adherence**: Ensure compliance with naming conventions and organization-specific standards
+## Check categories
 
-## Customization Options
-The `check` command supports several flags and options to customize its behavior (e.g., skipping certain checks, disabling certain behaviors, etc.)
+The command can validate data against its schema, analyze prose and readability, check links, find inconsistent or incomplete data, and enforce naming or organization-specific conventions.[^metrics]
+
+## Customization options
+Use command options to select or skip checks and to control when the command exits.
 
 Include `--exit-on-first-error` to stop execution upon encountering the first error.
 
 Bypass verifying the checksum of downloaded artifacts with `--skip-verify-checksum`[^warn]
 
-### Skip Checks
+### Skip checks
 - `--skip schema` : Skip schema validation checks
 - `--skip prose` : Skip prose quality checks
 - `--skip readability` : Skip readability checks
@@ -131,7 +127,7 @@ Bypass verifying the checksum of downloaded artifacts with `--skip-verify-checks
 > [!NOTE]
 > `--disable-website-checks` is redundant when `acorn --offline` is used for commands that need to be run in offline environments.
 
-### Configure Readability
+### Configure readability
 Readability can be configured for desired metric and level by passing options directly to the command line or via a `.env` file. Command line options override `.env` settings.
 - `--readability-metric <METRIC>` : Specify which readability metric to use
 - Set `READABILITY_METRIC` in your `.env` file to choose the readability metric. Default metric is [`fkgl`](https://acorn.ornl.gov/acorn_lib/analyzer/readability/enum.ReadabilityType.html#variant.FKGL) (Flesch-Kincaid Grade Level).

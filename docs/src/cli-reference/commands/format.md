@@ -1,10 +1,10 @@
 # 🤖 Format
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Normalize RAD fields and controlled vocabulary values with <code>acorn format &lt;PATH&gt;</code>.</p>
 </blockquote>
 
-## Example Usage
+## Example usage
 ```sh
 # Format a specific research activity index
 acorn format path/to/project/index.json
@@ -22,7 +22,7 @@ acorn format path/to/project/index.json --dry-run
 acorn format path/to/project/index.json --enrich --dry-run
 ```
 
-## Example Output
+## Example output
 ```diff
   meta:
     keywords:
@@ -74,7 +74,7 @@ acorn format index.json --enrich --provider orcid --provider ror --dry-run
 
 Existing populated values are preserved, ambiguous identity matches remain unchanged, and successful provider results survive later provider failures. See [Metadata enrichment](../../concepts/enrichment.md) for provider behavior, environment variables, provenance, and the complete workflow.
 
-## Resolved Values
+## Resolved values
 - `meta.keywords`: Resolve keywords against [ACORN Keywords Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/keywords.csv)
 - `meta.technology`: Resolve technology against [ACORN Technology Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/technology.csv)
 - `meta.partners`: Resolve partner names against [ACORN Partners Vocabulary](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/partners.csv)

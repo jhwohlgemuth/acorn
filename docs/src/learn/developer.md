@@ -10,6 +10,6 @@ Goal: integrate ACORN's data model, validation, and optional agent tooling into 
 4. For Python workflows, follow the standalone [`acorn-py` project](https://code.ornl.gov/research-enablement/acorn-py).
 5. Review the [WebAssembly-supported surface](../packages/acorn-web.md) before targeting a browser or edge runtime.
 
-When adding a CLI integration, prefer the generated `CommandLineHelp.md` in the repository as the exact option reference and the curated [command pages](../cli-reference/commands/README.md) for workflow guidance.
+When adding a CLI integration, prefer the generated `CommandLineHelp.md` in the repository as the exact option reference and the curated [command pages](../cli-reference/commands/) for workflow guidance.
 
 <p class="acorn-next"><strong>Next stop:</strong>&nbsp;Start building with the <a href="../packages/acorn-lib.md"><code>acorn-lib</code> crate</a>.</p>

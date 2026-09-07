@@ -3,7 +3,7 @@
 🌱 **Small laws can support large systems.** ACORN borrows a few practical ideas from category theory and abstract algebra to combine diagnostics, transform configuration, and keep effects at clear boundaries.
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>ACORN uses a few ideas from category theory to combine results predictably, keep transformations simple, and separate pure logic from side effects.</p>
 </blockquote>
 
@@ -110,7 +110,15 @@ bytes → deserialize → validate value → resolve identifiers
 
 Identifier resolution cannot consume a value that failed to deserialize. Hiding that dependency behind collect-all machinery would make the control flow less accurate. ACORN keeps prerequisite chains in ordinary `Result` control flow and reserves applicative-style accumulation for genuinely independent work.
 
-Schema validation already follows this distinction via ordered `ValidationReport` accumulation independent branches, with whole-value and async rules skipped after prerequisite field errors. The same distinction is being applied across analyzer orchestration in the consolidated [analyzer composition plan](../../../.wiki/refactors/analyzer/analyzer-composition.md): the service currently collects every category through explicit sequential loops (`host/service/mod.rs:30` `Analysis::check`, `154` `analyze<T>`, `177` `analyze_paths`), and the plan makes independence (`schema | link | prose | quality | readability | crosswalk` on the same input) and ordering (stable report order) explicit in a shared traversal/fold. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the underlying collection contract.
+Schema validation already follows this distinction via ordered `ValidationReport` accumulation independent branches, with whole-value and async rules skipped after prerequisite field errors. The same distinction is being applied across analyzer orchestration in the consolidated [analyzer composition plan](https://code.ornl.gov/research-enablement/acorn/-/blob/main/.wiki/refactors/analyzer/analyzer-composition.md): the service currently collects every category through explicit sequential loops (`host/service/mod.rs:30` `Analysis::check`, `154` `analyze<T>`, `177` `analyze_paths`), and the plan makes independence (`schema | link | prose | quality | readability | crosswalk` on the same input) and ordering (stable report order) explicit in a shared traversal/fold. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the underlying collection contract.
+
+## Context Through Composition
+
+ACORN becomes [context-aware](acorn.md#context-awareness) by composing partial views of the same research activity. Schema, link, prose, quality, readability, and crosswalk checks each answer a different question about one input. Their results retain their category and order when combined, so the final report carries more context than a single pass or fail result. A caller can see what ACORN observed, which rule produced the observation, and where it belongs in the record.
+
+Prerequisite chains determine when ACORN has enough context for the next operation. Deserialization must produce a typed value before validation can interpret its fields, and identifier resolution needs a valid identifier before it can add external evidence. This ordering prevents a later step from treating malformed input as meaningful context.
+
+Pure transformations and explicit effect boundaries keep that context consistent across interfaces. The CLI and WebAssembly can render the same ordered checks differently without changing what the checks mean. Network and filesystem operations may add evidence or materialize a result, but they do so after the portable transformations have established the value being carried forward.
 
 ## Normalize, Then Materialize
 
@@ -149,4 +157,4 @@ The practical test is simple: does an operation have an identity, an associative
 | Applicative vs dependent orchestration | In progress | Make collect-all (`schema \| link \| prose \| quality \| readability \| crosswalk`) vs prerequisite chains (`bytes → deserialize → validate → resolve`) explicit. | Consolidated in `.wiki/refactors/analyzer/analyzer-composition.md` slices 3-4; current `host/service/mod.rs:30,154,177` loops pending fold |
 | Vale configuration endomorphisms | Implemented | Separate deterministic normalization from host effects. | `host/vale.rs:89` `normalize` pipeline; `tests/mod.rs:787,854` |
 
-These patterns help ACORN grow higher-level workflows from dependable parts. The remaining orchestration and link work is tracked as a single consolidated plan: [analyzer composition and traversal](../../../.wiki/refactors/analyzer/analyzer-composition.md). Composition explains how the branches fit together; the next question is [...but is it agentic?](agentic.md)
+These patterns give ACORN a stable way to accumulate context without losing its source, category, or order. The remaining orchestration and link work is tracked as a single consolidated plan: [analyzer composition and traversal](https://code.ornl.gov/research-enablement/acorn/-/blob/main/.wiki/refactors/analyzer/analyzer-composition.md). Composition explains how the branches fit together; the next question is [...But Is It Agentic?](agentic.md).

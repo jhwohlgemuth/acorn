@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The [research activity changelog](research-activity-changelog.md) consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
+This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The [research activity logbook](research-activity-logbook.md) consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
 
 # Prerequisite slice
 
@@ -68,7 +68,7 @@ Treat RAD as the canonical activity-focused model and publish explicit profiles 
 - Map `ResearchActivity` to and from RAiD metadata where the source contains sufficient assertions.
 - Map `ResearchOutput` to and from DataCite records, with a separate deposit-readiness validator for DataCite mandatory properties (distinct from `Validate` on `Attributes`/`Resource`).
 - Permit an explicit `ResearchActivity -> DataCite Project` export for users who want to register an activity DOI, but do not require every RAD document to satisfy DataCite deposit requirements.
-- Keep the manually authored, discovery-ready `changelog` canonical in RAD. Do not infer DataCite `Updated` from entry occurrence timestamps; Project export may map an explicitly selected aggregate description, but it must report entry details as local-only/lossy rather than flatten the changelog into DataCite.
+- Keep the manually authored, discovery-ready `logbook` canonical in RAD. Do not infer DataCite `Updated` from entry occurrence timestamps; Project export may map an explicitly selected aggregate description, but it must report entry details as local-only/lossy rather than flatten the logbook into DataCite.
 - Map dataset outputs to DCAT and software outputs to CodeMeta without adding standard-specific fields to unrelated output types.
 - Derive Schema.org JSON-LD from canonical RAD values instead of maintaining a parallel discovery record.
 - Reject missing target-required values or report them as structured conversion losses. Do not fabricate dates, roles, identifiers, organizations, licenses, or publishers.
@@ -103,7 +103,7 @@ Deliverable: `cargo nextest run -p acorn-schema standard::datacite` validates pi
 
 ## 1. Define the conformance and crosswalk contract
 
-- Create a field matrix for `ResearchActivity`, `Changelog`, `ResearchOutput`, RAiD 1.0, DataCite 4.7, DCAT 3, CodeMeta, and Schema.org.
+- Create a field matrix for `ResearchActivity`, `Logbook`, `ResearchOutput`, RAiD 1.0, DataCite 4.7, DCAT 3, CodeMeta, and Schema.org.
 - Classify each mapping as exact, transformed, lossy, local-only, conditionally required, or unsupported.
 - Record controlled vocabulary ownership, occurrence constraints, identifier normalization, and language/date formats.
 - Define separate validity levels for a valid RAD record, a RAiD-ready activity, and a DataCite-deposit-ready output — the latter is the new `validate_deposit_ready(&Record)` / `validate_deposit_ready(&Resource)` gate, not `Validate` on `Attributes`.
@@ -226,7 +226,7 @@ Additional checks:
 - `ResearchOutput` supports all DataCite 4.7 properties ACORN documents as supported, or the unsupported property is identified as `unsupported` in the mapping matrix. Specifically, `RelatedIdentifierType` includes `RAiD`/`SWHID`, `RelationType` includes `Other`, `ResourceTypeGeneral` includes `Poster`/`Presentation`, and `RelatedItem` is modeled after the 4.7 schema.
 - `crates/acorn-schema/src/schema/standard/datacite.rs` contains no `4.6` doc links; all links point to `4.7`.
 - JSON (`Record`/`Attributes`) and XML (`Resource`) DataCite forms have symmetric coverage for spec-defined parity; intentional asymmetry is documented.
-- Changelog entries remain losslessly represented in RAD; every value omitted from RAiD or DataCite projection is classified and reported as a warning with source/target paths.
+- Logbook entries remain losslessly represented in RAD; every value omitted from RAiD or DataCite projection is classified and reported as a warning with source/target paths.
 - Every omitted, defaulted, coerced, unsupported, or many-to-one field produces a structured `ConversionWarning`; lossy-but-successful conversions never return an empty warning list when `FieldMapping::apply` reports missing fields.
 - Existing RAD fixtures continue to deserialize throughout the additive implementation phases.
 - Lossless round-trip tests retain all fields classified as exact or reversible transformations.
@@ -252,7 +252,7 @@ Additional checks:
 # Related concepts
 
 - [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
-- [Research activity changelog](research-activity-changelog.md)
+- [Research activity logbook](research-activity-logbook.md)
 - [OCP infrastructure schema alignment](ocp-infrastructure-schema-alignment.md)
 - [CKAN/DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
 - [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)

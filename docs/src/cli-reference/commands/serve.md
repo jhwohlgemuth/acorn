@@ -1,7 +1,7 @@
 # 📡 Serve
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Run an ACORN bot service with <code>acorn serve bot &lt;PROJECT_ID&gt;</code>.</p>
 </blockquote>
 

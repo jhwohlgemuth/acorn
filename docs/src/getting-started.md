@@ -1,11 +1,11 @@
-# 🚀 Getting Started
+# 🚀 Getting started
 
 > [!IMPORTANT]
-> **Local install is optional.** If you only need automated validation or publishing, configure ACORN in CI with the [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml) — no local install required. The sections below are for running ACORN directly on your workstation or in a container.
+> **Local install is optional.** If you only need automated validation or publishing, configure ACORN in CI with the [example `.gitlab-ci.yml`](https://code.ornl.gov/research-enablement/templates/-/blob/main/bucket.gitlab-ci.yml). The sections below are for running ACORN directly on your workstation or in a container.
 
 ## Installation
 
-If you are running ACORN locally, choose one method from the table below. For background on the concepts behind these workflows, see [Concepts](../concepts/README.md).
+If you are running ACORN locally, choose one method from the table below. For background on the concepts behind these workflows, see [Concepts](concepts/).
 
 ### Choose an installation method
 
@@ -41,7 +41,7 @@ If you are running ACORN locally, choose one method from the table below. For ba
     scoop update acorn
     ```
 
-### Install with Homebrew (Linux and MacOS)
+### Install with Homebrew (Linux and macOS)
 
 > Use this if you are on macOS or Linux and want a managed install via `brew`.
 
@@ -80,7 +80,7 @@ If you are running ACORN locally, choose one method from the table below. For ba
     acorn help
     ```
 
-### Run Inside a Container
+### Run inside a container
 
 > Use this if you want isolation or a pinned version without a local install.
 

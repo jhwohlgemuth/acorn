@@ -1,7 +1,7 @@
 # 👨‍⚕️ Doctor
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Inspect the host environment and capture a support report with <code>acorn doctor</code>.</p>
 </blockquote>
 

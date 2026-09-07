@@ -1,7 +1,7 @@
 # 🔄 Sync
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Route downloaded GGUF models into supported applications with <code>acorn sync --dry-run</code>.</p>
 </blockquote>
 

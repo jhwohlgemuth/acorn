@@ -54,7 +54,7 @@ End: circle radius 0.1in fill white thickness 0
 circle radius 0.05in fill 0x00662C thickness 0 at End
 ```
 
-### Local AI And Agents
+### Local AI and agents
 
 ACORN keeps its core research-data commands deterministic while offering optional tools for local AI and agent workflows:
 

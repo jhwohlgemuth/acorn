@@ -1,7 +1,7 @@
 # Command Line Reference
 
 - [Configuration](configuration.md)
-- [Commands](commands/README.md)
+- [Commands](commands/)
 - [Generated option reference](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CommandLineHelp.md)
 - [Model workflows](model-workflows.md)
 

@@ -1,45 +1,46 @@
-# 🤔 So what? Big deal? Who cares?
-> [!IMPORTANT]
-> If you do science, you need ACORN.
+# Why ACORN?
 
-## 🎯 What is ACORN trying to solve?
-*Accessible Content Optimization for Research Needs*, **ACORN**, allows science achievers and communicators to create analysis-ready research activity data. ACORN's associated schemas standardize how research is codified and communicated to capture the entire research architecture, including what research is being done, how it's done, and how it all relates.
+ACORN helps researchers and communicators describe projects as analysis-ready research activity data. Its schemas record what the research does, how it works, and how it relates to people, organizations, publications, funding, and other projects.
 
-Built with memory-safe [Rust](https://rust-lang.org), **ACORN** is a portable solution that uses statically typed and dynamically validated data structures. Schemas include unique identifiers[^pid] to support open science principles and practices.
+The schemas use statically typed and dynamically validated data structures implemented in memory-safe [Rust](https://rust-lang.org). Persistent identifiers[^pid] connect records to established research systems and support open science practices.
 
-**ACORN** can help inform researchers, sponsors, and partners, as well as train machines on existing research projects. It can also identify where gaps in a body of research exist. 
+## The problem
 
-## 🆕 How is it novel?
-**ACORN** focuses on research at the *project* level. While there are other systems that track research projects tangentially — through people, publications, or organizations — few widely adopted systems use the project itself as the primitive source of information. We believe codifying research activity data at the project level is the key to unlocking deep insights about an organization's resources, funding, partnerships, and accomplishments. This network of linked data surpasses what may be already present but siloed in current search tools.
+Scientific work is often represented through publications, people, approvals, timelines, and budgets. Each source records part of a project:
+
+- Publications[^doi] omit projects that have not produced a paper and may not show how projects relate.
+- People[^orcid] move between groups, change roles, and leave organizations.
+- Approval and timeline systems may not integrate with other persistent identifiers or research systems.
+- Budgets rarely contain enough scientific detail to explain the work.
+
+Publication pressure can favor output quantity and discourage researchers from sharing negative results or data that does not support a hypothesis.[^publish] When underlying data and code are unavailable, other researchers may be unable to reproduce otherwise useful results.[^reproducibility]
+
+## Project-level records
+
+ACORN uses the project as the primary research object. A project record links the people, publications, organizations, funding, approvals, data, code, methods, and results that other systems hold separately. ACORN supplements those systems by giving their records shared project context.
+
+This context helps readers understand a project's purpose, evidence, participants, and outputs as parts of the same activity. It also makes relationships between projects easier to follow and gives people and software more evidence for finding gaps or conflicting information.
+
+The resulting structure supports project-level search, reporting, gap analysis, and machine processing. The source record remains available as a portable file instead of depending on one hosted application.
 
 <div align="center">
-    <img src="./_assets/project_focus.png" height="300" />
+    <img src="./_assets/project_focus.png" height="300" alt="A project connects publications, people, approvals, timelines, and budgets" />
 </div>
 
-With existing tools, we can see
-- *publications*[^doi], but we don't know about projects without journal publications or how projects relate,
-- *people*[^orcid], but people move groups, change job roles, and leave organizations,
-- *approvals and timelines*, but these systems aren't often designed to integrate with other PIDs or systems,
-- *budgets*, and budgets do not include the level of project details necessary to capture appropriate scientific understanding
+## Risks and durability
 
-**ACORN** does not replace or remove these systems. Each supports part of the puzzle. **ACORN** can help ensure they integrate and work together to provide users with valuable information from a central source of truth, no matter their entry point. 
+ACORN can store sensitive research data, so deployments must control access and follow the guidance in [`SECURITY.md`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/SECURITY.md). Continued development also depends on adoption, funding, and available maintainers.
 
-## ⚠️ What are the risks?
-There are very few risks to ACORN. They include security risks inherent to hosting potentially sensitive research data (see [`SECURITY.md`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/SECURITY.md) for general considerations), as well as anything that could preclude continued development such as lack of funding or human resources.
+The file-based design limits the effect of a discontinued service. Records remain readable files that can be versioned with their assets and validated against an open JSON Schema. Citation, PDF, and PowerPoint outputs can then be regenerated without an ACORN-hosted service.
 
-Even if it completely fails[^fail], our "escalator" turns to stairs and remains useful. It is open source[^oss], designed to be local and decentralized, and built on existing systems, with information stored in flat files so it will never be lost or unshareable.
+## Using ACORN
 
-> [!TIP]
-> Research activity data curated and controlled by ACORN and its associated schemas and processes will ***always*** hold value.
+Researchers can submit project metadata through a form and generate fact sheets in PDF, web, or PowerPoint form. The resulting JSON file becomes the maintained source for each project.
 
-Even if ACORN itself were discontinued, records remain readable flat files versioned alongside their assets and validated against an open JSON Schema, so citation, PDF, and PowerPoint outputs can be regenerated without a hosted service.
+When the schema changes, run `acorn format` to apply formatting and controlled-vocabulary migrations, then review the diff. `acorn check` reports incompatible data. Existing JSON remains readable as a flat file, and CI templates can pin an ACORN version so each bucket adopts updates explicitly. See [ACORN schemas](concepts/acorn.md) and [`CHANGELOG.md`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md).
 
-## 🎁 Why should I use ACORN?
-You should use ACORN if you want your project to be part of the research conversation. We initially developed ACORN for researchers, to help capture and communicate their projects more effectively. ACORN helps cut down on administrative burden, allowing the <span title="Primary Investigator">PI</span> or a project designee to submit descriptive metadata to a form and receive automatically generated fact sheets in PDF, web, or PowerPoint form. This form, kept as a JSON file in a designated repository[^bucket], becomes the single source of truth for information on each project. It is not set-and-forget: when the schema evolves, run `acorn format` to apply formatting and controlled-vocabulary migrations and review the diff. `acorn check` flags breaking changes, older JSON remains readable as flat files, and CI templates pin an ACORN version per bucket so updates are explicit (see [ACORN schemas](concepts/acorn.md) and [`CHANGELOG.md`](https://code.ornl.gov/research-enablement/acorn/-/blob/main/CHANGELOG.md)). We continue to develop the metadata schema and talk with research groups to benefit organization processes.
-
-[^pid]: ACORN provides [CURIE](https://cthoyt.com/2021/09/14/curies.html)s and will soon also work with [research activity identifiers (RAiD)](https://www.raid.org)
-[^doi]: e.g., [DOI](https://www.doi.org)s
-[^orcid]: e.g., [ORCiD](https://orcid.org)s
-[^fail]: Realistically, the only mode of failure is complete lack of adoption...
-[^oss]: [https://www.osti.gov/doecode/biblio/156286](https://www.osti.gov/doecode/biblio/156286)
-[^bucket]: We call these repositories "buckets"; see [Buckets](concepts/README.md#-buckets) for details.
+[^pid]: ACORN supports [CURIEs](https://cthoyt.com/2021/09/14/curies.html) and [research activity identifiers (RAiDs)](https://www.raid.org).
+[^doi]: For example, a [DOI](https://www.doi.org).
+[^orcid]: For example, an [ORCID](https://orcid.org).
+[^publish]: D. R. Grimes, C. T. Bauch, and J. P. A. Ioannidis, "Modelling science trustworthiness under publish or perish pressure," Royal Society Open Science, vol. 5, no. 1, p. 171511, Jan. 2018, doi: [10.1098/rsos.171511](https://royalsocietypublishing.org/rsos/article/5/1/171511/93707/Modelling-science-trustworthiness-under-publish-or).
+[^reproducibility]: M. Baker, "1,500 scientists lift the lid on reproducibility," Nature, vol. 533, no. 7604, Art. no. 7604, May 2016, doi: [10.1038/533452a](https://www.nature.com/articles/533452a).

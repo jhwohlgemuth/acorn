@@ -1,16 +1,14 @@
 # 📤 Export
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Turn one RAD source into a shareable artifact with <code>acorn export &lt;PATH&gt; --format &lt;FORMAT&gt;</code>.</p>
 </blockquote>
 
-This command allows you to export research activity data from ACORN into formats such as CFF, PDF, Markdown, YAML, or PPTX. With `export`, you can easily share your research with sponsors, collaborators, or the general public in a variety of contexts.
+`acorn export` converts one RAD record or a directory of records into formats such as CFF, PDF, PowerPoint, Markdown, JSON, or YAML.
 
 Markdown RAD is accepted as an input for the same RAD export targets as JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
 
-`export` supports exporting individual research activity indices or entire directories containing multiple indices.
-
-ACORN allows you to maintain research activity data as persistent, interconnected [single sources of truth](https://en.wikipedia.org/wiki/Single_source_of_truth). As such, you can easily create a variety of output artifacts while ensuring consistency and accuracy across all selected formats.
+The command creates each selected artifact from the same source record, so a project can maintain its data once and regenerate its public outputs when that data changes.
 
 ```pikchr
 scale = 0.8
@@ -50,7 +48,7 @@ arrow from Bag.e right 0.3265in then up until even with End then to End.w thick 
 > [!TIP]
 > You can see some export command results by visiting the [ORNL Research Activity Index](https://research.ornl.gov), which features a variety of research activity data presented in different formats.
 
-## Example Usage
+## Example usage
 ```sh
 # Export research activity data to PDF fact sheet
 acorn export /path/to/index.json --format pdf
@@ -94,7 +92,7 @@ The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. Ev
 
 | Source | Direct targets | Targets routed through DataCite |
 |---|---|---|
-| DataCite | DCAT, InvenioRDM, HuWise | — |
+| DataCite | DCAT, InvenioRDM, HuWise | None |
 | DCAT | DataCite | InvenioRDM, HuWise |
 | InvenioRDM | DataCite | DCAT, HuWise |
 | HuWise | DataCite | DCAT, InvenioRDM |
@@ -150,8 +148,8 @@ acorn --offline export C:\path\to\index.json --format pdf `
 
 When configured, this path is validated and used without checking ACORN's browser cache or downloading Chrome. Without it, offline export uses the cached pinned browser when available and otherwise lets `chromiumoxide` detect an installed browser. Connected export retains the pinned browser download fallback.
 
-## PowerPoint Reference Template
-Customize the PowerPoint export by providing a reference template using the `--reference` option. This allows you to define specific styles, layouts, and branding for your presentations.
+## PowerPoint reference template
+Use the `--reference` option to provide a PowerPoint template with the styles, layouts, and branding for the exported presentation.
 
 ```sh
 acorn export /path/to/index.json \
@@ -159,9 +157,9 @@ acorn export /path/to/index.json \
     --reference /path/to/reference.pptx
 ```
 
-The reference template allows you to specify which values are used and where, using placeholder text in the format `{{ PLACEHOLDER_NAME }}`. During export, ACORN will replace these placeholders with corresponding data from the associated research activity data. You can find an example PowerPoint reference template in the [ACORN GitLab repository](https://code.ornl.gov/research-enablement/acorn/-/blob/main/tests/fixtures/data/highlight/reference.pptx?ref_type=heads).
+Place text such as `{{ PLACEHOLDER_NAME }}` in the template where ACORN should insert a RAD value. An example PowerPoint reference template is available in the [ACORN GitLab repository](https://code.ornl.gov/research-enablement/acorn/-/blob/main/tests/fixtures/data/highlight/reference.pptx?ref_type=heads).
 
-### Available Placeholders
+### Available placeholders
 
 The following placeholders can be used in your PowerPoint reference template:
 

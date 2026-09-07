@@ -16,15 +16,17 @@
 [<img alt="AI Assisted" src="https://www.aihonestybadge.com/badges/ai-assisted.svg" height="20">](https://www.aihonestybadge.com)
 > Accessible Content Optimization for Research Needs
 
-:seedling: ACORN is a metascience multi-tool and research assistant that provides and operationalizes an ontology for research activity data (RAD) and enables adding linked data context and transforming RAD into a knowledge graph that is amenable to automated reasoning and artifact generation (e.g. PDF, PPTX, etc.)
+:seedling: ACORN is a Rust CLI and library for validating research activity data (RAD), adding linked-data context, and exporting records as PDF, PowerPoint, CFF, Markdown, JSON, or YAML. Its source records are portable files that can be version controlled and processed locally.
+
+ACORN is context-aware at the data and workflow level. It keeps project descriptions with their identifiers, provenance, and relationships so people and software can interpret records in context. That awareness can unlock a fuller understanding of the work by making documented connections and gaps visible.
 
 > [!NOTE]
-> **AI assistance disclosure — Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-schema/src/schema/research_activity/aspect/mod.rs): humans author the majority of project code and retain review and decision authority, while AI tools may directly create or edit auxiliary files such as documentation and tests. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
+> **AI assistance disclosure, Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-schema/src/schema/research_activity/aspect/mod.rs): humans author most project code, while AI tools may directly create or edit auxiliary files such as documentation and tests. Humans retain review and decision authority. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
 
 [[_TOC_]]
 
-## So what, big deal, who cares?
-<span title="Accessible Content Optimization for Research Needs">ACORN</span> is a collection of technology artifacts, but its primary entry point is a command line multi-tool that employs automated processes for informing and enforcing defined content schemas. With these content schemas, ACORN builds communication assets such as PDFs, presentation files, and web pages. It also lays the foundation for deep data insights about ORNL's — and any institution's — corpus of research. Built using the memory-safe Rust programming language, ACORN can be used on any Windows, Mac, or Linux machine
+## What ACORN does
+The `acorn` command checks and formats research records, adds linked-data context, and creates reusable outputs. It runs on Windows, macOS, and Linux. See [Why ACORN?](https://acorn.ornl.gov/motivation.html) for the project-level research model and its intended uses.
 
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust crate](http://acorn.ornl.gov/packages/acorn-lib.html#installation). Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can also check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).

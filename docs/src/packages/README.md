@@ -1,10 +1,13 @@
-# 📦 Packages
+# Packages
 
-To enable broad adoption of ACORN, we provide packages for multiple popular programming contexts.
+ACORN publishes separate packages for its portable schemas, host services, CLI, and WebAssembly bindings. The Python bindings are maintained in a companion project.
 
 ```mermaid
 graph LR
-    A["acorn-lib</br>(Rust crate)"] -->|"&nbsp;is dependency of&nbsp;"|B["acorn-cli</br>(Rust crate)"]
-    A -.->|"&nbsp;consumed by external&nbsp;"|C["acorn-py</br>(companion project)"]
-    A -->|"provides a portable</br>&nbsp;analyzer kernel to&nbsp;"|D["acorn-wasm</br>(JavaScript package)"]
+    S["acorn-schema</br>portable Rust schemas"] --> A["acorn-lib</br>host services and analysis"]
+    A --> B["acorn-cli</br>command-line application"]
+    A -.-> C["acorn-py</br>companion project"]
+    A --> D["acorn-wasm</br>JavaScript package"]
 ```
+
+Use [`acorn-schema`](acorn-schema.md) when an application only needs the data model, validation, or persistent identifiers. Use [`acorn-lib`](acorn-lib.md) for filesystem and network I/O, analysis, persistence, model APIs, or artifact generation.

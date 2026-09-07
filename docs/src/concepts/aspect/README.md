@@ -5,18 +5,18 @@
 
 *portability* | *autonomy* | *maturity* | *motivity*
 
-The **ASPECT** framework is a standardized methodology for classifying and describing technology. It defines underlying dimensions of technology and uses them to map projects into a shared space, allowing clearer insight into their capabilities, requirements, and relationships.
+The ASPECT framework classifies technology across portability, maturity, autonomy, and motivity. It gives projects a shared vocabulary for describing capabilities and requirements.
 
-**ASPECT** treats automation, AI/ML, and classical software as subsets of technology, providing one shared classification space.
+The same classifications apply to automation, AI and machine learning, and classical software.
 
 > [!TIP]
 > [Read docs.rs documentation for ASPECT](https://docs.rs/acorn-schema/latest/acorn_schema/schema/research_activity/aspect/index.html)
 
-## Key Components
+## Components
 
 ### Primary attributes
 
-*click arrow to expand or collapse*
+Expand an attribute to see its levels.
 <details>
   <summary>📦 <a href="./portability.md">Portability</a></summary>
 
@@ -58,21 +58,21 @@ The **ASPECT** framework is a standardized methodology for classifying and descr
 - Adaptive (level 5)
 </details>
 
-### 💾 <a href="./data.md">Data</a>
+### <a href="./data.md">Data</a>
 
-Data is not included in primary four attributes, but is very important when characterizing technology.
+Data is recorded separately from the four primary attributes.
 
-Data has multiple dimensions
-- Real or Synthetic
+Its dimensions include:
+
+- Real or synthetic
 - Availability
 - Modality
 - Quality
 
 ## Example
 
-The ASPECT framework can be applied in various scenarios
+The following fictional project shows how four levels form one ASPECT classification.
 
-### Consider a fictional project with the following characterization:
 | Attribute | Level | Details |
 |---|---|---|
 | 📦 Portability | Level 1 | ***Source*** |
@@ -80,15 +80,16 @@ The ASPECT framework can be applied in various scenarios
 | 🤝 Autonomy | Level 1 | ***Machine-assisted*** |
 | 🦾 Motivity | Level 2 | ***Perceptive*** |
 
-#### Badge Visualization
-ASPECT can be visualized in a badge-like form for visual project portfolio management
+### Badge visualization
+
+An ASPECT badge gives project portfolios a compact view of the four attribute levels.
 
 <p align="center">
   <img src="../../_assets/aspect_example.png" alt="ASPECT Example" width="165" />
 </p>
 <p align="center"><em>ASPECT badge for a project</em></p>
 
-The badge below provides immediate feedback on the state of the project and its technology components. It can be used in project dashboards, reports, and presentations to communicate the current status and future goals of the project in a clear and concise manner. The annotated version clarifies the placement of each attribute.
+The annotated version identifies the position of each attribute. The same badge can be used in dashboards, reports, and presentations.
 
 <p align="center">
   <img src="../../_assets/aspect_example_annotated.png" alt="Annotated ASPECT Example" width="500" style="background: white; padding: 8px; border-radius: 8px;" />

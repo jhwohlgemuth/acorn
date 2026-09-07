@@ -1,13 +1,13 @@
 # 📥 Download
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Fetch bucket content or local-model weights with <code>acorn download &lt;SOURCE&gt;</code>.</p>
 </blockquote>
 
 - See the [configuration](../configuration.md) documentation for details on configuring ACORN commands.
 - By default, `download` will save files to `./content` in the working directory unless an output path is specified via the `--output` flag.
 
-## Example Usage
+## Example usage
 ```sh
 # Download research activity data from a single bucket repository URL
 acorn download https://code.ornl.gov/research-enablement/buckets/nssd
@@ -50,7 +50,7 @@ acorn download --config /path/to/.acorn.json --canonicalize --strict
 acorn --no-local-database download --config /path/to/.acorn.json
 ```
 
-### Local vs Remote
+### Local and remote sources
 Top-level `download` accepts remote bucket repositories only and requires online mode. Use [`acorn import`](import.md#research-content-and-bagit-archives) for local directories, local bucket entries in configuration, and offline local transfers. This policy does not apply to `download model`, which retains its documented local-file and offline behavior.
 
 ```json
@@ -75,7 +75,7 @@ Top-level `download` accepts remote bucket repositories only and requires online
 ]
 ```
 
-### GitLab vs GitHub
+### GitLab and GitHub
 The `download` command supports both GitLab and GitHub remote repositories for ACORN buckets. The configuration for each is similar, with the main difference being the `provider` field in the `repository` object.
 ```json
 "buckets": [
@@ -168,7 +168,7 @@ Detailed configuration entries can set the same constraints:
 }
 ```
 
-### OCI Model Artifacts
+### OCI model artifacts
 
 Explicit `oci://` references download model artifacts from any OCI Distribution-compatible registry, including Harbor. [ORAS 1.3.0 or newer](https://oras.land/docs/installation) must be installed and available on `PATH`; `acorn doctor --check software` reports its availability. Unqualified `owner/repository` values remain Hugging Face selectors.
 
@@ -241,11 +241,11 @@ Profiles also support `username`, `registryConfig`, `caFile`, paired `clientCert
 
 Command-line constraints override configuration. If neither constraint is present, download selection remains unchanged. With global `--no-local-database`, import reports metadata without persisting it and constrained downloads proceed with an eligibility-unknown warning.
 
-### Filter and Ignore Semantics
+### Filter and ignore semantics
 
 The `--filter` flag behaves as an **include** rule: only sources matching at least one pattern will be downloaded. The `--ignore` flag behaves as an **exclude** rule: sources matching any ignore pattern are excluded even if they match a filter pattern. Both flags accept regular expression patterns, not Hugging Face glob patterns. Simple patterns are automatically optimized to glob matching for Hugging Face repositories.
 
-### Note for Transformers/PyTorch Users
+### Note for Transformers and PyTorch users
 
 Users of Transformers or PyTorch typically need the full repository or a broader filter that includes `config.json`, tokenizer files, `tokenizer_config.json`, and optionally custom code files. The default GGUF-only filter is designed for llama.cpp inference.
 

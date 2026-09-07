@@ -1,17 +1,15 @@
 # 🕸️ Link
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Add linked-data context and create JSON-LD with <code>acorn link &lt;PATH&gt;</code>.</p>
 </blockquote>
 
-The `link` command augments user-input RAD with linked data context and outputs `JSON-LD` documents. This process involves mapping the input data to established ontologies and vocabularies, thereby enhancing its interoperability and depth of meaning.
-
-ACORN helps prepare RAD for programmatic expansion. The `link` command makes input RAD machine-readable.
+`acorn link` maps RAD fields to defined ontologies and vocabularies, then writes the result as JSON-LD for programmatic use.
 
 > [!TIP]
 > [Linked Data](https://json-ld.org/) creates a connected network of standards-based, machine-readable data across Web sites.
 
-## Example Usage
+## Example usage
 ```sh
 # Link a specific research activity index
 acorn link path/to/project/index.json
@@ -26,7 +24,7 @@ acorn link path/to/project/
 > [!TIP]
 > The `link` command is almost identical to the [`format` command](./format.md), complete with support for the `--dry-run` flag to preview changes without creating files.
 
-## Example Output
+## Example output
 ```diff
     "contact": {
 +     "@context": {

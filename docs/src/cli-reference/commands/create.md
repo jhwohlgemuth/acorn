@@ -1,7 +1,7 @@
 # 🏗️ Create
 
 <blockquote class="blockquote-tag acorn-nutshell">
-<p class="blockquote-tag-title acorn-nutshell-title">In a Nutshell</p>
+<p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
 <p>Create an ACORN-backed runner or bot with <code>acorn create &lt;RESOURCE&gt;</code>.</p>
 </blockquote>
 
