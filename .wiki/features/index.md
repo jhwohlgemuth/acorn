@@ -13,6 +13,5 @@
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
 - [ACORN MCP server and MCP Bundle lifecycle](mcpb-bundle-export.md) - Harden the shared stdio server, package target-specific MCPB 0.4 artifacts, and integrate client sync, Kitfile/OCI, database, inference, documentation, and release workflows.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) - Align activity metadata with RAiD and output interchange with DataCite, DCAT, persistent identifiers, and contributor-role vocabularies.
-- [SciCrunch RRID provider](rrid-scicrunch-provider.md) - Add typed lookup and optional bounded registry search only after endpoint, schema, pagination, quota/terms, and credential gates pass.
 - [Open Compute infrastructure schema alignment](ocp-infrastructure-schema-alignment.md) - Add portable infrastructure and OCP contribution, recognition, and management-profile models while consolidating schema validation and standard module layout.
 - [ZON serialization support](zon-format-support.md) - Add a pinned strict ZON codec and integrate `.zonf` with RAD I/O, CLI workflows, crosswalks, discovery, and GitLab review.

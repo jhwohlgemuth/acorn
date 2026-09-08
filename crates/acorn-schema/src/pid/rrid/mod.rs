@@ -153,5 +153,10 @@ impl RridParseError {
         Self { message: message.into() }
     }
 }
+impl From<RRID> for String {
+    fn from(value: RRID) -> Self {
+        value.to_string()
+    }
+}
 #[cfg(all(test, feature = "std"))]
 mod tests;

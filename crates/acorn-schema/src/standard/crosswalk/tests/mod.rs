@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use crate::research_activity::{RelatedResourceCategory, TypedIdentifier, TypedRelatedResource};
 use crate::standard::crosswalk::*;
 use crate::standard::crosswalk::{
     mapping::{
@@ -17,6 +18,20 @@ use crate::standard::{datacite, dcat, huwise, invenio};
 use crate::OneOrMany;
 use proptest::prelude::*;
 use serde_json::json;
+
+fn rrid_related_resource() -> TypedRelatedResource {
+    TypedRelatedResource {
+        identifier: TypedIdentifier {
+            value: "rrid : SCR_003512".to_string(),
+            scheme: Some("rrid".to_string()),
+            scheme_uri: Some("https://scicrunch.org/resolver".to_string()),
+        },
+        relation_type: "Cites".to_string(),
+        relation_type_information: Some("Experimental software input".to_string()),
+        resource_type_general: Some("Software".to_string()),
+        category: Some(RelatedResourceCategory::Related),
+    }
+}
 
 #[test]
 fn mapping_apply_basic() {
@@ -49,6 +64,83 @@ fn mapping_required_field_fails() {
         }
         | _ => panic!("expected MissingRequiredField error"),
     }
+}
+#[test]
+fn test_rrid_crosswalk_preserves_relation_semantics_and_reports_local_category() {
+    let (related, warnings): (datacite::RelatedIdentifier, _) = rrid_related_resource().crosswalk().unwrap();
+    assert_eq!(related.related_identifier, "RRID:SCR_003512");
+    assert_eq!(related.related_identifier_type, Some(datacite::RelatedIdentifierType::Rrid));
+    assert_eq!(related.relation_type, Some(datacite::RelationType::Cites));
+    assert_eq!(related.relation_type_information.as_deref(), Some("Experimental software input"));
+    assert_eq!(related.resource_type_general, Some(datacite::ResourceTypeGeneral::Software));
+    assert_eq!(related.scheme_uri.as_deref(), Some("https://scicrunch.org/resolver"));
+    assert_eq!(warnings.len(), 1);
+    assert_eq!(warnings[0].field, "relatedResources[].category");
+    assert_eq!(warnings[0].loss_type, FieldLossType::NoEquivalent);
+}
+#[test]
+fn test_rrid_crosswalk_rejects_malformed_or_mistyped_identifiers() {
+    let malformed = TypedRelatedResource {
+        identifier: TypedIdentifier {
+            value: "RRID:".to_string(),
+            ..rrid_related_resource().identifier
+        },
+        ..rrid_related_resource()
+    };
+    let mistyped = TypedRelatedResource {
+        identifier: TypedIdentifier {
+            scheme: Some("DOI".to_string()),
+            ..rrid_related_resource().identifier
+        },
+        ..rrid_related_resource()
+    };
+    let invalid_relation = TypedRelatedResource {
+        relation_type: "Invented".to_string(),
+        ..rrid_related_resource()
+    };
+    assert!(<TypedRelatedResource as Crosswalk<datacite::RelatedIdentifier>>::crosswalk(&malformed).is_err());
+    assert!(<TypedRelatedResource as Crosswalk<datacite::RelatedIdentifier>>::crosswalk(&mistyped).is_err());
+    assert!(<TypedRelatedResource as Crosswalk<datacite::RelatedIdentifier>>::crosswalk(&invalid_relation).is_err());
+}
+#[test]
+fn test_rrid_crosswalk_round_trips_datacite_fixture_and_reports_unrepresented_fields() {
+    let content = include_str!("../../../../../../tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json");
+    let records: Vec<datacite::Record> = serde_json::from_str(content).unwrap();
+    let related = records[0]
+        .attributes
+        .related_identifiers
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|related| related.related_identifier_type == Some(datacite::RelatedIdentifierType::Rrid))
+        .unwrap();
+    let with_unrepresented = datacite::RelatedIdentifier {
+        related_metadata_scheme: Some("custom".to_string()),
+        scheme_type: Some("custom-type".to_string()),
+        ..related.clone()
+    };
+    let (rad, warnings): (TypedRelatedResource, _) = with_unrepresented.crosswalk().unwrap();
+    assert_eq!(rad.identifier.value, "RRID:SCR_003512");
+    assert_eq!(rad.identifier.scheme.as_deref(), Some("RRID"));
+    assert_eq!(rad.relation_type, "Cites");
+    assert_eq!(rad.resource_type_general.as_deref(), Some("Software"));
+    assert_eq!(warnings.len(), 2);
+    assert!(warnings.iter().all(|warning| warning.loss_type == FieldLossType::NoEquivalent));
+    let (round_trip, warnings): (datacite::RelatedIdentifier, _) = rad.crosswalk().unwrap();
+    assert_eq!(round_trip.related_identifier, related.related_identifier);
+    assert_eq!(round_trip.related_identifier_type, related.related_identifier_type);
+    assert_eq!(round_trip.relation_type, related.relation_type);
+    assert_eq!(round_trip.resource_type_general, related.resource_type_general);
+    assert!(warnings.is_empty());
+
+    let missing_relation = datacite::RelatedIdentifier {
+        relation_type: None,
+        ..related.clone()
+    };
+    assert!(matches!(
+        <datacite::RelatedIdentifier as Crosswalk<TypedRelatedResource>>::crosswalk(&missing_relation),
+        Err(CrosswalkError::MissingRequiredField(_))
+    ));
 }
 #[test]
 fn extract_datacite_record_basic() {

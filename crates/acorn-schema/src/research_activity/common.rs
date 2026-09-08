@@ -235,6 +235,30 @@ pub struct TypedActivityDate {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub information: Option<String>,
 }
+/// Typed related resource with identifier, relation, resource type and category
+///
+/// Unifies DataCite `RelatedIdentifier`/`RelatedItem` for RAD. `relationType` includes `Other` with `relationTypeInformation`.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TypedRelatedResource {
+    /// Related resource identifier.
+    #[validate(nested)]
+    pub identifier: TypedIdentifier,
+    /// Relation type (e.g. `IsPartOf`, `References`, `Other`)
+    #[validate(nonempty)]
+    #[serde(deserialize_with = "string_trim")]
+    pub relation_type: String,
+    /// Relation type information for `Other` or extended semantics
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub relation_type_information: Option<String>,
+    /// General resource type (e.g. `Dataset`, `JournalArticle`, `Poster`, `Project`)
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub resource_type_general: Option<String>,
+    /// Activity category for related activities (e.g. `sponsors`, `partners`, `related`)
+    pub category: Option<RelatedResourceCategory>,
+}
 /// Typed identifier with value, scheme and scheme URI
 ///
 /// Covers DOI, Handle, RAiD, SWHID, ROR, ORCID, ISNI, ARK etc. without network resolution. See `.wiki/assets/standards-field-matrix.md` identifiers.
@@ -263,28 +287,4 @@ impl TypedIdentifier {
             | _ => Ok(()),
         }
     }
-}
-/// Typed related resource with identifier, relation, resource type and category
-///
-/// Unifies DataCite `RelatedIdentifier`/`RelatedItem` for RAD. `relationType` includes `Other` with `relationTypeInformation`.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct TypedRelatedResource {
-    /// Related resource identifier.
-    #[validate(nested)]
-    pub identifier: TypedIdentifier,
-    /// Relation type (e.g. `IsPartOf`, `References`, `Other`)
-    #[validate(nonempty)]
-    #[serde(deserialize_with = "string_trim")]
-    pub relation_type: String,
-    /// Relation type information for `Other` or extended semantics
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub relation_type_information: Option<String>,
-    /// General resource type (e.g. `Dataset`, `JournalArticle`, `Poster`, `Project`)
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub resource_type_general: Option<String>,
-    /// Activity category for related activities (e.g. `sponsors`, `partners`, `related`)
-    pub category: Option<RelatedResourceCategory>,
 }

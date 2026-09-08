@@ -21,6 +21,7 @@ use crate::validation::{Property, PropertySet, Validate};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
+use bon::Builder;
 use core::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -245,7 +246,7 @@ pub enum RelatedIdentifierType {
 /// Description of the relationship of the resource being registered (A) and the related resource (B)
 ///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relationType/> for details
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display, strum::EnumString)]
 pub enum RelationType {
     /// Indicates that A includes B in a citation
     Cites,
@@ -327,7 +328,7 @@ pub enum RelationType {
     Other,
 }
 /// General resource type enumeration per DataCite 4.7 property 10.a
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, strum::Display, strum::EnumString)]
 pub enum ResourceTypeGeneral {
     /// Series of visual representations imparting an impression of motion when shown in succession (may or may not include sound)
     /// ### Dublin Core equivalent
@@ -945,7 +946,8 @@ pub struct Record {
 ///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/relatedidentifier/> for details
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 pub struct RelatedIdentifier {
     /// Related identifier value
     #[serde(rename = "relatedIdentifier", alias = "$text")]

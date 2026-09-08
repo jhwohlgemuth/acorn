@@ -41,6 +41,7 @@ use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
 
 pub mod mapping;
+mod rrid;
 
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
 
