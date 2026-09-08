@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The implemented research activity logbook consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
+This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The implemented research activity logbook consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/RRID/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. The landed portable RRID baseline also delegates `TypedRelatedResource` RRID relation conversion and loss reporting to this plan's `ResearchActivity -> DataCite Project` and `ResearchOutput <-> DataCite Record` adapters. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
 
 # Prerequisite slice
 
@@ -159,7 +159,7 @@ Extend `ResearchOutput` `output.rs:113` with:
 - publisher with optional identifier (`publisherIdentifier` parity with `datacite.rs:898`)
 - publication year and typed dates (`Date` `datacite.rs:654` with `dateType`)
 - controlled general resource type plus a specific type (`ResourceTypes` `datacite.rs:1038`)
-- language, alternate identifiers, typed related identifiers (including `RAiD`/`SWHID`), `RelatedItem`s, and version
+- language, alternate identifiers, typed related identifiers (including `RAiD`/`RRID`/`SWHID`), `RelatedItem`s, and version
 - structured rights, descriptions, subjects, formats, sizes, and geographic coverage
 - complete funder and award identifiers
 
@@ -170,8 +170,8 @@ Deliverable: a `ResearchOutput` can round-trip every field ACORN claims is lossl
 ## 5. Implement standards adapters and user workflows
 
 - Implement `ResearchActivity <-> RAiD Metadata` with no inferred assertions; remove or gate the legacy inferred date/role/license defaults behind an explicit `allow_infer: bool` that defaults to `false` and emits `ConversionWarning::Approximated` when used.
-- Implement `ResearchOutput <-> DataCite Record` with explicit loss reporting (reuses Slice 0 warning pipeline).
-- Implement opt-in `ResearchActivity -> DataCite Project` export (general `ResourceTypeGeneral::Project` `datacite.rs:407`).
+- Implement `ResearchOutput <-> DataCite Record` with explicit loss reporting (reuses Slice 0 warning pipeline), preserving authored RRID identifiers, explicit relations, relation information, and general resource types without inferred semantics.
+- Implement opt-in `ResearchActivity -> DataCite Project` export (general `ResourceTypeGeneral::Project` `datacite.rs:407`), preserving authored RRID relations without inferring relations from discovery or co-occurrence.
 - Implement dataset-output DCAT and software-output CodeMeta adapters only after their mappings are approved in the matrix.
 - Generate Schema.org JSON-LD contexts and types from the canonical activity and output structures.
 - Expose validation and conversion through existing `cargo run --bin acorn -- check` / `export` / `schema` workflows instead of adding a new command unless existing command semantics cannot express the operation.
@@ -210,7 +210,7 @@ Additional checks:
 
 - Validate pinned DataCite 4.7 JSON and XML fixtures and two invalid records (`datacite-invalid-*.json`); assert `rg "4\.6" crates/acorn-schema/src/standard/datacite.rs` is empty after Slice 0.
 - Validate official RAiD examples and missing-required-field cases.
-- Add golden tests for `RAD <-> RAiD` and `ResearchOutput <-> DataCite Record` conversions, including 4.7 `RAiD`/`SWHID`/`Other`/`RelatedItem` cases.
+- Add golden tests for `RAD <-> RAiD`, `ResearchActivity -> DataCite Project`, and `ResearchOutput <-> DataCite Record` conversions, including activity- and output-level RRID relations plus 4.7 `RAiD`/`SWHID`/`Other`/`RelatedItem` cases.
 - Add property tests for identifier normalization (DOI, RAiD, SWHID, ROR, ORCID, ISNI), relation mappings, and lossless round trips.
 - Assert that conversions never fabricate metadata and that every intentional loss emits a `ConversionWarning` with `from`/`to`/`field`/`loss_type`/`details` and that required-field failures are `CrosswalkError::MissingRequiredField`, not warnings.
 - Retain compatibility fixtures for established RAD field names and Markdown front matter (`crates/acorn-schema/src/research_activity/tests/`).
@@ -223,14 +223,15 @@ Additional checks:
 - Every canonical RAD field has a documented standards mapping or an explicit local-only designation in the pinned matrix.
 - RAiD export contains no dates, roles, organizations, identifiers, or licenses absent from the RAD source unless `allow_infer: true` is explicitly set, in which case a warning is emitted.
 - DataCite validation distinguishes valid internal output metadata (lenient `Validate`) from deposit-ready metadata (`validate_deposit_ready`) and reports every missing mandatory property (`titles`, `creators`, `publisher`, `publicationYear`, `resourceType`).
-- `ResearchOutput` supports all DataCite 4.7 properties ACORN documents as supported, or the unsupported property is identified as `unsupported` in the mapping matrix. Specifically, `RelatedIdentifierType` includes `RAiD`/`SWHID`, `RelationType` includes `Other`, `ResourceTypeGeneral` includes `Poster`/`Presentation`, and `RelatedItem` is modeled after the 4.7 schema.
+- DataCite adapters preserve authored RRID identifiers and explicit relation semantics from activity `relatedResources` and output `relatedIdentifiers`, or emit a structured warning for every simplification or omission.
+- `ResearchOutput` supports all DataCite 4.7 properties ACORN documents as supported, or the unsupported property is identified as `unsupported` in the mapping matrix. Specifically, `RelatedIdentifierType` includes `RAiD`/`RRID`/`SWHID`, authored RRID relations retain their explicit relation semantics, `RelationType` includes `Other`, `ResourceTypeGeneral` includes `Poster`/`Presentation`, and `RelatedItem` is modeled after the 4.7 schema.
 - `crates/acorn-schema/src/standard/datacite.rs` contains no `4.6` doc links; all links point to `4.7`.
 - JSON (`Record`/`Attributes`) and XML (`Resource`) DataCite forms have symmetric coverage for spec-defined parity; intentional asymmetry is documented.
 - Logbook entries remain losslessly represented in RAD; every value omitted from RAiD or DataCite projection is classified and reported as a warning with source/target paths.
 - Every omitted, defaulted, coerced, unsupported, or many-to-one field produces a structured `ConversionWarning`; lossy-but-successful conversions never return an empty warning list when `FieldMapping::apply` reports missing fields.
 - Existing RAD fixtures continue to deserialize throughout the additive implementation phases.
 - Lossless round-trip tests retain all fields classified as exact or reversible transformations.
-- Generated JSON Schema exposes controlled values, nested validation, and conditional requirements where supported; `RelatedItem`/`RAiD`/`SWHID` appear in schema output.
+- Generated JSON Schema exposes controlled values, nested validation, and conditional requirements where supported; `RelatedItem`/`RAiD`/`RRID`/`SWHID` appear in schema output.
 - Default, minimal (`--no-default-features`), `alloc`, and WASM builds remain supported; `make check-wasm` passes per slice.
 - No network request occurs during schema validation or fixture-backed tests; `offline` mode respected in CLI consumers.
 

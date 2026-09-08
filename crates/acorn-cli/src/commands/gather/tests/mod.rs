@@ -10,6 +10,25 @@ use assert_cmd::Command;
 use std::env::temp_dir;
 use std::path::PathBuf;
 
+fn assert_raw_rrid_fixture(extension: &str) {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/rrid/discovery")
+        .with_extension(extension);
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--raw",
+            path.to_str().expect("RRID fixture path should be UTF-8"),
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "RRID:IMSR_JAX:000664\n");
+}
+
 #[test]
 fn test_explicit_empty_stdin_fails() {
     let output = Command::cargo_bin("acorn")
@@ -118,21 +137,12 @@ fn test_console_format_renders_current_gather_results() {
     assert!(report.contains("10.1234/example"));
 }
 #[test]
-fn test_raw_format_prints_only_discovered_identifiers() {
-    let output = Command::cargo_bin("acorn")
-        .unwrap()
-        .args([
-            "--offline",
-            "--no-local-database",
-            "gather",
-            "--text",
-            "doi:10.1234/example https://ror.org/01qz5mb56 doi:10.1234/example",
-            "--raw",
-        ])
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "10.1234/example\nhttps://ror.org/01qz5mb56\n");
+fn test_raw_format_discovers_rrid_docx_fixture() {
+    assert_raw_rrid_fixture("docx");
+}
+#[test]
+fn test_raw_format_discovers_rrid_pdf_fixture() {
+    assert_raw_rrid_fixture("pdf");
 }
 #[test]
 fn test_raw_format_normalizes_arxiv_urls() {
@@ -167,6 +177,23 @@ fn test_raw_format_normalizes_rrid_aliases() {
         .unwrap();
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "RRID:SCR_003512\n");
+}
+#[test]
+fn test_raw_format_prints_only_discovered_identifiers() {
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--text",
+            "doi:10.1234/example https://ror.org/01qz5mb56 doi:10.1234/example",
+            "--raw",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "10.1234/example\nhttps://ror.org/01qz5mb56\n");
 }
 #[test]
 fn test_raw_format_silently_returns_nonzero_for_load_failures() {

@@ -950,6 +950,24 @@ fn test_rrid_discovery_is_local_and_not_project_identifying() {
     assert!(json[0]["metadata"].is_null());
 }
 #[test]
+fn test_rrid_document_discovery_preserves_source_formats() {
+    let documents = ["docx", "pdf"]
+        .into_iter()
+        .map(|extension| SourceDocument::from_path(format!("../../tests/fixtures/rrid/discovery.{extension}")))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    let discoveries = Records::from(documents);
+    assert_eq!(discoveries.len(), 2);
+    assert!(discoveries.candidates().is_empty());
+    let json = serde_json::to_value(&discoveries).unwrap();
+    assert_eq!(json[0]["identifier"], "RRID:IMSR_JAX:000664");
+    assert_eq!(json[0]["identifier_type"], "rrid");
+    assert_eq!(json[0]["source_format"], "docx");
+    assert_eq!(json[1]["identifier"], "RRID:IMSR_JAX:000664");
+    assert_eq!(json[1]["identifier_type"], "rrid");
+    assert_eq!(json[1]["source_format"], "pdf");
+}
+#[test]
 fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
     let document = SourceDocument::from_path("../../tests/fixtures/gather/resume.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)

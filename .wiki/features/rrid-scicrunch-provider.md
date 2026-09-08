@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-- [Portable RRID research-resource support](rrid-research-resource-support.md) has landed its strict parser, canonical identifier, `PID::RRID`, non-project identity policy, and local discovery behavior. Lookup integration depends on those contracts remaining stable.
+- The portable RRID baseline has landed its strict parser, canonical identifier, `PID::RRID`, non-project identity policy, and local discovery behavior. Lookup integration depends on those contracts remaining stable.
 - Reuse the current `api::Secret`, endpoint override, request redaction, offline rejection, retry bounds, and `ResolutionOutcome`/`ResolutionStatus` lifecycle contracts. Coordinate shared API files with the [API roadmap](../refactors/api/roadmap.md) and [provider capability matrix](../refactors/api/provider-capability-matrix.md).
 - `RemoteProvider::Rrid` belongs to the host discovery provider enum; `RemoteEntity::Resource` belongs to the portable provider-neutral discovery schema. Their shared enum roots are integration locks.
 - Registry search is downstream of stable exact lookup and an approved pagination/ranking contract. CLI and TUI search are optional bounded consumers, not prerequisites for resolution.
@@ -212,7 +212,6 @@ Additionally assert zero default live requests, complete credential redaction, e
 
 # Related concepts
 
-- [Portable RRID research-resource support](rrid-research-resource-support.md)
 - [API roadmap](../refactors/api/roadmap.md)
 - [API provider capability matrix](../refactors/api/provider-capability-matrix.md)
 - [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)

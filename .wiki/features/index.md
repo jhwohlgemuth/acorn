@@ -5,7 +5,6 @@
 - [Canonical research activity database](research-activity-database.md) - Maintain revisioned canonical RAD, linked logbook entries, enrichment evidence, and reconciliation decisions as ACORN's durable working truth.
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
 - [Portable ModelKit and Kitfile schema model](modelkit-schema-model.md) - Match KitOps Kitfile 1.0.0 (`pkg/artifact/kitfile.md` + `pkg/artifact/kitfile.go` at the pinned commit) with explicit authoring-YAML and resolved-JSON boundaries and portable validation.
-- [Portable RRID research-resource support](rrid-research-resource-support.md) - Add deterministic RRID parsing, local discovery and persistence, typed RAD relations, and standards interchange without a provider dependency.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 
 ## Planned
