@@ -22,7 +22,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - The `analyzer` feature compiles the check/error/readability model kernel with `alloc`; the `analysis` feature adds native execution and rendering under `analyzer::host`.
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
 - The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
-- `make check-portable` and the dedicated `test-portability` CI job enforce the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs.
+- `make check-portable` and the dedicated optional `test-portability` CI job check the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs when invoked manually or by the Saturday weekly schedule.
 - `acorn-wasm` now owns minimal JavaScript bindings for supplied-value Research Activity validation and readability analysis; artifact generation and JavaScript-facing tests are part of the portability gate.
 
 # Project code boundaries

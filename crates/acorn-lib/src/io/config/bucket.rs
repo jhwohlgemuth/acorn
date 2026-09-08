@@ -407,17 +407,23 @@ impl Bucket {
     /// destination is removed before the transfer starts.
     pub(crate) async fn download_file(options: &DownloadOptions<'_>) -> ApiResult<()> {
         match Self::download_item(options) {
-            | Ok(item) => {
-                let target = options.output.join(options.destination);
-                match (options.clobber, item.is_complete_at(&target)) {
+            | Ok(item) => match item.target(options.output) {
+                | Err(why) => Err(why),
+                | Ok(target) => match (options.clobber, item.is_complete_at(&target)) {
                     | (false, true) => Ok(()),
                     | (true, _) => match Self::remove_destination(&target) {
-                        | Ok(()) => DownloadTask::new(item, options.output, true, true).download().await,
+                        | Err(why) => Err(why),
+                        | Ok(()) => match DownloadTask::new(item, options.output, true, true) {
+                            | Ok(task) => task.download().await,
+                            | Err(why) => Err(why),
+                        },
+                    },
+                    | _ => match DownloadTask::new(item, options.output, true, true) {
+                        | Ok(task) => task.download().await,
                         | Err(why) => Err(why),
                     },
-                    | _ => DownloadTask::new(item, options.output, true, true).download().await,
-                }
-            }
+                },
+            },
             | Err(why) => Err(why),
         }
     }

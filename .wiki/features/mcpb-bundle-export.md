@@ -1,10 +1,10 @@
 ---
 okf_version: "0.1"
 type: Plan
-title: MCP Bundle (.mcpb) export for the ACORN MCP server
-description: Package the existing ACORN RMCP stdio server as a portable MCP Bundle ZIP (.mcpb) with a spec-conformant manifest.json and wire the artifact to Kitfile mcpServers referenced by ModelKit OCI layers.
-difficulty: medium
-impact: medium
+title: ACORN MCP server and MCP Bundle lifecycle
+description: Harden the existing ACORN RMCP stdio server, package it as target-specific MCP Bundles, and connect the shared tool registry to client sync, Kitfile, OCI, database, inference, documentation, and release workflows.
+difficulty: high
+impact: high
 package:
   - acorn-lib
   - acorn-cli
@@ -13,196 +13,288 @@ tags:
   - mcp
   - mcpb
   - bundle
+  - agent-tools
+  - sync
   - kitfile
   - modelkit
   - oci
-  - export
+  - release
 status: planned
 priority: next
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-lib/src/io/mcp/mod.rs`, `crates/acorn-lib/src/io/mcp/tools.rs`, `crates/acorn-schema/src/modelkit/kitfile.rs`, `crates/acorn-lib/src/util/constants/oci.rs`, `Cargo.toml` (workspace dependencies), crate `Cargo.toml` files for `acorn-lib` and `acorn-cli`, `CommandLineHelp.md`, and `Makefile`/`docs` help generation.
-- **Create:** `crates/acorn-lib/src/io/mcp/bundle.rs` (or `crates/acorn-lib/src/mcpb/mod.rs` with `manifest.rs` + `bundle.rs`), `crates/acorn-cli/src/commands/create/mcp/mod.rs`, optional `crates/acorn-cli/src/commands/export/mcpb.rs` alias, fixtures under `tests/fixtures/mcpb/` (golden `manifest.json` + sample `.mcpb` inventories), and `docs/src/packages/mcpb.md` or expanded CLI docs.
-- **Delete:** None. The `create mcp` stub error in `crates/acorn-cli/src/commands/mod.rs:162` is replaced; no existing download or OCI path is removed.
+- **Update:** `crates/acorn-lib/src/io/{archive.rs,mcp/mod.rs,mcp/tools.rs,sync/mod.rs,sync/opencode.rs,sync/goose.rs,sync/vscode.rs}`, `crates/acorn-schema/src/agent/opencode.rs`, `crates/acorn-cli/src/{cli/mod.rs,cli/arguments/mod.rs,commands/mod.rs,commands/serve/mcp/mod.rs,commands/create/mcp/mod.rs,commands/sync/mod.rs}`, focused adjacent tests, `Cargo.toml`, crate manifests only if feature wiring changes, `Makefile`, `.gitlab-ci.yml`, `scripts/upload-binaries.sh`, `CommandLineHelp.md`, the CLI/inference/package documentation, and this plan's entries in the feature index, dependency network, and parallel-execution guide.
+- **Create:** `crates/acorn-lib/src/io/mcp/bundle.rs`, a client-neutral MCP launch/configuration leaf if sharing it avoids repeated command assembly, dedicated MCPB fixtures under `tests/fixtures/mcpb/`, and `docs/src/packages/mcpb.md`.
+- **Delete:** None. Keep the existing `acorn serve mcp` adapter, the empty `commands/create/mcp/mod.rs` path, the Needle catalog export, and the established Kitfile schema; fill or augment them in place.
 
-# Dependencies
+The implementation owner must narrow these planning boundaries to an exact write set before starting. Module indexes, CLI roots, manifests, generated help, release files, shared sync configuration, and shared snapshots are integration-owned even when a leaf implementation is prepared separately.
 
-- Reuse the existing RMCP stdio server contract in `crates/acorn-lib/src/io/mcp/mod.rs:22` (`Server`, `ServerHandler`, `run(offline)`) and the allowlisted `ToolRegistry::acorn()` in `crates/acorn-lib/src/io/mcp/tools.rs:256` plus `Server::tools()` filtered by `exposure.mcp`. Do not change tool names, schemas, or exposure without updating `acorn-schema::agent::tools`.
-- Consume the Kitfile schema already landed in `crates/acorn-schema/src/modelkit/kitfile.rs:133` (`Kitfile.mcp_servers: Vec<McpServer>`) and `McpServer` (`kitfile.rs:160` with `name`, `path` ending `.mcpb`, `description`, `LayerInfo`) plus its validation (`kitfile.rs:702-731`, `validate_wire_shape:935` requiring `.mcpb` suffix and unique `name`) and `KITOPS_MODELKIT_MCPB_RAW` (`crates/acorn-lib/src/util/constants/oci.rs:11` `application/vnd.kitops.modelkit.mcpb.v1.raw`).
-- Pin the MCP Bundle contract to the MCP project spec `MANIFEST.md` version `0.3` (2025-12-02) — required fields `manifest_version`, `name`, `version`, `description`, `author:{name}`, `server:{type, entry_point, mcp_config}` with variable substitution `${__dirname}`/`${HOME}`/`${user_config.*}` and optional `tools`, `tools_generated`, `compatibility` (`platforms: darwin|win32|linux`, `runtimes`).
-- Keep the implementation `#[cfg(feature = "std")]` so `make check-wasm` remains green; `acorn-lib` ZIP generation must not leak into the `alloc`-only or WASM path.
-- This plan occupies the **Agent tools and sidecars** and **CLI composition** lanes in the [parallel execution guide](../parallel-execution.md) and touches shared **CLI contract** and **Workspace graph** locks. It follows [portable ModelKit and Kitfile schema model](modelkit-schema-model.md) and is consumed by [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) for layer materialization, but it does not change the GGUF selection policy owned by that plan. Serialize edits to `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `Cargo.toml`, and `CommandLineHelp.md`.
+# Dependencies and execution conflicts
 
-# MCP Bundle (.mcpb) export for the ACORN MCP server
+## Existing contracts to reuse
 
-## Goal
+- `io::mcp::Server`, RMCP's stdio transport, and `ToolRegistry::acorn()` already implement `acorn serve mcp`. The server advertises and invokes the same ordered definitions used by Needle. This plan hardens that path; it does not introduce another server binary or registry.
+- `ToolDefinition`, `ToolExposure`, `ToolEffects`, `ToolCallContext`, and `ToolResult` are the provider-neutral tool contract. Availability policy must be expressed as a projection of that contract rather than copied into MCP, MCPB, client sync, or inference adapters.
+- `io::archive` already owns ZIP creation/extraction and the workspace already resolves `zip` through the `archive` feature. Add the minimum explicit-entry/mode support needed by MCPB instead of adding a second ZIP dependency or independent archive safety rules.
+- `acorn-schema::modelkit::Kitfile` already models `mcpServers`, validates local `.mcpb` paths and unique names, and separates authoring YAML from resolved OCI identity. `KITOPS_MODELKIT_MCPB_RAW` already defines the raw-layer media type. No second Kitfile model is needed.
+- The release pipeline already produces `x86_64-unknown-linux-musl` and `x86_64-pc-windows-gnu` binaries and uploads them through `scripts/upload-binaries.sh`. MCPB release work consumes those exact outputs.
 
-Make `acorn` distributable as a one-click local MCP server bundle: `acorn create mcp --output acorn.mcpb` (and optionally `acorn export --format mcpb`) produces a ZIP `acorn.mcpb` containing a spec-conformant `manifest.json` plus the compiled `acorn` binary executed via `serve mcp` over stdio, so any MCPB-compatible client (Claude Desktop, Claude Code, MCP for Windows, et al.) can install it and so a Kitfile can reference it declaratively:
+## Prerequisites and plan edges
 
-```yaml
-manifestVersion: 1.0.0
-package: { name: acorn-research, version: 0.2.0 }
-mcpServers:
-  - name: acorn
-    path: ./acorn.mcpb
-    description: Allowlisted ACORN research-activity-data tools
+- The portable Kitfile contract is already implemented far enough for bundle references. Any remaining [ModelKit schema](modelkit-schema-model.md) work retains schema ownership; this plan only adds bundle inspection and an explicit authoring-file upsert.
+- [Canonical research activity database](research-activity-database.md) owns durable revision and transaction semantics. This plan injects its repository into MCP handlers and does not invent separate MCP persistence.
+- [Database-backed artifact generation](database-backed-artifact-generation.md) owns current/revision artifact selection. Its MCP inputs must register through the same tool registry after the typed source contract lands.
+- [Agent inference and verified fixes](opencode-acp-inference.md) shares OpenCode agent schema, CLI roots, and MCP modules. Land the current OpenCode MCP configuration contract before either plan writes client configuration. Keep the ACP plan's first-release exclusion of a custom MCP-over-ACP bridge.
+- [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) owns OCI classification, descriptor verification, and materialization. This plan supplies MCPB validation and the `McpBundle` component behavior; it does not broaden `download model` into a general installer.
+- The current MCPB baseline is manifest `0.4`. Pin the schema and validator to a reviewed upstream tag or commit immediately before implementation and record that pin in fixtures. Do not implement against unpinned `main`.
+
+## Integration locks and conflicts
+
+| Lock | Conflicting work | Required sequencing |
+| --- | --- | --- |
+| Agent tool contract | Needle changes, ACP inference, database artifact tools, service extraction | Land the runtime-policy and dependency-injection contract first. Subsequent plans register handlers through it without changing transport adapters. |
+| CLI contract | Parse/execution, startup, error-boundary, remote-create, ACP, CLI coverage | One owner changes `cli/`, `commands/mod.rs`, and generated help. Leaf MCPB and sync code lands before the single CLI integration commit. |
+| OpenCode schema/config | ACP inference, sync consolidation | Freeze support for current and legacy MCP shapes first, then let one owner update the schema and JSONC-preserving writer. |
+| Archive safety | Safe-path and unified import/download/BagIt work | Add an explicit safe ZIP-entry primitive only after reconciling with the active safe-path changes. Do not modify extraction policy or unrelated archive formats. |
+| Database repository | Canonical database and database-backed artifacts | Consume the typed repository after it stabilizes. Do not edit migrations or persistence schema in this slice. |
+| ModelKit/OCI | ModelKit schema and OCI download work | Kitfile upsert may land independently; bundle-layer inspection/materialization lands through the OCI owner. |
+| Workspace graph | Feature-default, crate extraction, portability, dependency work | No dependency addition is expected. If feature wiring changes, the workspace-graph owner integrates it and reruns the supported feature matrix. |
+| Sync configuration | Model workflow sync and duplication consolidation | Introduce MCP as an orthogonal sync capability while one owner controls shared `Config`, `Options`, selection, rendering, and snapshots. |
+| Release and docs | CI runner pools, release work, generated help, book changes | Package scripts land before CI wiring. Regenerate help once after all CLI changes; one release owner updates build, upload, and release links. |
+
+Suggested landing order: tool policy and injected services, protocol hardening, archive/MCPB library, `create mcp`, client sync, Kitfile/OCI hooks, then documentation and release integration. A slice that needs another lock stops at its leaf boundary and hands integration to that lock owner.
+
+# Goal and decisions
+
+ACORN will support one MCP implementation across direct execution, local agent configuration, bundled installation, ModelKit packaging, and future tools. The default server remains local, stdio-only, and read-only. Network-capable tools follow the existing global offline policy. Mutation requires an explicit server flag and an available configured database.
+
+The public packaging command is `acorn create mcp`. Do not add `.mcpb` to `acorn export`: that command exports research data and currently requires RAD-oriented inputs, while MCPB packages the application itself. `acorn export --tools` remains the Needle-native `tools.json` export and its help text should say so explicitly.
+
+Release bundles are target-specific. The first release matrix matches the existing binaries:
+
+- Linux `x86_64-unknown-linux-musl`;
+- Windows `x86_64-pc-windows-gnu`.
+
+Local macOS users may package the running executable, but release manifests must not claim macOS compatibility until a signed macOS binary lane exists. A multi-platform or fat bundle is outside this plan.
+
+# Recommended implementation
+
+## 1. Make runtime policy and tool availability consistent
+
+Introduce an immutable MCP runtime/service input containing offline state, mutation permission, the structured-output byte limit, and an optional configured research-activity repository. Keep `ToolRegistry::acorn()` as the safe compatibility constructor used by Needle and tests; add a dependency-aware constructor for interface composition roots.
+
+Add one deterministic availability projection, such as `available_definitions(context)`, and use it for:
+
+- MCP `tools/list` and `get_tool`;
+- invocation authorization;
+- the MCPB manifest's static tool list;
+- tests comparing all projections.
+
+The projection omits mutating tools unless mutation is enabled and omits open-world tools in offline mode. A tool that appears in `tools/list` must be callable under the same policy. Preserve `ToolEffects` as MCP annotations.
+
+Inject the selected database/repository into `apply_logbook_graduation` and future persistent handlers. Remove its direct use of `Database::<Table>::default()`. The direct server composition root must honor `--database-path`, the selected backend, and `--no-local-database`.
+
+Extend the CLI contract to:
+
+```text
+acorn [GLOBAL OPTIONS] serve mcp [--allow-mutation]
 ```
 
-The bundle must reuse the same `ToolRegistry`/`ServerHandler` surface already exercised by `acorn serve mcp`, declare its capabilities statically from `Server::tools()`, and integrate with the ModelKit OCI layer `application/vnd.kitops.modelkit.mcpb.v1.raw` without creating a second Kitfile model or changing archive safety invariants.
+- The default is read-only.
+- Existing global `--offline` controls open-world tool availability.
+- `--allow-mutation` requires local persistence and fails before protocol startup when combined with `--no-local-database`.
+- All protocol frames use stdin/stdout; tracing, progress, and diagnostics use stderr only.
+- Keep stdio as the only transport. HTTP, SSE, authentication, and remote deployment need a separate plan.
 
-## Current evidence and gaps
+## 2. Add a reusable MCPB plan and builder
 
-| Concern | Current ACORN behavior | Target behavior |
-|---|---|---|
-| MCP server | `acorn-lib::io::mcp::Server` exposes allowlisted tools via RMCP stdio (`crates/acorn-lib/src/io/mcp/mod.rs:22-152`, `tools.rs:256` `ToolRegistry::acorn()`); `acorn serve mcp` runs it (`crates/acorn-cli/src/commands/mod.rs:540`, `cli/mod.rs:484`). | Same runtime is packaged; no tool rename or second server binary. |
-| Bundle creation | `CreateCommands::Mcp` is stubbed `Err("MCP server creation is not yet implemented")` (`crates/acorn-cli/src/commands/mod.rs:162`); `Export` has handlers `Bag/Cff/Pdf/PowerPoint/Structured/Updates` but no `Mcpb` (`crates/acorn-cli/src/commands/export/mod.rs:140,183`) and `FileFormat`/`Target` have no `mcpb` (`cli/arguments/mod.rs`). | `acorn create mcp --output acorn.mcpb` creates a valid `.mcpb`; optional `export --format mcpb` delegates to the same core. |
-| Kitfile reference | `Kitfile.mcp_servers` and `McpServer` already model bundles (`kitfile.rs:133,160`), enforce `.mcpb` suffix and unique `name` (`kitfile.rs:702-731`), participate in `local_layers()` (`kitfile.rs:550`), and define OCI media type `KITOPS_MODELKIT_MCPB_RAW` (`oci.rs:11`). | Bundles produced by this plan validate against that contract and can be inspected via the resolved-config JSON path (`from_resolved_json`/`to_resolved_json`). |
-| MCPB spec | No `manifest.json` generation or ZIP assembly exists. | ZIP with `manifest.json` (0.3), `server/acorn` binary (0755), optional `icon.png`, no `yaml:"-"` leakage, `${__dirname}`-relative `mcp_config`. |
-| Distribution | Manual `cargo run --bin acorn -- serve mcp` only. | One-file `.mcpb` installable in any MCPB-compatible client; Kitfile-aware `--kitfile` upsert. |
-
-## Recommended implementation
-
-### 1. Model the MCPB manifest in `acorn-lib` (no CLI dependency)
-
-Create `crates/acorn-lib/src/io/mcp/bundle.rs` (or `crates/acorn-lib/src/mcpb/{mod,manifest,bundle}.rs`) behind `#[cfg(feature = "std")]`:
-
-- Define `McpbManifest`, `McpbAuthor`, `McpbServer { type: McpbServerType::Binary, entry_point, mcp_config: McpbMcpConfig { command, args, env, platform_overrides } }`, `McpbCompatibility`, `McpbToolDecl { name, description }` matching `MANIFEST.md` 0.3. Derive `Serialize/Deserialize/JsonSchema` with `deny_unknown_fields` where the spec does; `manifest_version` is const `"0.3"`. Validate `name` lowercase/kebab, `version` semver (reuse `is_license`/`version` validator style in `kitfile.rs`), `author.name` required.
-
-- Derive `tools: Vec<McpbToolDecl>` from `ToolRegistry::acorn().definitions().filter(|d| d.exposure.mcp)` sorted by `name`, matching `Server::tools()` (`mod.rs:39`). Set `tools_generated = false` (ACORN's tool set is static; only `format_and_enrich` is `open_world` but still enumerated). Preserve `description` from `ToolDefinition`.
-
-- Fill workspace metadata from `env!("CARGO_PKG_VERSION")`, `env!("CARGO_PKG_DESCRIPTION")`, `CARGO_PKG_AUTHORS`, `CARGO_PKG_REPOSITORY`, `license = "MIT"`, `homepage`, `icon` default `None`. Allow caller overrides via `BuildOptions { name, display_name, version, description, author_name }`.
-
-- Server config: `type = "binary"`, `entry_point = "server/acorn"`, `mcp_config.command = "${__dirname}/server/acorn"`, `args = ["serve","mcp"]` (append `"--offline"` only when `BuildOptions.offline` true, matching `Server::with_offline` in `mod.rs:35`). Set `platform_overrides.win32.command = "${__dirname}/server/acorn.exe"` when bundling a Windows binary. Keep `env = {}` unless `user_config` is introduced later.
-
-- `BuildOptions { output: PathBuf, binary_path: Option<PathBuf>, icon: Option<PathBuf>, offline: bool, clobber: bool }`. No `user_config` in v1; leave field absent when `None`.
-
-Exit condition: `McpbManifest::from_registry(&ToolRegistry::acorn()?)` round-trips through `serde_json` and `schemars` snapshot, and `manifest.json` contains exactly `Server::tools().len()` entries in deterministic order.
-
-### 2. ZIP assembly with executable preservation
-
-- Add `zip = { version = "2", features = ["deflate"] }` to `[workspace.dependencies]` and `acorn-lib/Cargo.toml` optional `std` dependency. Do not add `zip` to `acorn-schema` or `acorn-core`.
-
-- In `bundle::build(options)`:
-  1. Validate `output` ends with `.mcpb`, parent exists, refuse overwrite without `clobber`.
-  2. Resolve binary: `binary_path` if supplied and exists, else `std::env::current_exe()` when it ends with `acorn`/`acorn.exe` and is a file, else `target/release/acorn` (and `target/release/acorn.exe` on Windows). Error with guidance `cargo build --release` if not found.
-  3. Write to `output.tmp` then atomically rename. Use `zip::ZipWriter` with `FileOptions::default().compression_method(Deflated).unix_permissions(0o644)` for `manifest.json` and `0o755` for `server/acorn`/`server/acorn.exe`. Structure:
-     ```
-     acorn.mcpb
-     ├── manifest.json
-     ├── server/acorn      (or acorn.exe)
-     └── icon.png          (optional, manifest.icon set when present)
-     ```
-  4. Serialize `manifest.json` pretty-printed with sorted keys; validate `serde_json::from_str::<McpbManifest>(&json).is_ok()` before writing.
-  5. Preserve no extra top-level directory; ZIP entries are relative and safe (no absolute paths, no `..`).
-
-Exit condition: `zipinfo -l acorn.mcpb` lists expected entries, `unzip -p acorn.mcpb manifest.json | jq .server.type` is `"binary"`, and extracted `server/acorn --help` succeeds.
-
-### 3. CLI: `acorn create mcp` (primary) + optional `export --format mcpb` alias
-
-`crates/acorn-cli/src/cli/arguments/mod.rs` — add:
+Create a std-gated bundle module with a pure planning boundary and a filesystem materializer. The minimum public API is:
 
 ```rust
-#[derive(Clone, Debug, Args)]
-pub struct CreateMcp {
-  #[arg(short='o', long, value_name="PATH", default_value="acorn.mcpb")]
-  pub output: PathBuf,
-  #[arg(long, value_name="PATH")] pub binary: Option<PathBuf>,
-  #[arg(long, value_name="PATH")] pub icon: Option<PathBuf>,
-  #[arg(long)] pub name: Option<String>,
-  #[arg(long)] pub description: Option<String>,
-  #[arg(long, value_name="PATH")] pub kitfile: Option<PathBuf>,
-  #[arg(long)] pub clobber: bool,
-  #[arg(long)] pub offline: bool,
-  #[arg(long)] pub dry_run: bool,
-  #[command(flatten)] pub verbose: Verbosity,
+pub struct BundleOptions {
+    pub output: PathBuf,
+    pub binary: PathBuf,
+    pub platform: McpbPlatform,
+    pub overwrite: bool,
 }
+
+pub enum McpbPlatform {
+    Linux,
+    Win32,
+}
+
+pub struct BundleReport {
+    pub output: PathBuf,
+    pub manifest: Manifest,
+    pub sha256: String,
+    pub size: u64,
+}
+
+pub fn plan(options: &BundleOptions, registry: &ToolRegistry) -> ApiResult<BundlePlan>;
+pub fn build(plan: BundlePlan) -> ApiResult<BundleReport>;
 ```
 
-Update `CreateCommands::Mcp(Box<CreateMcp>)` in `crates/acorn-cli/src/cli/mod.rs:451` and replace the stub in `crates/acorn-cli/src/commands/mod.rs:162` with `create::mcp::run()`:
+Model only the MCPB `0.4` fields ACORN emits: required identity, author, and server data; repository, homepage, documentation, and license metadata; compatibility platform; static `tools`; and `tools_generated: false`. Populate identity from Cargo metadata rather than accepting arbitrary package-name, version, or author overrides.
 
-- Build `BuildOptions` from args, call `acorn_lib::mcpb::build()`, emit `info!("{} Created {}", Label::pass(), output.display().cyan())` via `acorn::util::Label` and `owo_colors`, or on `--dry-run` print manifest to stdout via `write_stdout`.
-- If `--kitfile` is `Some` or a `Kitfile`/`Kitfile.yaml` exists in `output.parent()` or cwd, read via `Kitfile::from_yaml` (`kitfile.rs:421`), upsert `mcpServers` entry `{ name, path: rel_output, description }`, validate (`kitfile.validate()`), write via `to_yaml()` (`kitfile.rs:443`), and log `Label::using()` for the mutated path. Reuse portable `Location::normalize()` logic; do not write `digest`/`diffId` to YAML (authoring projection).
+The bundle contains:
 
-Add `crates/acorn-cli/src/commands/create/mcp/mod.rs` and re-export in `commands/mod.rs:2`.
-
-Optionally, add `FileFormat::Mcpb` and `McpbExportHandler` in `crates/acorn-cli/src/commands/export/mod.rs` delegating to the same `acorn_lib::mcpb::build()` (ignoring `path` input). This keeps `acorn export` parity for scripting while `create mcp` remains the documented entry point.
-
-Exit condition: `cargo run -- create mcp --help` shows the new flags, `cargo run -- create mcp --dry-run` prints JSON without writing, and `cargo run -- create mcp --output /tmp/acorn.mcpb --kitfile ./Kitfile.yaml` upserts one `mcpServers` entry and passes `Kitfile::from_yaml(...).validate()`.
-
-### 4. Kitfile and OCI wiring
-
-- No schema change required: `McpServer.path` already requires `.mcpb` and `name` uniqueness is enforced. Ensure `validate_wire_shape:935` (`mcpServers: ["name","path","description", "digest","diffId"]`) and `local_layers:550` continue to include `mcpServers` layers.
-
-- OCI: document that a Kitfile-referenced `.mcpb` becomes an OCI layer with media type `KITOPS_MODELKIT_MCPB_RAW` (`oci.rs:11`) when the Kitfile is packed via `kit` or future `acorn` packing. This plan does not implement packing; it prepares the bundle for consumption by the existing OCI classification in `oci-model-artifact-downloads.md`. Follow-on work may add `KitfileExt::mcpb_content()` analogous to `modelkit_content` in `crates/acorn-lib/src/io/oci.rs:366` for pull-time validation.
-
-Exit condition: A Kitfile with `mcpServers: [{name: acorn, path: ./acorn.mcpb}]` validates, round-trips `to_yaml`/`from_yaml` without emitting layer identity, and its resolved JSON form (`to_resolved_json`) preserves `digest`/`diffId` when present.
-
-### 5. Cross-platform and size considerations
-
-- v1 ships one binary per `.mcpb` for the host that built it. Document `cargo build --target x86_64-unknown-linux-musl --release` + `--binary target/.../acorn` for alternate platforms, and `platform_overrides` for Windows `.exe` auto-append per `MANIFEST.md`.
-- Future multi-arch bundle may embed `server/darwin/acorn`, `server/linux/acorn`, `server/win32/acorn.exe` with `platform_overrides` mapping — deferred.
-- `Cargo.toml` release profile already sets `opt-level="z"`, `strip=true`, `lto=true` (`Cargo.toml:117`), so the binary is size-optimized; ZIP deflate further reduces it.
-
-### 6. Documentation and housekeeping
-
-- `make help` regenerates `CommandLineHelp.md`; update `docs/src/packages/acorn-web.md` or `docs/src/cli-reference/commands/create.md` (if exists) with the new command.
-- Add `docs/src/packages/mcpb.md` summarizing install in Claude Desktop/Code/MCP for Windows and the Kitfile snippet.
-- Update `.wiki/refactors/initiative.md` or `plan-network.md` cross-edges if needed; do not move `acorn-schema` ownership.
-
-## Validation
-
-### Unit and fixture
-
-- `McpbManifest` golden: `tests/fixtures/mcpb/manifest.json` snapshot of `manifest_version=0.3`, `server.type=binary`, `mcp_config.command=${__dirname}/server/acorn`, `mcp_config.args=["serve","mcp"]`, `tools` count/order matches `Server::tools()`, `compatibility.platforms` when provided.
-- `Bundle` fixture: build to temp, open with `zip::ZipArchive`, assert entries `manifest.json`, `server/acorn`, optional `icon.png`, no `..` or absolute entries, `server/acorn` has `0o755`, `manifest.schema_version` parses.
-- Kitfile fixture: `tests/fixtures/modelkit/kitfile-mcpb.yaml` with one `mcpServers` entry; `from_yaml`/`to_yaml` round-trip preserves authoring shape, `from_resolved_json` with `digest`/`diffId` preserves identity, validation rejects missing `name`, duplicate `name`, and non-`.mcpb` suffix.
-- Schema: no new `deny_unknown_fields` breakage; `McpbManifest` `schemars` snapshot committed.
-
-### CLI
-
-- `cargo nextest run -p acorn-cli -- create::mcp` (new tests) plus `cargo run -- create mcp --dry-run --output /tmp/acorn.mcpb` prints JSON.
-- `cargo run -- create mcp --output /tmp/acorn.mcpb --kitfile tests/fixtures/modelkit/Kitfile.yaml --clobber` updates exactly one entry.
-
-### Repository checks
-
-```
-cargo fmt
-make lint          # cargo clippy --no-deps, deny missing-docs, no unwrap_used
-cargo nextest run --run-ignored all
-cargo check --no-default-features
-cargo check --all-features
-rustup target add wasm32-unknown-unknown && make check-wasm  # bundle is std-gated
-make help && make book
-make audit
+```text
+acorn.mcpb
+├── manifest.json
+└── server/
+    └── acorn          # Linux
+    └── acorn.exe      # Windows bundle instead
 ```
 
-Differential: validate with `npx @modelcontextprotocol/mcpb validate acorn.mcpb` (when available) or `unzip -l` + `jq` against the 0.3 spec; install the bundle in Claude Desktop/Code to observe ACORN tools listed.
+Use `server.type: binary`, the matching `entry_point`, and an `mcp_config` command rooted at `${__dirname}` with arguments `serve mcp`. The manifest advertises the safe online MCP tool projection, so mutating tools are excluded. Do not include an icon until a suitable ACORN PNG asset is approved.
 
-## Risks and mitigations
+Augment `io::archive` with an explicit ZIP-entry writer that accepts a source, a validated relative destination, and a Unix mode. Reuse it from existing ZIP creation where that is a small mechanical change. MCPB generation requires deterministic entry order, fixed ZIP metadata, `0755` for the Linux executable, `0644` for data, no symlinks, and no absolute or parent-traversing names.
 
-- **Bundle size (10-30 MB):** Rust binary + ZIP deflate is expected; `opt-level=z` + `strip` already minimize it. Advise excluding `debug` symbols and sharing one bundle per platform rather than fat binary.
-- **Platform coupling:** Client will fail if the binary arch/OS mismatches. Mitigate with `compatibility.platforms`, clear error when `--binary` is absent, and `platform_overrides.win32`.
-- **Code-signing/notarization (macOS):** ZIP loses quarantine/signature context — document `xattr -d com.apple.quarantine` or signing outside ACORN.
-- **Workspace graph lock:** Adding `zip` and new CLI args touches `Cargo.toml` and `cli/mod.rs` — serialize via single integration commit after leaf module is reviewed.
-- **Kitfile mutation surprise:** Do not mutate a Kitfile without `--kitfile` or explicit discovery; default is to create the bundle only.
-- **WASM leakage:** Gate `mcpb` behind `std`; unit tests for manifest are `alloc`-compatible.
+Validate the input binary and manifest before opening the destination. Write a sibling temporary file, finish and re-open it for structural validation, calculate SHA-256, then atomically rename. Refuse replacement unless requested and remove only the temporary file on failure.
 
-## Acceptance criteria
+## 3. Implement `acorn create mcp`
 
-- `cargo run -- create mcp --output /tmp/acorn.mcpb` (after `cargo build --release`) creates a ZIP where `unzip -l` lists `manifest.json` and `server/acorn`, `manifest.json` satisfies MCPB 0.3 required fields and `server.type="binary"` with `${__dirname}`-relative command, and `tools.len()` equals live `ToolRegistry::acorn().definitions().filter(|d| d.exposure.mcp).count()`.
-- Installing the bundle in an MCPB-compatible client installs the server and lists the 8 allowlisted ACORN tools (`acorn.version`, `acorn.validate_*`, `acorn.export_*`, `acorn.propose/apply_logbook_graduation`, `acorn.format_and_enrich_research_activity_data`, `acorn.crosswalk_*` when `analysis` enabled) identical to `acorn serve mcp` output.
-- `Kitfile.yaml` containing `mcpServers: [{name: acorn, path: ./acorn.mcpb}]` passes `Kitfile::from_yaml(...).validate()` and `to_yaml` omits `digest`/`diffId`, while resolved JSON preserves them.
-- No change to GGUF inference policy or to the existing Hugging Face/ORAS download paths; `make test` (skips respected), `make lint`, and `make check-wasm` pass.
-- `CommandLineHelp.md` regenerated; docs describe both standalone install and Kitfile reference.
-- Evidence notes the MCPB spec commit`main` `MANIFEST.md` 0.3 (2025-12-02) baseline and KitOps `kitfile.md` `application/vnd.kitops.modelkit.mcpb.v1.raw` OCI media type used by `Kitfile`.
+Fill the existing empty `commands/create/mcp/mod.rs` and change `CreateCommands::Mcp` to carry these arguments:
 
-## Evidence
+```text
+acorn create mcp
+    [--output PATH]
+    [--binary PATH]
+    [--platform linux|win32]
+    [--kitfile PATH]
+    [--clobber]
+    [--dry-run]
+```
 
-- ACORN RMCP server: `crates/acorn-lib/src/io/mcp/mod.rs:22` (`Server`), `crates/acorn-lib/src/io/mcp/mod.rs:141` (`run(offline)` via `rmcp::transport::stdio`), `crates/acorn-lib/src/io/mcp/tools.rs:256` (`ToolRegistry::acorn()`), `crates/acorn-lib/src/io/mcp/mod.rs:39` (`tools()`).
-- Kitfile MCP bundle layer: `crates/acorn-schema/src/modelkit/kitfile.rs:133` (`Kitfile.mcp_servers`), `kitfile.rs:160` (`McpServer` with `name`/`path`/`description`/`LayerInfo`), `kitfile.rs:702-731` (`.mcpb` suffix + `name` required/unique), `kitfile.rs:518,550` (`local_layers`/`layer_info_completeness` include `mcpServers`), `kitfile.rs:935` (`validate_wire_shape` allows `digest`/`diffId` only in resolved JSON).
-- OCI media type: `crates/acorn-lib/src/util/constants/oci.rs:11` (`KITOPS_MODELKIT_MCPB_RAW = "application/vnd.kitops.modelkit.mcpb.v1.raw"`).
-- CLI stubs and export dispatch: `crates/acorn-cli/src/cli/mod.rs:451` (`CreateCommands::Mcp`), `crates/acorn-cli/src/commands/mod.rs:162` (stub), `crates/acorn-cli/src/commands/export/mod.rs:140,183` (`ExportHandler`/`ExportRequest`).
-- KitOps format: `pkg/artifact/kitfile.md:48` (MCP `.mcpb` verbatim raw layer) and `pkg/artifact/kitfile.go:108-118` (`MCPServer` type) at KitOps v1.15.0 commit `6b8162ae5da4d46f1d2af2beb43e7fb077f052f4` (same pin as [modelkit-schema-model](modelkit-schema-model.md)).
-- MCP Bundle spec and CLI: MCPB announced as portable ZIP + `manifest.json` with `server.type` `node|python|binary|uv` and `mcp_config` variable substitution: <https://blog.modelcontextprotocol.io/posts/2025-11-20-adopting-mcpb/>; manifest 0.3 schema, `mcp_config` `${__dirname}`/`${user_config.*}`/`${HOME}`, `tools`/`tools_generated`, `compatibility.platforms`/`runtimes`, `server/lib` vs `server/venv` bundling: <https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md> (raw `https://github.com/modelcontextprotocol/mcpb/raw/refs/heads/main/MANIFEST.md`); tooling and examples: <https://github.com/modelcontextprotocol/mcpb> (`CLI.md`, `examples/`).
+- Default output: `./acorn.mcpb`.
+- Without `--binary`, package `current_exe()` and infer the host platform.
+- An external or cross-compiled binary requires `--platform`; validate the Windows `.exe` rule.
+- `--dry-run` validates inputs and prints the manifest, inventory, and destination without writing.
+- Report output path, platform, size, and SHA-256 with existing `Label` and styling conventions.
+
+`--kitfile` is explicit. After a bundle is built successfully, read the named authoring Kitfile, upsert one `mcpServers` entry named `acorn`, use a path relative to the Kitfile directory, validate the whole document, and replace it atomically. Preserve unrelated content and authoring YAML style as far as the existing codec permits; never emit resolved `digest` or `diffId`. A Kitfile failure leaves the original file unchanged and reports that the bundle itself was already created.
+
+## 4. Add opt-in MCP client synchronization
+
+Add MCP as an orthogonal capability of the existing sync engine:
+
+```text
+acorn sync --mcp [--opencode | --vscode | --goose] [--dry-run] [--prune]
+```
+
+- Without client selectors, update installed compatible clients discovered through existing command/path conventions.
+- With selectors, update only those clients.
+- Reject `--mcp --llama-swap`; llama-swap is a model router, not an MCP client.
+- MCP-only sync must skip model resolution and work without models or a local database.
+- Resolve the running ACORN executable to an absolute path and configure `serve mcp`; do not assume a client inherits the same `PATH`.
+- Without `--mcp`, preserve current sync output byte-for-byte.
+- `--dry-run` uses existing file diffs. `--prune` removes only the ACORN-owned MCP entry.
+
+Extend the existing adapters:
+
+- **OpenCode:** preserve JSONC comments and unrelated configuration. Read the legacy direct `mcp` map already modeled by ACORN, then write the pinned current layout after the ACP plan refreshes that schema. The current upstream shape nests named local servers below `mcp.servers` and uses a command vector.
+- **VS Code:** add a dedicated MCP path, defaulting to workspace `.vscode/mcp.json`; do not mix MCP servers into `chatLanguageModels.json`. Upsert `servers.acorn` with stdio type, the absolute command, and `serve mcp` arguments. Preserve unrelated servers and sandbox configuration.
+- **Goose:** extend the existing YAML value transform with `extensions.acorn` using `type: stdio`, `enabled: true`, the absolute command, and `serve mcp` arguments. Preserve providers and other extensions.
+
+Clients that install `.mcpb` directly remain outside sync. `sync --mcp` writes direct local-server configuration and must not create, install, or duplicate a client-managed bundle.
+
+## 5. Connect package, persistence, and inference workflows
+
+- **Kitfile:** reuse `McpServer`, current path/name validation, authoring/resolved codecs, and raw-layer media type. Add bundle inspection at the host boundary; do not put ZIP parsing in `acorn-schema`.
+- **OCI:** extend the normalized artifact plan with an `McpBundle` role. `download model` reports and ignores that role because its policy selects model content. The planned general component materializer may verify and write selected MCPB layers but must never execute or auto-install them.
+- **Database artifacts:** once typed current/revision selectors land, register them through the same tool registry. Use the injected repository and existing renderer contracts. Every enabled mutation follows the database plan's transaction, revision, actor/interface, and audit rules.
+- **Needle:** continue deriving `tools.json` from the canonical registry and its Needle exposure. Do not make Needle speak MCP or consume MCPB.
+- **ACP:** rely on the synchronized OpenCode MCP entry when an OpenCode session should see ACORN tools. Keep a custom MCP-over-ACP bridge out of the first release.
+- **Future tools:** a definition and handler are registered once. Exposure and runtime policy determine whether it appears in Needle, direct MCP, and generated MCPB manifests.
+- **Future service extraction:** keep availability and manifest calculation pure and dependency-injected so they can move to `acorn-service`; keep ZIP/filesystem work in the host adapter and CLI parsing/output in `acorn-cli`.
+
+## 6. Package and publish target-specific bundles
+
+Extend `make build` or add a focused packaging target that consumes the two existing release binaries and invokes `acorn create mcp` explicitly for Linux and Windows. Produce:
+
+```text
+acorn-v${VERSION}-x86_64-unknown-linux-musl.mcpb
+acorn-v${VERSION}-x86_64-pc-windows-gnu.mcpb
+```
+
+Generate SHA-256 files for binaries and bundles. Extend the existing generic-package upload script idempotently and add both MCPB assets to the GitLab release. Pin a reviewed `@anthropic-ai/mcpb` validator version in CI; Node is a build-time validation dependency, not a shipped runtime.
+
+Prepare MCP Registry-compatible release metadata and checksums, but leave publication to a follow-on that owns an accepted namespace and external release policy. Do not claim macOS support or publish unsigned macOS bundles from this workflow.
+
+Update CLI create/serve/sync pages, inference documentation, the package index, the agentic-layer concept, and the embedded ACORN skill. Remove the stale statements and acceptance cases that expect `serve mcp` to fail. Add a dedicated MCPB package page covering direct stdio configuration, `sync --mcp`, bundle creation and installation, trust, offline policy, mutation opt-in, Kitfile use, release targets, and local macOS builds. Regenerate `CommandLineHelp.md` once.
+
+# Validation
+
+## Protocol and policy
+
+- Spawn the compiled CLI and complete MCP initialize, `tools/list`, valid and invalid `tools/call`, and graceful shutdown over stdio.
+- Assert stdout contains protocol frames only, with diagnostics on stderr.
+- Verify online read-only, offline read-only, and mutation-enabled catalogs. Every advertised tool must be callable under the matching policy.
+- Verify the selected database path/backend reaches persistent handlers and startup rejects mutation without persistence.
+- Compare direct MCP and manifest tool declarations to the same ordered registry projection; retain independent Needle exposure assertions.
+
+## Bundle and Kitfile
+
+- Validate a golden manifest against the pinned MCPB `0.4` schema and official validator.
+- Build twice from the same binary and assert identical bundle bytes and SHA-256.
+- Inspect exact entries, normalized paths, modes, fixed metadata, manifest/binary agreement, platform declarations, and archive size.
+- Cover missing/non-file binaries, Windows suffix mismatch, unsupported platform, unsafe entry names, existing output, clobber, dry-run, and cleanup after a failed build.
+- Extract the Linux bundle and run the protocol smoke test against its binary. Structurally validate the cross-compiled Windows bundle in Linux CI.
+- Verify explicit Kitfile upsert, repeat idempotency, relative paths, preservation of unrelated sections, authoring omission of layer identity, and no change after validation/write failure.
+
+## Client and workflow integration
+
+- Cover OpenCode legacy/current fixtures, JSONC comments, Goose providers/extensions, and VS Code servers/sandbox fields.
+- Prove MCP-only sync succeeds with zero models, supports dry-run/prune, is idempotent, and leaves llama-swap untouched.
+- Run existing sync golden tests without `--mcp` and require identical output.
+- Verify `download model` reports but does not materialize MCPB layers; test bundle inspection in the general component boundary.
+- Verify a newly registered fixture tool flows to each allowed projection without adapter-specific registration.
+
+## Repository and release gates
+
+```text
+cargo fmt --check
+make lint
+make test
+make check-portable
+make help
+git diff --exit-code -- CommandLineHelp.md
+make book
+```
+
+Run focused MCP, archive, sync, ModelKit, OCI, CLI parse/execution, and release-script tests before the full gates. Validate both release bundles with the pinned upstream CLI, verify their recorded hashes, and dry-run every package URL before publishing.
+
+# Acceptance criteria
+
+- `acorn serve mcp` completes a real stdio MCP session with the policy-appropriate canonical tool catalog and no stdout contamination.
+- Offline and mutation policy changes affect advertisement and invocation consistently; mutating calls use the configured database and revision transaction.
+- `acorn create mcp` creates a deterministic, validated MCPB `0.4` archive containing the correct target binary and safe static tool manifest without changing RAD export semantics.
+- `--kitfile` performs an explicit, validated, idempotent `mcpServers` upsert and preserves the authoring/resolved identity boundary.
+- `acorn sync --mcp` configures detected or selected OpenCode, VS Code, and Goose clients without requiring models; existing sync output is unchanged when the flag is absent.
+- ModelKit and planned OCI workflows recognize MCPB as a first-class package component while `download model` retains its GGUF selection policy and no workflow auto-executes a downloaded bundle.
+- Linux musl and Windows GNU MCPB files, checksums, package URLs, and release links are produced from the same binaries already shipped by ACORN and pass the pinned upstream validator.
+- CLI help, acceptance tests, book documentation, embedded skill text, plan evidence, dependency edges, and execution locks describe the implemented behavior accurately.
+
+# Assumptions and deferred work
+
+- MCPB manifest `0.4` is the compatibility target, pinned immediately before implementation.
+- Server defaults are stdio, read-only, and online unless the existing global offline option is set.
+- `create mcp` is the only MCPB production command; `export --tools` stays Needle-specific.
+- Client sync is opt-in through `--mcp`; MCPB installation remains client-managed.
+- The release matrix is Linux x86_64 musl and Windows x86_64 GNU. macOS signing/notarization, ARM releases, fat bundles, remote MCP transports, registry publication, localization, icons, user-configurable MCPB fields, and automatic installation require separate accepted work.
+
+# Evidence
+
+- Current ACORN server and registry: `crates/acorn-lib/src/io/mcp/mod.rs`, `crates/acorn-lib/src/io/mcp/tools.rs`, and adjacent tests.
+- Current CLI wiring and packaging stub: `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/commands/serve/mcp/mod.rs`, and the empty `crates/acorn-cli/src/commands/create/mcp/mod.rs`.
+- Existing archive and ZIP dependency: `crates/acorn-lib/src/io/archive.rs` and `crates/acorn-lib/Cargo.toml`.
+- Kitfile MCP layer: `crates/acorn-schema/src/modelkit/kitfile.rs` and `crates/acorn-lib/src/util/constants/oci.rs`.
+- Existing client sync: `crates/acorn-lib/src/io/sync/` and `crates/acorn-cli/src/commands/sync/mod.rs`.
+- Existing Linux/Windows release flow: `Makefile`, `.gitlab-ci.yml`, and `scripts/upload-binaries.sh`.
+- MCPB specification and tooling: <https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md> and <https://github.com/modelcontextprotocol/mcpb/blob/main/CLI.md>.
+- VS Code MCP configuration: <https://code.visualstudio.com/docs/agent-customization/mcp-servers>.
+- OpenCode MCP configuration: <https://opencode.ai/v2/docs/mcp-servers>.
+- Goose extension configuration: <https://github.com/aaif-goose/goose/blob/main/documentation/docs/getting-started/using-extensions.md>.
+- MCP Registry MCPB packages: <https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx>.

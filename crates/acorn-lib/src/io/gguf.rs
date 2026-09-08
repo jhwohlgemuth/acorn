@@ -1,7 +1,7 @@
 //! GGUF model selection and binary validation
 use crate::io::config::FilterSet;
 use crate::io::oci::{OciExtraction, OciFile, OciFiles, OciLayer, OciResolution};
-use crate::io::{ApiResult, PathExt};
+use crate::io::{ApiResult, PathExt, SafePath};
 use crate::util::constants::oci::{
     MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
     MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
@@ -322,8 +322,8 @@ impl OciFiles {
 impl OciLayer {
     pub(super) fn is_valid(layer: &Self, _context: &()) -> Result<(), ValidationReport> {
         let path = layer.path.as_deref().map(Path::new);
-        let has_safe_path = path.is_none_or(PathExt::is_safe);
-        let has_gguf_path = path.is_some_and(|path| path.is_safe() && path.is_gguf());
+        let has_safe_path = path.is_none_or(|path| SafePath::new(path).is_ok());
+        let has_gguf_path = path.is_some_and(|path| SafePath::new(path).is_ok() && path.is_gguf());
         let is_raw = path.is_some() && layer.extraction == OciExtraction::None && !layer.inventory_deferred;
         let is_tar = path.is_none() && layer.extraction == OciExtraction::Tar && layer.inventory_deferred;
         let is_tar_gzip = path.is_none() && layer.extraction == OciExtraction::TarGzip && layer.inventory_deferred;

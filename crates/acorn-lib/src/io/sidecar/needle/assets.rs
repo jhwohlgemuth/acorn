@@ -3,7 +3,7 @@ use super::super::{ModelKitManifest, ResolvedAssets};
 use crate::io::api::huggingface;
 use crate::io::download::{DownloadItem, DownloadItems};
 use crate::io::oci::{OciReference, OciTransportOptions, OrasTransport};
-use crate::io::{make_executable, read_file, verify_checksum, ApiResult, Fingerprint, InputOutput, PathExt, Source};
+use crate::io::{make_executable, read_file, verify_checksum, ApiResult, Fingerprint, InputOutput, SafePath, Source};
 use crate::util::constants::app::{APPLICATION, NEEDLE_REPOSITORY, NEEDLE_REVISION, ORGANIZATION, QUALIFIER};
 use crate::util::constants::oci::MODELKIT_MANIFEST;
 use acorn_core::prelude::String;
@@ -184,7 +184,7 @@ pub(super) fn download_items(location: &str, manifest: &ModelKitManifest) -> Api
     let paths = once((&manifest.runner, Some(&manifest.runner_sha256)))
         .chain(manifest.tools.as_ref().map(|path| (path, None)))
         .map(|(path, sha)| match Source::parse(path) {
-            | Source::Local { path: relative, .. } if !path.trim().is_empty() && relative.is_safe() => Ok(DownloadItem::init()
+            | Source::Local { path: relative, .. } if !path.trim().is_empty() && SafePath::new(&relative).is_ok() => Ok(DownloadItem::init()
                 .url(format!("{base}/{path}"))
                 .path(path.clone())
                 .maybe_sha(sha.cloned())

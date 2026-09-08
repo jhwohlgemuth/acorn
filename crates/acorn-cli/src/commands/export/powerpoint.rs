@@ -8,7 +8,7 @@ use acorn::io::powerpoint::ooxml::{
     validate_xml_well_formed, Relationship, Relationships,
 };
 use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput};
+use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput, SafePath};
 use acorn::util::{Label, StringConversion};
 use acorn_core::prelude::Arc;
 use acorn_core::util::MimeType;
@@ -152,21 +152,25 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
             let from = parent.join(image_url.clone());
             let name = meta.clone().identifier;
             let extension = Path::new(&image_url).extension().and_then(|e| e.to_str()).unwrap_or("png");
-            let to = destination.join(format!("ppt/media/{name}.{extension}"));
-            read_file(xml_rels_path.clone())
-                .map_err(|why| eyre!("Failed to read slide relationship XML — {why}"))
-                .and_then(|content| update_relationship_target(&content, &target, &format!("../media/{name}.{extension}")))
-                .and_then(|updated| {
-                    write_file(xml_rels_path.clone(), updated).map_err(|why| {
-                        error!(
-                            path = xml_rels_path.to_absolute_path(),
-                            "=> {} Write slide relationship XML — {why}",
-                            Label::fail()
-                        );
-                        eyre!("Failed to write slide relationship XML — {why}")
-                    })
+            SafePath::new(format!("ppt/media/{name}.{extension}"))
+                .map_err(Into::<color_eyre::Report>::into)
+                .and_then(|path| path.materialize_under(destination).map_err(Into::into))
+                .and_then(|to| {
+                    read_file(xml_rels_path.clone())
+                        .map_err(|why| eyre!("Failed to read slide relationship XML — {why}"))
+                        .and_then(|content| update_relationship_target(&content, &target, &format!("../media/{name}.{extension}")))
+                        .and_then(|updated| {
+                            write_file(xml_rels_path.clone(), updated).map_err(|why| {
+                                error!(
+                                    path = xml_rels_path.to_absolute_path(),
+                                    "=> {} Write slide relationship XML — {why}",
+                                    Label::fail()
+                                );
+                                eyre!("Failed to write slide relationship XML — {why}")
+                            })
+                        })
+                        .and_then(|_| copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}")))
                 })
-                .and_then(|_| copy(from, to).map_err(|e| eyre!("Failed to copy image — {e}")))
         })
 }
 fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destination: &Path) -> ApiResult<()> {
@@ -174,69 +178,73 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
     let relationships_path = destination.join(format!("ppt/slides/_rels/slide{index}.xml.rels"));
     let content_types_path = destination.join("[Content_Types].xml");
     let media_name = format!("{}-aspect.png", data.meta.identifier);
-    let media_path = destination.join("ppt/media").join(&media_name);
-    read_file(&slide_path)
-        .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_path()))
-        .and_then(|slide_xml| {
-            read_xml_rel(relationships_path.clone())
-                .ok_or_else(|| {
-                    eyre!(
-                        "Failed to read PowerPoint slide relationships at {}",
-                        relationships_path.to_absolute_path()
-                    )
+    SafePath::new(format!("ppt/media/{media_name}"))
+        .map_err(Into::<color_eyre::Report>::into)
+        .and_then(|path| path.materialize_under(destination).map_err(Into::into))
+        .and_then(|media_path| {
+            read_file(&slide_path)
+                .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_path()))
+                .and_then(|slide_xml| {
+                    read_xml_rel(relationships_path.clone())
+                        .ok_or_else(|| {
+                            eyre!(
+                                "Failed to read PowerPoint slide relationships at {}",
+                                relationships_path.to_absolute_path()
+                            )
+                        })
+                        .map(|relationships| (slide_xml, relationships))
                 })
-                .map(|relationships| (slide_xml, relationships))
-        })
-        .and_then(|(slide_xml, relationships)| {
-            let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
-            let relationship_id = format!("rId{revision}");
-            replace_aspect_placeholders_with_picture(&slide_xml, &relationship_id).and_then(|updated| match updated {
-                | Some(updated_slide) => {
-                    let relationship = Relationship::init()
-                        .id(relationship_id)
-                        .relationship_type(IMAGE_RELATIONSHIP.to_string())
-                        .target(format!("../media/{media_name}"))
-                        .build();
-                    relationships
-                        .add_relationship(relationship)
-                        .to_string()
-                        .map_err(|why| eyre!("Failed to serialize ASPECT chart relationship — {why}"))
-                        .and_then(|xml| {
-                            write_file(&relationships_path, xml).map_err(|why| {
-                                eyre!(
-                                    "Failed to write ASPECT chart relationship at {} — {why}",
-                                    relationships_path.to_absolute_path()
-                                )
-                            })
-                        })
-                        .and_then(|_| {
-                            write_file(&slide_path, updated_slide)
-                                .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_path()))
-                        })
-                        .and_then(|_| {
-                            read_file(&content_types_path).map_err(|why| {
-                                eyre!(
-                                    "Failed to read PowerPoint content types at {} — {why}",
-                                    content_types_path.to_absolute_path()
-                                )
-                            })
-                        })
-                        .and_then(|xml| ensure_png_content_type(&xml))
-                        .and_then(|xml| {
-                            write_file(&content_types_path, xml).map_err(|why| {
-                                eyre!(
-                                    "Failed to write PowerPoint content types at {} — {why}",
-                                    content_types_path.to_absolute_path()
-                                )
-                            })
-                        })
-                        .and_then(|_| {
-                            write(&media_path, chart)
-                                .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_path()))
-                        })
-                }
-                | None => Ok(()),
-            })
+                .and_then(|(slide_xml, relationships)| {
+                    let revision = relationships.largest_revision_identifier().unwrap_or(0).saturating_add(1);
+                    let relationship_id = format!("rId{revision}");
+                    replace_aspect_placeholders_with_picture(&slide_xml, &relationship_id).and_then(|updated| match updated {
+                        | Some(updated_slide) => {
+                            let relationship = Relationship::init()
+                                .id(relationship_id)
+                                .relationship_type(IMAGE_RELATIONSHIP.to_string())
+                                .target(format!("../media/{media_name}"))
+                                .build();
+                            relationships
+                                .add_relationship(relationship)
+                                .to_string()
+                                .map_err(|why| eyre!("Failed to serialize ASPECT chart relationship — {why}"))
+                                .and_then(|xml| {
+                                    write_file(&relationships_path, xml).map_err(|why| {
+                                        eyre!(
+                                            "Failed to write ASPECT chart relationship at {} — {why}",
+                                            relationships_path.to_absolute_path()
+                                        )
+                                    })
+                                })
+                                .and_then(|_| {
+                                    write_file(&slide_path, updated_slide)
+                                        .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_path()))
+                                })
+                                .and_then(|_| {
+                                    read_file(&content_types_path).map_err(|why| {
+                                        eyre!(
+                                            "Failed to read PowerPoint content types at {} — {why}",
+                                            content_types_path.to_absolute_path()
+                                        )
+                                    })
+                                })
+                                .and_then(|xml| ensure_png_content_type(&xml))
+                                .and_then(|xml| {
+                                    write_file(&content_types_path, xml).map_err(|why| {
+                                        eyre!(
+                                            "Failed to write PowerPoint content types at {} — {why}",
+                                            content_types_path.to_absolute_path()
+                                        )
+                                    })
+                                })
+                                .and_then(|_| {
+                                    write(&media_path, chart)
+                                        .map_err(|why| eyre!("Failed to write ASPECT chart image at {} — {why}", media_path.to_absolute_path()))
+                                })
+                        }
+                        | None => Ok(()),
+                    })
+                })
         })
 }
 fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResult<()> {
@@ -386,7 +394,9 @@ fn prepare_destination(output: &Option<PathBuf>, name: &str) -> ApiResult<PathBu
     const EXTENSION: &str = "pptx";
     match output {
         | Some(ref value) => match create_dir_all(value.clone()) {
-            | Ok(_) => Ok(value.join(name).with_extension(EXTENSION)),
+            | Ok(_) => SafePath::new(PathBuf::from(name).with_extension(EXTENSION))
+                .map_err(Into::<color_eyre::Report>::into)
+                .and_then(|path| path.materialize_under(value).map_err(Into::into)),
             | Err(why) => Err(eyre!("Failed to create output directory for PowerPoint export — {why}")),
         },
         | None => Err(eyre!("Missing output directory")),
@@ -461,6 +471,11 @@ mod tests {
         let path = prepare_destination(&output, "example").unwrap();
         let expected = base.join("example.pptx");
         assert_eq!(path, expected);
+    }
+    #[test]
+    fn test_prepare_destination_rejects_unsafe_name() {
+        let base = temp_dir();
+        assert!(prepare_destination(&Some(base), "../outside").is_err());
     }
     #[test]
     fn test_add_slide_copies_parts_and_updates_relationships() {

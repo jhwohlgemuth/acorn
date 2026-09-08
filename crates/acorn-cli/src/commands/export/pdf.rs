@@ -5,7 +5,7 @@ use crate::cli::CommandOptions;
 use crate::io::chromium_cache_dir;
 use crate::template::Convert;
 use acorn::io::chart::ChartOptions;
-use acorn::io::{ApiResult, InputOutput};
+use acorn::io::{ApiResult, InputOutput, SafePath};
 use acorn::util::constants::app::CHROME_VERSION;
 use acorn::util::{Label, StringConversion};
 use acorn_schema::research_activity::ResearchActivity;
@@ -111,7 +111,11 @@ pub async fn create(page: &Page, options: CommandOptions, chart_options: ChartOp
                     | Some(output_dir) => match create_dir_all(output_dir.clone()) {
                         | Ok(_) => {
                             let id = data.meta.identifier;
-                            match absolute(output_dir.join(format!("{id}.pdf"))) {
+                            let output_path = SafePath::new(format!("{id}.pdf"))
+                                .map_err(Into::<color_eyre::Report>::into)
+                                .and_then(|path| path.materialize_under(&output_dir).map_err(Into::into))
+                                .and_then(|path| absolute(path).map_err(Into::into));
+                            match output_path {
                                 | Ok(output_path) => {
                                     debug!(path = output_path.to_absolute_path(), "=> {} Output", Label::using());
                                     page.save_pdf(

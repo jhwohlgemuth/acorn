@@ -1,4 +1,0 @@
-provider: github
-location:
-  scheme: https
-  uri: gitvidhub.com/rust-lang/rust

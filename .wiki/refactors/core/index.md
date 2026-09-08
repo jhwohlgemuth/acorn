@@ -13,5 +13,4 @@
 - [Shared export context](export-context.md) - Centralize renderer input extraction.
 - [Research activity lifecycle, credit, license, and award fields](research-activity-lifecycle-credit-fields.md) - Add typed schema targets for provider enrichment that does not belong in notes.
 - [CLI parse and execution models](cli-parse-execution-models.md) - Separate clap parsing from execution options.
-- [Safe path abstraction](safe-path.md) - Centralize normalization and containment.
 - [CLI error boundary](cli-error-boundary.md) - Map internal errors to exit codes in one place.

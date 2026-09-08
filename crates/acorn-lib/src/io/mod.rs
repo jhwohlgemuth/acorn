@@ -68,7 +68,7 @@ use std::os::unix::fs::symlink as platform_symlink;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
-use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
+use std::path::{absolute, Path, PathBuf, MAIN_SEPARATOR};
 use std::thread;
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
@@ -99,6 +99,7 @@ pub mod model;
 pub mod oci;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
+mod safe_path;
 #[cfg(feature = "needle")]
 pub mod sidecar;
 pub mod source;
@@ -111,6 +112,7 @@ pub mod workflow;
 pub use fingerprint::Fingerprint;
 pub use jsonc_parser::cst::CstRootNode;
 pub use model::ModelSelectorsExt;
+pub use safe_path::{SafePath, SafePathError};
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 pub use temporary::TemporaryDirectory;
 
@@ -209,10 +211,6 @@ pub trait PathConversion: AsRef<Path> {
     fn cross_platform_display(&self) -> String {
         self.to_path().display().to_string()
     }
-    /// Normalize a relative archive entry while rejecting traversal and absolute paths
-    fn relative(&self) -> ApiResult<PathBuf> {
-        Ok(self.to_path().to_path_buf())
-    }
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
@@ -222,8 +220,8 @@ pub trait PathExt {
     fn is_auxiliary_gguf(&self) -> bool;
     /// Return whether this path has the GGUF model MIME type.
     fn is_gguf(&self) -> bool;
-    /// Return whether this path is non-empty, relative, and contains only normal components.
-    fn is_safe(&self) -> bool;
+    /// Return whether this path is a symbolic link, including a dangling one.
+    fn is_symlink(&self) -> bool;
     /// Return whether this path is a Windows drive path such as `C:/...` or `C:\...`.
     fn is_windows(&self) -> bool;
     /// Return whether two paths identify the same absolute path.
@@ -341,9 +339,6 @@ pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl PathConversion for &Path {
-    fn relative(&self) -> ApiResult<PathBuf> {
-        <Path as PathConversion>::relative(self)
-    }
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(*self)
     }
@@ -358,8 +353,8 @@ impl PathExt for &Path {
     fn is_auxiliary_gguf(&self) -> bool {
         <Path as PathExt>::is_auxiliary_gguf(self)
     }
-    fn is_safe(&self) -> bool {
-        <Path as PathExt>::is_safe(self)
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
     }
     fn is_windows(&self) -> bool {
         <Path as PathExt>::is_windows(self)
@@ -549,17 +544,6 @@ impl FromPath for MimeType {
     }
 }
 impl PathConversion for Path {
-    fn relative(&self) -> ApiResult<PathBuf> {
-        let normalized = self
-            .components()
-            .filter_map(|component| match component {
-                | Component::CurDir => None,
-                | Component::Normal(value) => Some(Ok(value)),
-                | _ => Some(Err(eyre!("Unsafe archive path: {}", self.display()))),
-            })
-            .collect::<ApiResult<PathBuf>>();
-        normalized
-    }
     fn cross_platform_display(&self) -> String {
         let value = self.display().to_string();
         #[cfg(windows)]
@@ -605,8 +589,8 @@ impl PathExt for Path {
     fn is_gguf(&self) -> bool {
         MimeType::from_path(self).is_gguf()
     }
-    fn is_safe(&self) -> bool {
-        !self.as_os_str().is_empty() && !self.is_absolute() && self.components().all(|component| matches!(component, Component::Normal(_)))
+    fn is_symlink(&self) -> bool {
+        self.symlink_metadata().is_ok_and(|metadata| metadata.is_symlink())
     }
     fn is_windows(&self) -> bool {
         matches!(self.as_os_str().as_encoded_bytes(), [drive, b':', ..] if drive.is_ascii_alphabetic())
@@ -617,9 +601,6 @@ impl PathExt for Path {
     }
 }
 impl PathConversion for PathBuf {
-    fn relative(&self) -> ApiResult<PathBuf> {
-        <Path as PathConversion>::relative(self)
-    }
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(self)
     }

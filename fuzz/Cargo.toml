@@ -8,7 +8,6 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-acorn = { package = "acorn-lib", path = "../crates/acorn-lib", default-features = true }
 acorn-core = { path = "../crates/acorn-core" }
 acorn-schema = { path = "../crates/acorn-schema" }
 libfuzzer-sys = "0.4"

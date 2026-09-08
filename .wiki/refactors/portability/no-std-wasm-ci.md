@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Add no-std and WASM CI gates"
-description: "Continuously check portable feature combinations and detect dependency leakage."
+description: "Provide portable feature checks and detect dependency leakage."
 difficulty: low
 impact: high
 package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-wasm]
@@ -11,11 +11,11 @@ status: in-progress
 
 # Current slice
 
-The dedicated `test-portability` job runs `make check-portable`, covering the core, alloc, minimal, analyzer-only native, analyzer-only WASM, and `acorn-wasm` configurations. It also generates the web package and runs JavaScript-facing tests. `scripts/check-portable-dependencies.sh` rejects host reporting, terminal, database, process, native HTTP, async-runtime, and embedded-asset dependencies from the analyzer-only and `acorn-wasm` graphs.
+The dedicated optional `test-portability` job runs `make check-portable` on demand and from the weekly extended-test schedule, covering the core, alloc, minimal, analyzer-only native, analyzer-only WASM, and `acorn-wasm` configurations. It also generates a development web package and runs JavaScript-facing tests. `scripts/check-portable-dependencies.sh` rejects host reporting, terminal, database, process, native HTTP, async-runtime, and embedded-asset dependencies from the analyzer-only and `acorn-wasm` graphs.
 
 # Current evidence
 
-`Makefile` exposes `check-portable` as the shared local/CI contract, `wasm` as the target-specific compile subset, and `wasm-package` as the artifact and JavaScript-test gate. `.gitlab-ci.yml` installs the pinned package tool when necessary and enforces the complete matrix in a distinct job. Browser-adapter cases remain pending until a concrete browser service is added.
+`Makefile` exposes `check-portable` as the shared local/CI contract, `wasm` as the target-specific compile subset, and `build-wasm` as the artifact and JavaScript-test gate. Portability checks pass `--dev` to the package build while direct release builds retain the optimized profile. `.gitlab-ci.yml` installs the pinned package tool when necessary and offers the complete matrix as a manual or scheduled job in the `extended-test` stage. The active GitLab schedule targets `main` at 04:30 Saturday in `America/New_York` and sets `RUN_EXTENDED_TESTS=true`. Browser-adapter cases remain pending until a concrete browser service is added.
 
 # Project code boundaries
 
@@ -40,7 +40,7 @@ make check-portable
 
 # Acceptance criteria
 
-Portable feature regressions in current packages fail CI before merge; `acorn-wasm` must compile, generate a package, pass JavaScript-facing tests, and exclude host dependencies. Future browser adapters receive equivalent runtime gates when they exist.
+The complete portability matrix is available locally and as an optional manual or weekly scheduled CI job; when run, `acorn-wasm` must compile, generate a development package, pass JavaScript-facing tests, and exclude host dependencies. Future browser adapters receive equivalent runtime checks when they exist.
 
 # Related plans
 

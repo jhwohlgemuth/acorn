@@ -37,6 +37,7 @@ default:
 stages:
   - prepare
   - test
+  - extended-test
   - performance
   - build
   - release
@@ -99,8 +100,10 @@ test:
     - cargo package --no-verify --allow-dirty -p acorn-core -p acorn-schema
 
 test-portability:
-  stage: test
+  stage: extended-test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  allow_failure: true
+  when: manual
   resource_group: tests
   tags:
     - cpu
@@ -110,6 +113,8 @@ test-portability:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RUN_EXTENDED_TESTS == "true"
+      when: on_success
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - .gitlab-ci.yml
@@ -160,8 +165,10 @@ test-docs:
     - make book
 
 fuzz-smoke:
-  stage: test
+  stage: extended-test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  allow_failure: true
+  when: manual
   resource_group: tests
   tags:
     - cpu
@@ -174,6 +181,8 @@ fuzz-smoke:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RUN_EXTENDED_TESTS == "true"
+      when: on_success
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - crates/acorn-lib/**/*

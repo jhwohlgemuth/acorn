@@ -20,7 +20,7 @@ use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
     read_large_file, remove_fields, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair,
-    zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, Source, SourceAction, TextOrigin,
+    zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError, Source, SourceAction, TextOrigin,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::constants::oci::{
@@ -57,7 +57,7 @@ use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write
 use std::fs::{metadata, read, set_permissions, Permissions};
 use std::io::{self, Cursor, Read};
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{symlink, PermissionsExt};
 use std::path::MAIN_SEPARATOR;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -97,6 +97,7 @@ fn test_archive() {
         .filter_map(|index| zip.by_index(index).ok().map(|entry| entry.name().to_string()))
         .collect::<Vec<_>>();
     assert!(names.iter().any(|name| name == "highlight/reference.pptx"));
+    assert!(names.iter().all(|name| SafePath::new(name).is_ok()));
 }
 #[test]
 fn test_archive_extracts_zstandard_tar() {
@@ -1240,19 +1241,22 @@ fn test_path_ext_compares_normalized_paths() {
     assert!(Path::new("./data/input.json").same_as(Path::new("data/input.json")));
     assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
 }
+#[cfg(unix)]
+#[test]
+fn test_path_ext_detects_symlinks() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let link = directory.path().join("link");
+    symlink(directory.path().join("missing"), &link).expect("create dangling symlink");
+    assert!(!link.exists());
+    assert!(<Path as PathExt>::is_symlink(link.as_path()));
+    assert!(!<Path as PathExt>::is_symlink(directory.path()));
+}
 #[test]
 fn test_path_ext_detects_windows_paths() {
     assert!(Path::new("C:/Users/acorn/project.json").is_windows());
     assert!(Path::new("C:\\Users\\acorn\\project.json").is_windows());
     assert!(!Path::new("./data/input.json").is_windows());
     assert!(!Path::new("/home/acorn/project.json").is_windows());
-}
-#[test]
-fn test_path_ext_rejects_unsafe_relative_paths() {
-    assert!(Path::new("models/qwen.gguf").is_safe());
-    assert!(!Path::new("").is_safe());
-    assert!(!Path::new("../models/qwen.gguf").is_safe());
-    assert!(!Path::new("/models/qwen.gguf").is_safe());
 }
 #[test]
 fn test_progress_renderer_coordinates_log_and_bar_redraw() {
@@ -1517,6 +1521,54 @@ fn test_retry_repeats_matching_errors_using_optional_millisecond_delays() {
     );
     assert_eq!(result.unwrap(), "ready");
     assert_eq!(attempts.get(), 3);
+}
+#[test]
+fn test_safe_path_materializes_beneath_root() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    create_dir_all(directory.path().join("nested")).expect("create nested directory");
+    let path = SafePath::new("./nested/file.json").expect("validate relative path");
+    assert_eq!(path.as_path(), Path::new("nested/file.json"));
+    assert_eq!(
+        path.materialize_under(directory.path()).expect("materialize safe path"),
+        directory.path().join("nested/file.json")
+    );
+}
+#[test]
+fn test_safe_path_rejects_empty_absolute_and_traversal_paths() {
+    [
+        "",
+        ".",
+        "../secret",
+        "nested/../../secret",
+        "/absolute",
+        r"\server\share",
+        r"C:\secret",
+        r"..\secret",
+    ]
+    .into_iter()
+    .for_each(|path| assert!(SafePath::new(path).is_err(), "expected unsafe path: {path}"));
+}
+#[test]
+fn test_safe_path_rejects_non_directory_component() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    write(directory.path().join("nested"), b"file").expect("write blocking component");
+    let path = SafePath::new("nested/file.json").expect("validate relative path");
+    assert!(matches!(
+        path.materialize_under(directory.path()),
+        Err(SafePathError::UnsafeDestination(_))
+    ));
+}
+#[cfg(unix)]
+#[test]
+fn test_safe_path_rejects_symlink_component() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let outside = tempfile::tempdir().expect("create outside directory");
+    symlink(outside.path(), directory.path().join("nested")).expect("create symlink component");
+    let path = SafePath::new("nested/file.json").expect("validate relative path");
+    assert!(matches!(
+        path.materialize_under(directory.path()),
+        Err(SafePathError::UnsafeDestination(_))
+    ));
 }
 #[test]
 fn test_shared_http_timeout_layer_constructs() {

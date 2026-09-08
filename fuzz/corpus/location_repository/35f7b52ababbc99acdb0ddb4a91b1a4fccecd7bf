@@ -1,5 +1,0 @@
-pr=ovider: github
-location:provider= #]ith
-  scheme: https
-  uri: github.com/ub
-lru

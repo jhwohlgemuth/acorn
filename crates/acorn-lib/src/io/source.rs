@@ -1,5 +1,5 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
-use crate::io::{http, symlink, uri_to_path, ApiResult};
+use crate::io::{http, symlink, uri_to_path, ApiResult, SafePath};
 use crate::util::Label;
 use acorn_core::prelude::String;
 use acorn_core::util::MimeType;
@@ -238,30 +238,35 @@ impl SourceAction {
             | _ => None,
         }
     }
-    /// Materialize ("reify" or "persist") source path locally according to a given action
-    pub fn materialize(self, path: &Path, target: &Path, name: &str) -> ApiResult<String> {
-        let result = match self {
-            | SourceAction::Copy if target.exists() => Ok(format!("Skipping copy - '{name}' already exists at {}", target.display())),
-            | SourceAction::Copy => match copy(path, target) {
-                | Ok(_) => Ok(format!("Copied local model '{name}' -> {}", target.display())),
-                | Err(why) => {
-                    error!("=> {} Copy local model '{}' to {} - {why}", Label::fail(), name, target.display());
-                    Err(why.into())
-                }
-            },
-            | SourceAction::Symlink if target.exists() || target.symlink_metadata().map(|metadata| metadata.is_symlink()).unwrap_or(false) => {
-                Ok(format!("Skipping symlink - '{name}' already exists at {}", target.display()))
-            }
-            | SourceAction::Symlink => match symlink(path, target) {
-                | Ok(_) => Ok(format!("Symlinked local model '{name}' -> {}", target.display())),
-                | Err(why) => {
-                    error!("=> {} Symlink local model '{}' to {} - {why}", Label::fail(), name, target.display());
-                    Err(why)
-                }
-            },
+    /// Materialize ("reify" or "persist") a source beneath a trusted output root
+    pub fn materialize(self, path: &Path, root: &Path, target: &SafePath, name: &str) -> ApiResult<String> {
+        match self {
             | SourceAction::Reference => Ok(format!("Local model '{name}' referenced in place at {}", path.display())),
-        };
-        result
+            | action => target
+                .materialize_under(root)
+                .map_err(Into::<color_eyre::Report>::into)
+                .and_then(|target| match action {
+                    | SourceAction::Copy if target.exists() => Ok(format!("Skipping copy - '{name}' already exists at {}", target.display())),
+                    | SourceAction::Copy => match copy(path, &target) {
+                        | Ok(_) => Ok(format!("Copied local model '{name}' -> {}", target.display())),
+                        | Err(why) => {
+                            error!("=> {} Copy local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                            Err(why.into())
+                        }
+                    },
+                    | SourceAction::Symlink if target.exists() || target.is_symlink() => {
+                        Ok(format!("Skipping symlink - '{name}' already exists at {}", target.display()))
+                    }
+                    | SourceAction::Symlink => match symlink(path, &target) {
+                        | Ok(_) => Ok(format!("Symlinked local model '{name}' -> {}", target.display())),
+                        | Err(why) => {
+                            error!("=> {} Symlink local model '{}' to {} - {why}", Label::fail(), name, target.display());
+                            Err(why)
+                        }
+                    },
+                    | SourceAction::Reference => Ok(format!("Local model '{name}' referenced in place at {}", path.display())),
+                }),
+        }
     }
 }
 impl TextOrigin {

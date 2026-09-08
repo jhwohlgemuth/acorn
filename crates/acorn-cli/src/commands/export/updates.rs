@@ -4,7 +4,7 @@ use super::pdf;
 use super::ExportRequest;
 use crate::cli::arguments::{FileFormat, Target};
 use crate::cli::resolve_paths;
-use acorn::io::{zip_entries, ApiResult, InputOutput};
+use acorn::io::{zip_entries, ApiResult, InputOutput, SafePath};
 use acorn_core::util::MarkdownSupport;
 use acorn_schema::research_activity::{LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
@@ -13,13 +13,15 @@ use std::fs::{create_dir_all, write};
 use std::path::{Path, PathBuf};
 
 trait LogbookUpdatesExport {
-    fn artifact_path(&self, output: &Path, extension: &str) -> PathBuf;
+    fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf>;
     fn to_html(&self) -> String;
     fn write_docx(&self, path: &Path) -> ApiResult<()>;
 }
 impl LogbookUpdatesExport for LogbookUpdates {
-    fn artifact_path(&self, output: &Path, extension: &str) -> PathBuf {
-        output.join(format!("{}-updates-{}.{}", self.identifier, self.since, extension))
+    fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf> {
+        SafePath::new(format!("{}-updates-{}.{}", self.identifier, self.since, extension))
+            .map_err(Into::<color_eyre::Report>::into)
+            .and_then(|path| path.materialize_under(output).map_err(Into::into))
     }
     fn to_html(&self) -> String {
         let entries = self
@@ -83,15 +85,19 @@ pub(super) async fn export(request: ExportRequest) -> ApiResult<()> {
                         | Ok(()) => match request.format {
                             | FileFormat::Docx => paths
                                 .into_iter()
-                                .map(|path| render(&path, since).and_then(|updates| updates.write_docx(&updates.artifact_path(&output, "docx"))))
+                                .map(|path| {
+                                    render(&path, since)
+                                        .and_then(|updates| updates.artifact_path(&output, "docx").and_then(|path| updates.write_docx(&path)))
+                                })
                                 .collect::<ApiResult<Vec<_>>>()
                                 .map(|_| ()),
                             | FileFormat::Markdown => paths
                                 .into_iter()
                                 .map(|path| {
                                     render(&path, since).and_then(|updates| {
-                                        write(updates.artifact_path(&output, "md"), updates.to_markdown())
-                                            .map_err(|why| eyre!("Failed to write Markdown updates — {why}"))
+                                        updates.artifact_path(&output, "md").and_then(|path| {
+                                            write(path, updates.to_markdown()).map_err(|why| eyre!("Failed to write Markdown updates — {why}"))
+                                        })
                                     })
                                 })
                                 .collect::<ApiResult<Vec<_>>>()
@@ -123,7 +129,10 @@ async fn export_pdf(paths: Vec<PathBuf>, output: &Path, since: &str, request: &E
                     let mut result = Ok(());
                     for update in updates {
                         if result.is_ok() {
-                            result = pdf::render_html_to_pdf(page, &update.to_html(), &update.artifact_path(output, "pdf")).await;
+                            result = match update.artifact_path(output, "pdf") {
+                                | Ok(path) => pdf::render_html_to_pdf(page, &update.to_html(), &path).await,
+                                | Err(why) => Err(why),
+                            };
                         }
                     }
                     result

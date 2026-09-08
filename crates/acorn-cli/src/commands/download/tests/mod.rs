@@ -1950,6 +1950,26 @@ async fn test_download_items_with_progress_are_concurrent() {
     handle.join().expect("join concurrent download server");
     assert_eq!(maximum_active.load(Ordering::SeqCst), 2, "visible model downloads should overlap");
 }
+#[test]
+fn test_download_task_rejects_unsafe_paths() {
+    let destination = temp_test_dir("download_model_unsafe_path");
+    let _cleanup = TestCleanup::new(destination.clone());
+    ["", "../model.gguf", "/model.gguf", r"C:\model.gguf", r"..\model.gguf"]
+        .into_iter()
+        .for_each(|path| {
+            let item = DownloadItem {
+                url: "https://example.org/model.gguf".to_string(),
+                path: path.to_string(),
+                size: None,
+                sha: None,
+                headers: None,
+            };
+            assert!(
+                DownloadTask::new(item, &destination, true, false).is_err(),
+                "expected unsafe path: {path}"
+            );
+        });
+}
 #[tokio::test]
 async fn test_download_task_restarts_partial_file_without_http_range_support() {
     let payload = b"abcdefghij".to_vec();
@@ -1965,9 +1985,9 @@ async fn test_download_task_restarts_partial_file_without_http_range_support() {
         sha: None,
         headers: None,
     };
-    let part = item.partial_path(&destination);
+    let part = item.partial_path(&destination).expect("resolve partial download path");
     write(&part, b"stale").expect("seed stale partial file");
-    let task = DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "restart download should succeed: {result:?}");
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");
@@ -1995,7 +2015,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
         sha: None,
         headers: None,
     };
-    let part = item.partial_path(&destination);
+    let part = item.partial_path(&destination).expect("resolve partial download path");
     if let Some(parent) = part.parent() {
         match create_dir_all(parent) {
             | Ok(()) => {}
@@ -2006,7 +2026,7 @@ async fn test_download_task_resumes_partial_file_with_http_range() {
         | Ok(()) => {}
         | Err(why) => panic!("seed partial file failed: {why}"),
     }
-    let task = DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "resume download should succeed: {result:?}");
     let final_file = destination.join("model.gguf");
@@ -2035,7 +2055,7 @@ async fn test_download_task_retry_resumes_from_updated_partial_file_length() {
         sha: None,
         headers: None,
     };
-    let task = DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "retry should resume from updated partial length: {result:?}");
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read retried file");
@@ -2057,9 +2077,9 @@ async fn test_download_task_skip_verify_checksum_allows_checksum_mismatch() {
         sha: Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
         headers: None,
     };
-    let part = item.partial_path(&destination);
+    let part = item.partial_path(&destination).expect("resolve partial download path");
     write(&part, &payload[..4]).expect("seed partial file");
-    let task = DownloadTask::new(item, &destination, true, true);
+    let task = DownloadTask::new(item, &destination, true, true).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "skip checksum should allow mismatch: {result:?}");
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read downloaded file");
@@ -2108,7 +2128,7 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
         sha: Some(served_digest),
         headers: None,
     };
-    let task = DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "download with valid sidecar checksum should succeed: {result:?}");
 
@@ -2136,9 +2156,9 @@ async fn test_download_task_truncates_when_range_request_returns_200() {
         sha: None,
         headers: None,
     };
-    let part = item.partial_path(&destination);
+    let part = item.partial_path(&destination).expect("resolve partial download path");
     write(&part, &payload[..4]).expect("seed partial file");
-    let task = DownloadTask::new(item, &destination, true, false);
+    let task = DownloadTask::new(item, &destination, true, false).expect("create download task");
     let result = task.download().await;
     assert!(result.is_ok(), "ignored range download should succeed: {result:?}");
     let final_bytes = std::fs::read(destination.join("model.gguf")).expect("read restarted file");

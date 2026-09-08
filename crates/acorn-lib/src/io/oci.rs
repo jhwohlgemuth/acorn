@@ -3,7 +3,7 @@ use crate::args;
 use crate::io::api;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
-use crate::io::{extract, file_checksum, move_file, retry, walk, ApiResult, FromCommand, PathExt};
+use crate::io::{extract, file_checksum, move_file, retry, walk, ApiResult, FromCommand, PathExt, SafePath};
 use crate::util::cmd::{redact, run_output, run_output_with_stdin};
 use crate::util::constants::oci::{
     ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP,
@@ -340,8 +340,8 @@ impl Descriptor {
                 Err(eyre!("ModelPack file metadata size does not match its raw layer"))
             }
             | (path, name, _) => path.or(name).map_or(Ok(None), |path| {
-                Path::new(&path)
-                    .is_safe()
+                SafePath::new(&path)
+                    .is_ok()
                     .then_some(Some(path.clone()))
                     .ok_or_else(|| eyre!("Unsafe ModelPack filepath '{path}'"))
             }),
@@ -371,7 +371,7 @@ impl KitfileExt for Kitfile {
             .and_then(|model| match Location::from(&model.path) {
                 | location if location.is_oci_reference() => Err(eyre!("Nested ModelKit model references are not supported by download model")),
                 | _ if model.path.is_empty() => Err(eyre!("KitOps ModelKit does not declare a primary model path")),
-                | _ if !Path::new(&model.path).is_safe() => Err(eyre!("Unsafe KitOps ModelKit model path '{}'", model.path)),
+                | _ if SafePath::new(&model.path).is_err() => Err(eyre!("Unsafe KitOps ModelKit model path '{}'", model.path)),
                 | _ if !Path::new(&model.path).is_gguf() => Err(eyre!(
                     "OCI model downloads support GGUF payloads; unsupported KitOps ModelKit file '{}'",
                     model.path
@@ -386,7 +386,7 @@ impl KitfileExt for Kitfile {
                         .parts
                         .iter()
                         .filter(|part| Path::new(&part.path).is_gguf())
-                        .try_fold(vec![primary], |mut files, part| match Path::new(&part.path).is_safe() {
+                        .try_fold(vec![primary], |mut files, part| match SafePath::new(&part.path).is_ok() {
                             | false => Err(eyre!("Unsafe KitOps ModelKit model-part path '{}'", part.path)),
                             | true => {
                                 files.push(ModelKitDeclaredFile {
@@ -537,10 +537,9 @@ impl From<Descriptor> for OciFile {
 }
 impl OciFile {
     fn is_valid(file: &Self, _context: &()) -> Result<(), ValidationReport> {
-        Path::new(&file.path)
-            .is_safe()
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path)))
+        SafePath::new(&file.path)
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("path").with_message(format!("Unsafe OCI artifact path '{}'", file.path)))
             .map_err(|error| error.into_report(""))
     }
 }
@@ -1072,7 +1071,7 @@ impl OrasTransport {
                     .iter()
                     .map(|descriptor| {
                         descriptor.modelpack_metadata().and_then(|metadata| match metadata.as_ref() {
-                            | Some(metadata) if !Path::new(&metadata.name).is_safe() || metadata.size < 0 => {
+                            | Some(metadata) if SafePath::new(&metadata.name).is_err() || metadata.size < 0 => {
                                 Err(eyre!("Unsafe ModelPack file metadata annotation"))
                             }
                             | _ => descriptor.modelpack_direct_path(metadata.as_ref()).and_then(|path| {

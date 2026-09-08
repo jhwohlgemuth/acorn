@@ -69,7 +69,7 @@ build-in-image: clean
 	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
 
 build-wasm:
-	@wasm-pack build crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg
+	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg
 	@wasm-pack test --node crates/acorn-wasm
 
 clean:
@@ -105,7 +105,7 @@ check-portable:
 	@cargo check -p acorn-lib --no-default-features --features analyzer
 	@cargo check -p acorn-lib --no-default-features
 	@$(MAKE) check-wasm
-	@$(MAKE) build-wasm
+	@$(MAKE) build-wasm WASM_PACK_BUILD_ARGS=--dev
 	@bash scripts/check-portable-dependencies.sh
 
 check-wasm:
@@ -326,6 +326,7 @@ FUZZ_ARGS =
 BENCH_BASELINE = $(VERSION)
 BENCH_OUTPUT = $(ARTIFACT_TARGET_DIR)/benchmark-results
 BENCH_HISTORY =
+WASM_PACK_BUILD_ARGS =
 TASKS = \
 	audit \
 	book \

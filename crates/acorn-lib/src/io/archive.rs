@@ -1,6 +1,7 @@
 //! Archive creation and extraction utilities.
-use crate::io::{files_all, standard_project_folder, ApiResult, PathConversion, PathExt};
+use crate::io::{files_all, standard_project_folder, ApiResult, SafePath};
 use crate::util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES};
+use acorn_core::prelude::Component;
 use acorn_core::util::MimeType;
 use color_eyre::Report;
 use core::fmt;
@@ -30,7 +31,7 @@ pub trait ArchiveCreation {
 }
 trait ArchiveEntryExt {
     fn extract(&self, reader: &mut dyn Read, root: &Path) -> Result<bool, sevenz_rust2::Error>;
-    fn validate(&self, seen: Vec<PathBuf>) -> ApiResult<Vec<PathBuf>>;
+    fn validate(&self, seen: Vec<SafePath>) -> ApiResult<Vec<SafePath>>;
 }
 /// Archive extraction operations implemented by archive candidates
 pub trait ArchiveExtraction {
@@ -61,7 +62,6 @@ enum ArchiveError {
     EntryExpandedSizeLimit,
     ExpandedSizeLimit,
     ExpandedSizeOverflow,
-    FilePathEmpty,
     FormatInference(PathBuf),
     InspectArchive { path: PathBuf, reason: Box<str> },
     InspectSourceChild { path: PathBuf, reason: Box<str> },
@@ -72,7 +72,6 @@ enum ArchiveError {
     SevenZip { operation: &'static str, reason: Box<str> },
     SourceLink(PathBuf),
     TooManyEntries,
-    UnsafeDestinationComponent(PathBuf),
     UnsafeZipPath(Box<str>),
     UnsupportedFormat(MimeType),
     UnsupportedTarEntry,
@@ -147,7 +146,7 @@ impl ArchiveCandidate {
                 | false => prepare_archive_destination(&output).map(|file| (file, output)),
             })
     }
-    fn relative_children(&self) -> ApiResult<Vec<(PathBuf, PathBuf)>> {
+    fn relative_children(&self) -> ApiResult<Vec<(PathBuf, SafePath)>> {
         self.0
             .canonicalize()
             .map_err(|why| Report::from(ArchiveError::ResolveSource(why.to_string().into())))
@@ -168,8 +167,9 @@ impl ArchiveCandidate {
                                     absolute
                                         .strip_prefix(&root)
                                         .map(Path::to_path_buf)
-                                        .map(|relative| (absolute, relative))
                                         .map_err(Into::into)
+                                        .and_then(|relative| SafePath::new(relative).map_err(Into::into))
+                                        .map(|relative| (absolute, relative))
                                 }),
                             })
                     })
@@ -192,7 +192,7 @@ impl ArchiveCreation for ArchiveCandidate {
                         children
                             .into_iter()
                             .try_fold(writer, |mut writer, (path, relative)| {
-                                let entry = ArchiveEntry::from_path(&path, relative.to_string_lossy().replace('\\', "/"));
+                                let entry = ArchiveEntry::from_path(&path, relative.as_path().to_string_lossy().replace('\\', "/"));
                                 path.is_file()
                                     .then(|| File::open(&path))
                                     .transpose()
@@ -274,10 +274,11 @@ impl ArchiveExtraction for ArchiveCandidate {
                             | (true, _) => Err(ArchiveError::TooManyEntries.into()),
                             | (_, Ok(size)) if size > MAX_ARCHIVE_EXPANDED_BYTES => Err(ArchiveError::ExpandedSizeLimit.into()),
                             | (_, Err(why)) => Err(why),
-                            | _ => entries
-                                .iter()
-                                .try_fold(Vec::new(), |seen, entry| entry.validate(seen))
-                                .and_then(|paths| paths.iter().try_for_each(|relative| safe_target(&root, relative).map(|_| ()))),
+                            | _ => entries.iter().try_fold(Vec::new(), |seen, entry| entry.validate(seen)).and_then(|paths| {
+                                paths
+                                    .iter()
+                                    .try_for_each(|relative| relative.materialize_under(&root).map(|_| ()).map_err(Into::into))
+                            }),
                         }
                     };
                     validation.and_then(|()| {
@@ -322,8 +323,8 @@ impl ArchiveExtraction for ArchiveCandidate {
                             entry
                                 .enclosed_name()
                                 .ok_or_else(|| ArchiveError::UnsafeZipPath(entry.name().into()).into())
-                                .and_then(|path| path.relative())
-                                .and_then(|relative| validate_entry(&root, seen, relative, entry.is_dir(), entry.size()))
+                                .and_then(|path| SafePath::new(path).map_err(Into::into))
+                                .and_then(|relative| validate_entry(&root, seen, relative, entry.size()))
                                 .and_then(|(seen, target)| {
                                     total
                                         .checked_add(entry.size())
@@ -362,18 +363,20 @@ impl From<PathBuf> for ArchiveCandidate {
 }
 impl ArchiveEntryExt for ArchiveEntry {
     fn extract(&self, reader: &mut dyn Read, root: &Path) -> Result<bool, sevenz_rust2::Error> {
-        Path::new(self.name())
-            .relative()
-            .and_then(|relative| safe_target(root, &relative).map(|target| (relative, target)))
+        SafePath::new(self.name())
+            .map_err(Report::from)
+            .and_then(|relative| relative.materialize_under(root).map(|target| (relative, target)).map_err(Into::into))
             .and_then(|(relative, target)| write_entry(reader, &target, self.is_directory()).map(|()| relative))
             .map(|_| true)
             .map_err(|why| sevenz_rust2::Error::Other(why.to_string().into()))
     }
-    fn validate(&self, seen: Vec<PathBuf>) -> ApiResult<Vec<PathBuf>> {
-        Path::new(self.name()).relative().and_then(|relative| match seen.contains(&relative) {
-            | true => Err(ArchiveError::DuplicatePath(relative).into()),
-            | false => Ok(seen.into_iter().chain(once(relative)).collect()),
-        })
+    fn validate(&self, seen: Vec<SafePath>) -> ApiResult<Vec<SafePath>> {
+        SafePath::new(self.name())
+            .map_err(Into::into)
+            .and_then(|relative| match seen.contains(&relative) {
+                | true => Err(ArchiveError::DuplicatePath(relative.into_path_buf()).into()),
+                | false => Ok(seen.into_iter().chain(once(relative)).collect()),
+            })
     }
 }
 impl core::error::Error for ArchiveError {}
@@ -387,7 +390,6 @@ impl fmt::Display for ArchiveError {
             | Self::EntryExpandedSizeLimit => write!(formatter, "Archive entry expands beyond the supported size limit"),
             | Self::ExpandedSizeLimit => write!(formatter, "Archive expands beyond the supported size limit"),
             | Self::ExpandedSizeOverflow => write!(formatter, "Archive expanded size overflow"),
-            | Self::FilePathEmpty => write!(formatter, "Archive file path cannot be empty"),
             | Self::FormatInference(path) => write!(formatter, "Unable to infer archive format for {}", path.display()),
             | Self::InspectArchive { path, reason } => write!(formatter, "Failed to inspect archive {} — {reason}", path.display()),
             | Self::InspectSourceChild { path, reason } => {
@@ -400,9 +402,6 @@ impl fmt::Display for ArchiveError {
             | Self::SevenZip { operation, reason } => write!(formatter, "Failed to {operation} — {reason}"),
             | Self::SourceLink(path) => write!(formatter, "Archive source links are not supported: {}", path.display()),
             | Self::TooManyEntries => write!(formatter, "Archive contains too many entries"),
-            | Self::UnsafeDestinationComponent(path) => {
-                write!(formatter, "Unsafe archive destination component: {}", path.display())
-            }
             | Self::UnsafeZipPath(path) => write!(formatter, "Unsafe ZIP path: {path}"),
             | Self::UnsupportedFormat(format) => write!(formatter, "Unsupported archive format: {format}"),
             | Self::UnsupportedTarEntry => write!(formatter, "Unsupported TAR entry"),
@@ -453,13 +452,15 @@ fn extract_tar_reader<R: Read>(reader: R, destination: Option<PathBuf>) -> ApiRe
                             entry
                                 .path()
                                 .map_err(Into::into)
-                                .and_then(|path| path.as_ref().relative())
-                                .and_then(|relative| {
+                                .and_then(|path| {
                                     let is_directory = entry.header().entry_type().is_dir();
                                     let is_file = entry.header().entry_type().is_file();
-                                    match (relative.as_os_str().is_empty(), is_directory, is_file) {
+                                    let root_entry = path.components().all(|component| matches!(component, Component::CurDir));
+                                    match (root_entry, is_directory, is_file) {
                                         | (true, true, _) => Ok((seen, root.clone(), true, total)),
-                                        | (false, true, _) | (false, _, true) => validate_entry(&root, seen, relative, is_directory, entry.size())
+                                        | (false, true, _) | (false, _, true) => SafePath::new(path.as_ref())
+                                            .map_err(Into::into)
+                                            .and_then(|relative| validate_entry(&root, seen, relative, entry.size()))
                                             .and_then(|(seen, target)| {
                                                 total
                                                     .checked_add(entry.size())
@@ -499,25 +500,14 @@ fn prepare_archive_destination(path: &Path) -> ApiResult<File> {
     }
     .and_then(|()| OpenOptions::new().write(true).create_new(true).open(path).map_err(Into::into))
 }
-fn safe_target(root: &Path, relative: &Path) -> ApiResult<PathBuf> {
-    relative
-        .ancestors()
-        .skip(1)
-        .map(|parent| root.join(parent))
-        .try_for_each(|parent| match parent.symlink_metadata() {
-            | Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => Err(ArchiveError::UnsafeDestinationComponent(parent).into()),
-            | Ok(_) => Ok(()),
-            | Err(why) if why.kind() == ErrorKind::NotFound => Ok(()),
-            | Err(why) => Err(why.into()),
-        })
-        .map(|()| root.join(relative))
-}
-fn validate_entry(root: &Path, seen: Vec<PathBuf>, relative: PathBuf, is_directory: bool, size: u64) -> ApiResult<(Vec<PathBuf>, PathBuf)> {
-    match (relative.as_os_str().is_empty(), size > MAX_ARCHIVE_EXPANDED_BYTES) {
-        | (true, _) if !is_directory => Err(ArchiveError::FilePathEmpty.into()),
-        | (_, true) => Err(ArchiveError::EntryExpandedSizeLimit.into()),
-        | _ if seen.contains(&relative) => Err(ArchiveError::DuplicatePath(relative).into()),
-        | _ => safe_target(root, &relative).map(|target| (seen.into_iter().chain(once(relative)).collect(), target)),
+fn validate_entry(root: &Path, seen: Vec<SafePath>, relative: SafePath, size: u64) -> ApiResult<(Vec<SafePath>, PathBuf)> {
+    match size > MAX_ARCHIVE_EXPANDED_BYTES {
+        | true => Err(ArchiveError::EntryExpandedSizeLimit.into()),
+        | false if seen.contains(&relative) => Err(ArchiveError::DuplicatePath(relative.into_path_buf()).into()),
+        | false => relative
+            .materialize_under(root)
+            .map(|target| (seen.into_iter().chain(once(relative)).collect(), target))
+            .map_err(Into::into),
     }
 }
 fn write_entry(reader: &mut dyn Read, target: &Path, is_directory: bool) -> ApiResult<()> {
@@ -536,18 +526,18 @@ pub fn zip_entries(entries: &[(&str, &[u8])]) -> ApiResult<Vec<u8>> {
     entries
         .iter()
         .try_fold(
-            (ZipWriter::new(Cursor::new(Vec::new())), Vec::<PathBuf>::new()),
+            (ZipWriter::new(Cursor::new(Vec::new())), Vec::<SafePath>::new()),
             |(mut archive, seen), (name, content)| {
-                let relative = PathBuf::from(name);
-                match (relative.is_safe(), seen.contains(&relative)) {
-                    | (false, _) => Err(ArchiveError::UnsafeZipPath((*name).into()).into()),
-                    | (_, true) => Err(ArchiveError::DuplicatePath(relative).into()),
-                    | (true, false) => archive
-                        .start_file(name, options)
-                        .and_then(|()| archive.write_all(content).map_err(Into::into))
-                        .map(|()| (archive, seen.into_iter().chain(once(relative)).collect()))
-                        .map_err(Into::into),
-                }
+                SafePath::new(name)
+                    .map_err(|_| Report::from(ArchiveError::UnsafeZipPath((*name).into())))
+                    .and_then(|relative| match seen.contains(&relative) {
+                        | true => Err(ArchiveError::DuplicatePath(relative.into_path_buf()).into()),
+                        | false => archive
+                            .start_file(relative.as_path().to_string_lossy(), options)
+                            .and_then(|()| archive.write_all(content).map_err(Into::into))
+                            .map(|()| (archive, seen.into_iter().chain(once(relative)).collect()))
+                            .map_err(Into::into),
+                    })
             },
         )
         .and_then(|(archive, _)| archive.finish().map_err(Into::into))

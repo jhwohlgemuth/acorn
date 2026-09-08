@@ -7,7 +7,7 @@ use crate::cli::arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs,
 use crate::cli::{CommandOptions, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
 use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, Source, SourceAction};
+use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, SafePath, Source, SourceAction};
 use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use acorn::util::constants::env::MODEL_WHITELIST;
 use acorn::util::{Label, StringConversion};
@@ -486,22 +486,27 @@ fn materialize_local_model(options: CommandOptions) -> ApiResult<String> {
         | Some(Source::Local { .. }) => {
             let name = options.selector.as_ref().map(Source::name).unwrap_or_else(|| "model".to_string());
             let destination = match options.output.clone() {
-                | Some(root) => Ok(root.join(&name)),
+                | Some(root) => SafePath::new(&name).map_err(Into::<color_eyre::Report>::into).and_then(|path| {
+                    path.materialize_under(&root)
+                        .map(|destination| (root, path, destination))
+                        .map_err(Into::into)
+                }),
                 | None => Err(eyre!("Model output directory is not configured")),
             };
             match destination {
-                | Ok(destination) => match create_dir_all(&destination) {
+                | Ok((root, destination_path, destination)) => match create_dir_all(&destination) {
                     | Ok(_) => match options.selector.clone() {
                         | Some(Source::Local { path, .. }) => {
                             let action = options.action.unwrap_or_default();
                             let target = match action {
-                                | SourceAction::Reference => Ok(destination),
+                                | SourceAction::Reference => Ok(destination_path),
                                 | SourceAction::Copy | SourceAction::Symlink => path
                                     .file_name()
-                                    .map(|value| destination.join(value))
-                                    .ok_or_else(|| eyre!("Local model path has no file name")),
+                                    .map(|value| destination_path.as_path().join(value))
+                                    .ok_or_else(|| eyre!("Local model path has no file name"))
+                                    .and_then(|target| SafePath::new(target).map_err(Into::into)),
                             };
-                            target.and_then(|target| action.materialize(&path, &target, &name))
+                            target.and_then(|target| action.materialize(&path, &root, &target, &name))
                         }
                         | Some(_) => Err(eyre!("Model selector is not local")),
                         | None => Err(eyre!("Model selector is not configured")),

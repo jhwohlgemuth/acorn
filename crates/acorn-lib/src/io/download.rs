@@ -1,6 +1,6 @@
 //! File download utilities
 use crate::io::api::huggingface;
-use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, slice_path, ApiResult, ProgressType};
+use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, slice_path, ApiResult, ProgressType, SafePath};
 use crate::util::constants::{app::DISPLAY_PATH_CHARACTER_COUNT, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES};
 use crate::util::Label;
 use acorn_core::prelude::Vec;
@@ -13,7 +13,6 @@ use futures::future::join_all;
 use futures::{stream, StreamExt};
 use std::fs::rename;
 use std::fs::{create_dir_all, remove_file};
-use std::path::Component;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
@@ -72,28 +71,25 @@ impl DownloadItem {
     pub fn local_path(&self) -> PathBuf {
         PathBuf::from(&self.path)
     }
-    /// Returns `true` if the path contains `..`, `/`, or a drive prefix.
-    pub fn has_unsafe_path(&self) -> bool {
-        self.local_path()
-            .components()
-            .any(|component| matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
-    }
     /// Resolves the full target path under the given destination directory.
-    pub fn target(&self, destination: &Path) -> PathBuf {
-        destination.join(self.local_path())
+    pub fn target(&self, destination: &Path) -> ApiResult<PathBuf> {
+        SafePath::new(self.local_path())
+            .and_then(|path| path.materialize_under(destination))
+            .map_err(|why| eyre!("Model file path is unsafe: {} — {why}", self.path))
     }
     /// Returns the partial download path (appends `.part` extension).
-    pub fn partial_path(&self, destination: &Path) -> PathBuf {
-        let target = self.target(destination);
-        target.with_extension(format!(
-            "{}{}",
-            target
-                .extension()
-                .and_then(|value| value.to_str())
-                .map(|value| format!("{value}."))
-                .unwrap_or_default(),
-            Self::PART_EXTENSION
-        ))
+    pub fn partial_path(&self, destination: &Path) -> ApiResult<PathBuf> {
+        self.target(destination).map(|target| {
+            target.with_extension(format!(
+                "{}{}",
+                target
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .map(|value| format!("{value}."))
+                    .unwrap_or_default(),
+                Self::PART_EXTENSION
+            ))
+        })
     }
     /// Returns `true` if the URL points to huggingface.co or a subdomain.
     pub fn is_huggingface(&self) -> bool {
@@ -184,34 +180,46 @@ impl DownloadItems {
             skip_verify_checksum,
             concurrency,
         } = self;
-        let futures = items
+        let tasks = items
             .into_iter()
             .map(|item| DownloadTask::new(item, &destination, quiet, skip_verify_checksum))
-            .map(DownloadTask::download)
-            .collect::<Vec<_>>();
-        let results = match concurrency {
-            | Some(limit) => stream::iter(futures).buffer_unordered(limit.max(1)).collect::<Vec<_>>().await,
-            | None => join_all(futures).await,
-        };
-        results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))
+            .collect::<ApiResult<Vec<_>>>();
+        match tasks {
+            | Err(why) => Err(why),
+            | Ok(tasks) => {
+                let futures = tasks.into_iter().map(DownloadTask::download).collect::<Vec<_>>();
+                let results = match concurrency {
+                    | Some(limit) => stream::iter(futures).buffer_unordered(limit.max(1)).collect::<Vec<_>>().await,
+                    | None => join_all(futures).await,
+                };
+                results.into_iter().find(|result| result.is_err()).unwrap_or(Ok(()))
+            }
+        }
     }
 }
 impl DownloadTask {
     /// Creates a new download task with resolved paths.
-    pub fn new(item: DownloadItem, destination: &Path, quiet: bool, skip_verify_checksum: bool) -> Self {
-        Self {
-            part: item.partial_path(destination),
-            target: item.target(destination),
+    pub fn new(item: DownloadItem, destination: &Path, quiet: bool, skip_verify_checksum: bool) -> ApiResult<Self> {
+        item.target(destination).map(|target| Self {
+            part: target.with_extension(format!(
+                "{}{}",
+                target
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .map(|value| format!("{value}."))
+                    .unwrap_or_default(),
+                DownloadItem::PART_EXTENSION
+            )),
+            target,
             item,
             quiet,
             skip_verify_checksum,
-        }
+        })
     }
     /// Executes the download, including size and checksum verification.
     pub async fn download(self) -> ApiResult<()> {
-        match self.item.has_unsafe_path() {
-            | true => Err(eyre!("Model file path is unsafe: {}", self.item.path)),
-            | false if self.item.is_complete_at(&self.target) => {
+        match self.item.is_complete_at(&self.target) {
+            | true => {
                 if !self.quiet {
                     let target_display = slice_path(&self.target, DISPLAY_PATH_CHARACTER_COUNT);
                     println!("=> {} Skipping existing model file {target_display}", Label::pass());
