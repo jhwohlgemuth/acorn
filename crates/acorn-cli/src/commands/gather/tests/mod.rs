@@ -152,6 +152,23 @@ fn test_raw_format_normalizes_arxiv_urls() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "arXiv:2106.09685v2\n");
 }
 #[test]
+fn test_raw_format_normalizes_rrid_aliases() {
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--text",
+            "RRID:SCR_003512 https://n2t.net/RRID:SCR_003512",
+            "--raw",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "RRID:SCR_003512\n");
+}
+#[test]
 fn test_raw_format_silently_returns_nonzero_for_load_failures() {
     let path = temp_dir().join(format!("acorn-invalid-{}.pdf", nanoid::nanoid!()));
     write_file(path.clone(), "not a PDF".to_string()).unwrap();

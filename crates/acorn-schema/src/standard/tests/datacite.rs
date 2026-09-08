@@ -381,11 +381,15 @@ fn test_datacite_47_resource_types() {
 #[test]
 fn test_datacite_47_related_identifier_types() {
     let raid = RelatedIdentifierType::Raid;
-    assert_eq!(serde_json::to_string(&raid).expect("serialize braid"), "\"RAiD\"");
+    assert_eq!(serde_json::to_string(&raid).expect("serialize raid"), "\"RAiD\"");
+    let rrid = RelatedIdentifierType::Rrid;
+    assert_eq!(serde_json::to_string(&rrid).expect("serialize rrid"), "\"RRID\"");
     let swhid = RelatedIdentifierType::Swhid;
     assert_eq!(serde_json::to_string(&swhid).expect("serialize swhid"), "\"SWHID\"");
     let parsed: RelatedIdentifierType = serde_json::from_str("\"RAiD\"").expect("parse raid");
     assert_eq!(parsed, RelatedIdentifierType::Raid);
+    let parsed: RelatedIdentifierType = serde_json::from_str("\"RRID\"").expect("parse rrid");
+    assert_eq!(parsed, RelatedIdentifierType::Rrid);
     let parsed: RelatedIdentifierType = serde_json::from_str("\"SWHID\"").expect("parse swhid");
     assert_eq!(parsed, RelatedIdentifierType::Swhid);
 }
@@ -485,6 +489,12 @@ fn test_datacite_47_json_fixture_with_deltas() {
     );
     let related = first.attributes.related_identifiers.as_ref().expect("related identifiers");
     assert!(related.iter().any(|r| r.related_identifier_type == Some(RelatedIdentifierType::Raid)));
+    assert!(related.iter().any(|r| {
+        r.related_identifier == "RRID:SCR_003512"
+            && r.related_identifier_type == Some(RelatedIdentifierType::Rrid)
+            && r.relation_type == Some(RelationType::Cites)
+            && r.resource_type_general == Some(ResourceTypeGeneral::Software)
+    }));
     assert!(related.iter().any(|r| r.related_identifier_type == Some(RelatedIdentifierType::Swhid)));
     assert!(related
         .iter()

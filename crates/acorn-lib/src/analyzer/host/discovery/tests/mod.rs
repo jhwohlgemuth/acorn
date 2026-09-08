@@ -136,7 +136,7 @@ fn test_citation_format_selects_and_flattens_requested_style() {
 }
 #[test]
 fn test_discovers_all_persistent_identifier_types() {
-    let content = "ark:/12345/abc doi:10.1234/example hdl:10013/epic.10033 ISBN 978-0-306-40627-0 https://isni.org/isni/0000000492299539 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56";
+    let content = "ark:/12345/abc doi:10.1234/example hdl:10013/epic.10033 ISBN 978-0-306-40627-0 https://isni.org/isni/0000000492299539 https://orcid.org/0000-0002-2057-9115 US1234567B2 RAID:https://raid.org/10.83962/fb5be317 https://ror.org/01qz5mb56 RRID:SCR_003512";
     let kinds = Identifier::find_all(content)
         .into_iter()
         .map(|identifier| identifier.kind)
@@ -150,6 +150,7 @@ fn test_discovers_all_persistent_identifier_types() {
     assert!(kinds.contains(&PID::Patent));
     assert!(kinds.contains(&PID::RAID));
     assert!(kinds.contains(&PID::ROR));
+    assert!(kinds.contains(&PID::RRID));
 }
 #[test]
 fn test_discovers_supported_identifiers_without_duplicates() {
@@ -931,6 +932,22 @@ fn test_swhid_discovery_is_not_resolved_without_request() {
     let swhid = &json[0];
     assert_eq!(swhid["resolution_status"], "not-requested");
     assert!(swhid["metadata"].is_null());
+}
+#[test]
+fn test_rrid_discovery_is_local_and_not_project_identifying() {
+    let sources = vec![SourceDocument::init()
+        .content("Use RRID:SCR_003512 or https://n2t.net/RRID:SCR_003512.")
+        .format("text")
+        .source("example.md")
+        .build()];
+    let discoveries = Records::from(sources);
+    assert_eq!(discoveries.len(), 1);
+    assert!(discoveries.candidates().is_empty());
+    let json = serde_json::to_value(&discoveries).unwrap();
+    assert_eq!(json[0]["identifier"], "RRID:SCR_003512");
+    assert_eq!(json[0]["identifier_type"], "rrid");
+    assert_eq!(json[0]["resolution_status"], "not-requested");
+    assert!(json[0]["metadata"].is_null());
 }
 #[test]
 fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {

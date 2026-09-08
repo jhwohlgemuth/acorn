@@ -22,7 +22,7 @@ flowchart LR
 
 ## Supported identifiers
 
-The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, SWHID, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
+The typed Rust API supports ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, RRID, SWHID, and US patent parsing. The generic [`Identifier`](https://docs.rs/acorn-schema/latest/acorn_schema/pid/struct.Identifier.html) representation also recognizes HTTP(S) URLs. `PIDINST` and `Unknown` are classification values, but they do not currently have typed parsers.
 
 **About the table:** *Role* indicates what the identifier proves — `Project identity` can create or match a research activity, while `Supporting evidence`, `Person evidence`, and `Organization evidence` are retained in reports but do not form candidates on their own. *Validation* describes the local type-checking performed (syntax, components, and checksum where the spec defines one) — it does not contact a registry. *Normalized* is the display form stored in RAD fields and reports (contrasted with the namespaced `identity_key` used for exact matching, e.g., `doi:10...`). Display forms that are bare identifiers or URLs reflect the canonical output for that kind.
 
@@ -39,11 +39,12 @@ Validation is local. It checks syntax, components, and a checksum where the impl
 | ORCID | Length and ISO 7064 check digit | `https://orcid.org/...` | Person evidence |
 | RAiD | DOI-like prefix and suffix structure | Bare RAiD DOI | Project identity |
 | ROR | Crockford Base32 length and check digits | `https://ror.org/...` | Organization evidence |
+| RRID | Explicit `RRID:` label, bounded opaque payload, and approved resolver form | `RRID:<payload>` | Research-resource evidence |
 | SWHID | SWHID v1 core and qualifier rules | `swh:1:<type>:<object-id>` with canonical qualifiers | Software project identity |
 | Patent | Supported US number and kind-code structure | Spaced US patent number | Project identity |
 | URL | HTTP(S) syntax | URL without a trailing slash | Supporting evidence |
 
-ACORN's regression suite maintains shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, and SWHID. Here, parity means ACORN runs corresponding upstream cases for these overlapping identifier types; it does not mean the libraries have identical APIs, normalization policies, or support for other identifier families.
+ACORN's regression suite maintains shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, RRID, and SWHID. Here, parity means ACORN runs corresponding upstream cases for these overlapping identifier types; it does not mean the libraries have identical APIs, normalization policies, or support for other identifier families.
 
 Schema validation recognizes ISNI in DataCite name, affiliation, publisher, and funder identifiers; InvenioRDM person or organization identifiers; and RAiD contributors whose `schemaUri` is `https://isni.org`.
 
@@ -69,7 +70,7 @@ assert_eq!(found[0].identifier(), "10.11578/dc.20250604.1");
 
 </details>
 
-The `gather` command runs the supported finders across file, document, URL, standard-input, and literal-text content. It removes duplicate normalized discoveries from the report while retaining the source reference for discovery history. To avoid classifying ordinary paths as Handles, unstructured discovery requires `hdl:` or an `hdl.handle.net` resolver URL; structured fields and direct parsing also accept bare Handles.
+The `gather` command runs the supported finders across file, document, URL, standard-input, and literal-text content. It removes duplicate normalized discoveries from the report while retaining the source reference for discovery history. To avoid classifying ordinary paths as Handles, unstructured discovery requires `hdl:` or an `hdl.handle.net` resolver URL; structured fields and direct parsing also accept bare Handles. RRID discovery similarly requires an explicit `RRID:` label or an approved N2T/SciCrunch resolver URL. Bare registry payloads such as `SCR_003512` are not discovered as RRIDs.
 
 ## 2. Parse components
 
@@ -146,7 +147,7 @@ This distinction matters: the normalized display is suitable for RAD fields and 
 
 arXiv identifiers convert to their work-level DataCite DOI with `DOI::from(arxiv)`, producing the `10.48550/arXiv.*` namespace and omitting any revision suffix. The reverse conversion uses `ARXIV::try_from(doi)` because publisher DOIs and other DOI namespaces do not encode an arXiv identifier.
 
-Research activity metadata stores both DOI and arXiv publication identifiers in `meta.doi`; validation and export classify each value by its format. Handles are stored in `meta.handle` and cross into CFF as `other` identifiers. SWHIDs are stored separately in `meta.swhid` and exported to CFF with identifier type `swh`.
+Research activity metadata stores both DOI and arXiv publication identifiers in `meta.doi`; validation and export classify each value by its format. Handles are stored in `meta.handle` and cross into CFF as `other` identifiers. SWHIDs are stored separately in `meta.swhid` and exported to CFF with identifier type `swh`. Authored RRIDs use `meta.relatedResources` with a `TypedIdentifier` whose scheme is `RRID` and an explicit relation; the hardware/compute `resources` field is unchanged.
 
 ## B. Decide, enrich, and persist — primary purposes (steps 5-7)
 
@@ -158,7 +159,7 @@ Research activity metadata stores both DOI and arXiv publication identifiers in 
 `PID` records what an identifier identifies. ACORN currently divides discoveries into two groups:
 
 - arXiv, DOI, RAiD, ISBN, patent, ARK, and SWHID values are project-like identifiers. Each can independently create or match a research activity candidate. Versioned arXiv identifiers retain their revision in evidence but share the unversioned work identity.
-- Handle, ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs are entity or supporting evidence. They remain in reports and discovery history but cannot independently create or merge a candidate.
+- Handle, ISNI, ORCID, ROR, RRID, PIDINST, unknown identifiers, and arbitrary URLs are entity or supporting evidence. They remain in reports and discovery history but cannot independently create or merge a candidate. RRIDs specifically identify research resources and never serve as project identities.
 
 A provider can explicitly relate person or organization evidence to a project, but ACORN does not infer that relationship merely because the values occur in the same input.
 
@@ -171,7 +172,7 @@ A provider can explicitly relate person or organization evidence to a project, b
 - **ORCID** → ORCID API
 - **RAiD** → RAiD resolver
 - **SWHID** → Software Heritage resolver
-- **ISNI** → local-only (no remote resolver; normalized and retained as evidence)
+- **ISNI / RRID** → local-only (no remote resolver; normalized and retained as evidence)
 
 Handle resolution retains the complete public record as provenance and maps only direct HTTP(S) `URL` string values to websites on a project candidate found in the same source; it does not interpret `10320/loc` or make a Handle project identity. SWHID resolution confirms archive presence and returns resolver metadata, not citation data. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
 

@@ -1459,6 +1459,14 @@ fn test_typed_identifier_serializes_and_validates() {
     assert!(bad.validate().is_err());
 }
 #[test]
+fn test_typed_identifier_validates_rrid_scheme() {
+    let valid = TypedIdentifier::init().value("RRID:SCR_003512").scheme("rrid").build();
+    assert!(valid.validate().is_ok());
+    let invalid = TypedIdentifier::init().value("SCR_003512").scheme("RRID").build();
+    let report = invalid.validate().expect_err("bare RRID payload should fail scheme-aware validation");
+    assert_eq!(report.iter().next().map(|issue| issue.path.as_str()), Some("value"));
+}
+#[test]
 fn test_typed_related_resource_with_other() {
     let resource = TypedRelatedResource::init()
         .identifier(TypedIdentifier::init().value("10.5072/related").scheme("DOI").build())

@@ -2,8 +2,9 @@
 //!
 //! Portable, validated types reused across `ResearchActivity`, `ResearchOutput`, RAiD, DataCite, DCAT and discovery adapters.
 //! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/assets/standards-field-matrix.md`.
+use crate::pid::PID;
 use crate::validate::is_license;
-use crate::validation::Validate;
+use crate::validation::{rules, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
 use schemars::JsonSchema;
@@ -241,6 +242,7 @@ pub struct TypedActivityDate {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "TypedIdentifier::is_valid", skip_on_field_errors = false))]
 pub struct TypedIdentifier {
     /// Identifier value (e.g. `10.5072/example`, `swh:1:cnt:...`, `https://ror.org/...`).
     #[validate(nonempty)]
@@ -253,6 +255,14 @@ pub struct TypedIdentifier {
     #[validate(url)]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub scheme_uri: Option<String>,
+}
+impl TypedIdentifier {
+    pub(crate) fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        match self.scheme.as_deref().map(PID::from) {
+            | Some(PID::RRID) => rules::rrid(&self.value).map_err(|error| error.into_report("value")),
+            | _ => Ok(()),
+        }
+    }
 }
 /// Typed related resource with identifier, relation, resource type and category
 ///

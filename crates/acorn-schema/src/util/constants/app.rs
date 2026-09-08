@@ -18,6 +18,12 @@ pub const SWHID_SCHEMA_URI: &str = "https://www.swhid.org/specification/v1.2";
 pub const IDENTIFIERS_ORG_URI: &str = "https://identifiers.org";
 /// Name-to-Thing resolver URI accepted for SWHID values.
 pub const N2T_URI: &str = "https://n2t.net";
+/// Maximum length of an opaque RRID payload.
+pub const MAX_RRID_PAYLOAD_LENGTH: usize = 255;
+/// RRID system documentation URI.
+pub const RRID_SCHEMA_URI: &str = "https://www.rrids.org/rrid-system";
+/// SciCrunch resolver URI accepted for RRID values.
+pub const SCICRUNCH_RRID_RESOLVER_URI: &str = "https://scicrunch.org/resolver";
 /// Default Hugging Face domain represented by agent schema values.
 pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 /// Default organization affiliation used by research activity schemas.

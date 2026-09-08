@@ -249,6 +249,10 @@ pub mod rules {
     pub fn ror(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_ror(), "ROR")
     }
+    /// Validate an RRID with ACORN's canonical parser.
+    pub fn rrid(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_rrid(), "RRID")
+    }
     /// Validate an SWHID with ACORN's canonical parser.
     pub fn swhid(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_swhid(), "SWHID")

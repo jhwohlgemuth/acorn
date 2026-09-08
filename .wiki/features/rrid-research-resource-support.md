@@ -1,90 +1,83 @@
 ---
 type: Plan
-title: "Add first-class RRID research-resource support"
-description: "Support portable RRID parsing and discovery, standards-aligned RAD relations, and contract-gated SciCrunch resolution and search."
+title: "Add portable RRID research-resource support"
+description: "Add deterministic RRID parsing, local discovery and persistence, RAD validation, and standards interchange without requiring a registry provider."
 difficulty: high
 impact: high
-package: [acorn-schema, acorn-lib, acorn-cli, acorn-tui]
-tags: [feature, pid, rrid, research-resource, scicrunch, discovery, resolution, datacite, jats, reproducibility]
-status: planned
+package: [acorn-schema, acorn-lib, acorn-cli]
+tags: [feature, pid, rrid, research-resource, discovery, datacite, jats, reproducibility]
+status: in-progress
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/pid/mod.rs`, `crates/acorn-schema/src/util/constants/{mod,app}.rs`, `crates/acorn-schema/src/validation/mod.rs`, `crates/acorn-schema/src/validate/mod.rs`, `crates/acorn-schema/src/research_activity/common.rs`, `crates/acorn-schema/src/standard/datacite.rs`, and adjacent tests; `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/analyzer/host/discovery/`, endpoint configuration, and database discovery tests; focused gather code/tests in `crates/acorn-cli` and `crates/acorn-tui`; PID, gather, and acceptance documentation; generated CLI help only if arguments change.
-- **Create:** `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; `.wiki/assets/rrid-contract-matrix.md`; immutable fixtures under `tests/fixtures/rrid/`; `crates/acorn-lib/src/io/api/rrid.rs` only after the provider contract gate passes.
-- **Delete:** None. Do not remove or repurpose the existing hardware/compute `ResearchActivityMetadata.resources` field.
+- **Update:** `crates/acorn-schema/src/pid/mod.rs`, `crates/acorn-schema/src/util/constants/{mod,app}.rs`, `crates/acorn-schema/src/validation/mod.rs`, `crates/acorn-schema/src/validate/mod.rs`, focused `ResearchActivity`/`TypedIdentifier` validation and tests, DataCite adapter tests and `.wiki/assets/standards-field-matrix.md`; `crates/acorn-lib/src/analyzer/host/discovery/` and `crates/acorn-lib/src/io/database/tests/discovery.rs`; focused gather tests and documentation in `crates/acorn-cli`; persistent-identifier and gather documentation.
+- **Create:** `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; immutable parser, discovery, RAD, DataCite 4.7, and JATS 1.4 fixtures under `tests/fixtures/rrid/`.
+- **Delete:** None. Do not remove or repurpose `ResearchActivityMetadata.resources`, which remains the hardware/compute-requirements field.
 
 # Dependencies
 
-- The portable PID slice can start independently in the PID lane, but it must serialize edits to `pid/mod.rs`, shared regex constants, and validation registries with [SWHID persistent-identifier hardening](swhid-persistent-identifier.md) and PID proof/test work.
-- [RAD metadata standards alignment](rad-metadata-standards-alignment.md) Slice 0 and the reusable `TypedIdentifier`/`TypedRelatedResource` surface have landed. RRID can use that surface; adapter changes must still coordinate with the remaining alignment work and shared fixtures.
-- Resolver reporting must consume the current typed discovery lifecycle and coordinate with [link resolution checks](../refactors/analyzer/analyzer-composition.md). It must not introduce a new generic host trait ahead of a proven alternate consumer.
-- The SciCrunch provider leaf must preserve the API contracts and extraction direction in the [API roadmap](../refactors/api/roadmap.md). Endpoint, credential, and DTO work must coordinate with the API shared-contract lane.
+- The portable RRID leaf can start in the PID/schema lane. Serialize shared edits to `pid/mod.rs`, PID constants, validation registries, `ResearchActivity` types, and standards fixtures with other owners of those integration files.
+- [RAD metadata standards alignment](rad-metadata-standards-alignment.md) has landed its DataCite 4.7 type audit, structured loss reporting, and reusable `TypedIdentifier`/`TypedRelatedResource` surface. Its RAD/DataCite adapters remain unfinished, so RRID interchange must coordinate with that plan rather than claim an existing adapter boundary.
+- The current discovery lifecycle and generic `discoveries` persistence contract are prerequisites for local gather integration. Provider-backed resolution is a follow-on in [SciCrunch RRID provider](rrid-scicrunch-provider.md), not a prerequisite.
+- The landed SWHID implementation at baseline `50e319e1` is the implementation precedent for strict typed parsing, PID enum integration, conservative document discovery, project-identity policy, lifecycle-aware resolution, and fixture-backed resolver tests. There is no active SWHID plan dependency.
 
 # Goal
 
-Make RRIDs first-class evidence for research resources throughout ACORN: parse and normalize them locally, discover them in documents, represent the resources they identify without conflating them with projects or compute requirements, optionally confirm and enrich them from an authoritative service, exchange them through standards that support RRIDs, and expose predictable behavior in the CLI, TUI, database, generated schemas, and documentation.
+Make RRIDs first-class, portable evidence for research resources: parse and normalize them locally, discover only explicit citations and approved resolver URLs, persist discovery history, validate authored RAD relations, and exchange supported semantics through DataCite 4.7 and JATS 1.4 fixtures.
 
-“Top-tier support” means all of the following are true:
+This baseline does not contact SciCrunch, accept provider credentials, define remote-search result types, or add CLI/TUI registry search. Those concerns remain independently gated in the provider follow-on.
 
-1. Local parsing is portable, deterministic, conservative, and independent of network availability.
-2. Discovery recognizes real manuscript forms with low false-positive risk and retains the source location.
-3. RRIDs remain resource evidence; they never create or merge research-activity candidates by themselves.
-4. RAD stores RRIDs through the existing typed related-resource contract, with an explicit relation and no second resource collection.
-5. Resolution and registry search are opt-in, typed, fixture-tested, rate-limit aware, credential-safe, and disabled offline.
-6. DataCite 4.7 and JATS 1.4 mappings preserve the identifier and report every unsupported semantic without inventing a relation.
-7. Every supported interface reports the same canonical identifier and lifecycle state.
+# Refresh decision (2026-09-07)
 
-# Refresh decision (2026-09-06)
+- The plan was reconciled against `50e319e1`. SWHID support had landed and schema module flattening was complete at that baseline.
+- Keep the canonical form `RRID:<opaque-payload>`. Canonicalize the outer label and manuscript spacing only; preserve payload case and punctuation until an authoritative contract proves a stronger identity rule.
+- Require an explicit RRID label or an approved RRID resolver URL for discovery. Bare values such as `SCR_003512` and `CVCL_3588` are not RRID discoveries in arbitrary prose.
+- Add `PID::RRID` as discoverable while keeping `PID::is_project_identifier()` false. RRIDs identify experimental inputs and related resources, not research projects.
+- Reuse the generic discovery row and lifecycle fields; local RRID persistence needs no migration.
+- Represent authored RRIDs through `TypedRelatedResource`. Do not change the meaning of hardware `resources` or add a competing resource collection.
+- Preserve explicit DataCite relations and loss reporting. JATS 1.4 remains fixture and mapping coverage unless a real XML adapter boundary exists when the slice begins.
 
-- No RRID parser, `PID::RRID` variant, discovery branch, resolver, or registry provider has landed.
-- Do not add a new `researchResources` field in this plan. The now-landed `ResearchActivityMetadata.related_resources: Option<Vec<TypedRelatedResource>>` already carries a typed identifier, relation, relation detail, general resource type, and category.
-- Keep proper citation, vendor, catalog number, availability, issues, raw categories, and other provider-rich values in discovery resolution metadata and provenance. A later plan may add authored fields if concrete round-trip requirements justify them.
-- The RRID site documents portal search and points API users to SciCrunch developer tools. The SciCrunch API Handbook documents an API-key-authenticated Elasticsearch pass-through, production aliases, `size`/`from` pagination, exact `rrid.curie` lookup, and free-text queries. It references Elasticsearch 6.8 and places the key in a query parameter. This supports a contract probe, not an assumption of stable fields, quotas, terms, or credential handling ([RRID system](https://www.rrids.org/rrid-system), [RIN API overview](https://github.com/SciCrunch/API-Handbook/blob/master/resources-information-network/overview.md), [RIN search examples](https://github.com/SciCrunch/API-Handbook/blob/master/resources-information-network/basic-rin-search-examples.md)).
-- JATS 1.4, approved on 2024-10-31, is the current NISO standard. RRID fixtures and claims must target it ([JATS 1.4](https://jats.nlm.nih.gov/publishing/1.4/)).
+# Implementation status (2026-09-07)
 
-# Recommendation
-
-Ship RRID in two tiers. The baseline tier adds the portable PID leaf, local discovery and persistence, `TypedRelatedResource` validation, and DataCite/JATS mapping fixtures. It has no credential or live-service dependency. The enhanced tier adds SciCrunch lookup and search only after the contract matrix confirms a supported endpoint, stable response fields, bounded pagination, and credential handling that passes ACORN's redaction requirements.
-
-Keep the schema change small. Reuse `relatedResources`, preserve explicit relation semantics, and keep registry-only metadata in discovery provenance. This avoids an overlapping resource collection while leaving a clear follow-on path if authored rich resource metadata becomes a demonstrated requirement.
+- The portable `RRID` leaf, `PID::RRID` integration, conservative discovery, canonical raw output, generic discovery persistence, typed RAD validation, and user documentation have landed.
+- Offline fixtures cover heterogeneous payloads, accepted resolver aliases, invalid syntax, JATS 1.4 markup, and the DataCite 4.7 RRID identifier/relation combination.
+- RRID resolution remains unsupported and no provider, credential, registry-search, or TUI surface was added.
+- RAD/DataCite import and export remain coordinated with the unfinished standards-alignment adapters. Dedicated PDF and DOCX RRID discovery fixtures also remain open before this plan can be completed.
 
 # Current evidence
 
-- `crates/acorn-schema/src/pid/mod.rs` has typed parsing and discovery for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, and SWHID. `PIDINST` and `Unknown` are non-discoverable classifications. There is no `RRID` variant, typed parser, converter method, normalization branch, or identity policy.
-- `Identifier::find_all` iterates `PID::is_discoverable`, normalizes results, and removes duplicates. Adding only a regex is insufficient: the PID enum, `From` conversions, `PersistentIdentifierConvert`, serialization, discovery, normalization, and tests must move together.
-- `Record::resolve` in `crates/acorn-lib/src/analyzer/host/discovery/mod.rs` has provider-specific branches for arXiv, DOI, Handle, ORCID, RAiD, ROR, and SWHID. Unsupported types are retained with `ResolutionStatus::Unsupported`; this is the correct extension point for RRID resolution.
-- Gather persistence stores the normalized identifier, lowercase PID wire name, optional metadata, resolution status, and source in the generic `discoveries` table. RRID discovery history therefore needs no database migration.
-- Project-candidate persistence is deliberately limited by `PID::is_project_identifier`. RRIDs identify experimental inputs and related resources, so `PID::RRID` must remain false there.
-- `ResearchActivityMetadata.resources` means hardware/compute requirements. The landed `related_resources` field is the correct canonical location for RRID relations.
-- `TypedRelatedResource` stores a `TypedIdentifier`, relation, relation detail, general resource type, and category. Its scheme-aware validation does not yet recognize RRID. Rich registry metadata remains discovery provenance in this plan.
-- DataCite support already includes `RelatedIdentifierType::Rrid`, but no current RAD mapping produces or consumes first-class RRID resources. DataCite defines RRID as an identifier for key experimental inputs and gives `RRID:SCR_014641` with relation `Cites` as its example ([DataCite 4.7 RRID definition](https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relatedIdentifierType/)).
-- NISO JATS 1.4 provides `<resource-id resource-id-type="rrid">` inside contributed-resource markup and warns consumers to compare the type value case-insensitively ([JATS 1.4 `resource-id-type`](https://jats.nlm.nih.gov/publishing/tag-library/1.4/attribute/resource-id-type.html)). ACORN has no JATS semantic adapter today, so a full JATS document codec is not a prerequisite.
-- The RRID Initiative describes RRIDs as identifiers for resources including facilities, instruments, software, antibodies, organisms, and cell lines, and directs users to the RRID portal for citation text ([RRID home](https://www.rrids.org/)). Its author guidance shows multiple payload families, including `AB_2140114`, `IMSR_JAX:000664`, `CVCL_3588`, `Addgene_12260`, `SCR_003512`, and `SAMN33284296` ([RRID author guidance](https://www.rrids.org/draft-texts)).
-- The RRID index aggregates authoritative source registries, keeps unavailable records rather than deleting them, and exposes API access through SciCrunch developer tools ([RRID system](https://www.rrids.org/rrid-system)). Availability warnings and withdrawn records must therefore remain valid RRIDs rather than being treated as parse failures.
+- `crates/acorn-schema/src/pid/rrid/` now provides strict local parsing, canonical display, allowlisted resolver aliases, conservative discovery, serde/JSON Schema support, and fixture-backed tests. `PID::RRID` is integrated through centralized discovery, normalization, conversion, serialization, and project-identity policy.
+- The SWHID leaf uses strict `FromStr` validation, canonical `Display`, resolver alias handling, conservative `find_all`, serde/JSON Schema support, and PID conversions. Its provider integration preserves `Resolved`, `Failed`, `Unsupported`, and `NotRequested` lifecycle states with fixture-backed tests.
+- `crates/acorn-lib/src/analyzer/host/discovery/` retains RRIDs with `NotRequested` by default and `Unsupported` when resolution is requested. Regression tests prove RRIDs do not identify or merge project candidates.
+- `crates/acorn-lib/src/io/database/schema.rs` stores normalized identifier, lowercase identifier type, optional metadata, resolution status, source, and source format in generic discovery rows. RRID round-trip coverage uses this existing schema without a migration.
+- `ResearchActivityMetadata.related_resources` uses `TypedRelatedResource`, while `resources` remains hardware/compute requirements. `TypedIdentifier` now dispatches `scheme: RRID` values to the canonical parser without changing other schemes.
+- DataCite 4.7 models `RelatedIdentifierType::Rrid`, and ACORN's 4.7 fixtures now pin the exact RRID identifier, type, `Cites` relation, and `Software` resource type. ACORN still has no `ResearchActivity`/`ResearchOutput` DataCite adapter to produce or consume that relation. DataCite defines RRID for key experimental inputs and illustrates `RRID:SCR_014641` with an explicit `Cites` relation ([DataCite 4.7 RRID](https://datacite-metadata-schema.readthedocs.io/en/4.7/appendices/appendix-1/relatedIdentifierType/)).
+- JATS 1.4 provides RRID markup through `resource-id-type="rrid"` and specifies case-insensitive comparison of that attribute value ([JATS 1.4 RRID markup](https://jats.nlm.nih.gov/publishing/tag-library/1.4/attribute/resource-id-type.html)). ACORN now has an offline JATS 1.4 fragment fixture and mapping documentation, but no general JATS XML adapter.
+- The RRID system aggregates identifiers for research resources from multiple source registries and retains unavailable records, so local syntax validity must remain separate from registry presence and availability ([RRID system](https://www.rrids.org/rrid-system)).
+
+# Recommendation
+
+Land one conservative portable RRID leaf, then integrate it through existing discovery, persistence, and typed-related-resource contracts. Treat syntax validity, registry presence, and resource availability as separate facts. Coordinate standards mappings with the existing adapter owner, and release this baseline independently of SciCrunch access.
 
 # Identifier contract
 
-The portable contract must be agreed and fixture-tested before host integration.
-
 | Concern | Required behavior |
 |---|---|
-| Canonical display | `RRID:<payload>` with an uppercase `RRID` label and no whitespace after the delimiter. |
-| Accepted labels | Match the outer `RRID:` label case-insensitively and tolerate horizontal whitespace used in prose, then canonicalize only the outer label and spacing. |
-| Payload handling | Treat the registry-assigned payload as opaque and preserve its case and punctuation. Do not lowercase, split, or rewrite it without an authoritative returned canonical identifier. |
-| Local validity | Require an explicit RRID label, a non-empty bounded payload, and visible non-whitespace characters; reject controls, line breaks, surrounding URL query/fragment text, malformed percent escapes, and trailing prose punctuation. Do not invent a check digit or require one payload family. |
-| Authority hints | Optional accessors may expose a conservative leading authority hint, but validity must not require an underscore: current official examples include both delimiter-bearing and delimiter-free payloads. |
-| Discovery | Discover explicit `RRID:` citations and allowlisted RRID resolver URLs only. Never discover bare values such as `SCR_003512` or `CVCL_0030` in arbitrary prose. |
-| Resolver URL | Emit one documented persistent HTTPS form, initially `https://n2t.net/RRID:<payload>` if the contract fixtures confirm the redirect behavior. Accept current SciCrunch/RRID portal resolver URLs as input aliases without retaining tracking query parameters. |
-| Deduplication | Use the normalized RRID within the existing identifier/source policy. Preserve payload case until the registry contract proves another identity rule. RRID must not be a project identity. |
-| Network semantics | A redirect to a generic RRID portal is not proof that a record exists. Mark resolution successful only when a typed provider response identifies the requested or provider-canonical RRID. |
+| Canonical display | Emit `RRID:<payload>` with uppercase `RRID` and no whitespace after the delimiter. |
+| Payload | Treat the non-empty, bounded payload as opaque. Preserve case and valid punctuation; do not impose one authority grammar or invent a checksum. |
+| Accepted manuscript form | Match the outer label case-insensitively and tolerate horizontal whitespace around the label delimiter only where fixtures approve it. Reject controls, line breaks, malformed percent escapes, URL query/fragment residue, and adjacent prose. |
+| Discovery | Discover explicit RRID labels and allowlisted resolver URL forms only. Never classify a bare source-registry identifier as an RRID from prose. |
+| Resolver URL | Emit one reviewed persistent HTTPS form and accept only fixture-approved RRID resolver aliases. Strip tracking query data rather than making it identity-bearing. |
+| Deduplication | Use canonical RRID plus the existing source policy. An explicit RRID inside a resolver URL must not also appear as a generic URL discovery. |
+| Identity | `PID::RRID` is discoverable and serializes as `rrid`, but is never project-identifying. |
+| Network | Parsing, validation, discovery, serialization, and persistence perform no network access and require no credentials. |
 
-Do not copy one observed payload pattern into a universal grammar. RRIDs wrap identifiers from heterogeneous authorities, and the Initiative's own examples use underscores, embedded colons, hyphens, and payloads without underscores. Syntax validation proves that a value is a well-formed RRID reference; optional resolution establishes registry presence and current metadata.
+Representative fixtures must cover `RRID:AB_2140114`, `RRID:IMSR_JAX:000664`, `RRID:CVCL_3588`, `RRID:Addgene_12260`, `RRID:SCR_003512`, and `RRID:SAMN33284296`. These examples deliberately exercise heterogeneous payload punctuation.
 
 # RAD and standards contract
 
-Represent an authored RRID through the existing `TypedRelatedResource`:
+Represent an authored RRID through the existing relation type:
 
 ```json
 {
@@ -97,144 +90,107 @@ Represent an authored RRID through the existing `TypedRelatedResource`:
 }
 ```
 
-The current RAD type and DataCite both require a relation. Preserve authored and imported relations. Plain-text discovery must not infer `Cites`, a resource type, or a scheme URI. A conversion profile may supply a default only when it reports an approximation.
+The example relation is explicit source data, not a default. Plain-text co-occurrence must not infer `Cites`, a resource type, or a scheme URI. DataCite mapping preserves `relationType`, `relationTypeInformation`, and `resourceTypeGeneral`; missing target-required relations fail readiness or produce the existing structured conversion outcome.
 
-DataCite import/export maps RRID `RelatedIdentifier` values to this structure. Map `RelatedItem` only where the existing adapter supports its additional structure without loss, and report simplification through the crosswalk warning contract. JATS fixtures map `resource-id-type="rrid"` case-insensitively to the same identifier. Resource name and type remain adapter work unless their destination is approved in the standards field matrix.
-
-Preserve typed provider responses in discovery history/report metadata. Do not add provider fields to canonical RAD until authored and interchange requirements establish a stable model.
+Coordinate DataCite work with the unfinished standards-alignment adapters. Map `RelatedItem` only where that adapter can retain its structure, and record every simplification or omission in the standards field matrix. For JATS, add case-insensitive RRID fragment fixtures and a documented mapping; add executable XML conversion only if an existing or newly approved XML adapter owns the behavior.
 
 # Implementation plan
 
-Each slice must declare an exact write set at start. Shared `mod.rs`, CLI roots, generated help, endpoint configuration, manifests, and shared fixture indexes are integration locks rather than parallel leaf ownership.
+Each slice must declare an exact write set before implementation. Shared module roots, schema types, fixtures, and generated artifacts are integration locks.
 
-## 0. Freeze the RRID syntax, resolver, and API contracts
+## 0. Freeze portable syntax and fixture contracts
 
-**Write set:** this plan, a new `.wiki/assets/rrid-contract-matrix.md`, and new immutable fixtures under `tests/fixtures/rrid/contract/`. No Rust production files.
+**Status:** Landed for the portable parser and current standards claims.
 
-- Record the source URL, retrieval date, license/provenance, expected canonical identifier, and expected category for representative current RRIDs covering antibodies, organisms, cell lines, plasmids, software/databases, core facilities, instruments, and biosamples.
-- Include valid manuscript forms, canonical forms, resolver URLs, mixed-case outer labels, whitespace after `RRID:`, adjacent punctuation, duplicate aliases, Unicode prose boundaries, and identifiers embedded in DataCite and JATS snippets.
-- Include invalid or ambiguous cases: bare authority IDs, empty payloads, nested URL query values, control characters, line breaks, malformed percent encoding, doubled labels, unsupported schemes, and ordinary strings containing “rrid”.
-- Capture resolver behavior for known, unavailable/deprecated, unknown, rate-limited, unauthorized, and malformed requests. Record redirect chains and content types without treating the web UI as a JSON API.
-- Confirm a documented machine API and its authentication, pagination, quotas, terms, and stable response schema with SciCrunch. If no stable API contract is available, split delivery: ship local PID/discovery/standards support and keep metadata enrichment/search behind an experimental feature or deferred follow-on. Never scrape portal HTML.
-- Pin the SciCrunch API Handbook revision, supported production aliases, allowed fields, Elasticsearch compatibility, and response examples. Review whether its documented query-parameter key can satisfy ACORN's URL/error/trace redaction guarantees; prefer a supported header form and defer provider work if credentials cannot be protected.
-- Decide whether the provider considers payload case identity-equivalent. Until confirmed, preserve case in normalization and exact identity.
+**Write set:** this plan and new immutable fixtures under `tests/fixtures/rrid/`; no Rust production files.
 
-**Deliverable:** a reviewed contract matrix from which every parser and provider test can be generated. No live-network test is required to validate portable parsing.
+- Record source URL, retrieval date, provenance, input form, expected canonical form, and expected validity for representative payload families.
+- Cover canonical and manuscript forms, approved resolver aliases, mixed-case outer labels, spacing, Unicode prose boundaries, punctuation, duplicate aliases, DataCite snippets, and JATS 1.4 fragments.
+- Cover bare authority identifiers, empty payloads, doubled labels, control characters, line breaks, malformed percent encoding, URL query values, unsupported schemes, and ordinary colon-delimited prose.
+- Decide the emitted resolver URL from documented persistent behavior. Do not use a portal redirect as proof of registry existence.
 
-## 1. Add the portable `RRID` PID type
+**Deliverable:** a reviewed offline fixture set from which parser, discovery, and mapping tests are generated.
 
-**Primary write set:** new `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; integration-owned changes to `pid/mod.rs`, `util/constants/{mod,app}.rs`, `validation/mod.rs`, `validate/mod.rs`, and their focused tests.
+## 1. Add the portable `RRID` PID leaf
 
-- Implement `RRID` as an immutable parsed value with `Display`, `FromStr`, `JsonSchema`, serde support, `PersistentIdentifier`, and `PersistentIdentifierParse` parity with other PID leaves.
-- Keep parsing and canonicalization as pure functions. Store the opaque payload once; derive display and URL forms without mutable state.
-- Add an owned parse error with actionable failure categories rather than returning an empty default from the strict `FromStr` path. Preserve the existing `from_string` compatibility behavior expected by the shared trait.
-- Add `RE_RRID_TEXT`/`RE_RRID` only for candidate discovery. Perform exact validation and URL decoding in the parser so regex matching cannot define the complete validity contract.
-- Add `PID::RRID`, wire name `rrid`, `is_rrid`, discovery, normalization, formatting, conversion, serialization, and `From<RRID> for Identifier` integration.
-- Ensure `PID::RRID` is discoverable but not project-identifying. Reuse generic normalized discovery storage and preserve the opaque payload unless Slice 0 proves a different registry rule.
-- Add `rules::rrid` and schema-level `is_rrid` validation for authored fields and typed identifiers whose declared scheme is `RRID`.
-- Cover every contract fixture plus fuzz/property invariants: parsing never panics, `parse(display(x)) == x`, normalization is idempotent, resolver alias normalization is deterministic, surrounding prose is not retained, and invalid input never becomes an arbitrary URL or Handle.
+**Status:** Landed.
 
-**Deliverable:** `acorn-schema` users can parse, validate, normalize, discover, serialize, and render RRIDs with no `std`, filesystem, network, or provider dependency.
+**Primary write set:** new `crates/acorn-schema/src/pid/rrid/{mod,tests}.rs`; focused integration changes in `pid/mod.rs`, `util/constants/{mod,app}.rs`, `validation/mod.rs`, and `validate/mod.rs`.
 
-## 2. Integrate RRIDs with discovery, reports, and persistence
+- Implement an immutable parsed value with strict `FromStr`, actionable owned errors, canonical `Display`, serde, JSON Schema, `PersistentIdentifier`, and `PersistentIdentifierParse` parity with landed PID leaves.
+- Keep exact parsing separate from discovery regexes. Regexes locate candidates; the parser decides validity and URL decoding.
+- Add `PID::RRID`, wire name `rrid`, enum helpers, normalization, formatting, conversions, serialization, and `From<RRID> for Identifier`.
+- Make RRID discoverable and explicitly non-project-identifying.
+- Add scalar and typed-identifier validation for `scheme: RRID`, using the same scheme case policy as other typed identifiers.
+- Test parser totality, parse/display round trips, idempotent normalization, deterministic resolver aliases, adjacent-prose rejection, and collisions with URL, Handle, RAiD, DOI, and ordinary colon-delimited text.
 
-**Primary write set:** `crates/acorn-lib/src/analyzer/host/discovery/{mod.rs,tests/mod.rs}`, `crates/acorn-cli/src/commands/gather/tests/`, `crates/acorn-lib/src/io/database/tests/discovery.rs`, and dedicated gather fixtures. Shared roots are integration-owned.
+**Deliverable:** `acorn-schema` parses, validates, discovers, serializes, and renders RRIDs with no `std`, filesystem, network, or provider dependency.
 
-- Add RRID to the all-PID discovery matrix and PDF/DOCX/plain-text fixture coverage.
-- Verify alias deduplication within a source, preservation across distinct sources, stable report ordering, lowercase `identifier_type: "rrid"`, and generic database round trips.
-- Preserve `ResolutionStatus::NotRequested` without network access by default and `Unsupported` until the provider slice lands.
-- Add regression tests proving an RRID never enters `Records::candidates`, never creates a research-activity database row, and does not merge unrelated candidates merely because it appears beside a DOI.
-- Add collision tests against URL, Handle, RAiD, DOI, and ordinary colon-delimited text. Explicit RRID matches must suppress the resolver URL from being reported again as a generic URL.
-- Make raw output the canonical `RRID:<payload>` before and after resolution unless a resolved proper citation is explicitly requested by a future dedicated output option; do not silently replace machine-readable RRID lines with prose.
+## 2. Integrate local discovery and persistence
 
-**Deliverable:** `acorn gather --text "... RRID:CVCL_0030 ..."` reports and persists one normalized RRID locally, with no candidate side effects.
+**Status:** Partially landed. Text discovery, alias deduplication, canonical CLI output, lifecycle behavior, generic persistence, and non-project identity are covered; dedicated PDF and DOCX fixtures remain.
 
-## 3. Complete RAD and standards interchange
+**Primary write set:** focused discovery tests and implementation in `crates/acorn-lib/src/analyzer/host/discovery/`, `crates/acorn-lib/src/io/database/tests/discovery.rs`, gather tests in `crates/acorn-cli`, and dedicated document fixtures.
 
-**Primary write set:** focused typed-identifier validation, DataCite adapter tests, dedicated fixtures, and `.wiki/assets/standards-field-matrix.md`. Coordinate shared adapter edits with RAD alignment.
+- Add RRID to plain-text, PDF, and DOCX discovery coverage where those fixture harnesses already exist.
+- Verify alias deduplication within a source, preservation across sources, stable ordering, lowercase `identifier_type: "rrid"`, and generic database round trips without a migration.
+- Preserve `NotRequested` by default and `Unsupported` when resolution is requested before the provider follow-on lands.
+- Prove RRIDs never enter project candidates, create research-activity rows, or merge unrelated candidates.
+- Keep raw/report output canonical and machine-readable; do not replace RRID lines with citation prose.
 
-- Extend typed-identifier validation so `scheme: RRID` validates with the portable parser and accepts the scheme name case-insensitively. Canonicalize the scheme name only if that matches the shared typed-identifier policy.
-- Map DataCite 4.7 RRID `RelatedIdentifier` values through `TypedRelatedResource`, preserving `relationType`, `relationTypeInformation`, and `resourceTypeGeneral`.
-- Use `Cites` only when the source or an explicit conversion profile asserts it. Missing target-required relations fail readiness or use the existing structured conversion outcome. Co-occurrence alone never creates a relation ([DataCite RelatedIdentifier](https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/relatedidentifier/)).
-- Classify `RelatedItem` and JATS 1.4 fields as exact, transformed, simplified, local-only, or unsupported in the standards field matrix. Add a narrow JATS fragment adapter only if an existing XML boundary can own it; otherwise retain mapping fixtures for a future document adapter.
-- Add compatibility tests proving existing RAD documents still deserialize and `resources` retains its hardware/compute meaning.
+**Deliverable:** local gather reports and persists one normalized RRID with source and lifecycle state and no project-candidate side effects.
 
-**Deliverable:** RAD can author and validate an RRID relation, and each claimed DataCite round trip is fixture-tested with explicit loss reporting.
+## 3. Complete RAD validation and standards interchange
 
-## 4. Add authoritative RRID resolution and enrichment
+**Status:** Partially landed. Typed RRID validation and DataCite/JATS fixture semantics are covered; RAD/DataCite adapter conversion remains with the standards-alignment plan.
 
-**Gate:** Slice 0 confirms a supported API contract and credential policy.
+**Primary write set:** focused `TypedIdentifier`/`TypedRelatedResource` validation, standards-alignment adapter files when that owner approves the shared boundary, DataCite tests, dedicated fixtures, and `.wiki/assets/standards-field-matrix.md`.
 
-**Primary write set:** new `crates/acorn-lib/src/io/api/rrid.rs` and its fixture-backed tests; integration-owned changes to `io/api/mod.rs`, embedded endpoint configuration, and the RRID branch in discovery resolution.
+- Validate authored RRIDs through the portable parser while preserving the explicit related-resource relation.
+- Add DataCite 4.7 RRID import/export only through the standards-alignment adapter, preserving identifier and relation semantics and emitting structured losses.
+- Classify `RelatedItem` and JATS fields as exact, transformed, simplified, local-only, or unsupported in the standards matrix.
+- Keep JATS at fixture/mapping coverage unless a real XML adapter boundary exists.
+- Prove legacy RAD documents still deserialize and hardware `resources` retains its meaning.
 
-- Implement typed request/response DTOs only from the contract approved in Slice 0. Exact lookup must query the documented `rrid.curie` field and reject a response whose canonical RRID does not match the request.
-- Normalize known provider response fields into a provider-neutral record: canonical RRID, name, resource type, proper citation, catalog number, canonical/alternate URLs, alternate identifiers, availability, and alerts. Retain the lossless raw DTO for provenance.
-- Map resolution outcomes precisely: known record -> `Resolved`; syntactically valid but absent -> `Failed` with a not-found diagnostic; authenticated endpoint unavailable or contract unsupported -> `Unsupported`; 401/403, 404, 409, 429, 5xx, timeout, redirect loop, malformed body, and identifier mismatch -> typed failures.
-- Respect `Retry-After` and bounded existing transport retry policy; never add unbounded retry or per-record busy loops. Do not follow redirects to unrelated hosts without the shared HTTP redirect policy.
-- Use the environment variable approved by the contract matrix. Reuse `SecretString`; redact the key from URLs, errors, traces, database metadata, and debug output. Prefer a supported header form because the handbook's query-parameter example creates a leakage risk.
-- Add endpoint override support through the existing application endpoint model for local mock servers and deployments. Do not hard-code a test-only URL or make live SciCrunch traffic part of the default suite.
-- In `--resolve`, retain the normalized RRID on every failure. Keep provider enrichment in typed resolution metadata/provenance; never create a project candidate or mutate canonical RAD from resolver metadata in this plan.
-- Reject `--resolve` with `--offline` through the existing CLI guard and add tests proving no request is constructed or sent offline.
+**Deliverable:** RAD can author and validate RRID relations, and every claimed standards transformation has fixture-backed semantics and loss reporting.
 
-**Deliverable:** fixture-backed `--resolve` confirms and enriches known RRIDs with trustworthy lifecycle states while remaining deterministic and credential-safe.
+## 4. Document and harden the portable release
 
-## 5. Add registry search as a provider, conditional on a stable API
+**Status:** Partially landed. User documentation and default, minimal, alloc, lint, test, and WASM gates are green; dedicated PDF and DOCX acceptance fixtures remain.
 
-**Gate:** Slice 4 is green and Slice 0 approves pagination, ranking, index aliases, and the allowed query surface.
+**Primary write set:** persistent-identifier and gather documentation, generated schema assertions, dedicated acceptance fixtures, and this plan.
 
-**Primary write set:** RRID provider leaf in `analyzer/host/discovery/`, RRID API search DTOs/tests, dedicated CLI gather option tests, and dedicated TUI mode tests. CLI/TUI roots and help are integration-owned.
+- Document canonical and accepted forms, local validation versus registry confirmation, non-project identity, persistence behavior, standards coverage, and the independently gated provider follow-on.
+- Add end-to-end local cases for text, PDF, DOCX, authored RAD, DataCite, JATS fixtures, and discovery history.
+- Run default, minimal, alloc, and WASM portability gates. No portable test contacts N2T, SciCrunch, an RRID portal, or a source registry.
 
-- Add `RemoteProvider::Rrid` and `RemoteEntity::Resource` without forcing RRID results through project/person/organization semantics.
-- Add a CLI mode such as `acorn gather --rrid "HeLa"` only after usability review against the existing `--osti` mode. Build fixed typed queries over allowlisted fields, bound `size`/`from` pagination, and never expose raw Elasticsearch syntax.
-- Normalize each result to `RemoteMatch` plus a resource-specific typed payload. A result may be reported and selected for RAD enrichment, but it must remain report-only for project candidate persistence.
-- Add exact-RRID lookup and free-text search paths. Exact lookup should prefer the parser/resolver path; free text should preserve provider ranking and pagination rather than re-rank results locally.
-- Add an RRID resource-search mode to the TUI with clear provider labeling, loading/error states, resource type, proper citation, availability/alerts, and canonical RRID. Offline mode must disable it before spawning work.
-- Cover empty query, no results, pagination, all-pages bounds, duplicate canonical RRIDs, deprecated/unavailable resources, rate limiting, credentials, malformed records, and partial-page failures.
-- If Slice 0 cannot establish a supported stable API, omit this slice from the first release and document portal search as the user workflow. Local PID support, RAD modeling, and standards interchange still ship without it.
-
-**Deliverable:** users can search the authoritative registry from CLI/TUI without HTML scraping or accidentally persisting resources as projects.
-
-## 6. Complete interoperability, documentation, and release hardening
-
-**Primary write set:** PID lifecycle and gather documentation, acceptance-test plan, dedicated fixtures, generated JSON Schema snapshots, and CLI help generated once by the CLI lock owner.
-
-- Document accepted forms, canonical form, local validation versus registry confirmation, supported resource categories, resolver/search credentials, offline behavior, unavailable records, raw/report output, and examples for text, JSON, DataCite, and JATS 1.4.
-- Add end-to-end acceptance cases for plain text, Markdown, PDF, DOCX, authored RAD, DataCite import/export, local database history, resolved success/failure, offline rejection, and remote search when enabled.
-- Add compatibility tests ensuring pre-RRID RAD documents still deserialize and existing `resources` retains its compute/hardware meaning.
-- Add generated schema assertions for `PID::RRID`, RRID-aware typed identifiers, and DataCite RRID types.
-- Run dependency and portability gates. RRID parsing/modeling must remain in `acorn-schema`; network DTOs/protocol behavior remain host/API-owned.
-- Record two delivery tiers: portable/local/standards support, and optional provider-backed support. A complete JATS document importer, automatic RRID registration, manuscript rewriting, rich authored registry metadata, and literature-mention mining are follow-on projects unless separately approved.
-
-**Deliverable:** the supported surface is documented, regression-tested, portable, and ready for release without hidden live-service dependencies.
+**Deliverable:** the portable RRID surface is documented, compatible, and releasable without a live-service dependency.
 
 # Delivery order
 
-1. Freeze the contract matrix.
+1. Freeze offline syntax and mapping fixtures.
 2. Land the portable PID leaf.
-3. Integrate local discovery and persistence.
-4. Add RAD/DataCite interchange.
-5. Complete baseline documentation and repository gates.
-6. Add provider lookup, then search, only if their gates pass.
+3. Integrate local discovery and generic persistence.
+4. Coordinate RAD/DataCite work with the unfinished standards adapters.
+5. Complete documentation and portability gates.
 
-Slices 1 through 3 plus the applicable part of Slice 6 define the baseline release. Provider uncertainty must not delay it.
+The [SciCrunch provider](rrid-scicrunch-provider.md) may begin contract review independently, but no provider implementation is part of this delivery.
 
 # Validation
 
-Focused gates by slice:
+Focused implementation gates use the flattened `acorn-schema` module paths:
 
 ```sh
-cargo nextest run -p acorn-schema --lib pid::rrid
-cargo nextest run -p acorn-schema --lib schema::pid
-cargo nextest run -p acorn-schema --lib research_activity
-cargo nextest run -p acorn-schema --lib standard::datacite
-cargo nextest run -p acorn-schema --lib standard::crosswalk
-cargo nextest run -p acorn-lib --lib analyzer::host::discovery
-cargo nextest run -p acorn-lib --lib io::api
-cargo nextest run -p acorn-cli --lib commands::gather
-cargo nextest run -p acorn-tui --lib screens::gather
+cargo nextest run -p acorn-schema 'pid::rrid'
+cargo nextest run -p acorn-schema 'research_activity'
+cargo nextest run -p acorn-schema 'standard::tests::datacite'
+cargo nextest run -p acorn-schema 'standard::crosswalk'
+cargo nextest run -p acorn-lib 'analyzer::host::discovery'
+cargo nextest run -p acorn-lib 'io::database::tests::discovery'
+cargo nextest run -p acorn-cli 'commands::gather'
 ```
 
-Repository gates after each integrated slice:
+Repository gates:
 
 ```sh
 cargo fmt --all
@@ -243,68 +199,50 @@ cargo check -p acorn-schema --no-default-features --features alloc
 make check-wasm
 make lint
 make test
-make help # only after CLI help changes
-make audit # only if dependencies change
 ```
 
-Additional verification:
+Also verify fixture tests are offline, normalization is idempotent, aliases deduplicate correctly, explicit RRIDs do not duplicate as generic URLs, RRIDs never become project identities, and DataCite relation losses are explicit.
 
-- Run contract fixtures entirely offline; no test contacts N2T, SciCrunch, rrid.site, or a source registry by default.
-- Run property/fuzz cases over arbitrary UTF-8 and percent-encoded input; parsing must not panic or consume adjacent prose.
-- Assert normalization is idempotent and accepted aliases converge only where the approved contract says they are identical.
-- Assert every RRID appears once per normalized discovery/source pair, never as both RRID and generic URL, and never as a project candidate identity.
-- Assert resolver fixtures cover 2xx, redirect, 400, 401, 403, 404, 409, 429 with `Retry-After`, 5xx, timeout, malformed payload, unknown enum values, missing required fields, and canonical-identifier mismatch.
-- Assert `--offline` and local parsing require no API key and perform zero network calls.
-- Golden-test RAD <-> DataCite transformations, including relation preservation and structured warnings for every simplification or omission.
-- Validate JATS fixture extraction case-insensitively for `resource-id-type` if the narrow adapter lands.
+Results on 2026-09-07: `cargo fmt --all`, both minimal schema checks, `make check-wasm`, `make lint`, and `make test` passed. The full test run completed 1,564 tests with 1,564 passing and 14 skipped.
 
 # Acceptance criteria
 
-- `RRID:AB_2140114`, `RRID:IMSR_JAX:000664`, `RRID:CVCL_3588`, `RRID:Addgene_12260`, `RRID:SCR_003512`, and `RRID:SAMN33284296` parse and normalize according to the pinned contract without imposing one authority grammar on the others.
-- Mixed-case outer labels, allowed resolver aliases, manuscript spacing, and surrounding punctuation normalize deterministically to `RRID:<payload>`; the opaque payload is not case-folded or rewritten without authoritative evidence.
-- Bare source identifiers are not discovered as RRIDs, malformed RRIDs are rejected locally, and valid-but-unregistered or unavailable RRIDs remain distinguishable from syntax errors.
+- Representative heterogeneous RRID payloads parse and normalize to `RRID:<opaque-payload>` without case-folding or imposing one authority grammar.
+- Mixed-case outer labels, approved resolver aliases, manuscript spacing, and surrounding punctuation normalize exactly as pinned fixtures specify.
+- Bare source identifiers are not discovered as RRIDs; malformed RRIDs fail locally; registry presence or availability is not inferred from syntax.
 - `PID::RRID` serializes as `rrid`, is discoverable, and is never a project identifier.
-- Gather reports and discovery history preserve normalized RRID, source, format, resolution status, and full provider metadata with no database schema migration.
-- RAD represents RRIDs through existing `relatedResources` without changing the meaning or wire name of hardware `resources` or output `outputs`.
-- Provider enrichment remains typed discovery metadata/provenance and does not silently overwrite authored RAD.
-- DataCite 4.7 RRID `RelatedIdentifier` values import/export with identifier and relation intact; supported `RelatedItem` mappings and every simplification or omission are explicit in the standards field matrix.
-- JATS claims and fixtures target the current 1.4 standard without implying a general JATS parser.
-- Resolution is opt-in, status-specific, fixture-backed, bounded under rate limiting, disabled offline, and never treats a generic redirect as proof of record existence.
-- Search, if shipped, uses a documented supported machine API, never scrapes HTML, preserves provider pagination/ranking, and cannot create research-activity candidates.
-- CLI, TUI, JSON/YAML/Markdown/raw reports, generated schemas, persistent-identifier documentation, and acceptance tests agree on the canonical identifier and lifecycle semantics.
-- Existing RAD fixtures and PID behavior remain compatible; default, minimal, alloc, and WASM builds stay green.
+- Gather and generic discovery persistence retain canonical identifier, source, format, and lifecycle status without a database migration or project-candidate side effect.
+- Authored RRIDs use `relatedResources`/`TypedRelatedResource`; hardware `resources` is unchanged.
+- DataCite 4.7 mappings preserve explicit identifier and relation semantics through the coordinated adapter and report every simplification or omission.
+- JATS claims and fixtures target 1.4 without implying a general JATS parser.
+- Existing RAD fixtures and PID behavior remain compatible; default, minimal, alloc, and WASM checks stay green.
+- Portable RRID behavior requires no credentials and performs no network access.
 
 # Risks and mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| RRID payload families are mistaken for one uniform grammar. | High | Keep payloads opaque, require the explicit outer label for discovery, and derive the acceptance matrix from multiple current authority families. |
-| A portal redirect is mistaken for registry confirmation. | High | Require a typed record whose canonical identifier matches the request; model redirect-only or UI-only behavior separately. |
-| SciCrunch API details, quotas, or access terms are unstable or undocumented. | High | Gate provider work on a pinned supported contract; ship portable/local/standards support independently; never scrape HTML. |
-| RRIDs are persisted as project identities and merge unrelated activities. | Critical | Keep `is_project_identifier` false and add candidate/database regression tests before provider integration. |
-| RAD gains an overlapping speculative resource model. | High | Reuse `TypedRelatedResource`; plan richer authored fields only from demonstrated round-trip needs. |
-| Provider categories and response fields evolve. | Medium | Keep a small provider-neutral report view and preserve the pinned typed response as provenance. |
-| Unavailable, deprecated, or alerted resources are treated as invalid identifiers. | High | Separate syntax validity, registry presence, availability, and issue states in typed outcomes and RAD fields. |
-| DataCite relation semantics are fabricated. | High | Preserve authored/imported relations; use an export default only under an explicit profile and emit an approximation warning. |
-| Resolver credentials leak through configuration, debug output, or fixtures. | Critical | Reuse `SecretString`, redact headers/query parameters, use synthetic fixture tokens, and test serialized/debug output. |
-| User input reaches Elasticsearch as raw DSL. | Critical | Build fixed typed queries over allowlisted fields and bound pagination. |
-| Shared PID, schema, API, CLI, or TUI roots collide with active plans. | Medium | Implement leaf-first, declare exact write sets, and serialize shared integration files through the locks in the parallel execution guide. |
+| Heterogeneous payloads are reduced to one guessed grammar. | High | Keep payloads opaque and derive behavior from multiple cited fixture families. |
+| RRIDs become project identities and merge unrelated activities. | Critical | Keep `is_project_identifier` false and add candidate/database regression tests. |
+| A second RAD resource model overlaps hardware requirements or related resources. | High | Reuse `TypedRelatedResource`; leave hardware `resources` unchanged. |
+| DataCite relations are fabricated from co-occurrence. | High | Preserve explicit relations and require readiness failures or structured losses for missing target semantics. |
+| JATS fixture coverage is described as a complete adapter. | Medium | Claim executable conversion only when a real XML adapter owns it. |
+| Provider uncertainty delays portable support. | High | Keep all network, credential, DTO, and search work in the separately gated follow-on. |
 
 # Explicitly out of scope
 
-- Minting or registering new RRIDs on behalf of users.
-- Automatically rewriting manuscripts or inserting citations into source documents.
-- Treating a catalog number or native registry identifier as an RRID without the explicit RRID label or authoritative provider assertion.
-- Mining publication mention graphs or reproducing SciCrunch curation/robot workflows.
+- SciCrunch credentials, endpoint configuration, lookup DTOs, registry resolution, remote-search provider types, CLI registry search, and TUI work.
+- Minting or registering RRIDs.
+- Rewriting manuscripts or mining publication mention graphs.
+- Treating bare catalog or registry identifiers as RRIDs.
+- Adding rich provider metadata to authored RAD or a second canonical resource collection.
 - Building a general JATS document parser solely for RRID support.
-- Adding a second canonical RAD resource collection or rich authored registry model in this plan.
-- Making RRID validation depend on live network access.
+- Making validation depend on network access.
 
 # Related concepts
 
+- [SciCrunch RRID provider](rrid-scicrunch-provider.md)
 - [Persistent identifier lifecycle](../../docs/src/concepts/persistent-identifiers.md)
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md)
-- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
 - [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)
-- [API provider capability matrix](../refactors/api/provider-capability-matrix.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)

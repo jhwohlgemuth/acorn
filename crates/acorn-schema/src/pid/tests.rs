@@ -101,6 +101,7 @@ fn test_normalize_discovery_identifiers() {
     assert_eq!(Identifier::new("ISBN 978-0-306-40627-0").normalized().unwrap().kind, PID::ISBN);
     assert_eq!(Identifier::new("ark:/12345/abc").normalized().unwrap().kind, PID::ARK);
     assert_eq!(Identifier::new("RAID:10.12345/xyz").normalized().unwrap().kind, PID::RAID);
+    assert_eq!(Identifier::new("RRID:SCR_003512").normalized().unwrap().kind, PID::RRID);
     assert_eq!(Identifier::new("hdl:10013/epic.10033").normalized().unwrap().kind, PID::Handle);
     assert_eq!(Identifier::new("10013/epic.10033").normalized().unwrap().kind, PID::Handle);
     assert_eq!(Identifier::new("US-123456-A1").normalized().unwrap().kind, PID::Patent);
@@ -121,9 +122,17 @@ fn test_normalize_discovery_url_preserves_case_sensitive_components() {
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(PID::Arxiv.to_string(), "arxiv");
+    assert_eq!(PID::RRID.to_string(), "rrid");
     assert_eq!(serde_json::to_string(&PID::DOI).unwrap(), r#""doi""#);
     assert_eq!(serde_json::from_str::<PID>(r#""doi""#).unwrap(), PID::DOI);
     assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
+}
+#[test]
+fn test_rrid_is_discoverable_but_not_project_identifying() {
+    assert!(PID::RRID.is_discoverable());
+    assert!(!PID::RRID.is_project_identifier());
+    let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
+    assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
 }
 #[test]
 fn test_pid_from_str() {
@@ -131,6 +140,7 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("ORCID"), PID::ORCID);
     assert_eq!(PID::from(" pidinst "), PID::PIDINST);
     assert_eq!(PID::from("SWHID"), PID::SWHID);
+    assert_eq!(PID::from("RRID"), PID::RRID);
     assert_eq!(PID::from("unsupported"), PID::Unknown);
 }
 #[test]

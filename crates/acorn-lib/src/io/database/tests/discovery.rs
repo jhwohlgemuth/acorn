@@ -44,3 +44,25 @@ fn test_discovery_insert_round_trip() {
     assert_eq!(row.identifier.as_deref(), Some("10.1234/example"));
     assert_eq!(row.source.as_deref(), Some("<text:1>"));
 }
+#[test]
+fn test_rrid_discovery_uses_generic_history_schema() {
+    let path = database_path("rrid-discovery-round-trip");
+    let database = Database::<Table>::from_path(Some(path.clone()));
+    database.migrate().unwrap();
+    let row = IdentifierRow::init()
+        .identifier("RRID:SCR_003512")
+        .identifier_type("rrid")
+        .resolution_status("not-requested")
+        .source("example.md")
+        .source_format("markdown")
+        .build();
+    database.insert(row).unwrap();
+    let stored = IdentifierRow::init()
+        .identifier("RRID:SCR_003512")
+        .build()
+        .select(Some(path), |_| true)
+        .unwrap()
+        .expect("RRID discovery row");
+    assert_eq!(stored.identifier_type.as_deref(), Some("rrid"));
+    assert_eq!(stored.resolution_status.as_deref(), Some("not-requested"));
+}

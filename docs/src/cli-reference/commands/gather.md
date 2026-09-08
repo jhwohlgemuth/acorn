@@ -64,11 +64,11 @@ acorn gather path/to/project --max-depth 2
 
 ```sh
 acorn gather report.docx
-acorn gather --text "doi:10.1234/example hdl:10013/epic.10033"
+acorn gather --text "doi:10.1234/example hdl:10013/epic.10033 RRID:SCR_012345"
 printf 'https://ror.org/01qz5mb56' | acorn gather
 ```
 
-Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
+Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. RRIDs require an explicit `RRID:` label or an approved `n2t.net` or SciCrunch resolver URL; an unlabeled registry payload is not discovered. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
 
 ## Enrich RAD inputs
 
@@ -112,7 +112,7 @@ Resolved raw output remains machine-readable: successful values use one line eac
 
 ## Research activity candidates
 
-Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. Handle, ISNI, ORCID, ROR, PIDINST, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves. Unstructured Handle discovery requires an explicit `hdl:` label or `hdl.handle.net` URL.
+Unless global `--no-local-database` is set, ordinary gather appends every discovered identifier to discovery history and persists project-like discoveries as evolving research activity candidates. arXiv, DOI, RAiD, ISBN, patent, and ARK values can independently identify a candidate. arXiv revisions retain their versioned evidence but match the same unversioned candidate. Handle, ISNI, ORCID, ROR, PIDINST, RRID, unknown identifiers, and arbitrary URLs remain in the report and discovery history but do not create or merge candidates by themselves. Unstructured Handle discovery requires an explicit `hdl:` label or `hdl.handle.net` URL.
 
 See the [persistent identifier lifecycle](../../concepts/persistent-identifiers.md) for how ACORN finds, parses, validates, normalizes, classifies, and persists this evidence.
 

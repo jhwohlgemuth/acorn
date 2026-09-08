@@ -1,4 +1,4 @@
-use super::{report_of, IntoValidationReport, Validate, ValidationError, ValidationReport};
+use super::{report_of, rules, IntoValidationReport, Validate, ValidationError, ValidationReport};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{Box, String, ToString, Vec};
 use acorn_core::util::SemanticVersion;
@@ -707,6 +707,8 @@ fn test_pid_rules_delegate_to_canonical_validation() {
     .validate()
     .expect_err("malformed DOI should fail");
     assert_eq!(report.iter().next().map(|issue| issue.path.as_str()), Some("doi"));
+    assert!(rules::rrid("RRID:SCR_003512").is_ok());
+    assert!(rules::rrid("SCR_003512").is_err());
 }
 #[test]
 fn test_report_display_and_serialization_are_deterministic() {

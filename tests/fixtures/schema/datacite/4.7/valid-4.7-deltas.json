@@ -24,6 +24,12 @@
                     "resourceTypeGeneral": "Software"
                 },
                 {
+                    "relatedIdentifier": "RRID:SCR_003512",
+                    "relatedIdentifierType": "RRID",
+                    "relationType": "Cites",
+                    "resourceTypeGeneral": "Software"
+                },
+                {
                     "relatedIdentifier": "10.1234/custom-relation",
                     "relatedIdentifierType": "DOI",
                     "relationType": "Other",

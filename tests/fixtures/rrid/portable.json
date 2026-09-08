@@ -1,0 +1,32 @@
+{
+  "source": "https://www.rrids.org/draft-texts",
+  "retrieved": "2026-09-07",
+  "valid": [
+    { "input": "RRID:AB_2140114", "expected": "RRID:AB_2140114" },
+    { "input": "RRID:IMSR_JAX:000664", "expected": "RRID:IMSR_JAX:000664" },
+    { "input": "RRID:CVCL_3588", "expected": "RRID:CVCL_3588" },
+    { "input": "RRID:Addgene_12260", "expected": "RRID:Addgene_12260" },
+    { "input": "RRID:SCR_003512", "expected": "RRID:SCR_003512" },
+    { "input": "RRID:SAMN33284296", "expected": "RRID:SAMN33284296" },
+    { "input": "rrid : SCR_003512", "expected": "RRID:SCR_003512" },
+    { "input": "https://n2t.net/RRID:SCR_003512", "expected": "RRID:SCR_003512" },
+    { "input": "https://scicrunch.org/resolver/RRID:MMRRC_031168-UCD", "expected": "RRID:MMRRC_031168-UCD" },
+    { "input": "http://scicrunch.org/resolver/RRID:MMRRC_031168-UCD", "expected": "RRID:MMRRC_031168-UCD" }
+  ],
+  "invalid": [
+    "",
+    "RRID:",
+    "SCR_003512",
+    "RRID: SCR 003512",
+    "RRID:SCR_003512.",
+    "RRID:SCR_003512?tracking=true",
+    "RRID:SCR_003512#fragment",
+    "RRID:SCR%2G003512",
+    "RRID:RRID:SCR_003512",
+    "https://example.org/RRID:SCR_003512",
+    "http://n2t.net/RRID:SCR_003512",
+    "https://n2t.net/RRID:SCR%255F003512",
+    "https://n2t.net/RRID:SCR_003512?tracking=true",
+    "RRID:SCR_003512\nnext"
+  ]
+}

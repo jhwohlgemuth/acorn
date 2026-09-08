@@ -30,6 +30,7 @@ pub mod orcid;
 pub mod patent;
 pub mod raid;
 pub mod ror;
+pub mod rrid;
 pub mod swhid;
 
 pub use ark::ARK;
@@ -42,6 +43,7 @@ pub use orcid::ORCID;
 pub use patent::Patent;
 pub use raid::RAID;
 pub use ror::ROR;
+pub use rrid::RRID;
 pub use swhid::SWHID;
 
 const BETANUMERIC_DIGITS: &str = "0123456789bcdfghjkmnpqrstvwxz";
@@ -163,6 +165,8 @@ pub trait PersistentIdentifierConvert<T: AsRef<str>> {
     /// assert!("https://ror.org/01qz5mb56".is_ror());
     /// ```
     fn is_ror(&self) -> bool;
+    /// Determines if `self` is a Research Resource Identifier.
+    fn is_rrid(&self) -> bool;
     /// Determines if `self` is a Software Hash Identifier.
     fn is_swhid(&self) -> bool;
 }
@@ -241,6 +245,10 @@ pub enum PID {
     ///
     /// See <https://www.ror.org/> for more information
     ROR,
+    /// Research Resource Identifier (RRID)
+    ///
+    /// Identifier for a research resource such as an antibody, organism, cell line, instrument, facility, or software tool.
+    RRID,
     /// Software Hash Identifier (SWHID)
     ///
     /// Intrinsic identifier for software content, directories, revisions, releases, and snapshots.
@@ -292,7 +300,8 @@ impl Identifier {
         let parsed = PID::iter()
             .filter(|kind| kind.is_discoverable() && !kind.is_raid())
             .flat_map(|kind| kind.find_all(content))
-            .filter(|identifier| identifier.kind != PID::DOI || !raid.iter().any(|value| value.value == identifier.value));
+            .filter(|identifier| identifier.kind != PID::DOI || !raid.iter().any(|value| value.value == identifier.value))
+            .filter(|identifier| identifier.kind != PID::URL || !RRID::is_valid(&identifier.value));
         raid.iter()
             .cloned()
             .chain(parsed)
@@ -327,6 +336,7 @@ impl Identifier {
             | PID::Patent => Self::parsed::<Patent>(PID::Patent, trimmed),
             | PID::RAID => Self::parsed::<RAID>(PID::RAID, trimmed),
             | PID::ROR => Self::parsed::<ROR>(PID::ROR, trimmed),
+            | PID::RRID => Self::parsed::<RRID>(PID::RRID, trimmed),
             | PID::SWHID => Self::parsed::<SWHID>(PID::SWHID, trimmed),
             | PID::URL if HTTP_URL.is_match(trimmed).unwrap_or(false) => Some(Self {
                 kind: PID::URL,
@@ -349,6 +359,7 @@ impl Identifier {
                     PID::ISNI,
                     PID::Patent,
                     PID::ROR,
+                    PID::RRID,
                     PID::SWHID,
                     PID::URL,
                 ]
@@ -423,6 +434,7 @@ impl PID {
             | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::RRID => RRID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
             | Self::URL => RE_URL
                 .find_iter(content)
@@ -527,6 +539,14 @@ impl From<ROR> for Identifier {
         }
     }
 }
+impl From<RRID> for Identifier {
+    fn from(value: RRID) -> Self {
+        Self {
+            kind: PID::RRID,
+            value: value.to_string(),
+        }
+    }
+}
 impl From<SWHID> for Identifier {
     fn from(value: SWHID) -> Self {
         Self {
@@ -548,6 +568,7 @@ impl PID {
             || self.is_patent()
             || self.is_raid()
             || self.is_ror()
+            || self.is_rrid()
             || self.is_swhid()
             || self.is_url()
     }
@@ -565,6 +586,7 @@ impl PID {
             | Self::PIDINST => "pidinst",
             | Self::RAID => "raid",
             | Self::ROR => "ror",
+            | Self::RRID => "rrid",
             | Self::SWHID => "swhid",
             | Self::URL => "url",
             | _ => "unknown",
@@ -631,6 +653,7 @@ where
             | PID::Patent => Patent::format(self.as_ref()),
             | PID::RAID => RAID::format(self.as_ref()),
             | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
+            | PID::RRID => RRID::format(self.as_ref()),
             | PID::SWHID => SWHID::format(self.as_ref()),
             | _ => self.as_ref().to_string(),
         }
@@ -654,6 +677,7 @@ where
             },
             | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
             | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
+            | PID::RRID => PersistentIdentifierInternal { value, pid_type: PID::RRID },
             | PID::SWHID => PersistentIdentifierInternal { value, pid_type: PID::SWHID },
             | _ => PersistentIdentifierInternal::default(),
         }
@@ -670,6 +694,7 @@ where
             | PID::Patent => Patent::is_valid(self.as_ref()),
             | PID::RAID => self.is_raid(),
             | PID::ROR => self.is_ror(),
+            | PID::RRID => self.is_rrid(),
             | PID::SWHID => self.is_swhid(),
             | _ => false,
         }
@@ -700,6 +725,9 @@ where
     }
     fn is_ror(&self) -> bool {
         ROR::is_valid(self.as_ref())
+    }
+    fn is_rrid(&self) -> bool {
+        RRID::is_valid(self.as_ref())
     }
     fn is_swhid(&self) -> bool {
         SWHID::is_valid(self.as_ref())
@@ -784,6 +812,14 @@ impl PersistentIdentifierInternal {
         match pid_type {
             | PID::ROR => ROR::from_string(value),
             | _ => ROR::default(),
+        }
+    }
+    /// Convert a `PersistentIdentifierInternal` to an [`RRID`].
+    pub fn to_rrid(&self) -> RRID {
+        let PersistentIdentifierInternal { value, pid_type } = self;
+        match pid_type {
+            | PID::RRID => RRID::from_string(value),
+            | _ => RRID::default(),
         }
     }
     /// Convert a `PersistentIdentifierInternal` to a `SWHID`.
