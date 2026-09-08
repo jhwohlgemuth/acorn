@@ -180,7 +180,7 @@ std = [
 ]
 cmd = ["std-core"]
 shell-lint = ["std-core", "dep:shuck-linter", "dep:shuck-parser"]
-swhid-compute = ["std-core", "dep:swhid"]
+swhid-compute = ["std-core", "cmd", "dep:swhid"]
 
 [lints]
 workspace = true

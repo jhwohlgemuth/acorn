@@ -64,6 +64,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
 
+mod swhid;
+
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_BAGGING_DATE: &str = "2026-02-22";
 fn fixtures_dir() -> PathBuf {
@@ -115,23 +117,6 @@ fn test_archive_extracts_zstandard_tar() {
     assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
 }
 #[test]
-fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
-    assert!(zip_entries(&[("../outside", b"unsafe")]).is_err());
-    assert!(zip_entries(&[("same", b"first"), ("same", b"second")]).is_err());
-}
-#[test]
-fn test_archive_zip_entries_write_named_content() {
-    let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
-    let mut archive = ZipArchive::new(Cursor::new(bytes)).expect("read ZIP archive");
-    let mut content = String::new();
-    archive
-        .by_name("word/document.xml")
-        .expect("find named entry")
-        .read_to_string(&mut content)
-        .expect("read named entry");
-    assert_eq!(content, "document");
-}
-#[test]
 fn test_archive_rejects_destination_inside_source() {
     let temporary = tempfile::tempdir().unwrap();
     let source = temporary.path().join("source");
@@ -151,6 +136,23 @@ fn test_archive_round_trips_supported_formats() {
         extract(archive_path, Some(destination.clone()), None).unwrap();
         assert_eq!(read_to_string(destination.join("nested/data.txt")).unwrap(), "archive content");
     }
+}
+#[test]
+fn test_archive_zip_entries_reject_unsafe_and_duplicate_paths() {
+    assert!(zip_entries(&[("../outside", b"unsafe")]).is_err());
+    assert!(zip_entries(&[("same", b"first"), ("same", b"second")]).is_err());
+}
+#[test]
+fn test_archive_zip_entries_write_named_content() {
+    let bytes = zip_entries(&[("word/document.xml", b"document")]).expect("create ZIP archive");
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).expect("read ZIP archive");
+    let mut content = String::new();
+    archive
+        .by_name("word/document.xml")
+        .expect("find named entry")
+        .read_to_string(&mut content)
+        .expect("read named entry");
+    assert_eq!(content, "document");
 }
 #[test]
 fn test_baginfo_save_repeatable_fields() {

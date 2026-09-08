@@ -6,7 +6,6 @@
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
 - [Portable ModelKit and Kitfile schema model](modelkit-schema-model.md) - Match KitOps Kitfile 1.0.0 (`pkg/artifact/kitfile.md` + `pkg/artifact/kitfile.go` at the pinned commit) with explicit authoring-YAML and resolved-JSON boundaries and portable validation.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
-- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md) - Add pinned conformance, resolver-failure, filesystem-edge-case, and Git object-format coverage to the implemented SWHID lifecycle.
 
 ## Planned
 

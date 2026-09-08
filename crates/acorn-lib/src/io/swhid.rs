@@ -1,5 +1,13 @@
-//! Local file-system and Git SWHID calculation.
+//! Local file-system and Git SWHID calculation
+//!
+//! Directory identifiers use filesystem permissions (`FilesystemPermissionsSource`) and do not follow symlinks (`follow_symlinks = false`).
+//! On Unix the executable bit (`0o100755` vs `0o100644`) participates in the directory manifest, so changing it changes the SWHID.
+//! Symlinks appear as `0o120000` entries whose target bytes are hashed, not followed. Special files (FIFOs, sockets, device nodes) are rejected.
+//!
+//! Git calculations require SHA-1 repositories;
+//! SHA-256 (`extensions.objectFormat = sha256`) is rejected with an actionable diagnostic.
 use crate::error::ApiResult;
+use crate::{args, cmd};
 use acorn_schema::pid::swhid::ObjectType;
 use acorn_schema::pid::SWHID;
 use color_eyre::eyre::{eyre, WrapErr};
@@ -65,23 +73,25 @@ impl<'a> CalculationPath<'a> {
             .map_err(|why| eyre!("failed to traverse {}: {why}", self.0.display()))
     }
     fn calculate_revision(self, reference: &str) -> ApiResult<String> {
-        swhid::git::open_repo(self.0)
-            .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
-            .and_then(|repository| {
-                repository
-                    .revparse_single(reference)
-                    .map_err(|why| eyre!("failed to resolve Git revision `{reference}`: {why}"))
-                    .and_then(|object| {
-                        object
-                            .peel_to_commit()
-                            .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a commit: {why}"))
-                            .and_then(|commit| {
-                                swhid::git::revision_swhid(&repository, &commit.id())
-                                    .map(|identifier| identifier.to_string())
-                                    .map_err(|why| eyre!("failed to calculate Git revision SWHID: {why}"))
-                            })
-                    })
-            })
+        ensure_sha1_repository(self.0).and_then(|()| {
+            swhid::git::open_repo(self.0)
+                .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
+                .and_then(|repository| {
+                    repository
+                        .revparse_single(reference)
+                        .map_err(|why| eyre!("failed to resolve Git revision `{reference}`: {why}"))
+                        .and_then(|object| {
+                            object
+                                .peel_to_commit()
+                                .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a commit: {why}"))
+                                .and_then(|commit| {
+                                    swhid::git::revision_swhid(&repository, &commit.id())
+                                        .map(|identifier| identifier.to_string())
+                                        .map_err(|why| eyre!("failed to calculate Git revision SWHID: {why}"))
+                                })
+                        })
+                })
+        })
     }
     fn calculate_release(self, tag: &str) -> ApiResult<String> {
         let reference = if tag.starts_with("refs/tags/") {
@@ -89,46 +99,58 @@ impl<'a> CalculationPath<'a> {
         } else {
             format!("refs/tags/{tag}")
         };
-        swhid::git::open_repo(self.0)
-            .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
-            .and_then(|repository| {
-                repository
-                    .refname_to_id(&reference)
-                    .map_err(|why| eyre!("failed to resolve annotated Git tag `{tag}`: {why}"))
-                    .and_then(|object_id| {
-                        swhid::git::release_swhid(&repository, &object_id)
-                            .map(|identifier| identifier.to_string())
-                            .map_err(|why| eyre!("failed to calculate Git release SWHID: {why}"))
-                    })
-            })
+        ensure_sha1_repository(self.0).and_then(|()| {
+            swhid::git::open_repo(self.0)
+                .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
+                .and_then(|repository| {
+                    repository
+                        .refname_to_id(&reference)
+                        .map_err(|why| eyre!("failed to resolve annotated Git tag `{tag}`: {why}"))
+                        .and_then(|object_id| {
+                            swhid::git::release_swhid(&repository, &object_id)
+                                .map(|identifier| identifier.to_string())
+                                .map_err(|why| {
+                                    let message = why.to_string();
+                                    match message.contains("Failed to find tag") {
+                                        | true => eyre!("Git tag `{tag}` is a lightweight tag, not an annotated tag — release SWHIDs require annotated tags (create with `git tag -a {tag} -m \"message\"`): {why}"),
+                                        | false => eyre!("failed to calculate Git release SWHID: {why}"),
+                                    }
+                                })
+                        })
+                })
+        })
     }
     fn calculate_snapshot(self) -> ApiResult<String> {
-        swhid::git::open_repo(self.0)
-            .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
-            .and_then(|repository| {
-                swhid::git::snapshot_swhid(&repository)
-                    .map(|identifier| identifier.to_string())
-                    .map_err(|why| eyre!("failed to calculate Git snapshot SWHID: {why}"))
-            })
+        ensure_sha1_repository(self.0).and_then(|()| {
+            swhid::git::open_repo(self.0)
+                .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
+                .and_then(|repository| {
+                    swhid::git::snapshot_swhid(&repository)
+                        .map(|identifier| identifier.to_string())
+                        .map_err(|why| eyre!("failed to calculate Git snapshot SWHID: {why}"))
+                })
+        })
     }
     fn calculate_git_oid(self, reference: &str, object_type: ObjectType) -> ApiResult<String> {
-        swhid::git::open_repo(self.0)
-            .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
-            .and_then(|repository| {
-                repository
-                    .revparse_single(reference)
-                    .map_err(|why| eyre!("failed to resolve Git object `{reference}`: {why}"))
-                    .and_then(|object| match object_type {
-                        | ObjectType::Content => object
-                            .peel_to_blob()
-                            .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
-                            .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a blob: {why}")),
-                        | _ => object
-                            .peel_to_tree()
-                            .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
-                            .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a tree: {why}")),
-                    })
-            })
+        ensure_sha1_repository(self.0).and_then(|()| {
+            swhid::git::open_repo(self.0)
+                .map_err(|why| eyre!("failed to open Git repository {}: {why}", self.0.display()))
+                .and_then(|repository| {
+                    repository
+                        .revparse_single(reference)
+                        .map_err(|why| eyre!("failed to resolve Git object `{reference}`: {why}"))
+                        .and_then(|object| match object_type {
+                            | ObjectType::Content => object
+                                .peel_to_blob()
+                                .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
+                                .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a blob: {why}")),
+                            | _ => object
+                                .peel_to_tree()
+                                .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
+                                .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a tree: {why}")),
+                        })
+                })
+        })
     }
 }
 /// Calculate a SWHID for a local file, directory, or Git object
@@ -138,62 +160,20 @@ impl<'a> CalculationPath<'a> {
 pub fn calculate(path: &Path, kind: CalculationKind, reference: Option<&str>) -> ApiResult<SWHID> {
     CalculationPath::new(path).calculate(kind, reference)
 }
+fn ensure_sha1_repository(path: &Path) -> ApiResult<()> {
+    let output = cmd!("git", args!["config", "--get", "extensions.objectFormat"]; dir: path);
+    match output {
+        | Ok(result) if result.status.success() => {
+            let value = String::from_utf8_lossy(&result.stdout).trim().to_string();
+            match value.as_str() {
+                | "sha256" => Err(eyre!("Git repository uses SHA-256 object format which is not supported for SWHID calculation — SWHIDs require SHA-1 (objectFormat=sha1); re-initialize without --object-format=sha256")),
+                | _ => Ok(()),
+            }
+        }
+        | _ => Ok(()),
+    }
+}
 /// Verify that a local object calculates to the expected SWHID core object
 pub fn verify(path: &Path, kind: CalculationKind, reference: Option<&str>, expected: &SWHID) -> ApiResult<bool> {
     calculate(path, kind, reference).map(|actual| actual.core_identifier() == expected.core_identifier())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::process::Command;
-
-    #[test]
-    fn test_calculate_content_known_vector() {
-        let directory = tempfile::tempdir().expect("temporary directory should be created");
-        let path = directory.path().join("hello.txt");
-        std::fs::write(&path, b"hello\n").expect("fixture should be written");
-        let identifier = calculate(&path, CalculationKind::Content, None).expect("content SWHID should calculate");
-        assert_eq!(identifier.to_string(), "swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a");
-    }
-    #[test]
-    fn test_calculate_git_objects_without_mutating_repository() {
-        let directory = tempfile::tempdir().expect("temporary directory should be created");
-        let root = directory.path();
-        git(root, &["init", "--quiet"]);
-        git(root, &["config", "user.name", "ACORN Test"]);
-        git(root, &["config", "user.email", "acorn@example.org"]);
-        std::fs::write(root.join("hello.txt"), b"hello\n").expect("fixture should be written");
-        git(root, &["add", "hello.txt"]);
-        git(root, &["commit", "--quiet", "-m", "fixture"]);
-        git(root, &["tag", "-a", "v1", "-m", "fixture release"]);
-        let revision = calculate(root, CalculationKind::Revision, Some("HEAD")).expect("revision should calculate");
-        let blob = calculate(root, CalculationKind::GitBlob, Some("HEAD:hello.txt")).expect("blob should calculate");
-        let tree = calculate(root, CalculationKind::GitTree, Some("HEAD^{tree}")).expect("tree should calculate");
-        let release = calculate(root, CalculationKind::Release, Some("v1")).expect("release should calculate");
-        let snapshot = calculate(root, CalculationKind::Snapshot, None).expect("snapshot should calculate");
-        assert!(revision.to_string().starts_with("swh:1:rev:"));
-        assert_eq!(blob.object_id, git_output(root, &["rev-parse", "HEAD:hello.txt"]));
-        assert_eq!(tree.object_id, git_output(root, &["rev-parse", "HEAD^{tree}"]));
-        assert!(release.to_string().starts_with("swh:1:rel:"));
-        assert!(snapshot.to_string().starts_with("swh:1:snp:"));
-        assert!(git_output(root, &["status", "--porcelain"]).is_empty());
-    }
-    fn git(root: &Path, arguments: &[&str]) {
-        let status = Command::new("git")
-            .args(arguments)
-            .current_dir(root)
-            .status()
-            .expect("git should execute");
-        assert!(status.success(), "git command failed: {arguments:?}");
-    }
-    fn git_output(root: &Path, arguments: &[&str]) -> String {
-        let output = Command::new("git")
-            .args(arguments)
-            .current_dir(root)
-            .output()
-            .expect("git should execute");
-        assert!(output.status.success(), "git command failed: {arguments:?}");
-        String::from_utf8(output.stdout).expect("git output should be UTF-8").trim().to_string()
-    }
 }

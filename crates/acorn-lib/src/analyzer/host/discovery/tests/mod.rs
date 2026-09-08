@@ -912,6 +912,27 @@ fn test_resolved_raw_report_renders_citations_and_orcid_names() {
     );
 }
 #[test]
+fn test_swhid_discovery_is_not_resolved_without_request() {
+    let sources = vec![SourceDocument::init()
+        .content("See swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2 for reference")
+        .format("text")
+        .source("example.md")
+        .build()];
+    let discoveries = Records::from(sources);
+    assert_eq!(discoveries.len(), 1);
+    let record = discoveries.candidates().first().cloned().unwrap_or_default();
+    assert!(record.identifiers.iter().any(|id| id.kind == PID::SWHID));
+    let discoveries = Records::from(vec![SourceDocument::init()
+        .content("swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2")
+        .format("text")
+        .source("example.md")
+        .build()]);
+    let json = serde_json::to_value(&discoveries).unwrap();
+    let swhid = &json[0];
+    assert_eq!(swhid["resolution_status"], "not-requested");
+    assert!(swhid["metadata"].is_null());
+}
+#[test]
 fn test_synthetic_resume_pdf_exercises_pid_edge_cases() {
     let document = SourceDocument::from_path("../../tests/fixtures/gather/resume.pdf").unwrap();
     let identifiers = Identifier::find_all(&document.content)
