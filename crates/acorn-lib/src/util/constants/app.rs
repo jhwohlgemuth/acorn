@@ -149,6 +149,10 @@ pub const MAX_GITLAB_OPERATION_ATTEMPTS: u32 = 5;
 pub const MAX_GITLAB_OPERATION_BACKOFF_SECONDS: i64 = 300;
 /// Maximum supported PDF page count.
 pub const MAX_PDF_PAGES: u32 = 1_000;
+/// MCP Bundle manifest format version emitted by ACORN.
+pub const MCPB_MANIFEST_VERSION: &str = "0.3";
+/// Reviewed MCP Bundle specification revision used by ACORN.
+pub const MCPB_SPEC_REVISION: &str = "70fe3b34cd6dff1b3bba046638edc72a6467a4fb";
 /// Hidden marker used to find the bot-authored merge request analysis note
 pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis -->";
 /// Official Hugging Face repository containing Needle 2 standalone runners.

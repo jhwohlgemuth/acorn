@@ -1,8 +1,10 @@
 //! Goose CLI YAML synchronization configuration types
-use super::{Options, RenderedOutput, SyncTarget};
+use super::{McpSync, Options, RenderedOutput, SyncTarget};
+use crate::args;
 #[cfg(not(target_os = "windows"))]
 use crate::io::home_directory;
 use crate::io::{read_file, ApiResult};
+use crate::util::constants::app::APPLICATION;
 #[cfg(not(target_os = "windows"))]
 use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
@@ -16,7 +18,7 @@ use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use serde_norway::Value;
 use serde_with::skip_serializing_none;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Configuration for synchronizing a local OpenAI-compatible model into Goose CLI.
 #[skip_serializing_none]
@@ -39,6 +41,42 @@ pub struct Config {
     #[validate(length(min = 1))]
     pub default_model: Option<String>,
 }
+impl Config {
+    /// Upsert the active OpenAI provider while preserving unrelated Goose settings.
+    pub fn upsert(&self, existing: Value, models: &[ModelDetails]) -> ApiResult<Value> {
+        self.default_model
+            .as_ref()
+            .or_else(|| models.iter().find_map(|model| model.id.as_ref()))
+            .ok_or_else(|| eyre!("Goose synchronization requires at least one model"))
+            .and_then(|model| {
+                match existing {
+                    | Value::Mapping(root) => Ok(root),
+                    | _ => Err(eyre!("Goose configuration must be a YAML mapping")),
+                }
+                .map(|mut root| {
+                    let providers_key = Value::String("providers".to_string());
+                    let mut providers = root
+                        .remove(&providers_key)
+                        .and_then(|value| value.as_mapping().cloned())
+                        .unwrap_or_default();
+                    let openai_key = Value::String("openai".to_string());
+                    let mut openai = providers
+                        .remove(&openai_key)
+                        .and_then(|value| value.as_mapping().cloned())
+                        .unwrap_or_default();
+                    openai.insert(Value::String("enabled".to_string()), Value::Bool(true));
+                    openai.insert(Value::String("model".to_string()), Value::String(model.clone()));
+                    openai.insert(Value::String("configured".to_string()), Value::Bool(true));
+                    providers.insert(openai_key, Value::Mapping(openai));
+                    root.insert(Value::String("active_provider".to_string()), Value::String("openai".to_string()));
+                    root.insert(providers_key, Value::Mapping(providers));
+                    root.insert(Value::String("OPENAI_HOST".to_string()), Value::String(self.host.clone()));
+                    root.insert(Value::String("OPENAI_BASE_PATH".to_string()), Value::String(self.base_path.clone()));
+                    Value::Mapping(root)
+                })
+            })
+    }
+}
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -46,6 +84,52 @@ impl Default for Config {
             host: default_host(),
             base_path: default_base_path(),
             default_model: None,
+        }
+    }
+}
+impl McpSync for Config {
+    type Document = Value;
+    const TARGET: &'static str = "Goose";
+    fn update_mcp(&self, existing: Value, executable: &Path, prune: bool) -> ApiResult<Value> {
+        match existing {
+            | Value::Mapping(mut root) => {
+                let extensions_key = Value::String("extensions".to_string());
+                let mut extensions = root
+                    .remove(&extensions_key)
+                    .and_then(|value| value.as_mapping().cloned())
+                    .unwrap_or_default();
+                let acorn = Value::String(APPLICATION.to_string());
+                if prune {
+                    extensions.remove(&acorn);
+                } else {
+                    extensions.insert(
+                        acorn,
+                        Value::Mapping(
+                            [
+                                (
+                                    Value::String("args".to_string()),
+                                    Value::Sequence(
+                                        args!["serve", "mcp"]
+                                            .into_iter()
+                                            .map(|argument| Value::String(argument.to_string_lossy().into_owned()))
+                                            .collect(),
+                                    ),
+                                ),
+                                (Value::String("cmd".to_string()), Value::String(executable.display().to_string())),
+                                (Value::String("enabled".to_string()), Value::Bool(true)),
+                                (Value::String("type".to_string()), Value::String("stdio".to_string())),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        ),
+                    );
+                }
+                if !extensions.is_empty() {
+                    root.insert(extensions_key, Value::Mapping(extensions));
+                }
+                Ok(Value::Mapping(root))
+            }
+            | _ => Err(eyre!("Goose configuration must be a YAML mapping")),
         }
     }
 }
@@ -90,7 +174,15 @@ impl SyncTarget for Config {
                         | true => Ok(Value::Mapping(Default::default())),
                         | false => serde_norway::from_str(&before).map_err(|why| eyre!("Failed to parse existing Goose config: {why}")),
                     }
-                    .and_then(|existing| self.upsert(existing, options.models))
+                    .and_then(|existing| match options.models.is_empty() {
+                        | true => Ok(existing),
+                        | false => self.upsert(existing, options.models),
+                    })
+                    .and_then(|existing| match (options.mcp, options.executable) {
+                        | (true, Some(executable)) => self.upsert_mcp(existing, executable, options.prune),
+                        | (true, None) => Err(eyre!("MCP synchronization requires an absolute ACORN executable")),
+                        | (false, _) => Ok(existing),
+                    })
                     .and_then(|updated| serde_norway::to_string(&updated).map_err(|why| eyre!("Failed to serialize Goose config: {why}")))
                     .map(|content| RenderedOutput {
                         target: "Goose",
@@ -102,64 +194,9 @@ impl SyncTarget for Config {
         })
     }
 }
-impl Config {
-    /// Upsert the active OpenAI provider while preserving unrelated Goose settings.
-    pub fn upsert(&self, existing: Value, models: &[ModelDetails]) -> ApiResult<Value> {
-        self.default_model
-            .as_ref()
-            .or_else(|| models.iter().find_map(|model| model.id.as_ref()))
-            .ok_or_else(|| eyre!("Goose synchronization requires at least one model"))
-            .and_then(|model| {
-                match existing {
-                    | Value::Mapping(root) => Ok(root),
-                    | _ => Err(eyre!("Goose configuration must be a YAML mapping")),
-                }
-                .map(|mut root| {
-                    let providers_key = Value::String("providers".to_string());
-                    let mut providers = root
-                        .remove(&providers_key)
-                        .and_then(|value| value.as_mapping().cloned())
-                        .unwrap_or_default();
-                    let openai_key = Value::String("openai".to_string());
-                    let mut openai = providers
-                        .remove(&openai_key)
-                        .and_then(|value| value.as_mapping().cloned())
-                        .unwrap_or_default();
-                    openai.insert(Value::String("enabled".to_string()), Value::Bool(true));
-                    openai.insert(Value::String("model".to_string()), Value::String(model.clone()));
-                    openai.insert(Value::String("configured".to_string()), Value::Bool(true));
-                    providers.insert(openai_key, Value::Mapping(openai));
-                    root.insert(Value::String("active_provider".to_string()), Value::String("openai".to_string()));
-                    root.insert(providers_key, Value::Mapping(providers));
-                    root.insert(Value::String("OPENAI_HOST".to_string()), Value::String(self.host.clone()));
-                    root.insert(Value::String("OPENAI_BASE_PATH".to_string()), Value::String(self.base_path.clone()));
-                    Value::Mapping(root)
-                })
-            })
-    }
-}
-fn default_host() -> String {
-    "http://localhost:8080".to_string()
-}
 fn default_base_path() -> String {
     "v1/chat/completions".to_string()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_upsert_preserves_unrelated_settings_and_provider_fields() {
-        let existing: Value =
-            serde_norway::from_str("GOOSE_MODE: approve\nproviders:\n  anthropic:\n    enabled: true\n  openai:\n    custom: retained\n").unwrap();
-        let models = [ModelDetails::init().id("qwen").build()];
-        let updated = Config::default().upsert(existing, &models).unwrap();
-        let rendered = serde_norway::to_string(&updated).unwrap();
-        assert!(rendered.contains("GOOSE_MODE: approve"));
-        assert!(rendered.contains("anthropic:"));
-        assert!(rendered.contains("custom: retained"));
-        assert!(rendered.contains("model: qwen"));
-        assert!(rendered.contains("OPENAI_BASE_PATH: v1/chat/completions"));
-    }
+fn default_host() -> String {
+    "http://localhost:8080".to_string()
 }

@@ -68,6 +68,16 @@ build-in-image: clean
 	@docker image inspect $(REGISTRY)/acorn/rust:$(VERSION) > /dev/null 2>&1 || $(MAKE) rust-image
 	@MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker run --rm -e CARGO_TARGET_DIR=/app/target/acorn -v "$(CURDIR):/app" -v acorn-target:/app/target -w /app $(REGISTRY)/acorn/rust:$(VERSION) make build
 
+mcpb:
+	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION) --platform linux --output ./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb --clobber
+	@./bin/acorn-v$(VERSION) create mcp --binary ./bin/acorn-v$(VERSION).exe --platform win32 --output ./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb --clobber
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-unknown-linux-musl.mcpb)
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION)-x86_64-pc-windows-gnu.mcpb)
+
+release-checksums:
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION))
+	@$(call WRITE_SHA256,./bin/acorn-v$(VERSION).exe)
+
 build-wasm:
 	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg
 	@wasm-pack test --node crates/acorn-wasm
@@ -281,8 +291,10 @@ rust-push:
 #
 ifeq ($(OS),Windows_NT)
 CLEAN_BIN_CMD = pwsh -NoProfile -Command "if (Test-Path ./bin) { Remove-Item -Recurse -Force ./bin }"
+WRITE_SHA256 = pwsh -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '$(1)').Hash.ToLowerInvariant() + '  $(1)' | Set-Content -Encoding ascii -LiteralPath '$(1).sha256'"
 else
 CLEAN_BIN_CMD = rm -rf ./bin
+WRITE_SHA256 = if command -v sha256sum >/dev/null 2>&1; then sha256sum "$(1)" > "$(1).sha256"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$(1)" > "$(1).sha256"; else echo "A SHA-256 utility (sha256sum or shasum) is required" >&2; exit 1; fi
 endif
 # PLATFORM = linux/amd64,linux/arm64
 PLATFORM = linux/amd64
@@ -332,6 +344,8 @@ TASKS = \
 	book \
 	build \
 	build-wasm \
+	mcpb \
+	release-checksums \
 	changelog \
 	changelog-release \
 	clean \

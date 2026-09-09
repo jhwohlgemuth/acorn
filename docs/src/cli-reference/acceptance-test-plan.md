@@ -937,11 +937,11 @@ These tests document intentional gaps. They pass when the CLI rejects the reques
 Confirm-NonzeroExitCode -Actual $LASTEXITCODE -Test "create mcp reports an implementation gap"
 ```
 
-### GAP-02 — `serve mcp` reports that it is not implemented
+### MCP-01 — `serve mcp` starts the stdio protocol server
 
 ```powershell
-& $env:ACORN_BIN --no-local-database serve mcp
-Confirm-NonzeroExitCode -Actual $LASTEXITCODE -Test "serve mcp reports an implementation gap"
+@'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"acceptance","version":"1"}}}'@ | & $env:ACORN_BIN --no-local-database serve mcp
+Confirm-ExitCode -Actual $LASTEXITCODE -Expected 0 -Test "serve mcp protocol initialization"
 ```
 
 ### GAP-03 — Doctor autofix reports that it is not implemented

@@ -47,4 +47,5 @@
   - [Rust core library](./packages/acorn-lib.md)
   - [🐍 External Python bindings](./packages/acorn-py.md)
   - [WebAssembly development](./packages/acorn-web.md)
+  - [MCP Bundles](./packages/mcpb.md)
 - [Citations](./concepts/citations.md)

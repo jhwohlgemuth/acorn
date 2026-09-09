@@ -30,7 +30,7 @@ This layer assembles the instructions, research data, evidence, examples, tools,
 
 This is the layer where an application makes a model context-aware for a specific task. The model can use supplied relationships and provenance to explain connections or identify gaps, but it cannot treat an unsupported inference as source data.
 
-For example, an agent can load the ACORN skill with a `ResearchActivity` schema, source record, validation results, and allowed tools before proposing a correction. A future MCP server could expose the same context and deterministic checks through a standard interface.
+For example, an agent can load the ACORN skill with a `ResearchActivity` schema, source record, validation results, and allowed tools before proposing a correction. The local stdio MCP server exposes the same canonical tool registry and deterministic checks through a standard interface.
 
 ## 5. Connected memory
 
@@ -62,7 +62,7 @@ A planned ACORN harness could launch OpenCode through ACP, send a hydrated promp
 | 1 | One-time prompting | Available as a library API | [`acorn-lib`](../packages/acorn-lib.md#ai-and-agent-apis) exposes completion, chat-completion, response, embedding, image, and audio operations through supported OpenAI-style HTTP endpoints and JSON formats. Applications decide when to invoke a model. ACORN does not provide a general-purpose interactive prompt command. |
 | 2 | Prompt templates | Implemented | `acorn-lib` embeds and renders versionable `.prompt` templates for summarization, translation, teaching, simple explanation, claim extraction, and gap finding. Templates accept source text, output limits, sampling parameters, and stop sequences. |
 | 3 | Workflow composition and iteration | Not implemented | ACORN does not provide a general model workflow executor with explicit control flow, exit criteria, evolving state, progress checks, and resource budgets. File watching and service polling are operational loops, not IID model workflows. |
-| 4 | Skills, context, and capabilities | Partially implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes task-oriented instructions to compatible agents. ACORN also models agent, permission, reference, and MCP configuration for OpenCode. [`acorn serve mcp`](../cli-reference/commands/serve.md) currently returns a not-implemented error. |
+| 4 | Skills, context, and capabilities | Implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes task-oriented instructions. [`acorn serve mcp`](../cli-reference/commands/serve.md), MCPB packaging, and opt-in client synchronization expose the canonical policy-filtered tool registry. |
 | 5 | Connected memory | Building blocks available | ACORN's local database persists research candidates, activity history, model metadata, and provenance-bearing records. ACORN does not manage conversational memory, cross-session agent recall, or memory selection and retention policies. |
 | 6 | Agent harness and interoperability | Partially implemented | ACORN manages local model metadata and weights, [synchronizes model configuration](../cli-reference/model-workflows.md) into OpenCode, VS Code, Goose, and llama-swap, distributes its agent skill, and runs a GitLab bot service. It models harness and benchmark metadata but does not implement an ACP client or a unified agent runtime. |
 

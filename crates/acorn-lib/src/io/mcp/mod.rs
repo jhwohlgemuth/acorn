@@ -1,11 +1,7 @@
 //! Model Context Protocol (MCP) server backed by a canonical tool registry
-#[cfg(test)]
-mod tests;
-mod tools;
-
-pub use tools::{ToolCallContext, ToolRegistry};
-
 use crate::error::ApiResult;
+use crate::io::database::schema::Table;
+use crate::io::database::Database;
 use acorn_schema::agent::tools::{ToolDefinition, ToolEffects};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
@@ -18,14 +14,24 @@ use rmcp::service::{RequestContext, RoleServer};
 use rmcp::transport::stdio;
 use rmcp::{ErrorData, ServerHandler, ServiceExt};
 use serde_json::Value;
+use std::path::PathBuf;
+pub use tools::{ToolCallContext, ToolRegistry};
+#[cfg(feature = "archive")]
+pub mod bundle;
+mod tools;
 
 /// MCP server that exposes the same allowlisted tools used by local inference.
 #[derive(Clone, Debug)]
 pub struct Server {
     registry: ToolRegistry,
-    offline: bool,
+    context: ToolCallContext,
 }
 struct Tool(model::Tool);
+impl From<Tool> for model::Tool {
+    fn from(tool: Tool) -> Self {
+        tool.0
+    }
+}
 impl Server {
     /// Construct a server from ACORN's built-in tool registry
     pub fn acorn() -> ApiResult<Self> {
@@ -33,24 +39,27 @@ impl Server {
     }
     /// Construct a server with ACORN's built-in tools and offline policy
     pub fn with_offline(offline: bool) -> ApiResult<Self> {
-        ToolRegistry::acorn().map(|registry| Self { registry, offline })
+        Self::with_policy(offline, false, None)
+    }
+    /// Construct a server with explicit runtime policy and persistence.
+    pub fn with_policy(offline: bool, allow_mutation: bool, database: Option<Database<Table>>) -> ApiResult<Self> {
+        ToolRegistry::with_database(database).map(|registry| Self {
+            registry,
+            context: ToolCallContext::mcp_with_policy(offline, allow_mutation, 1024 * 1024),
+        })
     }
     /// Return MCP tool declarations in deterministic order
     pub fn tools(&self) -> ApiResult<Vec<model::Tool>> {
         Ok(self
             .registry
-            .definitions()
+            .available_definitions(self.context)
             .into_iter()
-            .filter(|definition| definition.exposure.mcp)
             .map(Tool::from)
             .map(model::Tool::from)
             .collect())
     }
     async fn invoke(&self, name: &str, arguments: JsonObject) -> CallToolResult {
-        let result = self
-            .registry
-            .call_with_context(name, Value::Object(arguments), ToolCallContext::mcp(self.offline))
-            .await;
+        let result = self.registry.call_with_context(name, Value::Object(arguments), self.context).await;
         match result {
             | Ok(result) => CallToolResult::structured(result.structured_content),
             | Err(why) => CallToolResult::structured_error(serde_json::json!({ "message": why.to_string() })),
@@ -76,9 +85,9 @@ impl ServerHandler for Server {
         let name = request.name;
         let known = self
             .registry
-            .definitions()
+            .available_definitions(self.context)
             .iter()
-            .any(|definition| definition.name == name && definition.exposure.mcp);
+            .any(|definition| definition.name == name);
         match known {
             | true => Ok(self.invoke(&name, request.arguments.unwrap_or_default()).await),
             | false => Err(ErrorData::invalid_params(format!("Unknown or unavailable tool '{name}'"), None)),
@@ -86,9 +95,9 @@ impl ServerHandler for Server {
     }
     fn get_tool(&self, name: &str) -> Option<model::Tool> {
         self.registry
-            .definitions()
+            .available_definitions(self.context)
             .into_iter()
-            .find(|definition| definition.name == name && definition.exposure.mcp)
+            .find(|definition| definition.name == name)
             .map(Tool::from)
             .map(model::Tool::from)
     }
@@ -132,14 +141,10 @@ impl From<ToolDefinition> for Tool {
         })
     }
 }
-impl From<Tool> for model::Tool {
-    fn from(tool: Tool) -> Self {
-        tool.0
-    }
-}
 /// Serve ACORN tools over MCP's standard-input/standard-output transport
-pub async fn run(offline: bool) -> ApiResult<()> {
-    match Server::with_offline(offline) {
+pub async fn run(offline: bool, allow_mutation: bool, database_path: Option<PathBuf>) -> ApiResult<()> {
+    let database = allow_mutation.then(|| Database::<Table>::from_path(database_path));
+    match Server::with_policy(offline, allow_mutation, database) {
         | Ok(server) => match server.serve(stdio()).await {
             | Ok(service) => service
                 .waiting()
@@ -151,3 +156,6 @@ pub async fn run(offline: bool) -> ApiResult<()> {
         | Err(why) => Err(why),
     }
 }
+
+#[cfg(test)]
+mod tests;

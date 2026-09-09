@@ -6,6 +6,7 @@
     clippy::unwrap_used
 )]
 use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
+use crate::io::adapter::KitfileExt;
 use crate::io::api::{TreeEntry, TreeEntryType};
 use crate::io::bagit::{Bag, BagInfo, Save};
 use crate::io::document::{SourceDocument, SourceDocuments};
@@ -13,14 +14,15 @@ use crate::io::enrichment::Enrich;
 use crate::io::http::policy::{http_timeout_layer, retry_delay};
 use crate::io::http::{should_retry, HttpMethod};
 use crate::io::oci::{
-    modelpack_layer_type, Descriptor, KitfileExt, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue,
-    OciTransport, OciTransportOptions, OrasTransport,
+    modelpack_layer_type, Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport,
+    OciTransportOptions, OrasTransport,
 };
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, remove_fields, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes, write_rsa_keypair,
-    zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError, Source, SourceAction, TextOrigin,
+    read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes,
+    write_rsa_keypair, zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError, Source,
+    SourceAction, TextOrigin,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::constants::oci::{
@@ -29,7 +31,8 @@ use crate::util::constants::oci::{
 };
 #[cfg(unix)]
 use crate::util::constants::oci::{
-    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_CONFIG, MODELPACK_MANIFEST, OCI_IMAGE_INDEX,
+    KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_CONFIG,
+    MODELPACK_MANIFEST, OCI_IMAGE_INDEX,
 };
 use crate::util::StringConversion;
 use crate::{args, LocationExt, RepositoryExt};
@@ -63,7 +66,6 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
-
 mod swhid;
 
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -1005,9 +1007,10 @@ fn test_oci_modelkit_rejects_model_free_package_at_command_policy_boundary() {
 #[test]
 fn test_oci_modelkit_uses_public_schema_layer_identity_for_model_parts() {
     let part_digest = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+    let mcp_digest = "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     let config = modelkit::kitfile::Kitfile::from_resolved_json(
         format!(
-            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{OCI_TEST_DIGEST}","parts":[{{"name":"projector","path":"mmproj-model.gguf","type":"projector","digest":"{part_digest}"}}]}}}}"#
+            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{OCI_TEST_DIGEST}","parts":[{{"name":"projector","path":"mmproj-model.gguf","type":"projector","digest":"{part_digest}"}}]}},"mcpServers":[{{"name":"acorn","path":"acorn.mcpb","digest":"{mcp_digest}"}}]}}"#
         )
         .as_bytes(),
     )
@@ -1035,15 +1038,24 @@ fn test_oci_modelkit_uses_public_schema_layer_identity_for_model_parts() {
                 size: 1,
                 annotations: Default::default(),
             },
+            Descriptor {
+                media_type: KITOPS_MODELKIT_MCPB_RAW.to_string(),
+                digest: mcp_digest.to_string(),
+                size: 3,
+                annotations: Default::default(),
+            },
         ],
     };
-    let (layers, files) = config.modelkit_content(&manifest).unwrap();
-    assert_eq!(layers.len(), 2);
+    let plan = config.modelkit_content(&manifest).unwrap();
+    assert_eq!(plan.layers.len(), 2);
     assert_eq!(
-        files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(),
+        plan.files.0.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(),
         ["model.gguf", "mmproj-model.gguf"]
     );
-    assert_eq!(layers[1].digest, part_digest);
+    assert_eq!(plan.layers[1].digest, part_digest);
+    assert_eq!(plan.ignored_layers.len(), 1);
+    assert_eq!(plan.ignored_layers[0].digest, mcp_digest);
+    assert_eq!(plan.ignored_layers[0].role, ModelLayerRole::McpBundle);
 }
 #[cfg(unix)]
 #[test]
@@ -1466,6 +1478,14 @@ fn test_remove_fields_recurses_without_mutating_input() {
     let output = remove_fields(input.clone(), &["remove"]);
     assert_eq!(input["nested"]["remove"], 2);
     assert_eq!(output, serde_json::json!({"keep": 1, "nested": {"keep": 3}}));
+}
+#[test]
+fn test_replace_file_accepts_generic_content_and_replaces_existing_file() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let path = directory.path().join("replace.txt");
+    write(&path, "before").expect("write original file");
+    replace_file(&path, b"after").expect("replace file");
+    assert_eq!(read_to_string(path).expect("read replacement"), "after");
 }
 #[ignore]
 #[tokio::test]

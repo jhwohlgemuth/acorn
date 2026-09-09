@@ -17,7 +17,6 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
 pub(super) const MIME_TYPE: &str = "application/gguf";
-
 #[derive(Clone, Debug)]
 enum GgufValue {
     String(String),
@@ -343,7 +342,9 @@ impl OciLayer {
                 | MODELPACK_WEIGHT_CONFIG_TAR_ZSTD => is_tar_zstd,
                 | _ => false,
             },
-            | ModelLayerRole::Model | ModelLayerRole::Documentation | ModelLayerRole::Code | ModelLayerRole::Dataset => has_safe_path,
+            | ModelLayerRole::Model | ModelLayerRole::Documentation | ModelLayerRole::Code | ModelLayerRole::Dataset | ModelLayerRole::McpBundle => {
+                has_safe_path
+            }
         };
         match (has_safe_path, valid_shape) {
             | (false, _) => Err(ValidationError::new("path")

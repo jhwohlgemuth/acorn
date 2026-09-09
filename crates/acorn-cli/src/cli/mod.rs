@@ -6,6 +6,7 @@ use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
 use acorn_core::util::{regex_inverse, regex_join, MimeType};
 use acorn_schema::research_activity::ResearchActivity;
+use arguments::DatabaseBackend;
 use bon::Builder;
 use clap::builder::{
     styling::{Ansi256Color, AnsiColor},
@@ -17,10 +18,8 @@ use color_eyre::eyre;
 use jiff::SignedDuration;
 use parse::parse_watch_duration;
 use std::path::PathBuf;
-
 pub mod arguments;
 pub mod parse;
-use arguments::DatabaseBackend;
 
 const PRIMARY_COLOR: u8 = 135;
 const STYLES: Styles = Styles::styled()
@@ -30,196 +29,6 @@ const STYLES: Styles = Styles::styled()
     .placeholder(Ansi256Color(183).on_default());
 /// Return type for main function
 pub type Void = eyre::Result<(), eyre::Report>;
-/// Filesystem notification strategy used by watch mode.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
-pub enum WatchMode {
-    /// Prefer native notifications and use polling when required.
-    #[default]
-    Auto,
-    /// Require native filesystem notifications.
-    Native,
-    /// Poll local and network sources.
-    Poll,
-}
-/// Runtime watch configuration.
-#[derive(Clone, Copy, Debug)]
-pub struct WatchOptions {
-    /// Watcher backend selection.
-    pub mode: WatchMode,
-    /// Filesystem and network polling interval.
-    pub poll_interval: SignedDuration,
-    /// Whether any watched source requires network polling.
-    pub network: bool,
-}
-/// Container struct for working with subcommand run functions
-#[derive(Builder, Clone, Debug, Default)]
-#[builder(start_fn = init)]
-pub struct CommandOptions {
-    /// Path to file or folder to be used for input
-    pub path: Option<PathBuf>,
-    /// Git branch name
-    pub branch: Option<String>,
-    /// Git commit hash
-    pub commit: Option<String>,
-    /// Regex pattern of files to include at a given path desginated by `path`
-    pub filter: Option<String>,
-    /// Regex pattern of files to ignore at a given path desginated by `path`
-    pub ignore: Option<String>,
-    /// Path to file or folder to be used for output
-    pub output: Option<PathBuf>,
-    /// Runtime source selector for commands that process one selected input at a time
-    pub selector: Option<Source>,
-    /// Runtime source materialization action for commands that copy, symlink, or reference sources
-    pub action: Option<SourceAction>,
-    /// Path to the local database used for cache/history storage
-    pub database_path: Option<PathBuf>,
-    /// Path to reference file
-    ///
-    /// e.g. reference.pptx for exporting RAD to PowerPoint
-    pub reference: Option<PathBuf>,
-    /// Flag used to indicate if changed files should be obtained from a merge request
-    #[builder(default)]
-    pub merge_request: bool,
-    /// Flag used to indicate if ACORN is running in offline mode
-    #[builder(default)]
-    pub offline: bool,
-    /// Flag used to preview changes without writing files
-    #[builder(default)]
-    pub dry_run: bool,
-    /// Flag used to disable colored output
-    #[builder(default)]
-    pub no_color: bool,
-    /// Runtime output verbosity
-    #[builder(default)]
-    pub verbose: Verbosity,
-    /// Flag used to disable local database access
-    #[builder(default)]
-    pub no_local_database: bool,
-    /// Flag used to disable automatic GGUF quantization repository discovery
-    #[builder(default)]
-    pub no_fallback: bool,
-    /// Maximum number of repositories considered during GGUF fallback discovery
-    #[builder(default = 200)]
-    pub search_limit: usize,
-    /// Minimum number of downloads required for a GGUF fallback repository
-    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
-    pub minimum_download_count: u64,
-    /// Flag used to select a GGUF fallback repository interactively
-    #[builder(default)]
-    pub interactive: bool,
-    /// Flag used to suppress output
-    #[builder(default)]
-    pub quiet: bool,
-    /// Flag used to skip checksum verification when supported by a command
-    #[builder(default)]
-    pub skip_verify_checksum: bool,
-    /// Flag used to indicate if offline mode is supported for the command
-    #[builder(default)]
-    pub supported: bool,
-    /// Number of threads used for parallel processing
-    #[builder(default = 10)]
-    pub threads: usize,
-}
-/// "Plant an ACORN and grow your science"
-///
-///⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
-///⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀
-///⠀⠀⠀⠀⠀⠀⠺⠿⠇⢸⣿⣇⠘⣿⣆⠘⣿⡆⠠⣄⡀⠀⠀⠀⠀⠀⠀    
-///⠀⠀⠀⠀⢀⣴⣶⣶⣤⣄⡉⠛⠀⢹⣿⡄⢹⣿⡀⢻⣧⠀⡀⠀⠀⠀⠀    
-///⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡈⠓⠀⣿⣧⠈⢿⡆⠸⡄⠀⠀⠀   █████████     █████████     ███████    ███████████   ██████   █████
-///⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣈⠙⢆⠘⣿⡀⢻⠀⠀   ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
-///⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠹⣧⠈⠀⠀  ▒███    ▒███  ███     ▒▒▒  ███     ▒▒███ ▒███    ▒███  ▒███▒███ ▒███
-///⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠈⠃⠀⠀⠀ ▒███████████ ▒███         ▒███      ▒███ ▒██████████   ▒███▒▒███▒███
-///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀ ▒███▒▒▒▒▒███ ▒███         ▒███      ▒███ ▒███▒▒▒▒▒███  ▒███ ▒▒██████⠀
-///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀ ▒███    ▒███ ▒▒███     ███▒▒███     ███  ▒███    ▒███  ▒███  ▒▒█████
-///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀ █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████⠀
-///⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
-///⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀    
-/// ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-///
-#[derive(Debug, Parser)]
-#[command(
-    author,
-    version,
-    about,
-    verbatim_doc_comment,
-    styles(STYLES),
-    next_help_heading = "FLAGS",
-    subcommand_help_heading = "COMMANDS"
-)]
-pub struct Arguments {
-    /// Select database backend (`sqlite` or `duckdb`) for local cache/history storage
-    #[arg(
-        long = "database-backend",
-        value_name = "BACKEND",
-        env = DATABASE_BACKEND,
-        help_heading = "OPTIONS"
-    )]
-    pub database_backend: Option<DatabaseBackend>,
-    /// Override local database path (defaults to cache directory when omitted)
-    #[arg(
-        short = 'P',
-        long = "database-path",
-        value_name = "PATH",
-        value_hint = ValueHint::FilePath,
-        conflicts_with = "no_local_database",
-        env = DATABASE_PATH,
-        help_heading = "OPTIONS"
-    )]
-    pub database_path: Option<PathBuf>,
-    /// Disable local database initialization at startup
-    #[arg(
-        short = 'N',
-        long = "no-local-database",
-        value_name = "BOOL",
-        conflicts_with = "database_path",
-        env = NO_LOCAL_DATABASE,
-        help_heading = "FLAGS"
-    )]
-    pub no_local_database: bool,
-    /// Launch interactive terminal user interface (TUI)
-    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-    pub interactive: bool,
-    /// Prevent communication with the internet - intended for disconnected local environments
-    ///
-    /// Note: Use of --offline may require extra configuration options for certain commands
-    #[arg(short = 'X', long, value_name = "BOOL", help_heading = "FLAGS")]
-    pub offline: bool,
-    /// Re-run check or gather when input content changes
-    #[arg(short = 'w', long, global = true, value_name = "BOOL", help_heading = "FLAGS")]
-    pub watch: bool,
-    /// Select automatic, native, or polling watch behavior
-    #[arg(long, global = true, value_enum, default_value_t = WatchMode::Auto, requires = "watch", value_name = "MODE", help_heading = "OPTIONS")]
-    pub watch_mode: WatchMode,
-    /// Set the interval used by watch polling and Vale sync retries
-    #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
-    pub poll_interval: Option<SignedDuration>,
-    /// Limit number of threads used by rayon for parallel processing
-    ///
-    /// See Rayon documentation for more information
-    #[arg(default_value_t = 10, short, long, value_name = "N", help_heading = "FLAGS")]
-    pub threads: usize,
-    /// Clear database cache data and downloaded Chromium artifacts
-    #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
-    pub clear_cache: bool,
-    /// Clear all data from database (all tables)
-    #[arg(long = "reset-database", value_name = "BOOL", help_heading = "FLAGS")]
-    pub reset_database: bool,
-    /// Disable automatic cache cleanup on startup (expires old cache entries)
-    #[arg(long = "no-clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
-    pub no_clear_cache: bool,
-    /// Override default cache TTL (in seconds). Default is 2592000 (30 days)
-    ///
-    /// Set to 0 to disable caching
-    #[arg(long = "cache-ttl", value_name = "SECONDS", env = CACHE_TTL, help_heading = "OPTIONS")]
-    pub cache_ttl: Option<u64>,
-    #[command(flatten)]
-    pub verbose: Verbosity,
-    #[command(subcommand)]
-    pub command: Option<Commands>,
-    #[arg(long, hide = true)]
-    pub markdown_help: bool,
-}
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
 pub enum Commands {
@@ -295,7 +104,7 @@ pub enum Commands {
     ///
     ///     Replace selected files that already exist in the output directory
     ///     $> acorn download https://github.com/user/repo --output ./content --clobber
-    ///     
+    ///
     ///     Download using default configuration in current directory (first match):
     ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
     ///     $> acorn download
@@ -452,7 +261,7 @@ pub enum Commands {
 #[command(long_about = None)]
 pub enum CreateCommands {
     /// Model context provider (MCP) server
-    Mcp,
+    Mcp(Box<arguments::CreateMcp>),
     /// GitLab runner
     Runner(Box<arguments::Runner>),
     /// Bot server container
@@ -481,7 +290,197 @@ pub enum ServeCommands {
     /// Webhook/API bot server that polls GitLab for merge request note events
     Bot(Box<arguments::bot::Serve>),
     /// Model context protocol (MCP) server
-    Mcp,
+    Mcp(arguments::ServeMcp),
+}
+/// Filesystem notification strategy used by watch mode.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub enum WatchMode {
+    /// Prefer native notifications and use polling when required.
+    #[default]
+    Auto,
+    /// Require native filesystem notifications.
+    Native,
+    /// Poll local and network sources.
+    Poll,
+}
+/// "Plant an ACORN and grow your science"
+///
+///⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
+///⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀
+///⠀⠀⠀⠀⠀⠀⠺⠿⠇⢸⣿⣇⠘⣿⣆⠘⣿⡆⠠⣄⡀⠀⠀⠀⠀⠀⠀
+///⠀⠀⠀⠀⢀⣴⣶⣶⣤⣄⡉⠛⠀⢹⣿⡄⢹⣿⡀⢻⣧⠀⡀⠀⠀⠀⠀
+///⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡈⠓⠀⣿⣧⠈⢿⡆⠸⡄⠀⠀⠀   █████████     █████████     ███████    ███████████   ██████   █████
+///⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣈⠙⢆⠘⣿⡀⢻⠀⠀   ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
+///⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠹⣧⠈⠀⠀  ▒███    ▒███  ███     ▒▒▒  ███     ▒▒███ ▒███    ▒███  ▒███▒███ ▒███
+///⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠈⠃⠀⠀⠀ ▒███████████ ▒███         ▒███      ▒███ ▒██████████   ▒███▒▒███▒███
+///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀ ▒███▒▒▒▒▒███ ▒███         ▒███      ▒███ ▒███▒▒▒▒▒███  ▒███ ▒▒██████⠀
+///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀ ▒███    ▒███ ▒▒███     ███▒▒███     ███  ▒███    ▒███  ▒███  ▒▒█████
+///⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀ █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████⠀
+///⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
+///⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀
+/// ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+///
+#[derive(Debug, Parser)]
+#[command(
+    author,
+    version,
+    about,
+    verbatim_doc_comment,
+    styles(STYLES),
+    next_help_heading = "FLAGS",
+    subcommand_help_heading = "COMMANDS"
+)]
+pub struct Arguments {
+    /// Select database backend (`sqlite` or `duckdb`) for local cache/history storage
+    #[arg(
+        long = "database-backend",
+        value_name = "BACKEND",
+        env = DATABASE_BACKEND,
+        help_heading = "OPTIONS"
+    )]
+    pub database_backend: Option<DatabaseBackend>,
+    /// Override local database path (defaults to cache directory when omitted)
+    #[arg(
+        short = 'P',
+        long = "database-path",
+        value_name = "PATH",
+        value_hint = ValueHint::FilePath,
+        conflicts_with = "no_local_database",
+        env = DATABASE_PATH,
+        help_heading = "OPTIONS"
+    )]
+    pub database_path: Option<PathBuf>,
+    /// Disable local database initialization at startup
+    #[arg(
+        short = 'N',
+        long = "no-local-database",
+        value_name = "BOOL",
+        conflicts_with = "database_path",
+        env = NO_LOCAL_DATABASE,
+        help_heading = "FLAGS"
+    )]
+    pub no_local_database: bool,
+    /// Launch interactive terminal user interface (TUI)
+    #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub interactive: bool,
+    /// Prevent communication with the internet - intended for disconnected local environments
+    ///
+    /// Note: Use of --offline may require extra configuration options for certain commands
+    #[arg(short = 'X', long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub offline: bool,
+    /// Re-run check or gather when input content changes
+    #[arg(short = 'w', long, global = true, value_name = "BOOL", help_heading = "FLAGS")]
+    pub watch: bool,
+    /// Select automatic, native, or polling watch behavior
+    #[arg(long, global = true, value_enum, default_value_t = WatchMode::Auto, requires = "watch", value_name = "MODE", help_heading = "OPTIONS")]
+    pub watch_mode: WatchMode,
+    /// Set the interval used by watch polling and Vale sync retries
+    #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
+    pub poll_interval: Option<SignedDuration>,
+    /// Limit number of threads used by rayon for parallel processing
+    ///
+    /// See Rayon documentation for more information
+    #[arg(default_value_t = 10, short, long, value_name = "N", help_heading = "FLAGS")]
+    pub threads: usize,
+    /// Clear database cache data and downloaded Chromium artifacts
+    #[arg(long = "clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
+    pub clear_cache: bool,
+    /// Clear all data from database (all tables)
+    #[arg(long = "reset-database", value_name = "BOOL", help_heading = "FLAGS")]
+    pub reset_database: bool,
+    /// Disable automatic cache cleanup on startup (expires old cache entries)
+    #[arg(long = "no-clear-cache", value_name = "BOOL", help_heading = "FLAGS")]
+    pub no_clear_cache: bool,
+    /// Override default cache TTL (in seconds). Default is 2592000 (30 days)
+    ///
+    /// Set to 0 to disable caching
+    #[arg(long = "cache-ttl", value_name = "SECONDS", env = CACHE_TTL, help_heading = "OPTIONS")]
+    pub cache_ttl: Option<u64>,
+    #[command(flatten)]
+    pub verbose: Verbosity,
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+    #[arg(long, hide = true)]
+    pub markdown_help: bool,
+}
+/// Container struct for working with subcommand run functions
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(start_fn = init)]
+pub struct CommandOptions {
+    /// Path to file or folder to be used for input
+    pub path: Option<PathBuf>,
+    /// Git branch name
+    pub branch: Option<String>,
+    /// Git commit hash
+    pub commit: Option<String>,
+    /// Regex pattern of files to include at a given path desginated by `path`
+    pub filter: Option<String>,
+    /// Regex pattern of files to ignore at a given path desginated by `path`
+    pub ignore: Option<String>,
+    /// Path to file or folder to be used for output
+    pub output: Option<PathBuf>,
+    /// Runtime source selector for commands that process one selected input at a time
+    pub selector: Option<Source>,
+    /// Runtime source materialization action for commands that copy, symlink, or reference sources
+    pub action: Option<SourceAction>,
+    /// Path to the local database used for cache/history storage
+    pub database_path: Option<PathBuf>,
+    /// Path to reference file
+    ///
+    /// e.g. reference.pptx for exporting RAD to PowerPoint
+    pub reference: Option<PathBuf>,
+    /// Flag used to indicate if changed files should be obtained from a merge request
+    #[builder(default)]
+    pub merge_request: bool,
+    /// Flag used to indicate if ACORN is running in offline mode
+    #[builder(default)]
+    pub offline: bool,
+    /// Flag used to preview changes without writing files
+    #[builder(default)]
+    pub dry_run: bool,
+    /// Flag used to disable colored output
+    #[builder(default)]
+    pub no_color: bool,
+    /// Runtime output verbosity
+    #[builder(default)]
+    pub verbose: Verbosity,
+    /// Flag used to disable local database access
+    #[builder(default)]
+    pub no_local_database: bool,
+    /// Flag used to disable automatic GGUF quantization repository discovery
+    #[builder(default)]
+    pub no_fallback: bool,
+    /// Maximum number of repositories considered during GGUF fallback discovery
+    #[builder(default = 200)]
+    pub search_limit: usize,
+    /// Minimum number of downloads required for a GGUF fallback repository
+    #[builder(default = DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT)]
+    pub minimum_download_count: u64,
+    /// Flag used to select a GGUF fallback repository interactively
+    #[builder(default)]
+    pub interactive: bool,
+    /// Flag used to suppress output
+    #[builder(default)]
+    pub quiet: bool,
+    /// Flag used to skip checksum verification when supported by a command
+    #[builder(default)]
+    pub skip_verify_checksum: bool,
+    /// Flag used to indicate if offline mode is supported for the command
+    #[builder(default)]
+    pub supported: bool,
+    /// Number of threads used for parallel processing
+    #[builder(default = 10)]
+    pub threads: usize,
+}
+/// Runtime watch configuration.
+#[derive(Clone, Copy, Debug)]
+pub struct WatchOptions {
+    /// Watcher backend selection.
+    pub mode: WatchMode,
+    /// Filesystem and network polling interval.
+    pub poll_interval: SignedDuration,
+    /// Whether any watched source requires network polling.
+    pub network: bool,
 }
 /// Returns a vector of PathBuf from the given options
 ///

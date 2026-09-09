@@ -152,6 +152,7 @@ pub struct ToolCallContext {
 #[derive(Clone, Default)]
 pub struct ToolRegistry {
     tools: Vec<Tool<Registered>>,
+    mutation_available: bool,
 }
 #[derive(Clone)]
 struct Unregistered;
@@ -195,8 +196,8 @@ struct VersionOutput {
     version: String,
 }
 impl ApplyLogbookGraduationInput {
-    async fn apply(self) -> ApiResult<ApplyLogbookGraduationOutput> {
-        Database::<Table>::default()
+    async fn apply(self, database: Database<Table>) -> ApiResult<ApplyLogbookGraduationOutput> {
+        database
             .graduate_logbook(self.activity, &self.accepted_ids)
             .map(|persisted| ApplyLogbookGraduationOutput {
                 activity: persisted.activity,
@@ -259,6 +260,15 @@ impl ToolCallContext {
             max_output_bytes: 1024 * 1024,
         }
     }
+    /// MCP context with explicit mutation and structured-output policies.
+    pub fn mcp_with_policy(offline: bool, allow_mutation: bool, max_output_bytes: usize) -> Self {
+        Self {
+            exposure: ToolExposure { needle: false, mcp: true },
+            offline,
+            allow_mutation,
+            max_output_bytes,
+        }
+    }
 }
 impl fmt::Debug for ToolRegistry {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -268,6 +278,10 @@ impl fmt::Debug for ToolRegistry {
 impl ToolRegistry {
     /// Build the conservative built-in tool registry.
     pub fn acorn() -> ApiResult<Self> {
+        Self::with_database(None)
+    }
+    /// Build the built-in registry with an optional persistent research-activity store.
+    pub fn with_database(database: Option<Database<Table>>) -> ApiResult<Self> {
         let mut format_definition = ToolDefinition::new::<FormatAndEnrichInput, FormatAndEnrichOutput>(
             "acorn.format_and_enrich_research_activity_data",
             "Format and enrich research activity",
@@ -280,6 +294,8 @@ impl ToolRegistry {
             "Transactionally back up the research activity, copy accepted logbook values into canonical metadata, and archive the retained entries.",
         );
         apply_graduation_definition.effects.read_only = false;
+        apply_graduation_definition.effects.destructive = true;
+        let mutation_available = database.is_some();
         let registry = Self::default()
             .register(
                 ToolDefinition::new::<VersionInput, VersionOutput>(
@@ -343,7 +359,18 @@ impl ToolRegistry {
                     propose_logbook_graduation,
                 )
             })
-            .and_then(|registry| registry.register(apply_graduation_definition, ApplyLogbookGraduationInput::apply));
+            .and_then(|registry| {
+                let database = database.clone();
+                registry.register(apply_graduation_definition, move |input: ApplyLogbookGraduationInput| {
+                    let database = database.clone();
+                    async move {
+                        match database {
+                            | Some(database) => input.apply(database).await,
+                            | None => Err(eyre!("Tool 'acorn.apply_logbook_graduation' requires configured persistence")),
+                        }
+                    }
+                })
+            });
         #[cfg(feature = "analysis")]
         let registry = registry.and_then(|registry| {
             registry.register(
@@ -355,7 +382,12 @@ impl ToolRegistry {
                 crosswalk,
             )
         });
-        registry.and_then(|registry| registry.register(format_definition, format_and_enrich))
+        registry
+            .and_then(|registry| registry.register(format_definition, format_and_enrich))
+            .map(|registry| Self {
+                mutation_available,
+                ..registry
+            })
     }
     /// Register one definition and handler, rejecting invalid or duplicate names.
     pub fn register<I, O, F, Fut>(self, definition: ToolDefinition, handler: F) -> ApiResult<Self>
@@ -387,16 +419,26 @@ impl ToolRegistry {
             .and_then(|()| match self.tools.iter().any(|tool| tool.definition.name == definition.name) {
                 | true => Err(eyre!("Duplicate tool name '{}'", definition.name)),
                 | false => {
+                    let mutation_available = self.mutation_available;
                     let mut tools = self.tools;
                     tools.push(Tool::new(definition).register(Arc::new(typed_handler)));
                     tools.sort_by(|left, right| left.definition.name.cmp(&right.definition.name));
-                    Ok(Self { tools })
+                    Ok(Self { tools, mutation_available })
                 }
             })
     }
     /// Return definitions in deterministic name order.
     pub fn definitions(&self) -> Vec<ToolDefinition> {
-        self.tools.iter().map(|tool| tool.definition.clone()).collect()
+        self.filtered_definitions(|_| true)
+    }
+    /// Return definitions callable under the supplied runtime policy.
+    pub fn available_definitions(&self, context: ToolCallContext) -> Vec<ToolDefinition> {
+        let predicate = |definition: &ToolDefinition| {
+            let exposed = (context.exposure.needle && definition.exposure.needle) || (context.exposure.mcp && definition.exposure.mcp);
+            let mutation_allowed = definition.effects.read_only || (context.allow_mutation && self.mutation_available);
+            exposed && mutation_allowed && !(context.offline && definition.effects.open_world)
+        };
+        self.filtered_definitions(predicate)
     }
     /// Return the deterministic Needle-native catalog.
     pub fn needle_tools(&self) -> Vec<NeedleToolDefinition> {
@@ -425,7 +467,7 @@ impl ToolRegistry {
         match self.tools.iter().find(|tool| tool.definition.name == name) {
             | Some(tool) => {
                 let exposed = (context.exposure.needle && tool.definition.exposure.needle) || (context.exposure.mcp && tool.definition.exposure.mcp);
-                let mutation_allowed = tool.definition.effects.read_only || context.allow_mutation;
+                let mutation_allowed = tool.definition.effects.read_only || (context.allow_mutation && self.mutation_available);
                 let offline_violation = tool.definition.effects.open_world && context.offline;
                 match (exposed, mutation_allowed, offline_violation, arguments) {
                     | (false, _, _, _) => Err(eyre!("Tool '{name}' is not exposed through this interface")),
@@ -445,6 +487,14 @@ impl ToolRegistry {
             }
             | None => Err(eyre!("Unknown tool '{name}'")),
         }
+    }
+    fn filtered_definitions(&self, predicate: impl Fn(&ToolDefinition) -> bool) -> Vec<ToolDefinition> {
+        self.tools
+            .iter()
+            .map(|tool| &tool.definition)
+            .filter(|definition| predicate(definition))
+            .cloned()
+            .collect()
     }
 }
 impl UpdatesExportInput {

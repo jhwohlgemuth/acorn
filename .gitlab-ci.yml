@@ -279,6 +279,33 @@ build-release:
     paths:
       - bin/
 
+validate-mcpb:
+  stage: build
+  image: savannah.ornl.gov/research-enablement/acorn/rust:latest
+  tags:
+    - cpu
+  inherit:
+    variables: true
+  needs:
+    - job: build-release
+      artifacts: true
+  script:
+    - make release-checksums
+    - make mcpb
+    - npx --yes @anthropic-ai/mcpb@2.1.2 unpack "bin/acorn-v${PKG_VERSION}-${DEFAULT_TARGET}.mcpb" target/mcpb-linux
+    - npx --yes @anthropic-ai/mcpb@2.1.2 validate target/mcpb-linux/manifest.json
+    - npx --yes @anthropic-ai/mcpb@2.1.2 unpack "bin/acorn-v${PKG_VERSION}-${DEFAULT_WINDOWS_TARGET}.mcpb" target/mcpb-windows
+    - npx --yes @anthropic-ai/mcpb@2.1.2 validate target/mcpb-windows/manifest.json
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - Cargo.toml
+  artifacts:
+    paths:
+      - bin/
+
 publish-release:
   stage: release
   image: registry.gitlab.com/gitlab-org/cli@sha256:a1bc1b35decb0ceededbb22bb9a8c07eddc1279ab6e9342b32bc42e20333aa7a
@@ -292,7 +319,7 @@ publish-release:
   needs:
     - job: prepare-environment
       artifacts: true
-    - job: build-release
+    - job: validate-mcpb
   script:
     - echo "Publishing ${BINARY_NAME} v${PKG_VERSION}"
   rules:
@@ -311,6 +338,14 @@ publish-release:
           url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}"
         - name: "${BINARY_NAME} v${PKG_VERSION} (Windows)"
           url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.exe"
+        - name: "${BINARY_NAME} MCPB v${PKG_VERSION} (Linux)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb"
+        - name: "${BINARY_NAME} MCPB v${PKG_VERSION} (Linux SHA-256)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb.sha256"
+        - name: "${BINARY_NAME} MCPB v${PKG_VERSION} (Windows)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb"
+        - name: "${BINARY_NAME} MCPB v${PKG_VERSION} (Windows SHA-256)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_WINDOWS_TARGET}/v${PKG_VERSION}/${BINARY_NAME}.mcpb.sha256"
 
 upload-binaries:
   stage: release
@@ -325,7 +360,7 @@ upload-binaries:
   needs:
     - job: prepare-environment
       artifacts: true
-    - job: build-release
+    - job: validate-mcpb
       artifacts: true
     - job: publish-release
   rules:

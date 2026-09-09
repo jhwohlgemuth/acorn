@@ -4,7 +4,7 @@
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
 use acorn::io::ApiResult;
-use acorn::io::{Executor, Remote};
+use acorn::io::{Executor, Platform, Remote};
 use acorn_core::util::MimeType;
 use acorn_schema::enrichment::Provider;
 use color_eyre::eyre::eyre;
@@ -93,6 +93,16 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
              docker, apptainer, kubernetes, podman, sandbox, shell, ssh, \
              virtual-machine, other"
         )),
+    }
+}
+/// Parse an MCP Bundle target platform, including the 64-bit Windows target.
+pub(crate) fn parse_mcpb_platform(value: &str) -> Result<Platform, String> {
+    match value {
+        | "darwin" => Ok(Platform::Darwin),
+        | "linux" => Ok(Platform::Linux),
+        | "win32" => Ok(Platform::Win32),
+        | "win64" => Ok(Platform::Win64),
+        | _ => Err(format!("unsupported MCPB platform '{value}'; expected darwin, linux, win32, or win64")),
     }
 }
 /// Parse a CLI readability metric name into a `ReadabilityType` variant.

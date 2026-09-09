@@ -1,9 +1,102 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
+use crate::io::mcp::bundle::{BundleOptions, BundlePlan, BundleReport, Manifest};
+use crate::io::{DeterministicZipEntry, Platform};
 use acorn_schema::agent::tools::ToolExposure;
 use acorn_schema::research_activity::ResearchActivity;
 use serde_json::{json, Value};
+use std::fs::{read, write, File};
+use std::path::Path;
+use tempfile::tempdir;
+use zip::ZipArchive;
 
+fn bundle_options(root: &Path, output: &str) -> BundleOptions {
+    let binary = root.join("acorn");
+    write(&binary, b"test executable").expect("write binary");
+    BundleOptions {
+        output: root.join(output),
+        binary,
+        platform: Platform::Linux,
+        overwrite: false,
+    }
+}
+
+#[test]
+fn test_bundle_failure_removes_only_temporary_output() {
+    let root = tempdir().expect("temporary directory");
+    let registry = ToolRegistry::acorn().expect("registry");
+    let mut plan = BundlePlan::new(&bundle_options(root.path(), "failed.mcpb"), &registry).expect("plan");
+    plan.manifest.server.entry_point = "server/missing".to_string();
+    assert!(BundleReport::try_from(plan).is_err());
+    assert!(!root.path().join("failed.mcpb").exists());
+    assert!(!root.path().join(".failed.mcpb.acorn-tmp").exists());
+}
+#[test]
+fn test_bundle_is_deterministic_and_structurally_valid() {
+    let root = tempdir().expect("temporary directory");
+    let registry = ToolRegistry::acorn().expect("registry");
+    let first =
+        BundleReport::try_from(BundlePlan::new(&bundle_options(root.path(), "first.mcpb"), &registry).expect("first plan")).expect("first bundle");
+    let second =
+        BundleReport::try_from(BundlePlan::new(&bundle_options(root.path(), "second.mcpb"), &registry).expect("second plan")).expect("second bundle");
+    assert_eq!(read(&first.output).expect("first bytes"), read(&second.output).expect("second bytes"));
+    assert_eq!(first.sha256, second.sha256);
+    assert_eq!(Manifest::inspect(&first.output).expect("manifest"), first.manifest);
+    assert_eq!(first.manifest.manifest_version, "0.3");
+    let golden: Manifest =
+        serde_json::from_str(include_str!("../../../../../../tests/fixtures/mcpb/manifest-v0.3.json")).expect("golden MCPB manifest");
+    assert_eq!(first.manifest, golden);
+    assert!(!first.manifest.tools.iter().any(|tool| tool.name == "acorn.apply_logbook_graduation"));
+    let direct = Server::acorn()
+        .expect("server")
+        .tools()
+        .expect("direct tools")
+        .into_iter()
+        .map(|tool| tool.name.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(first.manifest.tools.iter().map(|tool| tool.name.clone()).collect::<Vec<_>>(), direct);
+    let file = File::open(&first.output).expect("open bundle");
+    let mut archive = ZipArchive::new(file).expect("ZIP archive");
+    assert_eq!(archive.by_name("manifest.json").expect("manifest entry").unix_mode(), Some(0o100644));
+    assert_eq!(archive.by_name("server/acorn").expect("binary entry").unix_mode(), Some(0o100755));
+}
+#[test]
+fn test_bundle_rejects_existing_output_and_windows_suffix_mismatch() {
+    let root = tempdir().expect("temporary directory");
+    let registry = ToolRegistry::acorn().expect("registry");
+    let options = bundle_options(root.path(), "acorn.mcpb");
+    BundleReport::try_from(BundlePlan::new(&options, &registry).expect("plan")).expect("bundle");
+    let why = BundlePlan::new(&options, &registry).expect_err("existing output must be rejected");
+    assert_eq!(why.to_string(), "MCPB output already exists; pass --clobber to replace it");
+    let replacement = BundleReport::try_from(
+        BundlePlan::new(
+            &BundleOptions {
+                overwrite: true,
+                ..options.clone()
+            },
+            &registry,
+        )
+        .expect("replacement plan"),
+    )
+    .expect("replace bundle");
+    assert_eq!(replacement.output, options.output);
+    assert!(DeterministicZipEntry::from_bytes("../manifest.json", Vec::new(), 0o644).is_err());
+    let duplicate = [
+        DeterministicZipEntry::from_bytes("manifest.json", Vec::new(), 0o644).expect("first entry"),
+        DeterministicZipEntry::from_bytes("manifest.json", Vec::new(), 0o644).expect("second entry"),
+    ];
+    assert!(DeterministicZipEntry::create(&root.path().join("duplicate.zip"), &duplicate).is_err());
+    let link_mode = [DeterministicZipEntry::from_bytes("link", Vec::new(), 0o120777).expect("entry")];
+    assert!(DeterministicZipEntry::create(&root.path().join("link.zip"), &link_mode).is_err());
+    assert!(BundlePlan::new(
+        &BundleOptions {
+            platform: Platform::Win32,
+            ..options
+        },
+        &registry
+    )
+    .is_err());
+}
 #[test]
 fn test_catalog_is_deterministic_and_shared() {
     let registry = ToolRegistry::acorn().expect("registry");
@@ -109,11 +202,7 @@ fn test_mcp_catalog_uses_the_canonical_registry() {
     let server = Server::acorn().expect("server");
     let tools = server.tools().expect("MCP tools");
     let registry = ToolRegistry::acorn().expect("registry");
-    let definitions = registry
-        .definitions()
-        .into_iter()
-        .filter(|definition| definition.exposure.mcp)
-        .collect::<Vec<_>>();
+    let definitions = registry.available_definitions(ToolCallContext::mcp(false));
     assert_eq!(tools.len(), definitions.len());
     tools.iter().zip(definitions).for_each(|(tool, definition)| {
         assert_eq!(tool.name, definition.name);
@@ -138,8 +227,37 @@ async fn test_mcp_invocation_dispatches_through_the_shared_handler() {
     assert_eq!(server.invoke("acorn.version", invalid).await.is_error, Some(true));
 }
 #[tokio::test]
+async fn test_mutation_catalog_and_handler_use_injected_database() {
+    let root = tempdir().expect("temporary database directory");
+    let path = root.path().join("selected.db");
+    let registry = ToolRegistry::with_database(Some(Database::<Table>::from_path(Some(path.clone())))).expect("registry");
+    let context = ToolCallContext::mcp_with_policy(false, true, 1024 * 1024);
+    assert!(registry
+        .available_definitions(context)
+        .iter()
+        .any(|definition| definition.name == "acorn.apply_logbook_graduation"));
+    registry
+        .call_with_context(
+            "acorn.apply_logbook_graduation",
+            json!({"activity": ResearchActivity::default(), "acceptedIds": []}),
+            context,
+        )
+        .await
+        .expect("persistent mutation");
+    assert!(path.is_file());
+}
+#[tokio::test]
 async fn test_network_enrichment_is_rejected_offline() {
     let registry = ToolRegistry::acorn().expect("registry");
+    let online = registry.available_definitions(ToolCallContext::mcp(false));
+    let offline = registry.available_definitions(ToolCallContext::mcp(true));
+    assert!(online
+        .iter()
+        .any(|definition| definition.name == "acorn.format_and_enrich_research_activity_data"));
+    assert!(!online.iter().any(|definition| definition.name == "acorn.apply_logbook_graduation"));
+    assert!(!offline
+        .iter()
+        .any(|definition| definition.name == "acorn.format_and_enrich_research_activity_data"));
     let result = registry
         .call_with_context(
             "acorn.format_and_enrich_research_activity_data",
@@ -173,4 +291,23 @@ async fn test_typed_validation_rejects_incomplete_input() {
         )
         .await;
     assert!(result.is_err());
+}
+#[test]
+fn test_win64_bundle_uses_the_mcpb_windows_compatibility_identifier() {
+    let root = tempdir().expect("temporary directory");
+    let binary = root.path().join("acorn.exe");
+    write(&binary, b"test executable").expect("write binary");
+    let registry = ToolRegistry::acorn().expect("registry");
+    let plan = BundlePlan::new(
+        &BundleOptions {
+            output: root.path().join("acorn-win64.mcpb"),
+            binary,
+            platform: Platform::Win64,
+            overwrite: false,
+        },
+        &registry,
+    )
+    .expect("64-bit Windows plan");
+    assert_eq!(plan.manifest.compatibility.platforms, vec![Platform::Win32]);
+    assert_eq!(plan.manifest.server.entry_point, "server/acorn.exe");
 }

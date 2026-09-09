@@ -7,6 +7,14 @@
 
 `acorn sync` resolves model entries to GGUF files in the local models directory. With no target flags, it includes every application whose command is available: `llama-swap`, `opencode`, `code`, and `goose`. App-specific flags form an inclusion set, so `--opencode --vscode` includes both OpenCode and VS Code. Every included target must have its command available unless it was explicitly included alongside `--force`; `--force` without app-specific flags does not bypass command detection. Use `--assume-models` separately to skip model filesystem verification.
 
+Pass `--mcp` to configure the absolute running ACORN executable as a local stdio server in OpenCode, VS Code, or Goose. MCP-only synchronization needs neither models nor a database. It preserves unrelated configuration, supports `--dry-run`, and removes only the `acorn` MCP entry with `--prune`. `--mcp --llama-swap` is rejected because llama-swap is a model router.
+
+```sh
+acorn --no-local-database sync --mcp --opencode --force
+acorn --no-local-database sync --mcp --vscode --force --dry-run
+acorn --no-local-database sync --mcp --goose --force --prune
+```
+
 <div style="height: 3rem" aria-hidden="true"></div>
 
 ```pikchr
@@ -43,6 +51,8 @@ text "unresolved" color 0x00662C at Resolve+(0.38in,-0.56in)
 <div style="height: 3rem" aria-hidden="true"></div>
 
 Unless overridden, llama-swap configuration is written to `~/.config/llama-swap/config.yaml`. OpenCode uses an existing project or user `opencode.jsonc`/`opencode.json` configuration when available and otherwise writes `~/.config/opencode/opencode.jsonc`. VS Code writes `Code/User/chatLanguageModels.json` beneath the platform configuration directory. Goose writes `~/.config/goose/config.yaml` on macOS/Linux or `%APPDATA%\Block\goose\config\config.yaml` on Windows. Override those paths with `--vscode-config` and `--goose-config`.
+
+MCP synchronization writes OpenCode's `mcp.acorn` entry in the same JSONC document, workspace `.vscode/mcp.json` for VS Code (override with `--vscode-mcp-config`), and `extensions.acorn` in Goose YAML.
 
 VS Code receives a `customendpoint` provider using the Chat Completions API. Goose receives an active `openai` provider and the `OPENAI_HOST` and `OPENAI_BASE_PATH` settings; because Goose selects one active model, `config.goose.defaultModel` chooses it and otherwise the first synchronized model is used. Existing unrelated providers and settings are preserved. See the [VS Code custom endpoint reference](https://code.visualstudio.com/docs/agent-customization/language-models#_add-a-custom-endpoint-model) and [Goose configuration guide](https://goose-docs.ai/docs/guides/config-files/).
 

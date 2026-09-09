@@ -11,3 +11,5 @@ graph LR
 ```
 
 Use [`acorn-schema`](acorn-schema.md) when an application only needs the data model, validation, or persistent identifiers. Use [`acorn-lib`](acorn-lib.md) for filesystem and network I/O, analysis, persistence, model APIs, or artifact generation.
+
+Use an [ACORN MCP Bundle](mcpb.md) to install the target-specific CLI and its static, read-only MCP tool declaration as one validated archive.

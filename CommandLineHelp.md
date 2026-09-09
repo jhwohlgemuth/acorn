@@ -228,7 +228,18 @@ Create research resources like GitLab runners, MCP servers, etc.
 
 Model context provider (MCP) server
 
-**Usage:** `acorn-cli create mcp`
+**Usage:** `acorn-cli create mcp [OPTIONS]`
+
+###### **Options:**
+
+* `--output <PATH>` — MCPB destination
+
+  Default value: `acorn.mcpb`
+* `--binary <PATH>` — Executable to package; defaults to the running ACORN executable
+* `--platform <PLATFORM>` — Target platform; required when packaging another executable
+* `--kitfile <PATH>` — Authoring Kitfile to update after creating the bundle
+* `--clobber` — Replace an existing regular bundle
+* `--dry-run` [alias: `what-if`] — Validate and print the plan without writing files
 
 
 
@@ -1079,7 +1090,11 @@ Webhook/API bot server that polls GitLab for merge request note events
 
 Model context protocol (MCP) server
 
-**Usage:** `acorn-cli serve mcp`
+**Usage:** `acorn-cli serve mcp [OPTIONS]`
+
+###### **Options:**
+
+* `--allow-mutation` — Enable persistent mutating tools
 
 
 
@@ -1120,10 +1135,12 @@ Synchronize local inference configuration from ACORN model entries
 * `--llama-swap` — Include llama-swap configuration synchronization
 * `--vscode` — Include VS Code custom endpoint configuration synchronization
 * `--goose` — Include Goose CLI configuration synchronization
+* `--mcp` — Configure the ACORN MCP server in selected compatible clients
 * `--models-dir <PATH>` — Default directory where downloaded model weights live (overrides config)
 * `--opencode-config <PATH>` — Path to OpenCode configuration file (overrides config)
 * `--llama-swap-config <PATH>` — Path to llama-swap configuration file (overrides config)
 * `--vscode-config <PATH>` — Path to VS Code `chatLanguageModels.json` (overrides config)
+* `--vscode-mcp-config <PATH>` — Path to VS Code workspace `mcp.json` (overrides default)
 * `--goose-config <PATH>` — Path to Goose CLI `config.yaml` (overrides config)
 * `--dry-run` [alias: `what-if`] — Preview changes without writing any files
 * `--no-color` — Disable color in dry-run output

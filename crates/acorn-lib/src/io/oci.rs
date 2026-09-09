@@ -1,12 +1,13 @@
 //! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
 use crate::args;
+use crate::io::adapter::KitfileExt;
 use crate::io::api;
 use crate::io::config::RegistryProfile;
 use crate::io::gguf;
 use crate::io::{extract, file_checksum, move_file, retry, walk, ApiResult, FromCommand, PathExt, SafePath};
 use crate::util::cmd::{redact, run_output, run_output_with_stdin};
 use crate::util::constants::oci::{
-    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MODEL_GZIP,
+    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP,
     KITOPS_MODELKIT_MODEL_PART_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CODE_RAW, MODELPACK_CODE_TAR, MODELPACK_CODE_TAR_GZIP, MODELPACK_CODE_TAR_ZSTD,
     MODELPACK_CONFIG, MODELPACK_DATASET_RAW, MODELPACK_DATASET_TAR, MODELPACK_DATASET_TAR_GZIP, MODELPACK_DATASET_TAR_ZSTD, MODELPACK_DOC_RAW,
     MODELPACK_DOC_TAR, MODELPACK_DOC_TAR_GZIP, MODELPACK_DOC_TAR_ZSTD, MODELPACK_MANIFEST, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR,
@@ -35,9 +36,6 @@ use std::fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, ren
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-pub(crate) trait KitfileExt {
-    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)>;
-}
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {
     /// Resolve and validate an artifact manifest without materializing files.
@@ -95,10 +93,11 @@ struct Index {
     #[validate(nested)]
     manifests: Vec<Descriptor>,
 }
+/// OCI image manifest used to resolve artifact content through [`crate::io::adapter::KitfileExt`].
 #[derive(Clone, Debug, Deserialize, Validate)]
 #[validate(schema(function = "Manifest::is_valid", skip_on_field_errors = false))]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Manifest {
+pub struct Manifest {
     pub(crate) schema_version: u64,
     #[serde(default = "default_manifest_media_type")]
     pub(crate) media_type: String,
@@ -163,11 +162,12 @@ pub struct OciLayer {
     /// Whether the final logical inventory is unknown until extraction.
     pub inventory_deferred: bool,
 }
+/// Resolved OCI layers and files selected from an artifact manifest.
 #[derive(Clone, Debug, Default)]
-struct OciPlan {
-    layers: Vec<OciLayer>,
-    ignored_layers: Vec<OciLayer>,
-    files: OciFiles,
+pub struct OciPlan {
+    pub(crate) layers: Vec<OciLayer>,
+    pub(crate) ignored_layers: Vec<OciLayer>,
+    pub(crate) files: OciFiles,
 }
 /// A validated, explicit OCI artifact reference
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Validate)]
@@ -242,16 +242,6 @@ pub struct OciTransportOptions {
 pub struct OrasTransport {
     pub(crate) binary: PathBuf,
     pub(crate) options: OciTransportOptions,
-}
-impl From<OciExtraction> for &'static str {
-    fn from(value: OciExtraction) -> Self {
-        match value {
-            | OciExtraction::None => "none",
-            | OciExtraction::Tar => "tar",
-            | OciExtraction::TarGzip => "tar_gzip",
-            | OciExtraction::TarZstd => "tar_zstd",
-        }
-    }
 }
 impl ArtifactKind {
     fn validate(self, manifest: &Manifest) -> ApiResult<Self> {
@@ -348,6 +338,16 @@ impl Descriptor {
         }
     }
 }
+impl From<OciExtraction> for &'static str {
+    fn from(value: OciExtraction) -> Self {
+        match value {
+            | OciExtraction::None => "none",
+            | OciExtraction::Tar => "tar",
+            | OciExtraction::TarGzip => "tar_gzip",
+            | OciExtraction::TarZstd => "tar_zstd",
+        }
+    }
+}
 impl Index {
     fn is_valid(index: &Self, _context: &()) -> Result<(), ValidationReport> {
         let unsupported_mime_type = index.schema_version == 2 && matches!(index.media_type.as_str(), OCI_IMAGE_INDEX | DOCKER_MANIFEST_LIST);
@@ -361,78 +361,6 @@ impl Index {
                 .into_report("")),
             | _ => Ok(()),
         }
-    }
-}
-impl KitfileExt for Kitfile {
-    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
-        self.model
-            .as_ref()
-            .ok_or_else(|| eyre!("KitOps ModelKit is valid but does not contain a model for this command"))
-            .and_then(|model| match Location::from(&model.path) {
-                | location if location.is_oci_reference() => Err(eyre!("Nested ModelKit model references are not supported by download model")),
-                | _ if model.path.is_empty() => Err(eyre!("KitOps ModelKit does not declare a primary model path")),
-                | _ if SafePath::new(&model.path).is_err() => Err(eyre!("Unsafe KitOps ModelKit model path '{}'", model.path)),
-                | _ if !Path::new(&model.path).is_gguf() => Err(eyre!(
-                    "OCI model downloads support GGUF payloads; unsupported KitOps ModelKit file '{}'",
-                    model.path
-                )),
-                | _ => {
-                    let primary = ModelKitDeclaredFile {
-                        path: model.path.clone(),
-                        digest: model.layer.digest.clone(),
-                        media_type: KITOPS_MODELKIT_MODEL_GZIP,
-                    };
-                    model
-                        .parts
-                        .iter()
-                        .filter(|part| Path::new(&part.path).is_gguf())
-                        .try_fold(vec![primary], |mut files, part| match SafePath::new(&part.path).is_ok() {
-                            | false => Err(eyre!("Unsafe KitOps ModelKit model-part path '{}'", part.path)),
-                            | true => {
-                                files.push(ModelKitDeclaredFile {
-                                    path: part.path.clone(),
-                                    digest: part.layer.digest.clone(),
-                                    media_type: KITOPS_MODELKIT_MODEL_PART_GZIP,
-                                });
-                                Ok(files)
-                            }
-                        })
-                }
-            })
-            .and_then(|declared| {
-                declared
-                    .into_iter()
-                    .try_fold((HashSet::new(), Vec::new()), |(mut used, mut selected), file| {
-                        manifest.resolve_modelkit_descriptor(&file, &used).and_then(|descriptor| {
-                            descriptor
-                                .validate()
-                                .map_err(|why| eyre!("Invalid KitOps ModelKit model layer — {why}"))
-                                .map(|()| {
-                                    used.insert(descriptor.digest.clone());
-                                    let layer = OciLayer::init()
-                                        .media_type(descriptor.media_type.clone())
-                                        .digest(descriptor.digest.clone())
-                                        .transfer_size(descriptor.size)
-                                        .role(ModelLayerRole::Model)
-                                        .path(file.path.clone())
-                                        .extraction(OciExtraction::TarGzip)
-                                        .inventory_deferred(true)
-                                        .build();
-                                    let known = OciFile::init()
-                                        .media_type(descriptor.media_type.clone())
-                                        .digest(descriptor.digest.clone())
-                                        .size(descriptor.size)
-                                        .path(file.path)
-                                        .layer_digest(descriptor.digest.clone())
-                                        .role(ModelLayerRole::Model)
-                                        .build();
-                                    selected.push((layer, known));
-                                    (used, selected)
-                                })
-                        })
-                    })
-                    .map(|(_, selected)| selected.into_iter().unzip())
-            })
     }
 }
 impl Manifest {
@@ -643,6 +571,109 @@ impl From<(Vec<OciLayer>, Vec<OciFile>)> for OciPlan {
     }
 }
 impl OciPlan {
+    pub(crate) fn from_kitfile(kitfile: &Kitfile, manifest: &Manifest) -> ApiResult<Self> {
+        kitfile
+            .model
+            .as_ref()
+            .ok_or_else(|| eyre!("KitOps ModelKit is valid but does not contain a model for this command"))
+            .and_then(|model| match Location::from(&model.path) {
+                | location if location.is_oci_reference() => Err(eyre!("Nested ModelKit model references are not supported by download model")),
+                | _ if model.path.is_empty() => Err(eyre!("KitOps ModelKit does not declare a primary model path")),
+                | _ if SafePath::new(&model.path).is_err() => Err(eyre!("Unsafe KitOps ModelKit model path '{}'", model.path)),
+                | _ if !Path::new(&model.path).is_gguf() => Err(eyre!(
+                    "OCI model downloads support GGUF payloads; unsupported KitOps ModelKit file '{}'",
+                    model.path
+                )),
+                | _ => {
+                    let primary = ModelKitDeclaredFile {
+                        path: model.path.clone(),
+                        digest: model.layer.digest.clone(),
+                        media_type: KITOPS_MODELKIT_MODEL_GZIP,
+                    };
+                    model
+                        .parts
+                        .iter()
+                        .filter(|part| Path::new(&part.path).is_gguf())
+                        .try_fold(vec![primary], |mut files, part| match SafePath::new(&part.path).is_ok() {
+                            | false => Err(eyre!("Unsafe KitOps ModelKit model-part path '{}'", part.path)),
+                            | true => {
+                                files.push(ModelKitDeclaredFile {
+                                    path: part.path.clone(),
+                                    digest: part.layer.digest.clone(),
+                                    media_type: KITOPS_MODELKIT_MODEL_PART_GZIP,
+                                });
+                                Ok(files)
+                            }
+                        })
+                }
+            })
+            .and_then(|declared| {
+                declared
+                    .into_iter()
+                    .try_fold((HashSet::new(), Vec::new()), |(mut used, mut selected), file| {
+                        manifest.resolve_modelkit_descriptor(&file, &used).and_then(|descriptor| {
+                            descriptor
+                                .validate()
+                                .map_err(|why| eyre!("Invalid KitOps ModelKit model layer — {why}"))
+                                .map(|()| {
+                                    used.insert(descriptor.digest.clone());
+                                    let layer = OciLayer::init()
+                                        .media_type(descriptor.media_type.clone())
+                                        .digest(descriptor.digest.clone())
+                                        .transfer_size(descriptor.size)
+                                        .role(ModelLayerRole::Model)
+                                        .path(file.path.clone())
+                                        .extraction(OciExtraction::TarGzip)
+                                        .inventory_deferred(true)
+                                        .build();
+                                    let known = OciFile::init()
+                                        .media_type(descriptor.media_type.clone())
+                                        .digest(descriptor.digest.clone())
+                                        .size(descriptor.size)
+                                        .path(file.path)
+                                        .layer_digest(descriptor.digest.clone())
+                                        .role(ModelLayerRole::Model)
+                                        .build();
+                                    selected.push((layer, known));
+                                    (used, selected)
+                                })
+                        })
+                    })
+                    .map(|(_, selected)| selected.into_iter().unzip())
+            })
+            .and_then(|(layers, files): (Vec<OciLayer>, Vec<OciFile>)| {
+                let used = layers.iter().map(|layer| layer.digest.clone()).collect::<HashSet<_>>();
+                kitfile
+                    .mcp_servers
+                    .iter()
+                    .try_fold(Vec::new(), |mut ignored, server| {
+                        let declared = ModelKitDeclaredFile {
+                            path: server.path.clone(),
+                            digest: server.layer.digest.clone(),
+                            media_type: KITOPS_MODELKIT_MCPB_RAW,
+                        };
+                        manifest.resolve_modelkit_descriptor(&declared, &used).map(|descriptor| {
+                            ignored.push(
+                                OciLayer::init()
+                                    .media_type(descriptor.media_type.clone())
+                                    .digest(descriptor.digest.clone())
+                                    .transfer_size(descriptor.size)
+                                    .role(ModelLayerRole::McpBundle)
+                                    .path(server.path.clone())
+                                    .extraction(OciExtraction::None)
+                                    .inventory_deferred(false)
+                                    .build(),
+                            );
+                            ignored
+                        })
+                    })
+                    .map(|ignored_layers| Self {
+                        layers,
+                        ignored_layers,
+                        files: OciFiles(files),
+                    })
+            })
+    }
     fn validate(self) -> ApiResult<Self> {
         let conflicting_digest = self.layers.iter().enumerate().find_map(|(index, layer)| {
             self.layers
@@ -1027,7 +1058,7 @@ impl OrasTransport {
             }
         })
     }
-    fn modelkit_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<(Vec<OciLayer>, Vec<OciFile>)> {
+    fn modelkit_content(&self, reference: &OciReference, manifest: &Manifest) -> ApiResult<OciPlan> {
         let config_reference = reference.with_digest(&manifest.config.digest).trim_start_matches(OCI_PREFIX).to_string();
         self.invoke_bytes(args!["blob", "fetch", "--output", "-", config_reference])
             .and_then(|content| manifest.config.validate_blob(&content).map(|()| content))
@@ -1127,7 +1158,7 @@ impl OrasTransport {
     fn content(&self, reference: &OciReference, manifest: &Manifest, kind: ArtifactKind) -> ApiResult<OciPlan> {
         match kind {
             | ArtifactKind::ModelPack => self.modelpack_content(reference, manifest),
-            | ArtifactKind::ModelKit => self.modelkit_content(reference, manifest).map(OciPlan::from),
+            | ArtifactKind::ModelKit => self.modelkit_content(reference, manifest),
             | ArtifactKind::Annotated => self.annotated_content(manifest).map(OciPlan::from),
             | ArtifactKind::RunnableImage => Err(eyre!("OCI reference identifies a runnable container image")),
             | ArtifactKind::InvalidModelPack | ArtifactKind::Unsupported => Err(eyre!("OCI artifact classification was not validated")),
@@ -1314,6 +1345,7 @@ fn default_manifest_media_type() -> String {
 }
 pub(crate) fn modelpack_layer_type(media_type: &str) -> Option<(ModelLayerRole, OciExtraction, bool)> {
     let value = match media_type {
+        | KITOPS_MODELKIT_MCPB_RAW => (ModelLayerRole::McpBundle, OciExtraction::None, false),
         | MODELPACK_WEIGHT_RAW => (ModelLayerRole::ModelWeight, OciExtraction::None, true),
         | MODELPACK_WEIGHT_TAR => (ModelLayerRole::ModelWeight, OciExtraction::Tar, true),
         | MODELPACK_WEIGHT_TAR_GZIP => (ModelLayerRole::ModelWeight, OciExtraction::TarGzip, true),

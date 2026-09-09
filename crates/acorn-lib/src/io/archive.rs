@@ -3,7 +3,8 @@ use crate::io::{files_all, standard_project_folder, ApiResult, SafePath};
 use crate::util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES};
 use acorn_core::prelude::Component;
 use acorn_core::util::MimeType;
-use color_eyre::Report;
+use alloc::collections::BTreeSet;
+use color_eyre::{eyre::eyre, Report};
 use core::fmt;
 use core::iter::once;
 use flate2::read::GzDecoder;
@@ -77,9 +78,24 @@ enum ArchiveError {
     UnsupportedTarEntry,
     ZipLink(PathBuf),
 }
+/// Source content for one deterministic ZIP entry.
+#[derive(Clone, Debug)]
+pub enum ZipEntrySource {
+    /// In-memory entry content.
+    Bytes(Vec<u8>),
+    /// Regular file entry content.
+    File(PathBuf),
+}
 /// A local path that may be created as or extracted from an archive.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArchiveCandidate(PathBuf);
+/// One validated entry in a deterministic ZIP archive.
+#[derive(Clone, Debug)]
+pub struct DeterministicZipEntry {
+    destination: SafePath,
+    mode: u32,
+    source: ZipEntrySource,
+}
 impl ArchiveCandidate {
     /// Creates an archive using the selected MIME type.
     pub fn archive(self, destination: Option<PathBuf>, mime_type: MimeType) -> ApiResult<PathBuf> {
@@ -407,6 +423,70 @@ impl fmt::Display for ArchiveError {
             | Self::UnsupportedTarEntry => write!(formatter, "Unsupported TAR entry"),
             | Self::ZipLink(path) => write!(formatter, "ZIP links are not supported: {}", path.display()),
         }
+    }
+}
+impl DeterministicZipEntry {
+    /// Create a deterministic ZIP with fixed metadata and explicit safe entry names.
+    pub fn create(path: &Path, entries: &[Self]) -> ApiResult<PathBuf> {
+        let unique = entries.iter().map(|entry| entry.destination.as_path()).collect::<BTreeSet<_>>();
+        match (unique.len() == entries.len(), entries.iter().all(|entry| entry.mode & !0o777 == 0)) {
+            | (false, _) => Err(eyre!("Deterministic ZIP contains duplicate entry names")),
+            | (_, false) => Err(eyre!("Deterministic ZIP entry mode must contain permission bits only")),
+            | (true, true) => {
+                let mut entries = entries.iter().collect::<Vec<_>>();
+                entries.sort_by(|left, right| left.destination.cmp(&right.destination));
+                OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)
+                    .map_err(Report::from)
+                    .and_then(|file| entries.into_iter().try_fold(ZipWriter::new(file), |archive, entry| entry.write(archive)))
+                    .and_then(|archive| archive.finish().map_err(Report::from))
+                    .map(|_| path.to_path_buf())
+            }
+        }
+    }
+    /// Create an entry from in-memory content.
+    pub fn from_bytes(destination: impl Into<PathBuf>, content: Vec<u8>, mode: u32) -> ApiResult<Self> {
+        SafePath::new(destination.into())
+            .map(|destination| Self {
+                destination,
+                mode,
+                source: ZipEntrySource::Bytes(content),
+            })
+            .map_err(Into::into)
+    }
+    /// Create an entry from a regular file.
+    pub fn from_file(destination: impl Into<PathBuf>, source: PathBuf, mode: u32) -> ApiResult<Self> {
+        source
+            .symlink_metadata()
+            .map_err(Into::into)
+            .and_then(|metadata| match metadata.file_type().is_symlink() || !metadata.is_file() {
+                | true => Err(eyre!("ZIP entry source must be a regular file: {}", source.display())),
+                | false => SafePath::new(destination.into())
+                    .map(|destination| Self {
+                        destination,
+                        mode,
+                        source: ZipEntrySource::File(source),
+                    })
+                    .map_err(Into::into),
+            })
+    }
+    fn write(&self, mut archive: ZipWriter<File>) -> ApiResult<ZipWriter<File>> {
+        let options = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .last_modified_time(zip::DateTime::default())
+            .unix_permissions(self.mode);
+        archive
+            .start_file_from_path(self.destination.as_path(), options)
+            .map_err(Report::from)
+            .and_then(|()| match &self.source {
+                | ZipEntrySource::Bytes(content) => archive.write_all(content).map(|()| archive).map_err(Report::from),
+                | ZipEntrySource::File(path) => File::open(path)
+                    .map_err(Report::from)
+                    .and_then(|mut file| io::copy(&mut file, &mut archive).map_err(Report::from))
+                    .map(|_| archive),
+            })
     }
 }
 impl ArchiveFormat for MimeType {

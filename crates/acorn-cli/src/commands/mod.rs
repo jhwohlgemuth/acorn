@@ -12,10 +12,11 @@ use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
 use color_eyre::eyre::eyre;
 use core::future::Future;
+pub use db::{initialize_database, initialize_database_with_policy, DatabaseConfig};
+use download::model::Whitelist;
 use jiff::SignedDuration;
 use tokio::runtime::Runtime;
 use tracing::info;
-
 pub mod check;
 pub mod create;
 pub mod db;
@@ -33,10 +34,6 @@ pub mod swhid;
 pub mod sync;
 pub mod tui;
 pub mod watch;
-
-pub use db::{initialize_database, initialize_database_with_policy, DatabaseConfig};
-use download::model::Whitelist;
-
 macro_rules! preflight {
     ($options:expr) => {
         match $crate::commands::preflight_inner(module_path!().rsplit("::").next().unwrap_or(module_path!()), $options) {
@@ -159,7 +156,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             .await
         }),
         | Some(Commands::Create { command, .. }) => match command {
-            | Some(CreateCommands::Mcp) => Err(eyre::eyre!("MCP server creation is not yet implemented")),
+            | Some(CreateCommands::Mcp(arguments)) => create::mcp::run(arguments),
             | Some(CreateCommands::Bot(args)) => with_runtime(async {
                 initialize_database(config).await?;
                 let bind = args.common.bind_address_if_configured();
@@ -537,7 +534,15 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 )
                 .await
             }),
-            | Some(ServeCommands::Mcp) => with_runtime(async { serve::mcp::run(offline).await }),
+            | Some(ServeCommands::Mcp(arguments)) if arguments.allow_mutation && config.no_local_database => {
+                Err(eyre::eyre!("--allow-mutation requires local database persistence"))
+            }
+            | Some(ServeCommands::Mcp(arguments)) => with_runtime(async {
+                if arguments.allow_mutation {
+                    initialize_database(config).await?;
+                }
+                serve::mcp::run(offline, arguments.allow_mutation, config.database_path.clone()).await
+            }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),

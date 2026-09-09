@@ -1,0 +1,72 @@
+{
+  "manifest_version": "0.3",
+  "name": "acorn",
+  "version": "0.2.0",
+  "description": "ACORN library",
+  "author": {
+    "name": "Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://code.ornl.gov/research-enablement/acorn"
+  },
+  "homepage": "https://acorn.ornl.gov",
+  "documentation": "https://acorn.ornl.gov/packages/mcpb.html",
+  "license": "MIT",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/acorn",
+    "mcp_config": {
+      "command": "${__dirname}/server/acorn",
+      "args": [
+        "serve",
+        "mcp"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "acorn.check_research_activity_data",
+      "description": "Check ACORN research activity data and return every schema validation issue."
+    },
+    {
+      "name": "acorn.crosswalk_metadata_standard",
+      "description": "Convert JSON or YAML metadata among DataCite, DCAT, HuWise, and Invenio while reporting field-loss warnings."
+    },
+    {
+      "name": "acorn.export_research_activity_data",
+      "description": "Serialize ACORN research activity data as JSON, Markdown, PDF, PowerPoint, or YAML."
+    },
+    {
+      "name": "acorn.export_research_activity_updates",
+      "description": "Render logbook entries at or after an inclusive RFC 3339 timestamp."
+    },
+    {
+      "name": "acorn.format_and_enrich_research_activity_data",
+      "description": "Normalize research activity data and enrich it using configured metadata providers."
+    },
+    {
+      "name": "acorn.propose_logbook_graduation",
+      "description": "Return reviewable logbook entries that can be copied into canonical activity metadata."
+    },
+    {
+      "name": "acorn.validate_research_activity_data",
+      "description": "Validate ACORN research activity data and return every schema validation issue."
+    },
+    {
+      "name": "acorn.version",
+      "description": "Return the version of the running ACORN library."
+    }
+  ],
+  "tools_generated": false,
+  "compatibility": {
+    "platforms": [
+      "linux"
+    ]
+  },
+  "_meta": {
+    "org.ornl.acorn": {
+      "mcpb_spec_revision": "70fe3b34cd6dff1b3bba046638edc72a6467a4fb"
+    }
+  }
+}

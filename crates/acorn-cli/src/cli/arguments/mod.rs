@@ -1,13 +1,13 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{
-    parse_check_category, parse_check_format, parse_enrichment_provider, parse_executor, parse_readability, parse_ssh_remote, parse_standard,
-    parse_watch_duration,
+    parse_check_category, parse_check_format, parse_enrichment_provider, parse_executor, parse_mcpb_platform, parse_readability, parse_ssh_remote,
+    parse_standard, parse_watch_duration,
 };
 use super::DownloadCommands;
 use acorn::analyzer::host::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
 use acorn::io::swhid::CalculationKind;
-use acorn::io::{Executor, Remote};
+use acorn::io::{Executor, Platform, Remote};
 use acorn::util::constants::app::{
     DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD, DEFAULT_NEEDLE_MAX_ROUNDS,
 };
@@ -42,7 +42,6 @@ pub(crate) mod bot {
         /// Receive webhooks and retain polling as best-effort reconciliation.
         Hybrid,
     }
-
     /// Arguments shared by bot commands
     #[derive(Clone, Debug, Args)]
     pub(crate) struct Common {
@@ -157,6 +156,7 @@ pub(crate) mod bot {
     }
 }
 pub(crate) mod osti;
+
 /// Archive container format used for BagIt import and export.
 #[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
 pub(crate) enum ArchiveType {
@@ -398,6 +398,29 @@ pub struct Check {
     pub(crate) terse: bool,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
+}
+/// Arguments for `acorn create mcp`.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct CreateMcp {
+    /// MCPB destination
+    #[arg(long, default_value = "acorn.mcpb", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) output: PathBuf,
+    /// Executable to package; defaults to the running ACORN executable
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) binary: Option<PathBuf>,
+    /// Target platform; required when packaging another executable
+    #[arg(long, value_parser = parse_mcpb_platform, requires = "binary", help_heading = "OPTIONS")]
+    pub(crate) platform: Option<Platform>,
+    /// Authoring Kitfile to update after creating the bundle
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) kitfile: Option<PathBuf>,
+    /// Replace an existing regular bundle
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) clobber: bool,
+    /// Validate and print the plan without writing files
+    #[arg(long, visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -986,6 +1009,14 @@ pub(crate) struct Runner {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
+/// Arguments for `acorn serve mcp`.
+#[derive(Clone, Copy, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ServeMcp {
+    /// Enable persistent mutating tools
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) allow_mutation: bool,
+}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Spec {
@@ -1076,6 +1107,9 @@ pub(crate) struct Sync {
     /// Include Goose CLI configuration synchronization
     #[arg(long, help_heading = "TARGETS")]
     pub(crate) goose: bool,
+    /// Configure the ACORN MCP server in selected compatible clients
+    #[arg(long, help_heading = "TARGETS")]
+    pub(crate) mcp: bool,
     /// Default directory where downloaded model weights live (overrides config)
     #[arg(long = "models-dir", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
     pub(crate) models_dir: Option<PathBuf>,
@@ -1088,6 +1122,9 @@ pub(crate) struct Sync {
     /// Path to VS Code `chatLanguageModels.json` (overrides config)
     #[arg(long = "vscode-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) vscode_config: Option<PathBuf>,
+    /// Path to VS Code workspace `mcp.json` (overrides default)
+    #[arg(long = "vscode-mcp-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) vscode_mcp_config: Option<PathBuf>,
     /// Path to Goose CLI `config.yaml` (overrides config)
     #[arg(long = "goose-config", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) goose_config: Option<PathBuf>,

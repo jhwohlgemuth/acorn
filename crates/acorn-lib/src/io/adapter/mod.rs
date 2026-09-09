@@ -10,12 +10,16 @@ use crate::error::ApiResult;
 use crate::io::database::schema::{ModelRow, Table};
 use crate::io::database::{Database, Operations, Row};
 use crate::io::document::{DocumentFormat, SourceDocument};
-use crate::io::{image_paths, jsonc_parse_value, parent, parse_jsonc_cst, read_file, write_file, FromPath, InputOutput};
+use crate::io::oci::{Manifest, OciPlan};
+use crate::io::{
+    image_paths, jsonc_parse_value, parent, parse_jsonc_cst, read_file, replace_file, write_file, FromPath, InputOutput, PathConversion, SafePath,
+};
+use crate::util::constants::app::APPLICATION;
 use crate::util::{Label, StringConversion};
 use acorn_core::prelude::{vec, Vec};
 use acorn_core::util::{file_extension, LinkedData, MarkdownSupport, MimeType, Unstructured};
 use acorn_schema::agent::{opencode, Weights};
-use acorn_schema::modelkit::kitfile::Kitfile;
+use acorn_schema::modelkit::kitfile::{Kitfile, LayerInfo, McpServer};
 use acorn_schema::pid::raid::Metadata;
 use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::standard::cff::Cff;
@@ -24,9 +28,16 @@ use acorn_schema::standard::{datacite, dcat, huwise, invenio, text};
 use acorn_schema::{ImageObject, MediaObject, OneOrMany};
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::debug;
 
+/// Host-side filesystem operations for authoring Kitfiles.
+pub trait KitfileExt {
+    /// Resolve the model content declared by a Kitfile against an OCI manifest.
+    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<OciPlan>;
+    /// Add or replace the ACORN MCP bundle entry and persist the Kitfile atomically.
+    fn update(self, path: impl AsRef<Path>, bundle: impl AsRef<Path>) -> ApiResult<()>;
+}
 /// Native persistence operations for schema-owned model weights.
 pub trait WeightsExt {
     /// Refresh file-level weights for a model while preserving repository-level sources.
@@ -469,6 +480,42 @@ impl InputOutput for Kitfile {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         self.to_yaml().map_err(|why| eyre!(why)).and_then(|content| write_file(path, content))
+    }
+}
+impl KitfileExt for Kitfile {
+    fn modelkit_content(&self, manifest: &Manifest) -> ApiResult<OciPlan> {
+        OciPlan::from_kitfile(self, manifest)
+    }
+    fn update(mut self, path: impl AsRef<Path>, bundle: impl AsRef<Path>) -> ApiResult<()> {
+        let path = path.as_ref();
+        let directory = path.parent().unwrap_or_else(|| Path::new("."));
+        directory
+            .canonicalize()
+            .map_err(|why| eyre!("Failed to resolve Kitfile directory — {why}"))
+            .and_then(|directory| {
+                bundle
+                    .as_ref()
+                    .canonicalize()
+                    .map_err(|why| eyre!("Failed to resolve MCPB output — {why}"))
+                    .map(|bundle| (directory, bundle))
+            })
+            .and_then(|(directory, bundle)| {
+                SafePath::new(bundle.to_relative(&directory)).map_err(Into::into).and_then(|relative| {
+                    let entry = McpServer {
+                        name: APPLICATION.to_string(),
+                        path: relative.as_path().to_string_lossy().replace('\\', "/"),
+                        description: "ACORN Model Context Protocol server".to_string(),
+                        layer: LayerInfo::default(),
+                    };
+                    match self.mcp_servers.iter_mut().find(|candidate| candidate.name == APPLICATION) {
+                        | Some(candidate) => *candidate = entry,
+                        | None => self.mcp_servers.push(entry),
+                    }
+                    self.mcp_servers.sort_by(|left, right| left.name.cmp(&right.name));
+                    self.to_yaml().map_err(|why| eyre!(why))
+                })
+            })
+            .and_then(|content| replace_file(path, content))
     }
 }
 impl_logbook_input_output!(Logbook, "logbook");

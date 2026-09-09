@@ -1,8 +1,8 @@
 //! VS Code custom endpoint synchronization configuration types
-use super::{Options, RenderedOutput, SyncTarget};
+use super::{McpSync, Options, RenderedOutput, SyncTarget};
 use crate::io::api;
 use crate::io::{read_file, ApiResult};
-use crate::util::constants::app::DEFAULT_VSCODE_CONFIG_PATH;
+use crate::util::constants::app::{APPLICATION, DEFAULT_VSCODE_CONFIG_PATH};
 use crate::util::StringConversion;
 use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
@@ -14,6 +14,8 @@ use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
+use std::env::current_dir;
+use std::path::Path;
 use std::path::PathBuf;
 use veil::Redact;
 
@@ -26,6 +28,10 @@ pub struct Config {
     #[serde(skip_serializing)]
     #[validate(length(min = 1))]
     pub path: Option<String>,
+    /// Path to workspace `mcp.json` on disk.
+    #[serde(skip_serializing)]
+    #[validate(length(min = 1))]
+    pub mcp_path: Option<String>,
     /// Full OpenAI-compatible chat completions endpoint URL.
     #[serde(default = "default_url")]
     #[validate(url)]
@@ -47,76 +53,50 @@ pub struct Config {
     #[validate(range(min = 1))]
     pub max_output_tokens: u64,
 }
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            path: None,
-            url: default_url(),
-            provider_name: default_provider_name(),
-            api_key: None,
-            max_input_tokens: default_max_input_tokens(),
-            max_output_tokens: default_max_output_tokens(),
-        }
-    }
-}
-impl SyncTarget for Config {
-    const COMMAND: &'static str = "code";
-    fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            url: overrides.url,
-            provider_name: overrides.provider_name,
-            api_key: overrides.api_key.or(self.api_key),
-            max_input_tokens: overrides.max_input_tokens,
-            max_output_tokens: overrides.max_output_tokens,
-        }
-    }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            ..self
-        }
-    }
-    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
-        explicit.map(|path| PathBuf::from(path.to_string().to_cross_platform_path())).map_or_else(
-            || {
-                BaseDirs::new()
-                    .map(|directories| directories.config_dir().join(DEFAULT_VSCODE_CONFIG_PATH))
-                    .ok_or_else(|| eyre!("Failed to resolve platform configuration directory"))
-            },
-            Ok,
-        )
-    }
-    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        Self::resolve_path(self.path.as_deref()).and_then(|path| {
-            path.is_file()
-                .then(|| read_file(path.clone()))
-                .transpose()
-                .map(|content| content.unwrap_or_default())
-                .and_then(|before| {
-                    match before.is_empty() {
-                        | true => Ok(Value::Array(Vec::new())),
-                        | false => {
-                            serde_json::from_str(&before).map_err(|why| eyre!("Failed to parse existing VS Code language-model config: {why}"))
-                        }
-                    }
-                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
-                    .and_then(|updated| {
-                        serde_json::to_string_pretty(&updated)
-                            .map(|content| format!("{content}\n"))
-                            .map_err(|why| eyre!("Failed to serialize VS Code language-model config: {why}"))
-                    })
-                    .map(|content| RenderedOutput {
-                        target: "VS Code",
-                        path,
-                        before,
-                        content,
-                    })
-                })
-        })
-    }
-}
 impl Config {
+    pub(crate) fn render_mcp(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        options
+            .executable
+            .ok_or_else(|| eyre!("MCP synchronization requires an absolute ACORN executable"))
+            .and_then(|executable| {
+                self.mcp_path
+                    .as_ref()
+                    .map(PathBuf::from)
+                    .map_or_else(
+                        || {
+                            current_dir()
+                                .map(|directory| directory.join(".vscode/mcp.json"))
+                                .map_err(|why| eyre!(why))
+                        },
+                        Ok,
+                    )
+                    .map(|path| (executable, path))
+            })
+            .and_then(|(executable, path)| {
+                path.is_file()
+                    .then(|| read_file(path.clone()))
+                    .transpose()
+                    .map(|content| (executable, path, content.unwrap_or_default()))
+            })
+            .and_then(|(executable, path, before)| {
+                match before.is_empty() {
+                    | true => Ok(Value::Object(Map::new())),
+                    | false => serde_json::from_str(&before).map_err(|why| eyre!("Failed to parse existing VS Code MCP config: {why}")),
+                }
+                .and_then(|existing| self.upsert_mcp(existing, executable, options.prune))
+                .and_then(|updated| {
+                    serde_json::to_string_pretty(&updated)
+                        .map(|content| format!("{content}\n"))
+                        .map_err(|why| eyre!("Failed to serialize VS Code MCP config: {why}"))
+                })
+                .map(|content| RenderedOutput {
+                    target: "VS Code MCP",
+                    path,
+                    before,
+                    content,
+                })
+            })
+    }
     /// Upsert the managed custom endpoint provider while preserving unrelated providers and properties.
     pub fn upsert(&self, existing: Value, models: &[ModelDetails], prune: bool) -> ApiResult<Value> {
         match existing {
@@ -187,11 +167,112 @@ impl Config {
         })
     }
 }
-fn default_url() -> String {
-    "http://localhost:8080/v1/chat/completions".to_string()
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            path: None,
+            mcp_path: None,
+            url: default_url(),
+            provider_name: default_provider_name(),
+            api_key: None,
+            max_input_tokens: default_max_input_tokens(),
+            max_output_tokens: default_max_output_tokens(),
+        }
+    }
 }
-fn default_provider_name() -> String {
-    "Local (llama-swap)".to_string()
+impl McpSync for Config {
+    type Document = Value;
+    const TARGET: &'static str = "VS Code";
+    fn update_mcp(&self, existing: Value, executable: &Path, prune: bool) -> ApiResult<Value> {
+        match existing {
+            | Value::Object(mut root) => {
+                let mut servers = root.remove("servers").and_then(|value| value.as_object().cloned()).unwrap_or_default();
+                if prune {
+                    servers.remove(APPLICATION);
+                } else {
+                    servers.insert(
+                        APPLICATION.to_string(),
+                        Value::Object(
+                            [
+                                (
+                                    "args".to_string(),
+                                    Value::Array(vec![Value::String("serve".to_string()), Value::String("mcp".to_string())]),
+                                ),
+                                ("command".to_string(), Value::String(executable.display().to_string())),
+                                ("type".to_string(), Value::String("stdio".to_string())),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        ),
+                    );
+                }
+                if !servers.is_empty() {
+                    root.insert("servers".to_string(), Value::Object(servers));
+                }
+                Ok(Value::Object(root))
+            }
+            | _ => Err(eyre!("VS Code MCP configuration must be a JSON object")),
+        }
+    }
+}
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "code";
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            mcp_path: overrides.mcp_path.or(self.mcp_path),
+            url: overrides.url,
+            provider_name: overrides.provider_name,
+            api_key: overrides.api_key.or(self.api_key),
+            max_input_tokens: overrides.max_input_tokens,
+            max_output_tokens: overrides.max_output_tokens,
+        }
+    }
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            mcp_path: overrides.mcp_path.or(self.mcp_path),
+            ..self
+        }
+    }
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        explicit.map(|path| PathBuf::from(path.to_string().to_cross_platform_path())).map_or_else(
+            || {
+                BaseDirs::new()
+                    .map(|directories| directories.config_dir().join(DEFAULT_VSCODE_CONFIG_PATH))
+                    .ok_or_else(|| eyre!("Failed to resolve platform configuration directory"))
+            },
+            Ok,
+        )
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match before.is_empty() {
+                        | true => Ok(Value::Array(Vec::new())),
+                        | false => {
+                            serde_json::from_str(&before).map_err(|why| eyre!("Failed to parse existing VS Code language-model config: {why}"))
+                        }
+                    }
+                    .and_then(|existing| self.upsert(existing, options.models, options.prune))
+                    .and_then(|updated| {
+                        serde_json::to_string_pretty(&updated)
+                            .map(|content| format!("{content}\n"))
+                            .map_err(|why| eyre!("Failed to serialize VS Code language-model config: {why}"))
+                    })
+                    .map(|content| RenderedOutput {
+                        target: "VS Code",
+                        path,
+                        before,
+                        content,
+                    })
+                })
+        })
+    }
 }
 const fn default_max_input_tokens() -> u64 {
     28_672
@@ -199,39 +280,9 @@ const fn default_max_input_tokens() -> u64 {
 const fn default_max_output_tokens() -> u64 {
     4_096
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_resolve_path_uses_platform_config_directory() {
-        let expected = BaseDirs::new()
-            .map(|directories| directories.config_dir().join(DEFAULT_VSCODE_CONFIG_PATH))
-            .unwrap();
-        assert_eq!(Config::resolve_path(None).unwrap(), expected);
-    }
-    #[test]
-    fn test_resolve_path_normalizes_explicit_path() {
-        let path = "custom/Code/User/chatLanguageModels.json";
-        assert_eq!(
-            Config::resolve_path(Some(path)).unwrap(),
-            PathBuf::from(path.to_string().to_cross_platform_path())
-        );
-    }
-    #[test]
-    fn test_upsert_preserves_unrelated_provider_and_prunes_managed_models() {
-        let existing = serde_json::json!([
-            {"name": "Other", "vendor": "openai", "models": []},
-            {"name": "Local (llama-swap)", "vendor": "customendpoint", "apiKey": "saved", "models": [{"id": "stale"}]}
-        ]);
-        let models = [ModelDetails::init().id("qwen").name("Qwen").build()];
-        let additive = Config::default().upsert(existing.clone(), &models, false).unwrap();
-        assert_eq!(additive.as_array().unwrap().len(), 2);
-        assert!(additive.pointer("/1/models/0/id").is_some_and(|id| id == "stale"));
-        assert_eq!(additive.pointer("/1/apiKey").and_then(Value::as_str), Some("saved"));
-        let pruned = Config::default().upsert(existing, &models, true).unwrap();
-        assert_eq!(pruned.pointer("/1/models/0/id").and_then(Value::as_str), Some("qwen"));
-        assert_eq!(pruned.pointer("/1/apiType").and_then(Value::as_str), Some("chat-completions"));
-    }
+fn default_provider_name() -> String {
+    "Local (llama-swap)".to_string()
+}
+fn default_url() -> String {
+    "http://localhost:8080/v1/chat/completions".to_string()
 }

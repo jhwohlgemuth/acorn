@@ -60,6 +60,8 @@ pub enum ModelLayerRole {
     Code,
     /// CNCF ModelPack dataset payload.
     Dataset,
+    /// KitOps MCP Bundle payload.
+    McpBundle,
 }
 /// OCI artifact provenance recorded for a resolved model.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]

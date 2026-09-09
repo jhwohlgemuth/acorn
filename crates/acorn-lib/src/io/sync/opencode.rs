@@ -3,10 +3,10 @@
 //! When syncing ACORN models to OpenCode, the sync command creates or updates
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
-use super::{Options, RenderedOutput, SyncTarget};
+use super::{McpSync, Options, RenderedOutput, SyncTarget};
 use crate::io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion};
-use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
-use acorn_schema::agent::opencode;
+use crate::util::constants::app::{APPLICATION, DEFAULT_OPENCODE_CONFIG_PATH};
+use acorn_schema::agent::opencode::{self, McpConfig, McpLocalConfig};
 use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
@@ -56,76 +56,6 @@ pub struct Config {
     #[validate(length(min = 1))]
     pub default_model: Option<String>,
 }
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            path: None,
-            base_url: default_base_url(),
-            provider_id: default_provider_id(),
-            provider_name: default_provider_name(),
-            default_model: None,
-        }
-    }
-}
-impl fmt::Display for Config {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.provider_id.fmt(formatter)
-    }
-}
-impl SyncTarget for Config {
-    const COMMAND: &'static str = "opencode";
-    fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            base_url: overrides.base_url,
-            provider_id: overrides.provider_id,
-            provider_name: overrides.provider_name,
-            default_model: overrides.default_model.or(self.default_model),
-        }
-    }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            ..self
-        }
-    }
-    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
-        match explicit {
-            | Some(path) => Ok(PathBuf::from(Path::new(path).cross_platform_display())),
-            | None => current_dir()
-                .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
-                .and_then(|directory| home_directory(DEFAULT_OPENCODE_CONFIG_PATH).map(|user_config| Self::discover_path(&directory, user_config))),
-        }
-    }
-    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
-        Self::resolve_path(self.path.as_deref()).and_then(|path| {
-            let models = options
-                .models
-                .iter()
-                .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
-                .map(|name| (name.clone(), name.clone()))
-                .collect::<Vec<_>>();
-            path.is_file()
-                .then(|| read_file(path.clone()))
-                .transpose()
-                .map(|content| content.unwrap_or_default())
-                .and_then(|before| {
-                    match path.is_file() {
-                        | true => parse_jsonc_cst::<opencode::Config>(&before).map(|(config, cst)| (config, Some(cst))),
-                        | false => Ok((opencode::Config::default(), None)),
-                    }
-                    .and_then(|(existing, cst)| self.upsert(&existing, &models, options.prune).map(|updated| (updated, cst)))
-                    .and_then(|(opencode, cst)| self.render_with_cst(&opencode, cst.as_ref()))
-                    .map(|content| RenderedOutput {
-                        target: "OpenCode",
-                        path,
-                        before,
-                        content,
-                    })
-                })
-        })
-    }
-}
 impl Config {
     /// Build the JSON structure for a model entry.
     pub fn model_entry(&self, display_name: &str) -> Value {
@@ -143,7 +73,7 @@ impl Config {
         })
         .unwrap_or(Value::Null)
     }
-    fn discover_path(calling_directory: &Path, user_config: PathBuf) -> PathBuf {
+    pub(crate) fn discover_path(calling_directory: &Path, user_config: PathBuf) -> PathBuf {
         [
             calling_directory.join("opencode.jsonc"),
             calling_directory.join("opencode.json"),
@@ -158,20 +88,18 @@ impl Config {
     pub fn render(&self, config: &opencode::Config) -> ApiResult<String> {
         self.render_with_cst(config, None)
     }
-    fn render_with_cst(&self, config: &opencode::Config, cst: Option<&CstRootNode>) -> ApiResult<String> {
+    pub(crate) fn render_with_cst(&self, config: &opencode::Config, cst: Option<&CstRootNode>) -> ApiResult<String> {
         match cst {
-            | Some(cst) => config
-                .provider
-                .as_ref()
-                .and_then(|providers| providers.get(&self.provider_id))
-                .ok_or_else(|| eyre!("Managed OpenCode provider '{self}' is missing"))
-                .map(|provider| {
+            | Some(cst) => Ok(config)
+                .map(|config| {
                     let root = cst.object_value_or_set();
-                    let providers = root.object_value_or_set("provider");
-                    match providers.get(&self.provider_id) {
-                        | Some(property) => property.set_value(CstValue(provider).into()),
-                        | None => {
-                            providers.append(&self.provider_id, CstValue(provider).into());
+                    if let Some(provider) = config.provider.as_ref().and_then(|providers| providers.get(&self.provider_id)) {
+                        let providers = root.object_value_or_set("provider");
+                        match providers.get(&self.provider_id) {
+                            | Some(property) => property.set_value(CstValue(provider).into()),
+                            | None => {
+                                providers.append(&self.provider_id, CstValue(provider).into());
+                            }
                         }
                     }
                     if let Some(model) = config.model.as_ref() {
@@ -181,6 +109,28 @@ impl Config {
                                 root.append("model", model.clone().into());
                             }
                         }
+                    }
+                    let managed_mcp = config
+                        .mcp
+                        .as_ref()
+                        .and_then(|servers| servers.get(APPLICATION))
+                        .and_then(|server| serde_json::to_value(server).ok());
+                    match (root.object_value("mcp"), managed_mcp.as_ref()) {
+                        | (Some(servers), Some(server)) => match servers.get(APPLICATION) {
+                            | Some(property) => property.set_value(CstValue(server).into()),
+                            | None => {
+                                servers.append(APPLICATION, CstValue(server).into());
+                            }
+                        },
+                        | (Some(servers), None) => {
+                            if let Some(property) = servers.get(APPLICATION) {
+                                property.remove();
+                            }
+                        }
+                        | (None, Some(server)) => {
+                            root.object_value_or_set("mcp").append(APPLICATION, CstValue(server).into());
+                        }
+                        | (None, None) => {}
                     }
                     cst.to_string()
                 })
@@ -263,6 +213,111 @@ impl Config {
         }
     }
 }
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            path: None,
+            base_url: default_base_url(),
+            provider_id: default_provider_id(),
+            provider_name: default_provider_name(),
+            default_model: None,
+        }
+    }
+}
+impl fmt::Display for Config {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.provider_id.fmt(formatter)
+    }
+}
+impl McpSync for Config {
+    type Document = opencode::Config;
+    const TARGET: &'static str = "OpenCode";
+    fn update_mcp(&self, existing: opencode::Config, executable: &Path, prune: bool) -> ApiResult<opencode::Config> {
+        let mut servers = existing.mcp.clone().unwrap_or_default();
+        if prune {
+            servers.remove(APPLICATION);
+        } else {
+            servers.insert(
+                APPLICATION.to_string(),
+                McpConfig::Local(McpLocalConfig {
+                    command: vec![executable.display().to_string(), "serve".to_string(), "mcp".to_string()],
+                    cwd: None,
+                    environment: None,
+                    enabled: Some(true),
+                    timeout: None,
+                }),
+            );
+        }
+        Ok(opencode::Config {
+            mcp: (!servers.is_empty()).then_some(servers),
+            ..existing
+        })
+    }
+}
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "opencode";
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            base_url: overrides.base_url,
+            provider_id: overrides.provider_id,
+            provider_name: overrides.provider_name,
+            default_model: overrides.default_model.or(self.default_model),
+        }
+    }
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            ..self
+        }
+    }
+    fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
+        match explicit {
+            | Some(path) => Ok(PathBuf::from(Path::new(path).cross_platform_display())),
+            | None => current_dir()
+                .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
+                .and_then(|directory| home_directory(DEFAULT_OPENCODE_CONFIG_PATH).map(|user_config| Self::discover_path(&directory, user_config))),
+        }
+    }
+    fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
+        Self::resolve_path(self.path.as_deref()).and_then(|path| {
+            let models = options
+                .models
+                .iter()
+                .filter_map(|model| model.name.as_ref().or(model.id.as_ref()))
+                .map(|name| (name.clone(), name.clone()))
+                .collect::<Vec<_>>();
+            path.is_file()
+                .then(|| read_file(path.clone()))
+                .transpose()
+                .map(|content| content.unwrap_or_default())
+                .and_then(|before| {
+                    match path.is_file() {
+                        | true => parse_jsonc_cst::<opencode::Config>(&before).map(|(config, cst)| (config, Some(cst))),
+                        | false => Ok((opencode::Config::default(), None)),
+                    }
+                    .and_then(|(existing, cst)| {
+                        match models.is_empty() {
+                            | true => Ok(existing),
+                            | false => self.upsert(&existing, &models, options.prune),
+                        }
+                        .and_then(|updated| match (options.mcp, options.executable) {
+                            | (true, Some(executable)) => self.upsert_mcp(updated, executable, options.prune).map(|updated| (updated, cst)),
+                            | (true, None) => Err(eyre!("MCP synchronization requires an absolute ACORN executable")),
+                            | (false, _) => Ok((updated, cst)),
+                        })
+                    })
+                    .and_then(|(opencode, cst)| self.render_with_cst(&opencode, cst.as_ref()))
+                    .map(|content| RenderedOutput {
+                        target: "OpenCode",
+                        path,
+                        before,
+                        content,
+                    })
+                })
+        })
+    }
+}
 fn default_base_url() -> String {
     "http://localhost:8080/v1".to_string()
 }
@@ -271,148 +326,4 @@ fn default_provider_id() -> String {
 }
 fn default_provider_name() -> String {
     "Local (llama-swap)".to_string()
-}
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-    use crate::test::utils::temp_dir;
-    use std::fs::{create_dir_all, remove_dir_all, write};
-
-    #[test]
-    fn test_default_values() {
-        let config = Config::default();
-        assert_eq!(config.base_url, "http://localhost:8080/v1");
-        assert_eq!(config.provider_id, "llama-swap");
-        assert_eq!(config.provider_name, "Local (llama-swap)");
-        assert_eq!(config.to_string(), "llama-swap");
-    }
-    #[test]
-    fn test_resolve_path_uses_discovered_or_default_config() {
-        let calling_directory = current_dir().unwrap();
-        let user_config = home_directory(DEFAULT_OPENCODE_CONFIG_PATH).unwrap();
-        let expected = [
-            calling_directory.join("opencode.jsonc"),
-            calling_directory.join("opencode.json"),
-            user_config.clone(),
-            user_config.with_extension("json"),
-        ]
-        .into_iter()
-        .find(|path| path.is_file())
-        .unwrap_or(user_config);
-        assert_eq!(Config::resolve_path(None).unwrap(), expected);
-    }
-    #[test]
-    fn test_resolve_path_prefers_explicit_path() {
-        let explicit = PathBuf::from(Path::new("custom/opencode.json").cross_platform_display());
-        assert_eq!(Config::resolve_path(Some("custom/opencode.json")).unwrap(), explicit);
-    }
-    #[test]
-    fn test_discover_path_prefers_calling_directory_jsonc_then_json() {
-        let dir = temp_dir("opencode-calling-directory");
-        let user_config = dir.join("user").join("opencode.jsonc");
-        create_dir_all(user_config.parent().unwrap()).unwrap();
-        write(&user_config, "{}").unwrap();
-        let project_json = dir.join("opencode.json");
-        write(&project_json, "{}").unwrap();
-        assert_eq!(Config::discover_path(&dir, user_config.clone()), project_json);
-        let project_jsonc = dir.join("opencode.jsonc");
-        write(&project_jsonc, "not valid jsonc").unwrap();
-        assert_eq!(Config::discover_path(&dir, user_config), project_jsonc);
-        let _ = remove_dir_all(dir);
-    }
-    #[test]
-    fn test_model_json_structure() {
-        let json = Config::default().model_entry("Qwen GGUF");
-        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Qwen GGUF");
-    }
-    #[test]
-    fn test_provider_json_structure() {
-        let config = Config::default();
-        let json = config.provider_entry();
-        assert_eq!(json.get("npm").unwrap().as_str().unwrap(), "@ai-sdk/openai-compatible");
-        assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Local (llama-swap)");
-        let options = json.get("options").unwrap();
-        assert_eq!(options.get("baseURL").unwrap().as_str().unwrap(), "http://localhost:8080/v1");
-    }
-    #[test]
-    fn test_render_preserves_jsonc_comments_outside_managed_provider() {
-        let (existing, cst) = parse_jsonc_cst::<opencode::Config>(
-            r#"{
-  // root comment
-  "username": "acorn",
-  "provider": {
-    // unrelated provider comment
-    "other": {"options": {"baseURL": "https://example.test"}},
-    "llama-swap": {"models": {"stale": {"name": "Stale"}}}
-  }
-}"#,
-        )
-        .unwrap();
-        let config = Config::default();
-        let updated = config.upsert(&existing, &[("qwen".to_string(), "Qwen".to_string())], false).unwrap();
-        let rendered = config.render_with_cst(&updated, Some(&cst)).unwrap();
-        assert!(rendered.contains("// root comment"));
-        assert!(rendered.contains("// unrelated provider comment"));
-        assert!(rendered.contains("\"stale\""));
-        assert!(rendered.contains("\"qwen\""));
-        assert_eq!(rendered, config.render_with_cst(&updated, Some(&cst)).unwrap());
-    }
-    #[test]
-    fn test_upsert_is_additive_unless_pruned() {
-        let existing = opencode::Config {
-            username: Some("acorn".to_string()),
-            provider: Some(
-                [
-                    ("other".to_string(), serde_json::json!({"options": {"baseURL": "https://example.test"}})),
-                    (
-                        "llama-swap".to_string(),
-                        serde_json::json!({
-                            "custom": true,
-                            "options": {"apiKey": "secret"},
-                            "models": {"stale": {"name": "Stale"}}
-                        }),
-                    ),
-                ]
-                .into_iter()
-                .collect(),
-            ),
-            ..Default::default()
-        };
-        let config = Config::default();
-        let models = [("qwen".to_string(), "Qwen".to_string())];
-        let additive = config.upsert(&existing, &models, false).unwrap();
-        let provider = additive.provider.as_ref().unwrap().get("llama-swap").unwrap();
-        assert!(provider.pointer("/models/stale").is_some());
-        assert!(provider.pointer("/models/qwen").is_some());
-        assert_eq!(provider.get("custom"), Some(&Value::Bool(true)));
-        assert_eq!(provider.pointer("/options/apiKey").and_then(Value::as_str), Some("secret"));
-        assert!(additive.provider.as_ref().unwrap().contains_key("other"));
-        assert_eq!(additive.username.as_deref(), Some("acorn"));
-        let pruned = config.upsert(&existing, &models, true).unwrap();
-        let provider = pruned.provider.as_ref().unwrap().get("llama-swap").unwrap();
-        assert!(provider.pointer("/models/stale").is_none());
-        assert!(provider.pointer("/models/qwen").is_some());
-    }
-    #[test]
-    fn test_upsert_protects_pruned_root_model() {
-        let existing = opencode::Config {
-            model: Some("llama-swap/stale".to_string()),
-            provider: Some(
-                [("llama-swap".to_string(), serde_json::json!({"models": {"stale": {"name": "Stale"}}}))]
-                    .into_iter()
-                    .collect(),
-            ),
-            ..Default::default()
-        };
-        let models = [("qwen".to_string(), "Qwen".to_string())];
-        assert!(Config::default().upsert(&existing, &models, true).is_err());
-        let replacement = Config {
-            default_model: Some("qwen".to_string()),
-            ..Default::default()
-        }
-        .upsert(&existing, &models, true)
-        .unwrap();
-        assert_eq!(replacement.model.as_deref(), Some("llama-swap/qwen"));
-    }
 }

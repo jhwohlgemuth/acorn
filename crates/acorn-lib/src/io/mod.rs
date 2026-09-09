@@ -29,6 +29,9 @@ use acorn_core::prelude::HashSet;
 use acorn_core::util::file_extension;
 use acorn_core::util::{case_insensitive_glob, suffix, to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, MimeType, SemanticVersion};
 use acorn_core::Location;
+pub use archive::{
+    archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
+};
 use color_eyre::eyre::{eyre, Report};
 #[cfg(feature = "std")]
 use console::{measure_text_width, strip_ansi_codes};
@@ -39,6 +42,7 @@ use core::time::Duration;
 use data_encoding::HEXUPPER;
 use directories::{BaseDirs, ProjectDirs};
 use fancy_regex::Regex;
+pub use fingerprint::Fingerprint;
 use fluent_uri::Uri;
 use futures::stream::{self, StreamExt};
 use futures::Future;
@@ -46,41 +50,44 @@ use glob::glob;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use is_executable::IsExecutable;
 use jiff::Timestamp;
+pub use jsonc_parser::cst::CstRootNode;
 use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
 use lazy_static::lazy_static;
+pub use model::ModelSelectorsExt;
 use nanoid::nanoid;
 use rand::rngs::OsRng;
 use ring::digest::{Context, SHA256};
 use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
+pub use safe_path::{SafePath, SafePathError};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
+pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 use std::env::{consts, current_dir, temp_dir, var, var_os};
 use std::ffi::OsString;
 use std::fs::{self, canonicalize, create_dir_all, write, File, OpenOptions};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use std::fs::{set_permissions, Permissions};
-use std::io::{self, BufReader, Cursor, Read};
+use std::io::{self, BufReader, Cursor, Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::symlink as platform_symlink;
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
-use std::path::{absolute, Path, PathBuf, MAIN_SEPARATOR};
+use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
 use std::thread;
 use strum::EnumIs;
+pub use temporary::TemporaryDirectory;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
 use urlencoding::encode;
 use which::which;
-
 #[cfg(feature = "std")]
 pub mod adapter;
 pub mod api;
 mod archive;
-pub use archive::{archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat};
 pub mod bagit;
 pub mod cache;
 #[cfg(feature = "chart")]
@@ -108,13 +115,6 @@ pub mod swhid;
 pub mod sync;
 mod temporary;
 pub mod workflow;
-
-pub use fingerprint::Fingerprint;
-pub use jsonc_parser::cst::CstRootNode;
-pub use model::ModelSelectorsExt;
-pub use safe_path::{SafePath, SafePathError};
-pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
-pub use temporary::TemporaryDirectory;
 
 lazy_static! {
     static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
@@ -211,6 +211,18 @@ pub trait PathConversion: AsRef<Path> {
     fn cross_platform_display(&self) -> String {
         self.to_path().display().to_string()
     }
+    /// Express this path relative to a base directory without filesystem access.
+    fn to_relative(&self, base: &Path) -> PathBuf {
+        let base = base.components().collect::<Vec<_>>();
+        let target = self.to_path().components().collect::<Vec<_>>();
+        let shared = base.iter().zip(target.iter()).take_while(|(left, right)| left == right).count();
+        base.iter()
+            .skip(shared)
+            .filter(|component| matches!(component, Component::Normal(_)))
+            .map(|_| PathBuf::from(".."))
+            .chain(target.iter().skip(shared).map(|component| PathBuf::from(component.as_os_str())))
+            .collect()
+    }
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
@@ -271,6 +283,41 @@ pub enum Executor {
     /// Custom or unspecified execution method
     Other(String),
 }
+/// Operating-system platform identifier used by portable artifacts.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Platform {
+    /// IBM AIX.
+    Aix,
+    /// Android.
+    Android,
+    /// Apple macOS.
+    Darwin,
+    /// DragonFly BSD.
+    DragonFly,
+    /// FreeBSD.
+    FreeBsd,
+    /// Haiku.
+    Haiku,
+    /// illumos.
+    Illumos,
+    /// Apple iOS.
+    Ios,
+    /// Linux.
+    Linux,
+    /// NetBSD.
+    NetBsd,
+    /// OpenBSD.
+    OpenBsd,
+    /// Redox.
+    Redox,
+    /// Oracle Solaris.
+    Solaris,
+    /// Windows.
+    Win32,
+    /// 64-bit Windows.
+    Win64,
+}
 /// Progress indicator types for `with_progress`.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum ProgressType {
@@ -283,6 +330,15 @@ pub enum ProgressType {
     Counter,
     /// No progress output
     Silent,
+}
+/// Portable command invocation configuration.
+#[derive(bon::Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[builder(start_fn = init, on(String, into))]
+pub struct CommandTemplate {
+    /// Executable command or path.
+    pub command: String,
+    /// Ordered command arguments.
+    pub args: Vec<String>,
 }
 pub(crate) struct CstValue<'a>(pub(crate) &'a Value);
 /// Struct for parsing GitLab API merge request diff responses
@@ -338,56 +394,6 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
-impl PathExt for &Path {
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_symlink(&self) -> bool {
-        <Path as PathExt>::is_symlink(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
-    }
-}
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
-    }
-}
-impl StringConversion for &str {
-    fn normalized(&self) -> String {
-        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
-    }
-    fn percent_encode(&self) -> String {
-        encode(self).into_owned()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        Path::new(self).cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(*self)
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(*self)
-    }
-}
 impl From<CstValue<'_>> for CstInputValue {
     fn from(value: CstValue<'_>) -> Self {
         match value.0 {
@@ -519,6 +525,11 @@ impl From<&str> for Executor {
         }
     }
 }
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
+    }
+}
 impl FileExtension for MimeType {
     fn extension(&self) -> String {
         self.clone().file_type()
@@ -623,6 +634,60 @@ impl StringConversion for PathBuf {
     }
     fn to_absolute_path(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
+impl PathExt for &Path {
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
+    }
+}
+impl Platform {
+    /// Resolve an explicit target or infer the current executable's platform.
+    pub fn resolve(platform: Option<Self>, external_binary: bool) -> ApiResult<Self> {
+        match (platform, external_binary, consts::OS, consts::ARCH) {
+            | (Some(platform), _, _, _) => Ok(platform),
+            | (None, true, _, _) => Err(eyre!("--platform is required with --binary")),
+            | (None, false, "linux", _) => Ok(Self::Linux),
+            | (None, false, "macos", _) => Ok(Self::Darwin),
+            | (None, false, "windows", "x86_64" | "aarch64") => Ok(Self::Win64),
+            | (None, false, "windows", _) => Ok(Self::Win32),
+            | (None, false, platform, _) => Err(eyre!("MCPB does not support host platform '{platform}'; pass --binary and --platform")),
+        }
+    }
+    /// Return the executable filename used in an MCP Bundle.
+    pub fn binary_name(self) -> ApiResult<&'static str> {
+        match self {
+            | Self::Darwin | Self::Linux => Ok(APPLICATION),
+            | Self::Win32 | Self::Win64 => Ok("acorn.exe"),
+            | _ => Err(eyre!("MCPB does not support target platform '{self:?}'")),
+        }
+    }
+    /// Return whether a binary path has the suffix required by this platform.
+    pub fn has_valid_binary(self, binary: &Path) -> bool {
+        match self {
+            | Self::Win32 | Self::Win64 => binary.extension().and_then(|value| value.to_str()) == Some("exe"),
+            | _ => true,
+        }
     }
 }
 impl ProgressType {
@@ -765,6 +830,26 @@ impl StringConversion for String {
     }
     fn to_absolute_path(&self) -> String {
         to_absolute_string(self.clone())
+    }
+}
+impl StringConversion for &str {
+    fn normalized(&self) -> String {
+        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn percent_encode(&self) -> String {
+        encode(self).into_owned()
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        Path::new(self).cross_platform_display()
+    }
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(*self)
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_string(*self)
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {
@@ -1652,6 +1737,24 @@ pub fn remove_fields(value: Value, fields: &[&str]) -> Value {
         ),
         | Value::Array(values) => Value::Array(values.into_iter().map(|value| remove_fields(value, fields)).collect()),
         | value => value,
+    }
+}
+/// Atomically replace a file with the supplied content.
+pub fn replace_file(path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> ApiResult<()> {
+    let path = path.as_ref();
+    let temporary = path.with_file_name(format!(".{}.acorn-tmp", path.file_name().unwrap_or_default().to_string_lossy()));
+    let result = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .and_then(|mut file| file.write_all(content.as_ref()))
+        .and_then(|()| fs::rename(&temporary, path));
+    match result {
+        | Ok(()) => Ok(()),
+        | Err(why) => {
+            fs::remove_file(&temporary).ok();
+            Err(eyre!("Failed to replace file '{}' — {why}", path.display()))
+        }
     }
 }
 /// Run an operation and retry matching errors after optional millisecond delays.
