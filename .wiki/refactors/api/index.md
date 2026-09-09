@@ -2,9 +2,12 @@
 
 ## Recommended order
 
+- [JSON-RPC operation runtime](json-rpc-runtime.md) - Establish the shared typed operation registry and direct JSON-RPC 2.0 HTTP transport.
+- [Extensible webhook runtime](webhook-runtime.md) - Normalize verified provider deliveries into durable registered operations and callbacks.
+- [GitLab repository automation](gitlab-webhook-bot-workflows.md) - Process typed repository flat files through bot branches and draft merge requests, including citation workflows.
+- [Protobuf/gRPC transport](protobuf-grpc-transport.md) - Expose the shared operation registry through generated tonic/prost server and client adapters.
 - [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.
 - [Hugging Face request readiness](huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
-- [GitLab bot analysis and citation intake](gitlab-webhook-bot-workflows.md) - Finish citation repository writes, completion handling, and bot operations.
 - [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.
 - [Request parameter composition](request-parameter-composition.md) - Normalize required and optional inputs.
 - [Invoke-and-parse wrappers](invoke-and-parse-wrappers.md) - Combine repeated request execution and parsing.

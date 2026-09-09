@@ -10,7 +10,8 @@
 
 ## Planned
 
-- [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Stage prompt hydration, ACP/OpenAI-compatible inference, structured fix suggestions, and verified deterministic remediation.
+- [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Register inference services while preserving official ACP transport, then stage prompt hydration, structured suggestions, and verified deterministic remediation.
+- [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.
 - [RAD metadata standards alignment](rad-metadata-standards-alignment.md) - Align activity metadata with RAiD and output interchange with DataCite, DCAT, persistent identifiers, and contributor-role vocabularies.

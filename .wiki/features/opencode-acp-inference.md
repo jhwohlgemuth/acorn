@@ -7,17 +7,18 @@ impact: high
 package: [workspace, acorn-lib, acorn-cli, acorn-schema, acorn-api, acorn-host, acorn-service]
 tags: [feature, roadmap, agentic, acp, opencode, openai-compatible, prompts, inference, checks, fixes]
 status: planned
+priority: next
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/agent/`, `src/io/api/openai.rs`, `src/io/mcp/`, `src/doctor/`, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, assets, and focused tests.
+- **Update:** `crates/acorn-lib/src/schema/agent/`, `src/io/api/openai.rs`, `src/io/mcp/`, `src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, assets, and focused tests.
 - **Create:** the prompt, inference-port, ACP transport, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
 - **Delete:** no current integration; remove the `doctor --fix` not-implemented path only when the shared planner is functional.
 
 # Dependencies
 
-This is downstream of portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. It must not define the crate boundaries it consumes; see the [plan dependency network](../plan-network.md).
+This is fifth in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It is downstream of the [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md), portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. The shared registry owns callable ACORN operations; the official ACP SDK continues to own ACP framing, sessions, capability negotiation, streaming, and permissions. See the [plan dependency network](../plan-network.md).
 
 # Goal
 
@@ -39,7 +40,7 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 
 # Current evidence
 
-- `crates/acorn-lib/src/io/mod.rs` already gates agent integrations behind the `agentic` feature, but `io::mcp` is only an empty placeholder and there is no ACP module.
+- `crates/acorn-lib/src/io/mod.rs` already gates agent integrations behind the `agentic` feature. `io::mcp` is an implemented RMCP server with a typed `ToolRegistry`, stdio serving, runtime policy, and CLI integration; there is no ACP module or MCP client yet.
 - The existing `agentic` feature is enabled by default and currently selects the Axum/RMCP/Tower server stack. Adding an ACP client SDK to that feature would make an unrelated native process dependency part of default library builds unless ACP receives a separate capability feature.
 - `schema::agent::PromptTemplate` embeds six `.prompt` assets and renders them with Tera through `PromptTemplateConfiguration`.
 - `schema::agent` currently imports I/O, database, terminal, embedded-asset, Tera, and other host-facing code. Extending that mixed module with inference services would conflict with the in-progress crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
@@ -104,6 +105,10 @@ This feature must consume the following plans as governing constraints instead o
 | Safe paths | The landed `acorn::io::SafePath` owns lexical validation and destination containment. Document fix targets should use it directly rather than creating a competing path type. |
 | [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md) and the implemented ordered check batch | Are not blockers. Fix suggestion code consumes `AnalysisReport` through one normalization adapter and should use the implemented analysis context split without changing check construction solely for inference. |
 | [API client roadmap](../refactors/api/roadmap.md), [response DTOs](../refactors/api/response-dtos.md), [environment bootstrap](../refactors/api/environment-bootstrap.md), and [provider capability matrix](../refactors/api/provider-capability-matrix.md) | Govern endpoint/authentication/error/capability mechanics. The OpenAI adapter may add its narrow typed payloads first, but must not duplicate shared environment precedence, endpoint resolution, health, or provider-capability machinery. |
+| [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md) | Owns registered ACORN operation names, typed handler dispatch, shared error classification, and direct HTTP JSON-RPC. Register `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest`; keep fix application private unless a separately authorized operation is accepted. ACP maps session requests into these services but does not replace ACP envelopes with the common JSON-RPC codec. |
+| [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md) | May expose the same registered inference operations after their contracts stabilize. Protobuf is a sibling transport, not an ACP payload or JSON-RPC encoding. |
+| [Extensible webhook runtime](../refactors/api/webhook-runtime.md) and [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md) | May invoke suggestion-only inference through the registry under explicit policy. Webhook authorization cannot grant ACP tool permissions or fix-application authority. |
+| [MCP client](mcp-client.md) | Reuses RMCP for outbound MCP sessions and may call the same service operations. It does not tunnel MCP through ACP or replace ACP tool negotiation. |
 | [Extract acorn-cmd](../refactors/acorn-cmd-extraction.md) | Owns reusable command construction/execution helpers. ACP and fix executors may use the in-tree helpers initially, then depend on `acorn-cmd` after extraction; neither should invent shell-string execution. |
 | [CLI parse/execution separation](../refactors/core/cli-parse-execution-models.md), [startup separation](../refactors/core/cli-startup-separation.md), and [CLI error boundary](../refactors/core/cli-error-boundary.md) | Require clap types to normalize into library options, concrete backend/executor selection to remain in the CLI composition root, and failures to return through the shared outer error boundary. They do not block library-first slices. |
 | [macOS binary-size plan](../refactors/portability/macos-compact-unwind-size.md) | Requires ACP SDK/process additions to remain optional and measured independently because the default `agentic` server stack is already a suspected binary-size contributor. |
@@ -700,7 +705,7 @@ Implementation flow:
 
 1. Run a read-only installation preflight before starting ACP: resolve the configured executable path or find it on `PATH`, verify it is executable, invoke its configured version arguments, and return `AgentInstallation`. For the OpenCode adapter this resolves `opencode` and invokes `opencode --version`. Fail with a dedicated not-installed or unusable-version error that identifies the agent, searched command/path, and executable override option.
 2. Spawn the configured ACP command, initially `opencode acp`, with piped stdin/stdout, separate stderr, a controlled working directory, and kill-on-drop behavior.
-3. Use the official `agent-client-protocol` runtime crate rather than maintaining JSON-RPC envelopes locally.
+3. Use the official `agent-client-protocol` runtime crate rather than maintaining ACP JSON-RPC envelopes locally. Adapt initialized ACP sessions to the shared inference service; do not send common `JsonRpcRequest` or `JsonRpcResponse` DTOs over the ACP connection.
 4. Initialize the connection, negotiate protocol version and capabilities, create a session, apply supported agent/model selections, and send only the hydrated prompt body as text content.
 5. Fold streamed ACP session updates into immutable result state while optionally forwarding typed events to the caller.
 6. Answer permission requests through the configured policy. The inference default denies writes, shell commands, and other mutating operations; an allow or interactive policy must be explicit.
@@ -747,6 +752,17 @@ The final command spelling should be checked against the CLI vocabulary before i
 - render fix suggestions separately from checks, support a structured JSON `FixReport`, and never apply a suggestion unless a later explicitly authorized apply workflow is added;
 - regenerate command help after the CLI contract is finalized.
 
+# Plan conflicts
+
+| Plan or lane | Conflict | Resolution |
+|---|---|---|
+| JSON-RPC runtime | Both use JSON-RPC concepts and callable handler contracts. | Reuse the registered service handlers, but let the official ACP SDK own ACP envelopes, initialization, sessions, streaming, permissions, cancellation, and protocol errors. |
+| Protobuf/gRPC | Both can expose inference operations. | Treat gRPC as an optional sibling adapter and compare typed results; never wrap ACP messages in protobuf or protobuf messages in ACP. |
+| MCP server/client | Agent configuration, Tokio/process features, CLI roots, and tool policy overlap. | Keep RMCP as MCP's wire implementation and serialize manifests/module indexes through the priority lane. No automatic tool re-export between protocols. |
+| GitLab/webhooks | Repository workflows may request inference and fixes. | Permit only registered suggestion operations with bounded excerpts; webhook authorization cannot grant ACP tool permission or fix-application authority. |
+| Analyzer and doctor | Fix DTOs consume checks and diagnostics while those modules are evolving. | Normalize stable reference DTOs at one adapter and avoid changing check construction solely for inference. |
+| Portability and crate extraction | Process, HTTP, Tera, and SDK dependencies are native. | Keep portable DTOs separate, gate adapters independently, and record future owning crates before implementation. |
+
 # Delivery sequence
 
 ## 0. Align ownership, features, and upstream contracts
@@ -756,6 +772,7 @@ The final command spelling should be checked against the CLI vocabulary before i
 - Select and pin a reviewed official ACP Rust SDK release, inspect its enabled dependency features and license, and base the adapter on its client example without exposing SDK types publicly.
 - Define a separate non-default `acp` feature and confirm that the default library, minimal, alloc, and WASM dependency graphs do not select it.
 - Confirm the existing API endpoint and environment helpers that the OpenAI adapter will reuse; record any dependency on the API roadmap instead of fixing unrelated API behavior in this feature.
+- Reserve `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest` in the shared operation registry, with typed request/result schemas and suggestion-only authorization. Record direct, JSON-RPC HTTP, gRPC, ACP, and MCP capability differences in one feature matrix.
 
 Exit gate: ownership and feature tests show no new schema-to-host dependency, `acp` is independently selectable, default-library dependency resolution is unchanged, and the pinned SDK supports the client-to-agent stdio connection required by the fake-agent test design.
 
@@ -774,6 +791,7 @@ Exit gate: all built-in assets render with representative data, contain the expe
 - Limit the first contract to one hydrated text prompt, optional output schema, configured model/agent selector, timeout, non-mutation intent, final text/structured value, finish reason, usage, and provenance.
 - Add a deterministic in-memory backend so prompt orchestration can be tested before either external adapter exists.
 - Keep endpoint errors, ACP permission request identifiers, and provider wire payloads out of the common DTOs.
+- Register the in-memory backend through the shared operation registry so the direct service path and JSON-RPC path exercise the same handler before external transports exist.
 
 Exit gate: a hydrated prompt runs through the in-memory backend and returns a normalized result without I/O, and serialization tests prove the contract contains neither credentials nor transport-specific messages.
 
@@ -784,6 +802,7 @@ Exit gate: a hydrated prompt runs through the in-memory backend and returns a no
 - Implement the ACP `InferenceBackend` mapping, process lifecycle, initialization, session creation, prompt sending, update folding, cancellation, timeout, and default permission denial.
 - Return a typed result and typed errors that distinguish executable, spawn, negotiation, session, permission, protocol, timeout, and child-exit failures.
 - Add separate installation and protocol-readiness operations; do not label either one as provider/model inference readiness.
+- Map ACP requests into the registered inference service after ACP initialization and capability checks. Preserve ACP request/session identifiers separately from JSON-RPC operation identifiers for tracing and cancellation.
 
 Exit gate: installation preflight distinguishes missing, non-executable, version-command failure, and usable agent installations, the OpenCode adapter supplies the correct command defaults, and an in-repository fake ACP agent completes a one-shot streaming prompt deterministically on Windows and Unix without requiring OpenCode or model credentials.
 
@@ -808,6 +827,7 @@ Exit gate: the same hydrated prompt runs against deterministic fake `/responses`
 - Preserve deterministic analyzer corrections first and avoid sending already-resolved or unsupported check categories unless requested.
 - Limit transmitted content to normalized checks and required excerpts; never send whole repositories or unrelated files by default.
 - Treat partial backend failures as explicit rejected/unsupported fix records or batch diagnostics without changing the original checks.
+- Publish suggestion-only behavior through `acorn.fixes.suggest`; do not register deterministic or generated fix application as a remotely callable operation in this phase.
 
 Exit gate: the same analysis fixture produces structurally equivalent validated fixes through fake ACP and fake OpenAI-compatible backends; unknown findings, stale fingerprints, out-of-scope paths, malformed actions, and invented targets are rejected; no proposal type can deserialize an executable command.
 
@@ -841,6 +861,7 @@ Exit gate: a hydrated prompt and one check-fix request produce non-empty, schema
 - Expose event and permission hooks from the library for later tasks such as structured extraction, gap analysis, teaching, translation, or explicitly authorized repository work.
 - Document the adapter checklist for a subsequent agent: verified ACP executable or bridge command, version probe, authentication/config ownership, capability differences, permission behavior, and an opt-in interoperability smoke test.
 - Keep application of inference-generated fixes, arbitrary commands, multi-turn sessions, resume/fork, attachments, MCP-over-ACP, and automatic tool approval out of the first release unless separately accepted.
+- After the direct registry contract is stable, allow the JSON-RPC HTTP and optional gRPC adapters to expose inference and suggestion operations under the same authorization and redaction policy.
 
 Exit gate: a user can preview and run an embedded prompt, request structured fix suggestions through either backend, and use doctor to preview or explicitly apply registered deterministic remediations with predictable output and verified outcomes.
 
@@ -850,14 +871,15 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 2. Add fix-domain tests for check/doctor correlation, grouping, serialization/schema round trips, confidence validation, source fingerprints, stale inputs, unsupported findings, duplicate actions, effect declarations, dependency/conflict planning, path confinement, and transport-free deterministic behavior. Prove inference JSON cannot deserialize into an executable command specification.
 3. Add backend contract tests that run identical prompt and fix fixtures through fake ACP and fake OpenAI-compatible implementations and compare their normalized results.
 4. Add fake-agent integration tests for initialization, capability negotiation, streamed text assembly, structured fix assembly, stop reasons, permission denial, timeout/cancellation, malformed messages, stderr diagnostics, early child exit, and process cleanup.
-5. Add installation-preflight tests for an absent command, invalid explicit path, non-executable file where supported, failing version arguments, and a fake executable with a valid version response. Verify the same generic preflight works with at least two fake agent descriptors so the implementation is not accidentally coupled to the `opencode` binary name.
-6. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
-7. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake package managers and isolated `PATH` values; never install software on the test host.
-8. Add CLI parsing, command, and doctor tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, invalid data, timeout, model/agent selection, and clean stdout.
-9. Run focused tests for `schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
-10. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
-11. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
-12. Regenerate CLI help and build documentation when the CLI surface lands.
+5. Run the same inference and suggestion fixtures through the direct service, operation registry, JSON-RPC HTTP adapter, optional gRPC adapter, and ACP adapter; assert equivalent typed results while preserving transport-specific identifiers, streaming, cancellation, and errors.
+6. Add installation-preflight tests for an absent command, invalid explicit path, non-executable file where supported, failing version arguments, and a fake executable with a valid version response. Verify the same generic preflight works with at least two fake agent descriptors so the implementation is not accidentally coupled to the `opencode` binary name.
+7. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
+8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake package managers and isolated `PATH` values; never install software on the test host.
+9. Add CLI parsing, command, and doctor tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, invalid data, timeout, model/agent selection, and clean stdout.
+10. Run focused tests for `schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
+11. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
+12. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
+13. Regenerate CLI help and build documentation when the CLI surface lands.
 
 # Acceptance criteria
 
@@ -873,6 +895,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 - Every executed fix rechecks preconditions and reruns its originating check/diagnostic. Execution without successful verification is not reported as resolved.
 - An unsupported or ambiguous check can produce an explicit no-fix result without forcing a fabricated operation.
 - One shared inference request/result contract supports both ACP and OpenAI-compatible HTTP without leaking either wire format into checks or fixes.
+- Registered inference and suggestion operations return equivalent typed results through direct, JSON-RPC, optional gRPC, and ACP adapters without replacing official ACP wire types or collapsing transport-specific cancellation and session semantics.
 - Public ACP execution code is rooted at `acorn::io::acp` and native process dependencies are feature-gated.
 - Shared ACP prompt, request, event, result, permission, installation, process-lifecycle, and session code contains no OpenCode-specific branching; OpenCode supplies a thin launch configuration.
 - Prompt selection, configuration, and normalized metadata reuse `schema::agent`; the in-tree agent service hydrates the existing embedded prompt assets without making ACP or HTTP adapters aware of Tera.
@@ -895,6 +918,10 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 - Host fix executors remain outside portable schema/analysis builds, and tests never install packages or modify the real host environment.
 - The CLI supports prompt preview, one-shot inference, structured fix suggestions, and policy-governed doctor auto-fix with stable output and documented diagnostics.
 
+# Next plan
+
+After this plan's acceptance criteria pass, continue with the [MCP client](mcp-client.md). It should reuse the established operation policy and inference service boundaries while retaining RMCP protocol ownership.
+
 # Deferred decisions
 
 - Whether the CLI should expose fix suggestions as `check --suggest-fixes`, `fix suggest`, or both through one shared service.
@@ -909,7 +936,11 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [Portability roadmap](../refactors/portability/roadmap.md)
-- [Portability roadmap](../refactors/portability/roadmap.md)
 - [Host abstraction traits](../refactors/portability/host-abstraction-traits.md)
 - [API client roadmap](../refactors/api/roadmap.md)
+- [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md)
+- [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md)
+- [Extensible webhook runtime](../refactors/api/webhook-runtime.md)
+- [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md)
+- [MCP client](mcp-client.md)
 - [CLI parse and execution models](../refactors/core/cli-parse-execution-models.md)

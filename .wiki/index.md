@@ -17,9 +17,16 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-1. Continue with [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md) over the implemented ordered `CheckBatch`/`CheckSummary` and `ValeConfig` endomorphism contracts.
-2. Continue narrowing broad dependency feature defaults while keeping minimal, alloc, analyzer, native, and WASM checks green.
-3. Revisit consumer-owned ports and [WASM browser services](refactors/portability/wasm-feature-path.md) only after concrete native and browser consumers prove a narrow seam.
+The dedicated RPC and automation lane is the highest-priority initiative. Complete it in this strict order:
+
+1. [JSON-RPC operation runtime](refactors/api/json-rpc-runtime.md)
+2. [Extensible webhook runtime](refactors/api/webhook-runtime.md)
+3. [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md)
+4. [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md)
+5. [ACP inference and verified fixes](features/opencode-acp-inference.md)
+6. [MCP client](features/mcp-client.md)
+
+After this lane, continue [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md), dependency-feature narrowing, and consumer-proven [WASM browser services](refactors/portability/wasm-feature-path.md). These may supply reviewed prerequisites, but they do not displace the lane's priority or authorize overlapping writers.
 
 The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
 

@@ -4,9 +4,32 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.2.0` on 2026-09-06.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.2.0` on 2026-09-09.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
+
+## Highest-priority RPC and automation path
+
+```text
+JSON-RPC operation runtime
+          |
+          v
+extensible webhook runtime
+          |
+          v
+GitLab repository automation
+          |
+          v
+Protobuf/gRPC transport
+          |
+          v
+ACP inference and verified fixes
+          |
+          v
+MCP client
+```
+
+This is one serialized delivery lane in the displayed order. JSON-RPC establishes the operation registry; webhooks add durable event-driven invocation; GitLab proves repository automation over typed flat files; tonic/prost adds a sibling binary transport; ACP maps official SDK sessions to the same services; and the RMCP client adds outbound MCP interoperability without replacing either protocol.
 
 ## Critical portability path
 
@@ -46,8 +69,8 @@ isolate std-only modules   host abstraction traits
 |---|---|---|---|
 | `acorn-schema` | Complete: schema, validation, string/byte codecs, vocabulary and prompt assets | `acorn-core` | Schema features, standards crosswalks, `acorn-analysis` |
 | `acorn-analysis` | `analyzer/{check,error,readability}.rs` over supplied content | Host isolation; analyzer algebra plans | Service extraction and portable checks |
-| `acorn-api` | `io/api/` protocol, endpoint, request, response, and auth logic | API roadmap contracts | `acorn-service`, `acorn-host`, provider features |
-| `acorn-store` | `io/database/`, GitLab durable operation state | API DTO/error boundaries | GitLab workflows, service extraction |
+| `acorn-api` | `io/api/` protocol, JSON-RPC, gRPC, webhook verification, endpoint, request, response, and auth logic | API roadmap and operation-registry contracts | `acorn-service`, `acorn-host`, provider features |
+| `acorn-store` | `io/database/`, provider-neutral webhook delivery, operation, effect, and callback state | API DTO/error boundaries | GitLab workflows, service extraction |
 | `acorn-export` | PowerPoint/OOXML and template transforms that return bytes | Export context; interpolation; OOXML hardening | Native/browser renderer adapters |
 | `acorn-host` | Native files, HTTP, processes, downloads, document conversion, doctor | Host traits plus extracted domains | CLI/TUI direct composition |
 | `acorn-wasm` | Minimal bindings are complete; browser HTTP/storage adapters remain | Concrete browser workflow and narrow consumer-owned ports | Browser service composition |
@@ -76,7 +99,12 @@ isolate std-only modules   host abstraction traits
 - [ISNI top-tier support](features/isni-top-tier-support.md) closes the portable parser and agent-identifier validation gaps before adding an exact read-only SRU provider. Its schema slice coordinates with [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md); its provider and gather integration slices use the current API and analyzer contracts without making ISNI a project identity.
 - [Analyzer composition and traversal](refactors/analyzer/analyzer-composition.md) must consume the implemented calculation/execution/report context split without introducing a generic host trait or presuming package extraction.
 - [API roadmap](refactors/api/roadmap.md) records the completed shared authentication builders, `SecretString` credential migration, and reusable webhook contracts, then orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
-- [GitLab bot workflows](refactors/api/gitlab-webhook-bot-workflows.md) consume the landed opaque claimed-operation settlement and provider-neutral webhook verification/dispatch boundaries before moving orchestration into `acorn-service`.
+- [JSON-RPC operation runtime](refactors/api/json-rpc-runtime.md) establishes typed service registration and direct JSON-RPC 2.0 request/notification dispatch.
+- [Extensible webhook runtime](refactors/api/webhook-runtime.md) consumes that registry and turns authenticated provider deliveries into durable operations and callbacks.
+- [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md) consumes both foundations, replaces its local lifecycle tables, and proves registered flat-file workflows against exact repository revisions.
+- [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md) follows the stable operation contract and adds tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
+- [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
+- [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
 
 ### Export and interfaces
 
@@ -98,17 +126,18 @@ isolate std-only modules   host abstraction traits
 |---|---|---|
 | `crates/acorn-schema/src/` | Metadata alignment, dPID, ISNI, OCP, ZON, CKAN/DCAT, ModelKit/Kitfile, SciCrunch resource entity | Schema flattening and the portable RRID baseline have landed in ACORN. Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. Plans share `lib.rs`, enum/module roots, validation, standards adapters, and fixtures as integration locks. dPID's general activity identifier and RO-Crate crosswalk serialize with metadata alignment. |
 | `crates/acorn-lib/src/analyzer/` | [Analyzer composition](refactors/analyzer/analyzer-composition.md), [dPID](features/dpid-research-object-support.md), [ISNI](features/isni-top-tier-support.md), ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. Single analyzer plan owns `analyzer/{check,error,service,host/*}` renames; dPID and ISNI resolution integrations each take the discovery leaf lock for their landing slice. |
-| `crates/acorn-lib/src/io/api/` | API roadmap children, dPID, ISNI, GitLab, OCI, inference | Preserve the landed authentication and webhook boundaries, separate provider protocol from workflow orchestration before crate moves, and avoid parallel renames of the same modules. dPID and ISNI providers may develop as separate leaves, but `io/api/mod.rs` and endpoint configuration remain integration locks. The retained SciCrunch review records that an RRID provider is not planned. |
-| `crates/acorn-schema/src/agent/` and `crates/acorn-lib/src/io/mcp/` | ACP inference, database-backed artifacts, OCI model interoperability, service extraction | Preserve the implemented MCP runtime-policy, dependency-injection, and bundle contracts while serializing agent schema, OpenCode MCP shape, module indexes, and feature changes. |
+| `crates/acorn-lib/src/io/api/` | JSON-RPC, webhook runtime, GitLab, gRPC, API roadmap children, dPID, ISNI, OCI, inference | The highest-priority lane serializes shared operation, webhook, GitLab, and gRPC roots in its numbered order. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. |
+| `crates/acorn-schema/src/agent/` and `crates/acorn-lib/src/io/{acp,mcp}/` | ACP inference, MCP client, database-backed artifacts, OCI model interoperability, service extraction | Preserve the implemented RMCP server/runtime-policy contracts. ACP uses the official SDK; MCP uses RMCP; both may adapt to shared services but neither owns the JSON-RPC codec. Serialize agent schema, module indexes, manifests, CLI roots, and feature changes. |
 | `crates/acorn-lib/src/io/http/mod.rs` | API invocation, transfer/download hardening | Preserve request-level redirect, response-bound, redaction, and anonymous-fallback controls; serialize further service-injection changes. |
 | `crates/acorn-lib/src/io/config/` | API endpoint/environment, dPID identity persistence, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
-| `crates/acorn-lib/src/io/database/` | Canonical RAD database, GitLab bot store, database-backed artifact sources | Give each store a leaf module and dedicated tests. Landed portable RRID discovery reuses the generic discoveries table and requires no migration; serialize `database/{mod.rs,schema.rs}` changes and public repository integration. |
+| `crates/acorn-lib/src/io/database/` | Canonical RAD database, provider-neutral webhook store, database-backed artifact sources | The webhook runtime replaces GitLab-specific bot tables with dedicated generic lifecycle tables. Give each store a leaf module and tests; serialize `database/{mod.rs,schema.rs}`, migrations, and public repository integration. |
 | `crates/acorn-lib/src/io/powerpoint/` | OOXML hardening, interpolation, export context, fuzzing | Finish structured transforms and tests before moving them to `acorn-export`. |
-| `crates/acorn-cli/src/main.rs` and `cli/` | CLI model/startup/error plans, ACP inference, dPID import | Preserve the implemented `serve mcp`, `create mcp`, and `sync --mcp` contract while completing parse/execution separation; dPID import must land through the shared CLI lock, and MCPB remains outside RAD export dispatch. |
-| Workspace manifests and CI | Crate extraction, feature defaults, CI pools, WASM gates | Change one graph concern per merge and validate all supported feature combinations after each manifest move. |
+| `crates/acorn-cli/src/main.rs` and `cli/` | RPC/webhook serving, GitLab bot, ACP inference, MCP client, CLI model/startup/error plans, dPID import | The highest-priority lane has first claim on its CLI integration windows. Preserve implemented MCP commands; register one transport or workflow surface per merge and regenerate help once per integration batch. |
+| Workspace manifests and CI | JSON-RPC/webhook dependencies, tonic/prost, ACP SDK, RMCP client, crate extraction, feature defaults, CI pools, WASM gates | The highest-priority lane serializes dependency additions in its numbered order. Change one graph concern per merge and validate supported feature combinations after each manifest move. |
 
 ## Scheduling projection
 
+- Complete the highest-priority RPC and automation lane before scheduling lower-priority work that needs its module, database, manifest, or CLI locks. Its six plans serialize in the numbered order even where later adapter scaffolding could technically begin earlier.
 - Critical-path coordination plans are not implementation jobs. Schedule a named contract-stabilization or extraction plan rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
 - The analyzer extraction decision is deferred: preserve the CI-enforced in-tree boundary while analyzer, API, export, and service contracts stabilize, then reconsider extraction only when a concrete alternate consumer exists.
