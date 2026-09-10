@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 trait LogbookUpdatesExport {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf>;
+    #[cfg(feature = "pdf")]
     fn to_html(&self) -> String;
     fn write_docx(&self, path: &Path) -> ApiResult<()>;
 }
@@ -23,6 +24,7 @@ impl LogbookUpdatesExport for LogbookUpdates {
             .map_err(Into::<color_eyre::Report>::into)
             .and_then(|path| path.materialize_under(output).map_err(Into::into))
     }
+    #[cfg(feature = "pdf")]
     fn to_html(&self) -> String {
         let entries = self
             .entries

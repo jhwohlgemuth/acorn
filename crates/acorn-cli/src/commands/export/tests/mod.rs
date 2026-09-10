@@ -33,8 +33,8 @@ use futures::lock::Mutex;
 #[cfg(feature = "pdf")]
 use std::env::var_os;
 #[cfg(feature = "pdf")]
-use std::fs::{canonicalize, read};
-use std::fs::{copy, create_dir_all, read_dir, read_to_string, write};
+use std::fs::canonicalize;
+use std::fs::{copy, create_dir_all, read, read_dir, read_to_string, write};
 #[cfg(feature = "pdf")]
 use std::path::Path;
 use std::path::PathBuf;
