@@ -543,6 +543,10 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 }
                 serve::mcp::run(offline, arguments.allow_mutation, config.database_path.clone()).await
             }),
+            | Some(ServeCommands::Rpc(arguments)) if arguments.allow_mutation && config.no_local_database => {
+                Err(eyre::eyre!("--allow-mutation requires local database persistence"))
+            }
+            | Some(ServeCommands::Rpc(arguments)) => with_runtime(async { serve::rpc::run(arguments.bind, arguments.allow_mutation, offline).await }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),

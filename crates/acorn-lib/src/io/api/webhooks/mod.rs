@@ -1,5 +1,6 @@
 //! Provider-neutral webhook verification and callback transport contracts
 use crate::io::api;
+use crate::io::api::json_rpc::Notification;
 use crate::io::http::{HeaderMapExt, HttpMethod, HttpRequest, HttpResponseTooLarge, HttpService};
 use crate::io::ApiResult;
 use crate::util::constants::app::MAX_CALLBACK_RESPONSE_BYTES;
@@ -15,14 +16,34 @@ use ring::hmac;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 
+/// Durable provider-neutral webhook operation storage.
+pub mod store;
+
 /// Awaitable result produced by a durable webhook operation.
 pub type Operation = Pin<Box<dyn Future<Output = ApiResult<()>> + Send>>;
 /// Callback used by durable webhook workers.
 pub type OperationHandler<T> = Arc<dyn Fn(Delivery<T>) -> Operation + Send + Sync + 'static>;
+/// Deployment-owned resolver for callback destination names.
+pub trait CallbackResolver: Send + Sync {
+    /// Resolve a persisted destination name into its current URL and credentials.
+    fn resolve(&self, name: &str) -> Result<CallbackDestination, WebhookError>;
+}
 /// Authentication contract for inbound webhook requests.
 pub trait Verifier {
     /// Verify exact request bytes using an explicit clock value.
     fn verify<'a>(&self, request: InboundRequest<'a>, now: Timestamp) -> Result<VerifiedRequest<'a>, WebhookError>;
+}
+/// Provider adapter that authenticates, normalizes, and classifies webhook deliveries.
+pub trait WebhookProvider: Send + Sync {
+    /// Provider-normalized event type.
+    type Event: Clone + for<'de> Deserialize<'de> + Send + Serialize + Sync + 'static;
+
+    /// Authenticate and normalize one request.
+    fn receive(&self, request: InboundRequest<'_>, now: Timestamp) -> Result<Delivery<Self::Event>, WebhookError>;
+    /// Classify one normalized delivery into registered operations.
+    fn classify(&self, delivery: &Delivery<Self::Event>) -> Result<Vec<OperationSpec>, WebhookError>;
+    /// Stable provider namespace.
+    fn name(&self) -> &'static str;
 }
 /// Stable webhook verification and dispatch error categories.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -39,6 +60,11 @@ pub enum ErrorKind {
     Downstream,
     /// Callback response exceeded its configured bound.
     ResponseTooLarge,
+}
+/// Callback destination resolved at attempt time so credentials are never persisted with an intent.
+pub struct CallbackDestination {
+    headers: Vec<CallbackHeader>,
+    target: CallbackTarget,
 }
 /// Callback header with an explicit public-or-secret diagnostic classification.
 #[derive(Clone)]
@@ -79,6 +105,26 @@ pub struct InboundRequest<'a> {
     /// Exact raw request body bytes.
     pub raw_body: &'a [u8],
 }
+/// Durable operation selected from one provider-normalized delivery.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct OperationSpec {
+    /// Provider-scoped canonical operation key.
+    pub idempotency_key: String,
+    /// JSON-RPC notification dispatched by the worker.
+    pub notification: Notification,
+    /// Stable provider namespace.
+    pub provider: String,
+}
+/// Authenticated delivery and the registered operations selected from it.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreparedDelivery<T> {
+    /// Provider-normalized delivery.
+    pub delivery: Delivery<T>,
+    /// Deterministically ordered operations selected from the delivery.
+    pub operations: Vec<OperationSpec>,
+}
 /// Standard Webhooks HMAC-SHA256 verifier.
 #[derive(Clone)]
 pub struct StandardWebhooksVerifier {
@@ -99,6 +145,15 @@ pub struct WebhookError {
     kind: ErrorKind,
     message: &'static str,
     status_code: Option<u16>,
+}
+impl CallbackDestination {
+    /// Construct a resolved callback destination.
+    pub fn new(target: CallbackTarget, headers: Vec<CallbackHeader>) -> Self {
+        Self { headers, target }
+    }
+    pub(super) fn parts(&self) -> (&CallbackTarget, &[CallbackHeader]) {
+        (&self.target, &self.headers)
+    }
 }
 impl CallbackHeader {
     fn new(name: &str, value: &str, is_secret: bool) -> Result<Self, WebhookError> {
@@ -244,6 +299,16 @@ impl Verifier for HeaderSecretVerifier {
                     | false => Err(WebhookError::new(ErrorKind::Unauthorized, "Webhook authentication failed")),
                 },
             )
+    }
+}
+impl OperationSpec {
+    /// Construct one provider-namespaced durable operation.
+    pub fn new(provider: impl Into<String>, idempotency_key: impl Into<String>, notification: Notification) -> Self {
+        Self {
+            idempotency_key: idempotency_key.into(),
+            notification,
+            provider: provider.into(),
+        }
     }
 }
 impl fmt::Debug for StandardWebhooksVerifier {
@@ -401,5 +466,15 @@ pub async fn dispatch<T: Serialize + ?Sized>(
         | Err(why) => Err(why),
     }
 }
+/// Authenticate, normalize, and classify one provider request without persistence.
+pub fn prepare<P: WebhookProvider>(provider: &P, request: InboundRequest<'_>, now: Timestamp) -> Result<PreparedDelivery<P::Event>, WebhookError> {
+    provider.receive(request, now).and_then(|delivery| {
+        provider.classify(&delivery).map(|mut operations| {
+            operations.sort_by(|left, right| left.idempotency_key.cmp(&right.idempotency_key));
+            PreparedDelivery { delivery, operations }
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests;

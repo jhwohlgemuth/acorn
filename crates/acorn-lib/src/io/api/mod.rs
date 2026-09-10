@@ -47,6 +47,7 @@ pub mod gitlab;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;
+pub mod json_rpc;
 pub mod localhost;
 pub mod models_dev;
 pub mod needle;
@@ -288,12 +289,6 @@ pub struct Credential {
     #[redact]
     pub token: Secret,
 }
-impl PartialEq for Credential {
-    fn eq(&self, other: &Self) -> bool {
-        self.header == other.header && ExposeSecret::expose_secret(&self.token) == ExposeSecret::expose_secret(&other.token)
-    }
-}
-impl Eq for Credential {}
 /// Empty struct used for cases where no query fields are needed
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -455,6 +450,12 @@ impl Credential {
         (self.header, self.token)
     }
 }
+impl Eq for Credential {}
+impl PartialEq for Credential {
+    fn eq(&self, other: &Self) -> bool {
+        self.header == other.header && ExposeSecret::expose_secret(&self.token) == ExposeSecret::expose_secret(&other.token)
+    }
+}
 impl fmt::Display for EmptyField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -587,6 +588,17 @@ impl From<Repository> for Endpoint {
         value.location().into()
     }
 }
+impl<'a> From<Uri<&'a str>> for Endpoint {
+    fn from(value: Uri<&'a str>) -> Self {
+        let domain = value.authority().map(|auth| auth.host().to_string()).unwrap_or_default();
+        let port = value.authority().and_then(|auth| auth.port_to_u16().ok()).flatten();
+        Self::from_parts(
+            domain,
+            Some(Scheme::from(value.scheme().as_str())).filter(|scheme| *scheme != Scheme::Unsupported),
+            port,
+        )
+    }
+}
 #[async_trait]
 impl RemoteResource for Endpoint {
     type Query = EmptyField;
@@ -696,17 +708,6 @@ impl RemoteResource for Endpoint {
             | Ok(response) => response_content(response),
             | Err(why) => Err(why),
         }
-    }
-}
-impl<'a> From<Uri<&'a str>> for Endpoint {
-    fn from(value: Uri<&'a str>) -> Self {
-        let domain = value.authority().map(|auth| auth.host().to_string()).unwrap_or_default();
-        let port = value.authority().and_then(|auth| auth.port_to_u16().ok()).flatten();
-        Self::from_parts(
-            domain,
-            Some(Scheme::from(value.scheme().as_str())).filter(|scheme| *scheme != Scheme::Unsupported),
-            port,
-        )
     }
 }
 impl<T> FallbackResponse for Fallback<T>
@@ -984,12 +985,6 @@ impl TreeEntry {
         self.path
     }
 }
-impl Searchable<Endpoint> for Vec<Endpoint> {
-    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
-        let name = value.into();
-        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
-    }
-}
 impl IntoBody for Vec<Param> {
     fn into_body(self) -> serde_json::Value {
         let params: Vec<Param> = self.into_iter().filter(|Param { style, .. }| style.is_body()).collect();
@@ -1046,6 +1041,12 @@ impl IntoHeaders for Vec<Param> {
             }
         });
         headers
+    }
+}
+impl Searchable<Endpoint> for Vec<Endpoint> {
+    fn find_by_name(&self, value: impl Into<String>) -> Option<Endpoint> {
+        let name = value.into();
+        self.iter().find(|endpoint| endpoint.name.eq_ignore_ascii_case(&name)).cloned()
     }
 }
 impl Searchable<Resource> for Vec<Resource> {

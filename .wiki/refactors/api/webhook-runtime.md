@@ -1,7 +1,7 @@
 ---
 type: Plan
-title: "Build a provider-neutral webhook runtime"
-description: "Extend shared webhook verification into typed ingress, JSON-RPC normalization, durable processing, and outbound delivery."
+title: "Finish webhook runtime operations"
+description: "Expose webhook readiness and outcome state, and add graceful worker draining."
 difficulty: high
 impact: high
 package: [acorn-lib]
@@ -12,72 +12,57 @@ priority: next
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/io/api/webhooks/`, `src/io/http/mod.rs`, `src/io/database/mod.rs`, `src/io/api/gitlab/{bot,database,mod,webhook}.rs`, GitLab tests, and shared runtime constants.
-- **Create:** `io/api/webhooks/{auth,callback,delivery,ingress,router,store,worker,axum}.rs`, `io/database/webhooks.rs`, and fake-provider/store fixtures.
-- **Delete:** GitLab-local receipt, queue, retry, settlement, worker, and counter contracts after migration. Replace experimental `bot_*` tables; no compatibility migration is required because there are no deployed users.
+- **Update:** `crates/acorn-lib/src/io/api/webhooks/{mod,store}.rs`, webhook worker composition roots, health/state endpoints, and focused lifecycle tests.
+- **Create:** A provider-neutral runtime-state DTO only if the existing API status model cannot express readiness and drain state.
+- **Delete:** None.
 
 # Dependencies
 
-Requires the [typed operation and JSON-RPC runtime](json-rpc-runtime.md). The [GitLab automation plan](gitlab-webhook-bot-workflows.md) consumes this runtime. Protobuf/gRPC and MCP are independent consumers, not webhook prerequisites.
+Uses the implemented `io::api::json_rpc` operation registry. The remaining operational state must land before the [GitLab automation plan](gitlab-webhook-bot-workflows.md) finishes its readiness and drain integration.
 
 # Goal
 
-Make `io::api::webhooks` the authoritative provider-neutral webhook capability. Provider adapters authenticate and decode native payloads into typed events, then classify actionable events into durable JSON-RPC notifications handled by the shared operation registry.
+Finish the operational surface of the provider-neutral webhook runtime: expose shared last-success and last-error timestamps, distinguish liveness from readiness, and drain claimed work gracefully during shutdown.
 
-# Public interfaces
+# Proposed state contract
 
 ```rust
-pub trait WebhookProvider: Send + Sync {
-    type Event: Clone + DeserializeOwned + Send + Serialize + Sync + 'static;
-
-    fn name(&self) -> &'static str;
-    fn receive(&self, request: InboundRequest<'_>, now: Timestamp) -> Result<Delivery<Self::Event>, WebhookError>;
-    fn classify(&self, delivery: &Delivery<Self::Event>) -> Result<Vec<OperationSpec>, WebhookError>;
-}
-
-pub struct OperationSpec {
-    pub idempotency_key: String,
-    pub message: json_rpc::Notification,
-    pub provider: String,
+pub struct WebhookRuntimeState {
+    pub accepting: bool,
+    pub active_claims: u64,
+    pub last_error_at: Option<Timestamp>,
+    pub last_success_at: Option<Timestamp>,
+    pub ready: bool,
 }
 ```
 
-The JSON-RPC notification has no request ID. Its provider-namespaced idempotency key controls durable deduplication.
+# Remaining behavior
 
-# Persistence and behavior
-
-- Create generic inbound-delivery, operation, outbound-delivery, and outbound-attempt tables.
-- Persist authenticated normalized payloads, never raw unauthenticated bodies or credentials.
-- Enforce a shared body bound before parsing, persist before returning `202 Accepted`, and recover expired claims on startup.
-- Keep the core framework-neutral; Axum only translates HTTP request/response types.
-- Support provider-namespaced deduplication, bounded retries, terminal failure, replay, cancellation, graceful draining, and counters.
-- Outbound callbacks are at-least-once with stable idempotency identity. Persist a deployment destination name and resolve URL/secrets at attempt time. Document ambiguous timeout outcomes and receiver-side deduplication.
-- Prove extensibility with GitLab plus a deterministic fake provider.
+- Record shared success/error timestamps when operations and callbacks settle without persisting secrets or raw unauthenticated bodies.
+- Stop accepting new claims when shutdown begins, allow active claims to settle within a bounded grace period, and leave unfinished claims recoverable after timeout.
+- Report liveness independently from readiness; readiness fails while draining or when store initialization/recovery has not completed.
+- Keep state and drain coordination provider-neutral and framework-neutral.
 
 # Plan conflicts
 
 | Plan or lane | Conflict | Resolution |
 |---|---|---|
-| JSON-RPC | Notification and operation dispatch types | JSON-RPC lands first; do not define another envelope. |
-| API/HTTP | `io/api/webhooks`, `io/http`, and errors | Webhook policy stays here; reuse HTTP transport contracts. |
-| Research store | `io/database/mod.rs` and backend wiring | One store owner registers generic webhook tables; no RAD persistence changes. |
-| GitLab | Existing queue/worker code moves | Migrate GitLab as the first adapter before repository automation. |
-| Crate extraction | Contracts later divide across API/service/store/host | Freeze and test in-tree boundaries before physical movement. |
+| GitLab automation | Both plans need readiness and shutdown composition | Define state and drain behavior here; GitLab only exposes the shared result. |
+| API health work | Health endpoints may otherwise create a second readiness model | Reuse one API status DTO or add one webhook DTO with an explicit conversion. |
+| Crate extraction | Runtime state may later divide across API/service/store/host | Keep persistence facts in the store and drain orchestration in the host composition root. |
 
 # Validation
 
-- Run authentication and exact-byte signature tests, a shared conformance suite against GitLab and a fake provider, and multi-operation classification tests.
-- Cover namespaced collisions, retries, recovery, replay, cancellation, double settlement, graceful draining, and state reporting.
-- Cover outbound success, rejection, ambiguous transport failure, retry, terminal state, and secret-safe persistence.
-- Run SQLite/DuckDB paths, focused tests, lint, full tests, audit, portable checks, and whitespace validation.
+- Test success/error timestamp updates for operation and callback settlement, including retries and terminal failures.
+- Test graceful draining with no work, active work that settles, and active work that exceeds the grace period and remains recoverable.
+- Test liveness/readiness transitions during initialization, normal operation, drain, and store failure.
+- Run focused webhook tests, lint, the full suite, applicable portable checks, and `git diff --check`.
 
 # Acceptance criteria
 
-- A new provider requires only a typed adapter and a thin route, not copied receipt, queue, worker, or callback code.
-- Inbound work is durable before acceptance; outbound callbacks are durably attempted at least once.
-- The core lifecycle does not depend on Axum or GitLab.
-- Queue state, retries, failures, replay, deduplication, and last success/error are observable.
+- [ ] Shared last-success/error timestamps and readiness state are observable without exposing credentials or provider-specific fields.
+- [ ] Shutdown stops new claims, settles active work within a bounded grace period, and preserves timed-out work for recovery.
 
 # Next plan
 
-After this plan's acceptance criteria pass, continue with [GitLab repository automation](gitlab-webhook-bot-workflows.md). GitLab is the first real provider adapter and must consume, rather than recreate, the shared lifecycle.
+After this plan's acceptance criteria pass, continue with [GitLab repository automation](gitlab-webhook-bot-workflows.md), which must expose rather than recreate the shared readiness and drain state.

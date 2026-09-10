@@ -853,6 +853,16 @@ fn test_resolve_paths_discovers_rad_markdown_and_ignores_readme() {
     assert!(!resolved.contains(&readme));
 }
 #[test]
+fn test_rpc_server_arguments() {
+    let arguments = Arguments::try_parse_from(["acorn", "serve", "rpc", "--bind", "127.0.0.1:9123"]).expect("parse RPC server");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Serve {
+            command: Some(ServeCommands::Rpc(arguments))
+        }) if arguments.bind.to_string() == "127.0.0.1:9123" && !arguments.allow_mutation
+    ));
+}
+#[test]
 fn test_sync_model_file_argument() {
     let arguments = Arguments::try_parse_from([
         "acorn",
@@ -985,6 +995,7 @@ fn test_tools_export_and_needle_custom_location_arguments() {
         Some(Commands::Infer(_))
     ));
 }
+
 #[test]
 fn test_watch_arguments_are_global() {
     let before = Arguments::try_parse_from(["acorn", "--watch", "--watch-mode", "poll", "--poll-interval", "2s", "check"])

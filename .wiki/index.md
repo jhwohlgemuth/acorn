@@ -17,14 +17,13 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-The dedicated RPC and automation lane is the highest-priority initiative. Complete it in this strict order:
+The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC foundation is complete; continue in this strict order:
 
-1. [JSON-RPC operation runtime](refactors/api/json-rpc-runtime.md)
-2. [Extensible webhook runtime](refactors/api/webhook-runtime.md)
-3. [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md)
-4. [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md)
-5. [ACP inference and verified fixes](features/opencode-acp-inference.md)
-6. [MCP client](features/mcp-client.md)
+1. [Extensible webhook runtime](refactors/api/webhook-runtime.md)
+2. [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md)
+3. [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md)
+4. [ACP inference and verified fixes](features/opencode-acp-inference.md)
+5. [MCP client](features/mcp-client.md)
 
 After this lane, continue [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md), dependency-feature narrowing, and consumer-proven [WASM browser services](refactors/portability/wasm-feature-path.md). These may supply reviewed prerequisites, but they do not displace the lane's priority or authorize overlapping writers.
 

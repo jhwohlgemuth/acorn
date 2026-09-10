@@ -1,10 +1,14 @@
 //! Authorized GitLab work-item citation intake workflow.
 
 use super::webhook;
-use super::{current_user, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options, WorkItem};
+use super::{
+    current_user, project_details, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options,
+    WorkItem,
+};
 use crate::analyzer::host::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
 use crate::io::api::citeas::{self, ToCitations};
-use crate::io::api::Configuration;
+use crate::io::api::{sluggify, Configuration};
+use crate::io::workflow::{FileChange, FileChangeKind, RepositoryChangeSet};
 use crate::io::ApiResult;
 use crate::util::constants::app::{APPLICATION, WORK_ITEM_REPORT_MARKER};
 use acorn_core::util::MarkdownSupport;
@@ -15,8 +19,10 @@ use acorn_schema::ControlledVocabulary;
 use alloc::collections::BTreeSet;
 use color_eyre::eyre::eyre;
 use core::iter::once;
+use data_encoding::HEXLOWER;
 use futures::future::join_all;
 use itertools::Itertools;
+use ring::digest::{digest, SHA256};
 use serde::Serialize;
 
 const MAINTAINER_ACCESS_LEVEL: u64 = 40;
@@ -335,6 +341,59 @@ impl Report {
             }
         }
     }
+    fn citation_change_set(&self, base_revision: String) -> ApiResult<RepositoryChangeSet> {
+        let creator = sluggify(&self.creator_username, self.creator_id);
+        self.candidates
+            .iter()
+            .filter_map(|candidate| candidate.cff.as_ref().map(|cff| (candidate, cff)))
+            .map(|(candidate, cff)| match candidate.artifact.identifiers.first() {
+                | Some(identifier) => {
+                    let kind = identifier.kind.to_string();
+                    let hash = HEXLOWER.encode(digest(&SHA256, identifier.value.as_bytes()).as_ref());
+                    let suffix = hash.chars().take(12).collect::<String>();
+                    let path = format!("citations/work-items/{}/{creator}-{kind}-{suffix}/CITATION.cff", self.iid);
+                    serde_norway::to_string(cff)
+                        .map(|content| FileChange {
+                            content,
+                            kind: FileChangeKind::Create,
+                            path,
+                        })
+                        .map_err(|why| eyre!("Failed to serialize citation candidate — {why}"))
+                }
+                | None => Err(eyre!("Complete citation candidate is missing its identifier")),
+            })
+            .collect::<ApiResult<Vec<_>>>()
+            .map(|mut files| {
+                files.sort_by(|left, right| left.path.cmp(&right.path));
+                RepositoryChangeSet {
+                    base_revision,
+                    files,
+                    reports: vec![],
+                }
+            })
+    }
+    async fn publish_citations(&self, options: &Options) -> ApiResult<()> {
+        match self.candidates.iter().any(|candidate| candidate.cff.is_some()) {
+            | false => Ok(()),
+            | true => match project_details(options).await {
+                | Ok(project) => match project.default_branch {
+                    | Some(target_branch) => match options.branch_head(&target_branch).await {
+                        | Ok(base_revision) => match self.citation_change_set(base_revision) {
+                            | Ok(changes) if changes.files.is_empty() => Ok(()),
+                            | Ok(changes) => changes
+                                .publish(&format!("citation-work-item-{}", self.iid), &target_branch, options)
+                                .await
+                                .map(|_| ()),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    },
+                    | None => Err(eyre!("GitLab project has no default branch")),
+                },
+                | Err(why) => Err(why),
+            },
+        }
+    }
 }
 impl WorkItem {
     async fn authorize(&self, author_id: u64, options: &Options) -> Authorization {
@@ -397,9 +456,12 @@ pub async fn analyze_work_item(options: &Options, actor: &HookActor, command_not
                                     authorization,
                                     candidates,
                                 };
-                                upsert_work_item_note(options, WORK_ITEM_REPORT_MARKER, &report.render())
-                                    .await
-                                    .map(|_| report)
+                                match report.publish_citations(options).await {
+                                    | Ok(()) => upsert_work_item_note(options, WORK_ITEM_REPORT_MARKER, &report.render())
+                                        .await
+                                        .map(|_| report),
+                                    | Err(why) => Err(why),
+                                }
                             }
                             | Err(why) => Err(why),
                         },

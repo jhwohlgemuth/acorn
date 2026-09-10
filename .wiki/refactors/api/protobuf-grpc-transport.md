@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-Requires the [typed operation and JSON-RPC runtime](json-rpc-runtime.md). gRPC is a sibling transport over the operation registry, not a binary JSON-RPC encoding. It is optional for the webhook, GitLab, ACP, and MCP plans.
+Requires the implemented typed operation registry in `io::api::json_rpc`. gRPC is a sibling transport over the operation registry, not a binary JSON-RPC encoding. It is optional for the webhook, GitLab, ACP, and MCP plans.
 
 # Goal
 

@@ -21,6 +21,14 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tracing::warn;
 
+/// Runtime registry for named repository workflows.
+pub mod registry;
+/// Transport-neutral repository workflow data contracts.
+pub mod repository;
+
+pub use registry::RepositoryWorkflowRegistry;
+pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, WorkflowAction, WorkflowFileReport};
+
 /// One planned change to a supported data source.
 #[derive(Clone, Debug)]
 pub enum Change<T> {
@@ -45,6 +53,14 @@ pub enum Change<T> {
     #[cfg(feature = "analysis")]
     Check(Check),
 }
+/// A generated workflow artifact.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Artifact {
+    /// Destination path for the artifact.
+    pub path: PathBuf,
+    /// Serialized artifact content.
+    pub content: String,
+}
 /// Result of applying one or more enrichment providers.
 #[derive(Clone, Debug, Default)]
 pub struct EnrichmentResult<T> {
@@ -54,14 +70,6 @@ pub struct EnrichmentResult<T> {
     pub conflicts: Vec<String>,
     /// Non-fatal provider failures encountered after other providers continued.
     pub failures: Vec<String>,
-}
-/// A generated workflow artifact.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Artifact {
-    /// Destination path for the artifact.
-    pub path: PathBuf,
-    /// Serialized artifact content.
-    pub content: String,
 }
 /// Options shared by workflow interfaces.
 #[derive(Builder, Clone, Debug)]
@@ -113,11 +121,6 @@ pub struct Report {
 /// Service for planning and applying workflows for a supported standard.
 #[derive(Clone, Copy, Debug)]
 pub struct Workflow<T>(PhantomData<fn() -> T>);
-impl<T> Default for Workflow<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
 impl<T> Change<T>
 where
     T: InputOutput + Serialize,
@@ -186,6 +189,17 @@ where
         }
     }
 }
+#[cfg(feature = "analysis")]
+impl<T> From<Check> for Change<T> {
+    fn from(value: Check) -> Self {
+        Self::Check(value)
+    }
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self::init().build()
+    }
+}
 impl<T> Plan<T>
 where
     T: InputOutput + Validate + Serialize + Clone + Send + Sync + 'static,
@@ -218,15 +232,9 @@ where
             })
     }
 }
-#[cfg(feature = "analysis")]
-impl<T> From<Check> for Change<T> {
-    fn from(value: Check) -> Self {
-        Self::Check(value)
-    }
-}
-impl Default for Options {
+impl<T> Default for Workflow<T> {
     fn default() -> Self {
-        Self::init().build()
+        Self(PhantomData)
     }
 }
 impl<T> Workflow<T>

@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-This is fifth in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It is downstream of the [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md), portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. The shared registry owns callable ACORN operations; the official ACP SDK continues to own ACP framing, sessions, capability negotiation, streaming, and permissions. See the [plan dependency network](../plan-network.md).
+This is fourth in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It is downstream of the implemented `io::api::json_rpc` operation runtime, portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. The shared registry owns callable ACORN operations; the official ACP SDK continues to own ACP framing, sessions, capability negotiation, streaming, and permissions. See the [plan dependency network](../plan-network.md).
 
 # Goal
 
@@ -105,7 +105,7 @@ This feature must consume the following plans as governing constraints instead o
 | Safe paths | The landed `acorn::io::SafePath` owns lexical validation and destination containment. Document fix targets should use it directly rather than creating a competing path type. |
 | [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md) and the implemented ordered check batch | Are not blockers. Fix suggestion code consumes `AnalysisReport` through one normalization adapter and should use the implemented analysis context split without changing check construction solely for inference. |
 | [API client roadmap](../refactors/api/roadmap.md), [response DTOs](../refactors/api/response-dtos.md), [environment bootstrap](../refactors/api/environment-bootstrap.md), and [provider capability matrix](../refactors/api/provider-capability-matrix.md) | Govern endpoint/authentication/error/capability mechanics. The OpenAI adapter may add its narrow typed payloads first, but must not duplicate shared environment precedence, endpoint resolution, health, or provider-capability machinery. |
-| [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md) | Owns registered ACORN operation names, typed handler dispatch, shared error classification, and direct HTTP JSON-RPC. Register `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest`; keep fix application private unless a separately authorized operation is accepted. ACP maps session requests into these services but does not replace ACP envelopes with the common JSON-RPC codec. |
+| Implemented `io::api::json_rpc` runtime | Owns registered ACORN operation names, typed handler dispatch, shared error classification, and direct HTTP JSON-RPC. Register `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest`; keep fix application private unless a separately authorized operation is accepted. ACP maps session requests into these services but does not replace ACP envelopes with the common JSON-RPC codec. |
 | [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md) | May expose the same registered inference operations after their contracts stabilize. Protobuf is a sibling transport, not an ACP payload or JSON-RPC encoding. |
 | [Extensible webhook runtime](../refactors/api/webhook-runtime.md) and [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md) | May invoke suggestion-only inference through the registry under explicit policy. Webhook authorization cannot grant ACP tool permissions or fix-application authority. |
 | [MCP client](mcp-client.md) | Reuses RMCP for outbound MCP sessions and may call the same service operations. It does not tunnel MCP through ACP or replace ACP tool negotiation. |
@@ -938,7 +938,6 @@ After this plan's acceptance criteria pass, continue with the [MCP client](mcp-c
 - [Portability roadmap](../refactors/portability/roadmap.md)
 - [Host abstraction traits](../refactors/portability/host-abstraction-traits.md)
 - [API client roadmap](../refactors/api/roadmap.md)
-- [JSON-RPC operation runtime](../refactors/api/json-rpc-runtime.md)
 - [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md)
 - [Extensible webhook runtime](../refactors/api/webhook-runtime.md)
 - [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md)

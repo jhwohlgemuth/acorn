@@ -27,6 +27,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
 * [`acorn-cli serve mcp`↴](#acorn-cli-serve-mcp)
+* [`acorn-cli serve rpc`↴](#acorn-cli-serve-rpc)
 * [`acorn-cli sync`↴](#acorn-cli-sync)
 * [`acorn-cli tui`↴](#acorn-cli-tui)
 
@@ -36,8 +37,8 @@ This document contains the help content for the `acorn-cli` command-line program
 
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀
-⠀⠀⠀⠀⠀⠀⠺⠿⠇⢸⣿⣇⠘⣿⣆⠘⣿⡆⠠⣄⡀⠀⠀⠀⠀⠀⠀    
-⠀⠀⠀⠀⢀⣴⣶⣶⣤⣄⡉⠛⠀⢹⣿⡄⢹⣿⡀⢻⣧⠀⡀⠀⠀⠀⠀    
+⠀⠀⠀⠀⠀⠀⠺⠿⠇⢸⣿⣇⠘⣿⣆⠘⣿⡆⠠⣄⡀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢀⣴⣶⣶⣤⣄⡉⠛⠀⢹⣿⡄⢹⣿⡀⢻⣧⠀⡀⠀⠀⠀⠀
 ⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡈⠓⠀⣿⣧⠈⢿⡆⠸⡄⠀⠀⠀   █████████     █████████     ███████    ███████████   ██████   █████
 ⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣈⠙⢆⠘⣿⡀⢻⠀⠀   ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
 ⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠹⣧⠈⠀⠀  ▒███    ▒███  ███     ▒▒▒  ███     ▒▒███ ▒███    ▒███  ▒███▒███ ▒███
@@ -46,7 +47,7 @@ This document contains the help content for the `acorn-cli` command-line program
 ⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀ ▒███    ▒███ ▒▒███     ███▒▒███     ███  ▒███    ▒███  ▒███  ▒▒█████
 ⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀ █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████⠀
 ⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
-⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀    
+⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀
 ⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
 **Usage:** `acorn-cli [OPTIONS] [COMMAND]`
@@ -367,7 +368,7 @@ Download research activity data from buckets or model weights for local inferenc
 
     Replace selected files that already exist in the output directory
     $> acorn download https://github.com/user/repo --output ./content --clobber
-    
+
     Download using default configuration in current directory (first match):
     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
     $> acorn download
@@ -1046,6 +1047,7 @@ Start a server (bot, MCP, etc.)
 
 * `bot` — Webhook/API bot server that polls GitLab for merge request note events
 * `mcp` — Model context protocol (MCP) server
+* `rpc` — Authenticated JSON-RPC HTTP server
 
 
 
@@ -1095,6 +1097,21 @@ Model context protocol (MCP) server
 ###### **Options:**
 
 * `--allow-mutation` — Enable persistent mutating tools
+
+
+
+## `acorn-cli serve rpc`
+
+Authenticated JSON-RPC HTTP server
+
+**Usage:** `acorn-cli serve rpc [OPTIONS]`
+
+###### **Options:**
+
+* `--allow-mutation` — Enable registered mutating operations
+* `--bind <ADDRESS>` — Address for the authenticated JSON-RPC HTTP endpoint
+
+  Default value: `127.0.0.1:8001`
 
 
 

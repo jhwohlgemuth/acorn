@@ -44,12 +44,13 @@
 //!     Ok(())
 //! }
 //! ```
-use super::database::OperationQueue;
 use super::webhook::{self, WebhookConfig};
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
 #[cfg(feature = "analysis")]
 use crate::analyzer::host::context::AnalysisContext;
+use crate::io::api::json_rpc::{InvocationContext, InvocationOrigin, MethodName, OperationDefinition, OperationEffects, OperationRegistry};
+use crate::io::api::webhooks::store::{OperationQueue, OperationWorker};
 use crate::io::api::{self, Configuration};
 use crate::io::ApiResult;
 use crate::param;
@@ -64,6 +65,7 @@ use color_eyre::eyre::{eyre, WrapErr};
 use core::{fmt, net::SocketAddr, time::Duration};
 use jiff::SignedDuration;
 use serde::Serialize;
+use serde_json::Value;
 use std::sync::Mutex;
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -245,6 +247,32 @@ impl Config {
             #[cfg(feature = "analysis")]
             analysis_options: AnalysisContext::default(),
         }
+    }
+    fn registry(&self) -> ApiResult<OperationRegistry> {
+        let effects = OperationEffects {
+            destructive: false,
+            open_world: true,
+            read_only: false,
+        };
+        [
+            MethodName::from(["webhooks", "gitlab", "merge-request"]),
+            MethodName::from(["webhooks", "gitlab", "note"]),
+        ]
+        .into_iter()
+        .try_fold(OperationRegistry::default(), |registry, method| {
+            OperationDefinition::new::<Value, Value>(method, effects).and_then(|definition| {
+                let config = self.clone();
+                registry.register(definition, move |params: Value, _| {
+                    let config = config.clone();
+                    async move {
+                        match serde_json::from_value::<WebhookDelivery>(params) {
+                            | Ok(delivery) => delivery.process(&config).await.map(|()| Value::Null),
+                            | Err(why) => Err(eyre!("Failed to decode normalized GitLab webhook operation — {why}")),
+                        }
+                    }
+                })
+            })
+        })
     }
     /// Return a copy of the configuration with an initial `after` timestamp.
     ///
@@ -623,38 +651,20 @@ impl Server {
     /// Claim and process one durable webhook operation
     pub async fn process_next(&self) -> ApiResult<bool> {
         let Server { config, .. } = self;
-        match config.operation_queue.claim_next(SignedDuration::from_mins(5)) {
-            | Ok(Some(operation)) => {
-                let operation_key = operation.operation_key().to_string();
-                match serde_json::from_str::<WebhookDelivery>(operation.event_json()) {
-                    | Ok(delivery) => match delivery.process(config).await {
-                        | Ok(()) => config
-                            .operation_queue
-                            .succeed(operation)
-                            .map(|_| true)
-                            .map_err(|why| eyre!("Failed to settle successful bot operation `{operation_key}` — {why}")),
-                        | Err(why) => {
-                            let processing_error = why.to_string();
-                            match config.operation_queue.fail(operation, &processing_error) {
-                                | Ok(_) => Err(why),
-                                | Err(settlement_error) => Err(eyre!(
-                                    "Bot operation `{operation_key}` failed — {processing_error}; failed to settle operation — {settlement_error}"
-                                )),
-                            }
-                        }
-                    },
-                    | Err(why) => {
-                        let processing_error = format!("Failed to decode normalized webhook operation — {why}");
-                        match config.operation_queue.fail(operation, &processing_error) {
-                            | Ok(_) => Err(eyre!(processing_error)),
-                            | Err(settlement_error) => Err(eyre!(
-                                "Bot operation `{operation_key}` failed — {processing_error}; failed to settle operation — {settlement_error}"
-                            )),
-                        }
-                    }
-                }
+        let context = InvocationContext {
+            allow_mutation: true,
+            origin: InvocationOrigin::Webhook,
+            principal: crate::io::api::json_rpc::Principal {
+                identifier: "gitlab-webhook".to_string(),
+            },
+            ..InvocationContext::default()
+        };
+        match config.registry() {
+            | Ok(registry) => {
+                OperationWorker::new(config.operation_queue.clone(), registry, context, SignedDuration::from_mins(5))
+                    .run_once()
+                    .await
             }
-            | Ok(None) => Ok(false),
             | Err(why) => Err(why),
         }
     }

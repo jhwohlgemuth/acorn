@@ -10,12 +10,13 @@ use acorn_schema::standard::cff::Cff;
 use alloc::sync::Arc;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::{get, put};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use std::sync::Mutex;
 
 #[derive(Clone, Default)]
 struct TestState {
+    publication: Arc<Mutex<Vec<serde_json::Value>>>,
     written: Arc<Mutex<Vec<serde_json::Value>>>,
     repository_url: Arc<Mutex<String>>,
 }
@@ -28,6 +29,41 @@ fn note_json(identifier: u64, body: &str, author_id: u64) -> serde_json::Value {
         "confidential": false,
         "internal": false
     })
+}
+fn with_citation_publication(router: Router<TestState>) -> Router<TestState> {
+    router
+        .route(
+            "/api/v4/projects/30",
+            get(|| async { Json(serde_json::json!({"id": 30, "default_branch": "main"})) }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/branches/main",
+            get(|| async { Json(serde_json::json!({"name": "main", "commit": {"id": "base-sha"}})) }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/branches",
+            post(
+                |Json(body): Json<serde_json::Value>| async move { Json(serde_json::json!({"name": body["branch"], "commit": {"id": "base-sha"}})) },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/repository/commits",
+            post(|State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
+                state.publication.lock().unwrap().push(body);
+                Json(serde_json::json!({"id": "citation-commit", "web_url": "https://gitlab.example/commit"}))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests",
+            get(|| async { Json(serde_json::json!([])) }).post(|Json(body): Json<serde_json::Value>| async move {
+                Json(serde_json::json!({
+                    "iid": 9,
+                    "source_branch": body["source_branch"],
+                    "state": "opened",
+                    "web_url": "https://gitlab.example/merge_requests/9"
+                }))
+            }),
+        )
 }
 fn written_note(body: &serde_json::Value) -> serde_json::Value {
     serde_json::json!({
@@ -122,32 +158,34 @@ fn content_excludes_commands_and_non_human_or_later_notes() {
 #[tokio::test]
 async fn creator_issue_intake_reports_multiple_incomplete_artifacts() {
     let state = TestState::default();
-    let router = Router::new()
-        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
-        .route(
-            "/api/v4/projects/30/issues/7",
-            get(|| async {
-                Json(serde_json::json!({
-                    "id": 70,
-                    "iid": 7,
-                    "project_id": 30,
-                    "title": "Research outputs",
-                    "description": "https://example.org/first https://example.org/second",
-                    "author": {"id": 1, "username": "scientist"},
-                    "issue_type": "issue"
-                }))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/issues/7/notes",
-            get(|| async { Json(serde_json::json!([note_json(2, "Human context", 3), note_json(10, "/acorn check", 1)])) }).post(
-                |State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
-                    state.written.lock().unwrap().push(body.clone());
-                    Json(written_note(&body))
-                },
+    let router = with_citation_publication(
+        Router::new()
+            .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
+            .route(
+                "/api/v4/projects/30/issues/7",
+                get(|| async {
+                    Json(serde_json::json!({
+                        "id": 70,
+                        "iid": 7,
+                        "project_id": 30,
+                        "title": "Research outputs",
+                        "description": "https://example.org/first https://example.org/second",
+                        "author": {"id": 1, "username": "scientist"},
+                        "issue_type": "issue"
+                    }))
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/issues/7/notes",
+                get(|| async { Json(serde_json::json!([note_json(2, "Human context", 3), note_json(10, "/acorn check", 1)])) }).post(
+                    |State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
+                        state.written.lock().unwrap().push(body.clone());
+                        Json(written_note(&body))
+                    },
+                ),
             ),
-        )
-        .with_state(state.clone());
+    )
+    .with_state(state.clone());
     let server = TestServer::start(router).await.unwrap();
     let options = Options::with_token("outbound")
         .domain(&server.base_url)
@@ -188,47 +226,49 @@ async fn existing_gitlab_repository_cff_completes_candidate() {
     let state = TestState::default();
     let cff = "cff-version: 1.2.0\ntitle: Repository result\nmessage: Cite this\nauthors:\n  - family-names: Example\n    given-names: Alice\n";
     let encoded_cff = data_encoding::BASE64.encode(cff.as_bytes());
-    let router = Router::new()
-        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
-        .route(
-            "/api/v4/projects/30/issues/7",
-            get(|State(state): State<TestState>| async move {
-                let repository_url = state.repository_url.lock().unwrap().clone();
-                Json(serde_json::json!({
-                    "id": 70,
-                    "iid": 7,
-                    "project_id": 30,
-                    "title": "Repository output",
-                    "description": repository_url,
-                    "author": {"id": 1, "username": "scientist"},
-                    "issue_type": "issue"
-                }))
-            }),
-        )
-        .route(
-            "/api/v4/projects/group%2Fproject/repository/files/CITATION.cff",
-            get(move || {
-                let encoded_cff = encoded_cff.clone();
-                async move {
+    let router = with_citation_publication(
+        Router::new()
+            .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
+            .route(
+                "/api/v4/projects/30/issues/7",
+                get(|State(state): State<TestState>| async move {
+                    let repository_url = state.repository_url.lock().unwrap().clone();
                     Json(serde_json::json!({
-                        "file_path": "CITATION.cff",
-                        "size": cff.len(),
-                        "encoding": "base64",
-                        "content": encoded_cff
+                        "id": 70,
+                        "iid": 7,
+                        "project_id": 30,
+                        "title": "Repository output",
+                        "description": repository_url,
+                        "author": {"id": 1, "username": "scientist"},
+                        "issue_type": "issue"
                     }))
-                }
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/issues/7/notes",
-            get(|| async { Json(serde_json::json!([note_json(10, "/acorn check", 1)])) }).post(
-                |State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
-                    state.written.lock().unwrap().push(body.clone());
-                    Json(written_note(&body))
-                },
+                }),
+            )
+            .route(
+                "/api/v4/projects/group%2Fproject/repository/files/CITATION.cff",
+                get(move || {
+                    let encoded_cff = encoded_cff.clone();
+                    async move {
+                        Json(serde_json::json!({
+                            "file_path": "CITATION.cff",
+                            "size": cff.len(),
+                            "encoding": "base64",
+                            "content": encoded_cff
+                        }))
+                    }
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/issues/7/notes",
+                get(|| async { Json(serde_json::json!([note_json(10, "/acorn check", 1)])) }).post(
+                    |State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
+                        state.written.lock().unwrap().push(body.clone());
+                        Json(written_note(&body))
+                    },
+                ),
             ),
-        )
-        .with_state(state.clone());
+    )
+    .with_state(state.clone());
     let server = TestServer::start(router).await.unwrap();
     *state.repository_url.lock().unwrap() = format!("{}/group/project", server.base_url);
     let options = Options::with_token("outbound")
@@ -241,6 +281,11 @@ async fn existing_gitlab_repository_cff_completes_candidate() {
     let candidate = report.candidates.first().unwrap();
     assert_eq!(candidate.artifact.title.as_deref(), Some("Repository result"));
     assert!(candidate.cff.is_some());
+    let publication = state.publication.lock().unwrap().clone();
+    assert_eq!(publication.len(), 1);
+    assert!(publication[0]["actions"][0]["file_path"]
+        .as_str()
+        .is_some_and(|path| path.starts_with("citations/work-items/7/scientist-")));
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -252,41 +297,43 @@ async fn maintainer_task_intake_updates_existing_report_with_embedded_cff() {
         note_json(10, "/acorn check", 2),
         note_json(80, WORK_ITEM_REPORT_MARKER, 99),
     ];
-    let router = Router::new()
-        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
-        .route(
-            "/api/v4/projects/30/issues/7",
-            get(|| async {
-                Json(serde_json::json!({
-                    "id": 70,
-                    "iid": 7,
-                    "project_id": 30,
-                    "title": "Task result",
-                    "description": "",
-                    "author": {"id": 1, "username": "scientist"},
-                    "issue_type": "task"
-                }))
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/members/all/2",
-            get(|| async { Json(serde_json::json!({"id": 2, "access_level": 40})) }),
-        )
-        .route(
-            "/api/v4/projects/30/issues/7/notes",
-            get(move || {
-                let notes = notes.clone();
-                async move { Json(notes) }
-            }),
-        )
-        .route(
-            "/api/v4/projects/30/issues/7/notes/80",
-            put(|State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
-                state.written.lock().unwrap().push(body.clone());
-                Json(written_note(&body))
-            }),
-        )
-        .with_state(state.clone());
+    let router = with_citation_publication(
+        Router::new()
+            .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id": 99})) }))
+            .route(
+                "/api/v4/projects/30/issues/7",
+                get(|| async {
+                    Json(serde_json::json!({
+                        "id": 70,
+                        "iid": 7,
+                        "project_id": 30,
+                        "title": "Task result",
+                        "description": "",
+                        "author": {"id": 1, "username": "scientist"},
+                        "issue_type": "task"
+                    }))
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/members/all/2",
+                get(|| async { Json(serde_json::json!({"id": 2, "access_level": 40})) }),
+            )
+            .route(
+                "/api/v4/projects/30/issues/7/notes",
+                get(move || {
+                    let notes = notes.clone();
+                    async move { Json(notes) }
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/issues/7/notes/80",
+                put(|State(state): State<TestState>, Json(body): Json<serde_json::Value>| async move {
+                    state.written.lock().unwrap().push(body.clone());
+                    Json(written_note(&body))
+                }),
+            ),
+    )
+    .with_state(state.clone());
     let server = TestServer::start(router).await.unwrap();
     let options = Options::with_token("outbound")
         .domain(&server.base_url)

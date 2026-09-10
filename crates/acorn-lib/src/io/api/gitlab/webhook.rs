@@ -1,12 +1,13 @@
-//! GitLab webhook authentication, normalization, and durable processing.
-
+//! GitLab webhook authentication, normalization, and durable processing
 use super::bot::Config;
-use super::database::OperationQueue;
 #[cfg(feature = "analysis")]
 use super::intake::analyze_work_item;
 use crate::io::api;
+use crate::io::api::json_rpc;
+use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::webhooks::{self, Verifier};
 use crate::io::ApiResult;
+use crate::util::constants::app::APPLICATION;
 use alloc::sync::Arc;
 use axum::body::to_bytes;
 use axum::extract::Request;
@@ -19,6 +20,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "analysis")]
 use tracing::info;
 
+const DEVELOPER_ACCESS_LEVEL: u64 = 30;
 /// An authenticated, normalized webhook delivery ready for processing.
 pub type WebhookDelivery = webhooks::Delivery<HookPayload>;
 /// Awaitable result produced by a durable webhook operation
@@ -162,6 +164,131 @@ struct WebhookError {
     status: StatusCode,
     message: String,
 }
+impl webhooks::Delivery<HookPayload> {
+    /// Normalize an actionable GitLab delivery into a registered operation notification.
+    pub fn operation(&self) -> ApiResult<Option<webhooks::OperationSpec>> {
+        self.key()
+            .map(|key| {
+                let method = match &self.event {
+                    | HookPayload::MergeRequest { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "merge-request"]),
+                    | HookPayload::Note { .. } => json_rpc::MethodName::from(["webhooks", "gitlab", "note"]),
+                };
+                serde_json::to_value(self)
+                    .map_err(|why| eyre!("Failed to encode GitLab webhook delivery — {why}"))
+                    .and_then(|params| json_rpc::Notification::new(method, params))
+                    .map(|notification| webhooks::OperationSpec::new("gitlab", key, notification))
+            })
+            .transpose()
+    }
+    /// Return the canonical operation key for an actionable normalized delivery
+    pub fn key(&self) -> Option<String> {
+        match &self.event {
+            | HookPayload::MergeRequest {
+                actor,
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
+            | HookPayload::Note {
+                actor,
+                note_id,
+                body,
+                noteable_type,
+                noteable_iid: Some(iid),
+                system,
+                confidential,
+                internal,
+                ..
+            } => {
+                let human_authored = !actor.is_bot && !system && !confidential && !internal;
+                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
+                let merge_request = noteable_type.eq_ignore_ascii_case("mergerequest");
+                if human_authored && work_item && check_requested(body) {
+                    Some(format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
+                } else if human_authored && merge_request && workflow_requested(body).is_some() {
+                    Some(format!("repository-process:{}:{iid}:{note_id}", actor.project_id))
+                } else {
+                    None
+                }
+            }
+            | _ => None,
+        }
+    }
+    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
+        match &config.operation_handler {
+            | Some(handler) => handler(self).await,
+            | None => self.default_handler(config).await,
+        }
+    }
+    #[cfg(feature = "analysis")]
+    async fn default_handler(self, config: &Config) -> ApiResult<()> {
+        match self.event {
+            | HookPayload::MergeRequest {
+                iid,
+                head_sha: Some(head_sha),
+                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
+                ..
+            } => {
+                let options = config.options.clone().with_internal_identifier(iid.to_string()).with_sha(head_sha);
+                super::review::analyze_merge_request(&options, &config.analysis_options)
+                    .await
+                    .map(|outcome| {
+                        info!("Processed GitLab merge request analysis operation: {outcome:?}");
+                    })
+            }
+            | HookPayload::Note {
+                actor,
+                note_id,
+                noteable_iid: Some(iid),
+                noteable_type,
+                ..
+            } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
+                let options = config.options.clone().with_internal_identifier(iid.to_string());
+                analyze_work_item(&options, &actor, note_id).await.map(|report| {
+                    info!("Processed GitLab work-item intake operation: {report:?}");
+                })
+            }
+            | HookPayload::Note {
+                actor,
+                body,
+                noteable_iid: Some(iid),
+                noteable_type,
+                ..
+            } if noteable_type.eq_ignore_ascii_case("mergerequest") => match workflow_requested(&body) {
+                | Some(workflow) => {
+                    let options = config.options.clone().with_internal_identifier(iid.to_string());
+                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
+                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
+                            | true => Ok(()),
+                            | false => Err(eyre!("GitLab repository workflow commands require Developer access")),
+                        }
+                    }) {
+                        | Ok(()) => match super::merge_request(&options).await {
+                            | Ok(details) => details.process(&workflow, &options).await.map(|result| {
+                                info!("Processed GitLab repository workflow operation: {result:?}");
+                            }),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | None => Ok(()),
+            },
+            | _ => {
+                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
+                Ok(())
+            }
+        }
+    }
+    #[cfg(not(feature = "analysis"))]
+    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
+        Err(eyre!(
+            "GitLab webhook operation {} requires the acorn-lib analysis feature",
+            self.delivery_id
+        ))
+    }
+}
 impl From<(u64, HookUser)> for HookActor {
     fn from((project_id, user): (u64, HookUser)) -> Self {
         let HookUser {
@@ -223,70 +350,81 @@ impl From<WebhookDelivery> for StatusCode {
 impl Webhook {
     /// Normalize a supported GitLab webhook payload and validate its project identifier
     fn normalize(delivery_id: &str, headers: &HeaderMap, raw_body: &[u8], expected_project_id: Option<u64>) -> ApiResult<Self> {
-        let event_type = api::first_header(headers, &["x-gitlab-event"])
-            .ok_or_else(|| WebhookError::report(StatusCode::BAD_REQUEST, "Missing X-Gitlab-Event header"))?;
-        let event = match event_type {
-            | "Merge Request Hook" => {
-                let RawMergeRequestHook {
-                    user,
-                    project: api::Identifier { identifier: project_id },
-                    object_attributes,
-                } = serde_json::from_slice(raw_body)
-                    .map_err(|why| WebhookError::report(StatusCode::BAD_REQUEST, format!("Invalid Merge Request Hook payload: {why}")))?;
-                Self::validate_project(expected_project_id, project_id)?;
-                let RawMergeRequestAttributes {
-                    iid,
-                    title,
-                    description,
-                    action,
-                    last_commit,
-                } = object_attributes;
-                HookPayload::MergeRequest {
-                    actor: (project_id, user).into(),
-                    iid,
-                    head_sha: last_commit.map(|reference| reference.identifier),
-                    action: action.as_deref().into(),
-                    title,
-                    description,
-                }
-            }
-            | "Note Hook" => {
-                let RawNoteHook {
-                    user,
-                    project: api::Identifier { identifier: project_id },
-                    object_attributes,
-                    issue,
-                    merge_request,
-                } = serde_json::from_slice(raw_body)
-                    .map_err(|why| WebhookError::report(StatusCode::BAD_REQUEST, format!("Invalid Note Hook payload: {why}")))?;
-                Self::validate_project(expected_project_id, project_id)?;
-                let RawNoteAttributes {
-                    id: note_id,
-                    note: body,
-                    noteable_type,
-                    noteable_id,
-                    system,
-                    confidential,
-                    internal,
-                } = object_attributes;
-                HookPayload::Note {
-                    actor: (project_id, user).into(),
-                    note_id,
-                    body,
-                    noteable_type,
-                    noteable_id,
-                    noteable_iid: issue.or(merge_request).map(|reference| reference.identifier),
-                    system,
-                    confidential,
-                    internal,
-                }
-            }
-            | _ => return Ok(Self::Unsupported),
-        };
-        Ok(Self::Delivery(webhooks::Delivery {
-            delivery_id: delivery_id.to_string(),
-            event,
-        }))
+        match api::first_header(headers, &["x-gitlab-event"]) {
+            | Some("Merge Request Hook") => serde_json::from_slice::<RawMergeRequestHook>(raw_body)
+                .map_err(|why| WebhookError::report(StatusCode::BAD_REQUEST, format!("Invalid Merge Request Hook payload: {why}")))
+                .and_then(|hook| {
+                    let RawMergeRequestHook {
+                        user,
+                        project: api::Identifier { identifier: project_id },
+                        object_attributes,
+                    } = hook;
+                    Self::validate_project(expected_project_id, project_id).map(|()| {
+                        let RawMergeRequestAttributes {
+                            iid,
+                            title,
+                            description,
+                            action,
+                            last_commit,
+                        } = object_attributes;
+                        HookPayload::MergeRequest {
+                            actor: (project_id, user).into(),
+                            iid,
+                            head_sha: last_commit.map(|reference| reference.identifier),
+                            action: action.as_deref().into(),
+                            title,
+                            description,
+                        }
+                    })
+                })
+                .map(|event| {
+                    Self::Delivery(webhooks::Delivery {
+                        delivery_id: delivery_id.to_string(),
+                        event,
+                    })
+                }),
+            | Some("Note Hook") => serde_json::from_slice::<RawNoteHook>(raw_body)
+                .map_err(|why| WebhookError::report(StatusCode::BAD_REQUEST, format!("Invalid Note Hook payload: {why}")))
+                .and_then(|hook| {
+                    let RawNoteHook {
+                        user,
+                        project: api::Identifier { identifier: project_id },
+                        object_attributes,
+                        issue,
+                        merge_request,
+                    } = hook;
+                    Self::validate_project(expected_project_id, project_id).map(|()| {
+                        let RawNoteAttributes {
+                            id: note_id,
+                            note: body,
+                            noteable_type,
+                            noteable_id,
+                            system,
+                            confidential,
+                            internal,
+                        } = object_attributes;
+                        HookPayload::Note {
+                            actor: (project_id, user).into(),
+                            note_id,
+                            body,
+                            noteable_type,
+                            noteable_id,
+                            noteable_iid: issue.or(merge_request).map(|reference| reference.identifier),
+                            system,
+                            confidential,
+                            internal,
+                        }
+                    })
+                })
+                .map(|event| {
+                    Self::Delivery(webhooks::Delivery {
+                        delivery_id: delivery_id.to_string(),
+                        event,
+                    })
+                }),
+            | Some(_) => Ok(Self::Unsupported),
+            | None => Err(WebhookError::report(StatusCode::BAD_REQUEST, "Missing X-Gitlab-Event header")),
+        }
     }
     fn validate_project(expected: Option<u64>, actual: u64) -> ApiResult<()> {
         if expected.is_some_and(|project_id| project_id != actual) {
@@ -313,24 +451,17 @@ impl Webhook {
     fn persist(self, config: &WebhookConfig) -> ApiResult<StatusCode> {
         match self {
             | Self::Unsupported => Ok(StatusCode::OK),
-            | Self::Delivery(delivery) => match delivery.key() {
-                | Some(operation_key) => serde_json::to_string(&delivery)
-                    .map_err(|why| {
-                        WebhookError::report(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("Failed to serialize normalized webhook: {why}"),
-                        )
-                    })
-                    .and_then(|event_json| {
-                        config
-                            .operation_queue
-                            .enqueue(&delivery.delivery_id, &operation_key, &event_json)
-                            .map(|_| StatusCode::ACCEPTED)
-                            .map_err(|why| {
-                                WebhookError::report(StatusCode::SERVICE_UNAVAILABLE, format!("Failed to persist webhook operation: {why}"))
-                            })
-                    }),
-                | None => Ok(StatusCode::ACCEPTED),
+            | Self::Delivery(delivery) => match delivery.operation() {
+                | Ok(Some(operation)) => config
+                    .operation_queue
+                    .enqueue_spec(&delivery.delivery_id, &operation)
+                    .map(|_| StatusCode::ACCEPTED)
+                    .map_err(|why| WebhookError::report(StatusCode::SERVICE_UNAVAILABLE, format!("Failed to persist webhook operation: {why}"))),
+                | Err(why) => Err(WebhookError::report(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to normalize webhook operation: {why}"),
+                )),
+                | Ok(None) => Ok(StatusCode::ACCEPTED),
             },
         }
     }
@@ -392,88 +523,22 @@ impl WebhookError {
         )
     }
 }
-impl webhooks::Delivery<HookPayload> {
-    /// Return the canonical operation key for an actionable normalized delivery
-    pub fn key(&self) -> Option<String> {
-        match &self.event {
-            | HookPayload::MergeRequest {
-                actor,
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
-            | HookPayload::Note {
-                actor,
-                note_id,
-                body,
-                noteable_type,
-                noteable_iid: Some(iid),
-                system,
-                confidential,
-                internal,
-                ..
-            } => {
-                let human_authored = !actor.is_bot && !system && !confidential && !internal;
-                let work_item = noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task");
-                let requested = check_requested(body);
-                (human_authored && work_item && requested).then(|| format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
-            }
-            | _ => None,
-        }
-    }
-    pub(super) async fn process(self, config: &Config) -> ApiResult<()> {
-        match &config.operation_handler {
-            | Some(handler) => handler(self).await,
-            | None => self.default_handler(config).await,
-        }
-    }
-    #[cfg(feature = "analysis")]
-    async fn default_handler(self, config: &Config) -> ApiResult<()> {
-        match self.event {
-            | HookPayload::MergeRequest {
-                iid,
-                head_sha: Some(head_sha),
-                action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
-                ..
-            } => {
-                let options = config.options.clone().with_internal_identifier(iid.to_string()).with_sha(head_sha);
-                super::review::analyze_merge_request(&options, &config.analysis_options)
-                    .await
-                    .map(|outcome| {
-                        info!("Processed GitLab merge request analysis operation: {outcome:?}");
-                    })
-            }
-            | HookPayload::Note {
-                actor,
-                note_id,
-                noteable_iid: Some(iid),
-                noteable_type,
-                ..
-            } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
-                let options = config.options.clone().with_internal_identifier(iid.to_string());
-                analyze_work_item(&options, &actor, note_id).await.map(|report| {
-                    info!("Processed GitLab work-item intake operation: {report:?}");
-                })
-            }
-            | _ => {
-                info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
-                Ok(())
-            }
-        }
-    }
-    #[cfg(not(feature = "analysis"))]
-    async fn default_handler(self, _config: &Config) -> ApiResult<()> {
-        Err(eyre!(
-            "GitLab webhook operation {} requires the acorn-lib analysis feature",
-            self.delivery_id
-        ))
-    }
-}
 pub(super) fn check_requested(content: &str) -> bool {
-    content.lines().any(|line| line.trim() == "/acorn check")
+    let command = format!("/{APPLICATION} check");
+    content.lines().any(|line| line.trim() == command)
 }
 /// Authenticate and normalize an inbound GitLab webhook request into an HTTP status
 pub(super) async fn receive(Extension(config): Extension<Arc<WebhookConfig>>, request: Request) -> Result<StatusCode, (StatusCode, String)> {
     Webhook::receive(config, request).await
+}
+fn workflow_requested(content: &str) -> Option<String> {
+    let command = format!("/{APPLICATION}");
+    content.lines().find_map(|line| {
+        let mut words = line.split_whitespace();
+        match (words.next(), words.next(), words.next(), words.next()) {
+            | (Some(application), Some("process"), None, None) if application == command => Some("repository-quality".to_string()),
+            | (Some(application), Some("process"), Some(workflow), None) if application == command => Some(workflow.to_string()),
+            | _ => None,
+        }
+    })
 }

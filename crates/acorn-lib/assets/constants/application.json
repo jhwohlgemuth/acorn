@@ -61,9 +61,24 @@
       "root": "api/v4",
       "resources": [
         {
+          "name": "branch",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/branches/{{ branch }}"
+        },
+        {
+          "name": "branch::create",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/branches"
+        },
+        {
           "name": "commit-status",
           "method": "post",
           "template": "{{ base }}/projects/{{ identifier }}/statuses/{{ sha }}"
+        },
+        {
+          "name": "commits::create",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/commits"
         },
         {
           "name": "current-user",
@@ -139,6 +154,16 @@
           "name": "merge-request-diffs",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}/diffs{{ query }}"
+        },
+        {
+          "name": "merge-request::create",
+          "method": "post",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests"
+        },
+        {
+          "name": "merge-request::list",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/merge_requests{{ query }}"
         },
         {
           "name": "merge-request-note",

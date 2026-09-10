@@ -1,6 +1,6 @@
 use super::*;
-use crate::io::api::gitlab::database::{OperationQueue, OperationState};
 use crate::io::api::gitlab::{bot::*, NoteMetadata, UserMetadata};
+use crate::io::api::webhooks::store::{OperationQueue, OperationState};
 use crate::test::server::TestServer;
 use crate::test::utils;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -78,7 +78,7 @@ fn note_payload(project_id: u64, noteable_type: &str, system: bool, bot: bool) -
     })
 }
 fn operation_queue() -> OperationQueue {
-    OperationQueue::from_path(temp_dir().join(format!("acorn-webhook-test-{}.db", nanoid::nanoid!())))
+    OperationQueue::from(temp_dir().join(format!("acorn-webhook-test-{}.db", nanoid::nanoid!())))
 }
 async fn post_webhook(server_url: &str, payload: &serde_json::Value, headers: &[(&str, &str)]) -> reqwest::Response {
     let client = reqwest::Client::new();
@@ -150,13 +150,13 @@ async fn test_default_worker_dispatches_merge_request_analysis() {
     };
     let operation_key = delivery.key().unwrap();
     queue
-        .enqueue(&delivery.delivery_id, &operation_key, &serde_json::to_string(&delivery).unwrap())
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
         .unwrap();
     let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
     let config = Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone());
     assert!(Server::new(config).process_next().await.unwrap());
     assert_eq!(requests.load(Ordering::SeqCst), 1);
-    assert_eq!(queue.state(&operation_key).unwrap(), Some(OperationState::Succeeded));
+    assert_eq!(queue.state(&format!("gitlab:{operation_key}")).unwrap(), Some(OperationState::Succeeded));
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -225,12 +225,12 @@ async fn test_default_worker_dispatches_work_item_intake() {
     };
     let operation_key = delivery.key().unwrap();
     queue
-        .enqueue(&delivery.delivery_id, &operation_key, &serde_json::to_string(&delivery).unwrap())
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
         .unwrap();
     let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
     let config = Config::new(options, "127.0.0.1:0".parse().unwrap()).with_operation_queue(queue.clone());
     assert!(Server::new(config).process_next().await.unwrap());
-    assert_eq!(queue.state(&operation_key).unwrap(), Some(OperationState::Succeeded));
+    assert_eq!(queue.state(&format!("gitlab:{operation_key}")).unwrap(), Some(OperationState::Succeeded));
     assert_eq!(written.lock().unwrap().len(), 1);
     server.stop().await.unwrap();
 }
@@ -347,6 +347,29 @@ fn test_merge_request_actions_share_head_specific_operation_key() {
     );
 }
 #[test]
+fn test_merge_request_process_command_selects_named_workflow() {
+    let delivery = WebhookDelivery {
+        delivery_id: "process-command".to_string(),
+        event: HookPayload::Note {
+            actor: HookActor::new(30, 2, "bob", false),
+            body: "/acorn process repository-quality".to_string(),
+            confidential: false,
+            internal: false,
+            note_id: 10,
+            noteable_id: Some(20),
+            noteable_iid: Some(3),
+            noteable_type: "MergeRequest".to_string(),
+            system: false,
+        },
+    };
+    assert_eq!(delivery.key().as_deref(), Some("repository-process:30:3:10"));
+    let operation = delivery.operation().unwrap().unwrap();
+    assert_eq!(
+        operation.notification.method,
+        crate::io::api::json_rpc::MethodName::from(["webhooks", "gitlab", "note"])
+    );
+}
+#[test]
 fn test_processing_updates_after_to_latest_event_timestamp() {
     let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap());
     let bot = Server::new(config);
@@ -413,16 +436,16 @@ async fn test_success_settlement_failure_is_not_converted_to_operation_failure()
     };
     let operation_key = delivery.key().unwrap();
     queue
-        .enqueue(&delivery.delivery_id, &operation_key, &serde_json::to_string(&delivery).unwrap())
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
         .unwrap();
     let handler: WebhookOperationHandler = Arc::new(|_| Box::pin(async { Ok(()) }));
     let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
         .with_operation_queue(queue.clone())
         .with_operation_handler(handler);
     let error = Server::new(config).process_next().await.unwrap_err().to_string();
-    assert!(error.contains("Failed to settle successful bot operation"));
+    assert!(error.contains("Failed to settle successful webhook operation"));
     assert!(error.contains("injected settlement failure"));
-    assert_eq!(queue.state(&operation_key).unwrap(), Some(OperationState::Running));
+    assert_eq!(queue.state(&format!("gitlab:{operation_key}")).unwrap(), Some(OperationState::Running));
 }
 #[tokio::test]
 async fn test_webhook_accepts_bot_author_with_flag_set() {
@@ -502,7 +525,7 @@ async fn test_webhook_accepts_valid_legacy_token() {
     let server = TestServer::start(bot.router()).await.unwrap();
     let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "secret")]).await;
     assert_eq!(res.status(), 202);
-    assert_eq!(queue.state("mr-check:30:5:abc123").unwrap(), Some(OperationState::Queued));
+    assert_eq!(queue.state("gitlab:mr-check:30:5:abc123").unwrap(), Some(OperationState::Queued));
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -741,7 +764,7 @@ async fn test_webhook_returns_service_unavailable_when_durable_persistence_fails
     let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
         .with_webhook_token("secret")
         .with_project_id(30)
-        .with_operation_queue(OperationQueue::from_path(temp_dir()));
+        .with_operation_queue(OperationQueue::from(temp_dir()));
     let server = TestServer::start(Server::new(config).router()).await.unwrap();
     let res = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "secret")]).await;
     assert_eq!(res.status(), 503);
@@ -778,12 +801,12 @@ async fn test_webhook_worker_awaits_operation_before_marking_success() {
     };
     let operation_key = delivery.key().unwrap();
     queue
-        .enqueue(&delivery.delivery_id, &operation_key, &serde_json::to_string(&delivery).unwrap())
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
         .unwrap();
     let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
         .with_operation_queue(queue.clone())
         .with_operation_handler(handler);
     assert!(Server::new(config).process_next().await.unwrap());
     assert!(processed.load(Ordering::SeqCst));
-    assert_eq!(queue.state(&operation_key).unwrap(), Some(OperationState::Succeeded));
+    assert_eq!(queue.state(&format!("gitlab:{operation_key}")).unwrap(), Some(OperationState::Succeeded));
 }

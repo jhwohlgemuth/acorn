@@ -281,7 +281,8 @@ pub enum License {
 /// Supports an incomplete list of common <span title="Multipurpose Internet Mail Extension">MIME</span> types
 ///
 /// See listing of [common HTTP MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types) and <https://mimetype.io/all-types> for more information
-#[derive(Clone, Debug, Display, EnumIs, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Display, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum MimeType {
     /// Citation File Format (CFF)
     /// ### Note
@@ -545,25 +546,6 @@ impl AsRef<std::ffi::OsStr> for MimeType {
         std::ffi::OsStr::new(self.file_type_ref())
     }
 }
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
-    }
-}
 impl From<&str> for MimeType {
     /// Returns a `MimeType` value based on the file extension of the given file name.
     ///
@@ -644,6 +626,25 @@ impl From<&String> for MimeType {
         Self::from(value.as_str())
     }
 }
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
 impl From<String> for MimeType {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
@@ -685,6 +686,10 @@ impl MimeType {
             | Self::Unknown(name) => name.ends_with("tokenizer_config"),
             | _ => false,
         }
+    }
+    /// Return whether this MIME type is supported by repository automation.
+    pub fn is_repository_file(&self) -> bool {
+        self.is_cff() || self.is_json() || self.is_jsonc() || self.is_markdown() || self.is_yaml()
     }
     /// Returns the file type as a string
     /// ### Example
@@ -861,25 +866,6 @@ impl StringExt for String {
         self.as_str().is_numeric()
     }
 }
-impl StringExt for Vec<&str> {
-    fn is_numeric(&self) -> bool {
-        self.iter().any(|value| value.is_numeric())
-    }
-    fn trim_and_compact(self) -> Self {
-        self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
-    }
-}
-impl StringExt for Vec<String> {
-    fn is_numeric(&self) -> bool {
-        self.iter().any(|value| value.is_numeric())
-    }
-    fn trim_and_compact(self) -> Self {
-        self.into_iter()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .collect()
-    }
-}
 impl<T: AsRef<str>> StringInterpolation<T> for T
 where
     T: ToString,
@@ -930,6 +916,25 @@ impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
         }
     }
 }
+impl StringExt for Vec<&str> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter().map(str::trim).filter(|value| !value.is_empty()).collect()
+    }
+}
+impl StringExt for Vec<String> {
+    fn is_numeric(&self) -> bool {
+        self.iter().any(|value| value.is_numeric())
+    }
+    fn trim_and_compact(self) -> Self {
+        self.into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect()
+    }
+}
 /// Decode a base32 Crockford string into a u128 value.
 ///
 /// ### Note
@@ -951,11 +956,10 @@ pub fn base32_crockford_decode(value: impl AsRef<str>) -> Option<u128> {
         .chars()
         .filter(|c| !c.is_whitespace() && *c != '-' && *c != '_')
         .try_fold(0u128, |acc, c| {
-            let digit = crockford_digit(c)?;
-            match acc.checked_mul(MODULUS) {
+            crockford_digit(c).and_then(|digit| match acc.checked_mul(MODULUS) {
                 | Some(value) => value.checked_add(digit),
                 | None => None,
-            }
+            })
         })
 }
 /// Returns a base32 encoded string using the [base 32 Crockford](https://www.crockford.com/base32.html) alphabet
@@ -1034,18 +1038,19 @@ pub fn detect_json(text: impl ToString) -> bool {
 pub fn detect_xml(text: impl ToString) -> bool {
     let content = text.to_string();
     let trimmed = content.trim();
-    if trimmed.starts_with('<') {
-        let mut reader = quick_xml::Reader::from_str(trimmed);
-        let mut buf = vec![];
-        loop {
-            match reader.read_event_into(&mut buf) {
-                | Ok(quick_xml::events::Event::Eof) => return true,
-                | Err(_) => return false,
-                | _ => buf.clear(),
+    match trimmed.starts_with('<') {
+        | true => {
+            let mut reader = quick_xml::Reader::from_str(trimmed);
+            let mut buf = vec![];
+            loop {
+                match reader.read_event_into(&mut buf) {
+                    | Ok(quick_xml::events::Event::Eof) => break true,
+                    | Err(_) => break false,
+                    | _ => buf.clear(),
+                }
             }
         }
-    } else {
-        false
+        | false => false,
     }
 }
 /// Returns the file extension of the given file name as a string.

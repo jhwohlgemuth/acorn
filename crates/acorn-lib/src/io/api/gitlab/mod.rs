@@ -29,8 +29,8 @@ use strum::EnumIs;
 use tracing::debug;
 use veil::Redact;
 
+pub mod automation;
 pub mod bot;
-pub mod database;
 #[cfg(feature = "analysis")]
 pub mod intake;
 #[cfg(feature = "analysis")]
@@ -536,6 +536,12 @@ pub struct MergeRequestDetails {
     pub source_project_id: Option<u64>,
     /// Current source head commit SHA
     pub sha: String,
+    /// Source branch containing the merge request head
+    #[serde(default)]
+    pub source_branch: String,
+    /// Target branch selected by the merge request
+    #[serde(default)]
+    pub target_branch: String,
     /// Merge request title
     pub title: String,
     /// Merge request description
@@ -726,15 +732,6 @@ pub struct ProgrammingLanguageUseResponse {
     /// Flattened language usage entries
     pub languages: ProgrammingLanguageUseEntries,
 }
-/// Effective project membership used for command authorization
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ProjectMember {
-    /// Numeric user identifier
-    #[serde(rename = "id")]
-    pub identifier: u64,
-    /// Effective GitLab access level
-    pub access_level: u64,
-}
 /// Minimal GitLab project metadata used for repository resolution
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProjectDetails {
@@ -743,6 +740,15 @@ pub struct ProjectDetails {
     pub identifier: u64,
     /// Default branch name
     pub default_branch: Option<String>,
+}
+/// Effective project membership used for command authorization
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ProjectMember {
+    /// Numeric user identifier
+    #[serde(rename = "id")]
+    pub identifier: u64,
+    /// Effective GitLab access level
+    pub access_level: u64,
 }
 /// GitLab project webhook metadata used for idempotent registration
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1120,30 +1126,6 @@ impl ErrorResponse {
             .join(" ")
     }
 }
-impl fmt::Display for EventAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            | EventAction::Approved => "approved",
-            | EventAction::Closed => "closed",
-            | EventAction::Commented => "commented",
-            | EventAction::CommentedOn => "commented on",
-            | EventAction::Created => "created",
-            | EventAction::Destroyed => "destroyed",
-            | EventAction::Expired => "expired",
-            | EventAction::Joined => "joined",
-            | EventAction::Left => "left",
-            | EventAction::Merged => "merged",
-            | EventAction::Pushed => "pushed",
-            | EventAction::PushedTo => "pushed to",
-            | EventAction::Reopened => "reopened",
-            | EventAction::Updated => "updated",
-            | EventAction::Deleted => "deleted",
-            | EventAction::Accepted => "accepted",
-            | EventAction::Unknown => "unknown",
-        };
-        write!(f, "{}", s)
-    }
-}
 impl core::str::FromStr for EventAction {
     type Err = String;
 
@@ -1167,6 +1149,30 @@ impl core::str::FromStr for EventAction {
             | "accepted" => Ok(EventAction::Accepted),
             | _ => Err(format!("Invalid GitLab event action value: {value}")),
         }
+    }
+}
+impl fmt::Display for EventAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | EventAction::Approved => "approved",
+            | EventAction::Closed => "closed",
+            | EventAction::Commented => "commented",
+            | EventAction::CommentedOn => "commented on",
+            | EventAction::Created => "created",
+            | EventAction::Destroyed => "destroyed",
+            | EventAction::Expired => "expired",
+            | EventAction::Joined => "joined",
+            | EventAction::Left => "left",
+            | EventAction::Merged => "merged",
+            | EventAction::Pushed => "pushed",
+            | EventAction::PushedTo => "pushed to",
+            | EventAction::Reopened => "reopened",
+            | EventAction::Updated => "updated",
+            | EventAction::Deleted => "deleted",
+            | EventAction::Accepted => "accepted",
+            | EventAction::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
     }
 }
 impl TryFrom<&str> for EventAction {
@@ -1213,18 +1219,18 @@ impl ValueValidator for EventFilterKey {
         }
     }
 }
-impl InstanceVersion {
-    /// Whether the instance supports Standard Webhooks signing tokens
-    pub fn supports_signing_tokens(&self) -> bool {
-        SemanticVersion::from(self.version.as_str()).major >= 19
-    }
-}
 impl From<SemanticVersion> for InstanceVersion {
     fn from(version: SemanticVersion) -> Self {
         Self {
             version: version.to_string(),
             revision: None,
         }
+    }
+}
+impl InstanceVersion {
+    /// Whether the instance supports Standard Webhooks signing tokens
+    pub fn supports_signing_tokens(&self) -> bool {
+        SemanticVersion::from(self.version.as_str()).major >= 19
     }
 }
 impl Note {
@@ -1245,65 +1251,6 @@ impl Note {
         match self {
             | Self::WorkItem { author, .. } => Some(author.identifier),
             | Self::MergeRequest { author, .. } => author.as_ref().map(|author| author.identifier),
-        }
-    }
-}
-impl Options {
-    /// Return the HTTP header used to send the authentication token.
-    pub fn token_header(&self) -> &str {
-        self.token_header
-    }
-    /// Return a copy of options with an internal resource identifier set
-    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            internal_identifier: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with an exact commit SHA set
-    pub fn with_sha(self, value: impl Into<String>) -> Self {
-        Self {
-            sha: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return the configured internal resource identifier
-    pub fn internal_identifier(&self) -> ApiResult<&str> {
-        self.internal_identifier
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab internal resource identifier is required"))
-    }
-    /// Return the configured exact commit SHA
-    pub fn sha(&self) -> ApiResult<&str> {
-        self.sha
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
-    }
-    /// Return the configured repository path
-    pub fn path(&self) -> ApiResult<&str> {
-        self.path
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab repository path is required"))
-    }
-    /// Return a copy of options with page number set
-    pub fn with_page(self, value: u32) -> Self {
-        Self { page: value, ..self }
-    }
-    /// Return a copy of options with repository path set
-    pub fn with_path(self, value: impl Into<String>) -> Self {
-        Self {
-            path: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return a copy of options with runner metadata set
-    pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
-        Self {
-            runner_metadata: metadata,
-            ..self
         }
     }
 }
@@ -1386,6 +1333,65 @@ impl Default for Options {
         Self::from_env()
     }
 }
+impl Options {
+    /// Return the HTTP header used to send the authentication token.
+    pub fn token_header(&self) -> &str {
+        self.token_header
+    }
+    /// Return a copy of options with an internal resource identifier set
+    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            internal_identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with an exact commit SHA set
+    pub fn with_sha(self, value: impl Into<String>) -> Self {
+        Self {
+            sha: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return the configured internal resource identifier
+    pub fn internal_identifier(&self) -> ApiResult<&str> {
+        self.internal_identifier
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab internal resource identifier is required"))
+    }
+    /// Return the configured exact commit SHA
+    pub fn sha(&self) -> ApiResult<&str> {
+        self.sha
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
+    }
+    /// Return the configured repository path
+    pub fn path(&self) -> ApiResult<&str> {
+        self.path
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab repository path is required"))
+    }
+    /// Return a copy of options with page number set
+    pub fn with_page(self, value: u32) -> Self {
+        Self { page: value, ..self }
+    }
+    /// Return a copy of options with repository path set
+    pub fn with_path(self, value: impl Into<String>) -> Self {
+        Self {
+            path: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with runner metadata set
+    pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
+        Self {
+            runner_metadata: metadata,
+            ..self
+        }
+    }
+}
 impl TryFrom<&str> for OrderByValue {
     type Error = String;
 
@@ -1466,6 +1472,20 @@ impl From<ProgrammingLanguageMetadata> for ProgrammingLanguageRow {
             .build()
     }
 }
+#[async_trait]
+impl DatabasePersistence for ProgrammingLanguagesResponse {
+    /// Persist GitLab programming language metadata to local database
+    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
+        let Self { languages } = self;
+        let message: fn(&ProgrammingLanguageMetadata) -> String = |item| format!("Saving \"{}\" language metadata", item.name);
+        let operation = |item| async { database.insert(ProgrammingLanguageRow::from(item)) };
+        let finish = |count| format!("{}Saved metadata for {count} programming languages", Label::CHECKMARK);
+        with_progress(languages, message, operation, finish, None, ProgressType::Bar)
+            .await
+            .map(|counts| counts.into_iter().sum())
+            .map_err(eyre::Report::msg)
+    }
+}
 impl ProgrammingLanguagesResponse {
     /// Parse a raw language map, retaining only `programming` type entries
     pub fn parse(data: HashMap<String, ProgrammingLanguageDetails>) -> Self {
@@ -1487,20 +1507,6 @@ impl ProgrammingLanguagesResponse {
             })
             .collect();
         Self { languages }
-    }
-}
-#[async_trait]
-impl DatabasePersistence for ProgrammingLanguagesResponse {
-    /// Persist GitLab programming language metadata to local database
-    async fn persist(self, database: Database<Table>) -> ApiResult<usize> {
-        let Self { languages } = self;
-        let message: fn(&ProgrammingLanguageMetadata) -> String = |item| format!("Saving \"{}\" language metadata", item.name);
-        let operation = |item| async { database.insert(ProgrammingLanguageRow::from(item)) };
-        let finish = |count| format!("{}Saved metadata for {count} programming languages", Label::CHECKMARK);
-        with_progress(languages, message, operation, finish, None, ProgressType::Bar)
-            .await
-            .map(|counts| counts.into_iter().sum())
-            .map_err(eyre::Report::msg)
     }
 }
 impl<'de> serde::Deserialize<'de> for ProgrammingLanguagesResponse {
@@ -1559,20 +1565,6 @@ impl RepositoryFileMetadata for RepositoryFile {
         Some(self.size)
     }
 }
-impl RunnerMetadata {
-    /// Whether the runner is active and online
-    pub fn is_available(&self) -> bool {
-        let Self { active, online, paused, .. } = self;
-        *active && online.unwrap_or(false) && !*paused
-    }
-    /// Return a copy of runner metadata with project or group identifier set
-    pub fn with_identifier(self, value: u64) -> Self {
-        Self {
-            identifier: Some(value),
-            ..self
-        }
-    }
-}
 impl Default for RunnerMetadata {
     fn default() -> Self {
         Self::init().build()
@@ -1616,6 +1608,20 @@ impl From<RunnerDetails> for RunnerMetadata {
         }
     }
 }
+impl RunnerMetadata {
+    /// Whether the runner is active and online
+    pub fn is_available(&self) -> bool {
+        let Self { active, online, paused, .. } = self;
+        *active && online.unwrap_or(false) && !*paused
+    }
+    /// Return a copy of runner metadata with project or group identifier set
+    pub fn with_identifier(self, value: u64) -> Self {
+        Self {
+            identifier: Some(value),
+            ..self
+        }
+    }
+}
 impl TryFrom<&str> for SortValue {
     type Error = String;
 
@@ -1625,22 +1631,6 @@ impl TryFrom<&str> for SortValue {
             | "desc" => Ok(SortValue::Descending),
             | _ => Err(format!("Invalid GitLab sort order: {value}")),
         }
-    }
-}
-impl fmt::Display for TargetType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            | TargetType::Epic => "epic",
-            | TargetType::Issue => "issue",
-            | TargetType::MergeRequest => "merge_request",
-            | TargetType::Milestone => "milestone",
-            | TargetType::Note => "note",
-            | TargetType::Project => "project",
-            | TargetType::Snippet => "snippet",
-            | TargetType::User => "user",
-            | TargetType::Unknown => "unknown",
-        };
-        write!(f, "{}", s)
     }
 }
 impl core::str::FromStr for TargetType {
@@ -1658,6 +1648,22 @@ impl core::str::FromStr for TargetType {
             | "user" => Ok(TargetType::User),
             | _ => Err(format!("Invalid GitLab target type value: {value}")),
         }
+    }
+}
+impl fmt::Display for TargetType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            | TargetType::Epic => "epic",
+            | TargetType::Issue => "issue",
+            | TargetType::MergeRequest => "merge_request",
+            | TargetType::Milestone => "milestone",
+            | TargetType::Note => "note",
+            | TargetType::Project => "project",
+            | TargetType::Snippet => "snippet",
+            | TargetType::User => "user",
+            | TargetType::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
     }
 }
 impl TryFrom<&str> for TargetType {

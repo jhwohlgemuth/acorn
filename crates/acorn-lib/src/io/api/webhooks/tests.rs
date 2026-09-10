@@ -1,16 +1,67 @@
+#![allow(clippy::indexing_slicing)]
+
 use super::*;
+use alloc::sync::Arc as StdArc;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use data_encoding::BASE64;
 use ring::hmac;
+use std::env::temp_dir;
 use std::sync::Mutex;
 
+struct FakeCallbackResolver;
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct FakeEvent {
+    value: u64,
+}
+struct FakeProvider {
+    verifier: HeaderSecretVerifier,
+}
 #[derive(Default)]
 struct RecordingService {
     calls: AtomicUsize,
     request: Mutex<Option<HttpRequest>>,
     error: bool,
+}
+impl CallbackResolver for FakeCallbackResolver {
+    fn resolve(&self, name: &str) -> Result<CallbackDestination, WebhookError> {
+        match name {
+            | "audit" => CallbackTarget::new("https://example.test/callback?credential=secret")
+                .and_then(|target| CallbackHeader::bearer("resolved-attempt-secret").map(|header| CallbackDestination::new(target, vec![header]))),
+            | _ => Err(WebhookError::new(ErrorKind::InvalidTarget, "Unknown callback destination")),
+        }
+    }
+}
+impl WebhookProvider for FakeProvider {
+    type Event = FakeEvent;
+
+    fn receive(&self, request: InboundRequest<'_>, now: Timestamp) -> Result<Delivery<Self::Event>, WebhookError> {
+        self.verifier.verify(request, now).and_then(|verified| {
+            serde_json::from_slice(verified.raw_body)
+                .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid fake webhook payload"))
+                .map(|event| Delivery {
+                    delivery_id: verified.delivery_id.to_string(),
+                    event,
+                })
+        })
+    }
+    fn classify(&self, delivery: &Delivery<Self::Event>) -> Result<Vec<OperationSpec>, WebhookError> {
+        ["second", "first"]
+            .into_iter()
+            .map(|suffix| {
+                crate::io::api::json_rpc::Notification::new(
+                    crate::io::api::json_rpc::MethodName::from(["fake", "record"]),
+                    serde_json::json!({"value": delivery.event.value}),
+                )
+                .map(|notification| OperationSpec::new("fake", format!("{suffix}:{}", delivery.event.value), notification))
+                .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid fake operation"))
+            })
+            .collect()
+    }
+    fn name(&self) -> &'static str {
+        "fake"
+    }
 }
 #[async_trait]
 impl HttpService for RecordingService {
@@ -27,7 +78,6 @@ impl HttpService for RecordingService {
         }
     }
 }
-
 #[test]
 fn callback_headers_make_diagnostic_secrecy_explicit() {
     let public = CallbackHeader::public("x-event-kind", "created").unwrap();
@@ -79,6 +129,140 @@ async fn dispatch_is_one_shot_and_applies_callback_safety_policy() {
     assert!(request.headers.get(AUTHORIZATION).is_some_and(HeaderValue::is_sensitive));
     assert!(!format!("{request:?}").contains("bearer-secret"));
     assert!(!format!("{target:?}").contains("secret"));
+}
+#[tokio::test]
+async fn outbound_callback_failures_are_recorded_for_retry() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callback-retry-{}.db", nanoid::nanoid!())));
+    queue
+        .enqueue_callback("callback-retry", "audit", &serde_json::json!({"event": "complete"}))
+        .unwrap();
+    let worker = store::CallbackWorker::new(
+        queue.clone(),
+        RecordingService {
+            error: true,
+            ..RecordingService::default()
+        },
+        FakeCallbackResolver,
+        jiff::SignedDuration::from_mins(5),
+    );
+    assert!(worker
+        .run_once()
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("Webhook callback transport failed"));
+    assert_eq!(
+        queue.callback_state("callback-retry").unwrap(),
+        Some(store::OperationState::RetryableFailure)
+    );
+    assert_eq!(queue.callback_attempts("callback-retry").unwrap(), 1);
+}
+#[tokio::test]
+async fn outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));
+    assert!(queue
+        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "complete"}))
+        .unwrap());
+    assert!(!queue
+        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "changed"}))
+        .unwrap());
+    let worker = store::CallbackWorker::new(
+        queue.clone(),
+        RecordingService::default(),
+        FakeCallbackResolver,
+        jiff::SignedDuration::from_mins(5),
+    );
+    assert!(worker.run_once().await.unwrap());
+    assert_eq!(queue.callback_state("callback-1").unwrap(), Some(store::OperationState::Succeeded));
+    assert_eq!(queue.callback_attempts("callback-1").unwrap(), 1);
+    assert!(!worker.run_once().await.unwrap());
+    queue
+        .with_connection(|connection| {
+            connection
+                .query_row(
+                    "SELECT destination, payload_json FROM webhook_callbacks WHERE callback_key = ?",
+                    crate::io::database::backend::params!["callback-1"],
+                    |row| {
+                        row.get::<_, String>(0)
+                            .and_then(|destination| row.get::<_, String>(1).map(|payload| (destination, payload)))
+                    },
+                )
+                .map_err(|why| eyre!(why))
+                .map(|(destination, payload)| {
+                    assert_eq!(destination, "audit");
+                    assert!(!payload.contains("resolved-attempt-secret"));
+                    assert!(!payload.contains("credential=secret"));
+                })
+        })
+        .unwrap();
+}
+#[tokio::test]
+async fn provider_pipeline_is_durable_sorted_and_dispatchable() {
+    #[derive(Deserialize, schemars::JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    struct Input {
+        value: u64,
+    }
+    #[derive(schemars::JsonSchema, Serialize)]
+    #[serde(deny_unknown_fields)]
+    struct Output {
+        recorded: u64,
+    }
+    let provider = FakeProvider {
+        verifier: HeaderSecretVerifier::from_string("x-token", "secret", &["webhook-id"]).unwrap(),
+    };
+    let mut headers = HeaderMap::new();
+    headers.insert("x-token", HeaderValue::from_static("secret"));
+    headers.insert("webhook-id", HeaderValue::from_static("delivery-1"));
+    let prepared = prepare(
+        &provider,
+        InboundRequest {
+            headers: &headers,
+            raw_body: br#"{"value":7}"#,
+        },
+        Timestamp::now(),
+    )
+    .unwrap();
+    assert_eq!(prepared.operations[0].idempotency_key, "first:7");
+    assert_eq!(prepared.operations[1].idempotency_key, "second:7");
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhooks-{}.db", nanoid::nanoid!())));
+    assert_eq!(queue.enqueue_prepared(&prepared).unwrap(), vec![store::EnqueueStatus::Inserted; 2]);
+    assert_eq!(
+        queue.enqueue_prepared(&prepared).unwrap(),
+        vec![store::EnqueueStatus::DuplicateDelivery; 2]
+    );
+    let calls = StdArc::new(AtomicUsize::new(0));
+    let definition = crate::io::api::json_rpc::OperationDefinition::new::<Input, Output>(
+        crate::io::api::json_rpc::MethodName::from(["fake", "record"]),
+        crate::io::api::json_rpc::OperationEffects::default(),
+    )
+    .unwrap();
+    let registry = crate::io::api::json_rpc::OperationRegistry::default()
+        .register(definition, {
+            let calls = StdArc::clone(&calls);
+            move |input: Input, _| {
+                let calls = StdArc::clone(&calls);
+                async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(Output { recorded: input.value })
+                }
+            }
+        })
+        .unwrap();
+    let worker = store::OperationWorker::new(
+        queue.clone(),
+        registry,
+        crate::io::api::json_rpc::InvocationContext {
+            origin: crate::io::api::json_rpc::InvocationOrigin::Webhook,
+            ..crate::io::api::json_rpc::InvocationContext::default()
+        },
+        jiff::SignedDuration::from_mins(5),
+    );
+    assert!(worker.run_once().await.unwrap());
+    assert!(worker.run_once().await.unwrap());
+    assert!(!worker.run_once().await.unwrap());
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(queue.counts().unwrap().succeeded, 2);
 }
 #[test]
 fn secret_verifier_uses_ordered_delivery_headers_and_redacts_secret() {

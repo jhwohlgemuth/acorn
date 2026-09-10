@@ -11,9 +11,6 @@ Dependency order does not by itself prove that plans are safe to run concurrentl
 ## Highest-priority RPC and automation path
 
 ```text
-JSON-RPC operation runtime
-          |
-          v
 extensible webhook runtime
           |
           v
@@ -29,7 +26,7 @@ ACP inference and verified fixes
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed order. JSON-RPC establishes the operation registry; webhooks add durable event-driven invocation; GitLab proves repository automation over typed flat files; tonic/prost adds a sibling binary transport; ACP maps official SDK sessions to the same services; and the RMCP client adds outbound MCP interoperability without replacing either protocol.
+This is one serialized delivery lane in the displayed order. The completed JSON-RPC operation registry is the lane's implemented foundation. Webhooks add durable event-driven invocation; GitLab proves repository automation over typed flat files; tonic/prost adds a sibling binary transport; ACP maps official SDK sessions to the same services; and the RMCP client adds outbound MCP interoperability without replacing either protocol.
 
 ## Critical portability path
 
@@ -99,8 +96,8 @@ isolate std-only modules   host abstraction traits
 - [ISNI top-tier support](features/isni-top-tier-support.md) closes the portable parser and agent-identifier validation gaps before adding an exact read-only SRU provider. Its schema slice coordinates with [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md); its provider and gather integration slices use the current API and analyzer contracts without making ISNI a project identity.
 - [Analyzer composition and traversal](refactors/analyzer/analyzer-composition.md) must consume the implemented calculation/execution/report context split without introducing a generic host trait or presuming package extraction.
 - [API roadmap](refactors/api/roadmap.md) records the completed shared authentication builders, `SecretString` credential migration, and reusable webhook contracts, then orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
-- [JSON-RPC operation runtime](refactors/api/json-rpc-runtime.md) establishes typed service registration and direct JSON-RPC 2.0 request/notification dispatch.
-- [Extensible webhook runtime](refactors/api/webhook-runtime.md) consumes that registry and turns authenticated provider deliveries into durable operations and callbacks.
+- The implemented `io::api::json_rpc` runtime establishes typed service registration and direct JSON-RPC 2.0 request/notification dispatch.
+- [Extensible webhook runtime](refactors/api/webhook-runtime.md) consumes that runtime and completes operational state and graceful draining for durable operations and callbacks.
 - [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md) consumes both foundations, replaces its local lifecycle tables, and proves registered flat-file workflows against exact repository revisions.
 - [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md) follows the stable operation contract and adds tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.

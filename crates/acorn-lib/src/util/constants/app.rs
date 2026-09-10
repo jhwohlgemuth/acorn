@@ -43,6 +43,8 @@ pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
 /// Default Hugging Face model search term.
 pub const DEFAULT_HUGGINGFACE_SEARCH_TERM: &str = "gguf";
+/// Default maximum JSON-RPC request-body size.
+pub const DEFAULT_JSON_RPC_MAX_BODY_BYTES: usize = 1024 * 1024;
 /// Default llama-swap configuration path beneath the user's home directory.
 pub const DEFAULT_LLAMA_SWAP_CONFIG_PATH: &str = ".config/llama-swap/config.yaml";
 /// Default directory under the user's home directory for downloaded models.
@@ -86,6 +88,8 @@ pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 pub const HTTP_RETRY_MAX_BACKOFF_SECONDS: i64 = 60;
 /// Files ignored by default when processing configured buckets.
 pub const IGNORE: [&str; 5] = [".gitignore", ".gitlab-ci.yml", ".gitkeep", ".DS_Store", "README.md"];
+/// JSON-RPC protocol version emitted and accepted by ACORN transports.
+pub const JSON_RPC_VERSION: &str = "2.0";
 /// File size threshold in bytes for switching to large-file read strategy (100 MB).
 pub const LARGE_FILE_THRESHOLD_BYTES: u64 = 100 * 1024 * 1024;
 /// ASCII art logo for ACORN
@@ -143,12 +147,12 @@ pub const MAX_ARCHIVE_EXPANDED_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 pub const MAX_CALLBACK_RESPONSE_BYTES: usize = 64 * 1024;
 /// Maximum supported document size in bytes.
 pub const MAX_DOCUMENT_BYTES: usize = 100 * 1024 * 1024;
-/// Maximum number of durable GitLab operation attempts
-pub const MAX_GITLAB_OPERATION_ATTEMPTS: u32 = 5;
-/// Maximum durable GitLab operation retry delay
-pub const MAX_GITLAB_OPERATION_BACKOFF_SECONDS: i64 = 300;
 /// Maximum supported PDF page count.
 pub const MAX_PDF_PAGES: u32 = 1_000;
+/// Maximum number of durable webhook operation attempts.
+pub const MAX_WEBHOOK_OPERATION_ATTEMPTS: u32 = 5;
+/// Maximum durable webhook operation retry delay.
+pub const MAX_WEBHOOK_OPERATION_BACKOFF_SECONDS: i64 = 300;
 /// MCP Bundle manifest format version emitted by ACORN.
 pub const MCPB_MANIFEST_VERSION: &str = "0.3";
 /// Reviewed MCP Bundle specification revision used by ACORN.

@@ -19,6 +19,7 @@ use acorn_schema::hardware::memory::Memory;
 use clap::ValueEnum;
 use clap::{Args, ValueHint};
 use clap_verbosity_flag::Verbosity;
+use core::net::SocketAddr;
 use derive_more::Display;
 use jiff::SignedDuration;
 use std::path::PathBuf;
@@ -1017,6 +1018,17 @@ pub(crate) struct ServeMcp {
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) allow_mutation: bool,
 }
+/// Arguments for `acorn serve rpc`.
+#[derive(Clone, Copy, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ServeRpc {
+    /// Enable registered mutating operations
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) allow_mutation: bool,
+    /// Address for the authenticated JSON-RPC HTTP endpoint
+    #[arg(long, default_value = "127.0.0.1:8001", value_name = "ADDRESS", help_heading = "OPTIONS")]
+    pub(crate) bind: SocketAddr,
+}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Spec {
@@ -1140,16 +1152,6 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
-        }
-    }
-}
 impl From<SwhidKind> for CalculationKind {
     fn from(value: SwhidKind) -> Self {
         match value {
@@ -1207,6 +1209,16 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
+        }
+    }
+}
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Console,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

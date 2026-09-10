@@ -291,6 +291,8 @@ pub enum ServeCommands {
     Bot(Box<arguments::bot::Serve>),
     /// Model context protocol (MCP) server
     Mcp(arguments::ServeMcp),
+    /// Authenticated JSON-RPC HTTP server
+    Rpc(arguments::ServeRpc),
 }
 /// Filesystem notification strategy used by watch mode.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]

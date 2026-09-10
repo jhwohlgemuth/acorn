@@ -6,8 +6,22 @@ use acorn_schema::standard::cff::Cff;
 use async_trait::async_trait;
 use tempfile::tempdir;
 
-struct OutputEnrichment;
 struct CffEnrichment;
+struct OutputEnrichment;
+#[async_trait]
+impl Enrich<(Location, Cff)> for CffEnrichment {
+    type Output = ApiResult<EnrichmentResult<Cff>>;
+    async fn enrich(&self, (_, data): (Location, Cff)) -> Self::Output {
+        Ok(EnrichmentResult {
+            data: Cff {
+                title: "Enriched CFF".to_string(),
+                ..data
+            },
+            conflicts: Vec::new(),
+            failures: Vec::new(),
+        })
+    }
+}
 #[async_trait]
 impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
     type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
@@ -31,20 +45,6 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         })
     }
 }
-#[async_trait]
-impl Enrich<(Location, Cff)> for CffEnrichment {
-    type Output = ApiResult<EnrichmentResult<Cff>>;
-    async fn enrich(&self, (_, data): (Location, Cff)) -> Self::Output {
-        Ok(EnrichmentResult {
-            data: Cff {
-                title: "Enriched CFF".to_string(),
-                ..data
-            },
-            conflicts: Vec::new(),
-            failures: Vec::new(),
-        })
-    }
-}
 fn source_file() -> (tempfile::TempDir, Location) {
     let temporary = tempdir().expect("temporary workflow directory should be created");
     let path = temporary.path().join("activity.json");
@@ -54,7 +54,19 @@ fn source_file() -> (tempfile::TempDir, Location) {
     let source = Location::from(&path.display().to_string());
     (temporary, source)
 }
-
+#[cfg(feature = "analysis")]
+#[test]
+fn test_change_preserves_check_for_future_fix_resolution() {
+    let change: Change<ResearchActivity> = Change::from(
+        Check::init()
+            .category(CheckCategory::Quality)
+            .message("Normalize the output title")
+            .build(),
+    );
+    assert!(matches!(change, Change::Check(_)));
+    assert!(!change.is_changed());
+    assert!(change.data().is_none());
+}
 #[test]
 fn test_default_options_only_check() {
     let options = Options::default();
@@ -66,22 +78,6 @@ fn test_default_options_only_check() {
     assert!(!options.offline);
     assert!(!options.no_color);
     assert!(!options.show_changes);
-}
-#[tokio::test]
-async fn test_plan_enriches_without_writing_source() {
-    let (_temporary, source) = source_file();
-    let path = source.local_path().expect("source should have a local path");
-    let before = read_file(path.clone()).expect("source should be readable");
-    let options = Options::init().enrich(true).build();
-    let plan = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options, Some(&OutputEnrichment))
-        .await
-        .expect("workflow plan should succeed");
-    let after = read_file(path).expect("source should remain readable");
-    assert_eq!(before, after);
-    assert_eq!(plan.changes.len(), 1);
-    let change = plan.changes.first().expect("plan should contain one change");
-    assert!(change.is_changed());
-    assert_eq!(change.data().and_then(|data| data.meta.outputs.as_ref().map(Vec::len)), Some(1));
 }
 #[tokio::test]
 async fn test_dry_run_applies_no_changes() {
@@ -101,6 +97,126 @@ async fn test_dry_run_applies_no_changes() {
     assert!(!path.with_extension("jsonld").exists());
 }
 #[tokio::test]
+async fn test_enrichment_requires_capability_and_online_mode() {
+    let (_temporary, source) = source_file();
+    let missing = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), Options::init().enrich(true).build(), None).await;
+    let offline = Workflow::<ResearchActivity>::plan(&[source], Options::init().enrich(true).offline(true).build(), Some(&OutputEnrichment)).await;
+    assert!(missing.is_err());
+    assert!(offline.is_err());
+}
+#[tokio::test]
+async fn test_plan_enriches_without_writing_source() {
+    let (_temporary, source) = source_file();
+    let path = source.local_path().expect("source should have a local path");
+    let before = read_file(path.clone()).expect("source should be readable");
+    let options = Options::init().enrich(true).build();
+    let plan = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options, Some(&OutputEnrichment))
+        .await
+        .expect("workflow plan should succeed");
+    let after = read_file(path).expect("source should remain readable");
+    assert_eq!(before, after);
+    assert_eq!(plan.changes.len(), 1);
+    let change = plan.changes.first().expect("plan should contain one change");
+    assert!(change.is_changed());
+    assert_eq!(change.data().and_then(|data| data.meta.outputs.as_ref().map(Vec::len)), Some(1));
+}
+#[test]
+fn test_repository_accepts_every_registered_flat_file_format() {
+    let activity = serde_json::to_string(&ResearchActivity::default()).unwrap();
+    let files = vec![
+        RepositoryFileInput {
+            content: "cff-version: 1.2.0\nmessage: Cite this work.\ntitle: Example\nauthors:\n  - family-names: Doe\n".to_string(),
+            format: Some(MimeType::Cff),
+            path: "CITATION.cff".to_string(),
+        },
+        RepositoryFileInput {
+            content: "{\"value\":1}".to_string(),
+            format: Some(MimeType::Json),
+            path: "metadata.json".to_string(),
+        },
+        RepositoryFileInput {
+            content: "// note\n{\"value\":1}".to_string(),
+            format: Some(MimeType::Jsonc),
+            path: "metadata.jsonc".to_string(),
+        },
+        RepositoryFileInput {
+            content: "# Research notes\n".to_string(),
+            format: Some(MimeType::Markdown),
+            path: "notes.md".to_string(),
+        },
+        RepositoryFileInput {
+            content: activity,
+            format: Some(MimeType::Json),
+            path: "activity.rad.json".to_string(),
+        },
+        RepositoryFileInput {
+            content: "value: 1\n".to_string(),
+            format: Some(MimeType::Yaml),
+            path: "metadata.yaml".to_string(),
+        },
+    ];
+    let input = RepositoryInput {
+        actions: vec![WorkflowAction::Format, WorkflowAction::Validate],
+        files,
+        project: "30".to_string(),
+        revision: "abc123".to_string(),
+    };
+    let result = RepositoryWorkflowRegistry::acorn().unwrap().process("repository-quality", input).unwrap();
+    assert_eq!(result.reports.len(), 6);
+    assert_eq!(result.reports.iter().map(|report| report.format.clone()).collect::<Vec<_>>().len(), 6);
+}
+#[test]
+fn test_repository_processes_supported_flat_files_deterministically() {
+    let input = RepositoryInput {
+        actions: vec![WorkflowAction::Format, WorkflowAction::Validate],
+        files: vec![
+            RepositoryFileInput {
+                content: "cff-version: 1.2.0\nmessage: Cite this work.\ntitle: Example\nauthors:\n  - family-names: Doe\n".to_string(),
+                format: Some(MimeType::Cff),
+                path: "CITATION.cff".to_string(),
+            },
+            RepositoryFileInput {
+                content: "{\"z\":1,\"a\":2}".to_string(),
+                format: Some(MimeType::Json),
+                path: "metadata.json".to_string(),
+            },
+        ],
+        project: "30".to_string(),
+        revision: "abc123".to_string(),
+    };
+    let result = RepositoryWorkflowRegistry::acorn().unwrap().process("repository-quality", input).unwrap();
+    assert_eq!(result.base_revision, "abc123");
+    assert_eq!(result.reports.first().map(|report| report.path.as_str()), Some("CITATION.cff"));
+    assert_eq!(result.reports.get(1).map(|report| report.path.as_str()), Some("metadata.json"));
+    assert_eq!(result.files.len(), 2);
+}
+#[test]
+fn test_repository_rejects_unknown_workflows_unsafe_paths_and_unconfigured_enrichment() {
+    let registry = RepositoryWorkflowRegistry::acorn().unwrap();
+    let base = RepositoryInput {
+        actions: vec![WorkflowAction::Validate],
+        files: vec![RepositoryFileInput {
+            content: "# Example\n".to_string(),
+            format: Some(MimeType::Markdown),
+            path: "../README.md".to_string(),
+        }],
+        project: "30".to_string(),
+        revision: "abc123".to_string(),
+    };
+    assert!(registry.process("missing", base.clone()).is_err());
+    assert!(registry.process("repository-quality", base.clone()).is_err());
+    let enrichment = RepositoryInput {
+        actions: vec![WorkflowAction::Enrich],
+        files: vec![RepositoryFileInput {
+            content: "# Example\n".to_string(),
+            format: Some(MimeType::Markdown),
+            path: "README.md".to_string(),
+        }],
+        ..base
+    };
+    assert!(registry.process("repository-quality", enrichment).is_err());
+}
+#[tokio::test]
 async fn test_run_writes_enrichment_and_linked_artifact() {
     let (_temporary, source) = source_file();
     let options = Options::init().enrich(true).link(true).build();
@@ -115,14 +231,6 @@ async fn test_run_writes_enrichment_and_linked_artifact() {
     assert_eq!(report.changed, 1);
     assert_eq!(report.linked, 1);
     assert_eq!(report.written, 2);
-}
-#[tokio::test]
-async fn test_enrichment_requires_capability_and_online_mode() {
-    let (_temporary, source) = source_file();
-    let missing = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), Options::init().enrich(true).build(), None).await;
-    let offline = Workflow::<ResearchActivity>::plan(&[source], Options::init().enrich(true).offline(true).build(), Some(&OutputEnrichment)).await;
-    assert!(missing.is_err());
-    assert!(offline.is_err());
 }
 #[tokio::test]
 async fn test_workflow_processes_and_enriches_non_rad_standard() {
@@ -145,17 +253,4 @@ async fn test_workflow_processes_and_enriches_non_rad_standard() {
     assert_eq!(report.changed, 1);
     assert_eq!(report.written, 1);
     assert_eq!(report.linked, 0);
-}
-#[cfg(feature = "analysis")]
-#[test]
-fn test_change_preserves_check_for_future_fix_resolution() {
-    let change: Change<ResearchActivity> = Change::from(
-        Check::init()
-            .category(CheckCategory::Quality)
-            .message("Normalize the output title")
-            .build(),
-    );
-    assert!(matches!(change, Change::Check(_)));
-    assert!(!change.is_changed());
-    assert!(change.data().is_none());
 }

@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-This is sixth in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the operation registry from [JSON-RPC runtime](../refactors/api/json-rpc-runtime.md) and follows [ACP inference](opencode-acp-inference.md), but neither protocol depends on the other's wire types.
+This is fifth in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows [ACP inference](opencode-acp-inference.md), but neither protocol depends on the other's wire types.
 
 # Goal
 

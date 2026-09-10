@@ -27,6 +27,7 @@ use std::sync::Mutex;
 
 #[derive(Clone, Default)]
 struct MergeRequestWorkflowState {
+    automation_requests: Arc<Mutex<Vec<serde_json::Value>>>,
     statuses: Arc<Mutex<Vec<serde_json::Value>>>,
     notes: Arc<Mutex<Vec<serde_json::Value>>>,
     file_queries: Arc<Mutex<Vec<String>>>,
@@ -822,6 +823,69 @@ fn test_query_string() {
     let param = param!(KeyValuePair, "per_page", "100");
     let query = param.to_string::<PaginationKey, api::EmptyField>();
     assert_eq!(query, "per_page=100");
+}
+#[tokio::test]
+async fn test_repository_change_set_publishes_bot_branch_commit_and_draft_merge_request() {
+    let state = MergeRequestWorkflowState::default();
+    let router = Router::new()
+        .route(
+            "/api/v4/projects/30/repository/branches",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.automation_requests.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "name": body["branch"],
+                        "commit": {"id": "abcdef0123456789"},
+                        "protected": false
+                    }))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/repository/commits",
+            post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.automation_requests.lock().unwrap().push(body);
+                    Json(serde_json::json!({"id": "commit-1", "web_url": "https://gitlab.example/commit-1"}))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests",
+            get(|| async { Json(serde_json::json!([])) }).post(
+                |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
+                    state.automation_requests.lock().unwrap().push(body.clone());
+                    Json(serde_json::json!({
+                        "iid": 9,
+                        "source_branch": body["source_branch"],
+                        "state": "opened",
+                        "web_url": "https://gitlab.example/merge_requests/9"
+                    }))
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let changes = crate::io::workflow::RepositoryChangeSet {
+        base_revision: "abcdef0123456789".to_string(),
+        files: vec![crate::io::workflow::FileChange {
+            content: "{\n  \"name\": \"example\"\n}\n".to_string(),
+            kind: crate::io::workflow::FileChangeKind::Update,
+            path: "metadata.json".to_string(),
+        }],
+        reports: vec![],
+    };
+    let result = changes.publish("repository-quality", "feature", &options).await.unwrap();
+    assert_eq!(result.branch, "acorn/repository-quality/abcdef012345");
+    assert_eq!(result.commit.id, "commit-1");
+    assert_eq!(result.merge_request.iid, 9);
+    let requests = state.automation_requests.lock().unwrap().clone();
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[1]["actions"][0]["last_commit_id"], "abcdef0123456789");
+    assert!(requests[2]["description"].as_str().unwrap().contains("- `metadata.json` (update)"));
+    assert_eq!(requests[2]["title"], "Draft: Apply ACORN repository-quality");
+    server.stop().await.unwrap();
 }
 #[tokio::test]
 async fn test_repository_file_reports_non_json_error_status() {

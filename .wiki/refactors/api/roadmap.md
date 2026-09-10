@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication builders and the initial webhook verification/delivery contracts are complete. The highest-priority [JSON-RPC](json-rpc-runtime.md), [webhook runtime](webhook-runtime.md), [GitLab automation](gitlab-webhook-bot-workflows.md), and [Protobuf/gRPC](protobuf-grpc-transport.md) plans extend those primitives under their dedicated lane; they do not turn this coordination roadmap into an implementation job. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
+This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication, JSON-RPC, and the initial webhook verification/delivery contracts are complete. The highest-priority [webhook runtime](webhook-runtime.md), [GitLab automation](gitlab-webhook-bot-workflows.md), and [Protobuf/gRPC](protobuf-grpc-transport.md) plans finish or extend those primitives under their dedicated lane; they do not turn this coordination roadmap into an implementation job. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
 
 # Parallel execution
 
@@ -34,7 +34,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 3. Introduce invocation and parse helpers with explicit fallback behavior.
 4. Normalize environment bootstrap and health checks.
 5. Complete foundation: reusable webhook verification, typed delivery, safe one-shot callback dispatch, transport errors, and guarded GitLab queue settlement are implemented.
-6. Extend that foundation through the dedicated JSON-RPC, provider-neutral durable webhook, GitLab repository automation, and gRPC plans; replace provider-local lifecycle ownership at their explicit cutover.
+6. Finish webhook operational state and GitLab repository automation, then extend the implemented operation registry through gRPC.
 7. Add response, validation, generation, and capability layers only where they reduce current duplication.
 
 # Evidence
@@ -62,7 +62,6 @@ Shared mechanics live at the API root, provider modules retain only provider-spe
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [JSON-RPC operation runtime](json-rpc-runtime.md)
 - [Extensible webhook runtime](webhook-runtime.md)
 - [GitLab repository automation](gitlab-webhook-bot-workflows.md)
 - [Protobuf/gRPC transport](protobuf-grpc-transport.md)
