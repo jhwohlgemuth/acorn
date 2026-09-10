@@ -2,7 +2,6 @@
 
 ## Recommended order
 
-- [Extensible webhook runtime](webhook-runtime.md) - Normalize verified provider deliveries into durable registered operations and callbacks.
 - [GitLab repository automation](gitlab-webhook-bot-workflows.md) - Process typed repository flat files through bot branches and draft merge requests, including citation workflows.
 - [Protobuf/gRPC transport](protobuf-grpc-transport.md) - Expose the shared operation registry through generated tonic/prost server and client adapters.
 - [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.

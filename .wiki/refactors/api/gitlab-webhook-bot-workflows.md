@@ -19,7 +19,7 @@ priority: next
 
 # Dependencies
 
-This is second in the [highest-priority RPC and automation lane](../../parallel-execution.md#highest-priority-lane-execution-order). It follows the remaining readiness and graceful-drain work in the [webhook runtime](webhook-runtime.md). The implemented JSON-RPC registry, webhook lifecycle, flat-file workflow registry, and GitLab publication path are foundations rather than open plan scope.
+This is next in the [highest-priority RPC and automation lane](../../parallel-execution.md#highest-priority-lane-execution-order). The implemented JSON-RPC registry, webhook lifecycle/readiness/drain runtime, flat-file workflow registry, and GitLab publication path are foundations rather than open plan scope.
 
 # Goal
 
@@ -54,7 +54,7 @@ Validate configuration at startup. Unknown workflow IDs, formats, actions, effec
 | Order | Work | Verification gate |
 |---:|---|---|
 | 1 | Add deployment workflow configuration, explicit cross-project denial/policy, per-effect persistence, and typed reconciliation for labels, statuses, and comments. | Startup rejects invalid policy; retry tests converge on one external effect after ambiguous failures. |
-| 2 | Add citation correction promotion, merge-completion handling, and shared readiness/drain exposure. | Corrected candidates update one draft MR; merge processing applies one label and one comment; readiness and shutdown use webhook runtime state. |
+| 2 | Add citation correction promotion and merge-completion handling while preserving shared readiness/drain exposure. | Corrected candidates update one draft MR; merge processing applies one label and one comment; readiness and shutdown continue to use webhook runtime state. |
 
 # Plan conflicts and resolutions
 
@@ -80,7 +80,7 @@ Validate configuration at startup. Unknown workflow IDs, formats, actions, effec
 - [ ] Branch, commit, merge-request, label, status, and completion-comment effects reconcile idempotently after retries and ambiguous failures.
 - [ ] Corrected citation candidates update the existing draft merge request, and merge completion applies `acorn::collected` plus one link comment.
 - [ ] Deployment configuration constrains workflows and effects; cross-project and fork writes fail closed unless explicitly authorized.
-- [ ] GitLab readiness and shutdown expose the shared webhook runtime state without a second lifecycle implementation.
+- [x] GitLab readiness and shutdown expose the shared webhook runtime state without a second lifecycle implementation.
 
 # Next plan
 

@@ -97,7 +97,7 @@ test:
   script:
     - make test-ci
     - make check-host
-    - cargo package --no-verify --allow-dirty -p acorn-core -p acorn-schema
+    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-schema
 
 test-portability:
   stage: extended-test

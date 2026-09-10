@@ -1,6 +1,6 @@
 //! Durable provider-neutral webhook delivery and operation queue.
 use crate::io::api::json_rpc::{InvocationContext, Notification, OperationRegistry};
-use crate::io::api::webhooks::{self, CallbackResolver, OperationSpec, PreparedDelivery};
+use crate::io::api::webhooks::{self, CallbackResolver, OperationSpec, PreparedDelivery, WebhookRuntime};
 #[cfg(not(feature = "duckdb"))]
 use crate::io::database::backend::Error::QueryReturnedNoRows;
 use crate::io::database::backend::{params, Connection};
@@ -20,6 +20,12 @@ static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
 /// Provider-neutral name for the durable webhook operation queue.
 pub type WebhookStore = OperationQueue;
+trait ConnectionExt {
+    fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps>;
+    fn record_outcome(&self, state: OperationState, now: &str) -> ApiResult<()>;
+    fn select_available(&self, now: &str) -> ApiResult<Option<ClaimedOperation>>;
+    fn select_available_callback(&self, now: &str) -> ApiResult<Option<ClaimedCallback>>;
+}
 /// Result of transactionally recording a delivery and its canonical operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EnqueueStatus {
@@ -51,6 +57,7 @@ pub enum OperationState {
 pub struct CallbackWorker<S, R> {
     queue: OperationQueue,
     resolver: R,
+    runtime: WebhookRuntime,
     service: S,
     stale_after: SignedDuration,
 }
@@ -108,6 +115,7 @@ pub struct OperationWorker {
     context: InvocationContext,
     queue: OperationQueue,
     registry: OperationRegistry,
+    runtime: WebhookRuntime,
     stale_after: SignedDuration,
 }
 /// Aggregate durable queue counters.
@@ -126,41 +134,161 @@ pub struct QueueCounts {
     /// Deliveries whose canonical operation was already present.
     pub deduplicated: u64,
 }
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct RuntimeTimestamps {
+    pub(crate) last_error_at: Option<Timestamp>,
+    pub(crate) last_success_at: Option<Timestamp>,
+}
+impl ConnectionExt for Connection {
+    fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps> {
+        self.query_row(
+            "SELECT last_error_at, last_success_at FROM webhook_runtime_state WHERE singleton = 1",
+            params![],
+            |row| {
+                row.get::<_, Option<String>>(0)
+                    .and_then(|error| row.get::<_, Option<String>>(1).map(|success| (error, success)))
+            },
+        )
+        .map_err(|why| eyre!("Failed to read webhook runtime state — {why}"))
+        .and_then(|(last_error_at, last_success_at)| {
+            parse_timestamp(last_error_at, "last_error_at").and_then(|last_error_at| {
+                parse_timestamp(last_success_at, "last_success_at").map(|last_success_at| RuntimeTimestamps {
+                    last_error_at,
+                    last_success_at,
+                })
+            })
+        })
+    }
+    fn record_outcome(&self, state: OperationState, now: &str) -> ApiResult<()> {
+        let column = match state {
+            | OperationState::Succeeded => Some("last_success_at"),
+            | OperationState::RetryableFailure | OperationState::TerminalFailure => Some("last_error_at"),
+            | OperationState::Cancelled | OperationState::Queued | OperationState::Running => None,
+        };
+        column.map_or_else(
+            || Ok(()),
+            |column| {
+                self.execute(
+                    &format!("UPDATE webhook_runtime_state SET {column} = ? WHERE singleton = 1"),
+                    params![now],
+                )
+                .map(|_| ())
+                .map_err(|why| eyre!("Failed to record webhook runtime outcome — {why}"))
+            },
+        )
+    }
+    fn select_available(&self, now: &str) -> ApiResult<Option<ClaimedOperation>> {
+        let result = self.query_row(
+            "SELECT operation_key, delivery_id, event_json, attempts
+             FROM webhook_operations
+             WHERE state IN ('queued', 'retryable-failure') AND available_at <= ?
+             ORDER BY created_at, operation_key LIMIT 1",
+            params![now],
+            |row| {
+                row.get::<_, i64>(3).and_then(|attempts| {
+                    row.get(0).and_then(|operation_key| {
+                        row.get(1).and_then(|delivery_id| {
+                            row.get(2).map(|event_json| ClaimedOperation {
+                                operation_key,
+                                delivery_id,
+                                event_json,
+                                attempts: u32::try_from(attempts).unwrap_or_default(),
+                            })
+                        })
+                    })
+                })
+            },
+        );
+        match result {
+            | Ok(operation) => Ok(Some(operation)),
+            | Err(why) if is_no_rows(&why) => Ok(None),
+            | Err(why) => Err(eyre!("Failed to select an available webhook operation — {why}")),
+        }
+    }
+    fn select_available_callback(&self, now: &str) -> ApiResult<Option<ClaimedCallback>> {
+        let result = self.query_row(
+            "SELECT callback_key, destination, payload_json, attempts
+             FROM webhook_callbacks
+             WHERE state IN ('queued', 'retryable-failure') AND available_at <= ?
+             ORDER BY created_at, callback_key LIMIT 1",
+            params![now],
+            |row| {
+                row.get::<_, i64>(3).and_then(|attempts| {
+                    row.get(0).and_then(|callback_key| {
+                        row.get(1).and_then(|destination| {
+                            row.get(2).map(|payload_json| ClaimedCallback {
+                                attempts: u32::try_from(attempts).unwrap_or_default(),
+                                callback_key,
+                                destination,
+                                payload_json,
+                            })
+                        })
+                    })
+                })
+            },
+        );
+        match result {
+            | Ok(callback) => Ok(Some(callback)),
+            | Err(why) if is_no_rows(&why) => Ok(None),
+            | Err(why) => Err(eyre!("Failed to select an available webhook callback — {why}")),
+        }
+    }
+}
 impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
     /// Construct a durable outbound callback worker.
     pub fn new(queue: OperationQueue, service: S, resolver: R, stale_after: SignedDuration) -> Self {
         Self {
             queue,
             resolver,
+            runtime: WebhookRuntime::default(),
             service,
             stale_after,
         }
     }
     /// Claim and attempt one callback, returning whether work was available.
     pub async fn run_once(&self) -> ApiResult<bool> {
-        match self.queue.claim_callback(self.stale_after) {
-            | Ok(Some(callback)) => {
-                let result = match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
-                    | Ok(payload) => match self.resolver.resolve(&callback.destination) {
-                        | Ok(destination) => {
-                            let (target, headers) = destination.parts();
-                            webhooks::dispatch(&self.service, target, &payload, headers)
-                                .await
-                                .map(|result| result.status_code)
-                                .map_err(|why| why.to_string())
-                        }
-                        | Err(why) => Err(why.to_string()),
-                    },
-                    | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
-                };
-                match result {
-                    | Ok(status) => self.queue.succeed_callback(callback, status).map(|()| true),
-                    | Err(why) => self.queue.fail_callback(callback, &why).and_then(|_| Err(eyre!(why))),
-                }
-            }
-            | Ok(None) => Ok(false),
+        match self.runtime.initialize(&self.queue, self.stale_after) {
             | Err(why) => Err(why),
+            | Ok(()) => match self.runtime.claim(|| self.queue.claim_callback(self.stale_after)) {
+                | Ok(Some((callback, _claim))) => {
+                    let result = match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
+                        | Ok(payload) => match self.resolver.resolve(&callback.destination) {
+                            | Ok(destination) => {
+                                let (target, headers) = destination.parts();
+                                webhooks::dispatch(&self.service, target, &payload, headers)
+                                    .await
+                                    .map(|result| result.status_code)
+                                    .map_err(|why| why.to_string())
+                            }
+                            | Err(why) => Err(why.to_string()),
+                        },
+                        | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
+                    };
+                    match result {
+                        | Ok(status) => match self.queue.succeed_callback(callback, status) {
+                            | Ok(()) => self.runtime.refresh(&self.queue).map(|()| true),
+                            | Err(why) => {
+                                self.runtime.mark_unavailable();
+                                Err(why)
+                            }
+                        },
+                        | Err(why) => match self.queue.fail_callback(callback, &why) {
+                            | Ok(_) => self.runtime.refresh(&self.queue).and_then(|()| Err(eyre!(why))),
+                            | Err(settlement_error) => {
+                                self.runtime.mark_unavailable();
+                                Err(settlement_error)
+                            }
+                        },
+                    }
+                }
+                | Ok(None) => Ok(false),
+                | Err(why) => Err(why),
+            },
         }
+    }
+    /// Use a shared runtime for readiness and drain coordination.
+    pub fn with_runtime(self, runtime: WebhookRuntime) -> Self {
+        Self { runtime, ..self }
     }
 }
 impl ClaimedCallback {
@@ -275,7 +403,7 @@ impl OperationQueue {
                         params![now, now, stale_before],
                     )
                     .map_err(|why| eyre!("Failed to recover stale webhook callbacks — {why}"))
-                    .and_then(|_| select_available_callback(connection, &now))
+                    .and_then(|_| connection.select_available_callback(&now))
                     .and_then(|callback| match callback {
                         | Some(callback) => connection
                             .execute(
@@ -310,7 +438,7 @@ impl OperationQueue {
                         params![now, now, stale_before],
                     )
                     .map_err(|why| eyre!("Failed to recover stale webhook operations — {why}"))
-                    .and_then(|_| select_available(connection, &now))
+                    .and_then(|_| connection.select_available(&now))
                     .and_then(|operation| match operation {
                         | Some(operation) => connection
                             .execute(
@@ -544,6 +672,33 @@ impl OperationQueue {
         self.settle_callback(callback_key, attempts, state, None, Some(error), available_at)
             .map(|_| state)
     }
+    pub(crate) fn initialize(&self, stale_after: SignedDuration) -> ApiResult<RuntimeTimestamps> {
+        self.migrate().and_then(|_| {
+            self.with_transaction(|connection| {
+                let now = Timestamp::now();
+                let stale_before = to_rfc3339(now.checked_sub(stale_after).unwrap_or(now));
+                let now = to_rfc3339(now);
+                connection
+                    .execute(
+                        "UPDATE webhook_callbacks SET state = 'queued', claimed_at = NULL, available_at = ?, updated_at = ?
+                         WHERE state = 'running' AND claimed_at < ?",
+                        params![now, now, stale_before],
+                    )
+                    .map_err(|why| eyre!("Failed to recover stale webhook callbacks — {why}"))
+                    .and_then(|_| {
+                        connection
+                            .execute(
+                                "UPDATE webhook_operations
+                                 SET state = 'queued', claimed_at = NULL, available_at = ?, updated_at = ?
+                                 WHERE state = 'running' AND claimed_at < ?",
+                                params![now, now, stale_before],
+                            )
+                            .map_err(|why| eyre!("Failed to recover stale webhook operations — {why}"))
+                    })
+                    .and_then(|_| connection.read_runtime_timestamps())
+            })
+        })
+    }
     /// Create the durable queue tables when absent.
     pub fn migrate(&self) -> ApiResult<()> {
         self.with_connection(|connection| {
@@ -568,6 +723,10 @@ impl OperationQueue {
                     .map_err(|why| eyre!("Failed to replay webhook operation — {why}"))
             })
         })
+    }
+    pub(crate) fn runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps> {
+        self.migrate()
+            .and_then(|_| self.with_connection(|connection| connection.read_runtime_timestamps()))
     }
     fn settle_callback(
         &self,
@@ -604,6 +763,7 @@ impl OperationQueue {
                             .map(|_| ())
                             .map_err(|why| eyre!("Failed to record webhook callback attempt — {why}"))
                     })
+                    .and_then(|()| connection.record_outcome(state, &now))
             })
         })
     }
@@ -654,7 +814,7 @@ impl OperationQueue {
         available_at: Timestamp,
     ) -> ApiResult<()> {
         self.migrate().and_then(|_| self.before_settlement()).and_then(|_| {
-            self.with_connection(|connection| {
+            self.with_transaction(|connection| {
                 let now = to_rfc3339(Timestamp::now());
                 connection
                     .execute(
@@ -669,6 +829,7 @@ impl OperationQueue {
                             .then_some(())
                             .ok_or_else(|| eyre!("Bot operation `{operation_key}` attempt {attempts} is stale or already settled"))
                     })
+                    .and_then(|()| connection.record_outcome(state, &now))
             })
         })
     }
@@ -758,40 +919,57 @@ impl OperationWorker {
             context,
             queue,
             registry,
+            runtime: WebhookRuntime::default(),
             stale_after,
         }
     }
     /// Claim and dispatch one operation, returning whether work was available.
     pub async fn run_once(&self) -> ApiResult<bool> {
-        match self.queue.claim_next(self.stale_after) {
-            | Ok(Some(operation)) => {
-                let operation_key = operation.operation_key().to_string();
-                let result = match operation.notification() {
-                    | Ok(notification) => self
-                        .registry
-                        .invoke(&notification.method, notification.params, self.context.clone())
-                        .await
-                        .map(|_| ())
-                        .map_err(|why| eyre!(why)),
-                    | Err(why) => Err(why),
-                };
-                match result {
-                    | Ok(()) => self
-                        .queue
-                        .succeed(operation)
-                        .map(|_| true)
-                        .map_err(|why| eyre!("Failed to settle successful webhook operation `{operation_key}` — {why}")),
-                    | Err(why) => {
-                        let message = why.to_string();
-                        self.queue
-                            .fail(operation, &message)
-                            .and_then(|_| Err(eyre!("Webhook operation `{operation_key}` failed — {message}")))
+        match self.runtime.initialize(&self.queue, self.stale_after) {
+            | Err(why) => Err(why),
+            | Ok(()) => match self.runtime.claim(|| self.queue.claim_next(self.stale_after)) {
+                | Ok(Some((operation, _claim))) => {
+                    let operation_key = operation.operation_key().to_string();
+                    let result = match operation.notification() {
+                        | Ok(notification) => self
+                            .registry
+                            .invoke(&notification.method, notification.params, self.context.clone())
+                            .await
+                            .map(|_| ())
+                            .map_err(|why| eyre!(why)),
+                        | Err(why) => Err(why),
+                    };
+                    match result {
+                        | Ok(()) => match self.queue.succeed(operation) {
+                            | Ok(()) => self.runtime.refresh(&self.queue).map(|()| true),
+                            | Err(why) => {
+                                self.runtime.mark_unavailable();
+                                Err(eyre!("Failed to settle successful webhook operation `{operation_key}` — {why}"))
+                            }
+                        },
+                        | Err(why) => {
+                            let message = why.to_string();
+                            match self.queue.fail(operation, &message) {
+                                | Ok(_) => self
+                                    .runtime
+                                    .refresh(&self.queue)
+                                    .and_then(|()| Err(eyre!("Webhook operation `{operation_key}` failed — {message}"))),
+                                | Err(why) => {
+                                    self.runtime.mark_unavailable();
+                                    Err(why)
+                                }
+                            }
+                        }
                     }
                 }
-            }
-            | Ok(None) => Ok(false),
-            | Err(why) => Err(why),
+                | Ok(None) => Ok(false),
+                | Err(why) => Err(why),
+            },
         }
+    }
+    /// Use a shared runtime for readiness and drain coordination.
+    pub fn with_runtime(self, runtime: WebhookRuntime) -> Self {
+        Self { runtime, ..self }
     }
 }
 #[cfg(not(feature = "duckdb"))]
@@ -802,59 +980,12 @@ fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
 fn is_no_rows(error: &crate::io::database::backend::Error) -> bool {
     error.to_string().contains("Query returned no rows")
 }
-fn select_available(connection: &Connection, now: &str) -> ApiResult<Option<ClaimedOperation>> {
-    let result = connection.query_row(
-        "SELECT operation_key, delivery_id, event_json, attempts
-         FROM webhook_operations
-         WHERE state IN ('queued', 'retryable-failure') AND available_at <= ?
-         ORDER BY created_at, operation_key LIMIT 1",
-        params![now],
-        |row| {
-            row.get::<_, i64>(3).and_then(|attempts| {
-                row.get(0).and_then(|operation_key| {
-                    row.get(1).and_then(|delivery_id| {
-                        row.get(2).map(|event_json| ClaimedOperation {
-                            operation_key,
-                            delivery_id,
-                            event_json,
-                            attempts: u32::try_from(attempts).unwrap_or_default(),
-                        })
-                    })
-                })
-            })
-        },
-    );
-    match result {
-        | Ok(operation) => Ok(Some(operation)),
-        | Err(why) if is_no_rows(&why) => Ok(None),
-        | Err(why) => Err(eyre!("Failed to select an available webhook operation — {why}")),
-    }
-}
-fn select_available_callback(connection: &Connection, now: &str) -> ApiResult<Option<ClaimedCallback>> {
-    let result = connection.query_row(
-        "SELECT callback_key, destination, payload_json, attempts
-         FROM webhook_callbacks
-         WHERE state IN ('queued', 'retryable-failure') AND available_at <= ?
-         ORDER BY created_at, callback_key LIMIT 1",
-        params![now],
-        |row| {
-            row.get::<_, i64>(3).and_then(|attempts| {
-                row.get(0).and_then(|callback_key| {
-                    row.get(1).and_then(|destination| {
-                        row.get(2).map(|payload_json| ClaimedCallback {
-                            attempts: u32::try_from(attempts).unwrap_or_default(),
-                            callback_key,
-                            destination,
-                            payload_json,
-                        })
-                    })
-                })
-            })
-        },
-    );
-    match result {
-        | Ok(callback) => Ok(Some(callback)),
-        | Err(why) if is_no_rows(&why) => Ok(None),
-        | Err(why) => Err(eyre!("Failed to select an available webhook callback — {why}")),
-    }
+fn parse_timestamp(value: Option<String>, field: &str) -> ApiResult<Option<Timestamp>> {
+    value
+        .map(|value| {
+            value
+                .parse::<Timestamp>()
+                .map_err(|why| eyre!("Failed to parse webhook runtime {field} — {why}"))
+        })
+        .transpose()
 }

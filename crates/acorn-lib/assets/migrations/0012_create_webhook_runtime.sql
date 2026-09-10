@@ -37,3 +37,11 @@ CREATE TABLE IF NOT EXISTS webhook_callback_attempts (
     attempted_at TEXT NOT NULL,
     PRIMARY KEY (callback_key, attempt)
 );
+CREATE TABLE IF NOT EXISTS webhook_runtime_state (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    last_error_at TEXT,
+    last_success_at TEXT
+);
+INSERT INTO webhook_runtime_state (singleton, last_error_at, last_success_at)
+VALUES (1, NULL, NULL)
+ON CONFLICT(singleton) DO NOTHING;

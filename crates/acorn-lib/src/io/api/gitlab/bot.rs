@@ -1,6 +1,6 @@
 //! GitLab bot server for polling GitLab note events.
 //!
-//! The bot combines a small Axum HTTP server with a background poller. The
+//! The bot combines a small HTTP server with a background poller. The
 //! poller repeatedly calls the GitLab project events API with
 //! `target_type=note` and an optional `after` timestamp. Each returned merge
 //! request note event is converted into a [`MergeRequestNoteEvent`] using
@@ -51,9 +51,11 @@ use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
 use crate::analyzer::host::context::AnalysisContext;
 use crate::io::api::json_rpc::{InvocationContext, InvocationOrigin, MethodName, OperationDefinition, OperationEffects, OperationRegistry};
 use crate::io::api::webhooks::store::{OperationQueue, OperationWorker};
+use crate::io::api::webhooks::{WebhookRuntime, WebhookRuntimeState};
 use crate::io::api::{self, Configuration};
 use crate::io::ApiResult;
 use crate::param;
+use crate::util::constants::app::WEBHOOK_STALE_CLAIM_AFTER;
 use crate::util::Label;
 use alloc::sync::Arc;
 use axum::extract::State as ServerState;
@@ -63,9 +65,10 @@ use axum::{Extension, Json, Router};
 use bon::Builder;
 use color_eyre::eyre::{eyre, WrapErr};
 use core::{fmt, net::SocketAddr, time::Duration};
-use jiff::SignedDuration;
 use serde::Serialize;
 use serde_json::Value;
+#[cfg(test)]
+use std::env::temp_dir;
 use std::sync::Mutex;
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -87,11 +90,11 @@ use tracing::{error, info};
 /// });
 /// ```
 pub type MergeRequestNoteHandler = Arc<dyn Fn(MergeRequestNoteEvent) -> ApiResult<()> + Send + Sync + 'static>;
-/// Shared mutable state used by the Axum handlers and background poller.
+/// Shared mutable state used by the HTTP handlers and background poller.
 type SharedState = Arc<Mutex<State>>;
 /// Runtime configuration for the GitLab bot server and poller.
 ///
-/// The configuration provides the bind address for the Axum server, GitLab API
+/// The configuration provides the bind address for the HTTP server, GitLab API
 /// options, initial `after` timestamp, poll interval, and merge request note
 /// handler.
 ///
@@ -110,7 +113,7 @@ type SharedState = Arc<Mutex<State>>;
 /// ```
 #[derive(Clone)]
 pub struct Config {
-    /// Address where the Axum server listens.
+    /// Address where the HTTP server listens.
     address: SocketAddr,
     /// Current `after` timestamp for the next GitLab events request.
     after: String,
@@ -118,6 +121,8 @@ pub struct Config {
     pub(super) options: Options,
     /// Duration between polling attempts.
     poll_interval: Duration,
+    /// Maximum time to wait for claimed webhook work during shutdown.
+    shutdown_grace: Duration,
     /// Handler called for each merge request note event.
     handler: MergeRequestNoteHandler,
     /// Whether to run the legacy Events API reconciliation poller
@@ -164,11 +169,16 @@ pub struct PollSummary {
     /// Latest event timestamp seen in the response.
     pub latest_after: Option<String>,
 }
-/// Axum-backed GitLab bot that polls project note events.
+#[derive(Clone)]
+struct RouterState {
+    bot: SharedState,
+    webhook: WebhookRuntime,
+}
+/// HTTP-backed GitLab bot that polls project note events.
 ///
 /// A [`GitLabBot`] owns the HTTP server configuration, current polling state,
 /// and merge request note handler. Use [`GitLabBot::run`] to start both the
-/// Axum server and the background polling loop.
+/// HTTP server and the background polling loop.
 ///
 /// # Example
 ///
@@ -188,9 +198,10 @@ pub struct PollSummary {
 #[builder(builder_type(vis = ""), start_fn(name = init, vis = ""))]
 pub struct Server {
     config: Config,
+    runtime: WebhookRuntime,
     state: SharedState,
 }
-/// Shared state used by the Axum handlers and background poller
+/// Shared state used by the HTTP handlers and background poller.
 #[derive(Clone, Debug)]
 struct State {
     /// Current `after` timestamp used for the next GitLab events request.
@@ -213,6 +224,8 @@ pub struct StateSnapshot {
     pub processed_count: u64,
     /// Last polling or processing error, if any.
     pub last_error: Option<String>,
+    /// Shared webhook readiness, drain, and outcome state.
+    pub webhook: WebhookRuntimeState,
 }
 impl Config {
     /// Create a bot configuration from GitLab API options and a bind address.
@@ -237,12 +250,13 @@ impl Config {
             after: String::new(),
             options,
             poll_interval: Duration::from_secs(30),
+            shutdown_grace: Duration::from_secs(30),
             handler: Arc::new(default_merge_request_note_handler),
             polling_enabled: true,
             webhook_token: None,
             webhook_signing_token: None,
             project_id: None,
-            operation_queue: OperationQueue::configured(),
+            operation_queue: default_operation_queue(),
             operation_handler: None,
             #[cfg(feature = "analysis")]
             analysis_options: AnalysisContext::default(),
@@ -306,6 +320,10 @@ impl Config {
     /// ```
     pub fn with_poll_interval(self, poll_interval: Duration) -> Self {
         Self { poll_interval, ..self }
+    }
+    /// Return a copy of the configuration with a bounded webhook shutdown grace period.
+    pub fn with_shutdown_grace(self, shutdown_grace: Duration) -> Self {
+        Self { shutdown_grace, ..self }
     }
     /// Return a copy of the configuration with a custom merge request note handler.
     ///
@@ -454,6 +472,10 @@ impl<'a> TryFrom<&'a EventDetails> for MergeRequestNoteEvent {
     }
 }
 impl Server {
+    /// Stop accepting webhook work and wait for active claims up to the configured grace period.
+    pub async fn drain(&self) -> ApiResult<WebhookRuntimeState> {
+        self.runtime.drain(self.config.shutdown_grace).await
+    }
     /// Create a GitLab bot from configuration.
     ///
     /// # Example
@@ -472,13 +494,17 @@ impl Server {
             processed_count: 0,
             last_error: None,
         };
-        Self::init().config(config).state(Arc::new(Mutex::new(state))).build()
+        Self::init()
+            .config(config)
+            .runtime(WebhookRuntime::default())
+            .state(Arc::new(Mutex::new(state)))
+            .build()
     }
-    /// Build the Axum router for the bot server.
+    /// Build the HTTP router for the bot server.
     ///
     /// The router exposes `GET /health` for a simple liveness response and
     /// `GET /state` for a JSON [`BotStateSnapshot`]. This is useful when a
-    /// caller wants to compose the bot routes into a larger Axum application
+    /// caller wants to compose the bot routes into a larger HTTP application
     /// instead of using [`GitLabBot::run`].
     ///
     /// # Example
@@ -491,23 +517,31 @@ impl Server {
     /// # Ok::<(), color_eyre::Report>(())
     /// ```
     pub fn router(&self) -> Router {
-        let Server { config, state } = self;
+        let Server { config, runtime, state } = self;
+        if let Err(why) = runtime.initialize(&config.operation_queue, WEBHOOK_STALE_CLAIM_AFTER) {
+            error!("Webhook runtime initialization failed: {why}");
+        }
         let webhook_config = Arc::new(
             WebhookConfig::init()
                 .maybe_webhook_token(config.webhook_token.clone())
                 .maybe_webhook_signing_token(config.webhook_signing_token.clone())
                 .maybe_project_id(config.project_id)
                 .operation_queue(config.operation_queue.clone())
+                .runtime(runtime.clone())
                 .build(),
         );
         Router::new()
             .route("/health", get(Self::health))
+            .route("/ready", get(Self::ready))
             .route("/state", get(Self::state_handler))
             .route("/webhooks/gitlab", post(webhook::receive))
-            .with_state(Arc::clone(state))
+            .with_state(RouterState {
+                bot: Arc::clone(state),
+                webhook: runtime.clone(),
+            })
             .layer(Extension(webhook_config))
     }
-    /// Run the Axum server and background GitLab polling task.
+    /// Run the HTTP server and background GitLab polling task.
     ///
     /// This method binds the configured address, spawns a background task that
     /// calls [`GitLabBot::poll_once`] every configured interval, and then serves
@@ -534,23 +568,36 @@ impl Server {
     /// # Errors
     ///
     /// Returns an error when the configured address cannot be bound or when the
-    /// Axum server exits with an error.
+    /// HTTP server exits with an error.
     pub async fn run(self) -> ApiResult<()> {
-        let Server { config, state } = self;
+        let Server { config, runtime, state } = self;
         match TcpListener::bind(config.address)
             .await
             .wrap_err_with(|| format!("Failed to bind GitLab bot server to {config}"))
         {
             | Ok(listener) => {
-                let server = Arc::new(Self::init().config(config).state(state).build());
+                let server = Arc::new(Self::init().config(config).runtime(runtime).state(state).build());
+                if let Err(why) = server.runtime.initialize(&server.config.operation_queue, WEBHOOK_STALE_CLAIM_AFTER) {
+                    error!("Webhook runtime initialization failed: {why}");
+                }
+                let mut tasks = Vec::new();
                 if server.config.polling_enabled {
                     let poller = Arc::clone(&server);
-                    tokio::spawn(async move { poller.poll_forever().await });
+                    tasks.push(tokio::spawn(async move { poller.poll_forever().await }));
                 }
                 let worker = Arc::clone(&server);
-                tokio::spawn(async move { worker.work_forever().await });
+                tasks.push(tokio::spawn(async move { worker.work_forever().await }));
                 info!("GitLab bot server listening on {}", server.config);
-                axum::serve(listener, server.router()).await.wrap_err("GitLab bot server failed")
+                let shutdown = Arc::clone(&server);
+                let result = axum::serve(listener, server.router())
+                    .with_graceful_shutdown(async move {
+                        let _ = tokio::signal::ctrl_c().await;
+                        let _ = shutdown.runtime.drain(shutdown.config.shutdown_grace).await;
+                    })
+                    .await
+                    .wrap_err("GitLab bot server failed");
+                tasks.into_iter().for_each(|task| task.abort());
+                result
             }
             | Err(why) => Err(why),
         }
@@ -610,17 +657,17 @@ impl Server {
     /// # Ok::<(), color_eyre::Report>(())
     /// ```
     pub fn snapshot(&self) -> ApiResult<StateSnapshot> {
-        let Server { state, .. } = self;
+        let Server { runtime, state, .. } = self;
         state
             .lock()
-            .map(|s| s.snapshot())
             .map_err(|why| eyre!("GitLab bot state lock is poisoned: {why}"))
+            .and_then(|state| runtime.state().map(|webhook| state.snapshot(webhook)))
     }
     /// Poll GitLab forever at the configured interval
     async fn poll_forever(&self) {
         let Server { config, .. } = &self;
         let mut interval = tokio::time::interval(config.poll_interval);
-        loop {
+        while self.runtime.is_accepting() {
             interval.tick().await;
             match self.poll_once().await {
                 | Ok(summary) => {
@@ -638,7 +685,7 @@ impl Server {
     }
     async fn work_forever(&self) {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
-        loop {
+        while self.runtime.is_accepting() {
             interval.tick().await;
             if let Err(why) = self.process_next().await {
                 error!("=> {} GitLab bot worker — {why}", Label::fail());
@@ -661,7 +708,8 @@ impl Server {
         };
         match config.registry() {
             | Ok(registry) => {
-                OperationWorker::new(config.operation_queue.clone(), registry, context, SignedDuration::from_mins(5))
+                OperationWorker::new(config.operation_queue.clone(), registry, context, WEBHOOK_STALE_CLAIM_AFTER)
+                    .with_runtime(self.runtime.clone())
                     .run_once()
                     .await
             }
@@ -717,21 +765,35 @@ impl Server {
             | Err(why) => Err(eyre!("GitLab bot state lock is poisoned: {why}")),
         }
     }
-    /// Axum health check handler
+    /// Health check handler.
     async fn health() -> &'static str {
         "ok"
     }
-    /// Axum state endpoint handler
-    async fn state_handler(ServerState(state): ServerState<SharedState>) -> Result<Json<StateSnapshot>, (StatusCode, String)> {
+    /// Readiness handler backed by the shared webhook runtime.
+    async fn ready(ServerState(state): ServerState<RouterState>) -> StatusCode {
+        match state.webhook.is_ready() {
+            | true => StatusCode::OK,
+            | false => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+    /// State endpoint handler.
+    async fn state_handler(ServerState(state): ServerState<RouterState>) -> Result<Json<StateSnapshot>, (StatusCode, String)> {
         state
+            .bot
             .lock()
-            .map(|s| Json(s.snapshot()))
             .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, format!("GitLab bot state lock is poisoned — {why}")))
+            .and_then(|bot| {
+                state
+                    .webhook
+                    .state()
+                    .map(|webhook| Json(bot.snapshot(webhook)))
+                    .map_err(|why| (StatusCode::INTERNAL_SERVER_ERROR, why.to_string()))
+            })
     }
 }
 impl State {
     /// Convert internal bot state into a serializable public snapshot
-    fn snapshot(&self) -> StateSnapshot {
+    fn snapshot(&self, webhook: WebhookRuntimeState) -> StateSnapshot {
         let State {
             after,
             poll_count,
@@ -743,6 +805,7 @@ impl State {
             poll_count: *poll_count,
             processed_count: *processed_count,
             last_error: last_error.clone(),
+            webhook,
         }
     }
 }
@@ -753,4 +816,12 @@ fn default_merge_request_note_handler(event: MergeRequestNoteEvent) -> ApiResult
         event.event_id, event.merge_request_iid
     );
     Ok(())
+}
+#[cfg(not(test))]
+fn default_operation_queue() -> OperationQueue {
+    OperationQueue::configured()
+}
+#[cfg(test)]
+fn default_operation_queue() -> OperationQueue {
+    OperationQueue::from(temp_dir().join(format!("acorn-gitlab-bot-{}.db", nanoid::nanoid!())))
 }

@@ -5,7 +5,7 @@ use super::intake::analyze_work_item;
 use crate::io::api;
 use crate::io::api::json_rpc;
 use crate::io::api::webhooks::store::OperationQueue;
-use crate::io::api::webhooks::{self, Verifier};
+use crate::io::api::webhooks::{self, Verifier, WebhookRuntime};
 use crate::io::ApiResult;
 use crate::util::constants::app::APPLICATION;
 use alloc::sync::Arc;
@@ -150,7 +150,7 @@ struct RawNoteHook {
     #[serde(default)]
     merge_request: Option<api::Identifier<u64>>,
 }
-/// Immutable webhook config injected into the Axum router via [`Extension`].
+/// Immutable webhook config injected into the HTTP router via [`Extension`].
 #[derive(Builder, Clone)]
 #[builder(start_fn = init)]
 pub(super) struct WebhookConfig {
@@ -158,6 +158,7 @@ pub(super) struct WebhookConfig {
     webhook_signing_token: Option<api::Secret>,
     project_id: Option<u64>,
     operation_queue: OperationQueue,
+    runtime: WebhookRuntime,
 }
 #[derive(Debug)]
 struct WebhookError {
@@ -436,27 +437,37 @@ impl Webhook {
 }
 impl Webhook {
     async fn receive(config: Arc<WebhookConfig>, request: Request) -> Result<StatusCode, (StatusCode, String)> {
-        let (parts, body) = request.into_parts();
-        to_bytes(body, 1024 * 1024)
-            .await
-            .map_err(|_| WebhookError::report(StatusCode::PAYLOAD_TOO_LARGE, "Request body exceeds 1 MiB limit"))
-            .and_then(|raw| {
-                config
-                    .authenticate(&parts.headers, &raw)
-                    .and_then(|verified| Self::normalize(verified.delivery_id, &parts.headers, verified.raw_body, config.project_id))
-            })
-            .and_then(|webhook| webhook.persist(&config))
-            .map_err(WebhookError::response)
+        match config.runtime.is_ready() {
+            | false => Err((StatusCode::SERVICE_UNAVAILABLE, "Webhook runtime is not ready".to_string())),
+            | true => {
+                let (parts, body) = request.into_parts();
+                to_bytes(body, 1024 * 1024)
+                    .await
+                    .map_err(|_| WebhookError::report(StatusCode::PAYLOAD_TOO_LARGE, "Request body exceeds 1 MiB limit"))
+                    .and_then(|raw| {
+                        config
+                            .authenticate(&parts.headers, &raw)
+                            .and_then(|verified| Self::normalize(verified.delivery_id, &parts.headers, verified.raw_body, config.project_id))
+                    })
+                    .and_then(|webhook| webhook.persist(&config))
+                    .map_err(WebhookError::response)
+            }
+        }
     }
     fn persist(self, config: &WebhookConfig) -> ApiResult<StatusCode> {
         match self {
             | Self::Unsupported => Ok(StatusCode::OK),
             | Self::Delivery(delivery) => match delivery.operation() {
-                | Ok(Some(operation)) => config
-                    .operation_queue
-                    .enqueue_spec(&delivery.delivery_id, &operation)
-                    .map(|_| StatusCode::ACCEPTED)
-                    .map_err(|why| WebhookError::report(StatusCode::SERVICE_UNAVAILABLE, format!("Failed to persist webhook operation: {why}"))),
+                | Ok(Some(operation)) => match config.operation_queue.enqueue_spec(&delivery.delivery_id, &operation) {
+                    | Ok(_) => Ok(StatusCode::ACCEPTED),
+                    | Err(why) => {
+                        config.runtime.mark_unavailable();
+                        Err(WebhookError::report(
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            format!("Failed to persist webhook operation: {why}"),
+                        ))
+                    }
+                },
                 | Err(why) => Err(WebhookError::report(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Failed to normalize webhook operation: {why}"),

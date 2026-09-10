@@ -396,6 +396,31 @@ async fn test_router_health_endpoint_returns_ok() {
     server.stop().await.unwrap();
 }
 #[tokio::test]
+async fn test_router_liveness_remains_up_while_readiness_and_ingress_stop_during_drain() {
+    let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap())
+        .with_operation_queue(operation_queue())
+        .with_shutdown_grace(core::time::Duration::ZERO)
+        .with_webhook_token("secret");
+    let bot = Server::new(config);
+    let server = TestServer::start(bot.router()).await.unwrap();
+    assert_eq!(
+        reqwest::get(format!("{}/ready", server.base_url)).await.unwrap().status(),
+        reqwest::StatusCode::OK
+    );
+    bot.drain().await.unwrap();
+    assert_eq!(
+        reqwest::get(format!("{}/health", server.base_url)).await.unwrap().status(),
+        reqwest::StatusCode::OK
+    );
+    assert_eq!(
+        reqwest::get(format!("{}/ready", server.base_url)).await.unwrap().status(),
+        reqwest::StatusCode::SERVICE_UNAVAILABLE
+    );
+    let response = post_webhook(&server.base_url, &mr_payload(30, "open"), &[("X-Gitlab-Token", "secret")]).await;
+    assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+    server.stop().await.unwrap();
+}
+#[tokio::test]
 async fn test_router_state_endpoint_returns_initial_snapshot() {
     let config = Config::new(Options::default(), "127.0.0.1:0".parse().unwrap()).with_after("2026-07-06T00:00:00Z");
     let bot = Server::new(config);
@@ -408,6 +433,8 @@ async fn test_router_state_endpoint_returns_initial_snapshot() {
     assert_eq!(json.get("poll_count").and_then(serde_json::Value::as_u64), Some(0));
     assert_eq!(json.get("processed_count").and_then(serde_json::Value::as_u64), Some(0));
     assert!(json.get("last_error").is_some_and(serde_json::Value::is_null));
+    assert_eq!(json.pointer("/webhook/accepting").and_then(serde_json::Value::as_bool), Some(true));
+    assert_eq!(json.pointer("/webhook/ready").and_then(serde_json::Value::as_bool), Some(true));
     server.stop().await.unwrap();
 }
 #[test]

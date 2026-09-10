@@ -79,7 +79,7 @@ impl HttpService for RecordingService {
     }
 }
 #[test]
-fn callback_headers_make_diagnostic_secrecy_explicit() {
+fn test_callback_headers_make_diagnostic_secrecy_explicit() {
     let public = CallbackHeader::public("x-event-kind", "created").unwrap();
     let secret = CallbackHeader::secret("x-callback-key", "custom-secret").unwrap();
     let signature = CallbackHeader::public("webhook-signature", "signature-secret").unwrap();
@@ -88,7 +88,7 @@ fn callback_headers_make_diagnostic_secrecy_explicit() {
     assert!(!format!("{signature:?}").contains("signature-secret"));
 }
 #[test]
-fn callback_target_requires_https_and_rejects_userinfo_or_fragments() {
+fn test_callback_target_requires_https_and_rejects_userinfo_or_fragments() {
     for url in [
         "http://example.test/hook",
         "https://user@example.test/hook",
@@ -98,7 +98,7 @@ fn callback_target_requires_https_and_rejects_userinfo_or_fragments() {
     }
 }
 #[tokio::test]
-async fn dispatch_discards_transport_details_that_may_contain_secrets() {
+async fn test_dispatch_discards_transport_details_that_may_contain_secrets() {
     let service = RecordingService {
         error: true,
         ..RecordingService::default()
@@ -111,7 +111,7 @@ async fn dispatch_discards_transport_details_that_may_contain_secrets() {
     assert!(!message.contains("sig"));
 }
 #[tokio::test]
-async fn dispatch_is_one_shot_and_applies_callback_safety_policy() {
+async fn test_dispatch_is_one_shot_and_applies_callback_safety_policy() {
     let service = RecordingService::default();
     let target = CallbackTarget::new("https://example.test/hooks/secret?sig=value").unwrap();
     let header = CallbackHeader::bearer("bearer-secret").unwrap();
@@ -131,7 +131,47 @@ async fn dispatch_is_one_shot_and_applies_callback_safety_policy() {
     assert!(!format!("{target:?}").contains("secret"));
 }
 #[tokio::test]
-async fn outbound_callback_failures_are_recorded_for_retry() {
+async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));
+    assert!(queue
+        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "complete"}))
+        .unwrap());
+    assert!(!queue
+        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "changed"}))
+        .unwrap());
+    let worker = store::CallbackWorker::new(
+        queue.clone(),
+        RecordingService::default(),
+        FakeCallbackResolver,
+        jiff::SignedDuration::from_mins(5),
+    );
+    assert!(worker.run_once().await.unwrap());
+    assert_eq!(queue.callback_state("callback-1").unwrap(), Some(store::OperationState::Succeeded));
+    assert_eq!(queue.callback_attempts("callback-1").unwrap(), 1);
+    assert!(queue.runtime_timestamps().unwrap().last_success_at.is_some());
+    assert!(!worker.run_once().await.unwrap());
+    queue
+        .with_connection(|connection| {
+            connection
+                .query_row(
+                    "SELECT destination, payload_json FROM webhook_callbacks WHERE callback_key = ?",
+                    crate::io::database::backend::params!["callback-1"],
+                    |row| {
+                        row.get::<_, String>(0)
+                            .and_then(|destination| row.get::<_, String>(1).map(|payload| (destination, payload)))
+                    },
+                )
+                .map_err(|why| eyre!(why))
+                .map(|(destination, payload)| {
+                    assert_eq!(destination, "audit");
+                    assert!(!payload.contains("resolved-attempt-secret"));
+                    assert!(!payload.contains("credential=secret"));
+                })
+        })
+        .unwrap();
+}
+#[tokio::test]
+async fn test_outbound_callback_failures_are_recorded_for_retry() {
     let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callback-retry-{}.db", nanoid::nanoid!())));
     queue
         .enqueue_callback("callback-retry", "audit", &serde_json::json!({"event": "complete"}))
@@ -156,48 +196,10 @@ async fn outbound_callback_failures_are_recorded_for_retry() {
         Some(store::OperationState::RetryableFailure)
     );
     assert_eq!(queue.callback_attempts("callback-retry").unwrap(), 1);
+    assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
 }
 #[tokio::test]
-async fn outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
-    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));
-    assert!(queue
-        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "complete"}))
-        .unwrap());
-    assert!(!queue
-        .enqueue_callback("callback-1", "audit", &serde_json::json!({"event": "changed"}))
-        .unwrap());
-    let worker = store::CallbackWorker::new(
-        queue.clone(),
-        RecordingService::default(),
-        FakeCallbackResolver,
-        jiff::SignedDuration::from_mins(5),
-    );
-    assert!(worker.run_once().await.unwrap());
-    assert_eq!(queue.callback_state("callback-1").unwrap(), Some(store::OperationState::Succeeded));
-    assert_eq!(queue.callback_attempts("callback-1").unwrap(), 1);
-    assert!(!worker.run_once().await.unwrap());
-    queue
-        .with_connection(|connection| {
-            connection
-                .query_row(
-                    "SELECT destination, payload_json FROM webhook_callbacks WHERE callback_key = ?",
-                    crate::io::database::backend::params!["callback-1"],
-                    |row| {
-                        row.get::<_, String>(0)
-                            .and_then(|destination| row.get::<_, String>(1).map(|payload| (destination, payload)))
-                    },
-                )
-                .map_err(|why| eyre!(why))
-                .map(|(destination, payload)| {
-                    assert_eq!(destination, "audit");
-                    assert!(!payload.contains("resolved-attempt-secret"));
-                    assert!(!payload.contains("credential=secret"));
-                })
-        })
-        .unwrap();
-}
-#[tokio::test]
-async fn provider_pipeline_is_durable_sorted_and_dispatchable() {
+async fn test_provider_pipeline_is_durable_sorted_and_dispatchable() {
     #[derive(Deserialize, schemars::JsonSchema)]
     #[serde(deny_unknown_fields)]
     struct Input {
@@ -263,9 +265,120 @@ async fn provider_pipeline_is_durable_sorted_and_dispatchable() {
     assert!(!worker.run_once().await.unwrap());
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     assert_eq!(queue.counts().unwrap().succeeded, 2);
+    assert!(queue.runtime_timestamps().unwrap().last_success_at.is_some());
 }
 #[test]
-fn secret_verifier_uses_ordered_delivery_headers_and_redacts_secret() {
+fn test_runtime_callback_errors_persist_through_terminal_failure() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callback-terminal-{}.db", nanoid::nanoid!())));
+    queue.enqueue_callback("callback", "audit", &serde_json::json!({})).unwrap();
+    for attempt in 1..=crate::util::constants::app::MAX_WEBHOOK_OPERATION_ATTEMPTS {
+        let claim = queue.claim_callback(jiff::SignedDuration::from_mins(5)).unwrap().unwrap();
+        let state = queue.fail_callback(claim, "expected failure").unwrap();
+        if attempt < crate::util::constants::app::MAX_WEBHOOK_OPERATION_ATTEMPTS {
+            queue
+                .with_connection(|connection| {
+                    connection
+                        .execute(
+                            "UPDATE webhook_callbacks SET available_at = ? WHERE callback_key = ?",
+                            crate::io::database::backend::params!["1970-01-01T00:00:00Z", "callback"],
+                        )
+                        .map(|_| ())
+                        .map_err(|why| eyre!(why))
+                })
+                .unwrap();
+            assert_eq!(state, store::OperationState::RetryableFailure);
+        } else {
+            assert_eq!(state, store::OperationState::TerminalFailure);
+        }
+    }
+    assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
+}
+#[tokio::test]
+async fn test_runtime_drains_active_claims_within_grace() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-drain-settle-{}.db", nanoid::nanoid!())));
+    let runtime = WebhookRuntime::default();
+    runtime.initialize(&queue, jiff::SignedDuration::from_mins(5)).unwrap();
+    let (_, claim) = runtime.claim(|| Ok(Some(()))).unwrap().unwrap();
+    tokio::spawn(async move {
+        tokio::time::sleep(core::time::Duration::from_millis(20)).await;
+        drop(claim);
+    });
+    let state = runtime.drain(core::time::Duration::from_secs(1)).await.unwrap();
+    assert!(!state.accepting);
+    assert_eq!(state.active_claims, 0);
+    assert!(!state.ready);
+}
+#[tokio::test]
+async fn test_runtime_drains_immediately_without_work() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-drain-empty-{}.db", nanoid::nanoid!())));
+    let runtime = WebhookRuntime::default();
+    runtime.initialize(&queue, jiff::SignedDuration::from_mins(5)).unwrap();
+    let state = runtime.drain(core::time::Duration::ZERO).await.unwrap();
+    assert!(!state.accepting);
+    assert_eq!(state.active_claims, 0);
+    assert!(!state.ready);
+}
+#[test]
+fn test_runtime_initialization_controls_readiness_and_reports_failure() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-runtime-{}.db", nanoid::nanoid!())));
+    let runtime = WebhookRuntime::default();
+    assert!(!runtime.state().unwrap().ready);
+    runtime.initialize(&queue, jiff::SignedDuration::from_mins(5)).unwrap();
+    assert!(runtime.state().unwrap().ready);
+
+    let invalid_queue = store::OperationQueue::from(temp_dir());
+    let invalid_runtime = WebhookRuntime::default();
+    assert!(invalid_runtime.initialize(&invalid_queue, jiff::SignedDuration::from_mins(5)).is_err());
+    let state = invalid_runtime.state().unwrap();
+    assert!(state.accepting);
+    assert!(state.last_error_at.is_some());
+    assert!(!state.ready);
+}
+#[test]
+fn test_runtime_operation_errors_persist_through_terminal_failure() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-terminal-{}.db", nanoid::nanoid!())));
+    queue.enqueue("delivery", "operation", "{}").unwrap();
+    let mut last_error_at = None;
+    for attempt in 1..=crate::util::constants::app::MAX_WEBHOOK_OPERATION_ATTEMPTS {
+        let claim = queue.claim_next(jiff::SignedDuration::from_mins(5)).unwrap().unwrap();
+        let state = queue.fail(claim, "expected failure").unwrap();
+        last_error_at = queue.runtime_timestamps().unwrap().last_error_at;
+        if attempt < crate::util::constants::app::MAX_WEBHOOK_OPERATION_ATTEMPTS {
+            queue
+                .with_connection(|connection| {
+                    connection
+                        .execute(
+                            "UPDATE webhook_operations SET available_at = ? WHERE operation_key = ?",
+                            crate::io::database::backend::params!["1970-01-01T00:00:00Z", "operation"],
+                        )
+                        .map(|_| ())
+                        .map_err(|why| eyre!(why))
+                })
+                .unwrap();
+            assert_eq!(state, store::OperationState::RetryableFailure);
+        } else {
+            assert_eq!(state, store::OperationState::TerminalFailure);
+        }
+    }
+    assert!(last_error_at.is_some());
+}
+#[tokio::test]
+async fn test_runtime_timed_out_claim_remains_recoverable() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-drain-timeout-{}.db", nanoid::nanoid!())));
+    queue.enqueue("delivery", "operation", "{}").unwrap();
+    let runtime = WebhookRuntime::default();
+    runtime.initialize(&queue, jiff::SignedDuration::from_mins(5)).unwrap();
+    let (operation, claim) = runtime.claim(|| queue.claim_next(jiff::SignedDuration::from_mins(5))).unwrap().unwrap();
+    let state = runtime.drain(core::time::Duration::ZERO).await.unwrap();
+    assert_eq!(state.active_claims, 1);
+    assert_eq!(queue.state("operation").unwrap(), Some(store::OperationState::Running));
+    drop(operation);
+    drop(claim);
+    queue.initialize(jiff::SignedDuration::from_secs(-1)).unwrap();
+    assert_eq!(queue.state("operation").unwrap(), Some(store::OperationState::Queued));
+}
+#[test]
+fn test_secret_verifier_uses_ordered_delivery_headers_and_redacts_secret() {
     let verifier = HeaderSecretVerifier::new("x-provider-token", "top-secret", &["webhook-id", "idempotency-key"]).unwrap();
     let mut headers = HeaderMap::new();
     headers.insert("x-provider-token", HeaderValue::from_static("top-secret"));
@@ -283,7 +396,7 @@ fn secret_verifier_uses_ordered_delivery_headers_and_redacts_secret() {
     assert!(!format!("{verifier:?}").contains("top-secret"));
 }
 #[test]
-fn standard_webhooks_rejects_stale_and_future_timestamps() {
+fn test_standard_webhooks_rejects_stale_and_future_timestamps() {
     let verifier = StandardWebhooksVerifier::new(format!("whsec_{}", BASE64.encode(b"key")), 300).unwrap();
     for timestamp in ["1699999699", "1700000301"] {
         let mut headers = HeaderMap::new();
@@ -303,7 +416,7 @@ fn standard_webhooks_rejects_stale_and_future_timestamps() {
     }
 }
 #[test]
-fn standard_webhooks_verifies_raw_bytes_and_rotated_signatures() {
+fn test_standard_webhooks_verifies_raw_bytes_and_rotated_signatures() {
     let secret = b"signing-key";
     let encoded_secret = format!("whsec_{}", BASE64.encode(secret));
     let verifier = StandardWebhooksVerifier::new(encoded_secret.clone(), 300).unwrap();
@@ -329,7 +442,7 @@ fn standard_webhooks_verifies_raw_bytes_and_rotated_signatures() {
     assert_eq!(verified.raw_body, body);
 }
 #[test]
-fn verifiers_reject_empty_or_malformed_configured_secrets() {
+fn test_verifiers_reject_empty_or_malformed_configured_secrets() {
     assert_eq!(
         StandardWebhooksVerifier::new("not-a-secret", 300).unwrap_err().kind(),
         ErrorKind::Unauthorized

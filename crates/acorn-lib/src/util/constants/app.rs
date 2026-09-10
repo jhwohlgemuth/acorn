@@ -153,6 +153,8 @@ pub const MAX_PDF_PAGES: u32 = 1_000;
 pub const MAX_WEBHOOK_OPERATION_ATTEMPTS: u32 = 5;
 /// Maximum durable webhook operation retry delay.
 pub const MAX_WEBHOOK_OPERATION_BACKOFF_SECONDS: i64 = 300;
+/// Maximum age of a claimed webhook operation before it is recoverable.
+pub const WEBHOOK_STALE_CLAIM_AFTER: SignedDuration = SignedDuration::from_mins(5);
 /// MCP Bundle manifest format version emitted by ACORN.
 pub const MCPB_MANIFEST_VERSION: &str = "0.3";
 /// Reviewed MCP Bundle specification revision used by ACORN.

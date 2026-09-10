@@ -107,7 +107,7 @@ This feature must consume the following plans as governing constraints instead o
 | [API client roadmap](../refactors/api/roadmap.md), [response DTOs](../refactors/api/response-dtos.md), [environment bootstrap](../refactors/api/environment-bootstrap.md), and [provider capability matrix](../refactors/api/provider-capability-matrix.md) | Govern endpoint/authentication/error/capability mechanics. The OpenAI adapter may add its narrow typed payloads first, but must not duplicate shared environment precedence, endpoint resolution, health, or provider-capability machinery. |
 | Implemented `io::api::json_rpc` runtime | Owns registered ACORN operation names, typed handler dispatch, shared error classification, and direct HTTP JSON-RPC. Register `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest`; keep fix application private unless a separately authorized operation is accepted. ACP maps session requests into these services but does not replace ACP envelopes with the common JSON-RPC codec. |
 | [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md) | May expose the same registered inference operations after their contracts stabilize. Protobuf is a sibling transport, not an ACP payload or JSON-RPC encoding. |
-| [Extensible webhook runtime](../refactors/api/webhook-runtime.md) and [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md) | May invoke suggestion-only inference through the registry under explicit policy. Webhook authorization cannot grant ACP tool permissions or fix-application authority. |
+| Implemented webhook runtime and [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md) | May invoke suggestion-only inference through the registry under explicit policy. Webhook authorization cannot grant ACP tool permissions or fix-application authority. |
 | [MCP client](mcp-client.md) | Reuses RMCP for outbound MCP sessions and may call the same service operations. It does not tunnel MCP through ACP or replace ACP tool negotiation. |
 | [Extract acorn-cmd](../refactors/acorn-cmd-extraction.md) | Owns reusable command construction/execution helpers. ACP and fix executors may use the in-tree helpers initially, then depend on `acorn-cmd` after extraction; neither should invent shell-string execution. |
 | [CLI parse/execution separation](../refactors/core/cli-parse-execution-models.md), [startup separation](../refactors/core/cli-startup-separation.md), and [CLI error boundary](../refactors/core/cli-error-boundary.md) | Require clap types to normalize into library options, concrete backend/executor selection to remain in the CLI composition root, and failures to return through the shared outer error boundary. They do not block library-first slices. |
@@ -939,7 +939,6 @@ After this plan's acceptance criteria pass, continue with the [MCP client](mcp-c
 - [Host abstraction traits](../refactors/portability/host-abstraction-traits.md)
 - [API client roadmap](../refactors/api/roadmap.md)
 - [Protobuf/gRPC transport](../refactors/api/protobuf-grpc-transport.md)
-- [Extensible webhook runtime](../refactors/api/webhook-runtime.md)
 - [GitLab repository automation](../refactors/api/gitlab-webhook-bot-workflows.md)
 - [MCP client](mcp-client.md)
 - [CLI parse and execution models](../refactors/core/cli-parse-execution-models.md)
