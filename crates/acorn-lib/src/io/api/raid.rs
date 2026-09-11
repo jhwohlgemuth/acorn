@@ -4,19 +4,21 @@
 //!
 use crate::io::api::{self, require_non_empty_secret, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource};
 use crate::param;
-use crate::util::constants::env::RAID_TOKEN_VARIABLE_NAMES;
-use crate::util::Label;
+use crate::util::constants::app::DEFAULT_RAID_DOMAIN;
+use crate::util::constants::env::{RAID_API_TOKEN, RAID_SERVER_HOST, RAID_TOKEN_VARIABLE_NAMES};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_schema::pid::raid::Metadata;
 use acorn_schema::validation::Validate;
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use dotenvy;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::env::var;
-use tracing::debug;
 use veil::Redact;
 
+/// RAiD API options
+///
+/// Configuration options for RAiD API operations
+pub type Options = ApiOptions<Extension, Param>;
 /// Server response for RAiD API errors
 /// ### Example JSON output
 /// ```json
@@ -73,32 +75,16 @@ pub struct ErrorResponseFailure {
     /// Human-readable failure message
     pub message: String,
 }
-/// RAiD API options
-///
-/// Configuration options for RAiD API operations
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    #[redact]
-    pub token: api::Secret,
-    /// Request body payload
-    pub body: Option<String>,
-    /// RAiD server domain (defaults to api.raid.org)
-    #[builder(default = String::from("api.raid.org"))]
-    pub domain: String,
-    /// Service point identifier
-    pub identifier: Option<String>,
+/// RAiD-specific API options.
+#[derive(Builder, Clone, Debug, Default)]
+#[builder(start_fn = init)]
+pub struct Extension {
     /// Metadata for minting a new RAiD record
     pub metadata: Option<Metadata>,
     /// RAiD prefix (e.g., "10.83962")
     pub prefix: Option<String>,
     /// RAiD suffix (e.g., "000001")
     pub suffix: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
 }
 /// RAiD service point
 ///
@@ -167,77 +153,15 @@ pub struct ServicePointResponse {
     #[serde(alias = "appWritesEnabled")]
     pub app_writes_enabled: bool,
 }
-impl Configuration for Options {
-    /// Build options from RAiD environment variables
-    /// - `RAID_API_TOKEN` -> `token`
-    /// - `RAID_SERVER_HOST` -> `domain` (defaults to api.raid.org when unset)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: api::Secret::from(var("RAID_API_TOKEN").unwrap_or_default()),
-            body: None,
-            domain: var("RAID_SERVER_HOST").unwrap_or_else(|_| String::from("api.raid.org")),
-            prefix: None,
-            suffix: None,
-            identifier: None,
-            metadata: None,
-            custom_params: vec![],
-        }
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        String::from(DEFAULT_RAID_DOMAIN)
     }
-    /// Return a copy of options with request body payload set
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
+    fn env_token_var() -> &'static str {
+        RAID_API_TOKEN
     }
-    /// Return a copy of options with RAiD server domain set
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    /// Return a copy of options with service point identifier set
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return the authentication token
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    /// Return the RAiD server domain
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    /// Return the optional service point identifier
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    /// Return a copy of options with custom API parameters set
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    /// Return any custom API parameters
-    fn params(&self) -> &[Param] {
-        &self.custom_params
-    }
-}
-impl Options {
-    /// Return a copy of options with RAiD metadata set
-    pub fn with_metadata(self, value: impl Into<Metadata>) -> Self {
-        Self {
-            metadata: Some(value.into()),
-            ..self
-        }
+    fn env_domain_var() -> &'static str {
+        RAID_SERVER_HOST
     }
 }
 /// Create a RAiD record with provided metadata
@@ -247,7 +171,7 @@ pub async fn create_record(options: &Options) -> ApiResult<Metadata> {
     let path = format!("{template}::{action}");
     match require_non_empty_secret(&options.token, &path, &RAID_TOKEN_VARIABLE_NAMES) {
         | Ok(token) => match Endpoint::from_template(template).map(|e| e.with_domain(&options.domain)) {
-            | Ok(endpoint) => match &options.metadata {
+            | Ok(endpoint) => match &options.extension.metadata {
                 | Some(value) => match serde_json::to_string(value) {
                     | Ok(body) => {
                         let params = Params::new()

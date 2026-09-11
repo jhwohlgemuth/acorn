@@ -14,20 +14,31 @@ priority: next
 
 Reduce redundancy across ~65 `*Options`/`*Config` structs by introducing fully generic composition types owned by `acorn-core::options`. Each domain keeps a narrow extension struct (`*Ext`/`Inner`) while common fields (`token/domain/identifier/body/custom_params` for API; `offline/quiet/threads/filter/ignore/dry_run/no_color/output` for runtime; `path` for sync targets) live once.
 
+# Implementation progress
+
+- **Phase 1 complete:** `acorn-core::options` owns the generic API, runtime, and sync foundations.
+- **Phase 2 complete:** CiteAs, OpenAI, OpenAlex, ORCiD, RAiD, and ROR use `ApiOptions<Extension, Param>` plus one blanket `Configuration` implementation. Provider modules now own only their environment/default-domain extension, with RAiD retaining its domain-specific metadata fields in `Extension`.
+- **Phase 3 next:** migrate bucket transfer and workflow runtime flags to `CommonRuntime` + `RuntimeOptions<E>` and update their CLI/library call sites.
+- **Phase 4:** migrate analyzer runtime options, preserving the existing analysis/execution/report split.
+- **Phase 5:** migrate sync targets to `TargetConfig<I>` + `SyncConfig`, then evaluate GitLab against its additional pagination and token-header fields, re-export `With` alongside `Validate` as `acorn::With`, and finish schema/documentation validation.
+
 # Current evidence
 
-- API `Options` duplicated 7×: `crates/acorn-lib/src/io/api/{citeas,ror,orcid,openai,raid,openalex,geonames}/mod.rs` + `crates/acorn-lib/src/io/api/gitlab/mod.rs:662` each repeat `token: Secret`, `body`, `domain`, `identifier`, `custom_params` plus identical `impl Configuration` (`from_env`/`with_body`/`with_domain`/`with_identifier`/`with_params`). Only env var names and default domains differ.
+- `crates/acorn-core/src/options.rs` now provides a redacting generic `ApiOptions<E, P = ApiParam>` builder. The parameter type remains generic so `acorn-core` does not depend on `acorn-lib::io::api::Param`; provider aliases fix `P = Param` at the host boundary.
+- `crates/acorn-lib/src/io/api/mod.rs` now has the single `Configuration for ApiOptions<E, Param>` implementation used by six provider aliases in `citeas.rs`, `openai.rs`, `openalex.rs`, `orcid.rs`, `raid.rs`, and `ror.rs`.
+- `crates/acorn-lib/src/io/api/gitlab/mod.rs:663` remains bespoke for a later phase because it additionally owns pagination, token-header, and project-selection behavior.
 - `crates/acorn-lib/src/io/api/huggingface.rs:219` is intentionally excluded — divergent shape (`token: Option<Secret>`, `revision`, `search_limit`, `selector`, `filter/ignore`) justifies bespoke struct.
 - `crates/acorn-lib/src/io/api/harbor.rs:72` `Options<'a>` is lifetime-generic and registry-profile-bound; excluded for same reason.
 - Runtime flags repeated 5×: `crates/acorn-lib/src/io/config/bucket.rs:52` `BucketOptions`, `crates/acorn-lib/src/io/workflow/mod.rs:77` `Options`, `crates/acorn-lib/src/analyzer/host/discovery/mod.rs:230` `Options`, `crates/acorn-lib/src/analyzer/host/context/mod.rs:27/43/71` `AnalysisOptions/ExecutionOptions/ReportOptions`, `crates/acorn-lib/src/io/sync/mod.rs:130` shares `offline/quiet/dry_run`.
 - Sync `Config` duplicated 4×: `crates/acorn-lib/src/io/sync/{goose,opencode,vscode,llama_swap}.rs` each repeat `path: Option<String>` plus manual `SyncConfig::merge` at `crates/acorn-lib/src/io/sync/mod.rs:192` enumerating 4 fields.
-- `crates/acorn-lib/src/io/api/mod.rs:78` `Configuration` trait is the integration lock for all API options.
+- `crates/acorn-lib/src/io/api/mod.rs:79` `Configuration` and its generic implementation remain the integration lock for all shared API options.
 - `crates/acorn-lib/src/io/config/application.rs:63` `ApplicationConfiguration` holds `config: Option<sync::Config>` and owns file I/O.
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-core/Cargo.toml`, `crates/acorn-core/src/lib.rs`, `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/io/api/{citeas,ror,orcid,openai,raid,openalex,geonames}.rs`, `crates/acorn-lib/src/io/api/gitlab/mod.rs`, `crates/acorn-lib/src/io/config/bucket.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/analyzer/host/{context,discovery}/mod.rs`, `crates/acorn-lib/src/io/sync/{mod,goose,opencode,vscode,llama_swap}.rs`, `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/prelude.rs`, `crates/acorn-lib/src/lib.rs`, all API/runtime/sync call sites (`cargo fix` + manual `common.*` rewrites), `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/refactors/index.md`.
-- **Create:** `crates/acorn-core/src/options.rs` (generic `ApiOptions<E>`, `ApiExtension`, `CommonRuntime`, `RuntimeOptions<E>`, `TargetConfig<I>`, `SyncInner`, `SyncConfig` + `schemars` shims); this plan file.
+- **Updated:** `crates/acorn-core/Cargo.toml`, `crates/acorn-core/src/lib.rs`, `crates/acorn-core/src/options.rs`, `crates/acorn-lib/src/io/api/mod.rs`, `crates/acorn-lib/src/io/api/{citeas,ror,orcid,openai,raid,openalex}.rs`, and their CiteAs/OpenAlex call sites and tests.
+- **Remaining updates:** `crates/acorn-lib/src/io/api/gitlab/mod.rs`, `crates/acorn-lib/src/io/config/bucket.rs`, `crates/acorn-lib/src/io/workflow/mod.rs`, `crates/acorn-lib/src/analyzer/host/{context,discovery}/mod.rs`, `crates/acorn-lib/src/io/sync/{mod,goose,opencode,vscode,llama_swap}.rs`, `crates/acorn-lib/src/io/config/application.rs`, `crates/acorn-lib/src/lib.rs`, all runtime/sync call sites, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, and `.wiki/refactors/index.md`.
+- **Create:** None; the shared module and this plan were created in Phase 1.
 - **Delete:** None (old `Options`/`Config` structs are replaced in place; no compatibility aliases per immediate breaking change).
 
 # Dependencies and ordering
@@ -52,18 +63,18 @@ pub struct RuntimeOptions<E: Default+Clone> {
     #[serde(default, flatten)] #[builder(default)] pub extension: E,
 }
 
-#[derive(Builder, Clone, Redact)]
+#[derive(Builder, Clone)]
 #[builder(start_fn = with_token, on(String, into), on(SecretString, into))]
-pub struct ApiOptions<E: ApiExtension+Clone> {
-    #[builder(start_fn)] #[redact] pub token: SecretString,
+pub struct ApiOptions<E: ApiExtension, P: Clone+Debug = ApiParam> {
+    #[builder(start_fn)] pub token: SecretString,
     pub body: Option<String>,
     #[builder(default = E::default_domain())] pub domain: String,
     pub identifier: Option<String>,
-    #[builder(default)] pub custom_params: Vec<Param>,
-    #[serde(default, flatten)] #[builder(default)] pub extension: E,
+    #[builder(default)] pub custom_params: Vec<P>,
+    #[builder(default)] pub extension: E,
 }
-pub trait ApiExtension: Default+Clone { fn default_domain()->String; fn env_token_var()->&'static str; fn env_domain_var()->&'static str; }
-impl<E: ApiExtension> Configuration for ApiOptions<E> { /* single blanket impl */ }
+pub trait ApiExtension: Default+Clone+Debug { fn default_domain()->String; fn env_token_var()->&'static str; fn env_domain_var()->&'static str; }
+impl<E: ApiExtension> Configuration for ApiOptions<E, Param> { /* single blanket impl */ }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct TargetConfig<I: SyncInner> {
@@ -72,6 +83,8 @@ pub struct TargetConfig<I: SyncInner> {
 }
 ```
 
+`ApiOptions` implements `core::fmt::Debug` manually so tokens remain redacted on portable builds without relying on a `std`-expanding derive.
+
 - Composition over flatten-inline: callers use `options.common.offline` (explicit, greppable).
 - `#[serde(flatten)]` only on `extension`/`inner` with `#[serde(default)]`.
 - `schemars` shim: `#[schemars(skip)]` on flatten plus manual `JsonSchema` impl delegating to `E::json_schema`.
@@ -79,7 +92,7 @@ pub struct TargetConfig<I: SyncInner> {
 
 ## Per-file migration
 
-- Each API leaf (`citeas`, `ror`, `orcid`, `openai`, `raid`, `openalex`, `geonames`, optionally `gitlab`) becomes `struct RaidExt { metadata, prefix, suffix }` + `impl ApiExtension for RaidExt`.
+- CiteAs, ROR, ORCiD, OpenAI, OpenAlex, and RAiD now expose `type Options = ApiOptions<Extension, Param>` plus `impl ApiExtension for Extension`; RAiD keeps `metadata`, `prefix`, and `suffix` in its extension.
 - `BucketOptions` → `RuntimeOptions<BucketExt>` (`database_path`, `no_local_database`, `strict`, `canonicalize`, `flatten`, `clobber` in `BucketExt`).
 - `workflow::Options` → `RuntimeOptions<WorkflowExt>` (`check`, `format`, `enrich`, `link`, `show_changes`).
 - Analyzer `Options`/`AnalysisOptions` → `RuntimeOptions<DiscoveryExt>`.
@@ -87,22 +100,37 @@ pub struct TargetConfig<I: SyncInner> {
 
 # Validation
 
+Phase 2 validation on 2026-09-10:
+
+- `cargo test -p acorn-core --lib options::tests` — 4 passed.
+- `cargo test -p acorn-lib --lib io::api::tests` — 115 passed, 1 network test ignored.
+- `cargo check --workspace --all-features` — passed.
+- `cargo check -p acorn-lib --no-default-features` — passed.
+- `cargo clippy -p acorn-core -p acorn-lib --no-deps --all-targets` — passed; macOS SDK discovery emitted sandbox cache warnings only.
+- `make check-wasm` — passed; macOS SDK discovery emitted sandbox cache warnings only.
+- `make lint` — passed.
+- `make test` — 1,640 passed, 14 skipped; one existing leaky-process diagnostic and one slow test were reported.
+
+Remaining final validation:
+
 1. `cargo check --workspace --all-features`
 2. `cargo check -p acorn-lib --no-default-features` and `make check-wasm` (wasm32-unknown-unknown)
 3. `cargo clippy --workspace --no-deps --all-targets` (no `unwrap_used`, `missing-docs`)
 4. `cargo nextest run --run-ignored all` (covers `io::config::tests`, `io::sync`, `analyzer`, API)
 5. Snapshot of `ApplicationConfiguration::parse` error paths (unknown field via `flatten` still reported)
 6. `schemars` snapshot diff (`cargo run -p acorn-cli -- schema`) — only `extension` ordering change
+7. Compile an external-style derive importing `use acorn::With;` to verify the facade re-export
 
 # Acceptance criteria
 
-- `ApiOptions<E>` + single `Configuration` impl replaces 6+ duplicate `Options` structs/impls; HuggingFace/Harbor remain bespoke.
-- `RuntimeOptions<E>` replaces `BucketOptions`, workflow and analyzer option duplication; runtime flags exist in one place.
-- `TargetConfig<I>` + `SyncConfig` replaces 4× `path` duplication and manual `merge` enumeration; adding a 5th target requires only one `Inner` + one field.
-- All `#[serde(flatten)]` uses are limited to `extension`/`inner` with `#[serde(default)]`.
-- `acorn-core` owns `common` types with `secrecy` retained; no `acorn-lib` facade re-export.
-- Portable feature matrix (`--no-default-features`, `check-wasm`) passes; `make lint` + `make test` green.
-- Wiki `plan-network.md` and `parallel-execution.md` updated; this plan removed after landing.
+- [x] `ApiOptions<E, Param>` + single `Configuration` impl replaces six duplicate `Options` structs/impls; Hugging Face and Harbor remain bespoke.
+- [ ] `RuntimeOptions<E>` replaces `BucketOptions`, workflow, and analyzer option duplication; runtime flags exist in one place.
+- [ ] `TargetConfig<I>` + `SyncConfig` replaces 4× `path` duplication and manual `merge` enumeration; adding a fifth target requires only one `Inner` + one field.
+- [ ] All planned `#[serde(flatten)]` uses are limited to `extension`/`inner` with `#[serde(default)]`.
+- [x] `acorn-core` owns the shared API type with `secrecy` retained and no `acorn-lib` facade re-export.
+- [ ] `With` is re-exported alphabetically alongside `Validate` as `acorn::With` when the final phase lands.
+- [ ] The final portable feature matrix, `make lint`, and `make test` are green after all runtime/sync migrations.
+- [ ] Wiki network, execution lanes, and indexes reflect completion; remove this plan after the final phase lands.
 
 # Related plans
 

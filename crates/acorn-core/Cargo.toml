@@ -31,7 +31,6 @@ strum = { workspace = true }
 triomphe = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false }
 validator = { version = "0.20.0", features = ["derive"], default-features = false }
-veil = { workspace = true }
 
 [features]
 default = ["std"]

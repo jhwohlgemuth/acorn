@@ -21,8 +21,10 @@
 //!
 //! println!("ROR REST API is healthy: {}", api::ror::is_healthy().await);
 //! ```
-use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
-use crate::util::Label;
+use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, TextResponse, INCLUDED_ENDPOINTS};
+use crate::util::constants::app::DEFAULT_ROR_DOMAIN;
+use crate::util::constants::env::{ROR_API_TOKEN, ROR_SERVER_HOST};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_core::util::Searchable;
 use acorn_schema::pid::{PersistentIdentifierParse, ROR};
 use acorn_schema::validation::Validate;
@@ -31,83 +33,9 @@ use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::env::var;
-use tracing::debug;
-use veil::Redact;
 
 /// ROR API options
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    #[redact]
-    pub token: api::Secret,
-    /// Request body payload
-    pub body: Option<String>,
-    /// ROR API domain (defaults to api.ror.org)
-    #[builder(default = String::from("api.ror.org"))]
-    pub domain: String,
-    /// ROR identifier
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
-}
-impl Configuration for Options {
-    /// Build options from ROR environment variables
-    /// - `ROR_API_TOKEN` -> `token` (optional — public API)
-    /// - `ROR_SERVER_HOST` -> `domain` (defaults to api.ror.org)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: api::Secret::from(var("ROR_API_TOKEN").unwrap_or_default()),
-            body: None,
-            domain: var("ROR_SERVER_HOST").unwrap_or_else(|_| String::from("api.ror.org")),
-            identifier: None,
-            custom_params: vec![],
-        }
-    }
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
-    }
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    fn params(&self) -> &[Param] {
-        &self.custom_params
-    }
-}
-
+pub type Options = ApiOptions<Extension, Param>;
 /// ROR API status response is just "OK"
 pub type StatusResponse = TextResponse;
 /// External identifier type for ROR API search results
@@ -237,6 +165,9 @@ pub struct DateField {
     /// Schema version of the date field
     pub schema_version: SchemaVersion,
 }
+/// ROR-specific API option defaults.
+#[derive(Clone, Debug, Default)]
+pub struct Extension;
 /// Container for information about identifiers in other systems ("external identifiers") that are associated with a given organization in ROR
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 pub struct ExternalIdentifierField {
@@ -438,6 +369,17 @@ pub struct SingleRecord {
     pub status: Status,
     /// Types of associated ROR organization
     pub types: Vec<OrganizationType>,
+}
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        String::from(DEFAULT_ROR_DOMAIN)
+    }
+    fn env_token_var() -> &'static str {
+        ROR_API_TOKEN
+    }
+    fn env_domain_var() -> &'static str {
+        ROR_SERVER_HOST
+    }
 }
 /// Check if API is healthy
 /// ### Example

@@ -95,7 +95,6 @@ dependencies = [
  "triomphe",
  "urlencoding",
  "validator",
- "veil",
 ]
 
 [[package]]

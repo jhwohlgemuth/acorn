@@ -61,6 +61,22 @@ fn test_endpoint_uses_application_configuration() {
 }
 
 #[test]
+fn test_work_failure_preserves_previous_success() {
+    let first = openalex::merge_work_result(
+        EnrichmentResult {
+            data: Vec::new(),
+            conflicts: Vec::new(),
+            failures: Vec::new(),
+        },
+        "10.1038/nature12373".to_string(),
+        Ok(work()),
+    );
+    let result = openalex::merge_work_result(first, "10.1000/missing".to_string(), Err(eyre!("not found")));
+    assert_eq!(result.data.len(), 1);
+    assert_eq!(result.failures.len(), 1);
+    assert!(result.failures[0].contains("10.1000/missing"));
+}
+#[test]
 fn test_work_maps_to_valid_structured_output() {
     let output = ResearchOutput::from(work());
     assert!(output.validate().is_ok());
@@ -92,24 +108,8 @@ fn test_work_merges_missing_fields_into_existing_output() {
     assert_eq!(output.funding.as_ref().map(Vec::len), Some(1));
     assert!(result.failures.is_empty());
 }
-#[test]
-fn test_work_failure_preserves_previous_success() {
-    let first = openalex::merge_work_result(
-        EnrichmentResult {
-            data: Vec::new(),
-            conflicts: Vec::new(),
-            failures: Vec::new(),
-        },
-        "10.1038/nature12373".to_string(),
-        Ok(work()),
-    );
-    let result = openalex::merge_work_result(first, "10.1000/missing".to_string(), Err(eyre!("not found")));
-    assert_eq!(result.data.len(), 1);
-    assert_eq!(result.failures.len(), 1);
-    assert!(result.failures[0].contains("10.1000/missing"));
-}
 
 #[tokio::test]
 async fn test_work_requires_doi() {
-    assert!(openalex::work(&Options::init().build()).await.is_err());
+    assert!(openalex::work(&Options::default()).await.is_err());
 }

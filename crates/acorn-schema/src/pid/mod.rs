@@ -831,6 +831,16 @@ impl PersistentIdentifierInternal {
         }
     }
 }
+impl From<&Arxiv> for PublicationIdentifierType {
+    fn from(value: &Arxiv) -> Self {
+        Self::from(value.clone())
+    }
+}
+impl From<&DOI> for PublicationIdentifierType {
+    fn from(value: &DOI) -> Self {
+        Self::from(value.clone())
+    }
+}
 impl From<&str> for PublicationIdentifierType {
     fn from(value: &str) -> Self {
         let match_covers_value = RE_ARXIV
@@ -844,6 +854,16 @@ impl From<&str> for PublicationIdentifierType {
             | (_, true) => Self::Arxiv(Arxiv::from_string(value)),
             | _ => Self::Unknown,
         }
+    }
+}
+impl From<Arxiv> for PublicationIdentifierType {
+    fn from(value: Arxiv) -> Self {
+        Self::Arxiv(value)
+    }
+}
+impl From<DOI> for PublicationIdentifierType {
+    fn from(value: DOI) -> Self {
+        Self::Doi(value)
     }
 }
 /// Calculates the check character for an ISBN-10 or ISBN-13 value.

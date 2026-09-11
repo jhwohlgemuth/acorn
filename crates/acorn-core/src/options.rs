@@ -5,12 +5,14 @@ extern crate alloc;
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use bon::Builder;
+use core::fmt;
 use secrecy::SecretString;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 /// Per-provider extension contract for `ApiOptions`
-pub trait ApiExtension: Default + Clone + Serialize + DeserializeOwned {
+pub trait ApiExtension: Default + Clone + fmt::Debug {
     /// Default domain when none is configured (e.g. `"api.ror.org"`).
     fn default_domain() -> String;
     /// Environment variable holding the token (e.g. `"ROR_API_TOKEN"`).
@@ -22,23 +24,30 @@ pub trait ApiExtension: Default + Clone + Serialize + DeserializeOwned {
 pub trait SyncInner: Clone + Default + Serialize + DeserializeOwned {}
 /// Generic API options with composition-based extension
 ///
-/// `#[serde(flatten)]` only on `extension` per constraint.
-#[derive(Clone)]
-pub struct ApiOptions<E = ()>
+/// `P` keeps provider parameter types outside `acorn-core`; provider aliases
+/// select their concrete parameter type without introducing a core dependency.
+#[derive(Builder, Clone)]
+#[builder(start_fn = with_token, on(String, into), on(SecretString, into))]
+pub struct ApiOptions<E = (), P = ApiParam>
 where
     E: ApiExtension,
+    P: Clone + fmt::Debug,
 {
     /// Bearer token for authentication.
+    #[builder(start_fn)]
     pub token: SecretString,
     /// Request body payload.
     pub body: Option<String>,
     /// API domain (defaults to `E::default_domain()`).
+    #[builder(default = E::default_domain())]
     pub domain: String,
     /// Resource identifier.
     pub identifier: Option<String>,
     /// Custom API parameters to include in every request (opaque).
-    pub custom_params: Vec<ApiParam>,
+    #[builder(default)]
+    pub custom_params: Vec<P>,
     /// Per-provider extension (flatten only here).
+    #[builder(default)]
     pub extension: E,
 }
 /// Minimal param placeholder for `ApiOptions` when used from `acorn-core` without `acorn-lib::Param`
@@ -160,9 +169,10 @@ impl ApiExtension for () {
     }
 }
 impl SyncInner for () {}
-impl<E> Default for ApiOptions<E>
+impl<E, P> Default for ApiOptions<E, P>
 where
     E: ApiExtension,
+    P: Clone + fmt::Debug,
 {
     fn default() -> Self {
         Self {
@@ -173,6 +183,23 @@ where
             custom_params: Vec::new(),
             extension: E::default(),
         }
+    }
+}
+impl<E, P> fmt::Debug for ApiOptions<E, P>
+where
+    E: ApiExtension,
+    P: Clone + fmt::Debug,
+{
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ApiOptions")
+            .field("token", &"[REDACTED]")
+            .field("body", &self.body)
+            .field("domain", &self.domain)
+            .field("identifier", &self.identifier)
+            .field("custom_params", &self.custom_params)
+            .field("extension", &self.extension)
+            .finish()
     }
 }
 impl<E> Default for RuntimeOptions<E>
@@ -207,8 +234,9 @@ mod tests {
                 "EXAMPLE_HOST"
             }
         }
-        let opts = ApiOptions::<MyExt>::default();
+        let opts = ApiOptions::<MyExt>::with_token("secret").build();
         assert_eq!(opts.domain, "example.com");
+        assert!(!format!("{opts:?}").contains("secret"));
     }
     #[test]
     fn test_common_runtime_defaults() {

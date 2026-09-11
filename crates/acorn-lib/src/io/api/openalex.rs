@@ -3,11 +3,12 @@
 //! OpenAlex is used as a structured scholarly metadata provider. It complements
 //! CiteAs, whose current ACORN integration remains focused on rendered citation
 //! lookup rather than workflow enrichment.
-use crate::io::api::{self, Configuration, Endpoint, Param, Params, RemoteResource};
+use crate::io::api::{Configuration, Endpoint, Param, Params, RemoteResource};
 use crate::io::enrichment::{Enrich, ResearchOutputMetadata};
 use crate::io::{workflow, ApiResult};
 use crate::util::constants::app::{DEFAULT_OPENALEX_DOMAIN, OPENALEX_WORK_FIELDS};
 use crate::util::constants::env::{OPENALEX_API_HOST, OPENALEX_API_KEY};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_core::prelude::{format, String, ToString, Vec};
 use acorn_core::util::merge_unique_by;
 use acorn_core::Location;
@@ -16,14 +17,13 @@ use acorn_schema::research_activity::output::{Access, Affiliation, Award, Contri
 use acorn_schema::research_activity::ResearchOutput;
 use acorn_schema::Website;
 use async_trait::async_trait;
-use bon::Builder;
 use color_eyre::eyre::eyre;
 use futures::stream::{self, StreamExt};
-use secrecy::{ExposeSecret, SecretBox};
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::env::var;
-use veil::Redact;
 
+/// Options for one OpenAlex work lookup.
+pub type Options = ApiOptions<Extension, Param>;
 /// A compact OpenAlex author identity.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Author {
@@ -47,6 +47,9 @@ pub struct Authorship {
     #[serde(default)]
     pub institutions: Vec<Institution>,
 }
+/// OpenAlex-specific API option defaults.
+#[derive(Clone, Debug, Default)]
+pub struct Extension;
 /// Funding award data associated with an OpenAlex work.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Grant {
@@ -84,25 +87,6 @@ pub struct OpenAccess {
     pub oa_status: String,
     /// Best known open URL.
     pub oa_url: Option<String>,
-}
-/// Options for one OpenAlex work lookup.
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = init)]
-pub struct Options {
-    /// API key used for authenticated OpenAlex requests.
-    #[builder(default, with = |api_key: String| SecretBox::new(api_key.into_boxed_str()))]
-    #[redact]
-    pub api_key: api::Secret,
-    /// Request body payload.
-    pub body: Option<String>,
-    /// OpenAlex API host or base URL.
-    #[builder(default = DEFAULT_OPENALEX_DOMAIN.to_string())]
-    pub domain: String,
-    /// DOI identifying the requested work.
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request.
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
 }
 /// OpenAlex-backed workflow enrichment provider.
 #[derive(Clone, Debug)]
@@ -149,21 +133,6 @@ pub struct WorkLocation {
     /// License identifier asserted for this location.
     pub license: Option<String>,
 }
-impl WorkLocation {
-    fn websites(&self, description: &str) -> Vec<Website> {
-        let Self {
-            landing_page_url, pdf_url, ..
-        } = self;
-        merge_unique_by(
-            [],
-            [landing_page_url, pdf_url]
-                .into_iter()
-                .flatten()
-                .map(|url| Website::at(url).description(description).build()),
-            |left, right| left.url == right.url,
-        )
-    }
-}
 impl From<Institution> for Affiliation {
     fn from(institution: Institution) -> Self {
         Affiliation::init().name(institution.display_name).maybe_ror(institution.ror).build()
@@ -185,6 +154,17 @@ impl From<Authorship> for Contributor {
             .build()
     }
 }
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        DEFAULT_OPENALEX_DOMAIN.to_string()
+    }
+    fn env_token_var() -> &'static str {
+        OPENALEX_API_KEY
+    }
+    fn env_domain_var() -> &'static str {
+        OPENALEX_API_HOST
+    }
+}
 impl From<Grant> for Option<Funding> {
     fn from(grant: Grant) -> Self {
         grant.funder_display_name.map(|name| {
@@ -195,59 +175,6 @@ impl From<Grant> for Option<Funding> {
                 .unwrap_or_default();
             Funding::init().name(name).awards(awards).build()
         })
-    }
-}
-impl Configuration for Options {
-    /// Build options from OpenAlex environment variables.
-    fn from_env() -> Self {
-        Self {
-            api_key: api::Secret::from(var(OPENALEX_API_KEY).unwrap_or_default()),
-            body: None,
-            domain: var(OPENALEX_API_HOST).unwrap_or_else(|_| DEFAULT_OPENALEX_DOMAIN.to_string()),
-            identifier: None,
-            custom_params: vec![],
-        }
-    }
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
-    }
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    fn with_identifier(self, identifier: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(identifier.into()),
-            ..self
-        }
-    }
-    fn token(&self) -> &api::Secret {
-        &self.api_key
-    }
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    fn params(&self) -> &[Param] {
-        &self.custom_params
-    }
-}
-impl Default for Options {
-    fn default() -> Self {
-        Self::from_env()
     }
 }
 impl Provider {
@@ -334,6 +261,21 @@ impl From<Work> for ResearchOutput {
             .build()
     }
 }
+impl WorkLocation {
+    fn websites(&self, description: &str) -> Vec<Website> {
+        let Self {
+            landing_page_url, pdf_url, ..
+        } = self;
+        merge_unique_by(
+            [],
+            [landing_page_url, pdf_url]
+                .into_iter()
+                .flatten()
+                .map(|url| Website::at(url).description(description).build()),
+            |left, right| left.url == right.url,
+        )
+    }
+}
 pub(crate) fn merge_work_result(
     result: workflow::EnrichmentResult<Vec<ResearchOutput>>,
     identifier: String,
@@ -378,7 +320,7 @@ pub async fn work(options: &Options) -> ApiResult<Work> {
             let params = Params::new()
                 .with_template("identifier", Some(identifier.as_str()))
                 .with_keyvalue("select", Some(OPENALEX_WORK_FIELDS))
-                .with_api_key(ExposeSecret::expose_secret(&options.api_key))
+                .with_api_key(ExposeSecret::expose_secret(&options.token))
                 .with_custom(options.params())
                 .build();
             match Endpoint::from_template(template).map(|endpoint| endpoint.with_domain(options.domain())) {

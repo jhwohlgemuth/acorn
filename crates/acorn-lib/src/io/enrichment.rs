@@ -1,5 +1,6 @@
 //! Provider-neutral research activity enrichment.
-use crate::io::api::{citeas, openalex, orcid, osti, ror, Configuration};
+use crate::io::api::citeas::ToCitations;
+use crate::io::api::{openalex, orcid, osti, ror, Configuration};
 use crate::io::document::{SourceDocument, SourceDocuments};
 use crate::io::workflow::EnrichmentResult;
 use crate::io::{ApiResult, InputOutput};
@@ -64,18 +65,6 @@ pub trait Enrich<Input: Send = ()>: Send + Sync {
         Ok((self.clone(), None))
     }
 }
-/// Standard-neutral access to publication identifiers and research outputs.
-///
-/// Metadata standards implement this alongside [`InputOutput`] to opt into
-/// providers such as OpenAlex without making provider code depend on one schema.
-pub trait ResearchOutputMetadata: InputOutput + Clone + Send + Sync {
-    /// Return publication identifiers that providers can resolve.
-    fn publication_identifiers(&self) -> Vec<String>;
-    /// Return the standard's outputs in ACORN's shared output representation.
-    fn research_outputs(&self) -> Vec<ResearchOutput>;
-    /// Replace the standard's outputs after enrichment.
-    fn with_research_outputs(self, outputs: Vec<ResearchOutput>) -> Self;
-}
 /// Metadata-standard hooks used by the provider pipeline.
 ///
 /// Implementing this trait lets a standard use [`Pipeline`] without coupling
@@ -91,6 +80,18 @@ pub trait EnrichmentMetadata: InputOutput + Clone + Serialize + Send + Sync {
     /// Record provenance for fields changed by a provider.
     fn with_enrichment_provenance(self, provider: Provider, source: Option<String>, fields: Vec<String>) -> Self;
 }
+/// Standard-neutral access to publication identifiers and research outputs.
+///
+/// Metadata standards implement this alongside [`InputOutput`] to opt into
+/// providers such as OpenAlex without making provider code depend on one schema.
+pub trait ResearchOutputMetadata: InputOutput + Clone + Send + Sync {
+    /// Return publication identifiers that providers can resolve.
+    fn publication_identifiers(&self) -> Vec<String>;
+    /// Return the standard's outputs in ACORN's shared output representation.
+    fn research_outputs(&self) -> Vec<ResearchOutput>;
+    /// Replace the standard's outputs after enrichment.
+    fn with_research_outputs(self, outputs: Vec<ResearchOutput>) -> Self;
+}
 /// Ordered enrichment pipeline.
 #[derive(Clone, Debug)]
 pub struct Pipeline {
@@ -102,54 +103,64 @@ impl Default for Pipeline {
     }
 }
 #[async_trait]
-impl Enrich<()> for SourceDocument {
-    type Output = (Self, Option<String>, Vec<String>);
-    async fn enrich(&self, (): ()) -> Self::Output {
-        match ResearchActivity::parse(&self.content) {
-            | Some(data) => match Pipeline::default().enrich((Location::from(self.source.as_str()), data)).await {
-                | Ok(result) => {
-                    result.conflicts.iter().for_each(|conflict| warn!("Enrichment conflict — {conflict}"));
-                    match serde_json::to_string(&result.data) {
-                        | Ok(content) => (
-                            Self::init()
-                                .content(content.clone())
-                                .format(self.format.clone())
-                                .source(self.source.clone())
-                                .build(),
-                            Some(content),
-                            result.failures,
-                        ),
-                        | Err(why) => (self.clone(), None, result.failures.into_iter().chain([why.to_string()]).collect()),
+impl<T> Enrich<(Location, T)> for Pipeline
+where
+    T: EnrichmentMetadata + 'static,
+{
+    type Output = ApiResult<EnrichmentResult<T>>;
+    async fn enrich(&self, (source, data): (Location, T)) -> Self::Output {
+        Ok(stream::iter(self.providers.iter().copied())
+            .fold(
+                EnrichmentResult {
+                    data,
+                    conflicts: Vec::new(),
+                    failures: Vec::new(),
+                },
+                |result, provider| {
+                    let source = source.clone();
+                    async move {
+                        let lookup = result.data.enrichment_source(provider);
+                        let original = result.data.clone();
+                        let before = serde_json::to_value(&result.data).unwrap_or_default();
+                        let enriched = result.data.enrich_provider(provider, &source).await;
+                        match enriched {
+                            | Ok((data, conflict, failures)) => {
+                                let after = serde_json::to_value(&data).unwrap_or_default();
+                                let fields = T::enrichment_fields(&before, &after);
+                                let data = match fields.is_empty() {
+                                    | true => data,
+                                    | false => data.with_enrichment_provenance(provider, lookup, fields),
+                                };
+                                EnrichmentResult {
+                                    data,
+                                    conflicts: result
+                                        .conflicts
+                                        .into_iter()
+                                        .chain(conflict.map(|value| format!("{provider}: {value}")))
+                                        .collect(),
+                                    failures: result
+                                        .failures
+                                        .into_iter()
+                                        .chain(failures.into_iter().map(|value| format!("{provider}: {value}")))
+                                        .collect(),
+                                }
+                            }
+                            | Err(why) => EnrichmentResult {
+                                data: original,
+                                conflicts: result.conflicts,
+                                failures: result.failures.into_iter().chain([format!("{provider}: {why}")]).collect(),
+                            },
+                        }
                     }
-                }
-                | Err(why) => (self.clone(), None, vec![why.to_string()]),
-            },
-            | None => (self.clone(), None, Vec::new()),
-        }
+                },
+            )
+            .await)
     }
 }
-#[async_trait]
-impl Enrich<bool> for SourceDocuments {
-    type Output = (Self, Vec<String>, Vec<String>);
-    async fn enrich(&self, enabled: bool) -> Self::Output {
-        match enabled {
-            | false => (self.clone(), Vec::new(), Vec::new()),
-            | true => stream::iter(self.0.iter())
-                .then(|document| document.enrich(()))
-                .collect::<Vec<_>>()
-                .await
-                .into_iter()
-                .fold(
-                    (Self::default(), Vec::new(), Vec::new()),
-                    |(documents, enriched, failures), (document, content, errors)| {
-                        (
-                            Self(documents.0.into_iter().chain([document]).collect()),
-                            enriched.into_iter().chain(content).collect(),
-                            failures.into_iter().chain(errors).collect(),
-                        )
-                    },
-                ),
-        }
+impl Pipeline {
+    /// Construct a pipeline in the supplied deterministic provider order.
+    pub fn new(providers: Vec<Provider>) -> Self {
+        Self { providers }
     }
 }
 #[async_trait]
@@ -167,7 +178,7 @@ impl Enrich<()> for ResearchActivity {
                         .any(|output| output.doi.as_ref().is_some_and(|doi| DOI::format(doi) == DOI::format(&identifier)))
                 }) {
                     | true => (data, failures),
-                    | false => match citeas::search(&citeas::Options::from(PublicationIdentifierType::from(identifier.as_str()))).await {
+                    | false => match PublicationIdentifierType::from(identifier.as_str()).to_citations().await {
                         | Ok(citations) => {
                             let metadata = citations.metadata;
                             let output = ResearchOutput::init()
@@ -360,23 +371,6 @@ impl Enrich<()> for ResearchActivity {
         }
     }
 }
-impl ResearchOutputMetadata for ResearchActivity {
-    fn publication_identifiers(&self) -> Vec<String> {
-        self.meta.doi.clone().unwrap_or_default()
-    }
-    fn research_outputs(&self) -> Vec<ResearchOutput> {
-        self.meta.outputs.clone().unwrap_or_default()
-    }
-    fn with_research_outputs(self, outputs: Vec<ResearchOutput>) -> Self {
-        Self {
-            meta: ResearchActivityMetadata {
-                outputs: (!outputs.is_empty()).then_some(outputs),
-                ..self.meta
-            },
-            ..self
-        }
-    }
-}
 #[async_trait]
 impl EnrichmentMetadata for ResearchActivity {
     fn enrichment_source(&self, provider: Provider) -> Option<String> {
@@ -423,64 +417,71 @@ impl EnrichmentMetadata for ResearchActivity {
         }
     }
 }
-#[async_trait]
-impl<T> Enrich<(Location, T)> for Pipeline
-where
-    T: EnrichmentMetadata + 'static,
-{
-    type Output = ApiResult<EnrichmentResult<T>>;
-    async fn enrich(&self, (source, data): (Location, T)) -> Self::Output {
-        Ok(stream::iter(self.providers.iter().copied())
-            .fold(
-                EnrichmentResult {
-                    data,
-                    conflicts: Vec::new(),
-                    failures: Vec::new(),
-                },
-                |result, provider| {
-                    let source = source.clone();
-                    async move {
-                        let lookup = result.data.enrichment_source(provider);
-                        let original = result.data.clone();
-                        let before = serde_json::to_value(&result.data).unwrap_or_default();
-                        let enriched = result.data.enrich_provider(provider, &source).await;
-                        match enriched {
-                            | Ok((data, conflict, failures)) => {
-                                let after = serde_json::to_value(&data).unwrap_or_default();
-                                let fields = T::enrichment_fields(&before, &after);
-                                let data = match fields.is_empty() {
-                                    | true => data,
-                                    | false => data.with_enrichment_provenance(provider, lookup, fields),
-                                };
-                                EnrichmentResult {
-                                    data,
-                                    conflicts: result
-                                        .conflicts
-                                        .into_iter()
-                                        .chain(conflict.map(|value| format!("{provider}: {value}")))
-                                        .collect(),
-                                    failures: result
-                                        .failures
-                                        .into_iter()
-                                        .chain(failures.into_iter().map(|value| format!("{provider}: {value}")))
-                                        .collect(),
-                                }
-                            }
-                            | Err(why) => EnrichmentResult {
-                                data: original,
-                                conflicts: result.conflicts,
-                                failures: result.failures.into_iter().chain([format!("{provider}: {why}")]).collect(),
-                            },
-                        }
-                    }
-                },
-            )
-            .await)
+impl ResearchOutputMetadata for ResearchActivity {
+    fn publication_identifiers(&self) -> Vec<String> {
+        self.meta.doi.clone().unwrap_or_default()
+    }
+    fn research_outputs(&self) -> Vec<ResearchOutput> {
+        self.meta.outputs.clone().unwrap_or_default()
+    }
+    fn with_research_outputs(self, outputs: Vec<ResearchOutput>) -> Self {
+        Self {
+            meta: ResearchActivityMetadata {
+                outputs: (!outputs.is_empty()).then_some(outputs),
+                ..self.meta
+            },
+            ..self
+        }
     }
 }
-impl Pipeline {
-    /// Construct a pipeline in the supplied deterministic provider order.
-    pub fn new(providers: Vec<Provider>) -> Self {
-        Self { providers }
+#[async_trait]
+impl Enrich<()> for SourceDocument {
+    type Output = (Self, Option<String>, Vec<String>);
+    async fn enrich(&self, (): ()) -> Self::Output {
+        match ResearchActivity::parse(&self.content) {
+            | Some(data) => match Pipeline::default().enrich((Location::from(self.source.as_str()), data)).await {
+                | Ok(result) => {
+                    result.conflicts.iter().for_each(|conflict| warn!("Enrichment conflict — {conflict}"));
+                    match serde_json::to_string(&result.data) {
+                        | Ok(content) => (
+                            Self::init()
+                                .content(content.clone())
+                                .format(self.format.clone())
+                                .source(self.source.clone())
+                                .build(),
+                            Some(content),
+                            result.failures,
+                        ),
+                        | Err(why) => (self.clone(), None, result.failures.into_iter().chain([why.to_string()]).collect()),
+                    }
+                }
+                | Err(why) => (self.clone(), None, vec![why.to_string()]),
+            },
+            | None => (self.clone(), None, Vec::new()),
+        }
+    }
+}
+#[async_trait]
+impl Enrich<bool> for SourceDocuments {
+    type Output = (Self, Vec<String>, Vec<String>);
+    async fn enrich(&self, enabled: bool) -> Self::Output {
+        match enabled {
+            | false => (self.clone(), Vec::new(), Vec::new()),
+            | true => stream::iter(self.0.iter())
+                .then(|document| document.enrich(()))
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .fold(
+                    (Self::default(), Vec::new(), Vec::new()),
+                    |(documents, enriched, failures), (document, content, errors)| {
+                        (
+                            Self(documents.0.into_iter().chain([document]).collect()),
+                            enriched.into_iter().chain(content).collect(),
+                            failures.into_iter().chain(errors).collect(),
+                        )
+                    },
+                ),
+        }
     }
 }

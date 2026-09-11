@@ -29,6 +29,8 @@ pub const COMPACT_LOGO: [&str; 6] = [
 ];
 /// Default cache TTL in seconds (1 month = 30 days)
 pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
+/// Default CiteAs API domain.
+pub const DEFAULT_CITEAS_DOMAIN: &str = "citeas.org";
 /// Default ACORN configuration filenames searched in the current working directory.
 pub const DEFAULT_CONFIG_FILENAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn"];
 /// Default Goose configuration path beneath the user's home directory on macOS and Linux.
@@ -53,10 +55,18 @@ pub const DEFAULT_MODELS_DIRECTORY: &str = ".models";
 pub const DEFAULT_NEEDLE_CONFIDENCE_THRESHOLD: f64 = 0.8;
 /// Default maximum tool-selection rounds in one Needle inference request.
 pub const DEFAULT_NEEDLE_MAX_ROUNDS: usize = 8;
+/// Default OpenAI API domain.
+pub const DEFAULT_OPENAI_DOMAIN: &str = "api.openai.com";
 /// Default OpenAlex API domain.
 pub const DEFAULT_OPENALEX_DOMAIN: &str = "api.openalex.org";
 /// Default OpenCode configuration path beneath the user's home directory.
 pub const DEFAULT_OPENCODE_CONFIG_PATH: &str = ".config/opencode/opencode.jsonc";
+/// Default ORCID API domain.
+pub const DEFAULT_ORCID_DOMAIN: &str = "pub.orcid.org";
+/// Default RAiD API domain.
+pub const DEFAULT_RAID_DOMAIN: &str = "api.raid.org";
+/// Default ROR API domain.
+pub const DEFAULT_ROR_DOMAIN: &str = "api.ror.org";
 /// Default base name used for configured GitLab runner containers.
 pub const DEFAULT_RUNNER_NAME: &str = "acorn-runner";
 /// Default VS Code language-model path relative to the platform configuration directory.
@@ -153,8 +163,6 @@ pub const MAX_PDF_PAGES: u32 = 1_000;
 pub const MAX_WEBHOOK_OPERATION_ATTEMPTS: u32 = 5;
 /// Maximum durable webhook operation retry delay.
 pub const MAX_WEBHOOK_OPERATION_BACKOFF_SECONDS: i64 = 300;
-/// Maximum age of a claimed webhook operation before it is recoverable.
-pub const WEBHOOK_STALE_CLAIM_AFTER: SignedDuration = SignedDuration::from_mins(5);
 /// MCP Bundle manifest format version emitted by ACORN.
 pub const MCPB_MANIFEST_VERSION: &str = "0.3";
 /// Reviewed MCP Bundle specification revision used by ACORN.
@@ -213,5 +221,7 @@ pub const SKILL_PATH: &str = "acorn/SKILL.md";
 pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
 /// Delay used to coalesce rapid filesystem notifications.
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
+/// Maximum age of a claimed webhook operation before it is recoverable.
+pub const WEBHOOK_STALE_CLAIM_AFTER: SignedDuration = SignedDuration::from_mins(5);
 /// Hidden marker used to find the bot-authored work-item citation intake note
 pub const WORK_ITEM_REPORT_MARKER: &str = "<!-- acorn:work-item-intake -->";

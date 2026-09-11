@@ -48,27 +48,28 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::io::api::{self, ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
+use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
 use crate::param;
-use crate::util::Label;
-use bon::Builder;
+use crate::util::constants::app::DEFAULT_OPENAI_DOMAIN;
+use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use color_eyre::eyre::eyre;
-use dotenvy;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::env::var;
-use tracing::debug;
-use veil::Redact;
 
+/// Raw OpenAI audio speech response payload.
+///
+/// Audio speech usually returns non-JSON audio bytes, so this preserves the raw response text.
+pub type AudioSpeechResponse = TextResponse;
+/// OpenAI API options
+///
+/// Configuration options used across OpenAI API operations.
+pub type Options = ApiOptions<Extension, Param>;
 /// Raw OpenAI API response payload.
 ///
 /// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
 pub type Response = serde_json::Value;
-/// Raw OpenAI audio speech response payload.
-///
-/// Audio speech usually returns non-JSON audio bytes, so this preserves the raw response text.
-pub type AudioSpeechResponse = TextResponse;
 enum BodyMode {
     Empty,
     Required,
@@ -96,6 +97,9 @@ pub struct ErrorResponse {
     /// Wrapped error details
     pub error: Error,
 }
+/// OpenAI-specific API option defaults.
+#[derive(Clone, Debug, Default)]
+pub struct Extension;
 /// OpenAI list models response
 ///
 /// Matches baseline fields from `#/components/schemas/ListModelsResponse`.
@@ -120,86 +124,15 @@ pub struct Model {
     /// Owning organization
     pub owned_by: String,
 }
-/// OpenAI API options
-///
-/// Configuration options used across OpenAI API operations.
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    #[redact]
-    pub token: api::Secret,
-    /// Request body payload for POST requests
-    pub body: Option<String>,
-    /// OpenAI API domain (defaults to `api.openai.com`)
-    #[builder(default = String::from("api.openai.com"))]
-    pub domain: String,
-    /// Optional resource identifier for custom API parameters
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
-}
-impl Configuration for Options {
-    /// Build options from OpenAI-related environment variables.
-    /// - `OPENAI_API_KEY` -> `token` (defaults to empty string when unset)
-    /// - `OPENAI_SERVER_HOST` -> `domain` (defaults to api.openai.com when unset)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: api::Secret::from(var("OPENAI_API_KEY").unwrap_or_default()),
-            body: None,
-            domain: var("OPENAI_SERVER_HOST").unwrap_or_else(|_| String::from("api.openai.com")),
-            identifier: None,
-            custom_params: vec![],
-        }
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        String::from(DEFAULT_OPENAI_DOMAIN)
     }
-    /// Return a copy of options with request body payload set
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
+    fn env_token_var() -> &'static str {
+        OPENAI_API_KEY
     }
-    /// Return a copy of options with OpenAI server domain set
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    /// Return a copy of options with model identifier set
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    /// Return the authentication token
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    /// Return the OpenAI server domain
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    /// Return the optional model identifier
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    /// Return a copy of options with custom API parameters set
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    /// Return any custom API parameters
-    fn params(&self) -> &[Param] {
-        &self.custom_params
+    fn env_domain_var() -> &'static str {
+        OPENAI_SERVER_HOST
     }
 }
 /// Create audio speech via `POST /audio/speech`.
@@ -234,14 +167,6 @@ pub async fn image_edit(options: &Options) -> ApiResult<Response> {
 pub async fn image_generation(options: &Options) -> ApiResult<Response> {
     invoke(options, "image-generation", BodyMode::Required).await
 }
-/// Retrieve all models available to the authenticated caller.
-pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
-    invoke(options, "models", BodyMode::Empty).await
-}
-/// Create a response via `POST /responses`.
-pub async fn response(options: &Options) -> ApiResult<Response> {
-    invoke(options, "response", BodyMode::Required).await
-}
 async fn invoke<R>(options: &Options, action: &str, body_mode: BodyMode) -> ApiResult<R>
 where
     R: for<'de> Deserialize<'de>,
@@ -267,4 +192,12 @@ where
         },
         | Err(why) => Err(why),
     }
+}
+/// Retrieve all models available to the authenticated caller.
+pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
+    invoke(options, "models", BodyMode::Empty).await
+}
+/// Create a response via `POST /responses`.
+pub async fn response(options: &Options) -> ApiResult<Response> {
+    invoke(options, "response", BodyMode::Required).await
 }

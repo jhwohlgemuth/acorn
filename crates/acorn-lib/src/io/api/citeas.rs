@@ -3,20 +3,20 @@
 //!
 //! See <https://citeas.org/api> for more information
 use crate::analyzer::host::discovery::CitationFormat;
-use crate::io::api::{self, ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
+use crate::io::api::{ApiResult, Configuration, Param, Params, RemoteResource, INCLUDED_ENDPOINTS};
 use crate::param;
-use crate::util::Label;
+use crate::util::constants::app::DEFAULT_CITEAS_DOMAIN;
+use crate::util::constants::env::{CITEAS_API_TOKEN, CITEAS_SERVER_HOST};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_core::util::Searchable;
 use acorn_schema::pid::{Arxiv, PersistentIdentifier, PublicationIdentifierType, DOI};
 use async_trait::async_trait;
-use bon::Builder;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::env::var;
-use tracing::debug;
-use veil::Redact;
 
+/// CiteAs API options
+pub type Options = ApiOptions<Extension, Param>;
 /// Trait for things that can be converted to citations.
 #[async_trait]
 pub trait ToCitations {
@@ -77,6 +77,9 @@ pub struct Export {
     /// [BibTeX]: https://www.bibtex.org/
     pub export_name: String,
 }
+/// CiteAs-specific API option defaults.
+#[derive(Clone, Debug, Default)]
+pub struct Extension;
 /// Metadata for source
 /// <div class="warning">Varies by source</div>
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -107,25 +110,6 @@ pub struct Metadata {
     pub url: String,
     /// Year of publication
     pub year: u16,
-}
-/// CiteAs API options
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    #[redact]
-    pub token: api::Secret,
-    /// Request body payload
-    pub body: Option<String>,
-    /// CiteAs API domain (defaults to citeas.org)
-    #[builder(default = String::from("citeas.org"))]
-    pub domain: String,
-    /// Resource identifier
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
 }
 /// Citation provenance object
 ///
@@ -177,7 +161,7 @@ pub struct StatusResponse {
 #[async_trait]
 impl ToCitations for Arxiv {
     async fn to_citations(&self) -> ApiResult<Citations> {
-        search(&Options::from(self.clone())).await
+        PublicationIdentifierType::from(self).to_citations().await
     }
 }
 impl Citations {
@@ -197,92 +181,35 @@ impl Citations {
 impl ToCitations for DOI {
     /// Convert a [`DOI`] to a [`Citations`]
     async fn to_citations(&self) -> ApiResult<Citations> {
-        search(&Options::from(self.clone())).await
+        PublicationIdentifierType::from(self).to_citations().await
     }
 }
-impl Configuration for Options {
-    /// Build options from CiteAs environment variables
-    /// - `CITEAS_API_TOKEN` -> `token` (optional — public API)
-    /// - `CITEAS_SERVER_HOST` -> `domain` (defaults to citeas.org)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: api::Secret::from(var("CITEAS_API_TOKEN").unwrap_or_default()),
-            body: None,
-            domain: var("CITEAS_SERVER_HOST").unwrap_or_else(|_| String::from("citeas.org")),
-            identifier: None,
-            custom_params: vec![],
-        }
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        String::from(DEFAULT_CITEAS_DOMAIN)
     }
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
+    fn env_token_var() -> &'static str {
+        CITEAS_API_TOKEN
     }
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    fn params(&self) -> &[Param] {
-        &self.custom_params
-    }
-}
-impl From<Arxiv> for Options {
-    fn from(value: Arxiv) -> Self {
-        let value = value.url();
-        let identifier = urlencoding::encode(&value);
-        Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
-    }
-}
-impl From<DOI> for Options {
-    fn from(value: DOI) -> Self {
-        let value = value.to_string();
-        let identifier = urlencoding::encode(&value);
-        Self::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())])
-    }
-}
-impl From<PublicationIdentifierType> for Options {
-    fn from(value: PublicationIdentifierType) -> Self {
-        match value {
-            | PublicationIdentifierType::Doi(doi) => Self::from(doi),
-            | PublicationIdentifierType::Arxiv(arxiv) => Self::from(arxiv),
-            | PublicationIdentifierType::Unknown => Self::from_env(),
-        }
+    fn env_domain_var() -> &'static str {
+        CITEAS_SERVER_HOST
     }
 }
 #[async_trait]
 impl ToCitations for PublicationIdentifierType {
     async fn to_citations(&self) -> ApiResult<Citations> {
-        match self {
-            | Self::Doi(doi) => doi.to_citations().await,
-            | Self::Arxiv(arxiv) => arxiv.to_citations().await,
-            | Self::Unknown => Err(eyre!("Unsupported publication identifier")),
+        let value = match self {
+            | Self::Doi(doi) => Some(doi.to_string()),
+            | Self::Arxiv(arxiv) => Some(arxiv.url()),
+            | Self::Unknown => None,
+        };
+        match value {
+            | Some(value) => {
+                let identifier = urlencoding::encode(&value);
+                let options = Options::from_env().with_params(vec![param!(TemplateValue, "identifier", identifier.as_ref())]);
+                search(&options).await
+            }
+            | None => Err(eyre!("Unsupported publication identifier")),
         }
     }
 }

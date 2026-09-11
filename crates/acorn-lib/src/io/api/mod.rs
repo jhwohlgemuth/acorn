@@ -9,6 +9,7 @@ use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
 use crate::util::{Constant, Label};
+use acorn_core::options::{ApiExtension, ApiOptions as CoreApiOptions};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::{detect_json, detect_xml, Searchable};
 use acorn_core::{Location, Repository, Scheme};
@@ -429,6 +430,60 @@ pub struct TypedResponse<T> {
     pub headers: HeaderMap,
     /// HTTP response status code.
     pub status_code: u16,
+}
+impl<E> Configuration for CoreApiOptions<E, Param>
+where
+    E: ApiExtension,
+{
+    fn from_env() -> Self {
+        if let Err(why) = dotenvy::from_filename(".env") {
+            debug!("=> {} Load .env — {why}", Label::skip());
+        }
+        Self {
+            token: Secret::from(var(E::env_token_var()).unwrap_or_default()),
+            body: None,
+            domain: var(E::env_domain_var()).unwrap_or_else(|_| E::default_domain()),
+            identifier: None,
+            custom_params: Vec::new(),
+            extension: E::default(),
+        }
+    }
+    fn with_body(self, value: impl Into<String>) -> Self {
+        Self {
+            body: Some(value.into()),
+            ..self
+        }
+    }
+    fn with_domain(self, value: impl Into<String>) -> Self {
+        Self {
+            domain: value.into(),
+            ..self
+        }
+    }
+    fn with_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            identifier: Some(value.into()),
+            ..self
+        }
+    }
+    fn token(&self) -> &Secret {
+        &self.token
+    }
+    fn domain(&self) -> &str {
+        &self.domain
+    }
+    fn identifier(&self) -> Option<&str> {
+        self.identifier.as_deref()
+    }
+    fn with_params(self, params: Vec<Param>) -> Self {
+        Self {
+            custom_params: params,
+            ..self
+        }
+    }
+    fn params(&self) -> &[Param] {
+        &self.custom_params
+    }
 }
 impl Authenticator for Credential {
     fn from_env(variables: &[(&str, &'static str)]) -> Option<Self> {

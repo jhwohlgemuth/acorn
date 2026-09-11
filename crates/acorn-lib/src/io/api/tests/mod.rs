@@ -15,9 +15,13 @@ use crate::io::http::{HttpResponse, HttpResponseError};
 use crate::io::read_file;
 use crate::param;
 use crate::test::utils::fixture_path;
+use crate::util::constants::app::{
+    DEFAULT_CITEAS_DOMAIN, DEFAULT_OPENAI_DOMAIN, DEFAULT_OPENALEX_DOMAIN, DEFAULT_ORCID_DOMAIN, DEFAULT_RAID_DOMAIN, DEFAULT_ROR_DOMAIN,
+};
+use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
 use acorn_core::util::Searchable;
 use acorn_core::{Location, Repository, Scheme};
-use acorn_schema::pid::{Arxiv, PersistentIdentifierParse, PublicationIdentifierType, DOI};
+use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use secrecy::ExposeSecret;
 
 mod gguf {
@@ -908,23 +912,6 @@ async fn test_citeas() {
     };
 }
 #[test]
-fn test_citeas_options_from_persistent_identifiers() {
-    let doi = citeas::Options::from(DOI::from_string("10.11578/dc.20250604.1"));
-    let arxiv = citeas::Options::from(Arxiv::from_string("arXiv:2106.09685v2"));
-    let first_value = |options: &citeas::Options| {
-        options
-            .params()
-            .first()
-            .and_then(|parameter| parameter.values.first())
-            .and_then(|values| values.first())
-            .and_then(Clone::clone)
-    };
-    assert_eq!(first_value(&doi).as_deref(), Some("10.11578%2Fdc.20250604.1"));
-    assert_eq!(first_value(&arxiv).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
-    let publication = citeas::Options::from(PublicationIdentifierType::from("arXiv:2106.09685v2"));
-    assert_eq!(first_value(&publication).as_deref(), Some("https%3A%2F%2Farxiv.org%2Fabs%2F2106.09685v2"));
-}
-#[test]
 fn test_citeas_product_template_accepts_encoded_arxiv_url() {
     let endpoint = Endpoint::from_template("citeas").unwrap();
     let identifier = urlencoding::encode("https://arxiv.org/abs/2106.09685");
@@ -1145,6 +1132,25 @@ fn test_extract_template_keys() {
     let keys = extract_template_keys(template);
     let expected: Vec<String> = vec![];
     assert_eq!(keys, expected);
+}
+#[test]
+fn test_generic_api_options_configuration() {
+    let built = api::openai::Options::with_token("builder-token").build();
+    assert_eq!(built.domain(), DEFAULT_OPENAI_DOMAIN);
+    assert_eq!(api::citeas::Options::default().domain, DEFAULT_CITEAS_DOMAIN);
+    assert_eq!(api::openai::Options::default().domain, DEFAULT_OPENAI_DOMAIN);
+    assert_eq!(api::openalex::Options::default().domain, DEFAULT_OPENALEX_DOMAIN);
+    assert_eq!(api::orcid::Options::default().domain, DEFAULT_ORCID_DOMAIN);
+    assert_eq!(api::raid::Options::default().domain, DEFAULT_RAID_DOMAIN);
+    assert_eq!(api::ror::Options::default().domain, DEFAULT_ROR_DOMAIN);
+    temp_env::with_vars(
+        [(OPENAI_API_KEY, Some("test-token")), (OPENAI_SERVER_HOST, Some("localhost:8080"))],
+        || {
+            let options = api::openai::Options::from_env();
+            assert_eq!(ExposeSecret::expose_secret(options.token()), "test-token");
+            assert_eq!(options.domain(), "localhost:8080");
+        },
+    );
 }
 #[test]
 fn test_into_body() {

@@ -128,13 +128,6 @@ fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
 }
 #[test]
-fn test_rrid_is_discoverable_but_not_project_identifying() {
-    assert!(PID::RRID.is_discoverable());
-    assert!(!PID::RRID.is_project_identifier());
-    let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
-    assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
-}
-#[test]
 fn test_pid_from_str() {
     assert_eq!(PID::from("doi"), PID::DOI);
     assert_eq!(PID::from("ORCID"), PID::ORCID);
@@ -142,6 +135,13 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("SWHID"), PID::SWHID);
     assert_eq!(PID::from("RRID"), PID::RRID);
     assert_eq!(PID::from("unsupported"), PID::Unknown);
+}
+#[test]
+fn test_rrid_is_discoverable_but_not_project_identifying() {
+    assert!(PID::RRID.is_discoverable());
+    assert!(!PID::RRID.is_project_identifier());
+    let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
+    assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
 }
 #[test]
 fn test_swhid_identity_ignores_qualifiers() {

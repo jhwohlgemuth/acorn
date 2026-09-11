@@ -29,7 +29,9 @@
 use crate::io::api::{self, Configuration, Param, Params, RemoteResource, ValueValidator, INCLUDED_ENDPOINTS};
 use crate::io::ApiResult;
 use crate::param;
-use crate::util::Label;
+use crate::util::constants::app::DEFAULT_ORCID_DOMAIN;
+use crate::util::constants::env::{ORCID_API_TOKEN, ORCID_SERVER_HOST};
+use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_core::util::Searchable;
 use acorn_schema::namespaces::ORCID_EXPANDED_SEARCH_SCHEMA_URI;
 use acorn_schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, ORCID};
@@ -38,10 +40,30 @@ use color_eyre::eyre::{self, eyre};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::env::var;
-use tracing::debug;
-use veil::Redact;
 
+/// ORCiD API options
+pub type Options = ApiOptions<Extension, Param>;
+/// ORCiD allowed output columns
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OutputColumn {
+    /// Email address
+    Email,
+    /// Credit name
+    CreditName,
+    /// Current institution affiliation name
+    CurrentInstitutionAffiliationName,
+    /// Given names
+    GivenNames,
+    /// Family names
+    FamilyName,
+    /// [`ORCID`](acorn_schema::pid::ORCID) identifier
+    Orcid,
+    /// Other name
+    OtherName,
+    /// Past institution affiliation name
+    PastInstitutionAffiliationName,
+}
 /// ORCiD allowed search fields
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -80,46 +102,9 @@ pub enum SearchField {
     /// Text field that contains all of the other fields
     Text,
 }
-/// ORCiD allowed output columns
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum OutputColumn {
-    /// Email address
-    Email,
-    /// Credit name
-    CreditName,
-    /// Current institution affiliation name
-    CurrentInstitutionAffiliationName,
-    /// Given names
-    GivenNames,
-    /// Family names
-    FamilyName,
-    /// [`ORCID`](acorn_schema::pid::ORCID) identifier
-    Orcid,
-    /// Other name
-    OtherName,
-    /// Past institution affiliation name
-    PastInstitutionAffiliationName,
-}
-/// ORCiD API options
-#[derive(Builder, Clone, Redact)]
-#[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
-pub struct Options {
-    /// Bearer token for authentication
-    #[builder(start_fn)]
-    #[redact]
-    pub token: api::Secret,
-    /// Request body payload
-    pub body: Option<String>,
-    /// ORCiD API domain (defaults to pub.orcid.org)
-    #[builder(default = String::from("pub.orcid.org"))]
-    pub domain: String,
-    /// ORCiD identifier
-    pub identifier: Option<String>,
-    /// Custom API parameters to include in every request
-    #[builder(default = vec![])]
-    pub custom_params: Vec<Param>,
-}
+/// ORCiD-specific API option defaults.
+#[derive(Clone, Debug, Default)]
+pub struct Extension;
 /// ORCiD search response
 /// ### Example response
 /// ```xml
@@ -209,57 +194,15 @@ pub struct StatusResponse {
     #[serde(rename = "overallOk")]
     pub overall: bool,
 }
-impl Configuration for Options {
-    /// Build options from ORCiD environment variables
-    /// - `ORCID_API_TOKEN` -> `token` (optional — public API)
-    /// - `ORCID_SERVER_HOST` -> `domain` (defaults to pub.orcid.org)
-    fn from_env() -> Self {
-        if let Err(why) = dotenvy::from_filename(".env") {
-            debug!("=> {} Load .env — {why}", Label::skip());
-        }
-        Self {
-            token: api::Secret::from(var("ORCID_API_TOKEN").unwrap_or_default()),
-            body: None,
-            domain: var("ORCID_SERVER_HOST").unwrap_or_else(|_| String::from("pub.orcid.org")),
-            identifier: None,
-            custom_params: vec![],
-        }
+impl ApiExtension for Extension {
+    fn default_domain() -> String {
+        String::from(DEFAULT_ORCID_DOMAIN)
     }
-    fn with_body(self, value: impl Into<String>) -> Self {
-        Self {
-            body: Some(value.into()),
-            ..self
-        }
+    fn env_token_var() -> &'static str {
+        ORCID_API_TOKEN
     }
-    fn with_domain(self, value: impl Into<String>) -> Self {
-        Self {
-            domain: value.into(),
-            ..self
-        }
-    }
-    fn with_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            identifier: Some(value.into()),
-            ..self
-        }
-    }
-    fn token(&self) -> &api::Secret {
-        &self.token
-    }
-    fn domain(&self) -> &str {
-        &self.domain
-    }
-    fn identifier(&self) -> Option<&str> {
-        self.identifier.as_deref()
-    }
-    fn with_params(self, params: Vec<Param>) -> Self {
-        Self {
-            custom_params: params,
-            ..self
-        }
-    }
-    fn params(&self) -> &[Param] {
-        &self.custom_params
+    fn env_domain_var() -> &'static str {
+        ORCID_SERVER_HOST
     }
 }
 impl fmt::Display for OutputColumn {
@@ -291,18 +234,6 @@ impl TryFrom<&str> for OutputColumn {
             | "other-name" => Ok(OutputColumn::OtherName),
             | "past-institution-affiliation-name" => Ok(OutputColumn::PastInstitutionAffiliationName),
             | _ => Err(format!("Invalid ORCiD output column: {value}")),
-        }
-    }
-}
-impl ValueValidator for SearchField {
-    /// Validate certain types of ORCiD search field values
-    ///
-    /// Special validation is performed for `RorOrgId` and `Orcid` fields.
-    fn is_valid(&self, value: &str) -> bool {
-        match self {
-            | SearchField::RorOrgId => value.replace("\"", "").is_ror(),
-            | SearchField::Orcid => value.is_orcid(),
-            | _ => true,
         }
     }
 }
@@ -344,6 +275,18 @@ impl TryFrom<&str> for SearchField {
         }
     }
 }
+impl ValueValidator for SearchField {
+    /// Validate certain types of ORCiD search field values
+    ///
+    /// Special validation is performed for `RorOrgId` and `Orcid` fields.
+    fn is_valid(&self, value: &str) -> bool {
+        match self {
+            | SearchField::RorOrgId => value.replace("\"", "").is_ror(),
+            | SearchField::Orcid => value.is_orcid(),
+            | _ => true,
+        }
+    }
+}
 impl From<SearchResult> for SearchResponse {
     fn from(profile: SearchResult) -> Self {
         Self {
@@ -369,37 +312,6 @@ pub async fn is_healthy() -> bool {
 /// Construct query string for ORCiD API search endpoint
 pub fn query_string(query_pairs: Vec<(&str, &str)>, field_list: Vec<&str>, query_fields: Vec<&str>) -> String {
     api::query_string::<SearchField, OutputColumn>(query_pairs, field_list, query_fields)
-}
-/// Search the ORCiD API with given options containing query parameters and output fields
-///
-/// ### Example
-/// ```ignore
-/// use acorn::param;
-/// use acorn::io::api::orcid::{self, Options, SearchResponse};
-///
-/// let options = Options::from_env()
-///     .with_params(vec![
-///         param!(
-///             QueryPair,
-///             "q",
-///             (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
-///         ),
-///         param!(FieldList, "fl", "family-name"),
-///     ]);
-/// let result: ApiResult<SearchResponse> = orcid::search(&options).await;
-/// ```
-pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
-    let name = "ORCiD";
-    let action = "search";
-    let params = Params::new().with_custom(options.params()).build();
-    let data = Some(params);
-    match INCLUDED_ENDPOINTS.find_by_name(name) {
-        | Some(endpoint) => {
-            let response = endpoint.invoke_with::<SearchField, OutputColumn>(action, data).await;
-            endpoint.handle::<SearchResponse>(response)
-        }
-        | None => Err(eyre!("{name} API endpoint not found")),
-    }
 }
 /// Get the expanded-search profile for one ORCID identifier
 pub async fn record(options: &Options) -> ApiResult<SearchResult> {
@@ -433,6 +345,37 @@ pub async fn record(options: &Options) -> ApiResult<SearchResult> {
                     .ok_or_else(|| eyre!("ORCID profile not found: {identifier}"))
             })
         }
+    }
+}
+/// Search the ORCiD API with given options containing query parameters and output fields
+///
+/// ### Example
+/// ```ignore
+/// use acorn::param;
+/// use acorn::io::api::orcid::{self, Options, SearchResponse};
+///
+/// let options = Options::from_env()
+///     .with_params(vec![
+///         param!(
+///             QueryPair,
+///             "q",
+///             (("affiliation-org-name", "Lyrasis"), ("ror-org-id", "\"https://ror.org/01qz5mb56\""),)
+///         ),
+///         param!(FieldList, "fl", "family-name"),
+///     ]);
+/// let result: ApiResult<SearchResponse> = orcid::search(&options).await;
+/// ```
+pub async fn search(options: &Options) -> ApiResult<SearchResponse> {
+    let name = "ORCiD";
+    let action = "search";
+    let params = Params::new().with_custom(options.params()).build();
+    let data = Some(params);
+    match INCLUDED_ENDPOINTS.find_by_name(name) {
+        | Some(endpoint) => {
+            let response = endpoint.invoke_with::<SearchField, OutputColumn>(action, data).await;
+            endpoint.handle::<SearchResponse>(response)
+        }
+        | None => Err(eyre!("{name} API endpoint not found")),
     }
 }
 /// Get status of ORCiD API
