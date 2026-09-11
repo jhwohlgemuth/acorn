@@ -3,9 +3,10 @@ pub mod spec;
 
 use crate::cli::arguments::{ArchiveType, Import};
 use crate::commands::download::{log_activity, print_result};
-use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions};
+use acorn::io::config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions};
 use acorn::io::{uri_to_path, InputOutput, TemporaryDirectory};
 use acorn::util::StringConversion;
+use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::util::MimeType;
 use color_eyre::eyre::{eyre, Report, Result};
 use futures::{future, stream, StreamExt, TryStreamExt};
@@ -33,16 +34,22 @@ pub(crate) async fn run(
     } = arguments;
     let quiet = verbose.is_silent();
     let options = BucketOptions::init()
-        .filter(filter.clone())
-        .ignore(ignore.clone())
-        .flatten(*flatten)
-        .clobber(*clobber)
-        .quiet(quiet)
-        .threads(threads)
+        .common(CommonRuntime {
+            filter: filter.clone(),
+            ignore: ignore.clone(),
+            offline,
+            quiet,
+            threads,
+            ..CommonRuntime::default()
+        })
+        .extension(BucketExtension {
+            clobber: *clobber,
+            database_path: database_path.clone(),
+            flatten: *flatten,
+            no_local_database,
+            ..BucketExtension::default()
+        })
         .maybe_output(output.clone())
-        .maybe_database_path(database_path.clone())
-        .no_local_database(no_local_database)
-        .offline(offline)
         .build();
     let sources = match ApplicationConfiguration::resolve(config) {
         | Some(path) => ApplicationConfiguration::read(path).map(|configuration| {
@@ -64,13 +71,20 @@ pub(crate) async fn run(
             .try_fold(0_usize, |total, count| future::ready(Ok(total.saturating_add(count))))
             .await
             .map(|total| {
-                if let Some(path) = &options.output {
-                    if !options.no_local_database {
-                        log_activity("import", path.to_absolute_path(), &options.database_path, true);
+                let RuntimeOptions { common, extension, output } = &options;
+                let CommonRuntime { quiet, .. } = common;
+                let BucketExtension {
+                    database_path,
+                    no_local_database,
+                    ..
+                } = extension;
+                if let Some(path) = output {
+                    if !*no_local_database {
+                        log_activity("import", path.to_absolute_path(), database_path, true);
                     }
                 }
-                if !options.quiet {
-                    print_result(total, options.output.as_ref());
+                if !*quiet {
+                    print_result(total, output.as_ref());
                 }
             }),
         | Err(why) => Err(why),
@@ -105,7 +119,7 @@ impl InputSource {
                     },
                     | (_, true, _, _) | (_, _, Some(_), _) | (_, _, _, MimeType::Gzip | MimeType::SevenZip | MimeType::Tar | MimeType::Zip) => {
                         match TemporaryDirectory::create("acorn-import") {
-                            | Ok(temporary) => match Bucket::archive(&source, forced, &temporary, options.offline).await {
+                            | Ok(temporary) => match Bucket::archive(&source, forced, &temporary, options.common.offline).await {
                                 | Ok((bucket, provenance)) => bucket.import(options, Some(&provenance)).await,
                                 | Err(why) => Err(why),
                             },

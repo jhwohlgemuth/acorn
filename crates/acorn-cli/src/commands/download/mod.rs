@@ -1,11 +1,12 @@
 use crate::cli::CommandOptions;
 use crate::commands::preflight;
-use acorn::io::config::{ApplicationConfiguration, Bucket, BucketOptions, Buckets, TransferPolicy};
+use acorn::io::config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions, Buckets, TransferPolicy};
 use acorn::io::database::schema::{ActivityRow, Table};
 use acorn::io::database::{Database, Operations};
 use acorn::io::{print_with_border, sidecar, slice_path, InputOutput};
 use acorn::util::constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT};
 use acorn::util::{Label, StringConversion};
+use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::util::suffix;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
@@ -49,18 +50,23 @@ pub async fn run(
                 .supported(true)
                 .build());
             let options = BucketOptions::init()
+                .common(CommonRuntime {
+                    filter: filter.to_vec(),
+                    ignore: ignore.to_vec(),
+                    offline,
+                    quiet,
+                    threads,
+                    ..CommonRuntime::default()
+                })
+                .extension(BucketExtension {
+                    canonicalize,
+                    clobber,
+                    database_path: database_path.clone(),
+                    flatten,
+                    no_local_database,
+                    strict,
+                })
                 .maybe_output(output.clone())
-                .maybe_database_path(database_path.clone())
-                .no_local_database(no_local_database)
-                .offline(offline)
-                .filter(filter.to_vec())
-                .ignore(ignore.to_vec())
-                .flatten(flatten)
-                .clobber(clobber)
-                .strict(strict)
-                .canonicalize(canonicalize)
-                .quiet(quiet)
-                .threads(threads)
                 .build();
             match ApplicationConfiguration::resolve(config) {
                 | Some(path) => match ApplicationConfiguration::read(path.clone()) {
@@ -71,8 +77,13 @@ pub async fn run(
                         .and_then(|total| finish_transfer(total, &options)),
                     | Err(why) => {
                         error!("=> {} Download data — {why}", Label::fail());
-                        if !options.no_local_database {
-                            log_activity("download", path.file_name_with_parent(), &options.database_path, false);
+                        let BucketExtension {
+                            database_path,
+                            no_local_database,
+                            ..
+                        } = &options.extension;
+                        if !*no_local_database {
+                            log_activity("download", path.file_name_with_parent(), database_path, false);
                         }
                         Err(eyre!("Failed to process download configuration"))
                     }
@@ -102,15 +113,22 @@ pub async fn run(
     }
 }
 fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> {
-    if let Some(path) = &options.output {
-        if !options.no_local_database {
-            log_activity("download", path.to_absolute_path(), &options.database_path, true);
+    let RuntimeOptions { common, extension, output } = options;
+    let CommonRuntime { quiet, .. } = common;
+    let BucketExtension {
+        database_path,
+        no_local_database,
+        ..
+    } = extension;
+    if let Some(path) = output {
+        if !*no_local_database {
+            log_activity("download", path.to_absolute_path(), database_path, true);
         }
     }
-    match options.quiet {
+    match quiet {
         | true => Ok(()),
         | false => {
-            print_result(total, options.output.as_ref());
+            print_result(total, output.as_ref());
             Ok(())
         }
     }

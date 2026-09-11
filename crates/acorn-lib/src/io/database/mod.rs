@@ -18,7 +18,7 @@ use directories::ProjectDirs;
 use jiff::{SignedDuration, Timestamp};
 use std::env;
 use std::fs::create_dir_all;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tracing::{debug, info};
 
@@ -180,7 +180,7 @@ where
     where
         P: DatabasePersistence + Send,
     {
-        let database = Database::<Table>::from_path(self.path.clone());
+        let database = Database::<Table>::from_path(self.path.as_ref());
         match data {
             | Some(rows) => rows.persist(database).await,
             | None => Err(eyre!("Failed to persist data")),
@@ -206,8 +206,11 @@ where
     T: TableSchemaProvider,
 {
     /// Create a new database handle from an optional database path override.
-    pub fn from_path(path: Option<PathBuf>) -> Self {
-        Self { path, marker: PhantomData }
+    pub fn from_path(path: Option<impl AsRef<Path>>) -> Self {
+        Self {
+            path: path.map(|path| path.as_ref().to_path_buf()),
+            marker: PhantomData,
+        }
     }
     /// Executes a callback using the database path configured on this handle.
     pub fn with_connection<U>(&self, callback: impl FnOnce(&Connection) -> ApiResult<U>) -> ApiResult<U> {

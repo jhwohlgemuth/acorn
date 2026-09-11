@@ -738,7 +738,7 @@ impl ModelDownloadPlan {
 }
 impl ModelDownloadPlans {
     pub(super) fn filter(self, filter: &[String], ignore: &[String]) -> ApiResult<Self> {
-        FilterSet::compile(ignore, filter).map(|filters| {
+        FilterSet::try_from((ignore, filter)).map(|filters| {
             Self(
                 self.0
                     .into_iter()

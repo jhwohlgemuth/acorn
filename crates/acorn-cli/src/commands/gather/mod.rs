@@ -176,7 +176,7 @@ async fn prepare_documents(options: Options<'_>) -> ApiResult<Prepared<Input>> {
                         })
                         .chain(stdin.map(|content| Ok(SourceDocument::init().content(content).format("text").source("<stdin>").build())))
                         .collect::<Vec<_>>();
-                    match FilterSet::compile(ignore.as_slice(), filter.as_slice()) {
+                    match FilterSet::try_from((ignore.as_slice(), filter.as_slice())) {
                         | Ok(filters) => {
                             let expanded = expand(&inputs, &filters, max_depth)
                                 .into_iter()

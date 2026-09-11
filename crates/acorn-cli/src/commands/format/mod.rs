@@ -2,9 +2,10 @@ use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
 use acorn::io::enrichment::Pipeline;
-use acorn::io::workflow::{self, Workflow};
+use acorn::io::workflow::{self, Workflow, WorkflowExtension};
 use acorn::io::{FromPath, InputOutput};
 use acorn::util::{print_changes_with_color, Label, StringConversion};
+use acorn_core::options::CommonRuntime;
 use acorn_core::util::MimeType;
 use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
@@ -59,13 +60,19 @@ async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, provi
         | false => Pipeline::new(providers.to_vec()),
     };
     let workflow_options = workflow::Options::init()
-        .check(false)
-        .format(true)
-        .enrich(true)
-        .dry_run(options.dry_run)
-        .offline(options.offline)
-        .no_color(options.no_color)
-        .show_changes(options.verbose.log_level().is_some())
+        .common(CommonRuntime {
+            dry_run: options.dry_run,
+            no_color: options.no_color,
+            offline: options.offline,
+            ..CommonRuntime::default()
+        })
+        .extension(WorkflowExtension {
+            check: false,
+            enrich: true,
+            format: true,
+            show_changes: options.verbose.log_level().is_some(),
+            ..WorkflowExtension::default()
+        })
         .build();
     match resolve_paths(path, options).await {
         | Ok(paths) => {

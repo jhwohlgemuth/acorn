@@ -9,6 +9,7 @@ use crate::io::{files_all, uri_to_path, write_file_bytes, ApiResult, ArchiveCand
 use crate::util::constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS;
 use crate::util::{Label, StringConversion};
 use crate::LocationExt;
+use acorn_core::options::RuntimeOptions;
 use acorn_core::prelude::Arc;
 use acorn_core::util::MimeType;
 use acorn_core::{Location, Repository, Scheme};
@@ -26,6 +27,8 @@ use std::process::exit;
 use std::sync::Mutex;
 use tracing::{error, warn};
 
+/// Options for bucket transfers.
+pub type BucketOptions = RuntimeOptions<BucketExtension, PathBuf>;
 /// Struct for bucket data
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
@@ -46,44 +49,22 @@ pub struct Bucket {
     #[serde(alias = "repository")]
     pub code_repository: Repository,
 }
-/// Options for bucket transfers
-#[derive(Builder, Clone, Debug)]
-#[builder(start_fn = init)]
-pub struct BucketOptions {
-    /// Path to output directory
-    pub output: Option<PathBuf>,
+/// Bucket-specific transfer options.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BucketExtension {
+    /// Rewrite deprecated research activity fields before ingestion
+    pub canonicalize: bool,
+    /// Replace existing files or directories at selected output paths
+    pub clobber: bool,
     /// Optional path to the activity database
     pub database_path: Option<PathBuf>,
+    /// Save transferred files directly beneath the output directory
+    pub flatten: bool,
     /// Disable ingestion into the local activity database
-    #[builder(default)]
     pub no_local_database: bool,
     /// Reject deprecated research activity fields during ingestion
-    #[builder(default)]
     pub strict: bool,
-    /// Rewrite deprecated research activity fields before ingestion
-    #[builder(default)]
-    pub canonicalize: bool,
-    /// Disable remote bucket operations
-    #[builder(default)]
-    pub offline: bool,
-    /// Number of threads used for parallel processing
-    #[builder(default = 10)]
-    pub threads: usize,
-    /// Suppress progress output
-    #[builder(default)]
-    pub quiet: bool,
-    /// Regex pattern(s) of files to ignore
-    #[builder(default)]
-    pub ignore: Vec<String>,
-    /// Regex pattern(s) of files to include
-    #[builder(default)]
-    pub filter: Vec<String>,
-    /// Save transferred files directly beneath the output directory
-    #[builder(default)]
-    pub flatten: bool,
-    /// Replace existing files or directories at selected output paths
-    #[builder(default)]
-    pub clobber: bool,
 }
 /// A collection of buckets that can be transferred together.
 #[derive(Clone, Debug, Default)]
@@ -111,7 +92,8 @@ impl Bucket {
     /// Transfers this bucket and ingests supported research activity data.
     pub async fn transfer(self, options: &BucketOptions, policy: TransferPolicy, provenance: Option<&str>) -> ApiResult<usize> {
         let local = self.code_repository.is_local();
-        match (policy, local, options.offline) {
+        let RuntimeOptions { common, .. } = options;
+        match (policy, local, common.offline) {
             | (TransferPolicy::Download, true, _) => Err(eyre!("Bucket download requires a remote repository source")),
             | (_, false, true) => Err(eyre!("Offline mode cannot transfer remote bucket sources")),
             | _ => match local {
@@ -209,9 +191,10 @@ impl Bucket {
     /// - Ignores files listed in [`IGNORE`]
     /// - Only copies files from local repositories
     pub async fn copy_files(self: Bucket, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        let BucketOptions { output, ignore, filter, .. } = options;
+        let RuntimeOptions { extension, output, .. } = options;
+        let BucketExtension { clobber, flatten, .. } = extension;
         let output = Arc::new(output.clone().unwrap_or_default());
-        match FilterSet::compile(ignore, filter) {
+        match FilterSet::compile(options) {
             | Ok(filters) => {
                 let Bucket { name, code_repository, .. } = self.clone();
                 match code_repository.is_local() {
@@ -241,10 +224,10 @@ impl Bucket {
                                 .map(|relative| relative.display().to_string())
                         })
                         .collect::<Vec<String>>();
-                        match TransferItem::collect(items, options.flatten) {
+                        match TransferItem::collect(items, *flatten) {
                             | Ok(items) => {
                                 let bucket_root = Arc::new(bucket_root);
-                                let clobber = options.clobber;
+                                let clobber = *clobber;
                                 let write_lock = Arc::new(Mutex::new(()));
                                 let operation = {
                                     let bucket_root = Arc::clone(&bucket_root);
@@ -286,17 +269,18 @@ impl Bucket {
     /// repositories. GitLab buckets stream from the repository-files raw API on the resolved
     /// default branch, falling back to the buffered repository-file API when streaming fails.
     pub async fn download_files(self: Bucket, options: &BucketOptions) -> ApiResult<TransferManifest> {
-        let BucketOptions { filter, ignore, .. } = options;
-        match FilterSet::compile(ignore, filter) {
+        let RuntimeOptions { extension, output, .. } = options;
+        let BucketExtension { clobber, flatten, .. } = extension;
+        match FilterSet::compile(options) {
             | Ok(filters) => match self.file_paths("").await {
-                | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), options.flatten) {
+                | Ok(paths) => match TransferItem::collect(filter_paths(paths, &filters), *flatten) {
                     | Ok(items) => {
-                        let clobber = options.clobber;
+                        let clobber = *clobber;
                         match self.resolve_branch().await {
                             | Ok(branch) => {
                                 let repository_location = self.code_repository.location().to_string();
                                 let operation = {
-                                    let output = Arc::new(options.output.clone().unwrap_or_default());
+                                    let output = Arc::new(output.clone().unwrap_or_default());
                                     let repository = Arc::new(self.code_repository);
                                     let branch = Arc::new(branch);
                                     move |item: TransferItem| {
@@ -555,24 +539,6 @@ impl From<&str> for Bucket {
 impl From<PathBuf> for Bucket {
     fn from(value: PathBuf) -> Self {
         Self::from(value.as_path())
-    }
-}
-impl Default for BucketOptions {
-    fn default() -> Self {
-        Self {
-            output: None,
-            database_path: None,
-            no_local_database: false,
-            strict: false,
-            canonicalize: false,
-            offline: false,
-            threads: 10,
-            quiet: false,
-            ignore: Vec::new(),
-            filter: Vec::new(),
-            flatten: false,
-            clobber: false,
-        }
     }
 }
 impl Buckets {

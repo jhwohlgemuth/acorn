@@ -2,12 +2,13 @@
 //!
 //! Contains `TransferManifest`, `TransferItem`, `TransferPolicy` and associated helpers.
 use crate::io::adapter::migrate::Migration;
-use crate::io::config::bucket::BucketOptions;
+use crate::io::config::bucket::{BucketExtension, BucketOptions};
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, Provenance, ResearchActivityCandidate};
 use crate::io::{read_file, with_progress, ApiResult, FromPath, InputOutput, ProgressType};
 use crate::util::constants::app::SUPPORTED_RAD_FILETYPES;
 use crate::util::{is_filetype, Label};
+use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::HashMap;
 use acorn_core::util::{suffix, MimeType};
 use acorn_core::Repository;
@@ -28,11 +29,6 @@ pub enum TransferPolicy {
     /// Permit local and remote sources.
     Import,
 }
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct TransferItem {
-    pub(crate) source: PathBuf,
-    pub(crate) destination: PathBuf,
-}
 pub(crate) struct DownloadOptions<'a> {
     pub(crate) repository: &'a Repository,
     pub(crate) output: &'a Path,
@@ -40,6 +36,11 @@ pub(crate) struct DownloadOptions<'a> {
     pub(crate) destination: &'a Path,
     pub(crate) branch: Option<&'a str>,
     pub(crate) clobber: bool,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct TransferItem {
+    pub(crate) source: PathBuf,
+    pub(crate) destination: PathBuf,
 }
 /// Files successfully transferred from one configured bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -107,11 +108,12 @@ impl TransferManifest {
         count_json_files(&paths).saturating_add(count_image_files(&paths))
     }
     pub(crate) fn canonicalize(self, options: &BucketOptions) -> ApiResult<Self> {
-        let BucketOptions { canonicalize, output, .. } = options;
+        let RuntimeOptions { extension, output, .. } = options;
+        let BucketExtension { canonicalize, .. } = extension;
         match canonicalize {
             | false => Ok(self),
             | true => {
-                let output = output.clone().unwrap_or_default();
+                let output = output.as_deref().unwrap_or_else(|| Path::new(""));
                 let canonicalized = self
                     .files
                     .iter()
@@ -128,18 +130,18 @@ impl TransferManifest {
     }
     /// Ingest transferred RAD files into the canonical research activity table.
     pub fn ingest(&self, options: &BucketOptions) -> ApiResult<()> {
-        let BucketOptions {
+        let RuntimeOptions { extension, output, .. } = options;
+        let BucketExtension {
             database_path,
             no_local_database,
-            output,
             strict,
             ..
-        } = options;
+        } = extension;
         match no_local_database {
             | true => Ok(()),
             | false => {
-                let output = output.clone().unwrap_or_default();
-                let database = Database::<Table>::from_path(database_path.clone());
+                let output = output.as_deref().unwrap_or_else(|| Path::new(""));
+                let database = Database::<Table>::from_path(database_path.as_ref());
                 self.files
                     .iter()
                     .filter(is_filetype(SUPPORTED_RAD_FILETYPES))
@@ -253,7 +255,7 @@ where
     F: Fn(TransferItem) -> Fut,
     Fut: Future<Output = ApiResult<()>>,
 {
-    let BucketOptions { threads, quiet, .. } = options;
+    let CommonRuntime { quiet, threads, .. } = &options.common;
     let source_paths = items.iter().map(|item| item.source.display().to_string()).collect::<Vec<_>>();
     let total_data = count_json_files(&source_paths);
     let total_images = count_image_files(&source_paths);

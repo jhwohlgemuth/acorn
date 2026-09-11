@@ -12,6 +12,7 @@ use crate::io::config::transfer::{
 };
 use crate::io::{read_file, InputOutput};
 use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS};
+use acorn_core::options::CommonRuntime;
 use acorn_core::{Location, Repository};
 use color_eyre::eyre::eyre;
 use color_eyre::Report;
@@ -215,7 +216,17 @@ async fn test_copy_files_clobbers_selected_path_conflicts_only() {
             location: Box::new(Location::Simple(format!("file:{}", source.display()))),
         })
         .build();
-    let options = BucketOptions::init().output(output.clone()).quiet(true).clobber(true).build();
+    let options = BucketOptions::init()
+        .common(CommonRuntime {
+            quiet: true,
+            ..CommonRuntime::default()
+        })
+        .extension(BucketExtension {
+            clobber: true,
+            ..BucketExtension::default()
+        })
+        .output(output.clone())
+        .build();
     assert!(bucket.copy_files(&options).await.is_ok());
     assert_eq!(read_to_string(output.join("existing.json")).unwrap(), "new file");
     assert_eq!(read_to_string(output.join("directory.json")).unwrap(), "new directory replacement");
@@ -237,7 +248,17 @@ async fn test_copy_files_flattens_destinations_and_manifest() {
             location: Box::new(Location::Simple(format!("file:{}", source.display()))),
         })
         .build();
-    let options = BucketOptions::init().output(output.clone()).quiet(true).flatten(true).build();
+    let options = BucketOptions::init()
+        .common(CommonRuntime {
+            quiet: true,
+            ..CommonRuntime::default()
+        })
+        .extension(BucketExtension {
+            flatten: true,
+            ..BucketExtension::default()
+        })
+        .output(output.clone())
+        .build();
     let manifest = bucket.copy_files(&options).await.unwrap();
     assert_eq!(manifest.files.len(), 2);
     assert!(manifest.files.contains(&PathBuf::from("index.json")));
@@ -261,7 +282,13 @@ async fn test_copy_files_preserves_existing_destination_without_clobber() {
             location: Box::new(Location::Simple(format!("file:{}", source.display()))),
         })
         .build();
-    let options = BucketOptions::init().output(output.clone()).quiet(true).build();
+    let options = BucketOptions::init()
+        .common(CommonRuntime {
+            quiet: true,
+            ..CommonRuntime::default()
+        })
+        .output(output.clone())
+        .build();
     assert!(bucket.copy_files(&options).await.is_err());
     assert_eq!(read_to_string(output.join("index.json")).unwrap(), "old");
     let _ = remove_dir_all(source);
@@ -413,23 +440,44 @@ fn test_has_image_extension_matches_png_and_jpg() {
 }
 #[test]
 fn test_is_filtered_path() {
-    let filter = FilterSet::compile(&[], &[r"\.json$".to_string(), r"img/".to_string()]).unwrap().filter;
+    let patterns = [r"\.json$".to_string(), r"img/".to_string()];
+    let filter = FilterSet::try_from((&[][..], patterns.as_slice())).unwrap().filter;
     assert!(is_filtered_path("/tmp/data.json", &filter));
     assert!(is_filtered_path("/tmp/img/photo.jpg", &filter));
     assert!(!is_filtered_path("/tmp/README.md", &filter));
-    assert!(FilterSet::compile(&[], &["[".to_string()]).is_err());
+    let invalid = ["[".to_string()];
+    assert!(FilterSet::try_from((&[][..], invalid.as_slice())).is_err());
     assert!(is_filtered_path("/tmp/README.md", &Vec::<Regex>::new()));
 }
 #[test]
 fn test_is_ignored_path() {
-    let ignore = FilterSet::compile(&[r"\.jpeg$".to_string(), r"notes\.txt$".to_string()], &[])
-        .unwrap()
-        .ignore;
+    let patterns = [r"\.jpeg$".to_string(), r"notes\.txt$".to_string()];
+    let ignore = FilterSet::try_from((patterns.as_slice(), &[][..])).unwrap().ignore;
     assert!(is_ignored_path("/tmp/photo.jpeg", &ignore));
     assert!(is_ignored_path("/tmp/notes.txt", &ignore));
     assert!(!is_ignored_path("/tmp/index.json", &ignore));
-    assert!(FilterSet::compile(&["[".to_string()], &[]).is_err());
+    let invalid = ["[".to_string()];
+    assert!(FilterSet::try_from((invalid.as_slice(), &[][..])).is_err());
     assert!(is_ignored_path("/tmp/README.md", &Vec::<Regex>::new()));
+}
+#[test]
+fn test_json_accepts_comments_via_jsonc_fallback() {
+    let content = r#"{
+        // This comment is valid via JSONC fallback
+        "buckets": []
+    }"#;
+    assert!(ApplicationConfiguration::parse(content).is_ok());
+}
+#[test]
+fn test_json_equivalent_to_jsonc() {
+    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
+    let jsonc = r#"{
+        // comment
+        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
+    }"#;
+    let a = ApplicationConfiguration::parse(json).unwrap();
+    let b = ApplicationConfiguration::parse(jsonc).unwrap();
+    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
 }
 #[test]
 fn test_jsonc_parse_with_block_comments() {
@@ -454,25 +502,6 @@ fn test_jsonc_parse_with_trailing_commas() {
         "buckets": [],
     }"#;
     assert!(ApplicationConfiguration::parse(content).unwrap().buckets.unwrap().is_empty());
-}
-#[test]
-fn test_json_accepts_comments_via_jsonc_fallback() {
-    let content = r#"{
-        // This comment is valid via JSONC fallback
-        "buckets": []
-    }"#;
-    assert!(ApplicationConfiguration::parse(content).is_ok());
-}
-#[test]
-fn test_json_equivalent_to_jsonc() {
-    let json = r#"{"buckets":[{"name":"t","repository":{"provider":"git","location":"file:./"}}]}"#;
-    let jsonc = r#"{
-        // comment
-        "buckets": [{"name":"t","repository":{"provider":"git","location":"file:./"}},]
-    }"#;
-    let a = ApplicationConfiguration::parse(json).unwrap();
-    let b = ApplicationConfiguration::parse(jsonc).unwrap();
-    assert_eq!(a.buckets.as_ref().unwrap().len(), b.buckets.as_ref().unwrap().len());
 }
 #[test]
 fn test_load_rejects_missing_explicit_path() {

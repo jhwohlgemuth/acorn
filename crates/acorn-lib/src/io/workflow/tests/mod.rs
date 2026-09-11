@@ -1,6 +1,7 @@
 use super::*;
 #[cfg(feature = "analysis")]
 use crate::analyzer::{Check, CheckCategory};
+use acorn_core::options::CommonRuntime;
 use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
 use acorn_schema::standard::cff::Cff;
 use async_trait::async_trait;
@@ -45,6 +46,9 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         })
     }
 }
+fn options(common: CommonRuntime, extension: WorkflowExtension) -> Options {
+    Options::init().common(common).extension(extension).build()
+}
 fn source_file() -> (tempfile::TempDir, Location) {
     let temporary = tempdir().expect("temporary workflow directory should be created");
     let path = temporary.path().join("activity.json");
@@ -70,25 +74,42 @@ fn test_change_preserves_check_for_future_fix_resolution() {
 #[test]
 fn test_default_options_only_check() {
     let options = Options::default();
-    assert!(options.check);
-    assert!(!options.format);
-    assert!(!options.enrich);
-    assert!(!options.link);
-    assert!(!options.dry_run);
-    assert!(!options.offline);
-    assert!(!options.no_color);
-    assert!(!options.show_changes);
+    assert!(options.extension.check);
+    assert!(!options.extension.format);
+    assert!(!options.extension.enrich);
+    assert!(!options.extension.link);
+    assert!(!options.common.dry_run);
+    assert!(!options.common.offline);
+    assert!(!options.common.no_color);
+    assert!(!options.extension.show_changes);
 }
 #[tokio::test]
 async fn test_dry_run_applies_no_changes() {
     let (_temporary, source) = source_file();
     let path = source.local_path().expect("source should have a local path");
     let before = read_file(path.clone()).expect("source should be readable");
-    let plan_options = Options::init().enrich(true).link(true).build();
+    let plan_options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            enrich: true,
+            link: true,
+            ..WorkflowExtension::default()
+        },
+    );
     let plan = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), plan_options, Some(&OutputEnrichment))
         .await
         .expect("workflow plan should succeed");
-    let report = Workflow::<ResearchActivity>::apply(plan, Options::init().dry_run(true).build()).expect("dry run should succeed");
+    let report = Workflow::<ResearchActivity>::apply(
+        plan,
+        options(
+            CommonRuntime {
+                dry_run: true,
+                ..CommonRuntime::default()
+            },
+            WorkflowExtension::default(),
+        ),
+    )
+    .expect("dry run should succeed");
     assert_eq!(report.processed, 1);
     assert_eq!(report.changed, 1);
     assert_eq!(report.linked, 1);
@@ -99,8 +120,24 @@ async fn test_dry_run_applies_no_changes() {
 #[tokio::test]
 async fn test_enrichment_requires_capability_and_online_mode() {
     let (_temporary, source) = source_file();
-    let missing = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), Options::init().enrich(true).build(), None).await;
-    let offline = Workflow::<ResearchActivity>::plan(&[source], Options::init().enrich(true).offline(true).build(), Some(&OutputEnrichment)).await;
+    let extension = WorkflowExtension {
+        enrich: true,
+        ..WorkflowExtension::default()
+    };
+    let missing =
+        Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options(CommonRuntime::default(), extension.clone()), None).await;
+    let offline = Workflow::<ResearchActivity>::plan(
+        &[source],
+        options(
+            CommonRuntime {
+                offline: true,
+                ..CommonRuntime::default()
+            },
+            extension,
+        ),
+        Some(&OutputEnrichment),
+    )
+    .await;
     assert!(missing.is_err());
     assert!(offline.is_err());
 }
@@ -109,7 +146,13 @@ async fn test_plan_enriches_without_writing_source() {
     let (_temporary, source) = source_file();
     let path = source.local_path().expect("source should have a local path");
     let before = read_file(path.clone()).expect("source should be readable");
-    let options = Options::init().enrich(true).build();
+    let options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            enrich: true,
+            ..WorkflowExtension::default()
+        },
+    );
     let plan = Workflow::<ResearchActivity>::plan(core::slice::from_ref(&source), options, Some(&OutputEnrichment))
         .await
         .expect("workflow plan should succeed");
@@ -219,7 +262,14 @@ fn test_repository_rejects_unknown_workflows_unsafe_paths_and_unconfigured_enric
 #[tokio::test]
 async fn test_run_writes_enrichment_and_linked_artifact() {
     let (_temporary, source) = source_file();
-    let options = Options::init().enrich(true).link(true).build();
+    let options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            enrich: true,
+            link: true,
+            ..WorkflowExtension::default()
+        },
+    );
     let report = Workflow::<ResearchActivity>::run(core::slice::from_ref(&source), options, Some(&OutputEnrichment))
         .await
         .expect("workflow run should succeed");
@@ -243,7 +293,14 @@ async fn test_workflow_processes_and_enriches_non_rad_standard() {
     .write_cff(path.clone())
     .expect("CFF fixture should be written");
     let source = Location::from(&path.display().to_string());
-    let options = Options::init().check(false).enrich(true).build();
+    let options = options(
+        CommonRuntime::default(),
+        WorkflowExtension {
+            check: false,
+            enrich: true,
+            ..WorkflowExtension::default()
+        },
+    );
     let report = Workflow::<Cff>::run(core::slice::from_ref(&source), options, Some(&CffEnrichment))
         .await
         .expect("generic workflow should process CFF");

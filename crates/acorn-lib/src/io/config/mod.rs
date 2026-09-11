@@ -21,8 +21,8 @@ use acorn_schema::hardware::memory::Memory;
 use acorn_schema::validation::{Validate, ValidationReport};
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
-pub use bucket::{Bucket, BucketOptions, Buckets};
-use color_eyre::eyre::eyre;
+pub use bucket::{Bucket, BucketExtension, BucketOptions, Buckets};
+use color_eyre::eyre::{eyre, Report};
 use core::fmt::{self, Debug};
 use derive_more::Display;
 use fancy_regex::Regex;
@@ -316,15 +316,9 @@ pub struct RunnerDetails {
     pub token: Option<api::Secret>,
 }
 impl FilterSet {
-    /// Compile ignore and filter regex patterns into a filter set
-    pub fn compile(ignore: &[String], filter: &[String]) -> ApiResult<Self> {
-        let compile = |patterns: &[String]| {
-            patterns
-                .iter()
-                .map(|pattern| Regex::new(pattern).map_err(|why| eyre!("Invalid regex/filter pattern '{pattern}': {why}")))
-                .collect::<ApiResult<Vec<Regex>>>()
-        };
-        compile(ignore).and_then(|ignore| compile(filter).map(|filter| Self { ignore, filter }))
+    /// Compile the bucket options' ignore and filter regex patterns into a filter set.
+    pub fn compile(options: &BucketOptions) -> ApiResult<Self> {
+        Self::try_from((options.common.ignore.as_slice(), options.common.filter.as_slice()))
     }
     /// Filter items based on ignore and filter regex patterns
     pub fn filter<T>(
@@ -334,7 +328,7 @@ impl FilterSet {
         value: impl Fn(&T) -> String,
         keep: impl Fn(&T) -> bool,
     ) -> ApiResult<Vec<T>> {
-        match FilterSet::compile(ignore, filter) {
+        match FilterSet::try_from((ignore, filter)) {
             | Ok(filters) => Ok(items.into_iter().filter(|item| filters.matches(&value(item)) && keep(item)).collect()),
             | Err(why) => Err(why),
         }
@@ -344,6 +338,19 @@ impl FilterSet {
         let ignored = self.ignore.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
         let filtered = self.filter.is_empty() || self.filter.iter().any(|pattern| pattern.is_match(value).unwrap_or(false));
         !ignored && filtered
+    }
+}
+impl TryFrom<(&[String], &[String])> for FilterSet {
+    type Error = Report;
+
+    fn try_from((ignore, filter): (&[String], &[String])) -> Result<Self, Self::Error> {
+        let compile = |patterns: &[String]| {
+            patterns
+                .iter()
+                .map(|pattern| Regex::new(pattern).map_err(|why| eyre!("Invalid regex/filter pattern '{pattern}': {why}")))
+                .collect::<ApiResult<Vec<Regex>>>()
+        };
+        compile(ignore).and_then(|ignore| compile(filter).map(|filter| Self { ignore, filter }))
     }
 }
 impl ModelEntry {

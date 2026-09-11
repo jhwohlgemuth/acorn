@@ -23,9 +23,9 @@ pub trait ApiExtension: Default + Clone + fmt::Debug {
 /// Per-target sync inner data (domain fields without `path`)
 pub trait SyncInner: Clone + Default + Serialize + DeserializeOwned {}
 /// Generic API options with composition-based extension
-///
-/// `P` keeps provider parameter types outside `acorn-core`; provider aliases
-/// select their concrete parameter type without introducing a core dependency.
+/// ### Notes
+/// - `P` keeps provider parameter types outside `acorn-core`
+/// - Provider aliases select their concrete parameter type without introducing a core dependency
 #[derive(Builder, Clone)]
 #[builder(start_fn = with_token, on(String, into), on(SecretString, into))]
 pub struct ApiOptions<E = (), P = ApiParam>
@@ -52,8 +52,8 @@ where
 }
 /// Minimal param placeholder for `ApiOptions` when used from `acorn-core` without `acorn-lib::Param`
 ///
-/// In `acorn-lib` the concrete `Param` is mapped via `From` / wrapper. Keeping
-/// this as a simple struct avoids a circular dependency on `acorn-lib`.
+/// In `acorn-lib` the concrete `Param` is mapped via `From` / wrapper.
+/// Keeping this as a simple struct avoids a circular dependency on `acorn-lib`.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ApiParam {
     /// Parameter style.
@@ -67,52 +67,53 @@ pub struct ApiParam {
     pub value: Option<String>,
 }
 /// Shared runtime flags reused by bucket, workflow, and analyzer options.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct CommonRuntime {
-    /// Prohibit network-dependent operations.
-    #[serde(default)]
-    pub offline: bool,
-    /// Suppress progress output.
-    #[serde(default)]
-    pub quiet: bool,
     /// Preview changes without writing them.
-    #[serde(default)]
     pub dry_run: bool,
-    /// Disable color in rendered output.
-    #[serde(default)]
-    pub no_color: bool,
-    /// Number of threads used for parallel processing.
-    #[serde(default)]
-    pub threads: usize,
     /// Regex pattern(s) of files to include.
-    #[serde(default)]
     pub filter: Vec<String>,
     /// Regex pattern(s) of files to exclude.
-    #[serde(default)]
     pub ignore: Vec<String>,
+    /// Disable color in rendered output.
+    pub no_color: bool,
+    /// Prohibit network-dependent operations.
+    pub offline: bool,
+    /// Suppress progress output.
+    pub quiet: bool,
+    /// Number of threads used for parallel processing.
+    pub threads: usize,
 }
 /// Generic runtime options with composition-based extension
-///
-/// `E` holds per-use deltas; `#[serde(flatten)]` is applied **only** on `extension`
-/// with `#[serde(default)]` per the project constraint.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", bound(deserialize = "E: DeserializeOwned"), bound(serialize = "E: Serialize"))]
-pub struct RuntimeOptions<E = ()>
+/// ### Notes
+/// - `E` holds per-use deltas, while `O` preserves the consumer's output path type.
+/// - `#[serde(flatten)]` is applied **only** on `extension` with `#[serde(default)]` per the project constraint.
+#[derive(Builder, Clone, Debug, Deserialize, Serialize)]
+#[builder(start_fn = init)]
+#[serde(
+    rename_all = "camelCase",
+    bound(deserialize = "E: DeserializeOwned, O: DeserializeOwned"),
+    bound(serialize = "E: Serialize, O: Serialize")
+)]
+pub struct RuntimeOptions<E = (), O = String>
 where
     E: Default + Clone + Serialize + DeserializeOwned,
+    O: Clone + fmt::Debug + Serialize + DeserializeOwned,
 {
     /// Shared runtime flags.
+    #[builder(default)]
     #[serde(default)]
     pub common: CommonRuntime,
     /// Optional output path.
     #[serde(default)]
-    pub output: Option<String>,
+    pub output: Option<O>,
     /// Per-context extension (flatten only here).
+    #[builder(default)]
     #[serde(default, flatten)]
     pub extension: E,
 }
-/// Aggregate sync configuration owning all targets.
+/// Aggregate sync configuration owning all targets
 ///
 /// Adding a 5th target requires only one `Inner` + one field here — no new merge fn.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -202,9 +203,23 @@ where
             .finish()
     }
 }
-impl<E> Default for RuntimeOptions<E>
+impl Default for CommonRuntime {
+    fn default() -> Self {
+        Self {
+            dry_run: false,
+            filter: Vec::new(),
+            ignore: Vec::new(),
+            no_color: false,
+            offline: false,
+            quiet: false,
+            threads: 10,
+        }
+    }
+}
+impl<E, O> Default for RuntimeOptions<E, O>
 where
     E: Default + Clone + Serialize + DeserializeOwned,
+    O: Clone + fmt::Debug + Serialize + DeserializeOwned,
 {
     fn default() -> Self {
         Self {
@@ -243,7 +258,13 @@ mod tests {
         let rt = CommonRuntime::default();
         assert!(!rt.offline);
         assert!(!rt.quiet);
-        assert_eq!(rt.threads, 0);
+        assert_eq!(rt.threads, 10);
+    }
+    #[test]
+    fn test_common_runtime_deserialization_preserves_defaults() {
+        let rt: CommonRuntime = serde_json::from_str(r#"{"quiet":true}"#).expect("deserialize common runtime");
+        assert!(rt.quiet);
+        assert_eq!(rt.threads, 10);
     }
     #[test]
     fn test_runtime_options_flatten_extension() {
@@ -252,14 +273,13 @@ mod tests {
             #[serde(default)]
             extra: String,
         }
-        let opts = RuntimeOptions::<Ext> {
-            common: CommonRuntime {
+        let opts = RuntimeOptions::<Ext>::init()
+            .common(CommonRuntime {
                 offline: true,
                 ..Default::default()
-            },
-            output: None,
-            extension: Ext { extra: "hello".into() },
-        };
+            })
+            .extension(Ext { extra: "hello".into() })
+            .build();
         let json = serde_json::to_string(&opts).expect("serialize");
         assert!(json.contains("hello"));
         assert!(json.contains("offline"));

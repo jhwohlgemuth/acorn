@@ -43,7 +43,9 @@ fn test_explicit_empty_stdin_fails() {
 #[test]
 fn test_filter_and_ignore_patterns_compose() {
     let values = vec!["keep.md".to_string(), "skip.md".to_string(), "skip.txt".to_string()];
-    let filters = FilterSet::compile(&["skip".to_string()], &[r"[.]md$".to_string()]).unwrap();
+    let ignore = ["skip".to_string()];
+    let filter = [r"[.]md$".to_string()];
+    let filters = FilterSet::try_from((ignore.as_slice(), filter.as_slice())).unwrap();
     assert_eq!(expand(&values, &filters, None), vec!["keep.md".to_string()]);
 }
 #[tokio::test]
@@ -97,7 +99,7 @@ fn test_invalid_citation_format_warns_and_uses_ieee() {
 fn test_max_depth_limits_directory_expansion() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/gather/depth");
     let input = vec![root.display().to_string()];
-    let filters = FilterSet::compile(&[], &[]).unwrap();
+    let filters = FilterSet::try_from((&[][..], &[][..])).unwrap();
     assert!(expand(&input, &filters, Some(0)).is_empty());
     assert_eq!(expand(&input, &filters, Some(1)).len(), 1);
     assert_eq!(expand(&input, &filters, Some(2)).len(), 2);
