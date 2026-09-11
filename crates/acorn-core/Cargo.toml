@@ -23,12 +23,15 @@ quick-xml = { workspace = true, features = ["serialize"] }
 infer = { workspace = true, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
 schemars = { version = "1.2.1", features = ["derive"], default-features = false }
+secrecy = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_norway = { workspace = true }
 strum = { workspace = true }
 triomphe = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false }
+validator = { version = "0.20.0", features = ["derive"], default-features = false }
+veil = { workspace = true }
 
 [features]
 default = ["std"]

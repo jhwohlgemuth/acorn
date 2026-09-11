@@ -5,6 +5,7 @@ extern crate alloc;
 
 pub mod error;
 mod location;
+pub mod options;
 pub mod prelude;
 pub mod util;
 pub mod validation;

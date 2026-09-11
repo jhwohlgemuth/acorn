@@ -8,6 +8,7 @@
 
 ## Planned groups and independent work
 
+- [Generic extensible Options and Config](generic-options-config.md) - Replace duplicated `*Options`/`*Config` structs with generic composition types shared via `acorn-core::options`.
 - [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to duplicated model parsing, gather output, JSONC policy, PID helpers, synchronization, TUI controls, API status calls, and test utilities.
 - [Schema module flattening](schema-module-flattening.md) - Remove the redundant Rust schema namespace and migrate first-party and Python binding consumers.
 - [Portability](portability/) - Host traits, WASM adapters, portable CI, and size work downstream of the critical path.
