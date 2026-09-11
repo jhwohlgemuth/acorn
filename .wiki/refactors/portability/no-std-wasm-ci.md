@@ -25,8 +25,7 @@ The dedicated optional `test-portability` job runs `make check-portable` on dema
 
 # Dependencies
 
-- **Completed:** gate the existing crates' minimal, alloc, analyzer-only native, and analyzer-only WASM checks and deny host-only analyzer dependencies.
-- **Expand after:** each extraction and the [WASM feature path](wasm-feature-path.md); this remains a rolling exit gate rather than a final one-time task.
+- Expand after each extraction and the [WASM feature path](wasm-feature-path.md); this remains a rolling exit gate rather than a final one-time task.
 
 # Validation
 

@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication, JSON-RPC, and the webhook verification, delivery, persistence, readiness, and drain contracts are complete. The highest-priority [GitLab automation](gitlab-webhook-bot-workflows.md) and [Protobuf/gRPC](protobuf-grpc-transport.md) plans extend those primitives under their dedicated lane; they do not turn this coordination roadmap into an implementation job. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
+This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication, JSON-RPC, webhook lifecycle, and GitLab repository automation contracts are complete. The highest-priority [Protobuf/gRPC](protobuf-grpc-transport.md) plan extends those primitives under its dedicated lane; it does not turn this coordination roadmap into an implementation job. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
 
 # Parallel execution
 
@@ -29,13 +29,10 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 
 # Implementation order
 
-1. Complete: shared bearer/custom-token authentication builders are implemented and used by OpenAI, RAiD, Hugging Face, and GitLab.
-2. Finish endpoint resolution and required/optional request-parameter migration.
-3. Introduce invocation and parse helpers with explicit fallback behavior.
-4. Normalize environment bootstrap and health checks.
-5. Complete foundation: reusable webhook verification, typed delivery, durable operation and callback settlement, shared outcome state, readiness, and bounded drain are implemented.
-6. Finish GitLab repository automation, then extend the implemented operation registry through gRPC.
-7. Add response, validation, generation, and capability layers only where they reduce current duplication.
+1. Finish endpoint resolution and required/optional request-parameter migration.
+2. Introduce invocation and parse helpers with explicit fallback behavior.
+3. Normalize environment bootstrap and health checks.
+4. Add response, validation, generation, and capability layers only where they reduce current duplication.
 
 # Evidence
 
@@ -62,5 +59,4 @@ Shared mechanics live at the API root, provider modules retain only provider-spe
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [GitLab repository automation](gitlab-webhook-bot-workflows.md)
 - [Protobuf/gRPC transport](protobuf-grpc-transport.md)

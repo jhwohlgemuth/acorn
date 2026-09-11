@@ -10,11 +10,13 @@ use crate::io::api::gitlab::{
     handle_tree_paths_response, project_details, repository_file, repository_tree, PaginationKey, ProgrammingLanguageDetails,
     ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, TreeResponse,
 };
+use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::{self, sluggify, IntoHeaders};
+use crate::io::config::ApplicationConfiguration;
 use crate::param;
 use crate::test::server::TestServer;
 use crate::util::constants::app::{
-    GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_JOB_TOKEN_HEADER, GITLAB_PRIVATE_TOKEN_HEADER, MERGE_REQUEST_REPORT_MARKER,
+    APPLICATION, GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_JOB_TOKEN_HEADER, GITLAB_PRIVATE_TOKEN_HEADER, MERGE_REQUEST_REPORT_MARKER,
 };
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use acorn_core::prelude::HashMap;
@@ -22,22 +24,104 @@ use alloc::sync::Arc;
 use axum::extract::{Request, State};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use secrecy::ExposeSecret;
 use std::sync::Mutex;
 
 #[derive(Clone, Default)]
+struct CitationCompletionState {
+    label_writes: Arc<Mutex<u64>>,
+    labels: Arc<Mutex<Vec<String>>>,
+    note_writes: Arc<Mutex<u64>>,
+    notes: Arc<Mutex<Vec<serde_json::Value>>>,
+}
+#[derive(Clone, Default)]
+struct CommitStatusEffectState {
+    posts: Arc<Mutex<u64>>,
+    statuses: Arc<Mutex<Vec<serde_json::Value>>>,
+}
+#[derive(Clone, Default)]
 struct MergeRequestWorkflowState {
     automation_requests: Arc<Mutex<Vec<serde_json::Value>>>,
-    statuses: Arc<Mutex<Vec<serde_json::Value>>>,
-    notes: Arc<Mutex<Vec<serde_json::Value>>>,
     file_queries: Arc<Mutex<Vec<String>>>,
+    notes: Arc<Mutex<Vec<serde_json::Value>>>,
+    statuses: Arc<Mutex<Vec<serde_json::Value>>>,
+}
+#[derive(Clone, Default)]
+struct ReconciledPublicationState {
+    branch_creates: Arc<Mutex<u64>>,
+    branch_head: Arc<Mutex<Option<String>>>,
+    commit_creates: Arc<Mutex<u64>>,
+    content: Arc<Mutex<Option<String>>>,
+    merge_request: Arc<Mutex<Option<serde_json::Value>>>,
+    merge_request_creates: Arc<Mutex<u64>>,
 }
 #[cfg(test)]
 mod bot;
 #[test]
+fn test_application_configuration_deserializes_workflow_policy() {
+    let configuration = serde_json::from_value::<ApplicationConfiguration>(serde_json::json!({
+        "workflow": {
+            "allow-forks": false,
+            "workflows": {
+                "repository-quality": {
+                    "actions": ["validate"],
+                    "effects": ["note"],
+                    "formats": ["json"],
+                    "outputs": {"mode": "source-and-artifacts"},
+                    "paths": ["**/*.json"]
+                }
+            }
+        }
+    }))
+    .unwrap();
+    let deployment = configuration.workflow.unwrap();
+    assert!(deployment.validate().is_ok());
+    assert!(deployment.workflow("repository-quality").unwrap().accepts("metadata.json").unwrap());
+}
+#[test]
 fn test_creator_slug_normalizes_and_falls_back() {
     assert_eq!(sluggify(" Alice.Example ", 42), "alice-example");
     assert_eq!(sluggify("---", 42), "user-42");
+}
+#[test]
+fn test_deployment_policy_accepts_declared_formats_and_brace_patterns() {
+    let config = DeploymentConfig::default();
+    let policy = config.workflow("repository-quality").unwrap();
+    assert!(policy.accepts("metadata/CITATION.cff").unwrap());
+    assert!(policy.accepts("metadata/activity.jsonc").unwrap());
+    assert!(!policy.accepts("src/main.rs").unwrap());
+}
+#[test]
+fn test_deployment_policy_rejects_unknown_values_and_unsafe_paths() {
+    let unknown = "workflows:\n  unknown:\n    paths: ['**/*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n";
+    assert!(DeploymentConfig::from_yaml(unknown)
+        .unwrap_err()
+        .to_string()
+        .contains("Unknown repository workflow"));
+    let unsafe_path = "workflows:\n  repository-quality:\n    paths: ['../*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n";
+    assert!(DeploymentConfig::from_yaml(unsafe_path)
+        .unwrap_err()
+        .to_string()
+        .contains("Unsafe repository path"));
+    let unknown_effect = "workflows:\n  repository-quality:\n    paths: ['**/*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [release]\n";
+    assert!(DeploymentConfig::from_yaml(unknown_effect)
+        .unwrap_err()
+        .to_string()
+        .contains("unknown variant"));
+    let unsupported_format = "workflows:\n  repository-quality:\n    paths: ['**/*.pdf']\n    formats: [pdf]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n";
+    assert!(DeploymentConfig::from_yaml(unsupported_format)
+        .unwrap_err()
+        .to_string()
+        .contains("Unsupported repository workflow format"));
+}
+#[test]
+fn test_fork_policy_requires_an_explicit_destination() {
+    let config = "allow-forks: true\nworkflows:\n  repository-quality:\n    paths: ['**/*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n";
+    assert!(DeploymentConfig::from_yaml(config)
+        .unwrap_err()
+        .to_string()
+        .contains("requires an explicit destination"));
 }
 #[test]
 fn test_gitlab_credential_variables_match_precedence_and_headers() {
@@ -50,6 +134,432 @@ fn test_gitlab_credential_variables_match_precedence_and_headers() {
         ]
     );
     assert_eq!(GITLAB_CREDENTIAL_VARIABLE_PAIRS.map(|(name, _)| name), GITLAB_TOKEN_VARIABLE_NAMES);
+}
+#[tokio::test]
+async fn test_repository_workflow_policy_denies_forks_before_requests() {
+    let details = MergeRequestDetails {
+        iid: 7,
+        author: None,
+        project_id: 30,
+        source_project_id: Some(31),
+        sha: "abc123".to_string(),
+        source_branch: "feature".to_string(),
+        target_branch: "main".to_string(),
+        title: "Fork".to_string(),
+        description: String::new(),
+        web_url: "https://gitlab.example/merge_requests/7".to_string(),
+    };
+    let options = Options::with_token("outbound")
+        .domain("http://127.0.0.1:1")
+        .identifier("30")
+        .internal_identifier("7")
+        .build();
+    let error = details
+        .process("repository-quality", &options, &DeploymentConfig::default(), None)
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("requires an explicit destination and fork policy"));
+}
+#[tokio::test]
+async fn test_repository_workflow_policy_rejects_paths_and_effects_before_mutation() {
+    for (path, effects, expected) in [
+        ("metadata.json", "[note]", "not allowed to produce"),
+        ("private/data.json", "[branch, commit, draft-merge-request]", "path is not declared"),
+    ] {
+        let mutations = Arc::new(AtomicUsize::new(0));
+        let diff_path = path.to_string();
+        let content = data_encoding::BASE64.encode(br#"{"z":1,"a":2}"#);
+        let router = Router::new()
+            .route(
+                "/api/v4/projects/30/merge_requests/7/diffs",
+                get(move || {
+                    let path = diff_path.clone();
+                    async move { Json(serde_json::json!([{"old_path":path,"new_path":path}])) }
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/repository/files/{*path}",
+                get(move || {
+                    let content = content.clone();
+                    async move {
+                        Json(serde_json::json!({
+                            "file_path":"metadata.json",
+                            "size":13,
+                            "encoding":"base64",
+                            "content":content
+                        }))
+                    }
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/repository/branches",
+                post(|State(mutations): State<Arc<AtomicUsize>>| async move {
+                    mutations.fetch_add(1, Ordering::SeqCst);
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/repository/commits",
+                post(|State(mutations): State<Arc<AtomicUsize>>| async move {
+                    mutations.fetch_add(1, Ordering::SeqCst);
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                }),
+            )
+            .route(
+                "/api/v4/projects/30/merge_requests",
+                post(|State(mutations): State<Arc<AtomicUsize>>| async move {
+                    mutations.fetch_add(1, Ordering::SeqCst);
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                }),
+            )
+            .with_state(Arc::clone(&mutations));
+        let server = TestServer::start(router).await.unwrap();
+        let config = DeploymentConfig::from_yaml(&format!(
+            "workflows:\n  repository-quality:\n    paths: ['metadata/*.json', 'metadata.json']\n    formats: [json]\n    actions: [validate, format]\n    outputs: {{mode: source-and-artifacts}}\n    effects: {effects}\n"
+        ))
+        .unwrap();
+        let details = MergeRequestDetails {
+            iid: 7,
+            author: None,
+            project_id: 30,
+            source_project_id: Some(30),
+            sha: "abc123".to_string(),
+            source_branch: "feature".to_string(),
+            target_branch: "main".to_string(),
+            title: "Policy".to_string(),
+            description: String::new(),
+            web_url: "https://gitlab.example/merge_requests/7".to_string(),
+        };
+        let options = Options::with_token("outbound")
+            .domain(&server.base_url)
+            .identifier("30")
+            .internal_identifier("7")
+            .build();
+        let error = details
+            .process("repository-quality", &options, &config, None)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(expected));
+        assert_eq!(mutations.load(Ordering::SeqCst), 0);
+        server.stop().await.unwrap();
+    }
+}
+#[test]
+fn test_effect_key_uses_application_namespace_and_parts() {
+    let effect = effects::Effect::new(["gitlab", "30", "commit", "abc123"], "gitlab-commit", None);
+    assert_eq!(effect.to_string(), format!("{APPLICATION}:gitlab:30:commit:abc123"));
+}
+#[tokio::test]
+async fn test_gitlab_effects_reconcile_ambiguous_publication_and_corrected_content() {
+    let state = ReconciledPublicationState::default();
+    let router = Router::new()
+        .route(
+            "/api/v4/projects/30/repository/branches/{*branch}",
+            get(|State(state): State<ReconciledPublicationState>| async move {
+                match state.branch_head.lock().unwrap().clone() {
+                    | Some(head) => (
+                        axum::http::StatusCode::OK,
+                        Json(serde_json::json!({"name":"acorn/citation-work-item-7","commit":{"id":head}})),
+                    ),
+                    | None => (
+                        axum::http::StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({"message":"404 Branch Not Found"})),
+                    ),
+                }
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/branches",
+            post(
+                |State(state): State<ReconciledPublicationState>, Json(body): Json<serde_json::Value>| async move {
+                    *state.branch_creates.lock().unwrap() += 1;
+                    *state.branch_head.lock().unwrap() = Some("base-sha".to_string());
+                    (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"message":"response lost after branch creation", "branch":body["branch"]})),
+                    )
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/repository/files/{*path}",
+            get(|State(state): State<ReconciledPublicationState>| async move {
+                match state.content.lock().unwrap().clone() {
+                    | Some(content) => (
+                        axum::http::StatusCode::OK,
+                        Json(serde_json::json!({
+                            "file_path":"citations/work-items/7/result/CITATION.cff",
+                            "size":content.len(),
+                            "encoding":"base64",
+                            "content":data_encoding::BASE64.encode(content.as_bytes())
+                        })),
+                    ),
+                    | None => (
+                        axum::http::StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({"message":"404 File Not Found"})),
+                    ),
+                }
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/repository/commits",
+            post(
+                |State(state): State<ReconciledPublicationState>, Json(body): Json<serde_json::Value>| async move {
+                    let count = {
+                        let mut count = state.commit_creates.lock().unwrap();
+                        *count += 1;
+                        *count
+                    };
+                    let content = body["actions"][0]["content"].as_str().unwrap_or_default().to_string();
+                    *state.content.lock().unwrap() = Some(content);
+                    *state.branch_head.lock().unwrap() = Some(format!("commit-{count}"));
+                    let status = if count == 1 {
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                    } else {
+                        axum::http::StatusCode::OK
+                    };
+                    let response = match count {
+                        | 1 => serde_json::json!({"message":"response lost after commit creation"}),
+                        | _ => serde_json::json!({"id":format!("commit-{count}"),"web_url":format!("https://gitlab.example/commit-{count}")}),
+                    };
+                    (status, Json(response))
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/merge_requests",
+            get(|State(state): State<ReconciledPublicationState>| async move {
+                Json(state.merge_request.lock().unwrap().clone().into_iter().collect::<Vec<_>>())
+            })
+            .post(
+                |State(state): State<ReconciledPublicationState>, Json(body): Json<serde_json::Value>| async move {
+                    *state.merge_request_creates.lock().unwrap() += 1;
+                    *state.merge_request.lock().unwrap() = Some(serde_json::json!({
+                        "iid":9,
+                        "source_branch":body["source_branch"],
+                        "state":"opened",
+                        "web_url":"https://gitlab.example/merge_requests/9"
+                    }));
+                    (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"message":"response lost after merge request creation"})),
+                    )
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-gitlab-effects-{}.db", nanoid::nanoid!())));
+    let changes = |content: &str| crate::io::workflow::RepositoryChangeSet {
+        base_revision: "base-sha".to_string(),
+        files: vec![crate::io::workflow::FileChange {
+            content: content.to_string(),
+            kind: crate::io::workflow::FileChangeKind::Create,
+            path: "citations/work-items/7/result/CITATION.cff".to_string(),
+        }],
+        reports: vec![],
+    };
+    for _ in 0..2 {
+        let _ = changes("version: 1")
+            .publish_reconciled("citation-work-item-7", "main", &options, &queue, Some("acorn/citation-work-item-7"))
+            .await
+            .unwrap_err();
+    }
+    assert!(state.branch_head.lock().unwrap().is_some());
+    let first = changes("version: 1")
+        .publish_reconciled("citation-work-item-7", "main", &options, &queue, Some("acorn/citation-work-item-7"))
+        .await
+        .unwrap();
+    let corrected = changes("version: 2")
+        .publish_reconciled("citation-work-item-7", "main", &options, &queue, Some("acorn/citation-work-item-7"))
+        .await
+        .unwrap();
+    assert_eq!(first.branch, corrected.branch);
+    assert_eq!(first.merge_request.iid, corrected.merge_request.iid);
+    assert_eq!(*state.branch_creates.lock().unwrap(), 1);
+    assert_eq!(*state.commit_creates.lock().unwrap(), 2);
+    assert_eq!(*state.merge_request_creates.lock().unwrap(), 1);
+    assert_eq!(state.content.lock().unwrap().as_deref(), Some("version: 2"));
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_citation_merge_completion_reconciles_label_and_comment_after_ambiguous_failures() {
+    let state = CitationCompletionState::default();
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id":99})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/9",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid":9,
+                    "author":{"id":99},
+                    "project_id":30,
+                    "source_project_id":30,
+                    "sha":"citation-sha",
+                    "source_branch":"acorn/citation-work-item-7",
+                    "target_branch":"main",
+                    "title":"Citation",
+                    "description":"<!-- acorn:repository-workflow -->\nWorkflow: `citation-work-item-7`",
+                    "web_url":"https://gitlab.example/merge_requests/9"
+                }))
+            }),
+        )
+        .route(
+            "/api/v4/projects/30/issues/7",
+            get(|State(state): State<CitationCompletionState>| async move {
+                Json(serde_json::json!({
+                    "id":70,
+                    "iid":7,
+                    "project_id":30,
+                    "title":"Result",
+                    "description":"",
+                    "author":{"id":1,"username":"scientist"},
+                    "issue_type":"issue",
+                    "labels":state.labels.lock().unwrap().clone()
+                }))
+            })
+            .put(
+                |State(state): State<CitationCompletionState>, Json(body): Json<serde_json::Value>| async move {
+                    *state.label_writes.lock().unwrap() += 1;
+                    state
+                        .labels
+                        .lock()
+                        .unwrap()
+                        .push(body["add_labels"].as_str().unwrap_or_default().to_string());
+                    (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"message":"response lost after label update"})),
+                    )
+                },
+            ),
+        )
+        .route(
+            "/api/v4/projects/30/issues/7/notes",
+            get(|State(state): State<CitationCompletionState>| async move { Json(state.notes.lock().unwrap().clone()) }).post(
+                |State(state): State<CitationCompletionState>, Json(body): Json<serde_json::Value>| async move {
+                    *state.note_writes.lock().unwrap() += 1;
+                    state.notes.lock().unwrap().push(serde_json::json!({
+                        "id":80,
+                        "body":body["body"],
+                        "author":{"id":99,"username":"acorn-bot","bot":true}
+                    }));
+                    (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"message":"response lost after comment creation"})),
+                    )
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-citation-completion-{}.db", nanoid::nanoid!())));
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .build()
+        .with_effects(queue)
+        .with_merge_request_iid(9);
+    assert!(super::intake::complete_citation_merge(&options).await.is_err());
+    assert!(super::intake::complete_citation_merge(&options).await.is_err());
+    assert!(super::intake::complete_citation_merge(&options).await.unwrap());
+    assert_eq!(state.labels.lock().unwrap().as_slice(), [format!("{APPLICATION}::collected")]);
+    assert_eq!(*state.label_writes.lock().unwrap(), 1);
+    assert_eq!(*state.note_writes.lock().unwrap(), 1);
+    {
+        let notes = state.notes.lock().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert!(notes[0]["body"].as_str().unwrap().contains("merge request !9"));
+    }
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_citation_merge_completion_rejects_spoofed_human_merge_request() {
+    let router = Router::new()
+        .route("/api/v4/user", get(|| async { Json(serde_json::json!({"id":99})) }))
+        .route(
+            "/api/v4/projects/30/merge_requests/9",
+            get(|| async {
+                Json(serde_json::json!({
+                    "iid":9,
+                    "author":{"id":4},
+                    "project_id":30,
+                    "source_project_id":30,
+                    "sha":"citation-sha",
+                    "source_branch":"acorn/citation-work-item-7",
+                    "target_branch":"main",
+                    "title":"Citation",
+                    "description":"<!-- acorn:repository-workflow -->\nWorkflow: `citation-work-item-7`",
+                    "web_url":"https://gitlab.example/merge_requests/9"
+                }))
+            }),
+        );
+    let server = TestServer::start(router).await.unwrap();
+    let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-citation-spoof-{}.db", nanoid::nanoid!())));
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .build()
+        .with_effects(queue)
+        .with_merge_request_iid(9);
+    assert!(!super::intake::complete_citation_merge(&options).await.unwrap());
+    server.stop().await.unwrap();
+}
+#[tokio::test]
+async fn test_commit_status_effect_reconciles_after_an_ambiguous_failure() {
+    let state = CommitStatusEffectState::default();
+    let router = Router::new()
+        .route(
+            "/api/v4/projects/30/repository/commits/abc123/statuses",
+            get(|State(state): State<CommitStatusEffectState>| async move { Json(state.statuses.lock().unwrap().clone()) }),
+        )
+        .route(
+            "/api/v4/projects/30/statuses/abc123",
+            post(
+                |State(state): State<CommitStatusEffectState>, Json(body): Json<serde_json::Value>| async move {
+                    *state.posts.lock().unwrap() += 1;
+                    state.statuses.lock().unwrap().push(serde_json::json!({
+                        "name":format!("{APPLICATION}/check"),
+                        "sha":"abc123",
+                        "status":body["state"],
+                        "description":body["description"],
+                        "target_url":body["target_url"]
+                    }));
+                    (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"message":"response lost after status creation"})),
+                    )
+                },
+            ),
+        )
+        .with_state(state.clone());
+    let server = TestServer::start(router).await.unwrap();
+    let options = Options::with_token("outbound")
+        .domain(&server.base_url)
+        .identifier("30")
+        .sha("abc123")
+        .build();
+    let queue = OperationQueue::from(std::env::temp_dir().join(format!("acorn-status-effect-{}.db", nanoid::nanoid!())));
+    let publish = || async {
+        effects::Effect::new(
+            ["gitlab", "30", "commit", "abc123", "status", "success"],
+            "gitlab-commit-status",
+            Some(&queue),
+        )
+        .commit_status(
+            &options,
+            CommitStatusState::Success,
+            "ACORN merge request analysis passed",
+            Some("https://gitlab.example/merge_requests/7"),
+        )
+        .await
+    };
+    assert!(publish().await.is_err());
+    assert_eq!(publish().await.unwrap().status, "success");
+    assert_eq!(*state.posts.lock().unwrap(), 1);
+    server.stop().await.unwrap();
 }
 #[tokio::test]
 async fn test_merge_request_analysis_does_not_publish_for_stale_sha() {
@@ -126,7 +636,7 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
                 |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
                     state.statuses.lock().unwrap().push(body.clone());
                     Json(serde_json::json!({
-                        "name": "acorn/check",
+                        "name": format!("{APPLICATION}/check"),
                         "sha": "large-sha",
                         "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
                         "description": body.get("description").cloned(),
@@ -239,7 +749,7 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
                 |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
                     state.statuses.lock().unwrap().push(body.clone());
                     Json(serde_json::json!({
-                        "name": "acorn/check",
+                        "name": format!("{APPLICATION}/check"),
                         "sha": "abc123",
                         "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
                         "description": body.get("description").cloned(),
@@ -377,7 +887,7 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
                 |State(state): State<MergeRequestWorkflowState>, Json(body): Json<serde_json::Value>| async move {
                     state.statuses.lock().unwrap().push(body.clone());
                     Json(serde_json::json!({
-                        "name": "acorn/check",
+                        "name": format!("{APPLICATION}/check"),
                         "sha": "missing-sha",
                         "status": body.get("state").and_then(serde_json::Value::as_str).unwrap_or_default(),
                         "description": body.get("description").cloned(),

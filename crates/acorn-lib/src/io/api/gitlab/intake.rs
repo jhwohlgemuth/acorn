@@ -1,9 +1,10 @@
 //! Authorized GitLab work-item citation intake workflow.
 
+use super::effects::Effect;
 use super::webhook;
 use super::{
-    current_user, project_details, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor, Note, Options,
-    WorkItem,
+    current_user, merge_request, project_details, project_member, repository_file, upsert_work_item_note, work_item, work_item_notes, HookActor,
+    Note, Options, WorkItem,
 };
 use crate::analyzer::host::discovery::{discover_identifiers, group_artifacts, ArtifactCandidate, Candidate};
 use crate::io::api::citeas::{self, ToCitations};
@@ -298,6 +299,74 @@ impl From<ArtifactCandidate> for Cff {
     }
 }
 impl Report {
+    /// Analyze an authorized `/acorn check` command and publish its work-item outputs.
+    pub async fn analyze(options: &Options, actor: &HookActor, command_note_id: u64) -> ApiResult<Self> {
+        match options.internal_identifier.as_deref().and_then(|iid| iid.parse::<u64>().ok()) {
+            | Some(iid) => match work_item(options).await {
+                | Ok(item) => match work_item_notes(options).await {
+                    | Ok(notes) => {
+                        let authorization = match verified_command_author(&notes, command_note_id, actor) {
+                            | Some(author_id) => item.authorize(author_id, options).await,
+                            | None => Authorization::Denied {
+                                reason: "The command author could not be verified; access is denied safely.".to_string(),
+                            },
+                        };
+                        match authorization {
+                            | Authorization::Denied { .. } => {
+                                let report = Report {
+                                    iid,
+                                    creator_id: item.author.identifier,
+                                    creator_username: item.author.username,
+                                    authorization,
+                                    candidates: Vec::new(),
+                                };
+                                Report::publish(&options.clone().with_body(report.render())).await.map(|_| report)
+                            }
+                            | Authorization::Creator | Authorization::Maintainer => match current_user(options).await {
+                                | Ok(bot) => {
+                                    let content = item.content(&notes, command_note_id, bot.identifier);
+                                    let candidates = classify_content(&content, options).await;
+                                    let report = Report {
+                                        iid,
+                                        creator_id: item.author.identifier,
+                                        creator_username: item.author.username,
+                                        authorization,
+                                        candidates,
+                                    };
+                                    match report.publish_citations(options).await {
+                                        | Ok(()) => Report::publish(&options.clone().with_body(report.render())).await.map(|_| report),
+                                        | Err(why) => Err(why),
+                                    }
+                                }
+                                | Err(why) => Err(why),
+                            },
+                        }
+                    }
+                    | Err(why) => Err(why),
+                },
+                | Err(why) => Err(why),
+            },
+            | None => Err(eyre!("GitLab work-item IID is required")),
+        }
+    }
+    async fn publish(options: &Options) -> ApiResult<Note> {
+        let iid = options
+            .internal_identifier()
+            .and_then(|value| value.parse::<u64>().map_err(|why| eyre!("GitLab work-item IID is invalid — {why}")));
+        match (iid, options.body()) {
+            | (Ok(iid), Ok(body)) => match options.effects() {
+                | Some(effects) => {
+                    let iid = iid.to_string();
+                    let effect_key = Effect::content_key(["gitlab", options.identifier().unwrap_or("unknown"), "work-item", &iid, "report"], body);
+                    Effect::new(effect_key, "gitlab-note", Some(effects))
+                        .work_item_note(options, WORK_ITEM_REPORT_MARKER, body)
+                        .await
+                }
+                | None => upsert_work_item_note(options, WORK_ITEM_REPORT_MARKER, body).await,
+            },
+            | (Err(why), _) | (_, Err(why)) => Err(why),
+        }
+    }
     /// Render the idempotent work-item report note.
     pub fn render(&self) -> String {
         let application = APPLICATION.to_ascii_uppercase();
@@ -380,10 +449,17 @@ impl Report {
                     | Some(target_branch) => match options.branch_head(&target_branch).await {
                         | Ok(base_revision) => match self.citation_change_set(base_revision) {
                             | Ok(changes) if changes.files.is_empty() => Ok(()),
-                            | Ok(changes) => changes
-                                .publish(&format!("citation-work-item-{}", self.iid), &target_branch, options)
-                                .await
-                                .map(|_| ()),
+                            | Ok(changes) => {
+                                let workflow = format!("citation-work-item-{}", self.iid);
+                                let branch = format!("{APPLICATION}/{workflow}");
+                                match options.effects() {
+                                    | Some(effects) => changes
+                                        .publish_reconciled(&workflow, &target_branch, options, effects, Some(&branch))
+                                        .await
+                                        .map(|_| ()),
+                                    | None => changes.publish(&workflow, &target_branch, options).await.map(|_| ()),
+                                }
+                            }
                             | Err(why) => Err(why),
                         },
                         | Err(why) => Err(why),
@@ -420,58 +496,65 @@ impl WorkItem {
             .join("\n\n")
     }
 }
-/// Analyze an authorized `/acorn check` command and upsert its work-item report.
-pub async fn analyze_work_item(options: &Options, actor: &HookActor, command_note_id: u64) -> ApiResult<Report> {
-    match options.internal_identifier.as_deref().and_then(|iid| iid.parse::<u64>().ok()) {
-        | Some(iid) => match work_item(options).await {
-            | Ok(item) => match work_item_notes(options).await {
-                | Ok(notes) => {
-                    let authorization = match verified_command_author(&notes, command_note_id, actor) {
-                        | Some(author_id) => item.authorize(author_id, options).await,
-                        | None => Authorization::Denied {
-                            reason: "The command author could not be verified; access is denied safely.".to_string(),
-                        },
-                    };
-                    match authorization {
-                        | Authorization::Denied { .. } => {
-                            let report = Report {
-                                iid,
-                                creator_id: item.author.identifier,
-                                creator_username: item.author.username,
-                                authorization,
-                                candidates: Vec::new(),
-                            };
-                            upsert_work_item_note(options, WORK_ITEM_REPORT_MARKER, &report.render())
-                                .await
-                                .map(|_| report)
-                        }
-                        | Authorization::Creator | Authorization::Maintainer => match current_user(options).await {
-                            | Ok(bot) => {
-                                let content = item.content(&notes, command_note_id, bot.identifier);
-                                let candidates = classify_content(&content, options).await;
-                                let report = Report {
-                                    iid,
-                                    creator_id: item.author.identifier,
-                                    creator_username: item.author.username,
-                                    authorization,
-                                    candidates,
-                                };
-                                match report.publish_citations(options).await {
-                                    | Ok(()) => upsert_work_item_note(options, WORK_ITEM_REPORT_MARKER, &report.render())
+pub(crate) async fn complete_citation_merge(options: &Options) -> ApiResult<bool> {
+    let context = options.merge_request_iid().and_then(|iid| {
+        options
+            .effects()
+            .map(|effects| (iid, effects))
+            .ok_or_else(|| eyre!("GitLab effects queue is required"))
+    });
+    match context {
+        | Ok((merge_request_iid, effects)) => {
+            let merge_options = options.clone().with_internal_identifier(merge_request_iid.to_string());
+            match merge_request(&merge_options).await {
+                | Ok(details) => {
+                    let source_iid = details
+                        .source_branch
+                        .strip_prefix(&format!("{APPLICATION}/citation-work-item-"))
+                        .and_then(|value| value.parse::<u64>().ok());
+                    match source_iid.filter(|iid| details.description.contains(&format!("Workflow: `citation-work-item-{iid}`"))) {
+                        | Some(source_iid) => match current_user(options).await {
+                            | Ok(bot) if details.author.as_ref().is_some_and(|author| author.identifier == bot.identifier) => {
+                                let project = options.identifier().unwrap_or("unknown");
+                                let item_options = options.clone().with_internal_identifier(source_iid.to_string());
+                                let label = format!("{APPLICATION}::collected");
+                                let source_iid = source_iid.to_string();
+                                let effect = Effect::new(
+                                    ["gitlab", project, "work-item", &source_iid, "label", &label],
+                                    "gitlab-label",
+                                    Some(effects),
+                                );
+                                let label = effect.work_item_label(&item_options, &label).await;
+                                match label {
+                                    | Ok(_) => {
+                                        let marker = format!("<!-- {APPLICATION}:citation-collected:{merge_request_iid} -->");
+                                        let body = format!(
+                                            "{marker}\nCitation metadata was collected in [merge request !{merge_request_iid}]({}).",
+                                            details.web_url
+                                        );
+                                        let merge_request_iid = merge_request_iid.to_string();
+                                        Effect::new(
+                                            ["gitlab", project, "work-item", &source_iid, "completion", &merge_request_iid],
+                                            "gitlab-completion-comment",
+                                            Some(effects),
+                                        )
+                                        .completion_comment(&item_options, &marker, &body)
                                         .await
-                                        .map(|_| report),
+                                        .map(|_| true)
+                                    }
                                     | Err(why) => Err(why),
                                 }
                             }
+                            | Ok(_) => Ok(false),
                             | Err(why) => Err(why),
                         },
+                        | None => Ok(false),
                     }
                 }
                 | Err(why) => Err(why),
-            },
-            | Err(why) => Err(why),
-        },
-        | None => Err(eyre!("GitLab work-item IID is required")),
+            }
+        }
+        | Err(why) => Err(why),
     }
 }
 fn cff_contact(values: &[Agent]) -> Option<Candidate> {

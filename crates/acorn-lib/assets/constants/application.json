@@ -76,6 +76,11 @@
           "template": "{{ base }}/projects/{{ identifier }}/statuses/{{ sha }}"
         },
         {
+          "name": "commit::statuses",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/repository/commits/{{ sha }}/statuses{{ query }}"
+        },
+        {
           "name": "commits::create",
           "method": "post",
           "template": "{{ base }}/projects/{{ identifier }}/repository/commits"
@@ -118,6 +123,11 @@
         {
           "name": "issue",
           "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}"
+        },
+        {
+          "name": "issue::update",
+          "method": "put",
           "template": "{{ base }}/projects/{{ identifier }}/issues/{{ internal_identifier }}"
         },
         {

@@ -11,9 +11,6 @@ Dependency order does not by itself prove that plans are safe to run concurrentl
 ## Highest-priority RPC and automation path
 
 ```text
-GitLab repository automation
-          |
-          v
 Protobuf/gRPC transport
           |
           v
@@ -23,7 +20,7 @@ ACP inference and verified fixes
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed order. The completed JSON-RPC operation registry and webhook runtime are the lane's implemented foundations. GitLab proves repository automation over typed flat files; tonic/prost adds a sibling binary transport; ACP maps official SDK sessions to the same services; and the RMCP client adds outbound MCP interoperability without replacing either protocol.
+This is one serialized delivery lane in the displayed order. The completed JSON-RPC operation registry, webhook runtime, and GitLab repository automation are the lane's implemented foundations. Tonic/prost adds a sibling binary transport; ACP maps official SDK sessions to the same services; and the RMCP client adds outbound MCP interoperability without replacing either protocol.
 
 ## Critical portability path
 
@@ -95,7 +92,7 @@ isolate std-only modules   host abstraction traits
 - [API roadmap](refactors/api/roadmap.md) records the completed shared authentication builders, `SecretString` credential migration, and reusable webhook contracts, then orders the remaining endpoint/parameter, invoke/parse, environment, health, error, and DTO contracts before `acorn-api` extraction.
 - The implemented `io::api::json_rpc` runtime establishes typed service registration and direct JSON-RPC 2.0 request/notification dispatch.
 - The implemented `io::api::webhooks` runtime consumes the operation registry and provides durable operations and callbacks, shared outcome timestamps, readiness, and graceful draining.
-- [GitLab repository automation](refactors/api/gitlab-webhook-bot-workflows.md) consumes both implemented foundations and proves registered flat-file workflows against exact repository revisions.
+- GitLab repository automation consumes both implemented foundations and proves registered flat-file workflows against exact repository revisions with deployment-owned policy and durable effect reconciliation.
 - [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md) follows the stable operation contract and adds tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
@@ -108,6 +105,7 @@ isolate std-only modules   host abstraction traits
 - [Workspace duplication consolidation](refactors/workspace-duplication-consolidation.md) must land its JSONC-policy slice before the corresponding host boundary moves again. Its PID, TUI, API-status, and test-helper slices follow the locks of their owning lanes.
 - [thiserror adoption](migrations/thiserror-adoption.md) is incremental across extracted crates; it must not delay portable extraction, but each new crate must start with owned portable errors.
 - [Portable ModelKit and Kitfile schema model](features/modelkit-schema-model.md) (KitOps `kitfile.md` + `kitfile.go` at the pinned commit, including `LayerInfo yaml:"-"` codec split and `Validate`/`GetPathType`/`IsModelKitReference` parity with `testdata/validation` + `testdata/parameters` fixtures) establishes the authoring-YAML and resolved-config contract consumed by [ModelKit and ModelPack OCI interoperability](features/oci-model-artifact-downloads.md). The OCI plan preserves the normalized registry materialization boundary used by the landed Needle sidecar, reuses the safe archive boundary from [unified import and download with BagIt archives](features/unified-import-download-bagit.md), and exposes only its selected GGUF output to inference.
+- [With integration](refactors/with-integration.md) follows the completed `acorn_macros::With` derive and serializes on the `crates/acorn-schema/src/` lock; it must not run concurrently with schema-feature leaves.
 
 ### Research activity database and artifacts
 
@@ -118,9 +116,9 @@ isolate std-only modules   host abstraction traits
 
 | Shared boundary | Plans that overlap | Coordination rule |
 |---|---|---|
-| `crates/acorn-schema/src/` | Metadata alignment, dPID, ISNI, OCP, ZON, CKAN/DCAT, ModelKit/Kitfile, SciCrunch resource entity | Schema flattening and the portable RRID baseline have landed in ACORN. Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. Plans share `lib.rs`, enum/module roots, validation, standards adapters, and fixtures as integration locks. dPID's general activity identifier and RO-Crate crosswalk serialize with metadata alignment. |
+| `crates/acorn-schema/src/` | Metadata alignment, dPID, ISNI, OCP, ZON, CKAN/DCAT, ModelKit/Kitfile, SciCrunch resource entity, [With integration](refactors/with-integration.md) | Schema flattening and the portable RRID baseline have landed in ACORN. Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. Plans share `lib.rs`, enum/module roots, validation, standards adapters, and fixtures as integration locks. dPID's general activity identifier and RO-Crate crosswalk serialize with metadata alignment. |
 | `crates/acorn-lib/src/analyzer/` | [Analyzer composition](refactors/analyzer/analyzer-composition.md), [dPID](features/dpid-research-object-support.md), [ISNI](features/isni-top-tier-support.md), ACP fixes, metadata standards | Stabilize pure check/result types before moving service and host implementations. Single analyzer plan owns `analyzer/{check,error,service,host/*}` renames; dPID and ISNI resolution integrations each take the discovery leaf lock for their landing slice. |
-| `crates/acorn-lib/src/io/api/` | JSON-RPC, implemented webhook runtime, GitLab, gRPC, API roadmap children, dPID, ISNI, OCI, inference | The highest-priority lane serializes GitLab and gRPC roots in its numbered order while preserving the shared operation and webhook contracts. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. |
+| `crates/acorn-lib/src/io/api/` | JSON-RPC, implemented webhook runtime, GitLab, gRPC, API roadmap children, dPID, ISNI, OCI, inference | The highest-priority lane now owns the gRPC root while preserving the completed GitLab, shared operation, and webhook contracts. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. |
 | `crates/acorn-schema/src/agent/` and `crates/acorn-lib/src/io/{acp,mcp}/` | ACP inference, MCP client, database-backed artifacts, OCI model interoperability, service extraction | Preserve the implemented RMCP server/runtime-policy contracts. ACP uses the official SDK; MCP uses RMCP; both may adapt to shared services but neither owns the JSON-RPC codec. Serialize agent schema, module indexes, manifests, CLI roots, and feature changes. |
 | `crates/acorn-lib/src/io/http/mod.rs` | API invocation, transfer/download hardening | Preserve request-level redirect, response-bound, redaction, and anonymous-fallback controls; serialize further service-injection changes. |
 | `crates/acorn-lib/src/io/config/` | API endpoint/environment, dPID identity persistence, OCI models, BagIt/import | `application.rs` owns application-file I/O and endpoint lists, `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
@@ -131,7 +129,7 @@ isolate std-only modules   host abstraction traits
 
 ## Scheduling projection
 
-- Complete the highest-priority RPC and automation lane before scheduling lower-priority work that needs its module, database, manifest, or CLI locks. Its four remaining plans serialize in the numbered order even where later adapter scaffolding could technically begin earlier.
+- Complete the highest-priority RPC and automation lane before scheduling lower-priority work that needs its module, database, manifest, or CLI locks. Its three remaining plans serialize in the numbered order even where later adapter scaffolding could technically begin earlier.
 - Critical-path coordination plans are not implementation jobs. Schedule a named contract-stabilization or extraction plan rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
 - The analyzer extraction decision is deferred: preserve the CI-enforced in-tree boundary while analyzer, API, export, and service contracts stabilize, then reconsider extraction only when a concrete alternate consumer exists.

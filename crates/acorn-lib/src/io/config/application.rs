@@ -1,6 +1,7 @@
 //! Application configuration I/O
 //!
 //! Handles discovery, parsing, rendering and synchronization of `.acorn` files.
+use crate::io::api::gitlab::DeploymentConfig;
 use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
 use crate::io::{parse_jsonc_cst, read_file, sync, write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput};
@@ -84,6 +85,9 @@ pub struct ApplicationConfiguration {
     /// Lookup object for whitelisted downloadable items
     #[eserde(compat)]
     pub whitelist: Option<WhitelistLookup>,
+    /// Deployment-owned repository workflow policy
+    #[eserde(compat)]
+    pub workflow: Option<DeploymentConfig>,
 }
 /// Whitelist entry for downloadable items
 /// ### Note

@@ -253,4 +253,4 @@ Also verify:
 
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [CKAN package to DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
-- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
+- SWHID persistent-identifier hardening

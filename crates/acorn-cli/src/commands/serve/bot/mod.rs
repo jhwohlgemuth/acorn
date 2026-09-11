@@ -1,12 +1,14 @@
 use crate::cli::arguments::bot::EventSource;
-use acorn::io::api::gitlab::{self, bot, WebhookOptions};
+use acorn::io::api::gitlab::{self, bot, DeploymentConfig, WebhookOptions};
 use acorn::io::api::Configuration;
+use acorn::io::config::ApplicationConfiguration;
 use acorn::io::Executor;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{self, Report, Result};
 use core::net::SocketAddr;
 use core::time::Duration;
 use std::net::ToSocketAddrs;
+use std::path::Path;
 
 /// Start a GitLab bot server
 ///
@@ -22,6 +24,7 @@ pub async fn run(
     event_source: EventSource,
     public_url: Option<&str>,
     register_webhook: bool,
+    config: Option<&Path>,
 ) -> Result<(), Report> {
     if detach {
         run_detached(
@@ -33,12 +36,15 @@ pub async fn run(
             poll_interval,
             runtime,
             public_url,
+            config,
         )
         .await
     } else {
-        run_local(identifier, bind, after, poll_interval, event_source, public_url, register_webhook).await
+        run_local(identifier, bind, after, poll_interval, event_source, public_url, register_webhook, config).await
     }
 }
+// These values are the direct CLI deployment contract and are forwarded without mutation.
+#[allow(clippy::too_many_arguments)]
 async fn run_local(
     identifier: &str,
     bind: &str,
@@ -47,6 +53,7 @@ async fn run_local(
     event_source: EventSource,
     public_url: Option<&str>,
     register_webhook: bool,
+    config: Option<&Path>,
 ) -> Result<(), Report> {
     let options = gitlab::Options::from_env().with_identifier(identifier);
     let webhook_options = WebhookOptions::from_env(public_url);
@@ -63,17 +70,46 @@ async fn run_local(
                 .map_err(|why| eyre::eyre!("Webhook mode requires a numeric GitLab project ID — {why}"))
         })
         .transpose();
-    match (resolve_bind_address(bind), validation, project_id, register_webhook) {
-        | (Ok(address), Ok(()), Ok(project_id), true) => match gitlab::upsert_project_webhook(&options, &webhook_options).await {
-            | Ok(_) => start(options, address, event_source, &webhook_options, after, poll_interval, project_id).await,
+    let config_path = config.map(Path::to_path_buf);
+    let deployment = ApplicationConfiguration::load(&config_path).and_then(|configuration| {
+        let deployment = configuration.workflow.unwrap_or_default();
+        deployment.validate().map(|()| deployment)
+    });
+    match (resolve_bind_address(bind), validation, project_id, deployment, register_webhook) {
+        | (Ok(address), Ok(()), Ok(project_id), Ok(deployment), true) => match gitlab::upsert_project_webhook(&options, &webhook_options).await {
+            | Ok(_) => {
+                start(
+                    options,
+                    address,
+                    event_source,
+                    &webhook_options,
+                    after,
+                    poll_interval,
+                    project_id,
+                    deployment,
+                )
+                .await
+            }
             | Err(why) => Err(why),
         },
-        | (Ok(address), Ok(()), Ok(project_id), false) => {
-            start(options, address, event_source, &webhook_options, after, poll_interval, project_id).await
+        | (Ok(address), Ok(()), Ok(project_id), Ok(deployment), false) => {
+            start(
+                options,
+                address,
+                event_source,
+                &webhook_options,
+                after,
+                poll_interval,
+                project_id,
+                deployment,
+            )
+            .await
         }
-        | (Err(why), _, _, _) | (_, Err(why), _, _) | (_, _, Err(why), _) => Err(why),
+        | (Err(why), _, _, _, _) | (_, Err(why), _, _, _) | (_, _, Err(why), _, _) | (_, _, _, Err(why), _) => Err(why),
     }
 }
+// Keep startup inputs explicit so validation completes before constructing the long-running server.
+#[allow(clippy::too_many_arguments)]
 async fn start(
     options: gitlab::Options,
     address: SocketAddr,
@@ -82,9 +118,12 @@ async fn start(
     after: Option<&str>,
     poll_interval: Option<u64>,
     project_id: Option<u64>,
+    deployment: DeploymentConfig,
 ) -> Result<(), Report> {
     let polling_enabled = event_source.is_poll() || event_source.is_hybrid();
-    let config = bot::Config::new(options, address)
+    let config = bot::Config::from(deployment)
+        .with_address(address)
+        .with_options(options)
         .with_polling_enabled(polling_enabled)
         .with_webhook_options(webhook_options, project_id);
     let config = match after {
@@ -108,6 +147,7 @@ async fn run_detached(
     poll_interval: Option<u64>,
     runtime: &Option<Executor>,
     public_url: Option<&str>,
+    config: Option<&Path>,
 ) -> Result<(), Report> {
     crate::commands::create::bot::run(
         identifier,
@@ -121,6 +161,7 @@ async fn run_detached(
         event_source,
         &public_url.map(String::from),
         register_webhook,
+        &config.map(Path::to_path_buf),
         &None,
         &None,
     )

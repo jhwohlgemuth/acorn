@@ -19,14 +19,6 @@ status: in-progress
 
 This plan **provides** the stabilized portable schema/crosswalk contracts consumed by [Standards traversal](../refactors/analyzer/analyzer-composition.md) and [CKAN/DCAT](../migrations/ckan-dcat-crosswalk.md); those plans must not start crosswalk integration until the loss-reporting and version contracts here land. The implemented research activity logbook consumes the mapping and loss-reporting contract and requires the DataCite 4.7 type audit (RAiD/RRID/SWHID identifier types, `RelatedItem`) before its Project-export loss table can be finalized. The landed portable RRID baseline also delegates `TypedRelatedResource` RRID relation conversion and loss reporting to this plan's `ResearchActivity -> DataCite Project` and `ResearchOutput <-> DataCite Record` adapters. Coordinate `ResearchActivity`/`ResearchOutput` field additions with [OCP infrastructure alignment](ocp-infrastructure-schema-alignment.md) and [lifecycle/credit fields](../refactors/core/research-activity-lifecycle-credit-fields.md) through the schema-features lane lock.
 
-# Prerequisite slice
-
-Slice 0 (loss reporting + 4.7 audit) is the gating prerequisite for all later slices. No `ResearchActivity`/`ResearchOutput` field additions or `ResearchActivity <-> RAiD` / `ResearchOutput <-> DataCite` adapters may start until Slice 0 is green and its pinned fixtures are reviewed.
-
-**Status 2026-09-03:** Slice 0 landed — `crates/acorn-schema/src/standard/datacite.rs:1` now targets 4.7, `RelatedIdentifierType::{Raid,Swhid}` `datacite.rs:172`, `RelationType::Other` `datacite.rs:243`, `ResourceTypeGeneral::{Poster,Presentation}` `datacite.rs:323`, `RelatedItem`/`RelatedItems` + `relationTypeInformation` on `RelatedIdentifier`/`RelatedItem`, `validate_deposit_ready()` on `Record`/`Resource` `datacite.rs:1525`, crosswalk warnings propagated in `crosswalk/mod.rs:232` and `crosswalk/mapping.rs:194`, `analyzer/check.rs:1099` no longer swallows `Err`, `datacite_to_dcat` now uses `as_vec` for `doi->identifier`, and pinned fixtures under `tests/fixtures/schema/datacite/4.7/` with tests in `crates/acorn-schema/src/standard/tests/datacite.rs` and `crates/acorn-schema/src/standard/crosswalk/tests/mod.rs` are green (`cargo nextest -p acorn-schema` 278 passed, `make check-wasm` green, `rg "4\.6" crates/acorn-schema/src/standard/datacite.rs` empty).
-
-**Status 2026-09-08:** Slices 1–3 and most of Slice 4's additive schema surface landed. Shared portable metadata primitives now live in `research_activity/common.rs`; activity metadata includes typed dates, contributors, organizations, funding, related resources, language, subjects, spatial coverage, access, and license; and `ResearchOutput` now includes DataCite publisher, publication year and typed dates, resource types, language, alternate and related identifiers, related items, version, rights, descriptions, subjects, formats, sizes, geographic locations, and distinct creators. The RRID `TypedRelatedResource <-> DataCite RelatedIdentifier` leaf crosswalk now preserves canonical identifiers and explicit relation semantics with structured loss warnings. Output contributor roles and organizational contributors, complete funder identifiers, output deposit-readiness conversion, full Record/Project adapter assembly, and the other standards adapters in Slice 5 remain.
-
 # Goal
 
 Make the research activity data (RAD) schema a standards-aligned activity model with explicit, testable interchange profiles. Use RAiD for activity-level semantics, DataCite for research outputs and DOI exchange, DCAT for dataset distributions, established persistent-identifier schemes for identity, and CRediT for output contributor roles.
@@ -75,79 +67,13 @@ Treat RAD as the canonical activity-focused model and publish explicit profiles 
 
 Keep the first implementation additive. Do not make schema versioning or a general migration framework a prerequisite for correcting crosswalks, adding optional structured fields, or validating standards conformance.
 
-This plan is a coordination record for the full alignment. Implementation must proceed in gated slices (Slice 0 below is the gate). Broad `crates/acorn-schema/src/` directory ownership is a planning boundary, not an atomic write set — each slice must declare exact files.
+This plan is a coordination record for the full alignment. Remaining implementation proceeds in gated slices. Broad `crates/acorn-schema/src/` directory ownership is a planning boundary, not an atomic write set — each slice must declare exact files.
 
 # Implementation plan
 
-Slices 0–1 are the portable foundation and must land before activity/output field additions. Each slice declares exact files; directory ownership above is a planning boundary, not a concurrency claim.
+The remaining slices cover the output profile, standards adapters, and compatibility. Each slice declares exact files; directory ownership above is a planning boundary, not a concurrency claim.
 
-## 0. Gate: loss reporting + DataCite 4.7 audit (prerequisite for all later slices)
-
-**Write set:** `crates/acorn-schema/src/standard/datacite.rs`, `crates/acorn-schema/src/standard/crosswalk/{mod.rs,mapping.rs}`, `crates/acorn-schema/src/standard/tests/datacite.rs`, `tests/fixtures/schema/datacite/4.7/` (new), `tests/fixtures/schema/datacite-invalid-*.json`.
-
-- Pin 4.7 conformance fixtures: at least one valid JSON record exercising every 4.7 delta, one valid `Resource` XML exercising `RelatedItem`, plus two invalid records (missing mandatory `titles`/`creators`/`publisher`/`publicationYear`/`resourceType`). Source from `https://schema.datacite.org/meta/kernel-4.7/` and `https://schema.datacite.org/meta/kernel-4.7/example/`; vendor locally, do not fetch at test time.
-- Audit `datacite.rs:31` `ContributorType`, `datacite.rs:89` `DateType`, `datacite.rs:172` `RelatedIdentifierType`, `datacite.rs:243` `RelationType`, `datacite.rs:323` `ResourceTypeGeneral` against 4.7. Required deltas:
-  - `RelatedIdentifierType::Raid`, `Swhid` (cover RAiD `10.83962/...` and SWHID `swh:1:...`)
-  - `RelationType::Other` + optional `relationTypeInformation: Option<String>` on `RelatedIdentifier` `datacite.rs:933` and equivalent on `RelatedItem`
-  - `ResourceTypeGeneral::Poster`, `Presentation`
-  - New `RelatedItem` and `RelatedItems` types for kernel-4.7 (distinct from `RelatedIdentifier`)
-  - Update every doc comment link from `4.6` to `4.7` (grep gate: `rg "4\.6" crates/acorn-schema/src/standard/datacite.rs` must be empty)
-  - Make JSON (`Attributes` `datacite.rs:495`) and XML (`Resource` `datacite.rs:969`) property coverage symmetric where the spec defines parity; document intentional asymmetry in the field matrix.
-- Repair loss reporting:
-  - `crosswalk/mod.rs:232` `convert`: propagate the `Vec<String>` returned by `FieldMapping::apply` `mapping.rs:194` into `Vec<ConversionWarning>` (one `Omitted` warning per missing optional source field, with `from`/`to`/`field` and `details` explaining loss). Do not discard the list; do not initialize `warnings` as empty and return it unchanged.
-  - `check.rs:1099` `collect_crosswalk_warnings`: remove the `Err(_) => Vec::new()` swallowing; surface `TransformationFailed` distinctly from `Omitted`.
-  - Distinguish warning kinds: `Omitted` (no target field), `Approximated` (semantic shift), `Simplified` (structure collapsed), `BlockNotSelected` remains HuWise-only. Add `source_path`/`target_path` to `ConversionWarning` so CLI can print `attributes.titles[1] -> ...`.
-  - Test required-field failures separately from successful-but-lossy conversions; assert `MissingRequiredField` vs. `Ok((_, warnings))` with non-empty warnings.
-
-Deliverable: `cargo nextest run -p acorn-schema standard::datacite` validates pinned 4.7 fixtures; `crosswalk/mod.rs::convert` never returns `Ok((_, []))` when `FieldMapping::apply` reports missing fields.
-
-## 1. Define the conformance and crosswalk contract
-
-- Create a field matrix for `ResearchActivity`, `Logbook`, `ResearchOutput`, RAiD 1.0, DataCite 4.7, DCAT 3, CodeMeta, and Schema.org.
-- Classify each mapping as exact, transformed, lossy, local-only, conditionally required, or unsupported.
-- Record controlled vocabulary ownership, occurrence constraints, identifier normalization, and language/date formats.
-- Define separate validity levels for a valid RAD record, a RAiD-ready activity, and a DataCite-deposit-ready output — the latter is the new `validate_deposit_ready(&Record)` / `validate_deposit_ready(&Resource)` gate, not `Validate` on `Attributes`.
-- Pin official RAiD and DataCite 4.7 fixtures used for conformance tests (reuses Slice 0 fixtures; matrix references them by path).
-
-Deliverable: a reviewed mapping table and fixture set that resolve field meaning before Rust types change. Matrix lives in `.wiki/assets/standards-field-matrix.md` and is linked from this plan.
-
-## 2. Add reusable metadata primitives
-
-Add the smallest common types required by the approved matrix (do not add speculative primitives):
-
-- typed identifier with value, scheme, and scheme URI
-- agent identifier supporting ORCID, ROR, ISNI, and extensible schemes (reuse existing `ResearchOutput::Affiliation` `output.rs:35` where semantics match)
-- dated agent and organization role
-- structured activity contributor and organization references
-- typed activity date
-- typed related resource with identifier, relation, resource type, and activity category
-- structured funding reference and award (extend `Funding`/`Award` `output.rs:50,94` rather than duplicating)
-- controlled subject with scheme and value URIs
-- structured rights and access statements
-
-Reuse primitives across activity and output metadata where semantics are identical. Keep standard-specific containers in `schema::standard` and convert at the boundary. Prefer extending `crates/acorn-schema/src/research_activity/output.rs:113` and `crates/acorn-schema/src/pid/` types over new top-level modules.
-
-Deliverable: portable, validated primitives with adjacent unit tests and no network-dependent validation. No new network, filesystem, or credential fields.
-
-## 3. Complete the activity-level RAD model
-
-Add optional structured fields for:
-
-- actual activity start and end dates plus metadata creation and update dates
-- contributors with identifiers, affiliations, roles, contact/leader assertions, and active periods
-- organizations with identifiers, roles, and active periods
-- funders and associated awards
-- typed related activities and related objects
-- language and controlled subjects
-- spatial coverage
-- metadata access and license
-- typed identifiers for new identifier schemes
-
-Retain `title`, `subtitle`, and `sections` as the authoring model. Crosswalks should derive typed titles and descriptions from those fields rather than add a second canonical title hierarchy. Coordinate `organizations`/`contributors`/`funding` additions with `ocp-infrastructure-schema-alignment.md``ComputePlatform`/`ComputeFacility` to avoid dual ownership of org identity.
-
-Deliverable: RAD can represent the RAiD concepts ACORN currently fabricates or drops, without fabricating defaults.
-
-## 4. Complete the output-level DataCite profile
+## 1. Complete the output-level DataCite profile
 
 **Partially implemented 2026-09-05:** The additive fields below are present except controlled contributor roles, organizational contributors, and complete funder identifiers. Conversion, round-trip loss reporting, and output-specific deposit readiness remain.
 
@@ -163,15 +89,14 @@ Extend `ResearchOutput` `output.rs:113` with:
 - structured rights, descriptions, subjects, formats, sizes, and geographic coverage
 - complete funder and award identifiers
 
-Audit already performed in Slice 0; this slice implements the `ResearchOutput` side and the deposit-readiness validator. Enforce mandatory DataCite properties only in `validate_deposit_ready` without making them mandatory for partially enriched RAD output records.
+The DataCite audit is complete; this slice implements the `ResearchOutput` side and the deposit-readiness validator. Enforce mandatory DataCite properties only in `validate_deposit_ready` without making them mandatory for partially enriched RAD output records.
 
 Deliverable: a `ResearchOutput` can round-trip every field ACORN claims is lossless and can explain why an incomplete output is not deposit-ready.
 
-## 5. Implement standards adapters and user workflows
+## 2. Implement standards adapters and user workflows
 
-- **RRID leaf completed 2026-09-08:** `TypedRelatedResource <-> DataCite RelatedIdentifier` canonicalizes RRIDs, preserves explicit relation type, relation information, general resource type, and scheme URI, and reports fields without an equivalent. Full `ResearchOutput <-> DataCite Record` and `ResearchActivity -> DataCite Project` assembly remains in this slice.
 - Implement `ResearchActivity <-> RAiD Metadata` with no inferred assertions; remove or gate the legacy inferred date/role/license defaults behind an explicit `allow_infer: bool` that defaults to `false` and emits `ConversionWarning::Approximated` when used.
-- Implement `ResearchOutput <-> DataCite Record` with explicit loss reporting (reuses Slice 0 warning pipeline), preserving authored RRID identifiers, explicit relations, relation information, and general resource types without inferred semantics.
+- Implement `ResearchOutput <-> DataCite Record` with explicit loss reporting (reuses the established warning pipeline), preserving authored RRID identifiers, explicit relations, relation information, and general resource types without inferred semantics.
 - Implement opt-in `ResearchActivity -> DataCite Project` export (general `ResourceTypeGeneral::Project` `datacite.rs:407`), preserving authored RRID relations without inferring relations from discovery or co-occurrence.
 - Implement dataset-output DCAT and software-output CodeMeta adapters only after their mappings are approved in the matrix.
 - Generate Schema.org JSON-LD contexts and types from the canonical activity and output structures.
@@ -180,7 +105,7 @@ Deliverable: a `ResearchOutput` can round-trip every field ACORN claims is lossl
 
 Deliverable: users can inspect conformance, conversion failures, and conversion losses before writing output. No network request occurs during `cargo nextest run -p acorn-schema`.
 
-## 6. Address compatibility and versioning only when required
+## 3. Address compatibility and versioning only when required
 
 - Preserve existing RAD fields as accepted input while additive structured fields are introduced.
 - Define deterministic precedence when a legacy string list field (e.g., `meta.sponsors: Option<Vec<String>>` `mod.rs:278`) and its structured replacement are both present, and report conflicts as `ConversionWarning::Approximated` or validation errors — do not silently prefer one.
@@ -209,7 +134,7 @@ make audit # if deps change
 
 Additional checks:
 
-- Validate pinned DataCite 4.7 JSON and XML fixtures and two invalid records (`datacite-invalid-*.json`); assert `rg "4\.6" crates/acorn-schema/src/standard/datacite.rs` is empty after Slice 0.
+- Validate pinned DataCite 4.7 JSON and XML fixtures and two invalid records (`datacite-invalid-*.json`); retain the existing `rg "4\.6" crates/acorn-schema/src/standard/datacite.rs` gate.
 - Validate official RAiD examples and missing-required-field cases.
 - Add golden tests for `RAD <-> RAiD`, `ResearchActivity -> DataCite Project`, and `ResearchOutput <-> DataCite Record` conversions, including activity- and output-level RRID relations plus 4.7 `RAiD`/`SWHID`/`Other`/`RelatedItem` cases.
 - Add property tests for identifier normalization (DOI, RAiD, SWHID, ROR, ORCID, ISNI), relation mappings, and lossless round trips.
@@ -242,7 +167,7 @@ Additional checks:
 |---|---|---|
 | A union of standards makes RAD too complex to author. | High | Keep concise RAD authoring fields and isolate standard-specific shapes behind adapters. |
 | Similar fields become competing sources of truth. | High | Approve canonical ownership in the mapping matrix and define conflict precedence before adding replacements. Document precedence for `meta.sponsors` vs structured funding. |
-| Conversions silently discard metadata. | High | Land Slice 0 (warning propagation) before any RAD crosswalks and test every lossy rule with golden warnings. |
+| Conversions silently discard metadata. | High | Preserve the landed warning-propagation gate and test every lossy rule with golden warnings. |
 | RAiD or DataCite requirements change. | Medium | Pin profile versions (`kernel-4.7` XSD, RAiD 1.x fixtures), keep controlled vocabularies explicit, and isolate adapters from canonical types. |
 | Deposit requirements make partially enriched records invalid. | Medium | Separate RAD validity (`Validate`) from target-specific readiness (`validate_deposit_ready`). |
 | Compatibility work expands into an early redesign. | Medium | Prefer additive fields and defer schema versioning until a demonstrated breaking change requires it. |
@@ -253,7 +178,7 @@ Additional checks:
 
 # Related concepts
 
-- [SWHID persistent-identifier hardening](swhid-persistent-identifier.md)
+- SWHID persistent-identifier hardening
 - [OCP infrastructure schema alignment](ocp-infrastructure-schema-alignment.md)
 - [CKAN/DCAT crosswalk](../migrations/ckan-dcat-crosswalk.md)
 - [Analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md)

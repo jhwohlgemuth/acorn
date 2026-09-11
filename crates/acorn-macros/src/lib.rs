@@ -67,6 +67,12 @@ struct SchemaRule {
     message: Option<LitStr>,
     guard: Option<Expr>,
 }
+struct WithConfig {
+    prefix: String,
+}
+struct WithFieldConfig {
+    skip: bool,
+}
 impl RuleOptions {
     fn has_overrides(&self) -> bool {
         self.code.is_some() || self.message.is_some()
@@ -143,6 +149,40 @@ pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
 pub fn derive_database_row(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_database_row(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
+/// Derive immutable consuming `with_*` setters for structs
+///
+/// Generates `with_<field>(self, value: impl Into<T>) -> Self` for named fields and `with_<index>(self, value: impl Into<T>) -> Self` for tuple structs.
+/// The setter consumes `self` and returns an updated `Self`, enabling functional chaining without mutation.
+///
+/// ### Attributes
+/// Container: `#[with(prefix = "with_")]` — customize method prefix (default `with_`).
+/// Field: `#[with(skip)]` — omit setter for that field.
+///
+/// ### Examples
+/// ```ignore
+/// use acorn_macros::With;
+///
+/// #[derive(With)]
+/// pub struct Config {
+///     host: String,
+///     port: u16,
+/// }
+/// let c = Config {
+///     host: "a".into(),
+///     port: 80,
+/// };
+/// let c2 = c.with_host("example.com").with_port(8080u16);
+///
+/// #[derive(With)]
+/// pub struct Tuple(String, u32);
+/// let t = Tuple("a".into(), 1);
+/// let t2 = t.with_0("b").with_1(2u32);
+/// ```
+#[proc_macro_derive(With, attributes(with))]
+pub fn derive_with(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand_with(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
 /// Derive deterministic, allocation-compatible ACORN validation.
 ///
@@ -256,6 +296,157 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             }
         }
     })
+}
+fn expand_with(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
+    let vis = &input.vis;
+    let config = extract_with_config(&input.attrs)?;
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let methods = match &input.data {
+        | Data::Struct(data) => match &data.fields {
+            | Fields::Named(fields) => expand_with_named(&fields.named, &config, vis)?,
+            | Fields::Unnamed(fields) => expand_with_unnamed(&fields.unnamed, &config, vis)?,
+            | Fields::Unit => Vec::new(),
+        },
+        | _ => return Err(syn::Error::new_spanned(input, "With only works with structs")),
+    };
+    Ok(quote! {
+        impl #impl_generics #name #type_generics #where_clause {
+            #(#methods)*
+        }
+    })
+}
+fn expand_with_named(
+    fields: &Punctuated<syn::Field, Token![,]>,
+    config: &WithConfig,
+    vis: &syn::Visibility,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    fields
+        .iter()
+        .filter_map(|field| {
+            let field_config = match extract_with_field_config(&field.attrs) {
+                | Ok(c) => c,
+                | Err(why) => return Some(Err(why)),
+            };
+            if field_config.skip {
+                return None;
+            }
+            let ident = match &field.ident {
+                | Some(id) => id,
+                | None => return Some(Err(syn::Error::new_spanned(field, "With requires named fields"))),
+            };
+            let stripped = ident.to_string().trim_start_matches("r#").to_string();
+            let method = format_ident!("{}{}", config.prefix, stripped, span = ident.span());
+            let ty = &field.ty;
+            Some(Ok(quote! {
+                #[doc = ::core::concat!("Setter for `", stringify!(#ident), "` — consumes `self` and returns updated `Self`.")]
+                #[allow(clippy::needless_update)]
+                #vis fn #method(self, #ident: impl ::core::convert::Into<#ty>) -> Self {
+                    Self { #ident: ::core::convert::Into::into(#ident), ..self }
+                }
+            }))
+        })
+        .collect()
+}
+fn expand_with_unnamed(
+    fields: &Punctuated<syn::Field, Token![,]>,
+    config: &WithConfig,
+    vis: &syn::Visibility,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    let len = fields.len();
+    let self_idents: Vec<syn::Ident> = (0..len).map(|i| format_ident!("__self_{}", i)).collect();
+    fields
+        .iter()
+        .enumerate()
+        .filter_map(|(index, field)| {
+            let field_config = match extract_with_field_config(&field.attrs) {
+                | Ok(c) => c,
+                | Err(why) => return Some(Err(why)),
+            };
+            if field_config.skip {
+                return None;
+            }
+            let ty = &field.ty;
+            let method = format_ident!("{}{}", config.prefix, index);
+            let param = format_ident!("__with_{}", index);
+            let args: Vec<proc_macro2::TokenStream> = (0..len)
+                .map(|j| {
+                    if j == index {
+                        quote! { ::core::convert::Into::into(#param) }
+                    } else {
+                        let ident = &self_idents[j];
+                        quote! { #ident }
+                    }
+                })
+                .collect();
+            let destructure = &self_idents;
+            Some(Ok(quote! {
+                #[doc = ::core::concat!("Setter for field `", stringify!(#index), "` — consumes `self` and returns updated `Self`.")]
+                #[allow(clippy::needless_update)]
+                #vis fn #method(self, #param: impl ::core::convert::Into<#ty>) -> Self {
+                    let Self(#(#destructure),*) = self;
+                    Self(#(#args),*)
+                }
+            }))
+        })
+        .collect()
+}
+fn extract_with_config(attrs: &[syn::Attribute]) -> syn::Result<WithConfig> {
+    let mut prefix = "with_".to_string();
+    for attr in attrs {
+        if attr.path().is_ident("with") {
+            match &attr.meta {
+                | Meta::List(list) => {
+                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+                    for meta in metas {
+                        if meta.path().is_ident("prefix") {
+                            if let Meta::NameValue(value) = meta {
+                                if let Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }) = value.value {
+                                    prefix = lit_str.value();
+                                } else {
+                                    return Err(syn::Error::new_spanned(value, "prefix requires string value"));
+                                }
+                            } else {
+                                return Err(syn::Error::new_spanned(meta, "prefix requires string value"));
+                            }
+                        } else {
+                            return Err(syn::Error::new_spanned(meta, "unknown with container argument"));
+                        }
+                    }
+                }
+                | _ => return Err(syn::Error::new_spanned(attr, "with requires parenthesized arguments")),
+            }
+        }
+    }
+    Ok(WithConfig { prefix })
+}
+fn extract_with_field_config(attrs: &[syn::Attribute]) -> syn::Result<WithFieldConfig> {
+    let mut skip = false;
+    for attr in attrs {
+        if attr.path().is_ident("with") {
+            match &attr.meta {
+                | Meta::List(list) => {
+                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+                    if metas.is_empty() {
+                        return Err(syn::Error::new_spanned(attr, "with requires skip"));
+                    }
+                    for meta in metas {
+                        if meta.path().is_ident("skip") {
+                            match meta {
+                                | Meta::Path(_) => skip = true,
+                                | _ => return Err(syn::Error::new_spanned(meta, "skip takes no value")),
+                            }
+                        } else {
+                            return Err(syn::Error::new_spanned(meta, "unknown with field argument"));
+                        }
+                    }
+                }
+                | Meta::Path(_) => skip = true,
+                | _ => return Err(syn::Error::new_spanned(attr, "invalid with attribute")),
+            }
+        }
+    }
+    Ok(WithFieldConfig { skip })
 }
 fn expand_field_rule(
     acorn: &proc_macro2::TokenStream,

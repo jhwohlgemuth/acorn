@@ -41,10 +41,8 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Implementation order
 
-1. **Completed:** separate analyzer models and supplied-content transformations from document, renderer, filesystem, process, HTTP, and database services in-tree; add native and WASM alloc-only compile gates.
-2. **Completed decision:** defer `acorn-analysis` and generic host traits until a concrete alternate consumer requires the portable kernel or proves a narrow port.
-3. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
-4. Extend the minimal `acorn-wasm` package with target-specific browser services only after concrete workflows prove narrow ports; add native implementations in `acorn-host` and CI gates for every supported adapter.
+1. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
+2. Extend the minimal `acorn-wasm` package with target-specific browser services only after concrete workflows prove narrow ports; add native implementations in `acorn-host` and CI gates for every supported adapter.
 
 # Dependency boundaries
 

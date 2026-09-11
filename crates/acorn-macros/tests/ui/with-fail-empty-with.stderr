@@ -1,0 +1,5 @@
+error: with requires skip
+ --> tests/ui/with-fail-empty-with.rs:5:5
+  |
+5 |     #[with()]
+  |     ^^^^^^^^^

@@ -46,7 +46,7 @@
 //! ```
 use super::webhook::{self, WebhookConfig};
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
-use super::{events, EventDetails, EventsResponse, Options, WebhookOptions};
+use super::{events, DeploymentConfig, EventDetails, EventsResponse, Options, WebhookOptions};
 #[cfg(feature = "analysis")]
 use crate::analyzer::host::context::AnalysisContext;
 use crate::io::api::json_rpc::{InvocationContext, InvocationOrigin, MethodName, OperationDefinition, OperationEffects, OperationRegistry};
@@ -119,6 +119,8 @@ pub struct Config {
     after: String,
     /// GitLab API options used for each polling request.
     pub(super) options: Options,
+    /// Deployment-owned workflow and effect policy.
+    pub(super) deployment: DeploymentConfig,
     /// Duration between polling attempts.
     poll_interval: Duration,
     /// Maximum time to wait for claimed webhook work during shutdown.
@@ -134,7 +136,7 @@ pub struct Config {
     /// Numeric GitLab project ID to accept deliveries for; rejects all others when set.
     project_id: Option<u64>,
     /// Durable delivery and operation queue
-    operation_queue: OperationQueue,
+    pub(super) operation_queue: OperationQueue,
     /// Handler invoked by workers for claimed webhook operations
     pub(super) operation_handler: Option<WebhookOperationHandler>,
     /// Options applied to merge request analysis
@@ -247,20 +249,13 @@ impl Config {
     pub fn new(options: Options, address: SocketAddr) -> Self {
         Self {
             address,
-            after: String::new(),
             options,
-            poll_interval: Duration::from_secs(30),
-            shutdown_grace: Duration::from_secs(30),
-            handler: Arc::new(default_merge_request_note_handler),
-            polling_enabled: true,
-            webhook_token: None,
-            webhook_signing_token: None,
-            project_id: None,
-            operation_queue: default_operation_queue(),
-            operation_handler: None,
-            #[cfg(feature = "analysis")]
-            analysis_options: AnalysisContext::default(),
+            ..DeploymentConfig::default().into()
         }
+    }
+    /// Return a copy of the configuration with a bind address.
+    pub fn with_address(self, address: SocketAddr) -> Self {
+        Self { address, ..self }
     }
     fn registry(&self) -> ApiResult<OperationRegistry> {
         let effects = OperationEffects {
@@ -347,6 +342,10 @@ impl Config {
     pub fn with_handler(self, handler: MergeRequestNoteHandler) -> Self {
         Self { handler, ..self }
     }
+    /// Return a copy with validated deployment-owned repository workflow policy.
+    pub fn with_deployment(self, deployment: DeploymentConfig) -> ApiResult<Self> {
+        deployment.validate().map(|()| Self { deployment, ..self })
+    }
     /// Return a copy of the configuration with polling enabled or disabled
     pub fn with_polling_enabled(self, polling_enabled: bool) -> Self {
         Self { polling_enabled, ..self }
@@ -428,6 +427,10 @@ impl Config {
     pub fn with_analysis_options(self, analysis_options: AnalysisContext) -> Self {
         Self { analysis_options, ..self }
     }
+    /// Return a copy of the configuration with GitLab API options.
+    pub fn with_options(self, options: Options) -> Self {
+        Self { options, ..self }
+    }
     /// Return a copy configured for authenticated webhook ingress
     pub fn with_webhook_options(self, options: &WebhookOptions, project_id: Option<u64>) -> Self {
         Self {
@@ -435,6 +438,27 @@ impl Config {
             webhook_signing_token: options.signing_token.clone(),
             project_id,
             ..self
+        }
+    }
+}
+impl From<DeploymentConfig> for Config {
+    fn from(deployment: DeploymentConfig) -> Self {
+        Self {
+            address: SocketAddr::from(([127, 0, 0, 1], 3000)),
+            after: String::new(),
+            options: Options::default(),
+            deployment,
+            poll_interval: Duration::from_secs(30),
+            shutdown_grace: Duration::from_secs(30),
+            handler: Arc::new(default_merge_request_note_handler),
+            polling_enabled: true,
+            webhook_token: None,
+            webhook_signing_token: None,
+            project_id: None,
+            operation_queue: default_operation_queue(),
+            operation_handler: None,
+            #[cfg(feature = "analysis")]
+            analysis_options: AnalysisContext::default(),
         }
     }
 }

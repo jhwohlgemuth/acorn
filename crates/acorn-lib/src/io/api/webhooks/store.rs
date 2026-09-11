@@ -12,19 +12,24 @@ use acorn_core::util::to_rfc3339;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use jiff::{SignedDuration, Timestamp};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
+const WEBHOOK_EFFECT_MIGRATION: &str = include_str!("../../../../assets/migrations/0013_create_webhook_effects.sql");
 /// Provider-neutral name for the durable webhook operation queue.
 pub type WebhookStore = OperationQueue;
 trait ConnectionExt {
+    fn begin_effect(&self, effect_key: &str, effect_kind: &str) -> ApiResult<()>;
+    fn effect_result<T: DeserializeOwned>(&self, effect_key: &str, effect_kind: &str) -> ApiResult<Option<T>>;
     fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps>;
     fn record_outcome(&self, state: OperationState, now: &str) -> ApiResult<()>;
     fn select_available(&self, now: &str) -> ApiResult<Option<ClaimedOperation>>;
     fn select_available_callback(&self, now: &str) -> ApiResult<Option<ClaimedCallback>>;
+    fn succeed_effect(&self, effect_key: &str, effect_kind: &str, result_json: &str) -> ApiResult<()>;
 }
 /// Result of transactionally recording a delivery and its canonical operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -140,6 +145,48 @@ pub(crate) struct RuntimeTimestamps {
     pub(crate) last_success_at: Option<Timestamp>,
 }
 impl ConnectionExt for Connection {
+    fn begin_effect(&self, key: &str, kind: &str) -> ApiResult<()> {
+        let now = to_rfc3339(Timestamp::now());
+        self.execute(
+            "INSERT INTO webhook_effects (effect_key, effect_kind, state, result_json, created_at, updated_at)
+             VALUES (?, ?, 'pending', NULL, ?, ?) ON CONFLICT(effect_key) DO NOTHING",
+            params![key, kind, now, now],
+        )
+        .map_err(|why| eyre!("Failed to begin webhook effect — {why}"))
+        .and_then(|_| {
+            self.query_row("SELECT effect_kind FROM webhook_effects WHERE effect_key = ?", params![key], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(|why| eyre!("Failed to read webhook effect kind — {why}"))
+        })
+        .and_then(|stored_kind| match stored_kind == kind {
+            | true => Ok(()),
+            | false => Err(eyre!("Webhook effect key `{key}` is already assigned to `{stored_kind}`, not `{kind}`")),
+        })
+    }
+    fn effect_result<T: DeserializeOwned>(&self, effect_key: &str, effect_kind: &str) -> ApiResult<Option<T>> {
+        let result = self.query_row(
+            "SELECT effect_kind, state, result_json FROM webhook_effects WHERE effect_key = ?",
+            params![effect_key],
+            |row| {
+                row.get::<_, String>(0).and_then(|kind| {
+                    row.get::<_, String>(1)
+                        .and_then(|state| row.get::<_, Option<String>>(2).map(|json| (kind, state, json)))
+                })
+            },
+        );
+        match result {
+            | Err(why) if is_no_rows(&why) => Ok(None),
+            | Err(why) => Err(eyre!("Failed to read webhook effect — {why}")),
+            | Ok((stored_kind, _, _)) if stored_kind != effect_kind => Err(eyre!(
+                "Webhook effect key `{effect_key}` is assigned to `{stored_kind}`, not `{effect_kind}`"
+            )),
+            | Ok((_, state, Some(json))) if state == "succeeded" => serde_json::from_str(&json)
+                .map(Some)
+                .map_err(|why| eyre!("Failed to decode webhook effect result — {why}")),
+            | Ok(_) => Ok(None),
+        }
+    }
     fn read_runtime_timestamps(&self) -> ApiResult<RuntimeTimestamps> {
         self.query_row(
             "SELECT last_error_at, last_success_at FROM webhook_runtime_state WHERE singleton = 1",
@@ -232,6 +279,19 @@ impl ConnectionExt for Connection {
             | Err(why) if is_no_rows(&why) => Ok(None),
             | Err(why) => Err(eyre!("Failed to select an available webhook callback — {why}")),
         }
+    }
+    fn succeed_effect(&self, effect_key: &str, effect_kind: &str, result_json: &str) -> ApiResult<()> {
+        let now = to_rfc3339(Timestamp::now());
+        self.execute(
+            "UPDATE webhook_effects SET state = 'succeeded', result_json = ?, updated_at = ?
+             WHERE effect_key = ? AND effect_kind = ?",
+            params![result_json, now, effect_key, effect_kind],
+        )
+        .map_err(|why| eyre!("Failed to complete webhook effect — {why}"))
+        .and_then(|updated| match updated == 1 {
+            | true => Ok(()),
+            | false => Err(eyre!("Webhook effect `{effect_key}` could not be completed")),
+        })
     }
 }
 impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
@@ -372,6 +432,16 @@ impl OperationQueue {
                 }
             })
         })
+    }
+    /// Begin one idempotent external effect, preserving an existing attempt or result.
+    pub fn begin_effect(&self, key: &str, kind: &str) -> ApiResult<()> {
+        match (key.trim().is_empty(), kind.trim().is_empty()) {
+            | (true, _) => Err(eyre!("Webhook effect key is required")),
+            | (_, true) => Err(eyre!("Webhook effect kind is required")),
+            | _ => self
+                .migrate()
+                .and_then(|_| self.with_connection(|connection| connection.begin_effect(key, kind))),
+        }
     }
     /// Cancel queued work. Running or completed work is left unchanged.
     pub fn cancel(&self, operation_key: &str) -> ApiResult<bool> {
@@ -642,6 +712,11 @@ impl OperationQueue {
             .map_err(|why| eyre!("Failed to encode webhook operation notification — {why}"))
             .and_then(|notification| self.enqueue(&delivery_id, &operation_key, &notification))
     }
+    /// Return a completed external effect result, or `None` while absent or pending.
+    pub fn effect_result<T: DeserializeOwned>(&self, key: &str, kind: &str) -> ApiResult<Option<T>> {
+        self.migrate()
+            .and_then(|_| self.with_connection(|connection| connection.effect_result(key, kind)))
+    }
     /// Consume a running claim and schedule a bounded retry, or make it terminal after five attempts.
     pub fn fail(&self, operation: ClaimedOperation, error: &str) -> ApiResult<OperationState> {
         let operation_key = operation.operation_key.clone();
@@ -703,7 +778,7 @@ impl OperationQueue {
     pub fn migrate(&self) -> ApiResult<()> {
         self.with_connection(|connection| {
             connection
-                .execute_batch(WEBHOOK_MIGRATION)
+                .execute_batch(&format!("{WEBHOOK_MIGRATION}\n{WEBHOOK_EFFECT_MIGRATION}"))
                 .map_err(|why| eyre!("Failed to migrate webhook operation queue — {why}"))
         })
     }
@@ -804,6 +879,15 @@ impl OperationQueue {
             None,
             Timestamp::now(),
         )
+    }
+    /// Mark one external effect successful and persist its typed reconciliation result.
+    pub fn succeed_effect<T: Serialize>(&self, key: &str, kind: &str, result: &T) -> ApiResult<()> {
+        serde_json::to_string(result)
+            .map_err(|why| eyre!("Failed to encode webhook effect result — {why}"))
+            .and_then(|result_json| {
+                self.begin_effect(key, kind)
+                    .and_then(|()| self.with_connection(|connection| connection.succeed_effect(key, kind, &result_json)))
+            })
     }
     fn update_state(
         &self,

@@ -1,0 +1,5 @@
+error: unknown with field argument
+ --> tests/ui/with-fail-unknown-field-arg.rs:5:12
+  |
+5 |     #[with(unknown)]
+  |            ^^^^^^^

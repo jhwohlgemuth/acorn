@@ -1,0 +1,5 @@
+error: unknown with container argument
+ --> tests/ui/with-fail-unknown-container-arg.rs:4:8
+  |
+4 | #[with(unknown = "x")]
+  |        ^^^^^^^^^^^^^

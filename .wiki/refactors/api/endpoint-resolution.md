@@ -36,7 +36,5 @@ Migrate the remaining provider endpoint-construction pipelines to the existing `
 
 # Acceptance criteria
 
-- [x] Named resources can be rendered without a request through `Endpoint::resource_url`.
-- [x] Hugging Face resolve URLs and bucket GitLab raw-file URLs use the embedded endpoint catalog.
-- [ ] OpenAI, GitLab, RAiD, and other applicable providers no longer duplicate endpoint construction pipelines.
-- [ ] Application endpoint configuration remains compatible through the `io::config` facade after the remaining provider migrations.
+- OpenAI, GitLab, RAiD, and other applicable providers no longer duplicate endpoint construction pipelines.
+- Application endpoint configuration remains compatible through the `io::config` facade after the remaining provider migrations.

@@ -207,6 +207,8 @@ fn test_create_bot_webhook_deployment_options() {
         "--register-webhook",
         "--volume",
         "acorn-state",
+        "--config",
+        "workflows.yaml",
         "--port",
         "8080",
     ])
@@ -218,6 +220,7 @@ fn test_create_bot_webhook_deployment_options() {
             assert_eq!(arguments.common.event_source, crate::cli::arguments::bot::EventSource::Hybrid);
             assert_eq!(arguments.common.public_url.as_deref(), Some("https://bot.example.org"));
             assert!(arguments.common.register_webhook);
+            assert_eq!(arguments.common.config.as_deref(), Some(Path::new("workflows.yaml")));
             assert_eq!(arguments.volume.as_deref(), Some("acorn-state"));
             assert_eq!(arguments.common.bind_address(), "localhost:8080");
         }

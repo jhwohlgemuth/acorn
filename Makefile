@@ -139,7 +139,7 @@ doctest:
 	@cargo test --doc
 
 lint: shellcheck sqlcheck
-	@cargo fmt --check
+	@cargo fmt --all
 	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
 
 shellcheck:

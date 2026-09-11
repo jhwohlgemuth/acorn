@@ -1,14 +1,15 @@
 //! GitLab API service operations.
 
 use super::{
-    eyre, require_non_empty_secret, ApiResult, BoxFuture, CommitStatus, CommitStatusState, Configuration, EmptyField, Endpoint, ErrorResponse,
-    EventFilterKey, EventsResponse, Fallback, FutureExt, GitLabIdentity, GroupsResponse, InstanceVersion, MergeRequestDetails,
-    MergeRequestDiffsResponse, Note, NoteMetadata, NotesResponse, Options, PaginationKey, Params, ProgrammingLanguageUseResponse,
-    ProgrammingLanguagesResponse, ProjectDetails, ProjectMember, ProjectWebhook, ProjectWebhookRequest, ProjectWebhooksResponse, RemoteResource,
-    RepositoryFile, ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable, TreeResponse, Validate, WebhookOptions,
-    WebhookRegistration, WorkItem, INCLUDED_ENDPOINTS,
+    eyre, require_non_empty_secret, ApiResult, BoxFuture, CommitStatus, CommitStatusState, CommitStatusesResponse, Configuration, EmptyField,
+    Endpoint, ErrorResponse, EventFilterKey, EventsResponse, Fallback, FutureExt, GitLabIdentity, GroupsResponse, InstanceVersion,
+    MergeRequestDetails, MergeRequestDiffsResponse, Note, NoteMetadata, NotesResponse, Options, PaginationKey, Params,
+    ProgrammingLanguageUseResponse, ProgrammingLanguagesResponse, ProjectDetails, ProjectMember, ProjectWebhook, ProjectWebhookRequest,
+    ProjectWebhooksResponse, RemoteResource, RepositoryFile, ResponseContent, RunnerCreationResponse, RunnerMetadata, RunnersResponse, Searchable,
+    TreeResponse, Validate, WebhookOptions, WebhookRegistration, WorkItem, INCLUDED_ENDPOINTS,
 };
 use crate::io::api;
+use crate::util::constants::app::APPLICATION;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
@@ -394,6 +395,7 @@ pub async fn publish_commit_status(
     let action = "commit-status";
     match authenticated_endpoint(action, options) {
         | Ok((endpoint, token)) => {
+            let name = format!("{APPLICATION}/check");
             let state = state.to_string();
             let project_id = project_id.map(|value| value.to_string());
             let params = Params::new()
@@ -401,7 +403,7 @@ pub async fn publish_commit_status(
                 .with_template("identifier", project_id.as_deref().or(options.identifier()))
                 .with_template("sha", Some(sha))
                 .with_body("state", &state)
-                .with_body("name", "acorn/check")
+                .with_body("name", &name)
                 .with_body("description", description)
                 .with_body_maybe("target_url", target_url)
                 .build();
@@ -409,6 +411,25 @@ pub async fn publish_commit_status(
             endpoint.handle_or::<CommitStatus, Fallback<ErrorResponse>>(response)
         }
         | Err(why) => Err(why),
+    }
+}
+/// List external commit statuses using the project, SHA, and filters in `options`.
+pub async fn commit_statuses(options: &Options) -> ApiResult<CommitStatusesResponse> {
+    let action = "commit::statuses";
+    match (authenticated_endpoint(action, options), options.sha()) {
+        | (Ok((endpoint, token)), Ok(sha)) => {
+            let params = Params::new()
+                .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                .with_template("identifier", options.identifier())
+                .with_template("sha", Some(sha))
+                .with_keyvalue("order_by", Some("id"))
+                .with_keyvalue("sort", Some("desc"))
+                .with_custom(options.params())
+                .build();
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<CommitStatusesResponse, Fallback<ErrorResponse>>(response)
+        }
+        | (Err(why), _) | (_, Err(why)) => Err(why),
     }
 }
 /// Fetch minimal GitLab project metadata, including the default branch name
@@ -543,7 +564,10 @@ pub async fn upsert_merge_request_note(options: &Options, marker: &str, body: &s
                 let existing = notes
                     .into_iter()
                     .find(|note| note.body().contains(marker) && note.author_id() == Some(identity.identifier));
-                write_merge_request_note(options, existing.map(|note| note.identifier()), body).await
+                match existing {
+                    | Some(note) if note.body() == body => Ok(note),
+                    | existing => write_merge_request_note(options, existing.map(|note| note.identifier()), body).await,
+                }
             }
             | Err(why) => Err(why),
         },
@@ -584,7 +608,10 @@ pub async fn upsert_work_item_note(options: &Options, marker: &str, body: &str) 
                 let existing = notes
                     .into_iter()
                     .find(|note| note.body().contains(marker) && note.author_id() == Some(identity.identifier));
-                write_work_item_note(options, existing.map(|note| note.identifier()), body).await
+                match existing {
+                    | Some(note) if note.body() == body => Ok(note),
+                    | existing => write_work_item_note(options, existing.map(|note| note.identifier()), body).await,
+                }
             }
             | Err(why) => Err(why),
         },
@@ -623,6 +650,32 @@ pub async fn work_item(options: &Options) -> ApiResult<WorkItem> {
             let response = endpoint.invoke(action, Some(params)).await;
             endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
         }
+        | Err(why) => Err(why),
+    }
+}
+/// Add a label to one GitLab Issue or Task after reconciling its current labels.
+pub async fn add_work_item_label(options: &Options) -> ApiResult<WorkItem> {
+    match options.body() {
+        | Ok(label) => match work_item(options).await {
+            | Ok(item) if item.labels.iter().any(|existing| existing == label) => Ok(item),
+            | Ok(_) => {
+                let action = "issue::update";
+                match authenticated_endpoint(action, options) {
+                    | Ok((endpoint, token)) => {
+                        let params = Params::new()
+                            .with_auth(ExposeSecret::expose_secret(&token), Some(options.token_header()))
+                            .with_template("identifier", options.identifier())
+                            .with_template("internal_identifier", options.internal_identifier.as_deref())
+                            .with_body("add_labels", label)
+                            .build();
+                        let response = endpoint.invoke(action, Some(params)).await;
+                        endpoint.handle_or::<WorkItem, Fallback<ErrorResponse>>(response)
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        },
         | Err(why) => Err(why),
     }
 }

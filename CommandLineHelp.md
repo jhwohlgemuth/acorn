@@ -305,6 +305,7 @@ Bot server container
 
 * `--public-url <URL>` — Externally reachable HTTPS base URL for webhook delivery
 * `--register-webhook` — Register the project webhook before starting
+* `--config <PATH>` — Application configuration containing deployment-owned workflow policy
 * `-n`, `--name <NAME>` — Container name (defaults to `acorn-bot-{identifier}`)
 * `-i`, `--image <IMAGE>` — Acorn Docker image to use for the bot container
 
@@ -1084,6 +1085,7 @@ Webhook/API bot server that polls GitLab for merge request note events
 
 * `--public-url <URL>` — Externally reachable HTTPS base URL for webhook delivery
 * `--register-webhook` — Register the project webhook before starting
+* `--config <PATH>` — Application configuration containing deployment-owned workflow policy
 * `-d`, `--detach` — Create and run the bot in a detached Docker/Podman container instead of in-process
 
 

@@ -1,4 +1,5 @@
 //! Merge request analysis workflow
+use super::effects::Effect;
 use super::{
     merge_request, merge_request_diffs, publish_commit_status, repository_file, upsert_merge_request_note, CommitStatusState, MergeRequestDetails,
     MergeRequestDiff, Options,
@@ -248,24 +249,21 @@ pub async fn analyze_merge_request(options: &Options, check_options: &AnalysisCo
             }),
             | Ok(details) => {
                 let source_project_id = details.source_project_id.unwrap_or(details.project_id);
-                match publish_commit_status(
-                    options,
-                    Some(source_project_id),
-                    sha,
-                    CommitStatusState::Running,
-                    &format!("{} merge request analysis is running", APPLICATION.to_ascii_uppercase()),
-                    Some(&details.web_url),
-                )
-                .await
-                {
+                let state = CommitStatusState::Running;
+                let status_options = options
+                    .clone()
+                    .with_description(format!("{} merge request analysis is running", APPLICATION.to_ascii_uppercase()))
+                    .with_identifier(source_project_id.to_string());
+                let status = publish_status(&status_options, state, Some(&details.web_url));
+                match status.await {
                     | Ok(_) => match build_report(options, &details, sha, check_options).await {
                         | Ok(report) => publish_report(options, &details, report).await,
-                        | Err(why) => fail_workflow(options, Some(source_project_id), sha, Some(&details.web_url), why).await,
+                        | Err(why) => fail_workflow(&status_options, why, Some(&details.web_url)).await,
                     },
                     | Err(why) => Err(why),
                 }
             }
-            | Err(why) => fail_workflow(options, None, sha, None, why).await,
+            | Err(why) => fail_workflow(options, why, None).await,
         },
         | Err(why) => Err(why),
     }
@@ -321,17 +319,13 @@ async fn build_report(
         | Err(why) => Err(why),
     }
 }
-async fn fail_workflow(
-    options: &Options,
-    project_id: Option<u64>,
-    head_sha: &str,
-    target_url: Option<&str>,
-    why: Report,
-) -> ApiResult<MergeRequestAnalysisOutcome> {
-    let description = why.to_string().chars().take(255).collect::<String>();
-    match publish_commit_status(options, project_id, head_sha, CommitStatusState::Failed, &description, target_url).await {
+async fn fail_workflow(options: &Options, why: Report, target_url: Option<&str>) -> ApiResult<MergeRequestAnalysisOutcome> {
+    let state = CommitStatusState::Failed;
+    let status_options = options.clone().with_description(why.to_string().chars().take(255).collect::<String>());
+    let status = publish_status(&status_options, state, target_url);
+    match status.await {
         | Ok(_) => Err(why),
-        | Err(status_error) => Err(eyre!("{why}; failed to publish terminal acorn/check status — {status_error}")),
+        | Err(status_error) => Err(eyre!("{why}; failed to publish terminal {APPLICATION}/check status — {status_error}")),
     }
 }
 async fn fetch_input(
@@ -399,31 +393,48 @@ async fn publish_report(
     } else {
         format!("{application} merge request analysis passed")
     };
-    match upsert_merge_request_note(options, MERGE_REQUEST_REPORT_MARKER, &report.render()).await {
-        | Ok(_) => match publish_commit_status(
-            options,
-            Some(details.source_project_id.unwrap_or(details.project_id)),
-            &report.head_sha,
-            state,
-            &description,
-            Some(&details.web_url),
-        )
-        .await
-        {
+    let body = report.render();
+    let note = match options.effects() {
+        | Some(effects) => {
+            let iid = details.iid.to_string();
+            let effect_key = Effect::content_key(
+                ["gitlab", options.identifier().unwrap_or("unknown"), "merge-request", &iid, "report"],
+                &body,
+            );
+            Effect::new(effect_key, "gitlab-note", Some(effects))
+                .merge_request_note(options, MERGE_REQUEST_REPORT_MARKER, &body)
+                .await
+        }
+        | None => upsert_merge_request_note(options, MERGE_REQUEST_REPORT_MARKER, &body).await,
+    };
+    let status_options = options
+        .clone()
+        .with_description(description)
+        .with_identifier(details.source_project_id.unwrap_or(details.project_id).to_string())
+        .with_sha(&report.head_sha);
+    match note {
+        | Ok(_) => match publish_status(&status_options, state, Some(&details.web_url)).await {
             | Ok(_) if report.requires_retry() => Err(eyre!("One or more merge request inputs could not be fetched or materialized")),
             | Ok(_) => Ok(MergeRequestAnalysisOutcome::Published(report)),
             | Err(why) => Err(why),
         },
-        | Err(why) => {
-            fail_workflow(
-                options,
-                Some(details.source_project_id.unwrap_or(details.project_id)),
-                &report.head_sha,
-                Some(&details.web_url),
-                why,
-            )
-            .await
-        }
+        | Err(why) => fail_workflow(&status_options, why, Some(&details.web_url)).await,
+    }
+}
+async fn publish_status(options: &Options, state: CommitStatusState, target_url: Option<&str>) -> ApiResult<super::CommitStatus> {
+    match (options.sha(), options.description()) {
+        | (Ok(head_sha), Ok(description)) => match options.effects() {
+            | Some(effects) => {
+                let project = options.identifier().unwrap_or("unknown");
+                let desired = format!("{state}:{description}:{}", target_url.unwrap_or_default());
+                let effect_key = Effect::content_key(["gitlab", project, "commit", head_sha, "status"], &desired);
+                Effect::new(effect_key, "gitlab-commit-status", Some(effects))
+                    .commit_status(options, state, description, target_url)
+                    .await
+            }
+            | None => publish_commit_status(options, None, head_sha, state, description, target_url).await,
+        },
+        | (Err(why), _) | (_, Err(why)) => Err(why),
     }
 }
 #[cfg(test)]

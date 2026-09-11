@@ -1,7 +1,9 @@
 //! GitLab webhook authentication, normalization, and durable processing
 use super::bot::Config;
 #[cfg(feature = "analysis")]
-use super::intake::analyze_work_item;
+use super::intake::{complete_citation_merge, Report as IntakeReport};
+#[cfg(feature = "analysis")]
+use super::review;
 use crate::io::api;
 use crate::io::api::json_rpc;
 use crate::io::api::webhooks::store::OperationQueue;
@@ -191,6 +193,12 @@ impl webhooks::Delivery<HookPayload> {
                 action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
                 ..
             } if !actor.is_bot => Some(format!("mr-check:{}:{iid}:{head_sha}", actor.project_id)),
+            | HookPayload::MergeRequest {
+                actor,
+                iid,
+                action: MergeRequestAction::Merge,
+                ..
+            } if !actor.is_bot => Some(format!("citation-complete:{}:{iid}", actor.project_id)),
             | HookPayload::Note {
                 actor,
                 note_id,
@@ -227,16 +235,46 @@ impl webhooks::Delivery<HookPayload> {
         match self.event {
             | HookPayload::MergeRequest {
                 iid,
+                action: MergeRequestAction::Merge,
+                ..
+            } => match config.deployment.workflow("repository-quality") {
+                | Ok(policy) if policy.allows(super::WorkflowEffect::Label) && policy.allows(super::WorkflowEffect::CompletionComment) => {
+                    let options = config
+                        .options
+                        .clone()
+                        .with_effects(config.operation_queue.clone())
+                        .with_merge_request_iid(iid);
+                    complete_citation_merge(&options)
+                        .await
+                        .inspect(|completed| info!(completed, "Processed GitLab citation merge-completion operation"))
+                        .map(|_| ())
+                }
+                | Ok(_) => Err(eyre!("Citation merge completion requires label and completion-comment effects")),
+                | Err(why) => Err(why),
+            },
+            | HookPayload::MergeRequest {
+                iid,
                 head_sha: Some(head_sha),
                 action: MergeRequestAction::Open | MergeRequestAction::Reopen | MergeRequestAction::Update,
                 ..
             } => {
-                let options = config.options.clone().with_internal_identifier(iid.to_string()).with_sha(head_sha);
-                super::review::analyze_merge_request(&options, &config.analysis_options)
-                    .await
-                    .map(|outcome| {
-                        info!("Processed GitLab merge request analysis operation: {outcome:?}");
-                    })
+                let options = config
+                    .options
+                    .clone()
+                    .with_effects(config.operation_queue.clone())
+                    .with_internal_identifier(iid.to_string())
+                    .with_sha(head_sha);
+                let required_effects = [super::WorkflowEffect::CommitStatus, super::WorkflowEffect::Note];
+                match config.deployment.workflow("repository-quality") {
+                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
+                        review::analyze_merge_request(&options, &config.analysis_options)
+                            .await
+                            .inspect(|outcome| info!("Processed GitLab merge request analysis operation: {outcome:?}"))
+                            .map(|_| ())
+                    }
+                    | Ok(_) => Err(eyre!("Merge request analysis requires commit-status and note effects")),
+                    | Err(why) => Err(why),
+                }
             }
             | HookPayload::Note {
                 actor,
@@ -245,10 +283,27 @@ impl webhooks::Delivery<HookPayload> {
                 noteable_type,
                 ..
             } if noteable_type.eq_ignore_ascii_case("issue") || noteable_type.eq_ignore_ascii_case("task") => {
-                let options = config.options.clone().with_internal_identifier(iid.to_string());
-                analyze_work_item(&options, &actor, note_id).await.map(|report| {
-                    info!("Processed GitLab work-item intake operation: {report:?}");
-                })
+                let options = config
+                    .options
+                    .clone()
+                    .with_effects(config.operation_queue.clone())
+                    .with_internal_identifier(iid.to_string());
+                let required_effects = [
+                    super::WorkflowEffect::Branch,
+                    super::WorkflowEffect::Commit,
+                    super::WorkflowEffect::DraftMergeRequest,
+                    super::WorkflowEffect::Note,
+                ];
+                match config.deployment.workflow("repository-quality") {
+                    | Ok(policy) if required_effects.into_iter().all(|effect| policy.allows(effect)) => {
+                        IntakeReport::analyze(&options, &actor, note_id)
+                            .await
+                            .inspect(|report| info!("Processed GitLab work-item intake operation: {report:?}"))
+                            .map(|_| ())
+                    }
+                    | Ok(_) => Err(eyre!("Citation intake requires branch, commit, draft-merge-request, and note effects")),
+                    | Err(why) => Err(why),
+                }
             }
             | HookPayload::Note {
                 actor,
@@ -266,9 +321,11 @@ impl webhooks::Delivery<HookPayload> {
                         }
                     }) {
                         | Ok(()) => match super::merge_request(&options).await {
-                            | Ok(details) => details.process(&workflow, &options).await.map(|result| {
-                                info!("Processed GitLab repository workflow operation: {result:?}");
-                            }),
+                            | Ok(details) => details
+                                .process(&workflow, &options, &config.deployment, Some(&config.operation_queue))
+                                .await
+                                .inspect(|result| info!("Processed GitLab repository workflow operation: {result:?}"))
+                                .map(|_| ()),
                             | Err(why) => Err(why),
                         },
                         | Err(why) => Err(why),

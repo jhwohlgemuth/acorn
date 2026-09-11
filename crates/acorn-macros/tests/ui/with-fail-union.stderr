@@ -1,0 +1,8 @@
+error: With only works with structs
+ --> tests/ui/with-fail-union.rs:4:1
+  |
+4 | / union Foo {
+5 | |     integer: u32,
+6 | |     float: f32,
+7 | | }
+  | |_^

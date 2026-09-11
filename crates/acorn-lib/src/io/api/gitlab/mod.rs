@@ -1,5 +1,6 @@
 //! Module for interacting with GitLab API
 //!
+use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::{
     self, require_non_empty_secret, Authenticator, Configuration, Credential, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param,
     Params, RemoteResource, RepositoryFileMetadata, ResponseContent, TreeEntry, ValueValidator, INCLUDED_ENDPOINTS,
@@ -31,16 +32,21 @@ use veil::Redact;
 
 pub mod automation;
 pub mod bot;
+mod effects;
 #[cfg(feature = "analysis")]
 pub mod intake;
+pub mod policy;
 #[cfg(feature = "analysis")]
 pub mod review;
 pub mod service;
 pub mod webhook;
 
+pub use policy::{DeploymentConfig, WorkflowEffect, WorkflowOutputMode, WorkflowOutputs, WorkflowPolicy};
 pub use service::*;
 pub use webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 
+/// Type for a GitLab commit status list response
+pub type CommitStatusesResponse = Vec<CommitStatus>;
 /// Type for GitLab events response
 pub type EventsResponse = Vec<EventDetails>;
 /// Minimal stable GitLab user identity
@@ -530,6 +536,8 @@ pub struct InstanceVersion {
 pub struct MergeRequestDetails {
     /// Merge request IID within the target project
     pub iid: u64,
+    /// Merge request author when returned by GitLab.
+    pub author: Option<GitLabIdentity>,
     /// Target project identifier
     pub project_id: u64,
     /// Source project identifier, including fork projects
@@ -662,9 +670,13 @@ pub struct Options {
     pub token_header: &'static str,
     /// Request body payload
     pub body: Option<String>,
+    /// Commit-status description
+    pub description: Option<String>,
     /// GitLab domain (defaults to gitlab.com)
     #[builder(default = String::from("gitlab.com"))]
     pub domain: String,
+    /// Durable operation queue used to reconcile webhook effects
+    pub effects: Option<OperationQueue>,
     /// Project or group identifier
     pub identifier: Option<String>,
     /// Repository path used for tree requests
@@ -674,6 +686,8 @@ pub struct Options {
     pub page: u32,
     /// Internal resource identifier (e.g., merge request IID)
     pub internal_identifier: Option<String>,
+    /// Numeric merge request internal identifier
+    pub merge_request_iid: Option<u64>,
     /// Exact commit SHA used by head-specific operations
     pub sha: Option<String>,
     /// GitLab runner metadata necessary for creation
@@ -1075,6 +1089,9 @@ pub struct WorkItem {
     /// GitLab issue type, including `issue` or `task`
     #[serde(default)]
     pub issue_type: String,
+    /// Current work-item labels.
+    #[serde(default)]
+    pub labels: Vec<String>,
     /// Whether the work item is confidential
     #[serde(default)]
     pub confidential: bool,
@@ -1277,8 +1294,11 @@ impl Configuration for Options {
             sha: var("CI_COMMIT_SHA").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
+            description: None,
+            effects: None,
             path: None,
             page: 1,
+            merge_request_iid: None,
             runner_metadata: RunnerMetadata::default(),
             custom_params: vec![],
         }
@@ -1334,60 +1354,103 @@ impl Default for Options {
     }
 }
 impl Options {
-    /// Return the HTTP header used to send the authentication token.
-    pub fn token_header(&self) -> &str {
-        self.token_header
+    /// Return the configured request body.
+    pub fn body(&self) -> ApiResult<&str> {
+        self.body
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab request body is required"))
     }
-    /// Return a copy of options with an internal resource identifier set
-    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
-        Self {
-            internal_identifier: Some(value.into()),
-            ..self
-        }
+    /// Return the configured commit-status description.
+    pub fn description(&self) -> ApiResult<&str> {
+        self.description
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab commit-status description is required"))
     }
-    /// Return a copy of options with an exact commit SHA set
-    pub fn with_sha(self, value: impl Into<String>) -> Self {
-        Self {
-            sha: Some(value.into()),
-            ..self
-        }
+    /// Return the durable operation queue, when configured.
+    pub fn effects(&self) -> Option<&OperationQueue> {
+        self.effects.as_ref()
     }
-    /// Return the configured internal resource identifier
+    /// Return the configured internal resource identifier.
     pub fn internal_identifier(&self) -> ApiResult<&str> {
         self.internal_identifier
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| eyre!("GitLab internal resource identifier is required"))
     }
-    /// Return the configured exact commit SHA
-    pub fn sha(&self) -> ApiResult<&str> {
-        self.sha
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
+    /// Return the configured merge request internal identifier.
+    pub fn merge_request_iid(&self) -> ApiResult<u64> {
+        self.merge_request_iid.ok_or_else(|| eyre!("GitLab merge request IID is required"))
     }
-    /// Return the configured repository path
+    /// Return the configured repository path.
     pub fn path(&self) -> ApiResult<&str> {
         self.path
             .as_deref()
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| eyre!("GitLab repository path is required"))
     }
-    /// Return a copy of options with page number set
+    /// Return the configured exact commit SHA.
+    pub fn sha(&self) -> ApiResult<&str> {
+        self.sha
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab commit SHA is required"))
+    }
+    /// Return the HTTP header used to send the authentication token.
+    pub fn token_header(&self) -> &str {
+        self.token_header
+    }
+    /// Return a copy of options with a commit-status description set.
+    pub fn with_description(self, value: impl Into<String>) -> Self {
+        Self {
+            description: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with an internal resource identifier set.
+    pub fn with_internal_identifier(self, value: impl Into<String>) -> Self {
+        Self {
+            internal_identifier: Some(value.into()),
+            ..self
+        }
+    }
+    /// Return a copy of options with a durable operation queue set.
+    pub fn with_effects(self, value: OperationQueue) -> Self {
+        Self {
+            effects: Some(value),
+            ..self
+        }
+    }
+    /// Return a copy of options with a merge request internal identifier set.
+    pub fn with_merge_request_iid(self, value: u64) -> Self {
+        Self {
+            merge_request_iid: Some(value),
+            ..self
+        }
+    }
+    /// Return a copy of options with page number set.
     pub fn with_page(self, value: u32) -> Self {
         Self { page: value, ..self }
     }
-    /// Return a copy of options with repository path set
+    /// Return a copy of options with repository path set.
     pub fn with_path(self, value: impl Into<String>) -> Self {
         Self {
             path: Some(value.into()),
             ..self
         }
     }
-    /// Return a copy of options with runner metadata set
+    /// Return a copy of options with runner metadata set.
     pub fn with_runner(self, metadata: RunnerMetadata) -> Self {
         Self {
             runner_metadata: metadata,
+            ..self
+        }
+    }
+    /// Return a copy of options with an exact commit SHA set.
+    pub fn with_sha(self, value: impl Into<String>) -> Self {
+        Self {
+            sha: Some(value.into()),
             ..self
         }
     }

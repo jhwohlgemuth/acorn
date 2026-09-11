@@ -997,6 +997,22 @@ pub fn case_insensitive_glob(value: &str) -> String {
         })
         .collect()
 }
+/// Expand one comma-separated brace expression in a glob pattern.
+pub fn expand_brace_glob(pattern: &str) -> Result<Vec<String>, String> {
+    match (pattern.find('{'), pattern.find('}')) {
+        | (None, None) => Ok(vec![pattern.to_string()]),
+        | (Some(open), Some(close)) if open < close => {
+            let prefix = &pattern[..open];
+            let suffix = &pattern[close.saturating_add(1)..];
+            let choices = pattern[open.saturating_add(1)..close].split(',').collect::<Vec<_>>();
+            match choices.iter().any(|choice| choice.is_empty()) || suffix.contains(['{', '}']) {
+                | true => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
+                | false => Ok(choices.into_iter().map(|choice| format!("{prefix}{choice}{suffix}")).collect()),
+            }
+        }
+        | _ => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
+    }
+}
 /// Returns true when any pattern exists in the haystack.
 pub fn contains_any(patterns: &[&str], haystack: &str) -> bool {
     match AhoCorasick::new(patterns) {

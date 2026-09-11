@@ -7,6 +7,7 @@ use acorn::{args, cmd};
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]
@@ -22,6 +23,7 @@ pub async fn run(
     event_source: EventSource,
     public_url: &Option<String>,
     register_webhook: bool,
+    config: &Option<PathBuf>,
     volume: &Option<String>,
     remote: &Option<Remote>,
 ) -> Result<(), Report> {
@@ -58,6 +60,7 @@ pub async fn run(
                 event_source,
                 public_url.as_deref(),
                 register_webhook,
+                config.as_deref(),
                 volume.as_deref(),
             );
             let container_args = match remote.as_ref() {
@@ -96,6 +99,7 @@ fn create_bot_args(
     event_source: EventSource,
     public_url: Option<&str>,
     register_webhook: bool,
+    config: Option<&Path>,
     volume: Option<&str>,
 ) -> Vec<OsString> {
     let port = bind.and_then(bind_port).unwrap_or(3000);
@@ -111,6 +115,16 @@ fn create_bot_args(
     let after_args = after.map_or_else(|| args![], |after| args!["--after", after]);
     let public_url_args = public_url.map_or_else(|| args![], |public_url| args!["--public-url", public_url]);
     let register_args = if register_webhook { args!["--register-webhook"] } else { args![] };
+    let config_mount_args = config.map_or_else(
+        || args![],
+        |path| {
+            args![
+                "--mount",
+                format!("type=bind,source={},target=/etc/acorn/.acorn,readonly", path.display())
+            ]
+        },
+    );
+    let config_args = config.map_or_else(|| args![], |_| args!["--config", "/etc/acorn/.acorn"]);
     args![
         "run",
         "--detach",
@@ -121,6 +135,7 @@ fn create_bot_args(
         ("--env", "ACORN_DATABASE_PATH=/var/lib/acorn/acorn.db"),
         ..environment_args,
         ..domain_args,
+        ..config_mount_args,
         image,
         "serve",
         "bot",
@@ -130,7 +145,8 @@ fn create_bot_args(
         ..poll_args,
         ..after_args,
         ..public_url_args,
-        ..register_args
+        ..register_args,
+        ..config_args
     ]
 }
 fn bind_port(bind: &str) -> Option<u16> {
@@ -139,90 +155,4 @@ fn bind_port(bind: &str) -> Option<u16> {
         .or_else(|| bind.parse().ok())
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_remote_container_targets_the_requested_docker_host() {
-        let remote = "ssh://builder".parse::<Remote>().unwrap();
-        let command = remote
-            .docker_args(create_bot_args(
-                "42",
-                "acorn-bot-42",
-                "acorn:latest",
-                None,
-                Some(10),
-                None,
-                None,
-                EventSource::Poll,
-                None,
-                false,
-                None,
-            ))
-            .into_iter()
-            .map(|value| value.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-        assert!(command
-            .iter()
-            .map(String::as_str)
-            .take(4)
-            .eq(["--host", "ssh://builder", "run", "--detach"]));
-    }
-    #[tokio::test]
-    async fn test_remote_container_rejects_non_docker_runtime_before_execution() {
-        let remote = "ssh://builder".parse::<Remote>().unwrap();
-        let result = run(
-            "42",
-            &None,
-            &None,
-            &Some(Executor::Podman),
-            &None,
-            &None,
-            &None,
-            &None,
-            EventSource::Poll,
-            &None,
-            false,
-            &None,
-            &Some(remote),
-        )
-        .await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("requires the docker runtime"));
-    }
-    #[test]
-    fn test_webhook_container_is_reachable_durable_and_redacts_credentials() {
-        temp_env::with_vars(
-            [
-                ("GITLAB_TOKEN", Some("outbound-secret")),
-                ("GITLAB_WEBHOOK_TOKEN", Some("inbound-secret")),
-                ("GITLAB_WEBHOOK_SIGNING_TOKEN", None),
-            ],
-            || {
-                let args = create_bot_args(
-                    "42",
-                    "acorn-bot-42",
-                    "acorn:latest",
-                    Some("localhost:8080"),
-                    Some(10),
-                    None,
-                    None,
-                    EventSource::Webhook,
-                    Some("https://bot.example.org"),
-                    true,
-                    None,
-                )
-                .into_iter()
-                .map(|value| value.to_string_lossy().into_owned())
-                .collect::<Vec<_>>();
-                assert!(args.windows(2).any(|values| values == ["--publish", "8080:8080"]));
-                assert!(args
-                    .windows(2)
-                    .any(|values| { values == ["--mount", "type=volume,source=acorn-bot-42-state,target=/var/lib/acorn",] }));
-                assert!(args.windows(2).any(|values| values == ["--bind", "0.0.0.0:8080"]));
-                assert!(args.windows(2).any(|values| values == ["--env", "GITLAB_TOKEN"]));
-                assert!(args.windows(2).any(|values| values == ["--env", "GITLAB_WEBHOOK_TOKEN"]));
-                assert!(!args.iter().any(|value| value.contains("secret")));
-            },
-        );
-    }
-}
+mod tests;

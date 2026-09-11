@@ -1,7 +1,7 @@
 use super::*;
 use crate::analyzer::host::discovery::{ArtifactCandidate, Candidate};
 use crate::io::api::citeas;
-use crate::io::api::gitlab::intake::{analyze_work_item, verified_command_author, Authorization};
+use crate::io::api::gitlab::intake::{verified_command_author, Authorization, Report};
 use crate::io::api::gitlab::{webhook, HookActor, Note, WorkItem, WorkItemUser};
 use crate::test::server::TestServer;
 use crate::util::constants::app::WORK_ITEM_REPORT_MARKER;
@@ -128,6 +128,7 @@ fn content_excludes_commands_and_non_human_or_later_notes() {
         description: "doi:10.1234/example".to_string(),
         author: WorkItemUser::new(1, "user-1", false),
         issue_type: "issue".to_string(),
+        labels: vec![],
         confidential: false,
     };
     let note = |identifier, body: &str, author, system| Note::WorkItem {
@@ -192,7 +193,7 @@ async fn creator_issue_intake_reports_multiple_incomplete_artifacts() {
         .identifier("30")
         .internal_identifier("7")
         .build();
-    let report = analyze_work_item(&options, &HookActor::new(30, 1, "user-1", false), 10).await.unwrap();
+    let report = Report::analyze(&options, &HookActor::new(30, 1, "user-1", false), 10).await.unwrap();
     assert_eq!(report.authorization, Authorization::Creator);
     assert_eq!(report.candidates.len(), 2);
     assert!(report.candidates.iter().all(|candidate| candidate.cff.is_none()));
@@ -276,7 +277,7 @@ async fn existing_gitlab_repository_cff_completes_candidate() {
         .identifier("30")
         .internal_identifier("7")
         .build();
-    let report = analyze_work_item(&options, &HookActor::new(30, 1, "user-1", false), 10).await.unwrap();
+    let report = Report::analyze(&options, &HookActor::new(30, 1, "user-1", false), 10).await.unwrap();
     assert_eq!(report.candidates.len(), 1);
     let candidate = report.candidates.first().unwrap();
     assert_eq!(candidate.artifact.title.as_deref(), Some("Repository result"));
@@ -340,7 +341,7 @@ async fn maintainer_task_intake_updates_existing_report_with_embedded_cff() {
         .identifier("30")
         .internal_identifier("7")
         .build();
-    let report = analyze_work_item(&options, &HookActor::new(30, 2, "user-2", false), 10).await.unwrap();
+    let report = Report::analyze(&options, &HookActor::new(30, 2, "user-2", false), 10).await.unwrap();
     assert_eq!(report.authorization, Authorization::Maintainer);
     assert_eq!(report.candidates.len(), 1);
     assert!(report.candidates.first().unwrap().cff.is_some());
@@ -402,7 +403,7 @@ async fn reporter_and_membership_lookup_failure_are_denied_safely() {
             .identifier("30")
             .internal_identifier("7")
             .build();
-        let report = analyze_work_item(&options, &HookActor::new(30, 2, "user-2", false), 10).await.unwrap();
+        let report = Report::analyze(&options, &HookActor::new(30, 2, "user-2", false), 10).await.unwrap();
         assert!(matches!(report.authorization, Authorization::Denied { .. }));
         assert!(report.candidates.is_empty());
         assert!(state

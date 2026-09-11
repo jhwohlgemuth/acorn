@@ -130,6 +130,30 @@ async fn test_dispatch_is_one_shot_and_applies_callback_safety_policy() {
     assert!(!format!("{request:?}").contains("bearer-secret"));
     assert!(!format!("{target:?}").contains("secret"));
 }
+#[test]
+fn test_effect_results_are_durable_typed_and_kind_safe() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-effects-{}.db", nanoid::nanoid!())));
+    queue.begin_effect("gitlab:30:issue:7:label", "gitlab-label").unwrap();
+    assert_eq!(
+        queue
+            .effect_result::<serde_json::Value>("gitlab:30:issue:7:label", "gitlab-label")
+            .unwrap(),
+        None
+    );
+    let result = serde_json::json!({"label": "acorn::collected"});
+    queue.succeed_effect("gitlab:30:issue:7:label", "gitlab-label", &result).unwrap();
+    assert_eq!(
+        queue
+            .effect_result::<serde_json::Value>("gitlab:30:issue:7:label", "gitlab-label")
+            .unwrap(),
+        Some(result)
+    );
+    assert!(queue
+        .begin_effect("gitlab:30:issue:7:label", "gitlab-note")
+        .unwrap_err()
+        .to_string()
+        .contains("already assigned"));
+}
 #[tokio::test]
 async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
     let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));

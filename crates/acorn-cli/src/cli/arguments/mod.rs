@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use strum::EnumIs;
 /// Bot command arguments.
 pub(crate) mod bot {
-    use super::{parse_executor, Executor, RemoteTarget, ValueEnum, Verbosity};
+    use super::{parse_executor, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
     use clap::Args;
 
     const DEFAULT_HOST: &str = "localhost";
@@ -73,6 +73,9 @@ pub(crate) mod bot {
         /// Register the project webhook before starting
         #[arg(long, requires = "public_url", help_heading = "FLAGS")]
         pub(crate) register_webhook: bool,
+        /// Application configuration containing deployment-owned workflow policy
+        #[arg(long, value_name = "PATH", value_hint = clap::ValueHint::FilePath, help_heading = "OPTIONS")]
+        pub(crate) config: Option<PathBuf>,
     }
     /// Arguments for `acorn create bot`
     #[derive(Clone, Debug, Args)]
@@ -143,6 +146,7 @@ pub(crate) mod bot {
                 event_source: EventSource::Poll,
                 public_url: None,
                 register_webhook: false,
+                config: None,
             }
         }
 

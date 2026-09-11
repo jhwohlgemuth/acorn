@@ -173,6 +173,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     args.common.event_source,
                     &args.common.public_url,
                     args.common.register_webhook,
+                    &args.common.config,
                     &args.volume,
                     &args.target.remote,
                 )
@@ -531,6 +532,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     args.common.event_source,
                     args.common.public_url.as_deref(),
                     args.common.register_webhook,
+                    args.common.config.as_deref(),
                 )
                 .await
             }),
