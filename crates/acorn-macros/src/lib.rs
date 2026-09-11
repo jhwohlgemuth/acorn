@@ -150,6 +150,15 @@ pub fn derive_database_row(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_database_row(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
+/// Derive deterministic, allocation-compatible ACORN validation.
+///
+/// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
+/// and `#[validate(each(async(function = "path")))]` on supported collections.
+#[proc_macro_derive(Validate, attributes(validate))]
+pub fn derive_validate(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 /// Derive immutable consuming `with_*` setters for structs
 ///
 /// Generates `with_<field>(self, value: impl Into<T>) -> Self` for named fields and `with_<index>(self, value: impl Into<T>) -> Self` for tuple structs.
@@ -183,15 +192,6 @@ pub fn derive_database_row(input: TokenStream) -> TokenStream {
 pub fn derive_with(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_with(&input).unwrap_or_else(|why| why.to_compile_error()).into()
-}
-/// Derive deterministic, allocation-compatible ACORN validation.
-///
-/// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
-/// and `#[validate(each(async(function = "path")))]` on supported collections.
-#[proc_macro_derive(Validate, attributes(validate))]
-pub fn derive_validate(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
 }
 fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str]) -> syn::Result<()> {
     nested.into_iter().try_for_each(|meta| {
@@ -296,157 +296,6 @@ fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStr
             }
         }
     })
-}
-fn expand_with(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
-    let name = &input.ident;
-    let vis = &input.vis;
-    let config = extract_with_config(&input.attrs)?;
-    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
-    let methods = match &input.data {
-        | Data::Struct(data) => match &data.fields {
-            | Fields::Named(fields) => expand_with_named(&fields.named, &config, vis)?,
-            | Fields::Unnamed(fields) => expand_with_unnamed(&fields.unnamed, &config, vis)?,
-            | Fields::Unit => Vec::new(),
-        },
-        | _ => return Err(syn::Error::new_spanned(input, "With only works with structs")),
-    };
-    Ok(quote! {
-        impl #impl_generics #name #type_generics #where_clause {
-            #(#methods)*
-        }
-    })
-}
-fn expand_with_named(
-    fields: &Punctuated<syn::Field, Token![,]>,
-    config: &WithConfig,
-    vis: &syn::Visibility,
-) -> syn::Result<Vec<proc_macro2::TokenStream>> {
-    fields
-        .iter()
-        .filter_map(|field| {
-            let field_config = match extract_with_field_config(&field.attrs) {
-                | Ok(c) => c,
-                | Err(why) => return Some(Err(why)),
-            };
-            if field_config.skip {
-                return None;
-            }
-            let ident = match &field.ident {
-                | Some(id) => id,
-                | None => return Some(Err(syn::Error::new_spanned(field, "With requires named fields"))),
-            };
-            let stripped = ident.to_string().trim_start_matches("r#").to_string();
-            let method = format_ident!("{}{}", config.prefix, stripped, span = ident.span());
-            let ty = &field.ty;
-            Some(Ok(quote! {
-                #[doc = ::core::concat!("Setter for `", stringify!(#ident), "` — consumes `self` and returns updated `Self`.")]
-                #[allow(clippy::needless_update)]
-                #vis fn #method(self, #ident: impl ::core::convert::Into<#ty>) -> Self {
-                    Self { #ident: ::core::convert::Into::into(#ident), ..self }
-                }
-            }))
-        })
-        .collect()
-}
-fn expand_with_unnamed(
-    fields: &Punctuated<syn::Field, Token![,]>,
-    config: &WithConfig,
-    vis: &syn::Visibility,
-) -> syn::Result<Vec<proc_macro2::TokenStream>> {
-    let len = fields.len();
-    let self_idents: Vec<syn::Ident> = (0..len).map(|i| format_ident!("__self_{}", i)).collect();
-    fields
-        .iter()
-        .enumerate()
-        .filter_map(|(index, field)| {
-            let field_config = match extract_with_field_config(&field.attrs) {
-                | Ok(c) => c,
-                | Err(why) => return Some(Err(why)),
-            };
-            if field_config.skip {
-                return None;
-            }
-            let ty = &field.ty;
-            let method = format_ident!("{}{}", config.prefix, index);
-            let param = format_ident!("__with_{}", index);
-            let args: Vec<proc_macro2::TokenStream> = (0..len)
-                .map(|j| {
-                    if j == index {
-                        quote! { ::core::convert::Into::into(#param) }
-                    } else {
-                        let ident = &self_idents[j];
-                        quote! { #ident }
-                    }
-                })
-                .collect();
-            let destructure = &self_idents;
-            Some(Ok(quote! {
-                #[doc = ::core::concat!("Setter for field `", stringify!(#index), "` — consumes `self` and returns updated `Self`.")]
-                #[allow(clippy::needless_update)]
-                #vis fn #method(self, #param: impl ::core::convert::Into<#ty>) -> Self {
-                    let Self(#(#destructure),*) = self;
-                    Self(#(#args),*)
-                }
-            }))
-        })
-        .collect()
-}
-fn extract_with_config(attrs: &[syn::Attribute]) -> syn::Result<WithConfig> {
-    let mut prefix = "with_".to_string();
-    for attr in attrs {
-        if attr.path().is_ident("with") {
-            match &attr.meta {
-                | Meta::List(list) => {
-                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
-                    for meta in metas {
-                        if meta.path().is_ident("prefix") {
-                            if let Meta::NameValue(value) = meta {
-                                if let Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }) = value.value {
-                                    prefix = lit_str.value();
-                                } else {
-                                    return Err(syn::Error::new_spanned(value, "prefix requires string value"));
-                                }
-                            } else {
-                                return Err(syn::Error::new_spanned(meta, "prefix requires string value"));
-                            }
-                        } else {
-                            return Err(syn::Error::new_spanned(meta, "unknown with container argument"));
-                        }
-                    }
-                }
-                | _ => return Err(syn::Error::new_spanned(attr, "with requires parenthesized arguments")),
-            }
-        }
-    }
-    Ok(WithConfig { prefix })
-}
-fn extract_with_field_config(attrs: &[syn::Attribute]) -> syn::Result<WithFieldConfig> {
-    let mut skip = false;
-    for attr in attrs {
-        if attr.path().is_ident("with") {
-            match &attr.meta {
-                | Meta::List(list) => {
-                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
-                    if metas.is_empty() {
-                        return Err(syn::Error::new_spanned(attr, "with requires skip"));
-                    }
-                    for meta in metas {
-                        if meta.path().is_ident("skip") {
-                            match meta {
-                                | Meta::Path(_) => skip = true,
-                                | _ => return Err(syn::Error::new_spanned(meta, "skip takes no value")),
-                            }
-                        } else {
-                            return Err(syn::Error::new_spanned(meta, "unknown with field argument"));
-                        }
-                    }
-                }
-                | Meta::Path(_) => skip = true,
-                | _ => return Err(syn::Error::new_spanned(attr, "invalid with attribute")),
-            }
-        }
-    }
-    Ok(WithFieldConfig { skip })
 }
 fn expand_field_rule(
     acorn: &proc_macro2::TokenStream,
@@ -742,6 +591,100 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
         }
     })
 }
+fn expand_with(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
+    let vis = &input.vis;
+    let config = extract_with_config(&input.attrs)?;
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let methods = match &input.data {
+        | Data::Struct(data) => match &data.fields {
+            | Fields::Named(fields) => expand_with_named(&fields.named, &config, vis)?,
+            | Fields::Unnamed(fields) => expand_with_unnamed(&fields.unnamed, &config, vis)?,
+            | Fields::Unit => Vec::new(),
+        },
+        | _ => return Err(syn::Error::new_spanned(input, "With only works with structs")),
+    };
+    Ok(quote! {
+        impl #impl_generics #name #type_generics #where_clause {
+            #(#methods)*
+        }
+    })
+}
+fn expand_with_named(
+    fields: &Punctuated<syn::Field, Token![,]>,
+    config: &WithConfig,
+    vis: &syn::Visibility,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    fields
+        .iter()
+        .filter_map(|field| {
+            let field_config = match extract_with_field_config(&field.attrs) {
+                | Ok(c) => c,
+                | Err(why) => return Some(Err(why)),
+            };
+            if field_config.skip {
+                return None;
+            }
+            let ident = match &field.ident {
+                | Some(id) => id,
+                | None => return Some(Err(syn::Error::new_spanned(field, "With requires named fields"))),
+            };
+            let stripped = ident.to_string().trim_start_matches("r#").to_string();
+            let method = format_ident!("{}{}", config.prefix, stripped, span = ident.span());
+            let ty = &field.ty;
+            Some(Ok(quote! {
+                #[doc = ::core::concat!("Setter for `", stringify!(#ident), "` — consumes `self` and returns updated `Self`.")]
+                #[allow(clippy::needless_update)]
+                #vis fn #method(self, #ident: impl ::core::convert::Into<#ty>) -> Self {
+                    Self { #ident: ::core::convert::Into::into(#ident), ..self }
+                }
+            }))
+        })
+        .collect()
+}
+fn expand_with_unnamed(
+    fields: &Punctuated<syn::Field, Token![,]>,
+    config: &WithConfig,
+    vis: &syn::Visibility,
+) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    let len = fields.len();
+    let self_idents: Vec<syn::Ident> = (0..len).map(|i| format_ident!("__self_{}", i)).collect();
+    fields
+        .iter()
+        .enumerate()
+        .filter_map(|(index, field)| {
+            let field_config = match extract_with_field_config(&field.attrs) {
+                | Ok(c) => c,
+                | Err(why) => return Some(Err(why)),
+            };
+            if field_config.skip {
+                return None;
+            }
+            let ty = &field.ty;
+            let method = format_ident!("{}{}", config.prefix, index);
+            let param = format_ident!("__with_{}", index);
+            let args: Vec<proc_macro2::TokenStream> = (0..len)
+                .map(|j| {
+                    if j == index {
+                        quote! { ::core::convert::Into::into(#param) }
+                    } else {
+                        let ident = &self_idents[j];
+                        quote! { #ident }
+                    }
+                })
+                .collect();
+            let destructure = &self_idents;
+            Some(Ok(quote! {
+                #[doc = ::core::concat!("Setter for field `", stringify!(#index), "` — consumes `self` and returns updated `Self`.")]
+                #[allow(clippy::needless_update)]
+                #vis fn #method(self, #param: impl ::core::convert::Into<#ty>) -> Self {
+                    let Self(#(#destructure),*) = self;
+                    Self(#(#args),*)
+                }
+            }))
+        })
+        .collect()
+}
 fn extract_row_config(attrs: &[syn::Attribute]) -> syn::Result<RowConfig> {
     let mut order_by = None;
     let mut table = None;
@@ -779,6 +722,63 @@ fn extract_row_config(attrs: &[syn::Attribute]) -> syn::Result<RowConfig> {
         }
     }
     Ok(RowConfig { order_by, table })
+}
+fn extract_with_config(attrs: &[syn::Attribute]) -> syn::Result<WithConfig> {
+    let mut prefix = "with_".to_string();
+    for attr in attrs {
+        if attr.path().is_ident("with") {
+            match &attr.meta {
+                | Meta::List(list) => {
+                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+                    for meta in metas {
+                        if meta.path().is_ident("prefix") {
+                            if let Meta::NameValue(value) = meta {
+                                if let Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }) = value.value {
+                                    prefix = lit_str.value();
+                                } else {
+                                    return Err(syn::Error::new_spanned(value, "prefix requires string value"));
+                                }
+                            } else {
+                                return Err(syn::Error::new_spanned(meta, "prefix requires string value"));
+                            }
+                        } else {
+                            return Err(syn::Error::new_spanned(meta, "unknown with container argument"));
+                        }
+                    }
+                }
+                | _ => return Err(syn::Error::new_spanned(attr, "with requires parenthesized arguments")),
+            }
+        }
+    }
+    Ok(WithConfig { prefix })
+}
+fn extract_with_field_config(attrs: &[syn::Attribute]) -> syn::Result<WithFieldConfig> {
+    let mut skip = false;
+    for attr in attrs {
+        if attr.path().is_ident("with") {
+            match &attr.meta {
+                | Meta::List(list) => {
+                    let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+                    if metas.is_empty() {
+                        return Err(syn::Error::new_spanned(attr, "with requires skip"));
+                    }
+                    for meta in metas {
+                        if meta.path().is_ident("skip") {
+                            match meta {
+                                | Meta::Path(_) => skip = true,
+                                | _ => return Err(syn::Error::new_spanned(meta, "skip takes no value")),
+                            }
+                        } else {
+                            return Err(syn::Error::new_spanned(meta, "unknown with field argument"));
+                        }
+                    }
+                }
+                | Meta::Path(_) => skip = true,
+                | _ => return Err(syn::Error::new_spanned(attr, "invalid with attribute")),
+            }
+        }
+    }
+    Ok(WithFieldConfig { skip })
 }
 fn infer_table_name(name: &syn::Ident) -> String {
     let struct_name = name.to_string();
@@ -1446,6 +1446,125 @@ mod tests {
     use syn::{parse_quote, DeriveInput, Type};
 
     #[test]
+    fn test_cmd_words_keeps_single_quoted_splat_literal() {
+        let words = parse_cmd_words("echo '{args...}'").expect("single quoted splat should parse");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+        assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{args...}"));
+    }
+    #[test]
+    fn test_cmd_words_mixed_var_and_splat() {
+        let words = parse_cmd_words("git {cmd} {args...}").expect("mixed should parse");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "git"));
+        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "cmd"));
+        assert!(matches!(words.get(2), Some(CmdWord::Splat(value)) if value == "args"));
+    }
+    #[test]
+    fn test_cmd_words_rejects_double_quoted_splat() {
+        let error = parse_cmd_words("echo \"{args...}\"").expect_err("double quoted splat should fail");
+        assert!(error.contains("interpolation must occupy an unquoted shell word"));
+    }
+    #[test]
+    fn test_cmd_words_var_must_occupy_full_word() {
+        let error = parse_cmd_words("echo{name}").expect_err("joined var should fail");
+        assert!(error.contains("interpolation must occupy a full shell word"));
+    }
+    #[test]
+    fn test_cmd_words_var_parses_non_splat() {
+        let words = parse_cmd_words("echo {name}").expect("var should parse");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "name"));
+    }
+    #[test]
+    fn test_cmd_words_var_rejects_double_quoted() {
+        let error = parse_cmd_words("echo \"{var}\"").expect_err("double quoted var should fail");
+        assert!(error.contains("interpolation must occupy an unquoted shell word"));
+    }
+    #[test]
+    fn test_cmd_words_var_rejects_non_ident() {
+        let words = parse_cmd_words("echo {123}").expect("non-ident should be literal");
+        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
+        assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{123}"));
+    }
+    #[test]
+    fn test_expand_database_row_generates_expected_tokens() {
+        let input: DeriveInput = parse_quote! {
+            #[row(order_by = "executed_at DESC", table = catalog)]
+            struct ActivityRow {
+                id: Option<i64>,
+                command: Option<String>,
+                executed_at: Option<Timestamp>,
+                success: Option<bool>,
+            }
+        };
+        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
+        assert!(tokens.contains("pub const TABLE_NAME"));
+        assert!(tokens.contains("catalog"));
+        assert!(tokens.contains("pub const ORDER_BY"));
+        assert!(tokens.contains("executed_at DESC"));
+        assert!(tokens.contains("pub const FIELDS"));
+        assert!(tokens.contains("\"id\"") && tokens.contains("\"command\"") && tokens.contains("\"executed_at\"") && tokens.contains("\"success\""));
+        assert!(tokens.contains("executed_at => acorn_core :: util :: to_rfc3339"));
+        assert!(tokens.contains("success => | value | i32 :: from (value)"));
+    }
+    #[test]
+    fn test_expand_database_row_infers_table_name_when_not_provided() {
+        let input: DeriveInput = parse_quote! {
+            struct CanonicalRecordRow {
+                id: Option<i64>,
+            }
+        };
+        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
+        assert!(tokens.contains("pub const TABLE_NAME"));
+        assert!(tokens.contains("canonical_record"));
+    }
+    #[test]
+    fn test_expand_database_row_rejects_enum() {
+        let input: DeriveInput = parse_quote! {
+            enum NotRow {
+                A,
+            }
+        };
+        let error = expand_database_row(&input).expect_err("enum should fail");
+        assert!(error.to_string().contains("only works with structs"));
+    }
+    #[test]
+    fn test_expand_database_row_rejects_tuple_struct() {
+        let input: DeriveInput = parse_quote! {
+            struct TupleRow(Option<i64>);
+        };
+        let error = expand_database_row(&input).expect_err("tuple struct should fail");
+        assert!(error.to_string().contains("named fields"));
+    }
+    #[test]
+    fn test_expand_database_row_uses_explicit_table_name_string() {
+        let input: DeriveInput = parse_quote! {
+            #[row(table = "validation_history")]
+            struct ValidationRow {
+                id: Option<i64>,
+            }
+        };
+        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
+        assert!(tokens.contains("pub const TABLE_NAME"));
+        assert!(tokens.contains("validation_history"));
+    }
+    #[test]
+    fn test_expand_validate_uses_only_portable_paths() {
+        let input: DeriveInput = parse_quote! {
+            struct Portable {
+                #[validate(length(min = 1), each(email), async(function = "validate_value"))]
+                values: Vec<String>,
+            }
+        };
+        let tokens = expand_validate(&input).expect("validation derive should expand").to_string();
+        assert!(!tokens.contains(":: std"));
+        assert!(!tokens.contains("tokio"));
+        assert!(!tokens.contains("async_trait"));
+        assert!(!tokens.contains("Box :: pin"));
+        assert!(tokens.contains(":: acorn :: validation"));
+        assert!(tokens.contains("validate_async"));
+        assert!(tokens.contains("validate_value") && tokens.contains("await"));
+    }
+    #[test]
     fn test_extract_order_by_with_value() {
         let attrs = vec![parse_quote!(#[row(order_by = "checked_at DESC")])];
         assert_eq!(extract_row_config(&attrs).unwrap().order_by, Some("checked_at DESC".to_string()));
@@ -1483,124 +1602,5 @@ mod tests {
         let string_ty: Type = parse_quote!(Option<String>);
         assert!(is_option_timestamp(&timestamp_ty));
         assert!(!is_option_timestamp(&string_ty));
-    }
-    #[test]
-    fn test_expand_database_row_generates_expected_tokens() {
-        let input: DeriveInput = parse_quote! {
-            #[row(order_by = "executed_at DESC", table = catalog)]
-            struct ActivityRow {
-                id: Option<i64>,
-                command: Option<String>,
-                executed_at: Option<Timestamp>,
-                success: Option<bool>,
-            }
-        };
-        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
-        assert!(tokens.contains("pub const TABLE_NAME"));
-        assert!(tokens.contains("catalog"));
-        assert!(tokens.contains("pub const ORDER_BY"));
-        assert!(tokens.contains("executed_at DESC"));
-        assert!(tokens.contains("pub const FIELDS"));
-        assert!(tokens.contains("\"id\"") && tokens.contains("\"command\"") && tokens.contains("\"executed_at\"") && tokens.contains("\"success\""));
-        assert!(tokens.contains("executed_at => acorn_core :: util :: to_rfc3339"));
-        assert!(tokens.contains("success => | value | i32 :: from (value)"));
-    }
-    #[test]
-    fn test_expand_database_row_uses_explicit_table_name_string() {
-        let input: DeriveInput = parse_quote! {
-            #[row(table = "validation_history")]
-            struct ValidationRow {
-                id: Option<i64>,
-            }
-        };
-        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
-        assert!(tokens.contains("pub const TABLE_NAME"));
-        assert!(tokens.contains("validation_history"));
-    }
-    #[test]
-    fn test_expand_database_row_infers_table_name_when_not_provided() {
-        let input: DeriveInput = parse_quote! {
-            struct CanonicalRecordRow {
-                id: Option<i64>,
-            }
-        };
-        let tokens = expand_database_row(&input).expect("derive expansion should succeed").to_string();
-        assert!(tokens.contains("pub const TABLE_NAME"));
-        assert!(tokens.contains("canonical_record"));
-    }
-    #[test]
-    fn test_expand_database_row_rejects_tuple_struct() {
-        let input: DeriveInput = parse_quote! {
-            struct TupleRow(Option<i64>);
-        };
-        let error = expand_database_row(&input).expect_err("tuple struct should fail");
-        assert!(error.to_string().contains("named fields"));
-    }
-    #[test]
-    fn test_expand_database_row_rejects_enum() {
-        let input: DeriveInput = parse_quote! {
-            enum NotRow {
-                A,
-            }
-        };
-        let error = expand_database_row(&input).expect_err("enum should fail");
-        assert!(error.to_string().contains("only works with structs"));
-    }
-    #[test]
-    fn test_expand_validate_uses_only_portable_paths() {
-        let input: DeriveInput = parse_quote! {
-            struct Portable {
-                #[validate(length(min = 1), each(email), async(function = "validate_value"))]
-                values: Vec<String>,
-            }
-        };
-        let tokens = expand_validate(&input).expect("validation derive should expand").to_string();
-        assert!(!tokens.contains(":: std"));
-        assert!(!tokens.contains("tokio"));
-        assert!(!tokens.contains("async_trait"));
-        assert!(!tokens.contains("Box :: pin"));
-        assert!(tokens.contains(":: acorn :: validation"));
-        assert!(tokens.contains("validate_async"));
-        assert!(tokens.contains("validate_value") && tokens.contains("await"));
-    }
-    #[test]
-    fn test_cmd_words_rejects_double_quoted_splat() {
-        let error = parse_cmd_words("echo \"{args...}\"").expect_err("double quoted splat should fail");
-        assert!(error.contains("interpolation must occupy an unquoted shell word"));
-    }
-    #[test]
-    fn test_cmd_words_keeps_single_quoted_splat_literal() {
-        let words = parse_cmd_words("echo '{args...}'").expect("single quoted splat should parse");
-        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
-        assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{args...}"));
-    }
-    #[test]
-    fn test_cmd_words_var_parses_non_splat() {
-        let words = parse_cmd_words("echo {name}").expect("var should parse");
-        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
-        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "name"));
-    }
-    #[test]
-    fn test_cmd_words_var_rejects_non_ident() {
-        let words = parse_cmd_words("echo {123}").expect("non-ident should be literal");
-        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "echo"));
-        assert!(matches!(words.get(1), Some(CmdWord::Literal(value)) if value == "{123}"));
-    }
-    #[test]
-    fn test_cmd_words_var_must_occupy_full_word() {
-        let error = parse_cmd_words("echo{name}").expect_err("joined var should fail");
-        assert!(error.contains("interpolation must occupy a full shell word"));
-    }
-    #[test]
-    fn test_cmd_words_var_rejects_double_quoted() {
-        let error = parse_cmd_words("echo \"{var}\"").expect_err("double quoted var should fail");
-        assert!(error.contains("interpolation must occupy an unquoted shell word"));
-    }
-    #[test]
-    fn test_cmd_words_mixed_var_and_splat() {
-        let words = parse_cmd_words("git {cmd} {args...}").expect("mixed should parse");
-        assert!(matches!(words.first(), Some(CmdWord::Literal(value)) if value == "git"));
-        assert!(matches!(words.get(1), Some(CmdWord::Var(value)) if value == "cmd"));
-        assert!(matches!(words.get(2), Some(CmdWord::Splat(value)) if value == "args"));
     }
 }
