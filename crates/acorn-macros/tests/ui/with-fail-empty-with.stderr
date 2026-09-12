@@ -1,4 +1,4 @@
-error: with requires skip
+error: with requires private, public, skip, or some
  --> tests/ui/with-fail-empty-with.rs:5:5
   |
 5 |     #[with()]

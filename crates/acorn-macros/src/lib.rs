@@ -70,8 +70,15 @@ struct SchemaRule {
 struct WithConfig {
     prefix: String,
 }
+#[derive(Clone, Copy)]
+enum WithFieldVisibility {
+    Private,
+    Public,
+}
 struct WithFieldConfig {
+    some: bool,
     skip: bool,
+    visibility: Option<WithFieldVisibility>,
 }
 impl RuleOptions {
     fn has_overrides(&self) -> bool {
@@ -166,7 +173,16 @@ pub fn derive_validate(input: TokenStream) -> TokenStream {
 ///
 /// ### Attributes
 /// Container: `#[with(prefix = "with_")]` — customize method prefix (default `with_`).
-/// Field: `#[with(skip)]` — omit setter for that field.
+/// Field:
+/// - `#[with(public)]` — generate a public setter.
+/// - `#[with(private)]` — generate a private setter.
+/// - `#[with(some)]` — accept the inner value for an `Option<T>` field and store `Some(value)`.
+/// - `#[with(skip)]` — omit the setter for that field.
+///
+/// Field arguments may be combined when compatible, such as `#[with(public, some)]`.
+/// Fields without a visibility argument use the struct visibility.
+/// Owned `some` values use `impl Into<T>`; referenced values use the exact reference type so dereference coercions remain available.
+/// `some` requires a field written as `Option<T>` and does not generate a way to assign `None`.
 ///
 /// ### Examples
 /// ```ignore
@@ -174,14 +190,19 @@ pub fn derive_validate(input: TokenStream) -> TokenStream {
 ///
 /// #[derive(With)]
 /// pub struct Config {
+///     #[with(public)]
 ///     host: String,
+///     #[with(private)]
 ///     port: u16,
+///     #[with(public, some)]
+///     label: Option<String>,
 /// }
 /// let c = Config {
 ///     host: "a".into(),
 ///     port: 80,
+///     label: None,
 /// };
-/// let c2 = c.with_host("example.com").with_port(8080u16);
+/// let c2 = c.with_host("example.com").with_port(8080u16).with_label("production");
 ///
 /// #[derive(With)]
 /// pub struct Tuple(String, u32);
@@ -610,6 +631,23 @@ fn expand_with(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
         }
     })
 }
+fn expand_with_parameter(ty: &Type, parameter: &syn::Ident, some: bool) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+    match some {
+        | true => type_argument(ty, "Option")
+            .ok_or_else(|| syn::Error::new_spanned(ty, "some requires an Option<T> field"))
+            .map(|inner| match inner {
+                | Type::Reference(_) => (quote! { #inner }, quote! { ::core::option::Option::Some(#parameter) }),
+                | _ => (
+                    quote! { impl ::core::convert::Into<#inner> },
+                    quote! { ::core::option::Option::Some(::core::convert::Into::into(#parameter)) },
+                ),
+            }),
+        | false => Ok((
+            quote! { impl ::core::convert::Into<#ty> },
+            quote! { ::core::convert::Into::into(#parameter) },
+        )),
+    }
+}
 fn expand_with_named(
     fields: &Punctuated<syn::Field, Token![,]>,
     config: &WithConfig,
@@ -632,11 +670,20 @@ fn expand_with_named(
             let stripped = ident.to_string().trim_start_matches("r#").to_string();
             let method = format_ident!("{}{}", config.prefix, stripped, span = ident.span());
             let ty = &field.ty;
+            let visibility = match field_config.visibility {
+                | Some(WithFieldVisibility::Private) => quote! {},
+                | Some(WithFieldVisibility::Public) => quote! { pub },
+                | None => quote! { #vis },
+            };
+            let (parameter_ty, value) = match expand_with_parameter(ty, ident, field_config.some) {
+                | Ok(expansion) => expansion,
+                | Err(why) => return Some(Err(why)),
+            };
             Some(Ok(quote! {
                 #[doc = ::core::concat!("Setter for `", stringify!(#ident), "` — consumes `self` and returns updated `Self`.")]
                 #[allow(clippy::needless_update)]
-                #vis fn #method(self, #ident: impl ::core::convert::Into<#ty>) -> Self {
-                    Self { #ident: ::core::convert::Into::into(#ident), ..self }
+                #visibility fn #method(self, #ident: #parameter_ty) -> Self {
+                    Self { #ident: #value, ..self }
                 }
             }))
         })
@@ -663,10 +710,19 @@ fn expand_with_unnamed(
             let ty = &field.ty;
             let method = format_ident!("{}{}", config.prefix, index);
             let param = format_ident!("__with_{}", index);
+            let visibility = match field_config.visibility {
+                | Some(WithFieldVisibility::Private) => quote! {},
+                | Some(WithFieldVisibility::Public) => quote! { pub },
+                | None => quote! { #vis },
+            };
+            let (parameter_ty, value) = match expand_with_parameter(ty, &param, field_config.some) {
+                | Ok(expansion) => expansion,
+                | Err(why) => return Some(Err(why)),
+            };
             let args: Vec<proc_macro2::TokenStream> = (0..len)
                 .map(|j| {
                     if j == index {
-                        quote! { ::core::convert::Into::into(#param) }
+                        value.clone()
                     } else {
                         let ident = &self_idents[j];
                         quote! { #ident }
@@ -677,7 +733,7 @@ fn expand_with_unnamed(
             Some(Ok(quote! {
                 #[doc = ::core::concat!("Setter for field `", stringify!(#index), "` — consumes `self` and returns updated `Self`.")]
                 #[allow(clippy::needless_update)]
-                #vis fn #method(self, #param: impl ::core::convert::Into<#ty>) -> Self {
+                #visibility fn #method(self, #param: #parameter_ty) -> Self {
                     let Self(#(#destructure),*) = self;
                     Self(#(#args),*)
                 }
@@ -753,32 +809,77 @@ fn extract_with_config(attrs: &[syn::Attribute]) -> syn::Result<WithConfig> {
     Ok(WithConfig { prefix })
 }
 fn extract_with_field_config(attrs: &[syn::Attribute]) -> syn::Result<WithFieldConfig> {
+    let mut some = false;
     let mut skip = false;
+    let mut visibility = None;
     for attr in attrs {
         if attr.path().is_ident("with") {
             match &attr.meta {
                 | Meta::List(list) => {
                     let metas = Punctuated::<Meta, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
                     if metas.is_empty() {
-                        return Err(syn::Error::new_spanned(attr, "with requires skip"));
+                        return Err(syn::Error::new_spanned(attr, "with requires private, public, skip, or some"));
                     }
                     for meta in metas {
-                        if meta.path().is_ident("skip") {
+                        if meta.path().is_ident("private") {
+                            if !matches!(meta, Meta::Path(_)) {
+                                return Err(syn::Error::new_spanned(meta, "private takes no value"));
+                            }
+                            if skip {
+                                return Err(syn::Error::new_spanned(meta, "private cannot be combined with skip"));
+                            }
+                            if visibility.is_some() {
+                                return Err(syn::Error::new_spanned(meta, "with visibility may only be specified once"));
+                            }
+                            visibility = Some(WithFieldVisibility::Private);
+                        } else if meta.path().is_ident("public") {
+                            if !matches!(meta, Meta::Path(_)) {
+                                return Err(syn::Error::new_spanned(meta, "public takes no value"));
+                            }
+                            if skip {
+                                return Err(syn::Error::new_spanned(meta, "public cannot be combined with skip"));
+                            }
+                            if visibility.is_some() {
+                                return Err(syn::Error::new_spanned(meta, "with visibility may only be specified once"));
+                            }
+                            visibility = Some(WithFieldVisibility::Public);
+                        } else if meta.path().is_ident("skip") {
                             match meta {
+                                | Meta::Path(_) if skip => {
+                                    return Err(syn::Error::new_spanned(meta, "skip may only be specified once"));
+                                }
+                                | Meta::Path(_) if some || visibility.is_some() => {
+                                    return Err(syn::Error::new_spanned(meta, "skip cannot be combined with other with arguments"));
+                                }
                                 | Meta::Path(_) => skip = true,
                                 | _ => return Err(syn::Error::new_spanned(meta, "skip takes no value")),
                             }
+                        } else if meta.path().is_ident("some") {
+                            if !matches!(meta, Meta::Path(_)) {
+                                return Err(syn::Error::new_spanned(meta, "some takes no value"));
+                            }
+                            if skip {
+                                return Err(syn::Error::new_spanned(meta, "some cannot be combined with skip"));
+                            }
+                            if some {
+                                return Err(syn::Error::new_spanned(meta, "some may only be specified once"));
+                            }
+                            some = true;
                         } else {
                             return Err(syn::Error::new_spanned(meta, "unknown with field argument"));
                         }
                     }
+                }
+                | Meta::Path(_) if skip => return Err(syn::Error::new_spanned(attr, "skip may only be specified once")),
+                | Meta::Path(_) if some || visibility.is_some() => {
+                    return Err(syn::Error::new_spanned(attr, "skip cannot be combined with other with arguments"));
                 }
                 | Meta::Path(_) => skip = true,
                 | _ => return Err(syn::Error::new_spanned(attr, "invalid with attribute")),
             }
         }
     }
-    Ok(WithFieldConfig { skip })
+    Ok(WithFieldConfig { some, skip, visibility })
 }
 fn infer_table_name(name: &syn::Ident) -> String {
     let struct_name = name.to_string();

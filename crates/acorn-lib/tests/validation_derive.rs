@@ -10,6 +10,8 @@ struct ExternalModel {
 #[derive(With)]
 struct ExternalOptions {
     enabled: bool,
+    #[with(public, some)]
+    label: Option<String>,
 }
 #[test]
 fn derive_resolves_acorn_schema_from_a_downstream_crate() {
@@ -22,5 +24,9 @@ fn derive_resolves_acorn_schema_from_a_downstream_crate() {
 
 #[test]
 fn with_derive_is_available_from_the_host_facade() {
-    assert!(ExternalOptions { enabled: false }.with_enabled(true).enabled);
+    let options = ExternalOptions { enabled: false, label: None }
+        .with_enabled(true)
+        .with_label("configured");
+    assert!(options.enabled);
+    assert_eq!(options.label.as_deref(), Some("configured"));
 }

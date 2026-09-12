@@ -33,4 +33,34 @@ cargo add acorn-lib --features doctor,powerpoint
 
 For the portable data model without host services, use [`acorn-schema`](acorn-schema.md).
 
+## Immutable updates
+
+The `acorn::With` derive adds consuming `with_*` methods for immutable post-construction updates. Use builders for initial construction and `with_*` methods when deriving a changed value from an existing one:
+
+```rust
+use acorn::With;
+
+#[derive(Clone, With)]
+struct ExportOptions {
+    format: String,
+    #[with(public, some)]
+    label: Option<String>,
+    #[with(private)]
+    strict: bool,
+}
+
+let options = ExportOptions {
+    format: "json".to_string(),
+    label: None,
+    strict: false,
+};
+let strict_yaml = options.with_format("yaml").with_label("archive").with_strict(true);
+
+assert_eq!(strict_yaml.format, "yaml");
+assert_eq!(strict_yaml.label.as_deref(), Some("archive"));
+assert!(strict_yaml.strict);
+```
+
+Generated methods use the struct's visibility unless a field specifies `#[with(public)]` or `#[with(private)]`. For a field written as `Option<T>`, `#[with(some)]` accepts an inner value and stores it as `Some`; owned values accept `impl Into<T>`, while references retain their exact type so dereference coercions still work. A `some` setter does not accept `None` or provide a separate clearing method. Combine `some` with a visibility option as shown above. Use `#[with(skip)]` when a field needs validation, coordinated updates, or another custom setter.
+
 [^features]: See the [Cargo.toml](https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-lib/Cargo.toml#L83) for more details.

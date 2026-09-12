@@ -1,5 +1,43 @@
 use acorn_macros::With;
 
+mod visibility {
+    use acorn_macros::With;
+
+    #[derive(With)]
+    pub struct Explicit {
+        #[with(private)]
+        hidden: bool,
+        #[with(public, some)]
+        label: Option<String>,
+    }
+
+    impl Explicit {
+        pub fn new() -> Self {
+            Self { hidden: false, label: None }
+        }
+        pub fn reveal(self) -> Self {
+            self.with_hidden(true)
+        }
+        pub fn values(&self) -> (bool, Option<&str>) {
+            (self.hidden, self.label.as_deref())
+        }
+    }
+
+    #[derive(With)]
+    pub struct Inherited {
+        value: String,
+    }
+
+    impl Inherited {
+        pub fn new() -> Self {
+            Self { value: String::new() }
+        }
+        pub fn value(&self) -> &str {
+            &self.value
+        }
+    }
+}
+
 // Named struct happy path with Into conversion and chaining
 #[derive(Debug, Clone, PartialEq, With)]
 pub struct Config {
@@ -53,6 +91,27 @@ pub struct TupleWithSkip(String, #[with(skip)] u32, String);
 pub struct WithLifetime<'a> {
     value: &'a str,
 }
+
+#[derive(Debug, Clone, PartialEq, With)]
+pub struct WithBorrowedSome<'a> {
+    #[with(some)]
+    value: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, PartialEq, With)]
+pub struct WithQualifiedSome {
+    #[with(some)]
+    value: core::option::Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, With)]
+pub struct WithSome<T> {
+    #[with(some)]
+    value: Option<T>,
+}
+
+#[derive(Debug, Clone, PartialEq, With)]
+pub struct TupleWithSome(#[with(some)] Option<String>);
 
 #[test]
 fn named_with_generates_setters_and_chaining() {
@@ -131,4 +190,41 @@ fn tuple_skip_omits_index() {
 fn lifetime_struct_with() {
     let v = WithLifetime { value: "a" }.with_value("b");
     assert_eq!(v.value, "b");
+}
+
+#[test]
+fn borrowed_some_preserves_reference_coercion() {
+    let source = String::from("configured");
+    let value = WithBorrowedSome { value: None }.with_value(&source);
+    assert_eq!(value.value, Some("configured"));
+}
+
+#[test]
+fn explicit_visibility_overrides_struct_visibility() {
+    let options = visibility::Explicit::new().with_label("visible").reveal();
+    assert_eq!(options.values(), (true, Some("visible")));
+}
+
+#[test]
+fn some_accepts_values_convertible_to_the_option_inner_type() {
+    let value = WithSome::<String> { value: None }.with_value("configured");
+    assert_eq!(value.value.as_deref(), Some("configured"));
+}
+
+#[test]
+fn some_supports_qualified_option_paths() {
+    let value = WithQualifiedSome { value: None }.with_value("configured");
+    assert_eq!(value.value.as_deref(), Some("configured"));
+}
+
+#[test]
+fn tuple_some_wraps_the_converted_value() {
+    let value = TupleWithSome(None).with_0("configured");
+    assert_eq!(value.0.as_deref(), Some("configured"));
+}
+
+#[test]
+fn visibility_defaults_to_struct_visibility() {
+    let value = visibility::Inherited::new().with_value("configured");
+    assert_eq!(value.value(), "configured");
 }

@@ -1,0 +1,5 @@
+error: some cannot be combined with skip
+ --> tests/ui/with-fail-skip-combination.rs:5:18
+  |
+5 |     #[with(skip, some)]
+  |                  ^^^^

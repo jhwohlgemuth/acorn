@@ -15,7 +15,6 @@
 - [Analyzer](analyzer/) - Composable analysis and validation boundaries developed in-tree; package extraction remains deferred.
 - [API](api/) - Shared API-client contracts that prepare `acorn-api`.
 - [acorn-cmd extraction](acorn-cmd-extraction.md) - Extract command macros and runtime helpers after portable shared values have a home.
-- [With integration](with-integration.md) - Follow-up adoption of `With` across `acorn-schema`/`acorn-core` after the macro lands.
 - [GitLab CI test runners](ci-runner-pools.md) - Isolate Rust and fuzz test workloads without blocking portability.
 
 See the [plan dependency network](../plan-network.md) for execution edges, target crate ownership, and shared-file collisions.

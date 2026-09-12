@@ -1,0 +1,5 @@
+error: some may only be specified once
+ --> tests/ui/with-fail-duplicate-argument.rs:5:18
+  |
+5 |     #[with(some, some)]
+  |                  ^^^^

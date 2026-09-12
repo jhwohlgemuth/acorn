@@ -3,6 +3,7 @@
 //! See <https://opencode.ai/docs/config> for more information on OpenCode configuration.
 use crate::agent::Provider;
 use acorn_core::AcornResult;
+use acorn_macros::With;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -231,7 +232,7 @@ pub struct AttachmentConfig {
 }
 /// Server and runtime OpenCode configuration
 #[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, With)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// Named agent configurations
@@ -240,6 +241,7 @@ pub struct Config {
     pub attachment: Option<AttachmentConfig>,
     /// Automatic sharing flag
     #[deprecated(note = "Use `share` instead")]
+    #[with(skip)]
     pub autoshare: Option<bool>,
     /// Automatic update behavior
     pub autoupdate: Option<AutoUpdateConfig>,
@@ -263,6 +265,7 @@ pub struct Config {
     pub instructions: Option<Vec<String>>,
     /// Layout option
     #[deprecated(note = "Remove this field; layout is no longer configurable")]
+    #[with(skip)]
     pub layout: Option<LayoutConfig>,
     /// Runtime log level
     #[serde(rename = "logLevel")]
@@ -273,17 +276,21 @@ pub struct Config {
     pub mcp: Option<StringMap<McpConfig>>,
     /// Agent configuration map
     #[deprecated(note = "Use `agent` instead")]
+    #[with(skip)]
     pub mode: Option<StringMap<AgentConfig>>,
     /// Main model in `provider/model` format
+    #[with(some)]
     pub model: Option<String>,
     /// Permission rules for tools and operations
     pub permission: Option<PermissionConfig>,
     /// Plugins loaded from packages or configured with options
     pub plugin: Option<Vec<PluginConfig>>,
     /// Custom provider configuration and model overrides
+    #[with(some)]
     pub provider: Option<StringMap<Value>>,
     /// Named references field
     #[deprecated(note = "Use `references` instead")]
+    #[with(skip)]
     pub reference: Option<StringMap<ReferenceConfig>>,
     /// Named git or local directory references
     pub references: Option<StringMap<ReferenceConfig>>,
@@ -537,20 +544,22 @@ pub struct WatcherConfig {
     pub ignore: Option<Vec<String>>,
 }
 impl Config {
-    /// Replace the configured providers and return the updated configuration.
-    pub fn with_provider(self, provider: StringMap<Value>) -> Self {
-        Self {
-            provider: Some(provider),
-            ..self
-        }
-    }
-    /// Set the primary model and return the updated configuration.
-    pub fn with_model(self, model: String) -> Self {
-        Self { model: Some(model), ..self }
-    }
     /// Parse OpenCode configuration from a JSON string
     #[cfg(feature = "std")]
     pub(crate) fn parse_json(content: impl AsRef<str>) -> AcornResult<Self> {
         serde_json::from_str(content.as_ref()).map_err(|why| schema_error!("JSON parse error — {why}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_some_fields_accept_inner_values() {
+        let providers = StringMap::from([(String::from("local"), Value::Null)]);
+        let config = Config::default().with_model("local/model").with_provider(providers.clone());
+        assert_eq!(config.model.as_deref(), Some("local/model"));
+        assert_eq!(config.provider, Some(providers));
     }
 }

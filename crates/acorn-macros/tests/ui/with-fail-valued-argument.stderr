@@ -1,0 +1,5 @@
+error: public takes no value
+ --> tests/ui/with-fail-valued-argument.rs:5:12
+  |
+5 |     #[with(public = true)]
+  |            ^^^^^^^^^^^^^

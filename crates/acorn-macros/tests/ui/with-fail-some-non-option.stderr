@@ -1,0 +1,5 @@
+error: some requires an Option<T> field
+ --> tests/ui/with-fail-some-non-option.rs:6:10
+  |
+6 |     bar: String,
+  |          ^^^^^^

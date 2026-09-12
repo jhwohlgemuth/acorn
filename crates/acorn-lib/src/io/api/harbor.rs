@@ -3,6 +3,7 @@ use crate::io::api::{self, EmptyField, Endpoint, Param, RemoteResource};
 use crate::io::config::RegistryProfile;
 use crate::io::ApiResult;
 use crate::param;
+use crate::With;
 use acorn_core::prelude::{String, ToString, Vec};
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
@@ -68,11 +69,15 @@ pub struct Label {
     pub description: Option<String>,
 }
 /// Registry and artifact coordinates for Harbor service requests.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, With)]
 pub struct Options<'a> {
+    #[with(skip)]
     profile: &'a RegistryProfile,
+    #[with(skip)]
     pub(crate) project: &'a str,
+    #[with(skip)]
     pub(crate) repository: &'a str,
+    #[with(public, some)]
     reference: Option<&'a str>,
 }
 impl fmt::Display for HarborError {
@@ -96,13 +101,6 @@ impl<'a> Options<'a> {
             repository,
             reference: None,
         })
-    }
-    /// Attach a tag or digest for a single-artifact request.
-    pub fn with_reference(self, reference: &'a str) -> Self {
-        Self {
-            reference: Some(reference),
-            ..self
-        }
     }
 }
 /// Probe a Harbor deployment's health endpoint.
@@ -214,4 +212,16 @@ fn split_repository(repository: &str) -> ApiResult<(&str, &str)> {
         .split_once('/')
         .filter(|(project, repository)| !project.is_empty() && !repository.is_empty())
         .ok_or_else(|| eyre!("Harbor repository must include a project and repository path"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_reference_accepts_the_borrowed_inner_value() {
+        let profile = RegistryProfile::default();
+        let options = Options::from_repository(&profile, "ai/model").unwrap().with_reference("sha256:abc");
+        assert_eq!(options.reference, Some("sha256:abc"));
+    }
 }

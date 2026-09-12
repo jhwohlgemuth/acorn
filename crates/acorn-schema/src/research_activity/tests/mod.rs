@@ -14,7 +14,7 @@ use crate::research_activity::*;
 use crate::standard::cff::{Agent, Cff, IdentifierType};
 use crate::validation::Validate;
 use crate::*;
-use acorn_core::util::{MarkdownSupport, SemanticVersion};
+use acorn_core::util::{LinkedData, MarkdownSupport, SemanticVersion};
 use pretty_assertions::assert_eq;
 use std::path::PathBuf;
 
@@ -1254,6 +1254,46 @@ fn test_research_activity_default() {
         serde_json::to_value(parsed).expect("parsed RAD should serialize"),
         serde_json::to_value(data).expect("source RAD should serialize")
     );
+}
+#[test]
+fn test_with_derive_updates_activity_and_metadata_immutably() {
+    let metadata = ResearchActivityMetadata::default();
+    let updated_metadata = metadata.clone().with_archive(true).with_identifier("updated-activity");
+    assert!(!metadata.archive);
+    assert_eq!(metadata.identifier, "some-research-project");
+    assert!(updated_metadata.archive);
+    assert_eq!(updated_metadata.identifier, "updated-activity");
+    let activity = ResearchActivity::default();
+    let updated_activity = activity
+        .clone()
+        .with_meta(updated_metadata)
+        .with_subtitle(Some("Updated subtitle".to_string()))
+        .with_title("Updated research activity");
+    assert_eq!(activity.title, "Research Activity Title");
+    assert_eq!(activity.subtitle, None);
+    assert_eq!(updated_activity.title, "Updated research activity");
+    assert_eq!(updated_activity.subtitle.as_deref(), Some("Updated subtitle"));
+    assert_eq!(updated_activity.meta.identifier, "updated-activity");
+    let linked = updated_activity.with_context();
+    assert!(linked.context.is_some());
+    assert!(linked.meta.context.is_some());
+}
+#[test]
+fn test_with_derive_updates_research_and_sections_immutably() {
+    let research = Research::init().build();
+    let updated_research = research
+        .clone()
+        .with_areas(vec!["Materials science".to_string()])
+        .with_focus("Updated research focus");
+    assert_eq!(research.focus, "Focus of the research");
+    assert_eq!(research.areas, vec!["Areas of research"]);
+    assert_eq!(updated_research.focus, "Updated research focus");
+    assert_eq!(updated_research.areas, vec!["Materials science"]);
+    let sections = Sections::init().build();
+    let updated_sections = sections.clone().with_mission("Updated research mission").with_research(updated_research);
+    assert_eq!(sections.mission, "Purpose of the research");
+    assert_eq!(updated_sections.mission, "Updated research mission");
+    assert_eq!(updated_sections.research.focus, "Updated research focus");
 }
 #[test]
 fn test_research_activity_into_cff() {

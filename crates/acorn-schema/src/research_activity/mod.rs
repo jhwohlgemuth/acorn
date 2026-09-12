@@ -28,6 +28,7 @@ use acorn_core::util::MimeType;
 use acorn_core::util::{LinkedData, MarkdownSupport, ToProse, Unstructured};
 use acorn_core::validation::ValidationError;
 use acorn_core::AcornResult;
+use acorn_macros::With;
 use bon::Builder;
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
@@ -90,7 +91,7 @@ pub struct EnrichmentProvenance {
     pub fields: Vec<String>,
 }
 /// Overview of research focus and areas
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate, With)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Research {
@@ -112,7 +113,7 @@ pub struct Research {
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Display, eserde::Deserialize, Serialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Display, eserde::Deserialize, Serialize, JsonSchema, Validate, With)]
 #[builder(start_fn = init)]
 #[display("Research Activity ({title})")]
 #[serde(deny_unknown_fields)]
@@ -121,6 +122,7 @@ pub struct ResearchActivity {
     /// Linked data (e.g., JSON-LD) context for research activity
     #[serde(rename = "@context")]
     #[eserde(compat)]
+    #[with(skip)]
     pub context: Option<ResearchActivityContext>,
     /// Linked data (e.g., JSON-LD) type for research activity
     #[serde(rename = "@type")]
@@ -186,13 +188,14 @@ pub struct ResearchActivityContext {
 }
 /// ## Research Activity Metadata
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, eserde::Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, eserde::Deserialize, JsonSchema, Validate, With)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchActivityMetadata {
     /// Linked data (e.g., JSON-LD) context for contact point
     #[serde(rename = "@context")]
     #[eserde(compat)]
+    #[with(skip)]
     pub context: Option<ResearchActivityMetadataContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
     #[serde(rename = "@type")]
@@ -486,7 +489,7 @@ pub struct ResearchActivityMetadataContext {
 }
 /// Research activity prose components that describe the activity using natural language
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate, With)]
 #[builder(start_fn = init)]
 #[serde(deny_unknown_fields)]
 pub struct Sections {

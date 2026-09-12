@@ -1,0 +1,5 @@
+error: with visibility may only be specified once
+ --> tests/ui/with-fail-conflicting-visibility.rs:5:20
+  |
+5 |     #[with(public, private)]
+  |                    ^^^^^^^

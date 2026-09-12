@@ -1,0 +1,8 @@
+error[E0624]: method `with_bar` is private
+  --> tests/ui/with-fail-private-setter.rs:12:49
+   |
+ 4 |     #[derive(With)]
+   |              ---- private method defined here
+...
+12 |     let _ = fixture::Foo { bar: String::new() }.with_bar("private");
+   |                                                 ^^^^^^^^ private method
