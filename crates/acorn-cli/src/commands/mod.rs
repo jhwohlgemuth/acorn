@@ -6,6 +6,7 @@ use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::host::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
+use acorn::io::ContainerTarget;
 use acorn::util::Label;
 use acorn_core::options::CommonRuntime;
 use acorn_schema::discovery::RemoteOrganizationRole;
@@ -162,6 +163,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 initialize_database(config).await?;
                 let bind = args.common.bind_address_if_configured();
                 let poll_interval = Some(args.common.poll_interval);
+                let target = ContainerTarget::from_args(args.target.host.clone(), args.target.context.clone());
                 create::bot::run(
                     &args.common.identifier,
                     &args.name,
@@ -176,12 +178,14 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     args.common.register_webhook,
                     &args.common.config,
                     &args.volume,
-                    &args.target.remote,
+                    target.as_ref(),
+                    args.detach.detach,
                 )
                 .await
             }),
             | Some(CreateCommands::Runner(args)) => with_runtime(async {
                 initialize_database(config).await?;
+                let target = ContainerTarget::from_args(args.target.host.clone(), args.target.context.clone());
                 create::runner::run(
                     &args.config,
                     &args.description,
@@ -193,7 +197,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     &args.tags,
                     &args.untagged,
                     &args.runtime,
-                    &args.target.remote,
+                    target.as_ref(),
+                    args.detach.detach,
                     &args.verbose,
                 )
                 .await
@@ -528,13 +533,15 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {
                 let bind = args.common.bind_address();
+                let target = ContainerTarget::from_args(args.target.host.clone(), args.target.context.clone());
                 serve::bot::run(
                     &args.common.identifier,
                     &bind,
                     args.common.after.as_deref(),
                     Some(args.common.poll_interval),
-                    args.detach,
+                    args.detach.detach,
                     &args.common.runtime,
+                    target.as_ref(),
                     args.common.event_source,
                     args.common.public_url.as_deref(),
                     args.common.register_webhook,
@@ -549,12 +556,32 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 if arguments.allow_mutation {
                     initialize_database(config).await?;
                 }
-                serve::mcp::run(offline, arguments.allow_mutation, config.database_path.clone()).await
+                let target = ContainerTarget::from_args(arguments.target.host.clone(), arguments.target.context.clone());
+                serve::mcp::run(
+                    offline,
+                    arguments.allow_mutation,
+                    arguments.detach.detach,
+                    config.database_path.clone(),
+                    target.as_ref(),
+                    &arguments.runtime,
+                )
+                .await
             }),
             | Some(ServeCommands::Rpc(arguments)) if arguments.allow_mutation && config.no_local_database => {
                 Err(eyre::eyre!("--allow-mutation requires local database persistence"))
             }
-            | Some(ServeCommands::Rpc(arguments)) => with_runtime(async { serve::rpc::run(arguments.bind, arguments.allow_mutation, offline).await }),
+            | Some(ServeCommands::Rpc(arguments)) => with_runtime(async {
+                let target = ContainerTarget::from_args(arguments.target.host.clone(), arguments.target.context.clone());
+                serve::rpc::run(
+                    arguments.bind,
+                    arguments.allow_mutation,
+                    offline,
+                    arguments.detach.detach,
+                    target.as_ref(),
+                    &arguments.runtime,
+                )
+                .await
+            }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),
@@ -584,7 +611,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         }
         | None => {
             let name = "JASON";
-            fail!("FOOBAR {} RABOOF", name);
+            fail!("FOOBAR {name} RABOOF");
             if let Some(value) = read_stdin() {
                 println!("stdin: {value}");
                 info!(value, "=> {} Input from stdin", Label::using());

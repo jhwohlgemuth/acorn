@@ -1,3 +1,11 @@
+   Compiling acorn-cli v0.2.0 (/Users/o9w/dev/re/acorn/crates/acorn-cli)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `acorn-cli` (bin "acorn") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.33s
+     Running `target/debug/acorn --markdown-help`
 # Command-Line Help for `acorn-cli`
 
 This document contains the help content for the `acorn-cli` command-line program.
@@ -255,7 +263,7 @@ GitLab runner
 * `-c`, `--config <PATH>` — Path to configuration file for creating the resource
 
   Default value: `./`
-* `-d`, `--description <DESCRIPTION>` — Runner description (alternative to providing a configuration file)
+* `--description <DESCRIPTION>` — Runner description (alternative to providing a configuration file)
 * `-g`, `--group <ID>` — GitLab group ID to create a runner for (alternative to providing a configuration file)
 * `-r`, `--repo <REPO>` — GitLab repository domain override for runner creation (e.g., code.ornl.gov)
 * `-p`, `--project <ID>` — GitLab project ID to create a runner for (alternative to providing a configuration file)
@@ -264,9 +272,11 @@ GitLab runner
 * `-t`, `--tags <LIST>` — Tags to register the runner with (alternative to providing a configuration file)
 * `-u`, `--untagged` — Whether this runner can pick up jobs without matching tags (alternative to providing a configuration file)
 * `-R`, `--runtime <RUNTIME>` — Container runtime override (docker, podman, apptainer). Defaults to the executor's runtime
-* `--remote <URI>` — SSH endpoint of the remote Docker daemon
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
 
-   The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -310,11 +320,13 @@ Bot server container
 * `-i`, `--image <IMAGE>` — Acorn Docker image to use for the bot container
 
   Default value: `acorn:latest`
-* `-d`, `--domain <DOMAIN>` — GitLab domain override (e.g., code.ornl.gov)
+* `-D`, `--domain <DOMAIN>` — GitLab domain override (e.g., code.ornl.gov)
 * `--volume <VOLUME>` — Persistent named volume for bot state
-* `--remote <URI>` — SSH endpoint of the remote Docker daemon
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
 
-   The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -1086,7 +1098,11 @@ Webhook/API bot server that polls GitLab for merge request note events
 * `--public-url <URL>` — Externally reachable HTTPS base URL for webhook delivery
 * `--register-webhook` — Register the project webhook before starting
 * `--config <PATH>` — Application configuration containing deployment-owned workflow policy
-* `-d`, `--detach` — Create and run the bot in a detached Docker/Podman container instead of in-process
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
+
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
 
 
 
@@ -1099,6 +1115,12 @@ Model context protocol (MCP) server
 ###### **Options:**
 
 * `--allow-mutation` — Enable persistent mutating tools
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
+
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
+* `-R`, `--runtime <RUNTIME>` — Container runtime for detached execution
 
 
 
@@ -1114,6 +1136,12 @@ Authenticated JSON-RPC HTTP server
 * `--bind <ADDRESS>` — Address for the authenticated JSON-RPC HTTP endpoint
 
   Default value: `127.0.0.1:8001`
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
+
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
+* `-R`, `--runtime <RUNTIME>` — Container runtime for detached execution
 
 
 

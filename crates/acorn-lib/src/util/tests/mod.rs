@@ -24,6 +24,7 @@ use similar_asserts::assert_eq;
 
 #[cfg(feature = "cmd")]
 mod cmd;
+mod macros;
 const FIXTURES: &str = "../../tests/fixtures";
 
 #[test]

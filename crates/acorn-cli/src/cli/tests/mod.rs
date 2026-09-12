@@ -239,8 +239,8 @@ fn test_create_remote_rejects_invalid_ssh_uris() {
     .into_iter()
     .for_each(|remote| {
         assert!(
-            Arguments::try_parse_from(["acorn", "create", "bot", "16689", "--remote", remote]).is_err(),
-            "remote should be rejected: {remote}"
+            Arguments::try_parse_from(["acorn", "create", "bot", "16689", "--host", remote]).is_err(),
+            "host should be rejected: {remote}"
         );
     });
 }
@@ -251,7 +251,7 @@ fn test_create_remote_targets() {
         "create",
         "bot",
         "16689",
-        "--remote",
+        "--host",
         "ssh://deploy@example.org:2222/var/run/docker.sock",
     ])
     .unwrap();
@@ -259,7 +259,7 @@ fn test_create_remote_targets() {
         | Some(Commands::Create {
             command: Some(CreateCommands::Bot(arguments)),
         }) => assert_eq!(
-            arguments.target.remote.as_ref().map(|remote| remote.as_str()),
+            arguments.target.host.as_ref().map(|remote| remote.as_str()),
             Some("ssh://deploy@example.org:2222/var/run/docker.sock")
         ),
         | other => panic!("unexpected command: {other:?}"),
@@ -272,14 +272,14 @@ fn test_create_remote_targets() {
         "42",
         "--description",
         "remote-runner",
-        "--remote",
+        "--host",
         "ssh://builder",
     ])
     .unwrap();
     match runner.command {
         | Some(Commands::Create {
             command: Some(CreateCommands::Runner(arguments)),
-        }) => assert_eq!(arguments.target.remote.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
+        }) => assert_eq!(arguments.target.host.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
         | other => panic!("unexpected command: {other:?}"),
     }
 }

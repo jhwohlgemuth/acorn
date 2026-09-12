@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use strum::EnumIs;
 /// Bot command arguments.
 pub(crate) mod bot {
-    use super::{parse_executor, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
+    use super::{parse_executor, DetachArgs, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
     use clap::Args;
 
     const DEFAULT_HOST: &str = "localhost";
@@ -90,13 +90,15 @@ pub(crate) mod bot {
         #[arg(short, long, default_value = "acorn:latest", value_name = "IMAGE", help_heading = "OPTIONS")]
         pub(crate) image: Option<String>,
         /// GitLab domain override (e.g., code.ornl.gov)
-        #[arg(short = 'd', long, env = "CI_SERVER_HOST", value_name = "DOMAIN", help_heading = "OPTIONS")]
+        #[arg(short = 'D', long, env = "CI_SERVER_HOST", value_name = "DOMAIN", help_heading = "OPTIONS")]
         pub(crate) domain: Option<String>,
         /// Persistent named volume for bot state
         #[arg(long, value_name = "VOLUME", help_heading = "OPTIONS")]
         pub(crate) volume: Option<String>,
         #[command(flatten)]
         pub(crate) target: RemoteTarget,
+        #[command(flatten)]
+        pub(crate) detach: DetachArgs,
         #[command(flatten)]
         pub(crate) verbose: Verbosity,
     }
@@ -106,9 +108,10 @@ pub(crate) mod bot {
     pub(crate) struct Serve {
         #[command(flatten)]
         pub(crate) common: Common,
-        /// Create and run the bot in a detached Docker/Podman container instead of in-process
-        #[arg(short, long, value_name = "BOOL", help_heading = "FLAGS")]
-        pub(crate) detach: bool,
+        #[command(flatten)]
+        pub(crate) detach: DetachArgs,
+        #[command(flatten)]
+        pub(crate) target: RemoteTarget,
     }
     impl Common {
         /// Resolve the bot bind address from optional host and port arguments.
@@ -960,14 +963,24 @@ pub(crate) struct ModelSyncArgs {
     #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
 }
-/// Remote Docker target arguments shared by container-producing create commands.
+/// Remote target arguments shared by container-producing create/serve commands.
 #[derive(Clone, Debug, Args)]
 pub(crate) struct RemoteTarget {
-    /// SSH endpoint of the remote Docker daemon
+    /// SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
     ///
-    /// The local Docker client and SSH configuration are used. Published ports and volumes belong to the remote host.
-    #[arg(long, value_name = "URI", value_parser = parse_ssh_remote, help_heading = "OPTIONS")]
-    pub(crate) remote: Option<Remote>,
+    /// The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+    #[arg(long, value_name = "URI|ALIAS", value_parser = parse_ssh_remote, conflicts_with = "context", help_heading = "OPTIONS")]
+    pub(crate) host: Option<Remote>,
+    /// Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+    #[arg(long, value_name = "NAME", conflicts_with = "host", help_heading = "OPTIONS")]
+    pub(crate) context: Option<String>,
+}
+/// Detached execution flag shared by all remote-capable commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct DetachArgs {
+    /// Run as detached container/service instead of foreground/in-process
+    #[arg(short = 'd', long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) detach: bool,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -976,7 +989,7 @@ pub(crate) struct Runner {
     #[arg(short, long, default_value = "./", value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
     pub(crate) config: Option<PathBuf>,
     /// Runner description (alternative to providing a configuration file)
-    #[arg(short, long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
+    #[arg(long, value_name = "DESCRIPTION", help_heading = "OPTIONS")]
     pub(crate) description: Option<String>,
     /// GitLab group ID to create a runner for (alternative to providing a configuration file)
     #[arg(short, long, conflicts_with = "project", value_name = "ID", help_heading = "OPTIONS")]
@@ -1012,18 +1025,27 @@ pub(crate) struct Runner {
     #[command(flatten)]
     pub(crate) target: RemoteTarget,
     #[command(flatten)]
+    pub(crate) detach: DetachArgs,
+    #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
 /// Arguments for `acorn serve mcp`.
-#[derive(Clone, Copy, Debug, Args)]
+#[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct ServeMcp {
     /// Enable persistent mutating tools
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) allow_mutation: bool,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
+    #[command(flatten)]
+    pub(crate) detach: DetachArgs,
+    /// Container runtime for detached execution
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
 }
 /// Arguments for `acorn serve rpc`.
-#[derive(Clone, Copy, Debug, Args)]
+#[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct ServeRpc {
     /// Enable registered mutating operations
@@ -1032,6 +1054,13 @@ pub(crate) struct ServeRpc {
     /// Address for the authenticated JSON-RPC HTTP endpoint
     #[arg(long, default_value = "127.0.0.1:8001", value_name = "ADDRESS", help_heading = "OPTIONS")]
     pub(crate) bind: SocketAddr,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
+    #[command(flatten)]
+    pub(crate) detach: DetachArgs,
+    /// Container runtime for detached execution
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
 }
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]

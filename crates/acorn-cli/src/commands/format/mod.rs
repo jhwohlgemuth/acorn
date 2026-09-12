@@ -98,14 +98,14 @@ where
 {
     T::read(path.to_path_buf())
         .map_err(|why| {
-            fail!("Read research activity data — {}", why);
+            fail!("Read research activity data — {why}");
             eyre!("Read research activity data — {why}")
         })
         .and_then(|data| {
             let mime = MimeType::from_path(path);
             data.serialize_as(&mime)
                 .map_err(|why| {
-                    fail!("Serialize original content — {}", why);
+                    fail!("Serialize original content — {why}");
                     eyre!("Serialize original content — {why}")
                 })
                 .and_then(|old_content| {
@@ -113,7 +113,7 @@ where
                     formatted
                         .serialize_as(&mime)
                         .map_err(|why| {
-                            fail!("Serialize formatted content — {}", why);
+                            fail!("Serialize formatted content — {why}");
                             eyre!("Serialize formatted content — {why}")
                         })
                         .map(|new_content| (old_content, new_content))
@@ -125,29 +125,31 @@ where
                         Ok(())
                     }
                     | false => {
-                        if options.dry_run {
+                        let CommandOptions {
+                            dry_run, no_color, verbose, ..
+                        } = options;
+                        if *dry_run {
                             let absolute_path = path.to_path_buf().to_absolute_path();
-                            match options.no_color {
+                            match no_color {
                                 | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
                                 | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
                             }
                         }
-                        if options.dry_run
-                            || matches!(
-                                options.verbose.log_level(),
-                                Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
-                            )
-                        {
+                        let should_show_changes = matches!(
+                            verbose.log_level(),
+                            Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
+                        );
+                        if *dry_run || should_show_changes {
                             print_changes_with_color(&old_content, &new_content, !options.no_color);
                         }
-                        match options.dry_run {
+                        match *dry_run {
                             | true => Ok(()),
                             | false => write(path, new_content.as_bytes())
                                 .map_err(|why| {
-                                    fail!("Write — {}", why);
+                                    fail!("Write — {why}");
                                     eyre!("Write — {why}")
                                 })
-                                .map(|_| match options.no_color {
+                                .map(|_| match no_color {
                                     | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
                                     | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
                                 }),

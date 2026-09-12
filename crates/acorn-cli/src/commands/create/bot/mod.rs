@@ -1,6 +1,6 @@
 use crate::cli::arguments::bot::EventSource;
 use acorn::io::api::gitlab::WebhookOptions;
-use acorn::io::{Executor, Remote};
+use acorn::io::{ContainerTarget, Executor};
 use acorn::util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV};
 use acorn::util::Label;
 use acorn::{args, cmd};
@@ -25,7 +25,8 @@ pub async fn run(
     register_webhook: bool,
     config: &Option<PathBuf>,
     volume: &Option<String>,
-    remote: &Option<Remote>,
+    target: Option<&ContainerTarget>,
+    detach: bool,
 ) -> Result<(), Report> {
     let selected = runtime.as_ref().unwrap_or(&Executor::Docker);
     let container_name = name.clone().unwrap_or(format!("acorn-bot-{identifier}"));
@@ -37,10 +38,7 @@ pub async fn run(
     } else {
         Ok(())
     };
-    let is_valid = match (remote.as_ref(), selected.is_docker()) {
-        | (Some(endpoint), false) => Err(eyre!("Remote Docker target '{endpoint}' requires the docker runtime, not {selected}")),
-        | _ => Ok(()),
-    };
+    let is_valid = target.map_or(Ok(()), |target| target.validate_runtime(selected));
     match (is_valid, selected.is_available(), validated) {
         | (Err(why), _, _) | (_, true, Err(why)) => Err(why),
         | (_, false, _) => {
@@ -53,18 +51,19 @@ pub async fn run(
                 identifier,
                 &container_name,
                 image_tag,
+                event_source,
+                register_webhook,
+                detach,
                 bind.as_deref(),
                 *poll_interval,
                 after.as_deref(),
                 domain.as_deref(),
-                event_source,
                 public_url.as_deref(),
-                register_webhook,
                 config.as_deref(),
                 volume.as_deref(),
             );
-            let container_args = match remote.as_ref() {
-                | Some(remote) => remote.docker_args(command),
+            let container_args = match target {
+                | Some(t) => t.to_runtime_args(selected, command),
                 | None => command,
             };
             match cmd!(selected, container_args) {
@@ -92,13 +91,14 @@ fn create_bot_args(
     identifier: &str,
     container_name: &str,
     image: &str,
+    event_source: EventSource,
+    register_webhook: bool,
+    detach: bool,
     bind: Option<&str>,
     poll_interval: Option<u64>,
     after: Option<&str>,
     domain: Option<&str>,
-    event_source: EventSource,
     public_url: Option<&str>,
-    register_webhook: bool,
     config: Option<&Path>,
     volume: Option<&str>,
 ) -> Vec<OsString> {
@@ -125,9 +125,10 @@ fn create_bot_args(
         },
     );
     let config_args = config.map_or_else(|| args![], |_| args!["--config", "/etc/acorn/.acorn"]);
+    let detach_args = if detach { args!["--detach"] } else { args![] };
     args![
         "run",
-        "--detach",
+        ..detach_args,
         ("--name", container_name),
         ("--restart", "always"),
         ("--publish", format!("{port}:{port}")),

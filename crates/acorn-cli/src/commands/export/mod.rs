@@ -292,7 +292,7 @@ impl ExportHandler for PdfExportHandler {
                             match result {
                                 | Ok(_) => Ok(()),
                                 | Err(why) => {
-                                    fail!("Generate PDF — {}", why);
+                                    fail!("Generate PDF — {why}");
                                     Err(eyre!("Generate PDF — {why}"))
                                 }
                             }
@@ -353,7 +353,7 @@ impl ExportHandler for PowerPointExportHandler {
                                     Ok(())
                                 }
                                 | Err(why) => {
-                                    fail!("Generate combined PowerPoint — {}", why);
+                                    fail!("Generate combined PowerPoint — {why}");
                                     Err(eyre!("Generate combined PowerPoint — {why}"))
                                 }
                             }
@@ -374,13 +374,13 @@ impl ExportHandler for PowerPointExportHandler {
                             match progress.await {
                                 | Ok(_) => Ok(()),
                                 | Err(why) => {
-                                    fail!("Generate PowerPoint — {}", why);
+                                    fail!("Generate PowerPoint — {why}");
                                     Err(eyre!("Generate PowerPoint — {why}"))
                                 }
                             }
                         }
                         | Err(why) => {
-                            fail!("Render ASPECT charts — {}", why);
+                            fail!("Render ASPECT charts — {why}");
                             Err(why)
                         }
                     }
@@ -465,7 +465,7 @@ async fn export_as_format(
                                 | Err(_) => Err(eyre!("Failed to write output file")),
                             },
                             | Err(why) => {
-                                fail!("Read research activity data — {}", why);
+                                fail!("Read research activity data — {why}");
                                 Err(eyre!("Read research activity data — {why}"))
                             }
                         }
@@ -481,8 +481,8 @@ async fn export_as_format(
                     Ok(())
                 }
                 | Err(why) => {
-                    fail!("Generate {} — {}", format, why);
-                    Err(eyre!("Generate {} — {why}", format))
+                    fail!("Generate {format} — {why}");
+                    Err(eyre!("Generate {format} — {why}"))
                 }
             }
         }
@@ -615,15 +615,16 @@ async fn export_as_format_crosswalk(
                                 info!("=> {} Exported {} {format} crosswalk file{}", Label::pass(), count.green(), suffix(count));
                             }
                             if strict && !all_warnings.is_empty() {
-                                fail!("Strict mode — {} crosswalk warning(s) found", all_warnings.len());
-                                Err(eyre!("Strict mode — {} crosswalk warning(s) found", all_warnings.len()))
+                                let count = all_warnings.len();
+                                fail!("Strict mode — {count} crosswalk warning(s) found");
+                                Err(eyre!("Strict mode — {count} crosswalk warning(s) found"))
                             } else {
                                 Ok(())
                             }
                         }
                         | Err(why) => {
-                            fail!("Generate {} crosswalk — {}", format, why);
-                            Err(eyre!("Generate {} crosswalk — {why}", format))
+                            fail!("Generate {format} crosswalk — {why}");
+                            Err(eyre!("Generate {format} crosswalk — {why}"))
                         }
                     }
                 }

@@ -92,6 +92,8 @@ pub const GITLAB_CREDENTIAL_VARIABLE_PAIRS: [(&str, &str); 3] = [
 pub const GITLAB_JOB_TOKEN_HEADER: &str = "JOB-TOKEN";
 /// Header used to authenticate GitLab API requests with a private token.
 pub const GITLAB_PRIVATE_TOKEN_HEADER: &str = "PRIVATE-TOKEN";
+/// GitLab runner GPU template path inside a runner container.
+pub const GITLAB_RUNNER_GPU_TEMPLATE_PATH: &str = "/etc/gitlab-runner/gpu.template.toml";
 /// Initial exponential backoff delay for retryable HTTP requests, in milliseconds.
 pub const HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS: i64 = 250;
 /// Maximum backoff delay for retryable HTTP requests, in seconds.

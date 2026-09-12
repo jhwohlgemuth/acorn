@@ -20,7 +20,7 @@
 //! ```
 //!
 pub use crate::error::ApiResult;
-use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
+use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
 use crate::util::process::CommandOutput;
 use crate::util::{generate_guid, Label, StringConversion, ToStrings};
 use crate::{args, cmd};
@@ -488,19 +488,21 @@ impl Executor {
             | Executor::Shell | Executor::Ssh | Executor::Kubernetes | Executor::Sandbox | Executor::VirtualMachine | Executor::Other(_) => None,
         }
     }
-    /// Validate this runtime and configured runners for an optional remote Docker daemon
-    pub fn validate(&self, runners: Option<&[config::RunnerDetails]>, remote: Option<&Remote>) -> ApiResult<()> {
-        match (remote, self.is_docker()) {
-            | (Some(endpoint), false) => Err(eyre!("Remote Docker target '{endpoint}' requires the docker runtime, not {self}")),
-            | (Some(endpoint), true) => runners
-                .and_then(|values| values.iter().find(|runner| !runner.executor.is_docker()))
-                .map_or(Ok(()), |runner| {
-                    Err(eyre!(
-                        "Remote Docker target '{endpoint}' requires docker runner executors, not {}",
-                        runner.executor
-                    ))
-                }),
-            | (None, _) => Ok(()),
+    /// Validate configured runner executors for an optional container target.
+    pub fn validate_runner_target(&self, runners: Option<&[config::RunnerDetails]>, target: Option<&ContainerTarget>) -> ApiResult<()> {
+        let runtime_validation = target.map_or(Ok(()), |target| target.validate_runtime(self));
+        let invalid_runner = runners.and_then(|values| {
+            values
+                .iter()
+                .find(|runner| !(runner.executor.is_docker() || matches!(runner.executor, Executor::Podman)))
+        });
+        match (runtime_validation, target, invalid_runner) {
+            | (Err(why), _, _) => Err(why),
+            | (Ok(()), Some(target), Some(runner)) if !matches!(target, ContainerTarget::Local) => Err(eyre!(
+                "Remote target '{target}' requires docker/podman runner executors, not {}",
+                runner.executor
+            )),
+            | (Ok(()), _, _) => Ok(()),
         }
     }
 }
@@ -706,31 +708,29 @@ impl ProgressType {
 impl core::str::FromStr for Remote {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let invalid = || format!("invalid remote '{value}' — expected ssh://[user@]host[:port][/socket]");
-        match Uri::parse(value) {
+        let invalid = || format!("invalid remote '{value}' — expected ssh://[user@]host[:port][/socket] or alias");
+        let is_trimmed = value.trim() == value;
+        let has_no_whitespace = !value.chars().any(char::is_whitespace);
+        let candidate = match (is_trimmed && has_no_whitespace, value.contains("://")) {
+            | (false, _) => Err(invalid()),
+            | (true, true) => Ok(value.to_string()),
+            | (true, false) => Ok(format!("ssh://{value}")),
+        };
+        candidate.and_then(|candidate| match Uri::parse(candidate.as_str()) {
             | Ok(uri) => {
-                let is_ssh = uri.scheme().as_str() == "ssh";
-                let is_trimmed = value.trim() == value;
-                let has_no_fragment = uri.fragment().is_none();
-                let has_no_query = uri.query().is_none();
-                let has_no_whitespace = !value.chars().any(char::is_whitespace);
-                let is_valid_uri = is_ssh && is_trimmed && has_no_fragment && has_no_query && has_no_whitespace;
-                match uri.authority() {
-                    | Some(authority) => {
-                        let has_host = !authority.host().is_empty();
-                        let has_no_password = authority.userinfo().is_none_or(|userinfo| !userinfo.as_str().contains(':'));
-                        let has_valid_port = authority.port_to_u16().is_ok();
-                        let is_valid_authority = has_host && has_no_password && has_valid_port;
-                        match is_valid_uri && is_valid_authority {
-                            | true => Ok(Self(Location::from(value))),
-                            | false => Err(invalid()),
-                        }
-                    }
-                    | None => Err(invalid()),
+                let is_valid_uri = uri.scheme().as_str() == "ssh" && uri.fragment().is_none() && uri.query().is_none();
+                let valid_authority = uri.authority().is_some_and(|authority| {
+                    !authority.host().is_empty()
+                        && authority.userinfo().is_none_or(|userinfo| !userinfo.as_str().contains(':'))
+                        && authority.port_to_u16().is_ok()
+                });
+                match is_valid_uri && valid_authority {
+                    | true => Ok(Self(Location::from(candidate.as_str()))),
+                    | false => Err(invalid()),
                 }
             }
             | Err(_) => Err(invalid()),
-        }
+        })
     }
 }
 impl fmt::Display for Remote {
@@ -743,33 +743,95 @@ impl Remote {
     pub fn as_str(&self) -> &str {
         (&self.0).into()
     }
-    /// Copy a GPU runner template into a container on this remote Docker daemon.
+    /// Return the canonical location for this validated SSH endpoint.
+    pub fn location(&self) -> &Location {
+        &self.0
+    }
+}
+/// Runtime-agnostic target for container or service execution.
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
+pub enum ContainerTarget {
+    /// Local execution.
+    Local,
+    /// SSH host or alias (`ssh://…` or bare `alias` / `user@alias`).
+    Ssh(Remote),
+    /// Named runtime context/connection (`docker context` / `podman connection`).
+    Context(Location),
+}
+impl ContainerTarget {
+    /// Construct from optional host/context args.
+    pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
+        match (host, context) {
+            | (Some(remote), None) => Some(Self::Ssh(remote)),
+            | (None, Some(name)) if !name.trim().is_empty() && !name.chars().any(char::is_whitespace) => {
+                Some(Self::Context(Location::from(name.as_str())))
+            }
+            | (None, Some(_)) | (None, None) | (Some(_), Some(_)) => None,
+        }
+    }
+    /// Return the canonical location represented by this target, if any.
+    pub fn location(&self) -> Option<&Location> {
+        match self {
+            | Self::Local => None,
+            | Self::Ssh(remote) => Some(remote.location()),
+            | Self::Context(location) => Some(location),
+        }
+    }
+    /// Validate that the runtime supports this target kind.
+    pub fn validate_runtime(&self, runtime: &Executor) -> ApiResult<()> {
+        match (self, runtime.is_docker() || matches!(runtime, Executor::Podman)) {
+            | (Self::Ssh(endpoint), false) => Err(eyre!("Remote target '{endpoint}' requires the docker or podman runtime, not {runtime}")),
+            | (Self::Context(name), false) => Err(eyre!("Context target '{name}' requires the docker or podman runtime, not {runtime}")),
+            | _ => Ok(()),
+        }
+    }
+    /// Prepend runtime-specific host/context flags to a command.
+    pub fn to_runtime_args(&self, runtime: &Executor, command: Vec<OsString>) -> Vec<OsString> {
+        match (self, runtime) {
+            | (Self::Ssh(remote), Executor::Docker | Executor::Podman) => args!["--host", remote.as_str(), ..command],
+            | (Self::Context(location), Executor::Docker) => args!["--context", <&str>::from(location), ..command],
+            | (Self::Context(location), Executor::Podman) => args!["--connection", <&str>::from(location), ..command],
+            | _ => command,
+        }
+    }
+    /// Copy a GPU runner template into a container at this target.
     pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
-        let copy = self.docker_args(args!["cp", template, format!("{name}:/etc/gitlab-runner/gpu.template.toml")]);
+        let destination = format!("{name}:{GITLAB_RUNNER_GPU_TEMPLATE_PATH}");
+        let copy = self.to_runtime_args(runtime, args!["cp", template, destination]);
         match cmd!(runtime, copy) {
             | Ok(output) if output.status.success() => Ok(()),
             | Ok(output) => {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
             }
-            | Err(why) => Err(eyre!("Failed to execute docker cp for {self} — {why}")),
+            | Err(why) => Err(eyre!("Failed to execute container cp for {self} — {why}")),
         }
     }
-    /// Create an optional GPU runner template for a local or remote Docker daemon.
-    pub fn create_gpu_template(remote: Option<&Self>, config_host_dir: &str) -> io::Result<Option<PathBuf>> {
-        let parent = remote.map_or_else(|| PathBuf::from(config_host_dir), |_| temp_dir());
-        let filename = remote.map_or_else(|| "gpu.template.toml".to_string(), |_| format!("acorn-gpu-{}.template.toml", nanoid!()));
+    /// Create an optional GPU template for a local or remote container target.
+    pub fn create_gpu_template(config_host_dir: &str, target: Option<&Self>) -> io::Result<Option<PathBuf>> {
+        let is_remote = target.is_some_and(|target| target.is_ssh() || target.is_context());
+        let parent = if is_remote { temp_dir() } else { PathBuf::from(config_host_dir) };
+        let filename = if is_remote {
+            format!("acorn-gpu-{}.template.toml", nanoid!())
+        } else {
+            "gpu.template.toml".to_string()
+        };
         let template = parent.join(filename);
         let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
         match create_dir_all(parent).and_then(|_| write(&template, content)) {
             | Ok(()) => Ok(Some(template)),
-            | Err(why) if remote.is_some() => Err(why),
+            | Err(why) if is_remote => Err(why),
             | Err(_) => Ok(None),
         }
     }
-    /// Target this remote Docker daemon with command arguments.
-    pub fn docker_args(&self, command: Vec<OsString>) -> Vec<OsString> {
-        args!["--host", self.as_str(), ..command]
+}
+impl fmt::Display for ContainerTarget {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Local => formatter.write_str("local"),
+            | Self::Ssh(remote) => write!(formatter, "{remote}"),
+            | Self::Context(location) => write!(formatter, "{location}"),
+        }
     }
 }
 impl FromCommand for SemanticVersion {

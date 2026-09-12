@@ -119,7 +119,7 @@ fn apply_early_exit_policy(results: CheckBatch, category: &CheckCategory, contex
     let filtered_results = filter_by_visibility(results.as_slice(), *all);
     let issue_count = failure_count(filtered_results.as_slice());
     if *exit_on_first_error && issue_count > 0 && !quiet {
-        fail!("ACORN found {} {} issues", issue_count, category);
+        fail!("Found {issue_count} {category} issues");
         filtered_results.as_slice().render(context);
     }
     filtered_results

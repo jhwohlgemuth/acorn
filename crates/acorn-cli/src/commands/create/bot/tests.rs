@@ -2,12 +2,14 @@ use super::*;
 
 #[tokio::test]
 async fn test_remote_container_rejects_non_docker_runtime_before_execution() {
-    let remote = "ssh://builder".parse::<Remote>().unwrap();
+    // Runner path still valid, but bot container now allows podman via docker alias;
+    // Use Shell executor to trigger validation failure.
+    let remote = ContainerTarget::Ssh("ssh://builder".parse().unwrap());
     let result = run(
         "42",
         &None,
         &None,
-        &Some(Executor::Podman),
+        &Some(Executor::Shell),
         &None,
         &None,
         &None,
@@ -17,30 +19,35 @@ async fn test_remote_container_rejects_non_docker_runtime_before_execution() {
         false,
         &None,
         &None,
-        &Some(remote),
+        Some(&remote),
+        true,
     )
     .await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("requires the docker runtime"));
+    assert!(result.unwrap_err().to_string().contains("requires the docker or podman runtime"));
 }
 #[test]
 fn test_remote_container_targets_the_requested_docker_host() {
-    let remote = "ssh://builder".parse::<Remote>().unwrap();
+    let remote = ContainerTarget::Ssh("ssh://builder".parse().unwrap());
     let command = remote
-        .docker_args(create_bot_args(
-            "42",
-            "acorn-bot-42",
-            "acorn:latest",
-            None,
-            Some(10),
-            None,
-            None,
-            EventSource::Poll,
-            None,
-            false,
-            None,
-            None,
-        ))
+        .to_runtime_args(
+            &Executor::Docker,
+            create_bot_args(
+                "42",
+                "acorn-bot-42",
+                "acorn:latest",
+                EventSource::Poll,
+                false,
+                true,
+                None,
+                Some(10),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        )
         .into_iter()
         .map(|value| value.to_string_lossy().into_owned())
         .collect::<Vec<_>>();
@@ -63,13 +70,14 @@ fn test_webhook_container_is_reachable_durable_and_redacts_credentials() {
                 "42",
                 "acorn-bot-42",
                 "acorn:latest",
+                EventSource::Webhook,
+                true,
+                true,
                 Some("localhost:8080"),
                 Some(10),
                 None,
                 None,
-                EventSource::Webhook,
                 Some("https://bot.example.org"),
-                true,
                 Some(Path::new("/etc/deploy/.acorn")),
                 None,
             )

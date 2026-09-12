@@ -18,8 +18,6 @@ pub mod doctor;
 pub mod error;
 #[cfg(feature = "std")]
 pub mod io;
-#[cfg(doctest)]
-mod ownership_tests;
 pub mod util;
 
 pub use acorn_macros::{Validate, With};

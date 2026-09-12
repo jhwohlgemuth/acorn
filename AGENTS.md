@@ -244,7 +244,9 @@ fn read_json(path: PathBuf) -> ApiResult<MySchema> {
     read_file(path).and_then(|content| {
         eserde::json::from_str::<MySchema>(&content).map_err(|errors| {
             for error in errors.iter() {
-                fail!("{}: {}", error.path().map_or("root", |p| p), error.message());
+                let path = error.path().map_or("root", |p| p);
+                let message = error.message();
+                fail!("{path}: {message}");
             }
             eyre!("JSON has {} deserialization error(s)", errors.len().to_string().bold())
         })

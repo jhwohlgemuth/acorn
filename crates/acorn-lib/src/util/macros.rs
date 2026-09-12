@@ -717,7 +717,14 @@ macro_rules! check_err {
         $crate::check!($category, false, severity: $crate::analyzer::CheckSeverity::Error $(, $field : $value )*)
     };
 }
-/// Logging macro for failures
+/// Logging macro for failures.
+///
+/// # Examples
+///
+/// ```
+/// let why = "the input is invalid";
+/// acorn::fail!("Whoops - {why}");
+/// ```
 #[macro_export]
 macro_rules! fail {
     ($msg:literal, $($rest:tt)*) => {
@@ -731,7 +738,7 @@ macro_rules! fail {
         );
     };
     ($msg:literal) => {
-        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), $msg));
+        tracing::error!("{}", format!("=> {} {}", $crate::util::Label::fail(), format!($msg)));
     };
     ($($args:tt)*) => {
         tracing::error!($($args)*);

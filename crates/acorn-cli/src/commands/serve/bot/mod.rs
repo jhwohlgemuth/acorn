@@ -2,7 +2,7 @@ use crate::cli::arguments::bot::EventSource;
 use acorn::io::api::gitlab::{self, bot, DeploymentConfig, WebhookOptions};
 use acorn::io::api::Configuration;
 use acorn::io::config::ApplicationConfiguration;
-use acorn::io::Executor;
+use acorn::io::{ContainerTarget, Executor};
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{self, Report, Result};
 use core::net::SocketAddr;
@@ -21,26 +21,31 @@ pub async fn run(
     poll_interval: Option<u64>,
     detach: bool,
     runtime: &Option<Executor>,
+    target: Option<&ContainerTarget>,
     event_source: EventSource,
     public_url: Option<&str>,
     register_webhook: bool,
     config: Option<&Path>,
 ) -> Result<(), Report> {
-    if detach {
-        run_detached(
-            identifier,
-            bind,
-            event_source,
-            register_webhook,
-            after,
-            poll_interval,
-            runtime,
-            public_url,
-            config,
-        )
-        .await
-    } else {
-        run_local(identifier, bind, after, poll_interval, event_source, public_url, register_webhook, config).await
+    match (detach, target) {
+        | (true, target) => {
+            run_detached(
+                identifier,
+                bind,
+                event_source,
+                register_webhook,
+                after,
+                poll_interval,
+                runtime,
+                target,
+                detach,
+                public_url,
+                config,
+            )
+            .await
+        }
+        | (false, Some(_)) => Err(eyre::eyre!("--host/--context requires --detach for serve bot")),
+        | (false, None) => run_local(identifier, bind, after, poll_interval, event_source, public_url, register_webhook, config).await,
     }
 }
 // These values are the direct CLI deployment contract and are forwarded without mutation.
@@ -146,6 +151,8 @@ async fn run_detached(
     after: Option<&str>,
     poll_interval: Option<u64>,
     runtime: &Option<Executor>,
+    target: Option<&ContainerTarget>,
+    detach: bool,
     public_url: Option<&str>,
     config: Option<&Path>,
 ) -> Result<(), Report> {
@@ -163,7 +170,8 @@ async fn run_detached(
         register_webhook,
         &config.map(Path::to_path_buf),
         &None,
-        &None,
+        target,
+        detach,
     )
     .await
 }

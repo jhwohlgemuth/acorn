@@ -2,8 +2,8 @@ use acorn::io::api::gitlab::{self, RunnerCreationResponse};
 use acorn::io::api::{Configuration, Secret};
 use acorn::io::command_exists;
 use acorn::io::config::{ApplicationConfiguration, RunnerDetails, RunnerType};
-use acorn::io::{to_absolute_string, Executor, InputOutput, Remote};
-use acorn::util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET};
+use acorn::io::{to_absolute_string, ContainerTarget, Executor, InputOutput};
+use acorn::util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH};
 use acorn::util::Label;
 use acorn::{args, cmd};
 use acorn_core::{Location, Repository};
@@ -17,6 +17,14 @@ use std::path::PathBuf;
 use tracing::{debug, error, info};
 type BooleanOutcome = (Vec<Result<(), String>>, Vec<Result<(), String>>);
 
+struct RegistrationOptions<'a> {
+    details: RunnerDetails,
+    detach: bool,
+    runtime: &'a Option<Executor>,
+    target: Option<&'a ContainerTarget>,
+    verbose: &'a Verbosity,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
@@ -29,7 +37,8 @@ pub async fn run(
     tags: &[String],
     untagged: &bool,
     runtime: &Option<Executor>,
-    remote: &Option<Remote>,
+    target: Option<&ContainerTarget>,
+    detach: bool,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
     let from_config = ApplicationConfiguration::resolve(config)
@@ -83,16 +92,16 @@ pub async fn run(
         }
     };
     let selected = runtime.as_ref().unwrap_or(&Executor::Docker);
-    let remote_validation = selected.validate(from_config.as_deref(), remote.as_ref());
+    let remote_validation = selected.validate_runner_target(from_config.as_deref(), target);
     let response = match remote_validation {
         | Err(why) => Err(why),
         | Ok(()) => match from_config {
             | Some(runner_details) => {
                 let runners = join_all(runner_details.into_iter().map(|runner| {
-                    let target = build_target(Some(&runner));
+                    let build_result = build_target(Some(&runner));
                     async move {
                         let base_name = runner.name.clone().unwrap_or_else(|| DEFAULT_RUNNER_NAME.to_string());
-                        match target {
+                        match build_result {
                             | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
                                 let details = RunnerDetails::at(repository)
                                     .description(desired_description)
@@ -107,10 +116,16 @@ pub async fn run(
                                         let RunnerCreationResponse { identifier, token, .. } = response;
                                         let container_name = format!("{base_name}-{identifier}");
                                         let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                                        register_runner(details, runtime, remote, verbose)
-                                            .await
-                                            .map(|_| ())
-                                            .map_err(|why| format!("{base_name} — {why}"))
+                                        register_runner(RegistrationOptions {
+                                            details,
+                                            detach,
+                                            runtime,
+                                            target,
+                                            verbose,
+                                        })
+                                        .await
+                                        .map(|_| ())
+                                        .map_err(|why| format!("{base_name} — {why}"))
                                     }
                                     | Err(why) => Err(format!("{base_name} — {why}")),
                                 }
@@ -151,7 +166,14 @@ pub async fn run(
                             let RunnerCreationResponse { identifier, token, .. } = response;
                             let container_name = format!("{base_name}-{identifier}");
                             let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                            register_runner(details, runtime, remote, verbose).await
+                            register_runner(RegistrationOptions {
+                                details,
+                                detach,
+                                runtime,
+                                target,
+                                verbose,
+                            })
+                            .await
                         }
                         | Err(why) => Err(why),
                     }
@@ -222,7 +244,14 @@ async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse
         | (_, _, Err(why)) => Err(why).wrap_err("GitLab list runners request failed"),
     }
 }
-async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, remote: &Option<Remote>, verbose: &Verbosity) -> Result<(), Report> {
+async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report> {
+    let RegistrationOptions {
+        details,
+        detach,
+        runtime,
+        target,
+        verbose,
+    } = options;
     let RunnerDetails {
         docker_image,
         executor,
@@ -246,7 +275,7 @@ async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, rem
     let log_level = if verbose.is_silent() { "panic" } else { "debug" };
     let config_host_dir = Executor::default_gitlab_runner_config_directory();
     let maybe_template = if gpu_enabled {
-        Remote::create_gpu_template(remote.as_ref(), config_host_dir)
+        ContainerTarget::create_gpu_template(config_host_dir, target)
     } else {
         Ok(None)
     };
@@ -254,29 +283,31 @@ async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, rem
         | Err(why) => Err(eyre!("Failed to create GitLab runner GPU template — {why}")),
         | Ok(maybe_template) if command_exists(binary) => match token {
             | Some(token) => match executor {
-                | Executor::Docker => match remote.as_ref().map(|_| DOCKER_SOCKET.to_string()).or_else(|| executor.socket()) {
+                | Executor::Docker => match target.map(|_| DOCKER_SOCKET.to_string()).or_else(|| executor.socket()) {
                     | Some(socket) => {
-                        let create_container = build_docker_runner_args(name, &docker_image, gpu_enabled, config_host_dir, &socket, remote.as_ref());
-                        match cmd!(binary, create_container) {
+                        let create_container = build_docker_runner_args(name, &docker_image, gpu_enabled, config_host_dir, &socket, target, detach);
+                        let selected_runtime = runtime.as_ref().unwrap_or(&Executor::Docker);
+                        let create_arguments = match target {
+                            | Some(target) => target.to_runtime_args(selected_runtime, create_container),
+                            | None => create_container,
+                        };
+                        match cmd!(binary, create_arguments) {
                             | Ok(output) => {
                                 if output.status.success() {
-                                    let copy = match (remote.as_ref(), maybe_template.as_deref()) {
-                                        | (Some(remote), Some(template)) => {
-                                            remote.copy_gpu_template(runtime.as_ref().unwrap_or(&Executor::Docker), name, template)
-                                        }
+                                    let copy = match (target, maybe_template.as_deref()) {
+                                        | (Some(target), Some(template)) => target.copy_gpu_template(selected_runtime, name, template),
                                         | _ => Ok(()),
                                     };
                                     match copy {
                                         | Ok(()) => {
                                             let template = maybe_template.as_ref().map(|template| {
-                                                remote
-                                                    .as_ref()
-                                                    .map(|_| "/etc/gitlab-runner/gpu.template.toml".to_string())
+                                                target
+                                                    .map(|_| GITLAB_RUNNER_GPU_TEMPLATE_PATH.to_string())
                                                     .unwrap_or_else(|| to_absolute_string(template))
                                             });
                                             let command = build_register_args(name, &url, &description, &token, log_level, &template);
-                                            let register = match remote.as_ref() {
-                                                | Some(remote) => remote.docker_args(command),
+                                            let register = match target {
+                                                | Some(t) => t.to_runtime_args(selected_runtime, command),
                                                 | None => command,
                                             };
                                             match cmd!(binary, register) {
@@ -304,48 +335,62 @@ async fn register_runner(details: RunnerDetails, runtime: &Option<Executor>, rem
                     }
                     | None => Err(eyre!("Docker socket not found — is Docker running?")),
                 },
-                | Executor::Podman => match executor.socket() {
-                    | Some(socket) => {
-                        let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
-                        let create_container = args![
-                            "run",
-                            "--detach",
-                            ("--name", name),
-                            ("--restart", "always"),
-                            ..gpu_args,
-                            ("-v", format!("{config_host_dir}:/etc/gitlab-runner")),
-                            ("-v", format!("{socket}:{DOCKER_SOCKET}")),
-                            &docker_image,
-                        ];
-                        match cmd!(binary, create_container) {
-                            | Ok(output) => {
-                                if output.status.success() {
-                                    let template = maybe_template.as_ref().map(to_absolute_string);
-                                    let register = build_register_args(name, &url, &description, &token, log_level, &template);
-                                    match cmd!(binary, register) {
-                                        | Ok(output) => {
-                                            if output.status.success() {
-                                                info!("=> {} GitLab runner registration", Label::pass());
-                                                Ok(())
-                                            } else {
-                                                let stderr = String::from_utf8_lossy(&output.stderr);
-                                                Err(eyre!("gitlab-runner register failed — {stderr}"))
+                | Executor::Podman => {
+                    let socket = target.map(|_| DOCKER_SOCKET.to_string()).or_else(|| executor.socket());
+                    match socket {
+                        | Some(socket) => {
+                            let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
+                            let detach_args = if detach { args!["--detach"] } else { args![] };
+                            let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
+                            let create_container = args![
+                                "run",
+                                ..detach_args,
+                                ("--name", name),
+                                ("--restart", "always"),
+                                ..gpu_args,
+                                ("-v", format!("{config_source}:/etc/gitlab-runner")),
+                                ("-v", format!("{socket}:{DOCKER_SOCKET}")),
+                                &docker_image,
+                            ];
+                            let selected_runtime = runtime.as_ref().unwrap_or(&Executor::Docker);
+                            let create_arguments = match target {
+                                | Some(target) => target.to_runtime_args(selected_runtime, create_container),
+                                | None => create_container,
+                            };
+                            match cmd!(binary, create_arguments) {
+                                | Ok(output) => {
+                                    if output.status.success() {
+                                        let template = maybe_template.as_ref().map(to_absolute_string);
+                                        let register = build_register_args(name, &url, &description, &token, log_level, &template);
+                                        let register_arguments = match target {
+                                            | Some(target) => target.to_runtime_args(selected_runtime, register),
+                                            | None => register,
+                                        };
+                                        match cmd!(binary, register_arguments) {
+                                            | Ok(output) => {
+                                                if output.status.success() {
+                                                    info!("=> {} GitLab runner registration", Label::pass());
+                                                    Ok(())
+                                                } else {
+                                                    let stderr = String::from_utf8_lossy(&output.stderr);
+                                                    Err(eyre!("gitlab-runner register failed — {stderr}"))
+                                                }
                                             }
+                                            | Err(why) => Err(eyre!("Failed to execute podman exec — {why}")),
                                         }
-                                        | Err(why) => Err(eyre!("Failed to execute podman exec — {why}")),
+                                    } else {
+                                        let stderr = String::from_utf8_lossy(&output.stderr);
+                                        Err(eyre!("Failed to create GitLab runner container — {stderr}"))
                                     }
-                                } else {
-                                    let stderr = String::from_utf8_lossy(&output.stderr);
-                                    Err(eyre!("Failed to create GitLab runner container — {stderr}"))
                                 }
+                                | Err(why) => Err(eyre!("Failed to spawn Podman container — {why}")),
                             }
-                            | Err(why) => Err(eyre!("Failed to spawn Podman container — {why}")),
                         }
+                        | None => Err(eyre!(
+                            "Podman socket not found. Start Podman with 'podman system service --time=0' then retry"
+                        )),
                     }
-                    | None => Err(eyre!(
-                        "Podman socket not found. Start Podman with 'podman system service --time=0' then retry"
-                    )),
-                },
+                }
                 | Executor::Apptainer => match executor.socket() {
                     | Some(socket) => {
                         let create = args![
@@ -443,24 +488,22 @@ fn build_docker_runner_args(
     gpu_enabled: bool,
     config_host_dir: &str,
     socket: &str,
-    remote: Option<&Remote>,
+    target: Option<&ContainerTarget>,
+    detach: bool,
 ) -> Vec<OsString> {
     let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
-    let config_source = remote.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
-    let command = args![
+    let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
+    let detach_args = if detach { args!["--detach"] } else { args![] };
+    args![
         "run",
-        "--detach",
+        ..detach_args,
         ("--name", name),
         ("--restart", "always"),
         ..gpu_args,
         ("-v", format!("{config_source}:/etc/gitlab-runner")),
         ("-v", format!("{socket}:{DOCKER_SOCKET}")),
         image,
-    ];
-    match remote {
-        | Some(remote) => remote.docker_args(command),
-        | None => command,
-    }
+    ]
 }
 /// Build the `exec <name> gitlab-runner register ...` argument list for
 /// Docker/Podman container-based executors.
@@ -487,89 +530,4 @@ fn build_register_args(name: &str, url: &str, description: &str, token: &Secret,
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn remote() -> Remote {
-        "ssh://builder".parse().unwrap()
-    }
-    fn text(values: Vec<OsString>) -> Vec<String> {
-        values.into_iter().map(|value| value.to_string_lossy().into_owned()).collect()
-    }
-
-    #[test]
-    fn test_local_docker_runner_arguments_are_unchanged() {
-        let values = text(build_docker_runner_args(
-            "runner-42",
-            "gitlab/gitlab-runner:latest",
-            false,
-            "/srv/gitlab-runner/config",
-            DOCKER_SOCKET,
-            None,
-        ));
-        assert_eq!(values.first().map(String::as_str), Some("run"));
-        assert!(values
-            .windows(2)
-            .any(|pair| pair == ["-v", "/srv/gitlab-runner/config:/etc/gitlab-runner"]));
-        assert!(!values.iter().any(|value| value == "--host"));
-    }
-    #[test]
-    fn test_remote_docker_runner_uses_remote_volume_and_socket() {
-        let values = text(build_docker_runner_args(
-            "runner-42",
-            "gitlab/gitlab-runner:latest",
-            false,
-            "C:\\local\\runner",
-            DOCKER_SOCKET,
-            Some(&remote()),
-        ));
-        assert!(values
-            .iter()
-            .map(String::as_str)
-            .take(4)
-            .eq(["--host", "ssh://builder", "run", "--detach"]));
-        let socket_mount = format!("{DOCKER_SOCKET}:{DOCKER_SOCKET}");
-        assert!(values.windows(2).any(|pair| pair == ["-v", "runner-42-config:/etc/gitlab-runner"]));
-        assert!(values.windows(2).any(|pair| pair == ["-v", socket_mount.as_str()]));
-        assert!(!values.iter().any(|value| value.contains("C:\\local")));
-    }
-    #[test]
-    fn test_remote_runner_registration_targets_the_requested_docker_host() {
-        let template = Some("/etc/gitlab-runner/gpu.template.toml".to_string());
-        let token = Secret::from("token".to_string());
-        let values = text(remote().docker_args(build_register_args(
-            "runner-42",
-            "https://gitlab.example.org/",
-            "GitLab Runner [42]",
-            &token,
-            "debug",
-            &template,
-        )));
-        assert!(values
-            .iter()
-            .map(String::as_str)
-            .take(5)
-            .eq(["--host", "ssh://builder", "exec", "runner-42", "gitlab-runner"]));
-        assert!(values
-            .windows(2)
-            .any(|pair| pair == ["--template-config", "/etc/gitlab-runner/gpu.template.toml"]));
-    }
-    #[test]
-    fn test_remote_runner_validation_rejects_non_docker_config_before_creation() {
-        let runner = RunnerDetails::at(Repository::GitLab {
-            id: Some(42),
-            location: Box::new(Location::Simple("https://gitlab.com".to_string())),
-        })
-        .executor(Executor::Podman)
-        .build();
-        let result = Executor::Docker.validate(Some(&[runner]), Some(&remote()));
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("requires docker runner executors"));
-    }
-    #[test]
-    fn test_remote_runner_validation_rejects_non_docker_runtime() {
-        let result = Executor::Podman.validate(None, Some(&remote()));
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("requires the docker runtime"));
-    }
-}
+mod tests;

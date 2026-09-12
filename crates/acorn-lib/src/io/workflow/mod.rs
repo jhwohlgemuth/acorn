@@ -7,7 +7,7 @@ use crate::analyzer::Check;
 use crate::io::enrichment::Enrich;
 use crate::io::{read_file, write_file, ApiResult, FromPath, InputOutput};
 use crate::util::{print_changes_with_color, Label, StringConversion};
-use crate::LocationExt;
+use crate::{fail, LocationExt};
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::{Box, String, Vec};
 use acorn_core::util::MimeType;
@@ -208,7 +208,7 @@ where
             .and_then(|()| {
                 conflicts.iter().for_each(|conflict| warn!("Enrichment conflict — {conflict}"));
                 failures.iter().for_each(|failure| {
-                    crate::fail!("Enrichment provider — {}", failure);
+                    fail!("Enrichment provider — {failure}");
                 });
                 match failures.is_empty() {
                     | true => Ok(()),

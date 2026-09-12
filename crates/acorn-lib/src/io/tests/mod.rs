@@ -21,8 +21,8 @@ use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
     read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes,
-    write_rsa_keypair, zip_entries, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError, Source,
-    SourceAction, TextOrigin,
+    write_rsa_keypair, zip_entries, ContainerTarget, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError,
+    Source, SourceAction, TextOrigin,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::constants::oci::{
@@ -1432,27 +1432,12 @@ async fn test_read_source_rejects_unsupported_uri_scheme() {
     assert!(why.contains("Unsupported source URI scheme"));
 }
 #[test]
-fn test_remote_docker_args() {
+fn test_remote_container_target_arguments() {
     let command = args!["run", "--detach", "acorn:latest"];
-    let remote = "ssh://builder".parse::<Remote>().unwrap();
+    let target = ContainerTarget::Ssh("ssh://builder".parse().unwrap());
     assert_eq!(
-        remote.docker_args(command),
+        target.to_runtime_args(&Executor::Docker, command),
         args!["--host", "ssh://builder", "run", "--detach", "acorn:latest"]
-    );
-}
-#[test]
-fn test_remote_gpu_template_copy_targets_the_requested_docker_host() {
-    let remote = "ssh://builder".parse::<Remote>().unwrap();
-    let template = PathBuf::from("/tmp/gpu.template.toml");
-    assert_eq!(
-        remote.docker_args(args!["cp", &template, "runner-42:/etc/gitlab-runner/gpu.template.toml"]),
-        args![
-            "--host",
-            "ssh://builder",
-            "cp",
-            template,
-            "runner-42:/etc/gitlab-runner/gpu.template.toml"
-        ]
     );
 }
 #[test]
