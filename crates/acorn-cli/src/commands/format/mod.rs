@@ -3,7 +3,8 @@ use crate::commands::preflight;
 use acorn::fail;
 use acorn::io::enrichment::Pipeline;
 use acorn::io::workflow::{self, Workflow, WorkflowExtension};
-use acorn::io::{FromPath, InputOutput};
+use acorn::io::{slice_path, FromPath, InputOutput};
+use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn::util::{print_changes_with_color, Label, StringConversion};
 use acorn_core::options::CommonRuntime;
 use acorn_core::util::MimeType;
@@ -14,8 +15,9 @@ use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use serde::Serialize;
 use std::fs::write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 #[allow(clippy::too_many_arguments)]
@@ -86,64 +88,73 @@ async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, provi
     }
 }
 async fn format(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
-    resolve_paths(path, options).await.and_then(|paths| {
-        paths.par_iter().try_for_each(|path| -> Result<(), Report> {
-            ResearchActivity::read(path.clone())
+    resolve_paths(path, options)
+        .await
+        .and_then(|paths| paths.par_iter().try_for_each(|path| format_file::<ResearchActivity>(path, options)))
+}
+fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<(), Report>
+where
+    T: InputOutput + Serialize,
+{
+    T::read(path.to_path_buf())
+        .map_err(|why| {
+            fail!("Read research activity data — {}", why);
+            eyre!("Read research activity data — {why}")
+        })
+        .and_then(|data| {
+            let mime = MimeType::from_path(path);
+            data.serialize_as(&mime)
                 .map_err(|why| {
-                    fail!("Read research activity data — {}", why);
-                    eyre!("Read research activity data — {why}")
+                    fail!("Serialize original content — {}", why);
+                    eyre!("Serialize original content — {why}")
                 })
-                .and_then(|data| {
-                    let mime = MimeType::from_path(path);
-                    data.serialize_as(&mime)
+                .and_then(|old_content| {
+                    let formatted = data.format_with(Some(path.to_path_buf()));
+                    formatted
+                        .serialize_as(&mime)
                         .map_err(|why| {
-                            fail!("Serialize original content — {}", why);
-                            eyre!("Serialize original content — {why}")
+                            fail!("Serialize formatted content — {}", why);
+                            eyre!("Serialize formatted content — {why}")
                         })
-                        .and_then(|old_content| {
-                            let formatted = data.format_with(Some(path.clone()));
-                            formatted
-                                .serialize_as(&mime)
+                        .map(|new_content| (old_content, new_content))
+                })
+                .and_then(|(old_content, new_content)| match old_content == new_content {
+                    | true => {
+                        let display_path = slice_path(path, DISPLAY_PATH_CHARACTER_COUNT);
+                        info!("=> {} No format changes for {display_path}", Label::skip());
+                        Ok(())
+                    }
+                    | false => {
+                        if options.dry_run {
+                            let absolute_path = path.to_path_buf().to_absolute_path();
+                            match options.no_color {
+                                | true => println!("{} Format {absolute_path}", Label::DRY_RUN),
+                                | false => println!("{} Format {}", Label::dry_run(), absolute_path.yellow()),
+                            }
+                        }
+                        if options.dry_run
+                            || matches!(
+                                options.verbose.log_level(),
+                                Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace)
+                            )
+                        {
+                            print_changes_with_color(&old_content, &new_content, !options.no_color);
+                        }
+                        match options.dry_run {
+                            | true => Ok(()),
+                            | false => write(path, new_content.as_bytes())
                                 .map_err(|why| {
-                                    fail!("Serialize formatted content — {}", why);
-                                    eyre!("Serialize formatted content — {why}")
+                                    fail!("Write — {}", why);
+                                    eyre!("Write — {why}")
                                 })
-                                .map(|new_content| (old_content, new_content))
-                        })
-                        .and_then(|(old_content, new_content)| {
-                            if options.dry_run {
-                                let path = path.clone().to_absolute_path();
-                                match options.no_color {
-                                    | true => println!("{} Format {path}", Label::DRY_RUN),
-                                    | false => println!("{} Format {}", Label::dry_run(), path.yellow()),
-                                }
-                            }
-                            match options.verbose.log_level() {
-                                | Some(Level::Warn) | Some(Level::Info) | Some(Level::Debug) | Some(Level::Trace) => {
-                                    print_changes_with_color(&old_content, &new_content, !options.no_color);
-                                }
-                                | _ => {
-                                    if options.dry_run {
-                                        print_changes_with_color(&old_content, &new_content, !options.no_color);
-                                    }
-                                }
-                            }
-                            if !options.dry_run {
-                                write(path, new_content.as_bytes())
-                                    .map_err(|why| {
-                                        fail!("Write — {}", why);
-                                        eyre!("Write — {why}")
-                                    })
-                                    .map(|_| {
-                                        info!("=> {} Formatted", Label::pass());
-                                    })
-                            } else {
-                                Ok(())
-                            }
-                        })
+                                .map(|_| match options.no_color {
+                                    | true => info!("=> {} Formatted {}", Label::pass(), path.display()),
+                                    | false => info!("=> {} Formatted {}", Label::pass(), path.display().cyan()),
+                                }),
+                        }
+                    }
                 })
         })
-    })
 }
 
 #[cfg(test)]

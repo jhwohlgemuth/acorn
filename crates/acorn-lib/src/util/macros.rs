@@ -744,14 +744,14 @@ macro_rules! skip {
         tracing::warn!(
             "{}",
             format!(
-                "=> {}{}",
+                "=> {} {}",
                 $crate::util::Label::skip(),
                 format!($msg, $($rest)*)
             )
         );
     };
     ($msg:literal) => {
-        tracing::warn!("{}", format!("=> {}{}", $crate::util::Label::skip(), $msg));
+        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::skip(), $msg));
     };
     ($($args:tt)*) => {
         tracing::warn!($($args)*);

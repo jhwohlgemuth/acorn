@@ -10,20 +10,68 @@
 //! automatically via the `TestCleanup` Drop implementation.
 //!
 //! Note: Tests run in online mode as format command doesn't support offline yet.
-use crate::commands::format::run;
+extern crate alloc;
+use crate::cli::CommandOptions;
+use crate::commands::format::{format_file, run};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
+use acorn::io::slice_path;
+use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
+use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use std::fs;
 use std::fs::copy;
+use std::io::Write;
+use std::sync::Mutex;
+use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
 
+struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+impl<'a> MakeWriter<'a> for SharedWriter {
+    type Writer = SharedWriterGuard;
+    fn make_writer(&'a self) -> Self::Writer {
+        SharedWriterGuard(self.0.clone())
+    }
+}
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+impl Write for SharedWriterGuard {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        match self.0.lock() {
+            | Ok(mut logs) => {
+                logs.extend_from_slice(buffer);
+                Ok(buffer.len())
+            }
+            | Err(why) => Err(std::io::Error::other(why.to_string())),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn captured_logs(operation: impl FnOnce()) -> String {
+    let logs = Arc::new(Mutex::new(Vec::new()));
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(SharedWriter(logs.clone()))
+        .finish();
+    tracing::subscriber::with_default(subscriber, operation);
+    let bytes = logs.lock().expect("lock logs").clone();
+    String::from_utf8(bytes).unwrap_or_default()
+}
+
 #[tokio::test]
 async fn test_format_dry_run() -> Result<()> {
-    let path = Some(fixture_path("data/format/unresolved_changes/index.json"));
+    let temp_dir = temp_test_dir("format_dry_run");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file)?;
+    let original = fs::read_to_string(&dest_file)?;
+    let path = Some(dest_file.clone());
     let result = run(
         &path,
         &None,
@@ -40,6 +88,38 @@ async fn test_format_dry_run() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Format dry run should succeed");
+    assert_eq!(fs::read_to_string(dest_file)?, original);
+    Ok(())
+}
+#[test]
+fn test_format_file_logs_path_for_changes() -> Result<()> {
+    let temp_dir = temp_test_dir("format_logs_changes");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file)?;
+    let options = CommandOptions::init().no_color(true).build();
+    let logs = captured_logs(|| format_file::<ResearchActivity>(&dest_file, &options).expect("format changed file"));
+    assert!(logs.contains("Formatted"));
+    assert!(logs.contains(&dest_file.display().to_string()));
+    Ok(())
+}
+#[test]
+fn test_format_file_logs_path_for_no_changes() -> Result<()> {
+    let temp_dir = temp_test_dir("format_logs_no_changes");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/no_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file)?;
+    let options = CommandOptions::init().no_color(true).build();
+    let logs = captured_logs(|| format_file::<ResearchActivity>(&dest_file, &options).expect("format unchanged file"));
+    let message_index = logs.find("No format changes for").expect("no-change message");
+    assert_eq!(logs.as_bytes().get(message_index.saturating_sub(1)), Some(&b' '));
+    assert!(logs.contains("INFO"));
+    assert!(logs.contains("SKIP"));
+    assert!(!logs.contains("WARN"));
+    assert!(logs.contains(&slice_path(&dest_file, DISPLAY_PATH_CHARACTER_COUNT)));
+    assert!(!logs.contains(&dest_file.display().to_string()));
     Ok(())
 }
 #[tokio::test]
@@ -50,7 +130,11 @@ async fn test_format_no_changes_needed() -> Result<()> {
     let source = fixture_path("data/format/no_changes/index.json");
     let dest_file = temp_dir.join("index.json");
     copy(&source, &dest_file)?;
-    let path = Some(dest_file);
+    let original_permissions = fs::metadata(&dest_file)?.permissions();
+    let mut read_only_permissions = original_permissions.clone();
+    read_only_permissions.set_readonly(true);
+    fs::set_permissions(&dest_file, read_only_permissions)?;
+    let path = Some(dest_file.clone());
     let result = run(
         &path,
         &None,
@@ -66,6 +150,7 @@ async fn test_format_no_changes_needed() -> Result<()> {
         OFFLINE,
     )
     .await;
+    fs::set_permissions(dest_file, original_permissions)?;
     assert!(result.is_ok(), "Format with no changes should succeed");
     Ok(())
 }
