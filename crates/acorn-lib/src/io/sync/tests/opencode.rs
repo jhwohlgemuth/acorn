@@ -1,5 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-use super::super::{opencode::Config, McpSync, SyncTarget};
+use super::super::{
+    opencode::{Config, Inner},
+    McpSync, SyncTarget,
+};
 use crate::io::{home_directory, parse_jsonc_cst, PathConversion};
 use crate::test::utils::temp_dir;
 use crate::util::constants::app::DEFAULT_OPENCODE_CONFIG_PATH;
@@ -15,7 +18,7 @@ fn test_default_values() {
     assert_eq!(config.base_url, "http://localhost:8080/v1");
     assert_eq!(config.provider_id, "llama-swap");
     assert_eq!(config.provider_name, "Local (llama-swap)");
-    assert_eq!(config.to_string(), "llama-swap");
+    assert_eq!(config.inner.to_string(), "llama-swap");
 }
 #[test]
 fn test_discover_path_prefers_calling_directory_jsonc_then_json() {
@@ -25,10 +28,10 @@ fn test_discover_path_prefers_calling_directory_jsonc_then_json() {
     write(&user_config, "{}").unwrap();
     let project_json = dir.join("opencode.json");
     write(&project_json, "{}").unwrap();
-    assert_eq!(Config::discover_path(&dir, user_config.clone()), project_json);
+    assert_eq!(Inner::discover_path(&dir, user_config.clone()), project_json);
     let project_jsonc = dir.join("opencode.jsonc");
     write(&project_jsonc, "not valid jsonc").unwrap();
-    assert_eq!(Config::discover_path(&dir, user_config), project_jsonc);
+    assert_eq!(Inner::discover_path(&dir, user_config), project_jsonc);
     let _ = remove_dir_all(dir);
 }
 #[test]
@@ -169,7 +172,10 @@ fn test_upsert_protects_pruned_root_model() {
     let models = [("qwen".to_string(), "Qwen".to_string())];
     assert!(Config::default().upsert(&existing, &models, true).is_err());
     let replacement = Config {
-        default_model: Some("qwen".to_string()),
+        inner: Inner {
+            default_model: Some("qwen".to_string()),
+            ..Default::default()
+        },
         ..Default::default()
     }
     .upsert(&existing, &models, true)

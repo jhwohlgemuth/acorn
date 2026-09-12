@@ -4,6 +4,7 @@ use crate::io::api;
 use crate::io::{read_file, ApiResult};
 use crate::util::constants::app::{APPLICATION, DEFAULT_VSCODE_CONFIG_PATH};
 use crate::util::StringConversion;
+use acorn_core::options::{SyncInner, TargetConfig};
 use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use alloc::string::{String, ToString};
@@ -20,14 +21,12 @@ use std::path::PathBuf;
 use veil::Redact;
 
 /// Configuration for synchronizing models into VS Code.
+pub type Config = TargetConfig<Inner>;
+/// VS Code-specific synchronization configuration.
 #[skip_serializing_none]
 #[derive(Clone, Deserialize, Serialize, Validate, Redact)]
 #[serde(rename_all = "camelCase")]
-pub struct Config {
-    /// Path to `chatLanguageModels.json` on disk.
-    #[serde(skip_serializing)]
-    #[validate(length(min = 1))]
-    pub path: Option<String>,
+pub struct Inner {
     /// Path to workspace `mcp.json` on disk.
     #[serde(skip_serializing)]
     #[validate(length(min = 1))]
@@ -53,7 +52,7 @@ pub struct Config {
     #[validate(range(min = 1))]
     pub max_output_tokens: u64,
 }
-impl Config {
+impl Inner {
     pub(crate) fn render_mcp(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {
         options
             .executable
@@ -167,10 +166,9 @@ impl Config {
         })
     }
 }
-impl Default for Config {
+impl Default for Inner {
     fn default() -> Self {
         Self {
-            path: None,
             mcp_path: None,
             url: default_url(),
             provider_name: default_provider_name(),
@@ -180,7 +178,25 @@ impl Default for Config {
         }
     }
 }
-impl McpSync for Config {
+impl SyncInner for Inner {
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            mcp_path: overrides.mcp_path.or(self.mcp_path),
+            url: overrides.url,
+            provider_name: overrides.provider_name,
+            api_key: overrides.api_key.or(self.api_key),
+            max_input_tokens: overrides.max_input_tokens,
+            max_output_tokens: overrides.max_output_tokens,
+        }
+    }
+    fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            mcp_path: overrides.mcp_path.or(self.mcp_path),
+            ..self
+        }
+    }
+}
+impl McpSync for Inner {
     type Document = Value;
     const TARGET: &'static str = "VS Code";
     fn update_mcp(&self, existing: Value, executable: &Path, prune: bool) -> ApiResult<Value> {
@@ -217,24 +233,6 @@ impl McpSync for Config {
 }
 impl SyncTarget for Config {
     const COMMAND: &'static str = "code";
-    fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            mcp_path: overrides.mcp_path.or(self.mcp_path),
-            url: overrides.url,
-            provider_name: overrides.provider_name,
-            api_key: overrides.api_key.or(self.api_key),
-            max_input_tokens: overrides.max_input_tokens,
-            max_output_tokens: overrides.max_output_tokens,
-        }
-    }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            mcp_path: overrides.mcp_path.or(self.mcp_path),
-            ..self
-        }
-    }
     fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
         explicit.map(|path| PathBuf::from(path.to_string().to_cross_platform_path())).map_or_else(
             || {

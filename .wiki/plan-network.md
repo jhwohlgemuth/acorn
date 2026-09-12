@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Plan dependency network
 
-This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.2.0` on 2026-09-09.
+This map records execution dependencies rather than topical links. An arrow means the left plan establishes a boundary or contract required by the right plan. It was reconciled against the workspace at version `0.2.0` on 2026-09-11.
 
 Dependency order does not by itself prove that plans are safe to run concurrently. The [parallel execution guide](parallel-execution.md) overlays exact write-set rules, single-writer integration locks, work lanes, and verified concurrent batches on this network.
 
@@ -52,7 +52,7 @@ isolate std-only modules   host abstraction traits
             no-std/WASM CI gates
 ```
 
-`acorn-core` and `acorn-schema` are extracted and their domain types are consumed directly. `acorn-lib` has no schema facade: path/file ownership, network model resolution, persistence, contextual RAD formatting, and OpenCode CST preservation remain explicit host extensions. The alloc-only analyzer kernel is enforced in CI; `acorn-analysis` and generic host traits remain deferred until a concrete alternate consumer proves their need.
+`acorn-core` and `acorn-schema` are extracted and their domain types are consumed directly. `acorn-lib` has no schema facade: path/file ownership, network model resolution, persistence, contextual RAD formatting, and OpenCode CST preservation remain explicit host extensions. Shared API, runtime, and synchronization composition is owned by `acorn-core::options`; provider, analyzer, and sync-target modules retain only their domain extensions. The alloc-only analyzer kernel is enforced in CI; `acorn-analysis` and generic host traits remain deferred until a concrete alternate consumer proves their need.
 
 ## Target ownership network
 
@@ -105,7 +105,6 @@ isolate std-only modules   host abstraction traits
 - [Workspace duplication consolidation](refactors/workspace-duplication-consolidation.md) must land its JSONC-policy slice before the corresponding host boundary moves again. Its PID, TUI, API-status, and test-helper slices follow the locks of their owning lanes.
 - [thiserror adoption](migrations/thiserror-adoption.md) is incremental across extracted crates; it must not delay portable extraction, but each new crate must start with owned portable errors.
 - [Portable ModelKit and Kitfile schema model](features/modelkit-schema-model.md) (KitOps `kitfile.md` + `kitfile.go` at the pinned commit, including `LayerInfo yaml:"-"` codec split and `Validate`/`GetPathType`/`IsModelKitReference` parity with `testdata/validation` + `testdata/parameters` fixtures) establishes the authoring-YAML and resolved-config contract consumed by [ModelKit and ModelPack OCI interoperability](features/oci-model-artifact-downloads.md). The OCI plan preserves the normalized registry materialization boundary used by the landed Needle sidecar, reuses the safe archive boundary from [unified import and download with BagIt archives](features/unified-import-download-bagit.md), and exposes only its selected GGUF output to inference.
-- [Generic extensible Options and Config](refactors/generic-options-config.md) has landed its shared core, six-provider API, bucket transfer, and workflow runtime phases; analyzer and sync target migrations remain before `acorn-api` extraction.
 - [With integration](refactors/with-integration.md) follows the completed `acorn_macros::With` derive and serializes on the `crates/acorn-schema/src/` lock; it must not run concurrently with schema-feature leaves.
 
 ### Research activity database and artifacts

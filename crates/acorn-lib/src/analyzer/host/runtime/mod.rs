@@ -95,7 +95,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     where
         Self: Sized,
     {
-        self.sync(options.offline, options.quiet).await
+        self.sync(options.common.offline, options.common.quiet).await
     }
     /// Set binary
     fn with_binary<P>(self, path: P) -> Self
@@ -1073,19 +1073,19 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let command = self.command();
         let mut attempt = 1;
         loop {
-            match self.clone().sync(options.offline, options.quiet).await {
+            match self.clone().sync(options.common.offline, options.common.quiet).await {
                 | Ok(()) => break Ok(()),
                 | Err(why) if attempt < ONLINE_SYNC_ATTEMPTS => {
                     warn!(
                         attempt,
                         attempts = ONLINE_SYNC_ATTEMPTS,
-                        interval = %options.sync_retry_interval,
+                        interval = %options.extension.sync_retry_interval,
                         "{command} sync failed — {why}; retrying..."
                     );
-                    sleep(options.sync_retry_interval.unsigned_abs()).await;
+                    sleep(options.extension.sync_retry_interval.unsigned_abs()).await;
                     attempt = attempt.saturating_add(1);
                 }
-                | Err(why) if options.ignore_sync_failure => {
+                | Err(why) if options.extension.ignore_sync_failure => {
                     warn!(
                         attempts = ONLINE_SYNC_ATTEMPTS,
                         "{command} sync failed — {why}; continuing because --ignore-sync-failure is set"

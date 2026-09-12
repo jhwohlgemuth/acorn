@@ -6,6 +6,7 @@
 use super::{McpSync, Options, RenderedOutput, SyncTarget};
 use crate::io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion};
 use crate::util::constants::app::{APPLICATION, DEFAULT_OPENCODE_CONFIG_PATH};
+use acorn_core::options::{SyncInner, TargetConfig};
 use acorn_schema::agent::opencode::{self, McpConfig, McpLocalConfig};
 use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -19,6 +20,9 @@ use serde_with::skip_serializing_none;
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 
+/// Configuration for synchronizing models into OpenCode.
+pub type Config = TargetConfig<Inner>;
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 enum Entry {
@@ -31,15 +35,11 @@ enum Entry {
         name: String,
     },
 }
-/// Configuration for synchronizing models into OpenCode
+/// OpenCode-specific synchronization configuration.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct Config {
-    /// Path to the OpenCode configuration file on disk
-    #[serde(skip_serializing)]
-    #[validate(length(min = 1))]
-    pub path: Option<String>,
+pub struct Inner {
     /// Base URL for the OpenAI-compatible endpoint (e.g., `http://localhost:8080/v1`)
     #[serde(default = "default_base_url")]
     #[validate(length(min = 1))]
@@ -56,7 +56,7 @@ pub struct Config {
     #[validate(length(min = 1))]
     pub default_model: Option<String>,
 }
-impl Config {
+impl Inner {
     /// Build the JSON structure for a model entry.
     pub fn model_entry(&self, display_name: &str) -> Value {
         serde_json::to_value(Entry::Model {
@@ -213,10 +213,9 @@ impl Config {
         }
     }
 }
-impl Default for Config {
+impl Default for Inner {
     fn default() -> Self {
         Self {
-            path: None,
             base_url: default_base_url(),
             provider_id: default_provider_id(),
             provider_name: default_provider_name(),
@@ -224,12 +223,12 @@ impl Default for Config {
         }
     }
 }
-impl fmt::Display for Config {
+impl fmt::Display for Inner {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.provider_id.fmt(formatter)
     }
 }
-impl McpSync for Config {
+impl McpSync for Inner {
     type Document = opencode::Config;
     const TARGET: &'static str = "OpenCode";
     fn update_mcp(&self, existing: opencode::Config, executable: &Path, prune: bool) -> ApiResult<opencode::Config> {
@@ -254,29 +253,27 @@ impl McpSync for Config {
         })
     }
 }
-impl SyncTarget for Config {
-    const COMMAND: &'static str = "opencode";
+impl SyncInner for Inner {
     fn merge(self, overrides: Self) -> Self {
         Self {
-            path: overrides.path.or(self.path),
             base_url: overrides.base_url,
             provider_id: overrides.provider_id,
             provider_name: overrides.provider_name,
             default_model: overrides.default_model.or(self.default_model),
         }
     }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            ..self
-        }
+    fn merge_cli_overrides(self, _overrides: Self) -> Self {
+        self
     }
+}
+impl SyncTarget for Config {
+    const COMMAND: &'static str = "opencode";
     fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
         match explicit {
             | Some(path) => Ok(PathBuf::from(Path::new(path).cross_platform_display())),
             | None => current_dir()
                 .map_err(|why| eyre!("Failed to get ACORN calling directory — {why}"))
-                .and_then(|directory| home_directory(DEFAULT_OPENCODE_CONFIG_PATH).map(|user_config| Self::discover_path(&directory, user_config))),
+                .and_then(|directory| home_directory(DEFAULT_OPENCODE_CONFIG_PATH).map(|user_config| Inner::discover_path(&directory, user_config))),
         }
     }
     fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput> {

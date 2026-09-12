@@ -22,7 +22,7 @@ pub mod io;
 mod ownership_tests;
 pub mod util;
 
-pub use acorn_macros::Validate;
+pub use acorn_macros::{Validate, With};
 
 #[cfg(feature = "std")]
 use crate::io::api::{github, gitlab, Configuration};

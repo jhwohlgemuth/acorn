@@ -25,19 +25,19 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
     assert_eq!(context.analysis.readability_metric, ReadabilityType::ARI);
     assert_eq!(context.analysis.skip, ["schema", "link"]);
     assert_eq!(context.analysis.standard, Standard::Datacite);
-    assert!(context.execution.disable_website_checks);
-    assert!(context.execution.ignore_sync_failure);
-    assert!(context.execution.offline);
-    assert!(context.execution.quiet);
-    assert!(!context.execution.skip_sync);
-    assert!(context.execution.skip_verify_checksum);
-    assert_eq!(context.execution.sync_retry_interval, SignedDuration::from_secs(7));
-    assert!(context.report.all);
-    assert!(context.report.exit_on_first_error);
-    assert_eq!(context.report.format, OutputFormat::Console);
-    assert!(context.report.no_fail);
-    assert!(context.report.quiet);
-    assert!(context.report.terse);
+    assert!(context.execution.extension.disable_website_checks);
+    assert!(context.execution.extension.ignore_sync_failure);
+    assert!(context.execution.common.offline);
+    assert!(context.execution.common.quiet);
+    assert!(!context.execution.extension.skip_sync);
+    assert!(context.execution.extension.skip_verify_checksum);
+    assert_eq!(context.execution.extension.sync_retry_interval, SignedDuration::from_secs(7));
+    assert!(context.report.extension.all);
+    assert!(context.report.extension.exit_on_first_error);
+    assert_eq!(context.report.extension.format, OutputFormat::Console);
+    assert!(context.report.extension.no_fail);
+    assert!(context.report.common.quiet);
+    assert!(context.report.extension.terse);
 }
 
 #[test]
@@ -58,8 +58,8 @@ fn test_check_context_builder_keeps_non_raw_output_visible() {
         false,
         SignedDuration::from_secs(1),
     );
-    assert!(!context.execution.quiet);
-    assert!(!context.report.quiet);
+    assert!(!context.execution.common.quiet);
+    assert!(!context.report.common.quiet);
 }
 
 #[test]
@@ -85,5 +85,5 @@ async fn test_sync_analyzer_skips_resolution_when_prose_is_omitted() {
         .await
         .expect("skipped prose should avoid analyzer resolution");
     assert_eq!(resolved.analysis.standard, Standard::Datacite);
-    assert!(resolved.execution.skip_sync);
+    assert!(resolved.execution.extension.skip_sync);
 }

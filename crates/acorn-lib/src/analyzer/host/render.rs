@@ -49,10 +49,10 @@ pub struct RenderContext<'a> {
 impl Render for [Check] {
     fn render(&self, context: RenderContext<'_>) {
         let RenderContext { documents, options } = context;
-        let is_visible = Check::is_visible_at(options.verbosity);
+        let is_visible = Check::is_visible_at(options.extension.verbosity);
         let mut sorted_checks = self
             .iter()
-            .filter(|check| !options.filter_by_verbosity || is_visible(check))
+            .filter(|check| !options.extension.filter_by_verbosity || is_visible(check))
             .cloned()
             .collect::<Vec<_>>();
         sorted_checks.sort_by_cached_key(|check| {
@@ -62,10 +62,10 @@ impl Render for [Check] {
                 check.locator.clone().unwrap_or_default().to_lowercase(),
             )
         });
-        if !options.quiet && options.format == OutputFormat::Console && !sorted_checks.is_empty() {
+        if !options.common.quiet && options.extension.format == OutputFormat::Console && !sorted_checks.is_empty() {
             println!();
         }
-        match (options.quiet, options.format, options.terse) {
+        match (options.common.quiet, options.extension.format, options.extension.terse) {
             | (false, OutputFormat::Console, true) => sorted_checks
                 .iter()
                 .for_each(|check| println!("{}", check.terse(check.document_from(documents)))),
@@ -73,7 +73,7 @@ impl Render for [Check] {
                 let document = check.document_from(documents);
                 check.with_index(index).report(document);
             }),
-            | (false, OutputFormat::Raw, _) if options.verbosity.is_some_and(|level| level > 1) => {
+            | (false, OutputFormat::Raw, _) if options.extension.verbosity.is_some_and(|level| level > 1) => {
                 sorted_checks.iter().for_each(|check| eprintln!("{check}"));
             }
             | _ => {}

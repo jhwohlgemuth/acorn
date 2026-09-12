@@ -2,7 +2,7 @@ use crate::cli::{resolve_paths, CommandOptions, WatchOptions};
 use crate::commands::preflight;
 use crate::commands::watch::{self, Prepared};
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportOptions};
+use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
 use acorn::analyzer::host::render::{Render, RenderContext};
 use acorn::analyzer::host::runtime::StaticAnalyzer;
 use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
@@ -15,6 +15,7 @@ use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
 use acorn::LocationExt;
 use acorn::{fail, skip};
+use acorn_core::options::CommonRuntime;
 use acorn_core::util::{regex_join, suffix, MimeType};
 use acorn_core::Location;
 use clap_verbosity_flag::Verbosity;
@@ -111,15 +112,13 @@ impl PrepareText for TextOrigin {
     }
 }
 fn apply_early_exit_policy(results: CheckBatch, category: &CheckCategory, context: RenderContext<'_>) -> CheckBatch {
-    let ReportOptions {
-        all,
-        exit_on_first_error,
-        quiet,
-        ..
-    } = context.options;
+    let ReportExtension {
+        all, exit_on_first_error, ..
+    } = &context.options.extension;
+    let quiet = context.options.common.quiet;
     let filtered_results = filter_by_visibility(results.as_slice(), *all);
     let issue_count = failure_count(filtered_results.as_slice());
-    if *exit_on_first_error && issue_count > 0 && !*quiet {
+    if *exit_on_first_error && issue_count > 0 && !quiet {
         fail!("ACORN found {} {} issues", issue_count, category);
         filtered_results.as_slice().render(context);
     }
@@ -149,20 +148,34 @@ fn build_analysis_context(
         .standard(standard)
         .build();
     let execution = ExecutionOptions::init()
-        .disable_website_checks(disable_website_checks)
-        .ignore_sync_failure(ignore_sync_failure)
-        .offline(offline)
-        .quiet(silent || raw)
-        .skip_verify_checksum(skip_verify_checksum)
-        .sync_retry_interval(sync_retry_interval)
+        .common(CommonRuntime {
+            offline,
+            quiet: silent || raw,
+            ..Default::default()
+        })
+        .extension(
+            ExecutionExtension::init()
+                .disable_website_checks(disable_website_checks)
+                .ignore_sync_failure(ignore_sync_failure)
+                .skip_verify_checksum(skip_verify_checksum)
+                .sync_retry_interval(sync_retry_interval)
+                .build(),
+        )
         .build();
     let report = ReportOptions::init()
-        .all(all)
-        .exit_on_first_error(exit_on_first_error)
-        .format(OutputFormat::Console)
-        .no_fail(no_fail)
-        .quiet(silent || raw)
-        .terse(terse)
+        .common(CommonRuntime {
+            quiet: silent || raw,
+            ..Default::default()
+        })
+        .extension(
+            ReportExtension::init()
+                .all(all)
+                .exit_on_first_error(exit_on_first_error)
+                .format(OutputFormat::Console)
+                .no_fail(no_fail)
+                .terse(terse)
+                .build(),
+        )
         .build();
     AnalysisContext::init().analysis(analysis).execution(execution).report(report).build()
 }
@@ -178,7 +191,7 @@ fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
 async fn execute(input: Input, options: &AnalysisContext) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
     let collected = collect(&report, options);
-    let issues = filter_by_visibility(collected.as_slice(), options.report.all);
+    let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
     handle(&issues, &input.paths, options, report.render_context(&options.report))
 }
 fn failure_count(issues: &[Check]) -> usize {
@@ -188,7 +201,8 @@ fn filter_by_visibility(issues: &[Check], all: bool) -> CheckBatch {
     issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect()
 }
 fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, render_context: RenderContext<'_>) -> Result<(), Report> {
-    let ReportOptions { quiet, no_fail, terse, .. } = &options.report;
+    let quiet = options.report.common.quiet;
+    let ReportExtension { no_fail, terse, .. } = &options.report.extension;
     let print_summary = || {
         let file_count = paths.len();
         let headers = vec!["", "Count"];
@@ -199,7 +213,7 @@ fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, ren
             .collect();
         print_values_as_table::<String>(headers, rows, None);
     };
-    if !(*quiet) {
+    if !quiet {
         issues.as_slice().render(render_context);
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
@@ -359,7 +373,11 @@ async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<Analysi
         | true => {
             options
                 .execution
-                .resolve_analyzer::<Vale, _>(options.execution.vale_config.clone().unwrap_or_default())
+                .extension
+                .resolve_analyzer::<Vale, _>(
+                    &options.execution.common,
+                    options.execution.extension.vale_config.clone().unwrap_or_default(),
+                )
                 .await
                 .retry_sync(&options.execution)
                 .await
@@ -367,7 +385,10 @@ async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<Analysi
     };
     match sync_result {
         | Ok(()) => Ok(AnalysisContext {
-            execution: options.execution.clone().without_sync(),
+            execution: ExecutionOptions {
+                extension: options.execution.extension.clone().without_sync(),
+                ..options.execution.clone()
+            },
             ..options.clone()
         }),
         | Err(why) => Err(why),

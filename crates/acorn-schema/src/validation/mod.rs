@@ -172,6 +172,7 @@
 //!     assert!(Parent { children: vec![Child { score: 5 }] }.validate().is_ok());
 //! }
 //! ```
+use acorn_core::options::{SyncConfig, SyncInner, TargetConfig};
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 use acorn_core::util::Checksum;
 use acorn_core::validation::ValidationError;
@@ -600,6 +601,37 @@ pub struct ValidationIssue {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ValidationReport(Vec<ValidationIssue>);
+impl<G, L, O, V> Validate for SyncConfig<G, L, O, V>
+where
+    G: SyncInner + Validate,
+    L: SyncInner + Validate,
+    O: SyncInner + Validate,
+    V: SyncInner + Validate,
+{
+    fn validate(&self) -> Result<(), ValidationReport> {
+        ValidationReport::new()
+            .merge("goose", report_of(self.goose.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("llamaSwap", report_of(self.llama_swap.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("opencode", report_of(self.opencode.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("vscode", report_of(self.vscode.as_ref().map_or(Ok(()), Validate::validate)))
+            .finish()
+    }
+}
+impl<I> Validate for TargetConfig<I>
+where
+    I: SyncInner + Validate,
+{
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.path
+            .as_ref()
+            .filter(|path| path.is_empty())
+            .map_or_else(ValidationReport::new, |_| {
+                ValidationReport::from_error("path", ValidationError::new("length").with_message("Length must be at least 1"))
+            })
+            .merge("", report_of(self.inner.validate()))
+            .finish()
+    }
+}
 impl<C> Each for &C
 where
     C: Each + ?Sized,

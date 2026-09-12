@@ -7,6 +7,7 @@ use acorn::analyzer::host::discovery;
 use acorn::analyzer::OutputFormat as GatherOutputFormat;
 use acorn::fail;
 use acorn::util::Label;
+use acorn_core::options::CommonRuntime;
 use acorn_schema::discovery::RemoteOrganizationRole;
 use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre;
@@ -429,33 +430,38 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             });
             let citation_format = discovery::CitationFormat::resolve(*raw, *resolve, *citation_format);
             let options = discovery::Options {
-                citation_format,
-                database_path: &config.database_path,
-                enrich: *enrich,
-                filter,
-                format: raw.then_some(GatherOutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
-                ignore,
-                input,
-                max_depth: *max_depth,
-                merge_request: *merge_request,
-                no_local_database: config.no_local_database,
-                offline,
-                watching: watch.is_some(),
-                output,
-                resolve: *resolve,
-                standard,
-                text,
-                quiet: verbose.is_silent(),
-                terse: *terse,
-                verbosity: match verbose.filter() {
-                    | VerbosityFilter::Off => None,
-                    | VerbosityFilter::Error => Some(1),
-                    | VerbosityFilter::Warn => Some(2),
-                    | VerbosityFilter::Info => Some(3),
-                    | VerbosityFilter::Debug => Some(4),
-                    | VerbosityFilter::Trace => Some(5),
+                common: CommonRuntime {
+                    filter: filter.iter().cloned().collect(),
+                    ignore: ignore.iter().cloned().collect(),
+                    offline,
+                    quiet: verbose.is_silent(),
+                    ..Default::default()
                 },
-                remote: remote.as_ref(),
+                output: output.clone(),
+                extension: discovery::DiscoveryExtension {
+                    citation_format,
+                    database_path: config.database_path.clone(),
+                    enrich: *enrich,
+                    format: raw.then_some(GatherOutputFormat::Raw).or_else(|| format.as_ref().map(Into::into)),
+                    input: input.clone(),
+                    max_depth: *max_depth,
+                    merge_request: *merge_request,
+                    no_local_database: config.no_local_database,
+                    watching: watch.is_some(),
+                    resolve: *resolve,
+                    standard: *standard,
+                    text: text.clone(),
+                    terse: *terse,
+                    verbosity: match verbose.filter() {
+                        | VerbosityFilter::Off => None,
+                        | VerbosityFilter::Error => Some(1),
+                        | VerbosityFilter::Warn => Some(2),
+                        | VerbosityFilter::Info => Some(3),
+                        | VerbosityFilter::Debug => Some(4),
+                        | VerbosityFilter::Trace => Some(5),
+                    },
+                    remote,
+                },
             };
             gather::run(options, watch).await
         }),

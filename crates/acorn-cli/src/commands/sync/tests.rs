@@ -205,9 +205,11 @@ fn test_resolve_sync_config_preserves_llama_swap_values_with_path_overrides() {
         config: Some(Config {
             llama_swap: Some(sync::llama_swap::Config {
                 path: Some("configured.yaml".to_string()),
-                executable: Some("my-server".to_string()),
-                context_size: Some(8192),
-                ..Default::default()
+                inner: sync::llama_swap::Inner {
+                    executable: Some("my-server".to_string()),
+                    context_size: Some(8192),
+                    ..Default::default()
+                },
             }),
             opencode: None,
             ..Default::default()
@@ -258,10 +260,12 @@ fn test_resolve_sync_config_preserves_opencode_values_with_path_override() {
             llama_swap: None,
             opencode: Some(sync::opencode::Config {
                 path: Some("configured.jsonc".to_string()),
-                base_url: "http://configured.test/v1".to_string(),
-                provider_id: "configured-provider".to_string(),
-                provider_name: "Configured Provider".to_string(),
-                default_model: Some("configured-model".to_string()),
+                inner: sync::opencode::Inner {
+                    base_url: "http://configured.test/v1".to_string(),
+                    provider_id: "configured-provider".to_string(),
+                    provider_name: "Configured Provider".to_string(),
+                    default_model: Some("configured-model".to_string()),
+                },
             }),
             ..Default::default()
         }),
@@ -369,12 +373,18 @@ fn test_sync_config_merge_prefers_non_path_overrides() {
     let base = Config {
         goose: None,
         llama_swap: Some(sync::llama_swap::Config {
-            executable: Some("base-server".to_string()),
+            inner: sync::llama_swap::Inner {
+                executable: Some("base-server".to_string()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: Some(sync::opencode::Config {
-            base_url: "http://base.test/v1".to_string(),
-            provider_id: "base-provider".to_string(),
+            inner: sync::opencode::Inner {
+                base_url: "http://base.test/v1".to_string(),
+                provider_id: "base-provider".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         vscode: None,
@@ -382,12 +392,18 @@ fn test_sync_config_merge_prefers_non_path_overrides() {
     let overrides = Config {
         goose: None,
         llama_swap: Some(sync::llama_swap::Config {
-            executable: Some("override-server".to_string()),
+            inner: sync::llama_swap::Inner {
+                executable: Some("override-server".to_string()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: Some(sync::opencode::Config {
-            base_url: "http://override.test/v1".to_string(),
-            provider_id: "override-provider".to_string(),
+            inner: sync::opencode::Inner {
+                base_url: "http://override.test/v1".to_string(),
+                provider_id: "override-provider".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         vscode: None,

@@ -4,6 +4,7 @@
 use crate::io::api::gitlab::DeploymentConfig;
 use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
+use crate::io::sync::ConfigExt;
 use crate::io::{parse_jsonc_cst, read_file, sync, write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput};
 use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use crate::util::{text_diff_changes_with_color, Label};

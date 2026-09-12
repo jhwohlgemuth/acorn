@@ -9,6 +9,7 @@ use crate::util::constants::app::APPLICATION;
 use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
+use acorn_core::options::{SyncInner, TargetConfig};
 use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use alloc::string::{String, ToString};
@@ -21,14 +22,12 @@ use serde_with::skip_serializing_none;
 use std::path::{Path, PathBuf};
 
 /// Configuration for synchronizing a local OpenAI-compatible model into Goose CLI.
+pub type Config = TargetConfig<Inner>;
+/// Goose-specific synchronization configuration.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
-pub struct Config {
-    /// Path to Goose's `config.yaml` on disk.
-    #[serde(skip_serializing)]
-    #[validate(length(min = 1))]
-    pub path: Option<String>,
+pub struct Inner {
     /// OpenAI-compatible endpoint origin.
     #[serde(default = "default_host")]
     #[validate(url)]
@@ -41,7 +40,7 @@ pub struct Config {
     #[validate(length(min = 1))]
     pub default_model: Option<String>,
 }
-impl Config {
+impl Inner {
     /// Upsert the active OpenAI provider while preserving unrelated Goose settings.
     pub fn upsert(&self, existing: Value, models: &[ModelDetails]) -> ApiResult<Value> {
         self.default_model
@@ -77,17 +76,28 @@ impl Config {
             })
     }
 }
-impl Default for Config {
+impl Default for Inner {
     fn default() -> Self {
         Self {
-            path: None,
             host: default_host(),
             base_path: default_base_path(),
             default_model: None,
         }
     }
 }
-impl McpSync for Config {
+impl SyncInner for Inner {
+    fn merge(self, overrides: Self) -> Self {
+        Self {
+            host: overrides.host,
+            base_path: overrides.base_path,
+            default_model: overrides.default_model.or(self.default_model),
+        }
+    }
+    fn merge_cli_overrides(self, _overrides: Self) -> Self {
+        self
+    }
+}
+impl McpSync for Inner {
     type Document = Value;
     const TARGET: &'static str = "Goose";
     fn update_mcp(&self, existing: Value, executable: &Path, prune: bool) -> ApiResult<Value> {
@@ -135,20 +145,6 @@ impl McpSync for Config {
 }
 impl SyncTarget for Config {
     const COMMAND: &'static str = "goose";
-    fn merge(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            host: overrides.host,
-            base_path: overrides.base_path,
-            default_model: overrides.default_model.or(self.default_model),
-        }
-    }
-    fn merge_cli_overrides(self, overrides: Self) -> Self {
-        Self {
-            path: overrides.path.or(self.path),
-            ..self
-        }
-    }
     fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf> {
         explicit.map(PathBuf::from).map_or_else(
             || {

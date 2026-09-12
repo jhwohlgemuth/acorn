@@ -213,14 +213,18 @@ where
     let resolved_options = options.cloned().unwrap_or_default();
     let analyzer = resolved_options
         .execution
-        .resolve_analyzer::<Vale, _>(resolved_options.execution.vale_config.clone().unwrap_or_default())
+        .extension
+        .resolve_analyzer::<Vale, _>(
+            &resolved_options.execution.common,
+            resolved_options.execution.extension.vale_config.clone().unwrap_or_default(),
+        )
         .await;
-    let sync = match resolved_options.execution.skip_sync {
+    let sync = match resolved_options.execution.extension.skip_sync {
         | true => Ok(()),
         | false => {
             analyzer
                 .clone()
-                .sync(resolved_options.execution.offline, resolved_options.execution.quiet)
+                .sync(resolved_options.execution.common.offline, resolved_options.execution.common.quiet)
                 .await
         }
     };
@@ -352,7 +356,7 @@ fn skipped_categories(options: &AnalysisContext) -> Vec<CheckCategory> {
         .skip
         .iter()
         .map(CheckCategory::from)
-        .chain((options.execution.offline || options.execution.disable_website_checks).then_some(CheckCategory::Link))
+        .chain((options.execution.common.offline || options.execution.extension.disable_website_checks).then_some(CheckCategory::Link))
         .fold(Vec::new(), |mut categories, category| {
             if !categories.contains(&category) {
                 categories.push(category);

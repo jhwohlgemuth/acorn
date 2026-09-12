@@ -6,7 +6,7 @@ use tempfile::tempdir;
 fn policy<'a>(format: Option<OutputFormat>, output: &'a Option<PathBuf>, quiet: bool, terse: bool, verbosity: Option<u8>) -> GatherOutputPolicy<'a> {
     GatherOutputPolicy {
         format,
-        output,
+        output: output.as_ref(),
         quiet,
         terse,
         verbosity,

@@ -3,9 +3,15 @@ use super::runtime::{StaticAnalyzer, StaticAnalyzerConfig};
 use super::vale::ValeConfig;
 use crate::analyzer::check::{OutputFormat, Standard};
 use crate::analyzer::readability::ReadabilityType;
+use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::Vec;
 use bon::Builder;
 use jiff::SignedDuration;
+
+/// Host execution policy for analysis services.
+pub type ExecutionOptions = RuntimeOptions<ExecutionExtension>;
+/// Output and command failure policy applied after analysis.
+pub type ReportOptions = RuntimeOptions<ReportExtension>;
 
 /// Complete context assembled by an analysis composition root.
 #[derive(Builder, Clone, Debug, Default)]
@@ -37,22 +43,16 @@ pub struct AnalysisOptions {
     #[builder(default)]
     pub standard: Standard,
 }
-/// Host execution policy for analysis services.
+/// Host-specific execution policy fields.
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init)]
-pub struct ExecutionOptions {
+pub struct ExecutionExtension {
     /// Disable website checks without suppressing supplied link outcomes.
     #[builder(default = false)]
     pub disable_website_checks: bool,
     /// Continue checking when analyzer synchronization retries are exhausted.
     #[builder(default = false)]
     pub ignore_sync_failure: bool,
-    /// Prevent new network operations.
-    #[builder(default = false)]
-    pub offline: bool,
-    /// Suppress output from external commands.
-    #[builder(default = false)]
-    pub quiet: bool,
     /// Skip analyzer synchronization before prose analysis.
     #[builder(default = false)]
     pub skip_sync: bool,
@@ -65,10 +65,10 @@ pub struct ExecutionOptions {
     /// Vale host configuration.
     pub vale_config: Option<ValeConfig>,
 }
-/// Output and command failure policy applied after analysis.
+/// Report-specific output and command failure policy fields.
 #[derive(Builder, Clone, Debug, Default)]
 #[builder(start_fn = init)]
-pub struct ReportOptions {
+pub struct ReportExtension {
     /// Include successful and informational checks.
     #[builder(default = false)]
     pub all: bool,
@@ -84,22 +84,17 @@ pub struct ReportOptions {
     /// Prevent failure results from producing a command error.
     #[builder(default = false)]
     pub no_fail: bool,
-    /// Suppress report output.
-    #[builder(default = false)]
-    pub quiet: bool,
     /// Use compact output.
     #[builder(default = false)]
     pub terse: bool,
     /// Effective check visibility level.
     pub verbosity: Option<u8>,
 }
-impl Default for ExecutionOptions {
+impl Default for ExecutionExtension {
     fn default() -> Self {
         Self {
             disable_website_checks: false,
             ignore_sync_failure: false,
-            offline: false,
-            quiet: false,
             skip_sync: false,
             skip_verify_checksum: false,
             sync_retry_interval: SignedDuration::from_secs(1),
@@ -107,14 +102,14 @@ impl Default for ExecutionOptions {
         }
     }
 }
-impl ExecutionOptions {
+impl ExecutionExtension {
     /// Resolve the configured static analyzer.
-    pub async fn resolve_analyzer<Analyzer, Config>(&self, config: Config) -> Analyzer
+    pub async fn resolve_analyzer<Analyzer, Config>(&self, runtime: &CommonRuntime, config: Config) -> Analyzer
     where
         Analyzer: StaticAnalyzer<Config>,
         Config: StaticAnalyzerConfig + Send,
     {
-        Analyzer::resolve(config.save(self.offline).await, self.offline, self.skip_verify_checksum).await
+        Analyzer::resolve(config.save(runtime.offline).await, runtime.offline, self.skip_verify_checksum).await
     }
     /// Return execution policy with analyzer synchronization disabled.
     pub fn without_sync(self) -> Self {

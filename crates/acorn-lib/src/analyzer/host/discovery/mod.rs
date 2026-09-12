@@ -1,5 +1,5 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
-use super::context::{AnalysisContext, AnalysisOptions, ExecutionOptions, ReportOptions};
+use super::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
 use super::render::{Render, RenderContext};
 use super::runtime::link_check;
 use super::service::{analyze_paths, Analysis, SchemaCheck};
@@ -13,6 +13,7 @@ use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::util::{values_as_table, Label, StringConversion};
 use crate::{check, check_err};
 use crate::{LocationExt, RepositoryExt};
+use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::util::merge_unique;
 use acorn_core::{Location, Repository};
 use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
@@ -36,6 +37,8 @@ use tracing::warn;
 
 pub mod osti;
 
+/// Gather command options shared with discovery analysis.
+pub type Options = RuntimeOptions<DiscoveryExtension, PathBuf>;
 trait DeserializeMetadata: for<'de> Deserialize<'de> {
     fn deserialize_metadata(value: Option<&str>) -> Option<Self>
     where
@@ -220,54 +223,44 @@ pub struct ArtifactCandidate {
 #[derive(Clone, Copy, Debug)]
 pub struct GatherOutputPolicy<'a> {
     format: Option<OutputFormat>,
-    output: &'a Option<PathBuf>,
+    output: Option<&'a PathBuf>,
     quiet: bool,
     terse: bool,
     verbosity: Option<u8>,
 }
-/// Gather command options shared with discovery analysis
-#[derive(Clone, Copy, Debug)]
-pub struct Options<'a> {
+/// Discovery-specific gather fields composed with shared runtime options.
+#[derive(Clone, Debug, Default)]
+pub struct DiscoveryExtension {
     /// Citation format used for resolved raw DOI output
     pub citation_format: CitationFormat,
     /// Optional database path
-    pub database_path: &'a Option<PathBuf>,
+    pub database_path: Option<PathBuf>,
     /// Whether gathered RAD documents should be enriched before analysis.
     pub enrich: bool,
-    /// Optional input inclusion pattern
-    pub filter: &'a Option<String>,
     /// Report format
     pub format: Option<OutputFormat>,
-    /// Optional input exclusion pattern
-    pub ignore: &'a Option<String>,
     /// Input locations
-    pub input: &'a [String],
+    pub input: Vec<String>,
     /// Maximum directory traversal depth
     pub max_depth: Option<usize>,
     /// Whether to gather merge request files
     pub merge_request: bool,
     /// Whether local database persistence is disabled
     pub no_local_database: bool,
-    /// Whether network access is disabled
-    pub offline: bool,
     /// Whether inputs are being repeatedly observed for changes.
     pub watching: bool,
-    /// Optional report output path
-    pub output: &'a Option<PathBuf>,
     /// Whether identifiers should be resolved
     pub resolve: bool,
     /// Optional analysis standard
-    pub standard: &'a Option<Standard>,
+    pub standard: Option<Standard>,
     /// Literal text inputs
-    pub text: &'a [String],
-    /// Whether analysis output should be quiet
-    pub quiet: bool,
+    pub text: Vec<String>,
     /// Whether checks use compact output and the discovery table is suppressed.
     pub terse: bool,
     /// Effective check visibility level; `None` suppresses checks.
     pub verbosity: Option<u8>,
     /// Optional remote metadata search.
-    pub remote: Option<&'a RemoteSearchRequest>,
+    pub remote: Option<RemoteSearchRequest>,
 }
 /// Gather failure after report processing.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -860,14 +853,20 @@ impl GatherOutputPolicy<'_> {
             })
     }
 }
-impl<'a> From<Options<'a>> for GatherOutputPolicy<'a> {
-    fn from(options: Options<'a>) -> Self {
+impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
+    fn from(options: &'a Options) -> Self {
+        let (format, quiet, terse, verbosity) = (
+            options.extension.format,
+            options.common.quiet,
+            options.extension.terse,
+            options.extension.verbosity,
+        );
         Self {
-            format: options.format,
-            output: options.output,
-            quiet: options.quiet,
-            terse: options.terse,
-            verbosity: options.verbosity,
+            format,
+            output: options.output.as_ref(),
+            quiet,
+            terse,
+            verbosity,
         }
     }
 }
@@ -900,7 +899,7 @@ impl LifecycleState {
         .with_kind(CheckKind::Lifecycle)
     }
 }
-impl Options<'_> {
+impl DiscoveryExtension {
     /// Return whether path or literal text input was supplied.
     pub fn has_input(&self) -> bool {
         !(self.input.is_empty() && self.text.is_empty())
@@ -1157,10 +1156,10 @@ impl Records {
             .collect()
     }
     /// Analyze the retained source documents and return checks and temporary paths
-    pub async fn analyze(&self, options: Options<'_>) -> (CheckBatch, Vec<PathBuf>) {
-        let Options {
-            offline, standard, quiet, ..
-        } = options;
+    pub async fn analyze(&self, options: &Options) -> (CheckBatch, Vec<PathBuf>) {
+        let offline = options.common.offline;
+        let quiet = options.common.quiet;
+        let standard = options.extension.standard;
         let sources: &[SourceDocument] = self.into();
         let materialized = sources
             .iter()
@@ -1185,11 +1184,17 @@ impl Records {
             })
             .build();
         let execution = ExecutionOptions::init()
-            .disable_website_checks(true)
-            .offline(offline)
-            .quiet(quiet)
+            .common(CommonRuntime {
+                offline,
+                quiet,
+                ..Default::default()
+            })
+            .extension(ExecutionExtension::init().disable_website_checks(true).build())
             .build();
-        let report_options = ReportOptions::init().all(true).quiet(quiet).build();
+        let report_options = ReportOptions::init()
+            .common(CommonRuntime { quiet, ..Default::default() })
+            .extension(ReportExtension::init().all(true).build())
+            .build();
         let options = AnalysisContext::init()
             .analysis(analysis)
             .execution(execution)
@@ -1422,8 +1427,8 @@ impl RemoteSearchRequest {
         }
     }
     /// Run the remote search and emit its gather report
-    pub async fn run(&self, options: Options<'_>) -> ApiResult<()> {
-        match self.fetch(options.resolve, options.offline).await {
+    pub async fn run(&self, options: &Options) -> ApiResult<()> {
+        match self.fetch(options.extension.resolve, options.common.offline).await {
             | Ok(responses) => self.process(responses, options),
             | Err(why) => Err(why),
         }
@@ -1440,24 +1445,23 @@ impl RemoteSearchRequest {
         }
     }
     /// Process previously fetched remote responses using gather output and persistence options.
-    pub fn process(&self, responses: Vec<RemoteSearchResponse>, options: Options<'_>) -> ApiResult<()> {
+    pub fn process(&self, responses: Vec<RemoteSearchResponse>, options: &Options) -> ApiResult<()> {
         let output_policy = GatherOutputPolicy::from(options);
-        let Options {
+        let DiscoveryExtension {
             citation_format,
             database_path,
             no_local_database,
-            offline,
             resolve,
             ..
-        } = options;
-        match offline {
+        } = &options.extension;
+        match options.common.offline {
             | true => Err(color_eyre::eyre::eyre!("--{} cannot be used with --offline", self.provider)),
             | false => {
                 let inputs = self.queries.len().max(usize::from(self.organization.is_some()));
                 let checks = responses
                     .iter()
                     .flat_map(|response| {
-                        resolve
+                        (*resolve)
                             .then_some(response.resolution_checks.iter().cloned())
                             .into_iter()
                             .flatten()
@@ -1485,7 +1489,7 @@ impl RemoteSearchRequest {
                 let report = Report::new(&checks, Records::default(), inputs)
                     .with_remote(responses)
                     .with_candidates(candidates)
-                    .with_citation_format(citation_format);
+                    .with_citation_format(*citation_format);
                 finalize_report(&checks, &report, output_policy, false)
             }
         }
@@ -1845,11 +1849,18 @@ pub fn discover_identifiers(content: &str) -> Vec<Identifier> {
 pub fn finalize_report(checks: &[Check], report: &Report, policy: GatherOutputPolicy<'_>, additional_failure: bool) -> ApiResult<()> {
     let format = policy.format();
     let report_options = ReportOptions::init()
-        .filter_by_verbosity(true)
-        .quiet(policy.quiet)
-        .terse(policy.terse)
-        .format(format)
-        .maybe_verbosity(policy.verbosity)
+        .common(CommonRuntime {
+            quiet: policy.quiet,
+            ..Default::default()
+        })
+        .extension(
+            ReportExtension::init()
+                .filter_by_verbosity(true)
+                .terse(policy.terse)
+                .format(format)
+                .maybe_verbosity(policy.verbosity)
+                .build(),
+        )
         .build();
     checks.render(RenderContext::new(&report_options));
     let output = match policy.output {

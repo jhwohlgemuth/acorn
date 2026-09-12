@@ -11,6 +11,7 @@ use crate::io::{
 };
 use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
 use crate::util::{text_diff_changes_with_color, Label};
+use acorn_core::options::SyncConfig;
 use acorn_schema::agent::ModelDetails;
 use acorn_schema::validation::Validate;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -21,8 +22,6 @@ use color_eyre::eyre::eyre;
 use core::fmt;
 use core::ops::ControlFlow;
 use owo_colors::OwoColorize;
-use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use std::fs::{canonicalize, create_dir_all, remove_file, rename};
 use std::path::{Path, PathBuf};
 use tracing::info;
@@ -31,6 +30,36 @@ pub mod llama_swap;
 pub mod opencode;
 pub mod vscode;
 
+/// Top-level synchronization configuration section.
+///
+/// Added to `ApplicationConfiguration` as the optional `config` field.
+///
+/// ```yaml
+/// config:
+///   llamaSwap:
+///     path: ./llama-swap.yaml
+///     modelsDirectory: ~/.models
+///   opencode:
+///     path: ./opencode.jsonc
+///   vscode:
+///     path: ./chatLanguageModels.json
+///   goose:
+///     path: ./goose.yaml
+/// ```
+pub type Config = SyncConfig<goose::Inner, llama_swap::Inner, opencode::Inner, vscode::Inner>;
+/// Host operations for the aggregate synchronization configuration.
+pub trait ConfigExt {
+    /// Resolve the model directory from a CLI override, configuration, or the user default.
+    fn resolve_models_dir(&self, override_directory: Option<&Path>) -> ApiResult<PathBuf>;
+    /// Synchronize all selected configuration targets.
+    fn sync(&self, options: Options<'_>) -> ApiResult<()>;
+}
+trait ConfigPrivate: Sized {
+    fn commit(outputs: &[RenderedOutput]) -> ApiResult<Vec<PathBuf>>;
+    fn is_empty(&self) -> bool;
+    fn models_for_sync(&self, options: &Options<'_>) -> ApiResult<Vec<ModelDetails>>;
+    fn selected(&self, options: &Options<'_>) -> Self;
+}
 trait McpSync {
     type Document;
     const TARGET: &'static str;
@@ -44,8 +73,6 @@ trait McpSync {
 }
 pub(crate) trait SyncTarget: Clone + Default {
     const COMMAND: &'static str;
-    fn merge(self, overrides: Self) -> Self;
-    fn merge_cli_overrides(self, overrides: Self) -> Self;
     fn resolve_path(explicit: Option<&str>) -> ApiResult<PathBuf>;
     fn render(&self, options: Options<'_>) -> ApiResult<RenderedOutput>;
 }
@@ -64,47 +91,6 @@ enum SyncError {
     LlamaSwap(color_eyre::Report),
     OpenCode(color_eyre::Report),
     VsCode(color_eyre::Report),
-}
-/// Top-level synchronization configuration section
-///
-/// Added to `ApplicationConfiguration` as the optional `config` field.
-///
-/// ### Example
-///
-/// ```yaml
-/// config:
-///   llamaSwap:
-///     path: ./llama-swap.yaml
-///     modelsDirectory: ~/.models
-///     executable: llama-server
-///     contextSize: 8192
-///   opencode:
-///     path: ./opencode.jsonc
-///     baseUrl: http://localhost:8080/v1
-///     providerId: llama-swap
-///   vscode:
-///     path: ./chatLanguageModels.json
-///     url: http://localhost:8080/v1/chat/completions
-///   goose:
-///     path: ./goose.yaml
-///     host: http://localhost:8080
-/// ```
-#[skip_serializing_none]
-#[derive(Clone, Debug, Default, Deserialize, Serialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct Config {
-    /// Goose CLI configuration for local inference
-    #[validate(nested)]
-    pub goose: Option<goose::Config>,
-    /// llama-swap configuration for local inference
-    #[validate(nested)]
-    pub llama_swap: Option<llama_swap::Config>,
-    /// OpenCode configuration for local inference
-    #[validate(nested)]
-    pub opencode: Option<opencode::Config>,
-    /// VS Code custom endpoint configuration for local inference
-    #[validate(nested)]
-    pub vscode: Option<vscode::Config>,
 }
 /// A normalized model entry ready for local GGUF resolution.
 #[derive(Clone, Debug)]
@@ -187,39 +173,8 @@ pub(crate) struct Shard {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Shards(Vec<Shard>);
-impl Config {
-    /// Merge populated runtime overrides into configured synchronization targets
-    pub fn merge(self, overrides: Self) -> Self {
-        let Self {
-            goose,
-            llama_swap,
-            opencode,
-            vscode,
-        } = self;
-        Self {
-            goose: merge_target(goose, overrides.goose),
-            llama_swap: merge_target(llama_swap, overrides.llama_swap),
-            opencode: merge_target(opencode, overrides.opencode),
-            vscode: merge_target(vscode, overrides.vscode),
-        }
-    }
-    /// Merge CLI-supported overrides into configured synchronization targets
-    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
-        let Self {
-            goose,
-            llama_swap,
-            opencode,
-            vscode,
-        } = self;
-        Self {
-            goose: merge_target_cli(goose, overrides.goose),
-            llama_swap: merge_target_cli(llama_swap, overrides.llama_swap),
-            opencode: merge_target_cli(opencode, overrides.opencode),
-            vscode: merge_target_cli(vscode, overrides.vscode),
-        }
-    }
-    /// Resolve the model directory from a CLI override, configuration, or the user default
-    pub fn resolve_models_dir(&self, override_directory: Option<&Path>) -> ApiResult<PathBuf> {
+impl ConfigExt for Config {
+    fn resolve_models_dir(&self, override_directory: Option<&Path>) -> ApiResult<PathBuf> {
         override_directory
             .map(PathBuf::from)
             .or_else(|| {
@@ -230,8 +185,7 @@ impl Config {
             })
             .map_or_else(|| home_directory(DEFAULT_MODELS_DIRECTORY), Ok)
     }
-    /// Synchronize all selected configuration targets
-    pub fn sync(&self, options: Options<'_>) -> ApiResult<()> {
+    fn sync(&self, options: Options<'_>) -> ApiResult<()> {
         let selected = self.selected(&options);
         selected.models_for_sync(&options).and_then(|models| {
             let options = Options { models: &models, ..options };
@@ -334,6 +288,8 @@ impl Config {
                 })
         })
     }
+}
+impl ConfigPrivate for Config {
     fn models_for_sync(&self, options: &Options<'_>) -> ApiResult<Vec<ModelDetails>> {
         let mcp_only = options.mcp && options.models.is_empty();
         let no_llama_swap = self.llama_swap.is_none();
@@ -779,18 +735,6 @@ impl fmt::Display for SyncError {
             | Self::OpenCode(why) => write!(formatter, "Synchronize OpenCode — {why}"),
             | Self::VsCode(why) => write!(formatter, "Synchronize VS Code — {why}"),
         }
-    }
-}
-fn merge_target<T: SyncTarget>(config: Option<T>, overrides: Option<T>) -> Option<T> {
-    match (config, overrides) {
-        | (Some(config), Some(overrides)) => Some(config.merge(overrides)),
-        | (config, overrides) => overrides.or(config),
-    }
-}
-fn merge_target_cli<T: SyncTarget>(config: Option<T>, overrides: Option<T>) -> Option<T> {
-    match (config, overrides) {
-        | (Some(config), Some(overrides)) => Some(config.merge_cli_overrides(overrides)),
-        | (config, overrides) => overrides.or(config),
     }
 }
 /// Discover GGUF files beneath a model's expected directory

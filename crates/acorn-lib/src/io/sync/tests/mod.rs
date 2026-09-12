@@ -12,6 +12,8 @@ use acorn_core::{Location, Repository};
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 #[path = "goose.rs"]
 mod goose_tests;
+#[path = "llama_swap.rs"]
+mod llama_swap_tests;
 #[path = "opencode.rs"]
 mod opencode_tests;
 #[path = "vscode.rs"]
@@ -489,7 +491,10 @@ fn test_sync_is_stable_after_successful_two_target_write() {
 fn test_sync_rejects_invalid_settings() {
     let invalid_config = Config {
         llama_swap: Some(llama_swap::Config {
-            executable: Some(String::new()),
+            inner: llama_swap::Inner {
+                executable: Some(String::new()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: None,
@@ -505,7 +510,10 @@ fn test_sync_rejects_invalid_settings() {
     let invalid_config = Config {
         llama_swap: None,
         opencode: Some(opencode::Config {
-            default_model: Some("missing".to_string()),
+            inner: opencode::Inner {
+                default_model: Some("missing".to_string()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         ..Default::default()
@@ -524,7 +532,10 @@ fn test_sync_rejects_invalid_settings() {
 fn test_sync_rejects_reserved_args_and_unknown_overrides() {
     let reserved_args = Config {
         llama_swap: Some(llama_swap::Config {
-            extra_args: Some(vec![llama_swap::Argument::from("--model")]),
+            inner: llama_swap::Inner {
+                extra_args: Some(vec![llama_swap::Argument::from("--model")]),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: None,
@@ -539,7 +550,10 @@ fn test_sync_rejects_reserved_args_and_unknown_overrides() {
         .is_err());
     let unknown_override = Config {
         llama_swap: Some(llama_swap::Config {
-            models: Some([("missing".to_string(), llama_swap::ModelOverride::default())].into_iter().collect()),
+            inner: llama_swap::Inner {
+                models: Some([("missing".to_string(), llama_swap::ModelOverride::default())].into_iter().collect()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: None,
@@ -559,7 +573,10 @@ fn test_sync_rejects_reserved_args_and_unknown_overrides() {
 fn test_sync_validation_ignores_unselected_target() {
     let invalid_llama_swap = Config {
         llama_swap: Some(llama_swap::Config {
-            executable: Some(String::new()),
+            inner: llama_swap::Inner {
+                executable: Some(String::new()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         opencode: Some(opencode::Config::default()),
@@ -568,7 +585,10 @@ fn test_sync_validation_ignores_unselected_target() {
     let invalid_opencode = Config {
         llama_swap: Some(llama_swap::Config::default()),
         opencode: Some(opencode::Config {
-            default_model: Some("missing".to_string()),
+            inner: opencode::Inner {
+                default_model: Some("missing".to_string()),
+                ..Default::default()
+            },
             ..Default::default()
         }),
         ..Default::default()
@@ -614,8 +634,10 @@ fn test_sync_writes_vscode_and_goose_targets() {
         }),
         goose: Some(goose::Config {
             path: Some(goose_path.display().to_string()),
-            default_model: Some("qwen".to_string()),
-            ..Default::default()
+            inner: goose::Inner {
+                default_model: Some("qwen".to_string()),
+                ..Default::default()
+            },
         }),
         ..Default::default()
     };

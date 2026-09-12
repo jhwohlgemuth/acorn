@@ -1,6 +1,6 @@
 use crate::cli::{arguments, Void};
 use acorn::io::config::{ApplicationConfiguration, ModelEntry};
-use acorn::io::sync::{self, Config};
+use acorn::io::sync::{self, Config, ConfigExt};
 use acorn::io::ModelSelectorsExt;
 use acorn::util::Label;
 use acorn_schema::agent::ModelSelectors;
@@ -21,8 +21,10 @@ impl From<&arguments::Sync> for sync::llama_swap::Config {
     fn from(args: &arguments::Sync) -> Self {
         Self {
             path: args.llama_swap_config.as_ref().map(|path| path.display().to_string()),
-            models_directory: args.models_dir.as_ref().map(|path| path.display().to_string()),
-            ..Default::default()
+            inner: sync::llama_swap::Inner {
+                models_directory: args.models_dir.as_ref().map(|path| path.display().to_string()),
+                ..Default::default()
+            },
         }
     }
 }
@@ -38,8 +40,10 @@ impl From<&arguments::Sync> for sync::vscode::Config {
     fn from(args: &arguments::Sync) -> Self {
         Self {
             path: args.vscode_config.as_ref().map(|path| path.display().to_string()),
-            mcp_path: args.vscode_mcp_config.as_ref().map(|path| path.display().to_string()),
-            ..Default::default()
+            inner: sync::vscode::Inner {
+                mcp_path: args.vscode_mcp_config.as_ref().map(|path| path.display().to_string()),
+                ..Default::default()
+            },
         }
     }
 }

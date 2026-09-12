@@ -16,39 +16,25 @@ async fn test_analysis_materializes_source_content_without_discoveries() {
         .source("<text:1>")
         .build()];
     let discoveries = Records::from(sources);
-    let database_path = None;
-    let filter = None;
-    let ignore = None;
-    let input = Vec::new();
-    let output = None;
-    let standard = Some(Standard::Text);
-    let text = Vec::new();
     let retained_sources: &[SourceDocument] = (&discoveries).into();
     assert_eq!(retained_sources.len(), 1);
     let options = Options {
-        citation_format: CitationFormat::default(),
-        database_path: &database_path,
-        enrich: false,
-        filter: &filter,
-        format: Some(OutputFormat::Json),
-        ignore: &ignore,
-        input: &input,
-        max_depth: None,
-        merge_request: false,
-        no_local_database: true,
-        offline: true,
-        watching: false,
-        output: &output,
-        resolve: false,
-        standard: &standard,
-        text: &text,
-        quiet: true,
-        terse: false,
-        verbosity: None,
-        remote: None,
+        common: CommonRuntime {
+            offline: true,
+            quiet: true,
+            ..Default::default()
+        },
+        output: None,
+        extension: DiscoveryExtension {
+            citation_format: CitationFormat::default(),
+            format: Some(OutputFormat::Json),
+            no_local_database: true,
+            standard: Some(Standard::Text),
+            ..Default::default()
+        },
     };
-    assert_eq!(options.roots(), vec![PathBuf::from(".")]);
-    let (_, paths) = discoveries.analyze(options).await;
+    assert_eq!(options.extension.roots(), vec![PathBuf::from(".")]);
+    let (_, paths) = discoveries.analyze(&options).await;
     assert!(discoveries.is_empty());
     assert_eq!(paths.len(), 1);
     let path = paths.first().expect("one source should produce one materialized path");

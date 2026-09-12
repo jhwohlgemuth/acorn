@@ -1,7 +1,8 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
-use crate::analyzer::host::context::{AnalysisOptions, ExecutionOptions};
+use crate::analyzer::host::context::{AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension};
 use crate::{check_err, check_ok};
+use acorn_core::options::CommonRuntime;
 use std::fs::{create_dir_all, write};
 use tempfile::tempdir;
 
@@ -26,7 +27,11 @@ async fn test_analyze_paths_collects_independent_failures_despite_early_exit_pol
                 )
                 .build(),
         )
-        .report(ReportOptions::init().exit_on_first_error(true).build())
+        .report(
+            ReportOptions::init()
+                .extension(ReportExtension::init().exit_on_first_error(true).build())
+                .build(),
+        )
         .build();
     let report = analyze_paths(&[path], &options).await;
     let categories = &report.batches[0].categories;
@@ -265,15 +270,29 @@ async fn test_kitfile_and_modelkit_use_schema_check_flow() {
 fn test_skipped_categories_include_explicit_and_implicit_values_once() {
     let options = AnalysisContext::init()
         .analysis(AnalysisOptions::init().skip(vec!["schema".to_string(), "link".to_string()]).build())
-        .execution(ExecutionOptions::init().offline(true).build())
+        .execution(
+            ExecutionOptions::init()
+                .common(CommonRuntime {
+                    offline: true,
+                    ..Default::default()
+                })
+                .build(),
+        )
         .build();
     assert_eq!(skipped_categories(&options), [CheckCategory::Schema, CheckCategory::Link]);
 }
 #[test]
 fn test_skipped_categories_include_link_for_each_network_policy() {
     for execution in [
-        ExecutionOptions::init().offline(true).build(),
-        ExecutionOptions::init().disable_website_checks(true).build(),
+        ExecutionOptions::init()
+            .common(CommonRuntime {
+                offline: true,
+                ..Default::default()
+            })
+            .build(),
+        ExecutionOptions::init()
+            .extension(ExecutionExtension::init().disable_website_checks(true).build())
+            .build(),
     ] {
         let options = AnalysisContext::init().execution(execution).build();
         assert_eq!(skipped_categories(&options), [CheckCategory::Link]);

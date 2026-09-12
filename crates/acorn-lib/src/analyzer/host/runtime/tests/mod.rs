@@ -7,7 +7,7 @@
 )]
 use crate::analyzer::check::Standard;
 use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
-use crate::analyzer::host::context::ExecutionOptions;
+use crate::analyzer::host::context::{ExecutionExtension, ExecutionOptions};
 use crate::analyzer::host::runtime::{check_schema_path, collect_validation_checks, vale_package_url, StaticAnalyzer, StaticAnalyzerConfig};
 use crate::analyzer::host::service::Analysis;
 use crate::analyzer::host::tabular::checks_to_dataframe;
@@ -18,6 +18,7 @@ use crate::analyzer::{Check, CheckCategory, CheckSeverity, CheckSummary, IntoChe
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::test::utils::unique_path;
 use crate::{check, check_ok};
+use acorn_core::options::CommonRuntime;
 use acorn_core::prelude::{Arc, HashMap};
 use acorn_core::validation::ValidationError;
 use acorn_schema::standard::cff::Cff;
@@ -1029,16 +1030,29 @@ fn test_vale_output_severity_colored() {
 async fn test_vale_retry_sync_can_ignore_exhaustion() {
     let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
     let options = ExecutionOptions::init()
-        .ignore_sync_failure(true)
-        .quiet(true)
-        .sync_retry_interval(SignedDuration::ZERO)
+        .common(CommonRuntime {
+            quiet: true,
+            ..Default::default()
+        })
+        .extension(
+            ExecutionExtension::init()
+                .ignore_sync_failure(true)
+                .sync_retry_interval(SignedDuration::ZERO)
+                .build(),
+        )
         .build();
     assert!(vale.retry_sync(&options).await.is_ok());
 }
 #[tokio::test]
 async fn test_vale_retry_sync_reports_exhaustion() {
     let vale = Vale::default().with_binary(unique_path("missing-vale", "bin"));
-    let options = ExecutionOptions::init().quiet(true).sync_retry_interval(SignedDuration::ZERO).build();
+    let options = ExecutionOptions::init()
+        .common(CommonRuntime {
+            quiet: true,
+            ..Default::default()
+        })
+        .extension(ExecutionExtension::init().sync_retry_interval(SignedDuration::ZERO).build())
+        .build();
     let error = vale.retry_sync(&options).await.expect_err("missing Vale binary should exhaust retries");
     assert!(error.to_string().contains("failed after 3 attempts"));
 }

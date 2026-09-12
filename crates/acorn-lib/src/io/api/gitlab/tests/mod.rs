@@ -675,7 +675,10 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
             ..crate::analyzer::host::context::AnalysisOptions::default()
         },
         execution: crate::analyzer::host::context::ExecutionOptions {
-            offline: true,
+            common: acorn_core::options::CommonRuntime {
+                offline: true,
+                ..Default::default()
+            },
             ..crate::analyzer::host::context::ExecutionOptions::default()
         },
         ..crate::analyzer::host::context::AnalysisContext::default()
@@ -810,7 +813,10 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
             ..crate::analyzer::host::context::AnalysisOptions::default()
         },
         execution: crate::analyzer::host::context::ExecutionOptions {
-            offline: true,
+            common: acorn_core::options::CommonRuntime {
+                offline: true,
+                ..Default::default()
+            },
             ..crate::analyzer::host::context::ExecutionOptions::default()
         },
         ..crate::analyzer::host::context::AnalysisContext::default()
@@ -926,7 +932,10 @@ async fn test_merge_request_analysis_retries_inaccessible_supported_content_afte
             ..crate::analyzer::host::context::AnalysisOptions::default()
         },
         execution: crate::analyzer::host::context::ExecutionOptions {
-            offline: true,
+            common: acorn_core::options::CommonRuntime {
+                offline: true,
+                ..Default::default()
+            },
             ..crate::analyzer::host::context::ExecutionOptions::default()
         },
         ..crate::analyzer::host::context::AnalysisContext::default()

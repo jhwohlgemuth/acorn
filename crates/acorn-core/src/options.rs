@@ -7,6 +7,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use bon::Builder;
 use core::fmt;
+use core::ops::{Deref, DerefMut};
 use secrecy::SecretString;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -21,7 +22,16 @@ pub trait ApiExtension: Default + Clone + fmt::Debug {
     fn env_domain_var() -> &'static str;
 }
 /// Per-target sync inner data (domain fields without `path`)
-pub trait SyncInner: Clone + Default + Serialize + DeserializeOwned {}
+pub trait SyncInner: Clone + Default + Serialize + DeserializeOwned {
+    /// Merge persisted configuration with a complete override.
+    fn merge(self, overrides: Self) -> Self {
+        overrides
+    }
+    /// Merge only fields supported as command-line overrides.
+    fn merge_cli_overrides(self, _overrides: Self) -> Self {
+        self
+    }
+}
 /// Generic API options with composition-based extension
 /// ### Notes
 /// - `P` keeps provider parameter types outside `acorn-core`
@@ -96,11 +106,7 @@ pub struct CommonRuntime {
     bound(deserialize = "E: DeserializeOwned, O: DeserializeOwned"),
     bound(serialize = "E: Serialize, O: Serialize")
 )]
-pub struct RuntimeOptions<E = (), O = String>
-where
-    E: Default + Clone + Serialize + DeserializeOwned,
-    O: Clone + fmt::Debug + Serialize + DeserializeOwned,
-{
+pub struct RuntimeOptions<E: Default = (), O = String> {
     /// Shared runtime flags.
     #[builder(default)]
     #[serde(default)]
@@ -130,16 +136,16 @@ where
     V: SyncInner,
 {
     /// Goose CLI configuration.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goose: Option<TargetConfig<G>>,
     /// llama-swap configuration.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub llama_swap: Option<TargetConfig<L>>,
     /// OpenCode configuration.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opencode: Option<TargetConfig<O>>,
     /// VS Code configuration.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vscode: Option<TargetConfig<V>>,
 }
 /// Generic sync target configuration — `path` is the outer wrapper, `inner` is the domain payload.
@@ -218,8 +224,7 @@ impl Default for CommonRuntime {
 }
 impl<E, O> Default for RuntimeOptions<E, O>
 where
-    E: Default + Clone + Serialize + DeserializeOwned,
-    O: Clone + fmt::Debug + Serialize + DeserializeOwned,
+    E: Default,
 {
     fn default() -> Self {
         Self {
@@ -227,6 +232,79 @@ where
             output: None,
             extension: E::default(),
         }
+    }
+}
+impl<G, L, O, V> SyncConfig<G, L, O, V>
+where
+    G: SyncInner,
+    L: SyncInner,
+    O: SyncInner,
+    V: SyncInner,
+{
+    /// Merge populated target overrides into the persisted configuration.
+    pub fn merge(self, overrides: Self) -> Self {
+        Self {
+            goose: merge_target(self.goose, overrides.goose, TargetConfig::merge),
+            llama_swap: merge_target(self.llama_swap, overrides.llama_swap, TargetConfig::merge),
+            opencode: merge_target(self.opencode, overrides.opencode, TargetConfig::merge),
+            vscode: merge_target(self.vscode, overrides.vscode, TargetConfig::merge),
+        }
+    }
+    /// Merge only target overrides exposed by the command line.
+    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            goose: merge_target(self.goose, overrides.goose, TargetConfig::merge_cli_overrides),
+            llama_swap: merge_target(self.llama_swap, overrides.llama_swap, TargetConfig::merge_cli_overrides),
+            opencode: merge_target(self.opencode, overrides.opencode, TargetConfig::merge_cli_overrides),
+            vscode: merge_target(self.vscode, overrides.vscode, TargetConfig::merge_cli_overrides),
+        }
+    }
+}
+impl<I> Deref for TargetConfig<I>
+where
+    I: SyncInner,
+{
+    type Target = I;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+impl<I> DerefMut for TargetConfig<I>
+where
+    I: SyncInner,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+impl<I> TargetConfig<I>
+where
+    I: SyncInner,
+{
+    /// Merge a complete target override.
+    pub fn merge(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            inner: self.inner.merge(overrides.inner),
+        }
+    }
+    /// Merge only target fields supported as command-line overrides.
+    pub fn merge_cli_overrides(self, overrides: Self) -> Self {
+        Self {
+            path: overrides.path.or(self.path),
+            inner: self.inner.merge_cli_overrides(overrides.inner),
+        }
+    }
+}
+
+fn merge_target<I: SyncInner>(
+    config: Option<TargetConfig<I>>,
+    overrides: Option<TargetConfig<I>>,
+    merge: impl FnOnce(TargetConfig<I>, TargetConfig<I>) -> TargetConfig<I>,
+) -> Option<TargetConfig<I>> {
+    match (config, overrides) {
+        | (Some(config), Some(overrides)) => Some(merge(config, overrides)),
+        | (config, overrides) => overrides.or(config),
     }
 }
 
@@ -286,6 +364,40 @@ mod tests {
         let back: RuntimeOptions<Ext> = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.extension.extra, "hello");
         assert!(back.common.offline);
+    }
+    #[test]
+    fn test_sync_config_merges_target_paths_and_inner_values() {
+        #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+        struct Inner {
+            value: Option<String>,
+        }
+        impl SyncInner for Inner {
+            fn merge(self, overrides: Self) -> Self {
+                Self {
+                    value: overrides.value.or(self.value),
+                }
+            }
+        }
+        let base = SyncConfig::<Inner> {
+            goose: Some(TargetConfig {
+                path: Some("base.yaml".into()),
+                inner: Inner { value: Some("base".into()) },
+            }),
+            ..Default::default()
+        };
+        let overrides = SyncConfig::<Inner> {
+            goose: Some(TargetConfig {
+                path: Some("override.yaml".into()),
+                inner: Inner {
+                    value: Some("override".into()),
+                },
+            }),
+            ..Default::default()
+        };
+        let merged = base.merge(overrides);
+        let goose = merged.goose.expect("merged target");
+        assert_eq!(goose.path.as_deref(), Some("override.yaml"));
+        assert_eq!(goose.value.as_deref(), Some("override"));
     }
     #[test]
     fn test_target_config_flatten_inner() {
