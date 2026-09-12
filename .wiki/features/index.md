@@ -5,11 +5,11 @@
 - [Canonical research activity database](research-activity-database.md) - Maintain revisioned canonical RAD, linked logbook entries, enrichment evidence, and reconciliation decisions as ACORN's durable working truth.
 - [ISNI top-tier persistent-identifier support](isni-top-tier-support.md) - Complete unambiguous ISNI discovery, strict agent-identifier validation, exact public-registry resolution, typed identity metadata, provenance, and gather reporting.
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
-- [Portable ModelKit and Kitfile schema model](modelkit-schema-model.md) - Match KitOps Kitfile 1.0.0 (`pkg/artifact/kitfile.md` + `pkg/artifact/kitfile.go` at the pinned commit) with explicit authoring-YAML and resolved-JSON boundaries and portable validation.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 
 ## Planned
 
+- [AI-enabled scraping and Rhai scripting extensibility](ai-scraping-rhai-scripting.md) - Extend gather with deterministic CSS scraping and pluggable AI fallback, and expose Rhai scripting that can intercept every workflow step with the full Acorn API available by default.
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Register inference services while preserving official ACP transport, then stage prompt hydration, structured suggestions, and verified deterministic remediation.
 - [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.

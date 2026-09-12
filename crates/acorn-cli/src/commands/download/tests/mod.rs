@@ -371,15 +371,13 @@ fn test_download_model_basic_config_dry_run_output_snapshot() {
         );
     write(&config_path, config).expect("write deterministic basic model config");
     let (endpoint, shutdown, handle) = spawn_basic_model_config_server();
-    let db_path = temp_dir.join("acorn.db");
     let mut command = Command::cargo_bin("acorn").expect("locate acorn binary");
     for variable in HUGGINGFACE_TOKEN_VARIABLE_NAMES {
         command.env(variable, "");
     }
     let output = command
-        .env("ACORN_DATABASE_PATH", &db_path)
         .env("HF_ENDPOINT", endpoint)
-        .args(["-vv", "download", "model", "--config"])
+        .args(["--no-local-database", "-vv", "download", "model", "--config"])
         .arg(config_path)
         .arg("--dry-run")
         .output()

@@ -1,6 +1,9 @@
 use super::kitfile::*;
 use acorn_core::Location;
 use serde::Deserialize;
+use std::collections::BTreeSet;
+use std::fs::{read_dir, read_to_string};
+use std::path::PathBuf;
 
 const DIFF_ID: &str = "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
 const DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -15,6 +18,35 @@ struct ParameterFixture {
 struct ValidationFixture {
     kitfile: String,
     err_regexp: String,
+}
+
+fn fixture_paths(kind: &str) -> Vec<PathBuf> {
+    read_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/modelkit").join(kind))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn upstream_validation_code(name: &str) -> Option<&'static str> {
+    match name {
+        | value if value.starts_with("duplicate-path") => Some("duplicate_path"),
+        | value if value.starts_with("http-path") || value.starts_with("s3-path") => Some("path_kind"),
+        | "invalid-model-part-type-length.yaml" => Some("model_part_type_length"),
+        | "invalid-model-part-type.yaml" => Some("model_part_type"),
+        | "mcpserver-duplicate-name.yaml" => Some("duplicate_name"),
+        | "mcpserver-missing-name.yaml" | "remote-dataset-requires-hash.yaml" => Some("required"),
+        | "mcpserver-non-mcpb-path.yaml" => Some("mcp_bundle"),
+        | "modelkit-ref-for-code.yaml"
+        | "modelkit-ref-for-datasets.yaml"
+        | "modelkit-ref-for-docs.yaml"
+        | "modelkit-ref-for-modelpart.yaml"
+        | "modelkit-ref-for-prompts.yaml" => Some("path_kind"),
+        | value if value.starts_with("remote-dataset-collides") => Some("remote_dataset_collision"),
+        | "remote-dataset-must-use-s3.yaml" => Some("remote_path"),
+        | _ => None,
+    }
 }
 
 #[test]
@@ -128,6 +160,22 @@ fn test_layer_identity_is_validated_and_complete_independently() {
     assert!(Kitfile::from_resolved_json(malformed).is_err());
 }
 #[test]
+fn test_mcp_identity_and_prompt_paths_cover_intentional_kitops_differences() {
+    let mcp_identity = Kitfile::from_resolved_json(
+        format!(
+            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"mcpServers":[{{"name":"server","path":"server.mcpb"}}]}}"#
+        )
+        .as_bytes(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(mcp_identity.contains("every local layer"));
+    let prompt_duplicate = Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: shared\nprompts:\n  - path: shared\n")
+        .unwrap_err()
+        .to_string();
+    assert!(prompt_duplicate.contains("use the same path shared"));
+}
+#[test]
 fn test_model_free_content_and_version_warning_are_supported() {
     let kitfile = Kitfile::from_yaml("manifestVersion: 1.0\ndocs:\n  - path: README.md\n").unwrap();
     assert!(kitfile.model.is_none());
@@ -227,14 +275,52 @@ fn test_paths_are_cleaned_portably_for_duplicates_and_absolutes() {
 }
 #[test]
 fn test_pinned_kitops_fixtures_match_authoring_and_resolved_codecs() {
-    let parameters =
-        serde_norway::from_str::<ParameterFixture>(include_str!("../../../../tests/fixtures/modelkit/parameters-data-types.yaml")).unwrap();
-    let parsed = Kitfile::from_yaml(&parameters.kitfile_yaml).unwrap();
-    assert_eq!(parsed.to_resolved_json().unwrap(), parameters.kitfile_json);
-    assert_eq!(Kitfile::from_resolved_json(parameters.kitfile_json.as_bytes()).unwrap(), parsed);
-    let mcp = serde_norway::from_str::<ValidationFixture>(include_str!("../../../../tests/fixtures/modelkit/mcpserver-valid.yaml")).unwrap();
-    assert!(mcp.err_regexp.is_empty());
-    assert_eq!(Kitfile::from_yaml(&mcp.kitfile).unwrap().mcp_servers.len(), 2);
+    let parameter_paths = fixture_paths("parameters");
+    assert_eq!(parameter_paths.len(), 5);
+    parameter_paths.into_iter().for_each(|path| {
+        let parameters = serde_norway::from_str::<ParameterFixture>(&read_to_string(&path).unwrap()).unwrap();
+        let parsed = Kitfile::from_yaml(&parameters.kitfile_yaml).unwrap();
+        if !parameters.kitfile_json.is_empty() {
+            assert_eq!(parsed.to_resolved_json().unwrap(), parameters.kitfile_json, "{}", path.display());
+            assert_eq!(
+                Kitfile::from_resolved_json(parameters.kitfile_json.as_bytes()).unwrap(),
+                parsed,
+                "{}",
+                path.display()
+            );
+        }
+        assert_eq!(Kitfile::from_yaml(&parsed.to_yaml().unwrap()).unwrap(), parsed, "{}", path.display());
+    });
+    let validation_paths = fixture_paths("validation");
+    assert_eq!(validation_paths.len(), 39);
+    validation_paths.into_iter().for_each(|path| {
+        let fixture = serde_norway::from_str::<ValidationFixture>(&read_to_string(&path).unwrap()).unwrap();
+        let result = Kitfile::from_yaml(&fixture.kitfile);
+        let name = path.file_name().unwrap().to_string_lossy();
+        let expected_failure = !fixture.err_regexp.is_empty();
+        match result {
+            | Ok(_) => {
+                assert!(!expected_failure, "{} should fail with {}", path.display(), fixture.err_regexp);
+                assert!(upstream_validation_code(&name).is_none(), "{}", path.display());
+            }
+            | Err(error) => {
+                assert!(expected_failure, "{} should pass: {error}", path.display());
+                assert!(
+                    matches!(&error, ModelKitError::Validation(_)),
+                    "{} should report validation errors: {error}",
+                    path.display()
+                );
+                let expected = upstream_validation_code(&name).unwrap();
+                if let ModelKitError::Validation(report) = error {
+                    assert!(
+                        report.iter().any(|issue| issue.error.code == expected),
+                        "{} expected code {expected}: {report}",
+                        path.display()
+                    );
+                }
+            }
+        }
+    });
 }
 #[test]
 fn test_remote_path_kinds_are_restricted_by_content_role() {
