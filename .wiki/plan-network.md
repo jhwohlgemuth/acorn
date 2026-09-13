@@ -106,6 +106,7 @@ isolate std-only modules   host abstraction traits
 
 ### Export and interfaces
 
+- [Semantic transformation laws](testing/semantic-transformation-laws.md) consumes the canonical field/loss classifications from [RAD metadata standards alignment](features/rad-metadata-standards-alignment.md) and coordinates its direct-link/workflow commuting test with [CLI test coverage phase 1](testing/cli-coverage-phase-1.md). Normalization, codec, linked-data, and merge laws can start independently against current contracts; any link-command repair serializes on the CLI and export-dispatch locks.
 - [Interpolation primitives](refactors/core/interpolation-primitives.md) and [export context](refactors/core/export-context.md) precede extraction of pure export transforms.
 - [OOXML hardening](refactors/core/ooxml-interpolation-and-slide-copy.md) precedes [OOXML fuzzing](refactors/core/ooxml-fuzzing.md) and `acorn-export` extraction.
 - [CLI parse/execution models](refactors/core/cli-parse-execution-models.md), [startup separation](refactors/core/cli-startup-separation.md), and [CLI error boundary](refactors/core/cli-error-boundary.md) prepare the CLI as a composition root after service and adapter extraction.

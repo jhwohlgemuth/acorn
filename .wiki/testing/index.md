@@ -144,6 +144,7 @@ Never use `#[ignore]` for broken or unknown failures — fix or delete instead.
 
 # Related testing plans
 
+- [Semantic transformation laws](semantic-transformation-laws.md) — Enforce preservation, idempotence, explicit loss, and commuting-path contracts across RAD transformations.
 - [Informational Miri quality checks](miri-quality.md) — Run curated undefined-behavior checks through portable public APIs, including refactored PID boundaries.
 - [Creusot verification for PID checksum calculations](creusot-pid-checksums.md) — Formally verify the four shared PID check-digit algorithms and PID-specific callers.
 
