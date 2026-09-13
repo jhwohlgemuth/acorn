@@ -49,30 +49,6 @@ async fn test_analyze_paths_collects_independent_failures_despite_early_exit_pol
         .find(|result| result.category == CheckCategory::Fair)
         .is_some_and(|result| result.checks.iter().all(|check| !check.is_failure())));
 }
-#[test]
-fn test_correlate_link_evidence_reuses_matching_result() {
-    let uri = Some("dataset.json".to_string());
-    let target = "https://example.org/data";
-    let finding = FairEvidence::from_value("resource", "DataCite 4.7", &serde_json::json!({"downloadURL": target}))
-        .assess()
-        .into_iter()
-        .find(|finding| finding.indicator.id == FairIndicatorId::RdaA1_05D)
-        .expect("registry contains RDA-A1-05D");
-    let fair = Check::from(finding).with_uri(uri.clone());
-    let link = check_ok!(CheckCategory::Link, uri: "dataset.json").with_context(target.to_string());
-    let categories = correlate_link_evidence(vec![
-        CategoryChecks {
-            category: CheckCategory::Link,
-            checks: CheckBatch::single(link),
-        },
-        CategoryChecks {
-            category: CheckCategory::Fair,
-            checks: CheckBatch::single(fair),
-        },
-    ]);
-    let finding = categories[1].checks.iter().next().and_then(Check::fair_finding);
-    assert!(finding.is_some_and(|finding| finding.state == FairState::Supported));
-}
 #[tokio::test]
 async fn test_analyze_paths_dispatches_every_standard() {
     for standard in [
@@ -236,6 +212,30 @@ fn test_classify_paths_treats_unreadable_markdown_as_text() {
             paths: vec![path]
         }]
     );
+}
+#[test]
+fn test_correlate_link_evidence_reuses_matching_result() {
+    let uri = Some("dataset.json".to_string());
+    let target = "https://example.org/data";
+    let finding = FairEvidence::from_value("resource", "DataCite 4.7", &serde_json::json!({"downloadURL": target}))
+        .assess()
+        .into_iter()
+        .find(|finding| finding.indicator.id == FairIndicatorId::RdaA1_05D)
+        .expect("registry contains RDA-A1-05D");
+    let fair = Check::from(finding).with_uri(uri.clone());
+    let link = check_ok!(CheckCategory::Link, uri: "dataset.json").with_context(target.to_string());
+    let categories = correlate_link_evidence(vec![
+        CategoryChecks {
+            category: CheckCategory::Link,
+            checks: CheckBatch::single(link),
+        },
+        CategoryChecks {
+            category: CheckCategory::Fair,
+            checks: CheckBatch::single(fair),
+        },
+    ]);
+    let finding = categories[1].checks.iter().next().and_then(Check::fair_details);
+    assert!(finding.is_some_and(|finding| finding.state == FairState::Supported));
 }
 #[test]
 fn test_document_indexes_keep_first_source_when_display_keys_collide() {

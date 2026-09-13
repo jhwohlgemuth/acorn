@@ -1,6 +1,6 @@
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{
-    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands, Void, WatchOptions,
+    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ImportCommands, ServeCommands, Void, WatchOptions,
 };
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::host::discovery;
@@ -24,6 +24,7 @@ pub mod create;
 pub mod db;
 pub mod doctor;
 pub mod download;
+pub mod exec;
 pub mod export;
 pub mod format;
 pub mod gather;
@@ -583,6 +584,11 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 .await
             }),
             | None => Err(eyre::eyre!("No subcommand provided for 'serve'")),
+        },
+        | Some(Commands::Exec { command }) => match command {
+            | Some(ExecCommands::Check(arguments)) => with_runtime(async { exec::run_check(&arguments.script, &arguments.input).await }),
+            | Some(ExecCommands::CheckSafe(arguments)) => exec::run_check_safe(&arguments.script, arguments.format.as_ref()),
+            | None => Err(eyre::eyre!("No subcommand provided for 'exec'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),
         | Some(Commands::Tui) => {

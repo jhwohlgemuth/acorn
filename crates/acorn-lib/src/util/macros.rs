@@ -744,6 +744,33 @@ macro_rules! fail {
         tracing::error!($($args)*);
     };
 }
+/// Logging macro for cautions.
+///
+/// # Examples
+///
+/// ```
+/// let path = "extension.rhai";
+/// acorn::caution!("Review trust for {path}");
+/// ```
+#[macro_export]
+macro_rules! caution {
+    ($msg:literal, $($rest:tt)*) => {
+        tracing::warn!(
+            "{}",
+            format!(
+                "=> {} {}",
+                $crate::util::Label::warning(),
+                format!($msg, $($rest)*)
+            )
+        );
+    };
+    ($msg:literal) => {
+        tracing::warn!("{}", format!("=> {} {}", $crate::util::Label::warning(), format!($msg)));
+    };
+    ($($args:tt)*) => {
+        tracing::warn!($($args)*);
+    };
+}
 /// Logging macro for skipped operations
 #[macro_export]
 macro_rules! skip {

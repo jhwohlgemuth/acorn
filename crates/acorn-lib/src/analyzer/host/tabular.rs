@@ -13,7 +13,7 @@ pub trait IntoRow<'a> {
 }
 impl<'a> IntoRow<'a> for Check {
     fn to_row<Check>(self) -> Row<'a> {
-        let fair = self.fair_finding().map(|finding| finding.metadata());
+        let fair = self.fair_details().map(|finding| finding.metadata());
         let Self {
             index,
             category,

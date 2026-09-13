@@ -19,7 +19,7 @@ status: planned
 
 This plan is not an implementation candidate until all of the following are true:
 
-1. [Configured Rhai scripting](rhai-scripting.md) has landed and real use demonstrates a need beyond configuration-authorized, pure workflow quality gates.
+1. [Configured Rhai exec](rhai-exec.md) has landed and real use demonstrates a need beyond configuration-authorized, pure workflow quality gates.
 2. Workflow plan/apply and analyzer result boundaries are stable.
 3. Operation effects can express filesystem-read, filesystem-write, network-read, process, credentials, inference, and mutation separately.
 4. A security review chooses in-process capability brokering or process isolation for effectful and untrusted execution.
@@ -40,7 +40,7 @@ Permit a small set of explicitly configured Rhai hooks to propose typed workflow
 
 - Define a deployment-owned manifest containing script ID, ABI version, entry point, content digest, allowed hooks, capabilities, resource limits, and approved input/output roots.
 - Project configuration may authorize the pure quality gates defined by the prerequisite plan. Effectful automation additionally requires a deployment-owned allowlist entry whose digest matches; repository or XDG discovery alone never establishes that authority.
-- Define every hook with dedicated input and output DTOs. Reuse `ScriptResult<T>` only with a named output type; do not use a generic `Map`, `Value`, `false`, or exceptions for skip/replace/fail control flow.
+- Define every hook with dedicated input and output DTOs. Reuse `ExecutionResult<T>` only with a named output type; do not use a generic `Map`, `Value`, `false`, or exceptions for skip/replace/fail control flow.
 - Hooks may propose immutable changes during planning. Existing validators run over the complete proposal before the host applies any effect.
 - Specify hook ordering, conflict resolution, error policy, idempotency, rollback, cancellation, re-entrancy, state lifetime, compile caching, provenance, and audit records.
 - Grant effects through narrow host functions backed by an invocation capability object. Never inject raw `acorn::io`, analyzer traversal, environment, process, keyring, cache, archive, database, or provider modules.
@@ -56,7 +56,7 @@ Permit a small set of explicitly configured Rhai hooks to propose typed workflow
 
 # Acceptance criteria
 
-- Every implemented hook has a documented, versioned input type and typed `ScriptResult<T>` output.
+- Every implemented hook has a documented, versioned input type and typed `ExecutionResult<T>` output.
 - Hooks propose changes through workflow planning; only the host applies a fully validated proposal.
 - No script executes because it merely exists in a repository or user configuration directory.
 - Every effect is authorized by a deployment-owned manifest and invocation capability; unspecified effects are unavailable.

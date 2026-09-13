@@ -32,7 +32,7 @@ pub const DEFAULT_CACHE_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 /// Default CiteAs API domain.
 pub const DEFAULT_CITEAS_DOMAIN: &str = "citeas.org";
 /// Default ACORN configuration filenames searched in the current working directory.
-pub const DEFAULT_CONFIG_FILENAMES: [&str; 5] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml", ".acorn"];
+pub const DEFAULT_CONFIG_FILENAMES: [&str; 4] = [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"];
 /// Default Goose configuration path beneath the user's home directory on macOS and Linux.
 pub const DEFAULT_GOOSE_CONFIG_PATH: &str = ".config/goose/config.yaml";
 /// Default Goose configuration path beneath the Windows roaming application-data directory.

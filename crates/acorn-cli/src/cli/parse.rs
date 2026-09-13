@@ -76,6 +76,14 @@ pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
 pub(crate) fn parse_enrichment_provider(value: &str) -> Result<Provider, String> {
     value.parse::<Provider>().map_err(|why| why.to_string())
 }
+/// Parse an executable-extension report format.
+pub(crate) fn parse_exec_format(value: &str) -> Result<MimeType, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        | "json" => Ok(MimeType::Json),
+        | "markdown" | "md" => Ok(MimeType::Markdown),
+        | _ => Err("expected `json` or `markdown`".to_string()),
+    }
+}
 /// Parse a CLI executor name into an `Executor` variant.
 pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
     match s.to_lowercase().as_str() {

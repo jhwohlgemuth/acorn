@@ -35,7 +35,17 @@ fn captured_logs(operation: impl FnOnce()) -> String {
     tracing::subscriber::with_default(subscriber, operation);
     logs.lock().map(|bytes| String::from_utf8_lossy(&bytes).into_owned()).unwrap_or_default()
 }
-
+#[test]
+fn test_caution_formats_messages() {
+    let path = "extension.rhai";
+    let logs = captured_logs(|| {
+        crate::caution!("Review trust for {path}");
+        crate::caution!("Legacy - {}", path);
+    });
+    assert!(logs.contains("Review trust for extension.rhai"));
+    assert!(logs.contains("Legacy - extension.rhai"));
+    assert!(!logs.contains("{path}"));
+}
 #[test]
 fn test_fail_formats_messages() {
     let why = "because";

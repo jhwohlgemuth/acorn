@@ -14,9 +14,12 @@ pub enum FileChangeKind {
     Update,
 }
 /// Registered repository processing action.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::Display)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum WorkflowAction {
+    /// Check quality gate (read-only findings).
+    Check,
     /// Invoke configured enrichment capabilities.
     Enrich,
     /// Normalize and deterministically serialize content.

@@ -1,6 +1,6 @@
 //! Application configuration I/O
 //!
-//! Handles discovery, parsing, rendering and synchronization of `.acorn` files.
+//! Handles discovery, parsing, rendering and synchronization of ACORN files.
 use crate::io::api::gitlab::DeploymentConfig;
 use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
@@ -10,7 +10,8 @@ use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
 use crate::util::{text_diff_changes_with_color, Label};
 use acorn_core::prelude::{HashMap, HashSet};
 use acorn_core::util::{detect_json, MimeType};
-use acorn_schema::validation::Validate;
+use acorn_core::validation::ValidationError;
+use acorn_schema::validation::{Validate, ValidationReport};
 use acorn_schema::OneOrMany;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -19,10 +20,11 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::env;
 use std::path::{Path, PathBuf};
+use strum::{Display, EnumIs, EnumString};
 use tracing::{error, info};
 
 /// Struct for application configuration
-/// ### Example `.acorn` configuration file
+/// ### Example `.acorn.json` configuration file
 /// ```json
 /// {
 ///     "buckets": [
@@ -60,6 +62,23 @@ use tracing::{error, info};
 ///     ]
 /// }
 /// ```
+/// Supported hook for constrained Rhai extensions.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, Display, EnumIs, EnumString)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Hook {
+    /// Check quality gate.
+    Check,
+    /// Format workflow.
+    Format,
+    /// Link workflow.
+    Link,
+    /// Enrich workflow.
+    Enrich,
+    /// Validate workflow.
+    Validate,
+}
+/// Application configuration for ACORN.
 #[derive(Clone, Debug, Default, Serialize, eserde::Deserialize)]
 pub struct ApplicationConfiguration {
     /// CST root for JSONC comment-preserving round-trips
@@ -89,6 +108,21 @@ pub struct ApplicationConfiguration {
     /// Deployment-owned repository workflow policy
     #[eserde(compat)]
     pub workflow: Option<DeploymentConfig>,
+    /// Optional ordered list of constrained Rhai script hooks.
+    #[eserde(compat)]
+    pub scripts: Option<Vec<Entry>>,
+}
+/// One entry in the top-level `scripts` attribute.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Entry {
+    /// Path to the script, relative to `<project-root>/.acorn/` unless `absolute` is true.
+    pub path: String,
+    /// Non-empty, duplicate-free hooks.
+    pub hooks: Vec<Hook>,
+    /// When true, path is a platform-native absolute path.
+    #[serde(default)]
+    pub absolute: bool,
 }
 /// Whitelist entry for downloadable items
 /// ### Note
@@ -110,6 +144,21 @@ impl ApplicationConfiguration {
             | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
             | _ => Self::resolve(path).map_or_else(|| Ok(Self::default()), Self::read),
         }
+    }
+    /// Load configuration and return the resolved source path alongside the parsed value.
+    pub fn load_with_path(path: &Option<PathBuf>) -> ApiResult<(Self, Option<PathBuf>)> {
+        let resolved = Self::resolve(path);
+        match &resolved {
+            | Some(p) => Self::read(p.clone()).map(|cfg| (cfg, resolved)),
+            | None => Ok((Self::default(), None)),
+        }
+    }
+    /// Return the project root directory containing the resolved configuration.
+    pub fn root(resolved: &Option<PathBuf>) -> PathBuf {
+        resolved
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")), |p| p.to_path_buf())
     }
     /// Merge configured synchronization settings with runtime overrides.
     pub fn resolve_sync_config(&self, overrides: sync::Config) -> sync::Config {
@@ -235,13 +284,10 @@ impl ApplicationConfiguration {
         })
     }
     fn render(&self, path: &Path) -> ApiResult<String> {
-        match path.file_name().and_then(|name| name.to_str()) {
-            | Some(".acorn") => self.render_json(),
-            | _ => match MimeType::from_path(path) {
-                | MimeType::Json | MimeType::Jsonc => self.render_json(),
-                | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
-                | _ => Err(eyre!("Unsupported configuration file extension")),
-            },
+        match MimeType::from_path(path) {
+            | MimeType::Json | MimeType::Jsonc => self.render_json(),
+            | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML config — {why}")),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
     fn render_json(&self) -> ApiResult<String> {
@@ -261,7 +307,7 @@ impl ApplicationConfiguration {
             DEFAULT_CONFIG_FILENAMES
                 .iter()
                 .map(|name| directory.join(name))
-                .find(|candidate| candidate.exists())
+                .find(|candidate| candidate.is_file())
         })
     }
     /// Parse ACORN configuration in JSON, JSONC, or YAML format
@@ -326,14 +372,11 @@ impl InputOutput for ApplicationConfiguration {
     /// Read and parse application configuration file (JSON, JSONC, or YAML)
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
-        match source.file_name().and_then(|name| name.to_str()) {
-            | Some(".acorn") => Self::read_jsonc(source),
-            | _ => match MimeType::from_path(&source) {
-                | MimeType::Json => Self::read_json(source.clone()),
-                | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-                | MimeType::Yaml => Self::read_yaml(source.clone()),
-                | _ => Err(eyre!("Unsupported configuration file extension")),
-            },
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | MimeType::Yaml => Self::read_yaml(source.clone()),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
@@ -397,13 +440,10 @@ impl InputOutput for ApplicationConfiguration {
     /// JSONC files are written as strict JSON (no comments generated).
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let target = path.into();
-        match target.file_name().and_then(|name| name.to_str()) {
-            | Some(".acorn") => self.write_json(&target),
-            | _ => match MimeType::from_path(&target) {
-                | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-                | MimeType::Yaml => self.write_yaml(&target),
-                | _ => Err(eyre!("Unsupported configuration file extension")),
-            },
+        match MimeType::from_path(&target) {
+            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+            | MimeType::Yaml => self.write_yaml(&target),
+            | _ => Err(eyre!("Unsupported configuration file extension")),
         }
     }
     /// Write configuration as JSON to specified path
@@ -424,5 +464,99 @@ impl InputOutput for ApplicationConfiguration {
         serde_norway::to_string(&self)
             .map_err(|why| eyre!("Failed to serialize YAML config — {why}"))
             .and_then(|content| write_file(target.clone(), content))
+    }
+}
+impl Validate for ApplicationConfiguration {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let entries = self.scripts.as_deref().unwrap_or_default();
+        let mut report = ValidationReport::new();
+        entries.iter().enumerate().for_each(|(index, entry)| {
+            if let Err(errors) = entry.validate() {
+                report.append_prefixed(&format!("scripts[{index}]"), errors);
+            }
+        });
+        entries.iter().enumerate().fold(HashSet::<&str>::new(), |mut paths, (index, entry)| {
+            if !paths.insert(entry.path.as_str()) {
+                report.add(
+                    format!("scripts[{index}].path"),
+                    ValidationError::new("duplicate").with_message(format!("Duplicate script path `{}`", entry.path)),
+                );
+            }
+            paths
+        });
+        report.finish()
+    }
+}
+impl Validate for Entry {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let mut hooks = HashSet::new();
+        let duplicate_hook = self.hooks.iter().find(|hook| !hooks.insert(**hook));
+        let path = Path::new(&self.path);
+        let invalid_extension = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .filter(|extension| !extension.eq_ignore_ascii_case("rhai"));
+        let error = self
+            .path
+            .trim()
+            .is_empty()
+            .then(|| ("path", ValidationError::new("required").with_message("Script path must not be empty")))
+            .or_else(|| {
+                self.hooks.is_empty().then(|| {
+                    (
+                        "hooks",
+                        ValidationError::new("required").with_message(format!("Script `{}` hooks must not be empty", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                duplicate_hook.map(|hook| {
+                    (
+                        "hooks",
+                        ValidationError::new("duplicate").with_message(format!("Duplicate hook `{hook}` in script `{}`", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                (self.path.contains('*') || self.path.contains('?') || self.path.contains('[')).then(|| {
+                    (
+                        "path",
+                        ValidationError::new("pattern").with_message(format!("Script path `{}` must not contain glob patterns", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                (self.path.split('/').any(|segment| segment == "..") || self.path.split('\\').any(|segment| segment == "..")).then(|| {
+                    (
+                        "path",
+                        ValidationError::new("traversal").with_message(format!("Script path `{}` must not contain `..`", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                (!self.absolute && path.is_absolute()).then(|| {
+                    (
+                        "absolute",
+                        ValidationError::new("required").with_message(format!("Absolute path `{}` requires `absolute: true`", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                (self.absolute && !path.is_absolute()).then(|| {
+                    (
+                        "path",
+                        ValidationError::new("absolute").with_message(format!("`absolute: true` requires absolute path, found `{}`", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                invalid_extension.map(|extension| {
+                    (
+                        "path",
+                        ValidationError::new("extension").with_message(format!("Script path `{}` has unsupported extension .{extension}", self.path)),
+                    )
+                })
+            });
+        error.map_or(Ok(()), |(path, error)| Err(ValidationReport::from_error(path, error)))
     }
 }

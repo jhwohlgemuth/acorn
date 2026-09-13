@@ -13,6 +13,7 @@
 //! assert_eq!(version.major, 1);
 //! ```
 //!
+use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
@@ -21,6 +22,8 @@ use aho_corasick::AhoCorasick;
 use bon::Builder;
 use core::fmt;
 use core::iter::{once, successors};
+#[cfg(feature = "std")]
+use core::str::from_utf8;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
@@ -390,6 +393,9 @@ pub enum MimeType {
     /// Rich Text Format.
     #[display("application/rtf")]
     Rtf,
+    /// Rhai script.
+    #[display("text/x-rhai")]
+    Rhai,
     /// Rust Source Code (RS)
     #[display("text/rust")]
     Rust,
@@ -603,6 +609,7 @@ impl From<&str> for MimeType {
                 | "ppt" | "pps" | "pot" => MimeType::Ppt,
                 | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
                 | "prompt" => MimeType::Prompt,
+                | "rhai" => MimeType::Rhai,
                 | "rtf" => MimeType::Rtf,
                 | "rs" => MimeType::Rust,
                 | "safetensors" => MimeType::Safetensors,
@@ -664,19 +671,27 @@ impl MimeType {
     /// Infer a MIME type from file content using host-backed format detection.
     #[cfg(feature = "std")]
     pub fn infer(bytes: &[u8]) -> Option<Self> {
-        anydoc::Format::from_bytes(bytes).map(Self::from).or_else(|| {
-            infer::get(bytes).and_then(|kind| match kind.mime_type() {
-                | "application/gzip" | "application/x-gzip" => Some(Self::Gzip),
-                | "application/pdf" => Some(Self::Pdf),
-                | "application/x-7z-compressed" => Some(Self::SevenZip),
-                | "application/zip" => Some(Self::Zip),
-                | "application/x-tar" => Some(Self::Tar),
-                | "application/zstd" | "application/x-zstd" => Some(Self::Zstd),
-                | "image/jpeg" => Some(Self::Jpeg),
-                | "image/png" => Some(Self::Png),
-                | _ => None,
+        anydoc::Format::from_bytes(bytes)
+            .map(Self::from)
+            .or_else(|| {
+                infer::get(bytes).and_then(|kind| match kind.mime_type() {
+                    | "application/gzip" | "application/x-gzip" => Some(Self::Gzip),
+                    | "application/pdf" => Some(Self::Pdf),
+                    | "application/x-7z-compressed" => Some(Self::SevenZip),
+                    | "application/zip" => Some(Self::Zip),
+                    | "application/x-tar" => Some(Self::Tar),
+                    | "application/zstd" | "application/x-zstd" => Some(Self::Zstd),
+                    | "image/jpeg" => Some(Self::Jpeg),
+                    | "image/png" => Some(Self::Png),
+                    | _ => None,
+                })
             })
-        })
+            .or_else(|| {
+                let candidate = is_rhai_source(bytes).then_some(Self::Rhai);
+                #[cfg(feature = "exec")]
+                let candidate = candidate.filter(|_| from_utf8(bytes).is_ok_and(rhai_probe_compiles));
+                candidate
+            })
     }
     /// Return whether this file type is accepted as OCI model content.
     pub fn is_model_resource(&self) -> bool {
@@ -731,6 +746,7 @@ impl MimeType {
             | MimeType::Pytorch => "pt",
             | MimeType::Powerpoint => "pptx",
             | MimeType::Prompt => "prompt",
+            | MimeType::Rhai => "rhai",
             | MimeType::Rtf => "rtf",
             | MimeType::Rust => "rs",
             | MimeType::Safetensors => "safetensors",
@@ -809,6 +825,15 @@ impl PartialOrd<(u64, u64, u64)> for SemanticVersion {
     }
 }
 impl SemanticVersion {
+    /// Extract a canonical semantic version from the first line with the supplied prefix.
+    pub fn extract(source: impl AsRef<str>, prefix: &str) -> Option<Self> {
+        source
+            .as_ref()
+            .lines()
+            .find(|line| line.trim_start().starts_with(prefix))
+            .and_then(|line| line.trim().strip_prefix(prefix))
+            .and_then(|version| Self::parse_exact(version).ok())
+    }
     /// Parse a canonical numeric semantic version with one to three components.
     pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
         let value = value.as_ref();
@@ -904,18 +929,6 @@ where
             .collect::<Vec<_>>()
     }
 }
-impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
-    fn to_markdown(&self) -> String {
-        if self.is_empty() {
-            "[]".to_string()
-        } else {
-            self.iter()
-                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
-                .collect::<Vec<String>>()
-                .join("")
-        }
-    }
-}
 impl StringExt for Vec<&str> {
     fn is_numeric(&self) -> bool {
         self.iter().any(|value| value.is_numeric())
@@ -933,6 +946,18 @@ impl StringExt for Vec<String> {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .collect()
+    }
+}
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
+    fn to_markdown(&self) -> String {
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
     }
 }
 /// Decode a base32 Crockford string into a u128 value.
@@ -997,22 +1022,6 @@ pub fn case_insensitive_glob(value: &str) -> String {
         })
         .collect()
 }
-/// Expand one comma-separated brace expression in a glob pattern.
-pub fn expand_brace_glob(pattern: &str) -> Result<Vec<String>, String> {
-    match (pattern.find('{'), pattern.find('}')) {
-        | (None, None) => Ok(vec![pattern.to_string()]),
-        | (Some(open), Some(close)) if open < close => {
-            let prefix = &pattern[..open];
-            let suffix = &pattern[close.saturating_add(1)..];
-            let choices = pattern[open.saturating_add(1)..close].split(',').collect::<Vec<_>>();
-            match choices.iter().any(|choice| choice.is_empty()) || suffix.contains(['{', '}']) {
-                | true => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
-                | false => Ok(choices.into_iter().map(|choice| format!("{prefix}{choice}{suffix}")).collect()),
-            }
-        }
-        | _ => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
-    }
-}
 /// Returns true when any pattern exists in the haystack.
 pub fn contains_any(patterns: &[&str], haystack: &str) -> bool {
     match AhoCorasick::new(patterns) {
@@ -1067,6 +1076,22 @@ pub fn detect_xml(text: impl ToString) -> bool {
             }
         }
         | false => false,
+    }
+}
+/// Expand one comma-separated brace expression in a glob pattern.
+pub fn expand_brace_glob(pattern: &str) -> Result<Vec<String>, String> {
+    match (pattern.find('{'), pattern.find('}')) {
+        | (None, None) => Ok(vec![pattern.to_string()]),
+        | (Some(open), Some(close)) if open < close => {
+            let prefix = &pattern[..open];
+            let suffix = &pattern[close.saturating_add(1)..];
+            let choices = pattern[open.saturating_add(1)..close].split(',').collect::<Vec<_>>();
+            match choices.iter().any(|choice| choice.is_empty()) || suffix.contains(['{', '}']) {
+                | true => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
+                | false => Ok(choices.into_iter().map(|choice| format!("{prefix}{choice}{suffix}")).collect()),
+            }
+        }
+        | _ => Err(format!("Invalid brace expression in glob pattern `{pattern}`")),
     }
 }
 /// Returns the file extension of the given file name as a string.
@@ -1194,6 +1219,20 @@ fn is_research_activity_yaml(content: &str) -> bool {
         | Value::Object(fields) => is_research_activity_value(&fields),
         | _ => false,
     })
+}
+#[cfg(feature = "std")]
+fn is_rhai_source(bytes: &[u8]) -> bool {
+    from_utf8(bytes)
+        .ok()
+        .filter(|source| source.len() <= MAX_EXEC_BYTES)
+        .is_some_and(|source| {
+            let headers = source.lines().filter(|line| line.trim_start().starts_with(EXEC_HEADER_PREFIX));
+            let header = headers.clone().next().map(str::trim);
+            let one_header = headers.count() == 1;
+            let first = source.lines().find(|line| !line.trim().is_empty()).map(str::trim);
+            let supported = SemanticVersion::extract(source, EXEC_HEADER_PREFIX).is_some_and(|version| version == SUPPORTED_EXEC_VERSION);
+            one_header && first == header && supported
+        })
 }
 #[doc(hidden)]
 pub fn is_uri_or_path_portable(value: &str) -> bool {
@@ -1335,6 +1374,19 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
         None
     }
 }
+#[cfg(feature = "exec")]
+fn rhai_probe_compiles(source: &str) -> bool {
+    let mut engine = rhai::Engine::new_raw();
+    engine.disable_symbol("eval");
+    engine.set_max_operations(100_000);
+    engine.set_max_string_size(64 * 1024);
+    engine.set_max_array_size(1024);
+    engine.set_max_map_size(1024);
+    engine.compile(source).is_ok_and(|ast| {
+        let entry_points = ast.iter_functions().filter(|function| function.name == "evaluate").collect::<Vec<_>>();
+        matches!(entry_points.as_slice(), [entry_point] if entry_point.params.len() == 1)
+    })
+}
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example
 /// ```rust
@@ -1370,9 +1422,31 @@ pub fn to_string(values: Vec<&str>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::StringExt;
+    #[cfg(feature = "std")]
+    use super::MimeType;
+    use super::{SemanticVersion, StringExt};
     use crate::prelude::alloc::{String, ToString};
+    use crate::util::constants::app::EXEC_HEADER_PREFIX;
 
+    #[cfg(all(feature = "std", not(feature = "exec")))]
+    #[test]
+    fn test_mime_type_infers_rhai_candidate_without_exec_compiler() {
+        let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
+        assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
+    }
+    #[cfg(feature = "exec")]
+    #[test]
+    fn test_mime_type_rejects_rhai_candidate_that_does_not_compile() {
+        let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
+        assert_eq!(MimeType::infer(source), None);
+    }
+    #[test]
+    fn test_semantic_version_extracts_prefixed_version() {
+        assert_eq!(
+            SemanticVersion::extract("// @acorn-exec-v0.2.0", EXEC_HEADER_PREFIX),
+            Some(SemanticVersion::init().major(0).minor(2).patch(0).build())
+        );
+    }
     #[test]
     fn test_string_ext_default_compaction_is_identity() {
         let value = " value ".to_string();

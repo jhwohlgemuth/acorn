@@ -313,6 +313,10 @@ fn test_count_json_files_counts_case_insensitive_json_paths() {
     ];
     assert_eq!(count_json_files(&paths), 2);
 }
+#[test]
+fn test_default_config_filenames_require_supported_extensions() {
+    assert_eq!(DEFAULT_CONFIG_FILENAMES, [".acorn.json", ".acorn.jsonc", ".acorn.yaml", ".acorn.yml"]);
+}
 #[tokio::test]
 async fn test_download_file_skips_existing_file_without_clobber() {
     let output = temp_resolve_dir("download-file-transfer");
@@ -406,18 +410,6 @@ async fn test_download_item_gitlab_raw_url_uses_resolved_branch_and_encodes_path
         ),
         | None => assert!(item.headers.is_none()),
     }
-}
-#[test]
-fn test_extensionless_config_is_last_and_read_as_jsonc() {
-    assert_eq!(DEFAULT_CONFIG_FILENAMES.last(), Some(&".acorn"));
-    let directory = temp_resolve_dir("extensionless-jsonc");
-    create_dir_all(&directory).unwrap();
-    let directory = directory.canonicalize().unwrap();
-    let extensionless = directory.join(".acorn");
-    write(&extensionless, "{\n  // Comment\n}\n").unwrap();
-    let config = ApplicationConfiguration::read(extensionless.clone()).unwrap();
-    assert!(config.write(extensionless).is_ok());
-    let _ = remove_dir_all(directory);
 }
 #[test]
 fn test_filter_set_filter() {

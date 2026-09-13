@@ -42,7 +42,7 @@ workflow:
 
 ```sh
 acorn serve bot 12345 --event-source webhook \
-  --config /etc/acorn/.acorn
+  --config /etc/acorn/.acorn.json
 ```
 
 Paths are repository-relative globs. Repository content cannot add workflows or widen this policy. Fork writes are denied by default and require both `allow-forks: true` and an explicit `destination`; publication then targets only that configured project. Detached bot containers mount this file read-only.

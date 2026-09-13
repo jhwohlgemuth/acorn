@@ -1,6 +1,8 @@
 //! Check result types and helpers for analyzer output
 use super::error::ErrorKind;
-use super::fair::{FairFinding, FairState};
+#[cfg(feature = "analysis")]
+use super::fair::FairState;
+use super::fair::{FairDetails, FairIndicatorId};
 use super::model::ValeOutputItemSeverity;
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
@@ -18,12 +20,15 @@ use acorn_schema::standard::crosswalk::{ConversionWarning, CrosswalkError, Field
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 #[cfg(feature = "std")]
 use acorn_schema::OneOrMany;
+use alloc::borrow::Cow;
 use bon::Builder;
 use convert_case::{Case, Casing};
+use core::str::FromStr;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use strum::{EnumIs, EnumIter, VariantNames};
+use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 /// Utility type alias for a vector of [`ConversionWarning`]
 #[cfg(feature = "std")]
@@ -165,7 +170,7 @@ pub struct Check {
     /// Internal payload used by check-specific renderers (e.g., prose source text)
     pub(super) data: Option<String>,
     /// Structured FAIR assessment payload.
-    pub(super) fair_finding: Option<Box<FairFinding>>,
+    pub(super) fair_details: Option<Box<FairDetails>>,
     #[builder(default)]
     pub(super) kind: CheckKind,
     /// Whether or not the check was successful
@@ -205,12 +210,37 @@ pub struct CheckSummary {
     /// Metadata crosswalk warning count.
     pub crosswalk: usize,
 }
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
+/// Portable analyzer finding emitted by built-in and extension checks.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct Finding {
+    /// Analyzer category responsible for this finding.
+    pub category: CheckCategory,
+    /// Textual evidence or source context.
+    pub context: Option<String>,
+    /// Structured FAIR details when the category is [`CheckCategory::Fair`].
+    pub fair: Option<Box<FairDetails>>,
+    /// Optional source or metadata locator.
+    pub locator: Option<String>,
+    /// Human-readable result or remediation.
+    pub message: String,
+    /// Stable rule identifier.
+    pub rule_id: String,
+    /// Finding severity.
+    pub severity: CheckSeverity,
+    /// Whether supplied evidence satisfies the check.
+    pub success: bool,
+    /// Optional resource URI.
+    pub uri: Option<String>,
+}
+/// Ordered collection of analyzer findings.
+#[cfg_attr(feature = "exec", derive(validator::Validate))]
+#[cfg_attr(feature = "exec", validate(schema(function = "Findings::is_valid", skip_on_field_errors = false)))]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct Findings {
+    #[cfg_attr(feature = "exec", validate(nested))]
+    values: Vec<Finding>,
 }
 impl Check {
     #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
@@ -269,12 +299,12 @@ impl Check {
         }
     }
     /// Return the structured FAIR finding associated with this check.
-    pub fn fair_finding(&self) -> Option<&FairFinding> {
-        self.fair_finding.as_deref()
+    pub fn fair_details(&self) -> Option<&FairDetails> {
+        self.fair_details.as_deref()
     }
     /// Replace the structured FAIR finding associated with this check.
     #[cfg(feature = "analysis")]
-    pub(crate) fn with_fair_finding(self, finding: FairFinding) -> Self {
+    pub(crate) fn with_fair_details(self, finding: FairDetails) -> Self {
         let context = finding.evidence.clone();
         let locator = finding.locator.clone().or_else(|| Some(finding.indicator.id.to_string()));
         let message = finding.remediation.clone();
@@ -282,7 +312,7 @@ impl Check {
         let success = FairState::is_supported(&finding.state) || FairState::is_not_applicable(&finding.state);
         Self {
             context,
-            fair_finding: Some(Box::new(finding)),
+            fair_details: Some(Box::new(finding)),
             locator,
             message,
             severity,
@@ -305,6 +335,26 @@ impl Check {
     /// Returns a new LinkCheckResult with the given URL
     pub fn with_uri(self, value: Option<String>) -> Self {
         Self { uri: value, ..self }
+    }
+}
+impl From<Finding> for Check {
+    fn from(value: Finding) -> Self {
+        Self {
+            index: 0,
+            category: value.category,
+            locator: value.locator,
+            prose_locators: Vec::new(),
+            context: value.context,
+            data: None,
+            fair_details: value.fair,
+            kind: CheckKind::Standard,
+            success: value.success,
+            severity: value.severity,
+            status_code: None,
+            errors: None,
+            uri: value.uri,
+            message: value.message,
+        }
     }
 }
 impl CheckBatch {
@@ -341,51 +391,6 @@ impl CheckBatch {
         self.0
     }
 }
-impl CheckSummary {
-    /// Create the additive identity containing no issues.
-    pub const fn zero() -> Self {
-        Self {
-            fair: 0,
-            schema: 0,
-            link: 0,
-            prose: 0,
-            quality: 0,
-            readability: 0,
-            crosswalk: 0,
-        }
-    }
-    /// Combine two summaries by adding corresponding category counts.
-    pub fn combine(self, other: Self) -> Self {
-        Self {
-            fair: self.fair.saturating_add(other.fair),
-            schema: self.schema.saturating_add(other.schema),
-            link: self.link.saturating_add(other.link),
-            prose: self.prose.saturating_add(other.prose),
-            quality: self.quality.saturating_add(other.quality),
-            readability: self.readability.saturating_add(other.readability),
-            crosswalk: self.crosswalk.saturating_add(other.crosswalk),
-        }
-    }
-    /// Return category counts in stable display order.
-    pub fn counts(&self) -> [(CheckCategory, usize); 7] {
-        [
-            (CheckCategory::Schema, self.schema),
-            (CheckCategory::Link, self.link),
-            (CheckCategory::Prose, self.prose),
-            (CheckCategory::Quality, self.quality),
-            (CheckCategory::Fair, self.fair),
-            (CheckCategory::Readability, self.readability),
-            (CheckCategory::Crosswalk, self.crosswalk),
-        ]
-    }
-    /// Convert category counts to presentation rows.
-    pub fn rows(&self) -> Vec<Vec<String>> {
-        self.counts()
-            .iter()
-            .map(|(category, count)| vec![format!("{} items found", category.to_string().to_case(Case::Title)), count.to_string()])
-            .collect()
-    }
-}
 impl core::iter::FromIterator<Check> for CheckBatch {
     fn from_iter<T: IntoIterator<Item = Check>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
@@ -401,55 +406,18 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl From<&Check> for CheckSummary {
-    fn from(check: &Check) -> Self {
-        let count = check.issue_count();
-        match check.category {
-            | CheckCategory::Fair => Self { fair: count, ..Self::zero() },
-            | CheckCategory::Schema => Self {
-                schema: count,
-                ..Self::zero()
-            },
-            | CheckCategory::Link => Self { link: count, ..Self::zero() },
-            | CheckCategory::Prose => Self {
-                prose: count,
-                ..Self::zero()
-            },
-            | CheckCategory::Quality => Self {
-                quality: count,
-                ..Self::zero()
-            },
-            | CheckCategory::Readability => Self {
-                readability: count,
-                ..Self::zero()
-            },
-            | CheckCategory::Crosswalk => Self {
-                crosswalk: count,
-                ..Self::zero()
-            },
-        }
-    }
-}
-impl From<&[Check]> for CheckSummary {
-    fn from(checks: &[Check]) -> Self {
-        checks.iter().fold(Self::zero(), |summary, check| summary.combine(check.into()))
-    }
-}
-impl From<&CheckBatch> for CheckSummary {
-    fn from(checks: &CheckBatch) -> Self {
-        Self::from(checks.as_slice())
-    }
-}
-impl From<CheckBatch> for CheckSummary {
-    fn from(checks: CheckBatch) -> Self {
-        Self::from(&checks)
-    }
-}
 impl IntoIterator for CheckBatch {
     type Item = Check;
     type IntoIter = alloc::vec::IntoIter<Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 impl CheckCategory {
@@ -523,6 +491,107 @@ impl From<ValeOutputItemSeverity> for CheckSeverity {
         }
     }
 }
+impl FromStr for CheckSeverity {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.trim().to_lowercase().as_str() {
+            | "error" => Ok(Self::Error),
+            | "info" => Ok(Self::Info),
+            | "suggestion" => Ok(Self::Suggestion),
+            | "warning" => Ok(Self::Warning),
+            | other => Err(format!("unknown severity `{other}`")),
+        }
+    }
+}
+impl CheckSummary {
+    /// Create the additive identity containing no issues.
+    pub const fn zero() -> Self {
+        Self {
+            fair: 0,
+            schema: 0,
+            link: 0,
+            prose: 0,
+            quality: 0,
+            readability: 0,
+            crosswalk: 0,
+        }
+    }
+    /// Combine two summaries by adding corresponding category counts.
+    pub fn combine(self, other: Self) -> Self {
+        Self {
+            fair: self.fair.saturating_add(other.fair),
+            schema: self.schema.saturating_add(other.schema),
+            link: self.link.saturating_add(other.link),
+            prose: self.prose.saturating_add(other.prose),
+            quality: self.quality.saturating_add(other.quality),
+            readability: self.readability.saturating_add(other.readability),
+            crosswalk: self.crosswalk.saturating_add(other.crosswalk),
+        }
+    }
+    /// Return category counts in stable display order.
+    pub fn counts(&self) -> [(CheckCategory, usize); 7] {
+        [
+            (CheckCategory::Schema, self.schema),
+            (CheckCategory::Link, self.link),
+            (CheckCategory::Prose, self.prose),
+            (CheckCategory::Quality, self.quality),
+            (CheckCategory::Fair, self.fair),
+            (CheckCategory::Readability, self.readability),
+            (CheckCategory::Crosswalk, self.crosswalk),
+        ]
+    }
+    /// Convert category counts to presentation rows.
+    pub fn rows(&self) -> Vec<Vec<String>> {
+        self.counts()
+            .iter()
+            .map(|(category, count)| vec![format!("{} items found", category.to_string().to_case(Case::Title)), count.to_string()])
+            .collect()
+    }
+}
+impl From<&[Check]> for CheckSummary {
+    fn from(checks: &[Check]) -> Self {
+        checks.iter().fold(Self::zero(), |summary, check| summary.combine(check.into()))
+    }
+}
+impl From<&Check> for CheckSummary {
+    fn from(check: &Check) -> Self {
+        let count = check.issue_count();
+        match check.category {
+            | CheckCategory::Fair => Self { fair: count, ..Self::zero() },
+            | CheckCategory::Schema => Self {
+                schema: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Link => Self { link: count, ..Self::zero() },
+            | CheckCategory::Prose => Self {
+                prose: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Quality => Self {
+                quality: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Readability => Self {
+                readability: count,
+                ..Self::zero()
+            },
+            | CheckCategory::Crosswalk => Self {
+                crosswalk: count,
+                ..Self::zero()
+            },
+        }
+    }
+}
+impl From<&CheckBatch> for CheckSummary {
+    fn from(checks: &CheckBatch) -> Self {
+        Self::from(checks.as_slice())
+    }
+}
+impl From<CheckBatch> for CheckSummary {
+    fn from(checks: CheckBatch) -> Self {
+        Self::from(&checks)
+    }
+}
 #[cfg(feature = "std")]
 impl IntoChecks for ConversionWarnings {
     /// Convert crosswalk conversion warnings into Check objects with Warning severity.
@@ -544,6 +613,78 @@ impl IntoChecks for ConversionWarnings {
                 .with_uri(uri.clone())
             })
             .collect()
+    }
+}
+impl Validate for Finding {
+    fn validate(&self) -> Result<(), ValidationErrors> {
+        let rule_id_error = match (1..=128).contains(&self.rule_id.chars().count()) {
+            | false => Some(ValidationError::new("length")),
+            | true => (!FairIndicatorId::validate(&self.rule_id)).then(|| ValidationError::new("rule_id")),
+        };
+        let data = [
+            self.locator
+                .as_ref()
+                .is_some_and(|value| !(1..=1024).contains(&value.chars().count()))
+                .then(|| ("locator", ValidationError::new("length"))),
+            (!(1..=4096).contains(&self.message.chars().count())).then(|| ("message", ValidationError::new("length"))),
+            rule_id_error.map(|error| ("rule_id", error)),
+        ];
+        let errors = data
+            .into_iter()
+            .flatten()
+            .map(|(field, error)| (Cow::Borrowed(field), ValidationErrorsKind::Field(vec![error])))
+            .collect();
+        let errors = ValidationErrors(errors);
+        match errors.is_empty() {
+            | true => Ok(()),
+            | false => Err(errors),
+        }
+    }
+}
+impl Findings {
+    /// Return whether the collection contains no findings.
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+    /// Iterate over findings in stable output order.
+    pub fn iter(&self) -> core::slice::Iter<'_, Finding> {
+        self.values.iter()
+    }
+    /// Return the number of findings.
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+}
+impl From<Vec<Finding>> for Findings {
+    fn from(value: Vec<Finding>) -> Self {
+        Self { values: value }
+    }
+}
+impl IntoIterator for Findings {
+    type Item = Finding;
+    type IntoIter = alloc::vec::IntoIter<Finding>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+impl From<&Map<String, Value>> for Standard {
+    fn from(object: &Map<String, Value>) -> Self {
+        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
+            Standard::Dcat
+        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
+            Standard::Huwise
+        } else if object.contains_key("attributes") && object.contains_key("id") {
+            Standard::Datacite
+        } else if object.contains_key("manifestVersion") {
+            match object.values().any(contains_layer_identity) {
+                | true => Standard::ModelKit,
+                | false => Standard::Kitfile,
+            }
+        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
+            Standard::Invenio
+        } else {
+            Standard::Dcat
+        }
     }
 }
 #[cfg(feature = "std")]
@@ -655,26 +796,6 @@ impl Standard {
         ))
     }
 }
-impl From<&Map<String, Value>> for Standard {
-    fn from(object: &Map<String, Value>) -> Self {
-        if object.get("@type").and_then(Value::as_str).is_some_and(|value| value.contains("dcat:")) {
-            Standard::Dcat
-        } else if object.contains_key("dataset_id") && object.contains_key("metas") {
-            Standard::Huwise
-        } else if object.contains_key("attributes") && object.contains_key("id") {
-            Standard::Datacite
-        } else if object.contains_key("manifestVersion") {
-            match object.values().any(contains_layer_identity) {
-                | true => Standard::ModelKit,
-                | false => Standard::Kitfile,
-            }
-        } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
-            Standard::Invenio
-        } else {
-            Standard::Dcat
-        }
-    }
-}
 impl From<&CheckCategory> for u8 {
     fn from(value: &CheckCategory) -> Self {
         match value {
@@ -700,6 +821,11 @@ impl From<&CheckSeverity> for u8 {
 impl From<CheckBatch> for Vec<Check> {
     fn from(checks: CheckBatch) -> Self {
         checks.into_vec()
+    }
+}
+impl From<Findings> for Vec<Finding> {
+    fn from(value: Findings) -> Self {
+        value.values
     }
 }
 /// Portable readability check over supplied text (no filesystem or env)

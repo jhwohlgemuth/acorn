@@ -106,7 +106,7 @@ pub enum Commands {
     ///     $> acorn download https://github.com/user/repo --output ./content --clobber
     ///
     ///     Download using default configuration in current directory (first match):
-    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
+    ///     .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
     ///     $> acorn download
     ///
     ///     Download default GGUF (Q4_K_M) model from a Hugging Face repository
@@ -256,6 +256,26 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment)]
     Tui,
+    /// Execute constrained Rhai extensions
+    ///
+    ///     Evaluate a script against an input file
+    ///     $> acorn exec check ./script.rhai ./input.json
+    ///
+    ///     Perform an evaluation-free static check
+    ///     $> acorn exec check-safe ./script.rhai
+    ///
+    /// ABI version: `// @acorn-exec-v0.2.0`
+    ///
+    /// The evaluation context contains `hook`, `path`, `input`, `proposed`, and
+    /// non-secret `metadata`. Scripts return a map containing a `findings` array.
+    /// Source is limited to 512 KiB; evaluation is bounded and does not permit
+    /// dynamic evaluation or imports.
+    ///
+    #[clap(verbatim_doc_comment)]
+    Exec {
+        #[command(subcommand)]
+        command: Option<ExecCommands>,
+    },
 }
 #[derive(Debug, Subcommand)]
 #[command(long_about = None)]
@@ -274,6 +294,14 @@ pub enum DownloadCommands {
     Model(Box<arguments::DownloadModel>),
     /// Download and verify the pinned standalone Needle engine for this platform
     Needle,
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum ExecCommands {
+    /// Evaluate a script against supplied input and render findings
+    Check(Box<arguments::ExecCheck>),
+    /// Check Rhai source without evaluating it
+    CheckSafe(Box<arguments::ExecCheckSafe>),
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

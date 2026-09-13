@@ -97,9 +97,9 @@ isolate std-only modules   host abstraction traits
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
 
-### Scraping and Rhai scripting
+### Scraping and Rhai exec
 
-- [Configured Rhai scripting extensions](features/rhai-scripting.md) follows the analyzer result-boundary work and establishes capability-free Rhai quality gates with typed `ScriptResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
+- [Configured Rhai exec extensions](features/rhai-exec.md) follows the analyzer result-boundary work and establishes capability-free Rhai quality gates with typed `ExecutionResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
 - [Deterministic gather scraping](features/deterministic-gather-scraping.md) independently adds bounded HTML fetching and typed CSS extraction under existing HTTP/offline policy.
 - [Structured extraction inference](features/structured-extraction-inference.md) follows deterministic scraping and adds one explicit typed provider adapter before any generic registry is considered.
 - [Capability-brokered Rhai workflow hooks](features/rhai-workflow-hooks.md) follows proven use of constrained scripting, stable workflow/operation-effects contracts, and a separate security review. It is not an implementation candidate while those gates remain open.

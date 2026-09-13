@@ -16,6 +16,8 @@ pub mod analyzer;
 #[cfg(feature = "doctor")]
 pub mod doctor;
 pub mod error;
+#[cfg(feature = "exec")]
+pub mod exec;
 #[cfg(feature = "std")]
 pub mod io;
 pub mod util;
@@ -79,13 +81,10 @@ impl LocationExt for Location {
         (self.is_local() || path.exists()).then_some(path)
     }
     fn resolve_file_type(&self, content: &[u8]) -> MimeType {
-        MimeType::infer(content).unwrap_or_else(|| {
-            self.path()
-                .as_deref()
-                .map(MimeType::from)
-                .filter(|mime| !mime.is_unknown())
-                .unwrap_or(MimeType::Json)
-        })
+        MimeType::infer(content)
+            .or_else(|| self.path().as_deref().map(MimeType::from).filter(|mime| !mime.is_unknown()))
+            .or_else(|| core::str::from_utf8(content).ok().map(MimeType::infer_from))
+            .unwrap_or_else(|| MimeType::Unknown(self.path().unwrap_or_else(|| "unknown".to_string())))
     }
     #[cfg(feature = "analysis")]
     async fn exists(self) -> bool {

@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "identifier": "minimal-valid-rad",
+    "keywords": [],
+    "technology": []
+  },
+  "title": "Minimal Valid RAD",
+  "sections": {
+    "mission": "Describe the research purpose.",
+    "challenge": "Describe the research challenge.",
+    "approach": ["Describe the research approach."],
+    "impact": ["Describe the research impact."],
+    "research": {
+      "focus": "Describe the research focus.",
+      "areas": ["Research area"]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "First",
+    "familyName": "Last",
+    "email": "first.last@example.com",
+    "telephone": "123-456-7890",
+    "url": "https://example.com",
+    "organization": "Example Organization"
+  }
+}

@@ -1,0 +1,1 @@
+fn evaluate(context) { #{ findings: [] } }

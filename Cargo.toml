@@ -98,6 +98,8 @@ swhid = { version = "0.2.2", default-features = false }
 tokio = { version = "1.48.0", default-features = false }
 serde_repr = { version = "0.1", default-features = false }
 serde_norway = { version = "0.9.42", default-features = false }
+rhai = { version = "1.22.0", default-features = false }
+validator = { version = "0.20.0", features = ["derive"], default-features = false }
 tera = { version = "1.20.0", default-features = false }
 tracing = { version = "0.1.40", default-features = false }
 tracing-indicatif = { version = "0.3.14", default-features = false }

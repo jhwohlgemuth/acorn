@@ -56,7 +56,7 @@ impl Render for [Check] {
             .cloned()
             .collect::<Vec<_>>();
         sorted_checks.sort_by_cached_key(|check| {
-            let fair = check.fair_finding();
+            let fair = check.fair_details();
             (
                 u8::from(&check.severity),
                 u8::from(&check.category),
@@ -185,7 +185,7 @@ impl Check {
                 }
                 | None | Some(_) => {}
             },
-            | CheckCategory::Fair => match self.fair_finding() {
+            | CheckCategory::Fair => match self.fair_details() {
                 | Some(finding) => {
                     let title = uri.as_deref().unwrap_or(finding.resource.as_str());
                     let heading: String = finding.indicator.clone().into();
@@ -378,7 +378,7 @@ impl fmt::Display for Check {
                 let (locator, severity, details) = self.kind.link_row(self);
                 f.write_str(&format_row(locator, severity, details))
             }
-            | CheckCategory::Fair => match self.fair_finding() {
+            | CheckCategory::Fair => match self.fair_details() {
                 | Some(finding) => {
                     let location = finding
                         .locator

@@ -30,6 +30,9 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli serve rpc`↴](#acorn-cli-serve-rpc)
 * [`acorn-cli sync`↴](#acorn-cli-sync)
 * [`acorn-cli tui`↴](#acorn-cli-tui)
+* [`acorn-cli exec`↴](#acorn-cli-exec)
+* [`acorn-cli exec check`↴](#acorn-cli-exec-check)
+* [`acorn-cli exec check-safe`↴](#acorn-cli-exec-check-safe)
 
 ## `acorn-cli`
 
@@ -69,6 +72,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `serve` — Start a server (bot, MCP, etc.)
 * `sync` — Synchronize local inference configuration from ACORN model entries
 * `tui` — Launch the interactive terminal user interface (TUI)
+* `exec` — Execute constrained Rhai extensions
 
 ###### **Options:**
 
@@ -375,7 +379,7 @@ Download research activity data from buckets or model weights for local inferenc
     $> acorn download https://github.com/user/repo --output ./content --clobber
 
     Download using default configuration in current directory (first match):
-    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml, .acorn
+    .acorn.json, .acorn.jsonc, .acorn.yaml, .acorn.yml
     $> acorn download
 
     Download default GGUF (Q4_K_M) model from a Hugging Face repository
@@ -1196,6 +1200,68 @@ Launch the interactive terminal user interface (TUI)
     $> acorn tui
 
 **Usage:** `acorn-cli tui`
+
+
+
+## `acorn-cli exec`
+
+Execute constrained Rhai extensions
+
+    Evaluate a script against an input file
+    $> acorn exec check ./script.rhai ./input.json
+
+    Perform an evaluation-free static check
+    $> acorn exec check-safe ./script.rhai
+
+ABI version: `// @acorn-exec-v0.2.0`
+
+The evaluation context contains `hook`, `path`, `input`, `proposed`, and
+non-secret `metadata`. Scripts return a map containing a `findings` array.
+Source is limited to 512 KiB; evaluation is bounded and does not permit
+dynamic evaluation or imports.
+
+**Usage:** `acorn-cli exec [COMMAND]`
+
+###### **Subcommands:**
+
+* `check` — Evaluate a script against supplied input and render findings
+* `check-safe` — Check Rhai source without evaluating it
+
+
+
+## `acorn-cli exec check`
+
+Evaluate a script against supplied input and render findings
+
+**Usage:** `acorn-cli exec check [OPTIONS] <SCRIPT> <INPUT>`
+
+###### **Arguments:**
+
+* `<SCRIPT>` — Rhai script path
+* `<INPUT>` — Input file to evaluate against
+
+###### **Options:**
+
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli exec check-safe`
+
+Check Rhai source without evaluating it
+
+**Usage:** `acorn-cli exec check-safe [OPTIONS] <SCRIPT>`
+
+###### **Arguments:**
+
+* `<SCRIPT>` — Rhai script path
+
+###### **Options:**
+
+* `--format <FORMAT>` — Output format (json or markdown)
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
 
 
 

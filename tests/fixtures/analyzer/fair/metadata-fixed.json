@@ -1,0 +1,31 @@
+{
+  "@context": "https://www.w3.org/ns/dcat.jsonld",
+  "@id": "doi:10.1234/example.dataset",
+  "accessRights": "open",
+  "creator": {
+    "@id": "https://orcid.org/0000-0002-1825-0097",
+    "name": "Example Researcher"
+  },
+  "description": "A complete machine-actionable record used to exercise FAIR metadata evidence.",
+  "distribution": {
+    "accessURL": "https://example.org/datasets/example.dataset",
+    "downloadURL": "https://example.org/datasets/example.dataset/data.csv",
+    "mediaType": "text/csv"
+  },
+  "identifier": "doi:10.1234/example.dataset",
+  "keywords": [
+    "open science",
+    "research data"
+  ],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "metadataIdentifier": "https://doi.org/10.1234/example.dataset.metadata",
+  "publisher": "Example Research Repository",
+  "qualifiedRelation": {
+    "relation": "doi:10.1234/example.related",
+    "role": "isSupplementTo"
+  },
+  "relation": "doi:10.1234/example.related",
+  "retention": "Metadata remains available after data withdrawal.",
+  "title": "A fully described research dataset",
+  "wasGeneratedBy": "Example Research Group data pipeline"
+}

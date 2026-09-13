@@ -1,7 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{
-    parse_check_category, parse_check_format, parse_enrichment_provider, parse_executor, parse_mcpb_platform, parse_readability, parse_ssh_remote,
-    parse_standard, parse_watch_duration,
+    parse_check_category, parse_check_format, parse_enrichment_provider, parse_exec_format, parse_executor, parse_mcpb_platform, parse_readability,
+    parse_ssh_remote, parse_standard, parse_watch_duration,
 };
 use super::DownloadCommands;
 use acorn::analyzer::host::discovery::CitationFormat;
@@ -430,6 +430,13 @@ pub(crate) struct CreateMcp {
     #[arg(long, visible_alias = "what-if", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
 }
+/// Detached execution flag shared by all remote-capable commands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct DetachArgs {
+    /// Run as detached container/service instead of foreground/in-process
+    #[arg(short = 'd', long, value_name = "BOOL", help_heading = "FLAGS")]
+    pub(crate) detach: bool,
+}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Doctor {
@@ -559,6 +566,30 @@ pub(crate) struct DownloadModel {
     /// Output format for --raw results
     #[arg(long, value_name = "FORMAT", default_value = "json", requires = "raw", help_heading = "OPTIONS")]
     pub(crate) format: OutputFormat,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ExecCheck {
+    /// Rhai script path
+    #[arg(value_name = "SCRIPT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) script: PathBuf,
+    /// Input file to evaluate against
+    #[arg(value_name = "INPUT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) input: PathBuf,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ExecCheckSafe {
+    /// Rhai script path
+    #[arg(value_name = "SCRIPT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) script: PathBuf,
+    /// Output format (json or markdown)
+    #[arg(long, value_name = "FORMAT", value_parser = parse_exec_format, help_heading = "OPTIONS")]
+    pub(crate) format: Option<MimeType>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
@@ -975,13 +1006,6 @@ pub(crate) struct RemoteTarget {
     #[arg(long, value_name = "NAME", conflicts_with = "host", help_heading = "OPTIONS")]
     pub(crate) context: Option<String>,
 }
-/// Detached execution flag shared by all remote-capable commands.
-#[derive(Clone, Debug, Args)]
-pub(crate) struct DetachArgs {
-    /// Run as detached container/service instead of foreground/in-process
-    #[arg(short = 'd', long, value_name = "BOOL", help_heading = "FLAGS")]
-    pub(crate) detach: bool,
-}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Runner {
@@ -1185,6 +1209,16 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Console,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
+    }
+}
 impl From<SwhidKind> for CalculationKind {
     fn from(value: SwhidKind) -> Self {
         match value {
@@ -1242,16 +1276,6 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
-        }
-    }
-}
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

@@ -112,6 +112,8 @@ exitcode = { version = "1.1.2", default-features = false }
 which = { version = "8.0.0", features = ["real-sys"], default-features = false, optional = true }
 zip = { version = "8.5.1", features = ["deflate"], default-features = false, optional = true }
 zstd = { version = "0.13.3", default-features = false, optional = true }
+rhai = { workspace = true, optional = true }
+validator = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.8.2"
@@ -159,6 +161,7 @@ doctor = ["std-core", "dep:sysinfo"]
 duckdb = ["std-core", "dep:duckdb"]
 powerpoint = ["std-core"]
 needle = ["agentic", "cmd"]
+exec = ["std", "acorn-core/exec", "dep:rhai"]
 std = [
   "std-core",
   "agentic",

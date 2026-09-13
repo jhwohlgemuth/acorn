@@ -1,6 +1,5 @@
 //! Portable FAIR metadata evidence and assessment.
-use super::{Check, CheckCategory, CheckSeverity};
-use crate::check;
+use super::{Check, CheckCategory, CheckSeverity, Finding};
 use crate::util::constants::fair;
 use crate::util::Constant;
 use acorn_core::prelude::{format, Box, String, ToString, Vec};
@@ -184,30 +183,35 @@ pub enum FairState {
     /// Available evidence explicitly contradicts the indicator.
     Unsupported,
 }
-/// Stable definition of an indicator from the [RDA FAIR Data Maturity Model](https://doi.org/10.15497/RDA00050).
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct FairIndicator {
-    /// RDA indicator description.
-    pub description: String,
-    /// Stable RDA indicator identifier.
-    pub id: FairIndicatorId,
-    /// FAIR principle identifier, such as `F1` or `R1.3`.
-    pub indicator: String,
-    /// FAIR principle measured by the indicator.
-    pub principle: FairPrinciple,
-    /// RDA priority assigned to the indicator.
-    pub priority: FairPriority,
-    /// Canonical RDA recommendation URL.
-    pub url: String,
+/// Counts of FAIR findings by evidence state.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct FairCounts {
+    /// Findings that could not be determined.
+    pub indeterminate: usize,
+    /// Findings that do not apply.
+    pub not_applicable: usize,
+    /// Findings supported by evidence.
+    pub supported: usize,
+    /// Findings contradicted by evidence.
+    pub unsupported: usize,
 }
-/// One located item of metadata evidence.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
-pub struct FairEvidenceItem {
-    /// Metadata path containing the evidence.
-    pub locator: String,
-    /// Human-readable evidence value.
-    pub value: String,
+/// Result for one [RDA FAIR indicator](https://doi.org/10.15497/RDA00050).
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FairDetails {
+    /// Evidence supporting the result, when available.
+    pub evidence: Option<String>,
+    /// Evaluated RDA indicator.
+    pub indicator: FairIndicator,
+    /// Metadata path associated with the result.
+    pub locator: Option<String>,
+    /// Concrete action that can improve support.
+    pub remediation: String,
+    /// Identity of the assessed resource.
+    pub resource: String,
+    /// Evidence state.
+    pub state: FairState,
+    /// URI whose resolution can strengthen the result.
+    pub target_uri: Option<String>,
 }
 /// Normalized local evidence used to evaluate [RDA FAIR indicators](https://doi.org/10.15497/RDA00050).
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
@@ -253,35 +257,30 @@ pub struct FairEvidence {
     /// Controlled vocabulary or vocabulary URI.
     pub vocabulary: Option<FairEvidenceItem>,
 }
-/// Result for one [RDA FAIR indicator](https://doi.org/10.15497/RDA00050).
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct FairFinding {
-    /// Evidence supporting the result, when available.
-    pub evidence: Option<String>,
-    /// Evaluated RDA indicator.
-    pub indicator: FairIndicator,
-    /// Metadata path associated with the result.
-    pub locator: Option<String>,
-    /// Concrete action that can improve support.
-    pub remediation: String,
-    /// Identity of the assessed resource.
-    pub resource: String,
-    /// Evidence state.
-    pub state: FairState,
-    /// URI whose resolution can strengthen the result.
-    pub target_uri: Option<String>,
+/// One located item of metadata evidence.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct FairEvidenceItem {
+    /// Metadata path containing the evidence.
+    pub locator: String,
+    /// Human-readable evidence value.
+    pub value: String,
 }
-/// Counts of FAIR findings by evidence state.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
-pub struct FairCounts {
-    /// Findings that could not be determined.
-    pub indeterminate: usize,
-    /// Findings that do not apply.
-    pub not_applicable: usize,
-    /// Findings supported by evidence.
-    pub supported: usize,
-    /// Findings contradicted by evidence.
-    pub unsupported: usize,
+/// Stable definition of an indicator from the [RDA FAIR Data Maturity Model](https://doi.org/10.15497/RDA00050).
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FairIndicator {
+    /// RDA indicator description.
+    pub description: String,
+    /// Stable RDA indicator identifier.
+    pub id: FairIndicatorId,
+    /// FAIR principle identifier, such as `F1` or `R1.3`.
+    pub indicator: String,
+    /// FAIR principle measured by the indicator.
+    pub principle: FairPrinciple,
+    /// RDA priority assigned to the indicator.
+    pub priority: FairPriority,
+    /// Canonical RDA recommendation URL.
+    pub url: String,
 }
 /// FAIR evidence profile for one resource or a pooled batch.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -299,9 +298,19 @@ pub struct FairProfile {
     /// Counts across all four principles.
     pub total: FairCounts,
 }
-/// Load the ordered RDA FAIR Data Maturity Model indicator registry.
-pub(crate) fn indicator() -> Vec<FairIndicator> {
-    Constant::json("fair")
+impl From<FairDetails> for Check {
+    fn from(value: FairDetails) -> Self {
+        Finding::from(value).into()
+    }
+}
+impl From<FairDetails> for CheckSeverity {
+    fn from(value: FairDetails) -> Self {
+        match value.state {
+            | FairState::Indeterminate => Self::Suggestion,
+            | FairState::NotApplicable | FairState::Supported => Self::Info,
+            | FairState::Unsupported => Self::Warning,
+        }
+    }
 }
 impl FairCounts {
     /// Combine two state-count values.
@@ -357,57 +366,7 @@ impl FairCounts {
         }
     }
 }
-impl FairEvidence {
-    /// Normalize serialized metadata from a supported standard into FAIR evidence.
-    pub fn from_value(resource: impl Into<String>, standard: impl Into<String>, value: &Value) -> Self {
-        let fallback_resource = resource.into();
-        let standard = standard.into();
-        let access_uri = value.find(&fair::ACCESS_URI_NAMES);
-        let data_identifier = value.find(&fair::DATA_IDENTIFIER_NAMES);
-        let direct_uri = value.find(&fair::DIRECT_URI_NAMES);
-        let resource = data_identifier
-            .as_ref()
-            .map(|item| item.value.clone())
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or(fallback_resource);
-        Self {
-            access_uri,
-            authentication: value.find(&fair::AUTHENTICATION_NAMES),
-            community_standard: Some(FairEvidenceItem {
-                locator: "$schema".to_string(),
-                value: standard,
-            }),
-            creator: value.find(&fair::CREATOR_NAMES),
-            data_format: value.find(&fair::DATA_FORMAT_NAMES),
-            data_identifier: data_identifier.clone(),
-            description: value.find(&fair::DESCRIPTION_NAMES),
-            direct_uri,
-            license: value.find(&fair::LICENSE_NAMES),
-            metadata_format: Some(FairEvidenceItem {
-                locator: "$".to_string(),
-                value: "JSON or YAML".to_string(),
-            }),
-            metadata_identifier: value.find(&fair::METADATA_IDENTIFIER_NAMES),
-            provenance: value.find(&fair::PROVENANCE_NAMES),
-            publisher: value.find(&fair::PUBLISHER_NAMES),
-            qualified_relation: value.find(&fair::QUALIFIED_RELATION_NAMES),
-            relation: value.find(&fair::RELATION_NAMES),
-            resource,
-            retention: value.find(&fair::RETENTION_NAMES),
-            subject: value.find(&fair::SUBJECT_NAMES),
-            title: value.find(&fair::TITLE_NAMES),
-            vocabulary: value.find(&fair::VOCABULARY_NAMES).filter(|item| item.value.contains("://")),
-        }
-    }
-    /// Evaluate all 41 RDA indicators in their canonical order.
-    pub fn assess(&self) -> Vec<FairFinding> {
-        indicator()
-            .into_iter()
-            .map(|indicator| FairFinding::from_evidence(indicator, self))
-            .collect()
-    }
-}
-impl FairFinding {
+impl FairDetails {
     /// Build one finding by evaluating normalized evidence against an indicator.
     pub fn from_evidence(indicator: FairIndicator, evidence: &FairEvidence) -> Self {
         let attributes = [
@@ -525,7 +484,63 @@ impl FairFinding {
         )
     }
 }
+impl FairEvidence {
+    /// Normalize serialized metadata from a supported standard into FAIR evidence.
+    pub fn from_value(resource: impl Into<String>, standard: impl Into<String>, value: &Value) -> Self {
+        let fallback_resource = resource.into();
+        let standard = standard.into();
+        let access_uri = value.find(&fair::ACCESS_URI_NAMES);
+        let data_identifier = value.find(&fair::DATA_IDENTIFIER_NAMES);
+        let direct_uri = value.find(&fair::DIRECT_URI_NAMES);
+        let resource = data_identifier
+            .as_ref()
+            .map(|item| item.value.clone())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(fallback_resource);
+        Self {
+            access_uri,
+            authentication: value.find(&fair::AUTHENTICATION_NAMES),
+            community_standard: Some(FairEvidenceItem {
+                locator: "$schema".to_string(),
+                value: standard,
+            }),
+            creator: value.find(&fair::CREATOR_NAMES),
+            data_format: value.find(&fair::DATA_FORMAT_NAMES),
+            data_identifier: data_identifier.clone(),
+            description: value.find(&fair::DESCRIPTION_NAMES),
+            direct_uri,
+            license: value.find(&fair::LICENSE_NAMES),
+            metadata_format: Some(FairEvidenceItem {
+                locator: "$".to_string(),
+                value: "JSON or YAML".to_string(),
+            }),
+            metadata_identifier: value.find(&fair::METADATA_IDENTIFIER_NAMES),
+            provenance: value.find(&fair::PROVENANCE_NAMES),
+            publisher: value.find(&fair::PUBLISHER_NAMES),
+            qualified_relation: value.find(&fair::QUALIFIED_RELATION_NAMES),
+            relation: value.find(&fair::RELATION_NAMES),
+            resource,
+            retention: value.find(&fair::RETENTION_NAMES),
+            subject: value.find(&fair::SUBJECT_NAMES),
+            title: value.find(&fair::TITLE_NAMES),
+            vocabulary: value.find(&fair::VOCABULARY_NAMES).filter(|item| item.value.contains("://")),
+        }
+    }
+    /// Evaluate all 41 RDA indicators in their canonical order.
+    pub fn assess(&self) -> Vec<FairDetails> {
+        indicator()
+            .into_iter()
+            .map(|indicator| FairDetails::from_evidence(indicator, self))
+            .collect()
+    }
+}
 impl FairIndicatorId {
+    /// Return whether text is valid as a portable analyzer rule identifier.
+    pub(crate) fn validate(value: &str) -> bool {
+        value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || ['.', '-', '_'].contains(&character))
+    }
     /// Select the URI whose resolution can provide evidence for this indicator.
     pub fn uri_from(self, evidence: &FairEvidence) -> Option<String> {
         match self {
@@ -539,48 +554,6 @@ impl FairIndicatorId {
         }
     }
 }
-impl From<FairFinding> for Check {
-    fn from(value: FairFinding) -> Self {
-        let context = value.evidence.clone();
-        let locator = value.locator.clone().or_else(|| Some(value.indicator.id.to_string()));
-        let message = value.remediation.clone();
-        let severity = CheckSeverity::from(value.clone());
-        let success = value.state.is_supported() || value.state.is_not_applicable();
-        check!(
-            CheckCategory::Fair,
-            success,
-            severity: severity,
-            message: message,
-            maybe_context: context,
-            maybe_locator: locator,
-            fair_finding: Box::new(value),
-        )
-    }
-}
-impl From<FairFinding> for CheckSeverity {
-    fn from(value: FairFinding) -> Self {
-        match value.state {
-            | FairState::Indeterminate => Self::Suggestion,
-            | FairState::NotApplicable | FairState::Supported => Self::Info,
-            | FairState::Unsupported => Self::Warning,
-        }
-    }
-}
-impl From<FairIndicator> for String {
-    fn from(value: FairIndicator) -> Self {
-        format!("{} — {:?} — {:?}", value.id, value.principle, value.priority)
-    }
-}
-impl From<FairIndicatorId> for String {
-    fn from(value: FairIndicatorId) -> Self {
-        value.to_string()
-    }
-}
-impl<'a> From<&'a FairIndicator> for &'a str {
-    fn from(value: &'a FairIndicator) -> Self {
-        value.description.as_str()
-    }
-}
 impl TryFrom<String> for FairIndicatorId {
     type Error = strum::ParseError;
 
@@ -588,9 +561,37 @@ impl TryFrom<String> for FairIndicatorId {
         value.parse()
     }
 }
+impl FairPrinciple {
+    /// Count findings associated with this principle by evidence state.
+    pub fn filter_and_count(self, findings: &[FairDetails]) -> FairCounts {
+        findings
+            .iter()
+            .filter(|finding| finding.indicator.principle == self)
+            .fold(FairCounts::default(), |counts, finding| counts.with_state(finding.state))
+    }
+}
+impl fmt::Display for FairPrinciple {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Accessible => "accessible",
+            | Self::Findable => "findable",
+            | Self::Interoperable => "interoperable",
+            | Self::Reusable => "reusable",
+        })
+    }
+}
+impl fmt::Display for FairPriority {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Essential => "essential",
+            | Self::Important => "important",
+            | Self::Useful => "useful",
+        })
+    }
+}
 impl FairProfile {
     /// Build a profile from findings for one resource.
-    pub fn from_findings(resource: impl Into<String>, findings: &[FairFinding]) -> Self {
+    pub fn from_findings(resource: impl Into<String>, findings: &[FairDetails]) -> Self {
         let accessible = FairPrinciple::Accessible.filter_and_count(findings);
         let findable = FairPrinciple::Findable.filter_and_count(findings);
         let interoperable = FairPrinciple::Interoperable.filter_and_count(findings);
@@ -627,34 +628,6 @@ impl FairProfile {
         }
     }
 }
-impl FairPrinciple {
-    /// Count findings associated with this principle by evidence state.
-    pub fn filter_and_count(self, findings: &[FairFinding]) -> FairCounts {
-        findings
-            .iter()
-            .filter(|finding| finding.indicator.principle == self)
-            .fold(FairCounts::default(), |counts, finding| counts.with_state(finding.state))
-    }
-}
-impl fmt::Display for FairPrinciple {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Accessible => "accessible",
-            | Self::Findable => "findable",
-            | Self::Interoperable => "interoperable",
-            | Self::Reusable => "reusable",
-        })
-    }
-}
-impl fmt::Display for FairPriority {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Essential => "essential",
-            | Self::Important => "important",
-            | Self::Useful => "useful",
-        })
-    }
-}
 impl fmt::Display for FairState {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -663,6 +636,43 @@ impl fmt::Display for FairState {
             | Self::Supported => "supported",
             | Self::Unsupported => "unsupported",
         })
+    }
+}
+impl From<FairDetails> for Finding {
+    fn from(value: FairDetails) -> Self {
+        let context = value.evidence.clone();
+        let locator = value.locator.clone().or_else(|| Some(value.indicator.id.to_string()));
+        let message = value.remediation.clone();
+        let rule_id = value.indicator.id.to_string();
+        let uri = Some(value.resource.clone());
+        let severity = CheckSeverity::from(value.clone());
+        let success = value.state.is_supported() || value.state.is_not_applicable();
+        Self {
+            category: CheckCategory::Fair,
+            context,
+            fair: Some(Box::new(value)),
+            locator,
+            message,
+            rule_id,
+            severity,
+            success,
+            uri,
+        }
+    }
+}
+impl<'a> From<&'a FairIndicator> for &'a str {
+    fn from(value: &'a FairIndicator) -> Self {
+        value.description.as_str()
+    }
+}
+impl From<FairIndicator> for String {
+    fn from(value: FairIndicator) -> Self {
+        format!("{} — {:?} — {:?}", value.id, value.principle, value.priority)
+    }
+}
+impl From<FairIndicatorId> for String {
+    fn from(value: FairIndicatorId) -> Self {
+        value.to_string()
     }
 }
 impl ValueExt for Value {
@@ -703,4 +713,8 @@ impl ValueExt for Value {
             | _ => None,
         }
     }
+}
+/// Load the ordered RDA FAIR Data Maturity Model indicator registry.
+pub(crate) fn indicator() -> Vec<FairIndicator> {
+    Constant::json("fair")
 }

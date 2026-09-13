@@ -4,6 +4,12 @@
 //! Callers can use [`Workflow::plan`] for previews or [`Workflow::run`] to plan and apply in one operation.
 #[cfg(feature = "analysis")]
 use crate::analyzer::Check;
+#[cfg(feature = "exec")]
+use crate::caution;
+#[cfg(feature = "exec")]
+use crate::exec::config;
+#[cfg(feature = "exec")]
+use crate::io::config::application::ApplicationConfiguration;
 use crate::io::enrichment::Enrich;
 use crate::io::{read_file, write_file, ApiResult, FromPath, InputOutput};
 use crate::util::{print_changes_with_color, Label, StringConversion};
@@ -18,6 +24,8 @@ use core::marker::PhantomData;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "exec")]
+use std::path::Path;
 use std::path::PathBuf;
 use tracing::warn;
 
@@ -108,6 +116,56 @@ pub struct WorkflowExtension {
     pub link: bool,
     /// Render changes even when the workflow will write them.
     pub show_changes: bool,
+}
+#[cfg(feature = "exec")]
+impl ApplicationConfiguration {
+    /// Run configured Rhai quality gates for a planned workflow.
+    ///
+    /// Scripts are resolved and evaluated after proposal validation but before application. Any
+    /// resolution, compilation, execution, or validation failure aborts with no partial application.
+    pub fn check_scripts<T>(&self, changes: &[Change<T>], project_root: &Path, hook: WorkflowAction) -> ApiResult<Vec<Check>>
+    where
+        T: serde::Serialize,
+    {
+        self.validate().map_err(|why| eyre!("{why}")).and_then(|()| {
+            let relevant = self
+                .scripts
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .filter(|entry| entry.hooks.iter().any(|candidate| candidate == &hook))
+                .cloned()
+                .collect::<Vec<_>>();
+            match relevant.is_empty() {
+                | true => Ok(Vec::new()),
+                | false => relevant
+                    .iter()
+                    .map(|entry| entry.resolve(project_root))
+                    .collect::<Result<Vec<config::Resolved>, _>>()
+                    .and_then(|resolved| {
+                        if resolved.iter().any(|script| script.is_absolute) {
+                            caution!("Absolute scripts require explicit local trust — remote callers must reject");
+                        }
+                        changes
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(document_index, change)| match change {
+                                | Change::Document { source, data, .. } => Some((document_index, source, data.as_ref())),
+                                #[cfg(feature = "analysis")]
+                                | Change::Check(_) => None,
+                            })
+                            .try_fold(Vec::new(), |checks, (document_index, source, data)| {
+                                let source = source.uri().unwrap_or_else(|| source.to_string());
+                                resolved.iter().try_fold(checks, |checks, script| {
+                                    script
+                                        .check(&source, data, document_index, hook)
+                                        .map(|extension_checks| checks.into_iter().chain(extension_checks).collect())
+                                })
+                            })
+                    }),
+            }
+        })
+    }
 }
 impl<T> Change<T>
 where

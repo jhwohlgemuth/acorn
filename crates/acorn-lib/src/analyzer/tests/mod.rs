@@ -1,10 +1,11 @@
 use super::error::ErrorKind;
 use super::fair::{indicator, FairCounts, FairEvidence, FairEvidenceItem, FairIndicatorId, FairPrinciple, FairPriority, FairState};
 use super::model::ValeOutputItem;
-use super::{Check, CheckBatch, CheckCategory, CheckSummary};
+use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding};
 use crate::{check_err, check_ok};
 use acorn_core::validation::ValidationError;
-use acorn_schema::validation::ValidationReport;
+use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::validation::{Validate, ValidationReport};
 use alloc::string::{String, ToString};
 use alloc::{vec, vec::Vec};
 
@@ -14,10 +15,17 @@ fn batch(messages: &[&str]) -> CheckBatch {
         .map(|message| check_ok!(CheckCategory::Quality, message: (*message).to_string()))
         .collect()
 }
+fn fair_fixture(content: &str) -> Vec<Finding> {
+    let value = serde_json::from_str(content).expect("valid FAIR fixture JSON");
+    FairEvidence::from_value("fixture", "DCAT 3", &value)
+        .assess()
+        .into_iter()
+        .map(Finding::from)
+        .collect()
+}
 fn messages(checks: &CheckBatch) -> Vec<String> {
     checks.iter().map(|check| check.message.clone()).collect()
 }
-
 #[test]
 fn check_batch_collection_flattens_in_insertion_order() {
     let checks = [batch(&["first", "second"]), batch(&["third"])].into_iter().collect::<CheckBatch>();
@@ -53,6 +61,22 @@ fn check_batch_iterates_and_round_trips_explicitly() {
     assert!(!round_trip.is_empty());
     assert!(CheckBatch::empty().is_empty());
     assert_eq!(CheckBatch::single(check_ok!(CheckCategory::Quality)).len(), 1);
+}
+#[test]
+fn check_summary_combine_is_associative() {
+    let first = CheckSummary {
+        schema: 1,
+        ..CheckSummary::zero()
+    };
+    let second = CheckSummary {
+        prose: 2,
+        ..CheckSummary::zero()
+    };
+    let third = CheckSummary {
+        crosswalk: 3,
+        ..CheckSummary::zero()
+    };
+    assert_eq!(first.combine(second).combine(third), first.combine(second.combine(third)));
 }
 #[test]
 fn check_summary_counts_every_category_and_multi_issue_checks() {
@@ -107,22 +131,6 @@ fn check_summary_zero_is_identity_on_both_sides() {
     assert_eq!(CheckSummary::zero().combine(summary), summary);
 }
 #[test]
-fn check_summary_combine_is_associative() {
-    let first = CheckSummary {
-        schema: 1,
-        ..CheckSummary::zero()
-    };
-    let second = CheckSummary {
-        prose: 2,
-        ..CheckSummary::zero()
-    };
-    let third = CheckSummary {
-        crosswalk: 3,
-        ..CheckSummary::zero()
-    };
-    assert_eq!(first.combine(second).combine(third), first.combine(second.combine(third)));
-}
-#[test]
 fn combined_batch_summaries_equal_flattened_summary() {
     let first = CheckBatch::from(vec![check_err!(CheckCategory::Schema), check_err!(CheckCategory::Link)]);
     let second = CheckBatch::from(vec![
@@ -171,6 +179,25 @@ fn fair_evidence_normalizes_and_assesses_serialized_metadata() {
     assert!(findings
         .iter()
         .any(|finding| finding.indicator.id == FairIndicatorId::RdaA1_03D && finding.state.is_indeterminate()));
+}
+#[test]
+fn fair_fixture_pair_covers_findings_and_fixed_metadata() {
+    let findings = fair_fixture(include_str!("../../../../../tests/fixtures/analyzer/fair/metadata-findings.json"));
+    let actionable = findings
+        .iter()
+        .filter(|finding| !finding.success && finding.fair.as_ref().is_none_or(|fair| fair.target_uri.is_none()));
+    assert!(actionable.count() >= 10);
+    assert!(findings.iter().any(|finding| finding.severity == CheckSeverity::Info));
+    assert!(findings.iter().any(|finding| finding.severity == CheckSeverity::Suggestion));
+
+    let fixed = fair_fixture(include_str!("../../../../../tests/fixtures/analyzer/fair/metadata-fixed.json"));
+    let unresolved = fixed
+        .iter()
+        .filter(|finding| finding.fair.as_ref().is_none_or(|fair| fair.target_uri.is_none()))
+        .filter(|finding| !finding.success)
+        .map(|finding| finding.rule_id.clone())
+        .collect::<Vec<_>>();
+    assert!(unresolved.is_empty(), "fixed fixture has unresolved FAIR findings: {unresolved:?}");
 }
 #[test]
 fn fair_identifier_checks_reject_non_pids() {
@@ -269,4 +296,10 @@ fn fair_terse_output_uses_shared_columns_and_metadata() {
     assert!(output.contains("indicator=F1"));
     assert!(output.contains("state=supported"));
     assert!(output.contains("priority=essential"));
+}
+#[test]
+fn minimum_valid_rad_fixture_validates() {
+    let activity = eserde::json::from_str::<ResearchActivity>(include_str!("../../../../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json"))
+        .expect("minimum RAD fixture deserializes");
+    assert!(activity.validate().is_ok());
 }

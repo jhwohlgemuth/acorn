@@ -66,7 +66,7 @@ ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format f
 > [!TIP]
 > `.jsonc` files permit `//` line comments, `/* block */` comments, and trailing commas. All other syntax follows standard JSON rules. Rename a `.json` file to `.jsonc` if you need comments.
 > [!TIP]
-> ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, `.acorn.yml`, then `.acorn` in the current working directory. The extensionless `.acorn` form uses JSONC. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
+> ACORN looks for `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, then `.acorn.yml` in the current working directory. You can also specify a different configuration file using the `--config <FILE>` flag when running ACORN commands.
 
 ## .env file and Environment Variables
 The ACORN CLI tool can also be configured using `.env` files and/or environment variables.
