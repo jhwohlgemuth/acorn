@@ -20,6 +20,6 @@ stdout:
    │         ─────┬─────  
    │              ╰─────── Provide valid DOI value
 ───╯
-0,error,schema,schema/datacite-invalid-2-errors.json,id,Provide valid DOI value,id
-1,error,schema,schema/datacite-invalid-2-errors.json,attributes.url,url,attributes.url
+0,error,schema,schema/datacite-invalid-2-errors.json,id,Provide valid DOI value,id,
+1,error,schema,schema/datacite-invalid-2-errors.json,attributes.url,url,attributes.url,
 stderr:

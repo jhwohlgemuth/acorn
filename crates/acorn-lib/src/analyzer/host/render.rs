@@ -56,9 +56,12 @@ impl Render for [Check] {
             .cloned()
             .collect::<Vec<_>>();
         sorted_checks.sort_by_cached_key(|check| {
+            let fair = check.fair_finding();
             (
                 u8::from(&check.severity),
                 u8::from(&check.category),
+                fair.map(|finding| finding.resource.to_lowercase()).unwrap_or_default(),
+                fair.map(|finding| finding.indicator.id),
                 check.locator.clone().unwrap_or_default().to_lowercase(),
             )
         });
@@ -151,7 +154,7 @@ impl Check {
                         .message(format!("{}{code}", message.italic()))
                         .color(severity.clone().into())
                         .build();
-                    let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
+                    let rendered = document.is_some_and(|document| document.print(&query, report));
                     if !rendered {
                         print_unlocated(index, &severity, heading, format!("{message}{code}"));
                     }
@@ -174,13 +177,43 @@ impl Check {
                             .build();
                         let rendered = document
                             .zip(document.and_then(|document| self.prose_span(document, item)))
-                            .is_some_and(|(document, span)| document.print(&span, report));
+                            .is_some_and(|(document, span)| document.print_span(&span, report));
                         if !rendered {
                             print_unlocated(index.saturating_add(i), &CheckSeverity::from(severity.clone()), check, message.clone());
                         }
                     });
                 }
                 | None | Some(_) => {}
+            },
+            | CheckCategory::Fair => match self.fair_finding() {
+                | Some(finding) => {
+                    let title = uri.as_deref().unwrap_or(finding.resource.as_str());
+                    let heading: String = finding.indicator.clone().into();
+                    let source_text = finding.evidence.as_deref().unwrap_or(&finding.remediation);
+                    let query = match finding.locator.as_deref() {
+                        | Some(locator) => DocumentQuery::new().with_path(DocumentPath::parse(locator)).with_needle(source_text),
+                        | None => DocumentQuery::new().with_needle(source_text),
+                    };
+                    let report = DocumentReport::init()
+                        .title(title)
+                        .index(index)
+                        .kind(severity.clone().into())
+                        .heading(&heading)
+                        .message(finding.remediation.italic().to_string())
+                        .color(severity.clone().into())
+                        .build();
+                    let rendered = document.is_some_and(|document| document.print(&query, report));
+                    if !rendered {
+                        print_unlocated(index, &severity, &heading, finding.remediation.clone());
+                    }
+                }
+                | None => {
+                    let heading = uri.as_deref().map_or_else(
+                        || category.message().to_string(),
+                        |uri| format!("{} — {}", category.message(), uri.cyan().underline()),
+                    );
+                    print_unlocated(index, &severity, &heading, context.as_deref().unwrap_or(&message).to_string());
+                }
             },
             | CheckCategory::Quality => {
                 let title = uri.as_deref().unwrap_or_default();
@@ -239,7 +272,7 @@ impl Check {
                                     .message(issue.message.italic().to_string())
                                     .color(severity.clone().into())
                                     .build();
-                                let rendered = document.is_some_and(|document| print_document_report(document, &query, report));
+                                let rendered = document.is_some_and(|document| document.print(&query, report));
                                 if !rendered {
                                     print_unlocated(index.saturating_add(issue_index), &severity, &locator, issue.message.clone());
                                 }
@@ -345,6 +378,22 @@ impl fmt::Display for Check {
                 let (locator, severity, details) = self.kind.link_row(self);
                 f.write_str(&format_row(locator, severity, details))
             }
+            | CheckCategory::Fair => match self.fair_finding() {
+                | Some(finding) => {
+                    let location = finding
+                        .locator
+                        .clone()
+                        .filter(|value| !value.is_empty())
+                        .unwrap_or_else(|| finding.resource.clone());
+                    let metadata = finding.metadata();
+                    let details = format!("{} {}", finding.remediation, metadata.dimmed());
+                    f.write_str(&format_row(location, self.severity.colored(), details))
+                }
+                | None => {
+                    let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
+                    f.write_str(&format_row(location, self.severity.colored(), self.message.clone()))
+                }
+            },
             | CheckCategory::Prose => {
                 #[cfg(feature = "std")]
                 {
@@ -507,7 +556,13 @@ impl From<CheckSeverity> for Color {
     }
 }
 impl DocumentIndex {
-    fn print(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
+    fn print(&self, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
+        match self.resolve(query) {
+            | DocumentMatch::Unique(span) => self.print_span(&span, report),
+            | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
+        }
+    }
+    fn print_span(&self, span: &DocumentSpan, report: DocumentReport<'_>) -> bool {
         self.excerpt(span, MAX_LENGTH_REPORT_SPAN_PREFIX).is_some_and(|excerpt| {
             let page = self.page_number(span.0.start);
             let DocumentSpan(span) = excerpt.span;
@@ -567,12 +622,6 @@ impl Standard {
             | Standard::Document | Standard::Text => print_schema::<text::Text>(format),
             | Standard::DublinCore => eprintln!("Schema generation not supported for Dublin Core (no schema defined)"),
         }
-    }
-}
-fn print_document_report(document: &DocumentIndex, query: &DocumentQuery, report: DocumentReport<'_>) -> bool {
-    match document.resolve(query) {
-        | DocumentMatch::Unique(span) => document.print(&span, report),
-        | DocumentMatch::Missing | DocumentMatch::Ambiguous => false,
     }
 }
 /// Print JSON or YAML schema for type `T` to stdout

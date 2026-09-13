@@ -38,6 +38,7 @@ const OFFLINE: bool = true;
 #[test]
 fn summary_rows_preserve_cli_labels_and_order() {
     let rows = CheckSummary {
+        fair: 7,
         schema: 1,
         link: 2,
         prose: 3,
@@ -53,6 +54,7 @@ fn summary_rows_preserve_cli_labels_and_order() {
             vec!["Link items found", "2"],
             vec!["Prose items found", "3"],
             vec!["Quality items found", "4"],
+            vec!["Fair items found", "7"],
             vec!["Readability items found", "5"],
             vec!["Crosswalk items found", "6"],
         ]

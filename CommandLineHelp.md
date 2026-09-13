@@ -1,11 +1,3 @@
-   Compiling acorn-cli v0.2.0 (/Users/o9w/dev/re/acorn/crates/acorn-cli)
-warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
-  |
-  = note: `#[warn(linker_messages)]` on by default
-
-warning: `acorn-cli` (bin "acorn") generated 1 warning
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.33s
-     Running `target/debug/acorn --markdown-help`
 # Command-Line Help for `acorn-cli`
 
 This document contains the help content for the `acorn-cli` command-line program.
@@ -199,7 +191,7 @@ Perform static analysis on research activity data and apply standardized best pr
 
    > CAUTION: Use at your own risk
 * `--raw` — Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
-* `-S`, `--skip <LIST>` — Skip one or more available quality check categories
+* `-S`, `--skip <LIST>` — Skip one or more available check categories
 * `--skip-verify-checksum` — Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose) > CAUTION: Use at your own risk
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 

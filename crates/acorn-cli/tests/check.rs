@@ -95,7 +95,52 @@ fn test_check_diagnostics_remain_on_stdout() {
     assert!(String::from_utf8_lossy(&output.stdout).contains("Deserialization error"));
     assert!(!String::from_utf8_lossy(&output.stderr).contains("Deserialization error"));
 }
+#[test]
+fn test_check_fair_output_contract() {
+    let path = fixture("schema/datacite.json");
+    let detailed = Command::cargo_bin("acorn")
+        .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .env("NO_COLOR", "1")
+        .args([
+            "--offline",
+            "check",
+            &path.to_string_lossy(),
+            "--standard",
+            "datacite",
+            "--no-fail",
+            "--all",
+            "--skip",
+            "link,prose,quality,readability",
+        ])
+        .output()
+        .unwrap();
+    let detailed = String::from_utf8_lossy(&detailed.stdout);
+    assert!(detailed.contains("RDA-F1-01D — Findable — Essential"));
+    assert!(detailed.contains("Overall"));
 
+    let terse = Command::cargo_bin("acorn")
+        .unwrap()
+        .env("ACORN_NO_LOCAL_DATABASE", "true")
+        .env("NO_COLOR", "1")
+        .args([
+            "--offline",
+            "check",
+            &path.to_string_lossy(),
+            "--standard",
+            "datacite",
+            "--no-fail",
+            "--all",
+            "--terse",
+            "--skip",
+            "link,prose,quality,readability",
+        ])
+        .output()
+        .unwrap();
+    let terse = String::from_utf8_lossy(&terse.stdout);
+    assert!(terse.contains("rule=RDA-F1-01D state=supported priority=essential"));
+    assert!(!terse.contains("Overall"));
+}
 #[test]
 fn test_check_validation_compatibility_snapshots() {
     macro_rules! args {
@@ -113,7 +158,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "--no-fail",
                 "--all",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -123,7 +168,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "check",
                 fixture("data/invalid_project_a/index.json").to_string_lossy(),
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -134,7 +179,7 @@ fn test_check_validation_compatibility_snapshots() {
                 fixture("data/invalid_project_a/index.json").to_string_lossy(),
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -147,7 +192,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "--terse",
                 "--raw",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -157,7 +202,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "check",
                 fixture("malformed-rad.json").to_string_lossy(),
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -168,7 +213,7 @@ fn test_check_validation_compatibility_snapshots() {
                 fixture("malformed-rad.json").to_string_lossy(),
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -181,7 +226,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "datacite",
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -194,7 +239,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "dcat",
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -207,7 +252,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "huwise",
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
         (
@@ -220,7 +265,7 @@ fn test_check_validation_compatibility_snapshots() {
                 "invenio",
                 "--no-fail",
                 "--skip",
-                "link,prose,readability,quality",
+                "fair,link,prose,readability,quality",
             ],
         ),
     ];
@@ -228,7 +273,6 @@ fn test_check_validation_compatibility_snapshots() {
         .into_iter()
         .for_each(|(name, args)| insta::assert_snapshot!(name, normalized_process(&args)));
 }
-
 #[test]
 fn test_check_pdf_as_document_text() {
     Command::cargo_bin("acorn")
@@ -245,7 +289,6 @@ fn test_check_pdf_as_document_text() {
         .assert()
         .success();
 }
-
 #[ignore = "Broken for reasons unknown"]
 #[test]
 fn test_dcat_check_valid_dataset() {

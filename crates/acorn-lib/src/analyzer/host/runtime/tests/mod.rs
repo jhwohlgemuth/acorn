@@ -207,9 +207,10 @@ fn test_check_severity_to_ariadne_report_kind_matrix() {
 fn test_checks_to_dataframe() {
     let check = check_ok!(CheckCategory::Prose);
     let checks = vec![check.clone(), check.clone(), check];
-    let df = checks_to_dataframe(&checks);
+    let df = checks_to_dataframe(&checks).expect("Failed to convert checks to dataframe");
     let reason = "Failed to convert checks to dataframe";
-    assert_eq!(df.expect(reason).shape(), (checks.len(), 7));
+    assert_eq!(df.shape(), (checks.len(), 8), "{reason}");
+    assert_eq!(df["fair"].null_count(), checks.len());
 }
 #[tokio::test]
 async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_display() {

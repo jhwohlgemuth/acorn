@@ -108,7 +108,9 @@ Link checks require network access. Use `acorn --offline check ./CITATION.cff` o
 
 ## Check categories
 
-The command can validate data against its schema, analyze prose and readability, check links, find inconsistent or incomplete data, and enforce naming or organization-specific conventions.[^metrics]
+The command can validate data against its schema, assess evidence of support for the FAIR principles, analyze prose and readability, check links, find inconsistent or incomplete data, and enforce naming or organization-specific conventions.[^metrics]
+
+FAIR checks evaluate all 41 indicators in the RDA FAIR Data Maturity Model. They report an evidence profile rather than a compliance grade. Native assessment is available for ACORN Research Activity Data, DataCite, DCAT, Huwise, InvenioRDM, and RAiD metadata. See [FAIR evidence assessment](../../concepts/fair-assessment.md) for the evidence states and output contract.
 
 ## Customization options
 Use command options to select or skip checks and to control when the command exits.
@@ -119,6 +121,7 @@ Bypass verifying the checksum of downloaded artifacts with `--skip-verify-checks
 
 ### Skip checks
 - `--skip schema` : Skip schema validation checks
+- `--skip fair` : Skip FAIR evidence assessment
 - `--skip prose` : Skip prose quality checks
 - `--skip readability` : Skip readability checks
 - `--skip schema,prose` : Skip both schema validation and prose quality checks (this works for any combination of categories)

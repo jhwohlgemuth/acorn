@@ -9,7 +9,7 @@ use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
 use acorn::analyzer::host::tabular::checks_to_csv;
 use acorn::analyzer::host::vale::Vale;
 use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, OutputFormat, Standard};
+use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard};
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
@@ -190,9 +190,10 @@ fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
 }
 async fn execute(input: Input, options: &AnalysisContext) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
+    let fair_profiles = Vec::<FairProfile>::from(&report);
     let collected = collect(&report, options);
     let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
-    handle(&issues, &input.paths, options, report.render_context(&options.report))
+    handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report))
 }
 fn failure_count(issues: &[Check]) -> usize {
     issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
@@ -200,7 +201,13 @@ fn failure_count(issues: &[Check]) -> usize {
 fn filter_by_visibility(issues: &[Check], all: bool) -> CheckBatch {
     issues.iter().filter(|issue| all || issue.is_failure()).cloned().collect()
 }
-fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, render_context: RenderContext<'_>) -> Result<(), Report> {
+fn handle(
+    issues: &CheckBatch,
+    profiles: &[FairProfile],
+    paths: &[PathBuf],
+    options: &AnalysisContext,
+    render_context: RenderContext<'_>,
+) -> Result<(), Report> {
     let quiet = options.report.common.quiet;
     let ReportExtension { no_fail, terse, .. } = &options.report.extension;
     let print_summary = || {
@@ -215,6 +222,23 @@ fn handle(issues: &CheckBatch, paths: &[PathBuf], options: &AnalysisContext, ren
     };
     if !quiet {
         issues.as_slice().render(render_context);
+        if !*terse && !profiles.is_empty() {
+            let headers = vec!["Resource", "Findable", "Accessible", "Interoperable", "Reusable", "Overall"];
+            let rows = profiles
+                .iter()
+                .map(|profile| {
+                    vec![
+                        profile.resource.clone(),
+                        profile.findable.format(),
+                        profile.accessible.format(),
+                        profile.interoperable.format(),
+                        profile.reusable.format(),
+                        profile.total.format(),
+                    ]
+                })
+                .collect();
+            print_values_as_table::<String>(headers, rows, None);
+        }
         if !(*no_fail || *terse || issues.is_empty()) {
             print_summary();
         }

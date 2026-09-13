@@ -73,6 +73,11 @@ fn test_doi_metadatatools_cases() {
     assert_eq!(DOI::format("  HTTPS://DOI.ORG/10.22002/BV2PV-2B295  "), "10.22002/BV2PV-2B295");
 }
 #[test]
+fn test_doi_normalize() {
+    assert_eq!(DOI::normalize("https://doi.org/10.1000/Example/"), "10.1000/example");
+    assert_eq!(DOI::normalize("HTTPS://EXAMPLE.ORG/Data/"), "https://example.org/data");
+}
+#[test]
 fn test_doi_struct() {
     let valid = "https://doi.org/10.1000/182";
     assert!(DOI::is_valid(valid));

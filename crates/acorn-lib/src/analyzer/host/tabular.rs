@@ -3,7 +3,7 @@ use crate::analyzer::Check;
 use polars::datatypes::PlSmallStr;
 use polars::frame::row::Row;
 use polars::io::csv::write::CsvWriter;
-use polars::prelude::{AnyValue, DataFrame, PolarsResult, SerWriter};
+use polars::prelude::{AnyValue, DataFrame, DataType, PolarsResult, Schema, SerWriter};
 use std::io::Cursor;
 
 /// Trait for converting a value to a Polars row.
@@ -13,6 +13,7 @@ pub trait IntoRow<'a> {
 }
 impl<'a> IntoRow<'a> for Check {
     fn to_row<Check>(self) -> Row<'a> {
+        let fair = self.fair_finding().map(|finding| finding.metadata());
         let Self {
             index,
             category,
@@ -24,15 +25,20 @@ impl<'a> IntoRow<'a> for Check {
             ..
         } = self;
         let data = [
-            &index.to_string(),
-            &severity.to_string(),
-            &category.to_string(),
-            &uri.unwrap_or_default(),
-            &locator.unwrap_or_default(),
-            &message,
-            &context.unwrap_or_default(),
+            Some(index.to_string()),
+            Some(severity.to_string()),
+            Some(category.to_string()),
+            Some(uri.unwrap_or_default()),
+            Some(locator.unwrap_or_default()),
+            Some(message),
+            Some(context.unwrap_or_default()),
+            fair,
         ];
-        Row::new(data.into_iter().map(|value| AnyValue::String(value).into_static()).collect::<Vec<_>>())
+        Row::new(
+            data.into_iter()
+                .map(|value| value.map_or(AnyValue::Null, |value| AnyValue::StringOwned(value.into())))
+                .collect::<Vec<_>>(),
+        )
     }
 }
 /// Convert checks to CSV.
@@ -47,7 +53,7 @@ pub fn checks_to_csv(values: &[Check], include_headers: bool) -> PolarsResult<St
 }
 /// Convert checks to a Polars dataframe.
 pub fn checks_to_dataframe(values: &[Check]) -> PolarsResult<DataFrame> {
-    let names = ["index", "severity", "category", "uri", "locator", "message", "context"];
+    let names = ["index", "severity", "category", "uri", "locator", "message", "context", "fair"];
     to_dataframe::<Check, _, &str>(
         values
             .iter()
@@ -65,9 +71,6 @@ where
     I: IntoIterator<Item = H>,
 {
     let rows = values.into_iter().map(|value| value.to_row::<T>()).collect::<Vec<_>>();
-    DataFrame::from_rows(&rows).and_then(|mut dataframe| {
-        dataframe
-            .set_column_names(&names.into_iter().map(Into::into).collect::<Vec<PlSmallStr>>())
-            .map(|_| dataframe)
-    })
+    let schema = Schema::from_iter(names.into_iter().map(|name| (name.into(), DataType::String)));
+    DataFrame::from_rows_and_schema(&rows, &schema)
 }

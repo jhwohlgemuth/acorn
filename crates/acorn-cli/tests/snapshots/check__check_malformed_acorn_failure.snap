@@ -23,10 +23,12 @@ stdout:
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
 │ Quality items found     ┆ 0     │
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Fair items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
 │ Readability items found ┆ 0     │
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
 │ Crosswalk items found   ┆ 0     │
 ╰─────────────────────────┴───────╯
-0,error,schema,fixtures/malformed-rad.json,"","","@context.malformedContext: unknown field `malformedContext`, expected one of `meta`, `title`, `subtitle`, `sections`, `logbook`, `contact`, `notes` at line 8 column 26"
-1,error,schema,fixtures/malformed-rad.json,"","","@context: expected `,` or `}` at line 8 column 27"
+0,error,schema,fixtures/malformed-rad.json,"","","@context.malformedContext: unknown field `malformedContext`, expected one of `meta`, `title`, `subtitle`, `sections`, `logbook`, `contact`, `notes` at line 8 column 26",
+1,error,schema,fixtures/malformed-rad.json,"","","@context: expected `,` or `}` at line 8 column 27",
 stderr:

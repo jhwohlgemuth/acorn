@@ -20,6 +20,6 @@ stdout:
     │                      ─────┬─────  
     │                           ╰─────── url
 ────╯
-0,error,schema,schema/huwise-invalid-2-errors.json,metas.default.license_url,url,metas.default.license_url
-1,error,schema,schema/huwise-invalid-2-errors.json,metas.dcat_ap.contact_email,email,metas.dcat_ap.contact_email
+0,error,schema,schema/huwise-invalid-2-errors.json,metas.default.license_url,url,metas.default.license_url,
+1,error,schema,schema/huwise-invalid-2-errors.json,metas.dcat_ap.contact_email,email,metas.dcat_ap.contact_email,
 stderr:

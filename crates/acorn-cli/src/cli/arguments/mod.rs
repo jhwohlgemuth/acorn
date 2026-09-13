@@ -386,7 +386,7 @@ pub struct Check {
     /// Suppress output from external commands (e.g., Vale) while preserving ACORN output — useful for piping
     #[arg(long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) raw: bool,
-    /// Skip one or more available quality check categories
+    /// Skip one or more available check categories
     #[arg(short = 'S', long, value_name = "LIST", value_delimiter = ',', value_parser = parse_check_category, help_heading = "OPTIONS")]
     pub(crate) skip: Vec<analyzer::CheckCategory>,
     /// Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose)

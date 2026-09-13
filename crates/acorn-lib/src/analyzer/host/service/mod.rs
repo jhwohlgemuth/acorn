@@ -1,6 +1,7 @@
 //! Structured native file-analysis service
 use super::render::{DocumentIndexes, RenderContext};
 use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
+use crate::analyzer::fair::{FairEvidence, FairFinding, FairProfile, FairState};
 use crate::analyzer::host::context::{AnalysisContext, ReportOptions};
 use crate::analyzer::host::runtime::{KitfileStandard, ModelKitStandard, StaticAnalyzer};
 use crate::analyzer::host::vale::Vale;
@@ -11,7 +12,7 @@ use crate::util::{Label, StringConversion};
 use crate::{check, check_err, check_ok};
 use acorn_core::prelude::{Arc, HashMap, Path, PathBuf};
 use acorn_core::util::{MimeType, ToProse};
-use acorn_schema::pid::raid;
+use acorn_schema::pid::{raid, DOI};
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::standard::text::{Document, Text};
@@ -31,12 +32,29 @@ pub trait Analysis: SchemaCheck {
     async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         match category {
             | CheckCategory::Link => Self::check_websites(paths, options).await,
+            | CheckCategory::Fair => Self::check_fair(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
             | CheckCategory::Quality => Self::check_quality(paths, options).await,
             | CheckCategory::Readability => Self::check_readability(paths, options).await,
             | CheckCategory::Schema => Self::check_schema(paths, options).await,
             | CheckCategory::Crosswalk => CheckBatch::empty(),
         }
+    }
+    /// Assess evidence of support for the FAIR principles.
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .iter()
+            .map(|path| {
+                let standard = Self::standard();
+                check!(
+                    CheckCategory::Fair,
+                    false,
+                    severity: CheckSeverity::Suggestion,
+                    uri: path.file_name_with_parent(),
+                    message: format!("FAIR assessment is not supported for {standard} metadata")
+                )
+            })
+            .collect()
     }
     /// Perform analysis of prose.
     async fn check_prose(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
@@ -151,27 +169,81 @@ impl AnalysisReport {
         }
     }
 }
+impl From<&AnalysisReport> for Vec<FairProfile> {
+    fn from(value: &AnalysisReport) -> Self {
+        let mut grouped = value
+            .batches
+            .iter()
+            .flat_map(|batch| batch.categories.iter())
+            .flat_map(|category| category.checks.iter())
+            .filter_map(Check::fair_finding)
+            .fold(Vec::<(String, Vec<FairFinding>)>::new(), |mut groups, finding| {
+                match groups.iter_mut().find(|(resource, _)| resource == &finding.resource) {
+                    | Some((_, findings)) => findings.push(finding.clone()),
+                    | None => groups.push((finding.resource.clone(), vec![finding.clone()])),
+                }
+                groups
+            });
+        grouped.sort_by_cached_key(|(resource, _)| resource.to_lowercase());
+        let profiles = grouped
+            .into_iter()
+            .map(|(resource, findings)| FairProfile::from_findings(resource, &findings))
+            .collect::<Vec<_>>();
+        let pooled = (profiles.len() > 1).then(|| FairProfile::pooled("All resources", &profiles));
+        profiles.into_iter().chain(pooled).collect()
+    }
+}
+impl From<AnalysisReport> for Vec<FairProfile> {
+    fn from(value: AnalysisReport) -> Self {
+        Self::from(&value)
+    }
+}
+impl Standard {
+    fn unsupported(self, paths: &[PathBuf], categories: &[CheckCategory]) -> Vec<CategoryChecks> {
+        categories
+            .iter()
+            .filter(|category| **category == CheckCategory::Fair)
+            .map(|category| CategoryChecks {
+                category: category.clone(),
+                checks: paths
+                    .iter()
+                    .map(|path| {
+                        check!(
+                            CheckCategory::Fair,
+                            false,
+                            severity: CheckSeverity::Suggestion,
+                            uri: path.file_name_with_parent(),
+                            message: format!("FAIR assessment is not supported for {self} metadata")
+                        )
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
+}
 async fn analyze<T: Analysis + Send + Sync>(
     paths: &[PathBuf],
     options: &AnalysisContext,
     categories: &[CheckCategory],
     documents: &DocumentIndexes,
 ) -> Vec<CategoryChecks> {
-    join_all(categories.iter().cloned().map(|category| async move {
-        let checks = T::check(category.clone(), paths, Some(options))
-            .await
-            .into_iter()
-            .map(|check| {
-                let document = check.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
-                match document {
-                    | Some(document) => check.resolve_locator(&document),
-                    | None => check,
-                }
-            })
-            .collect();
-        CategoryChecks { category, checks }
-    }))
-    .await
+    correlate_link_evidence(
+        join_all(categories.iter().cloned().map(|category| async move {
+            let checks = T::check(category.clone(), paths, Some(options))
+                .await
+                .into_iter()
+                .map(|check| {
+                    let document = check.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
+                    match document {
+                        | Some(document) => check.resolve_locator(&document),
+                        | None => check,
+                    }
+                })
+                .collect();
+            CategoryChecks { category, checks }
+        }))
+        .await,
+    )
 }
 /// Analyze paths and return structured results without rendering or process-exit behavior
 pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> AnalysisReport {
@@ -196,7 +268,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
             | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
             | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,
-            | Standard::DublinCore => Vec::new(),
+            | Standard::DublinCore => standard.unsupported(&paths, &categories),
         };
         batches.push(AnalysisBatch { standard, paths, categories });
     }
@@ -205,6 +277,58 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
         documents,
         skipped_categories,
     }
+}
+fn correlate_link_evidence(categories: Vec<CategoryChecks>) -> Vec<CategoryChecks> {
+    let links = categories
+        .iter()
+        .flat_map(|category| category.checks.iter())
+        .filter(|check| check.category == CheckCategory::Link)
+        .cloned()
+        .collect::<Vec<_>>();
+    categories
+        .into_iter()
+        .map(|category| CategoryChecks {
+            category: category.category,
+            checks: category
+                .checks
+                .into_iter()
+                .map(|check| {
+                    let finding_and_target = check
+                        .fair_finding()
+                        .cloned()
+                        .and_then(|finding| finding.target_uri.clone().map(|target| (finding, target)));
+                    match finding_and_target {
+                        | Some((finding, target)) => {
+                            let matches_target = |link: &&Check| {
+                                link.uri == check.uri && link.context.as_deref().is_some_and(|uri| DOI::normalize(uri) == DOI::normalize(&target))
+                            };
+                            match links.iter().find(matches_target) {
+                                | Some(link) => {
+                                    let state = if link.success { FairState::Supported } else { FairState::Unsupported };
+                                    let evidence = link.context.clone();
+                                    let remediation = match state {
+                                        | FairState::Supported => format!("Evidence supports {}", finding.indicator.id),
+                                        | FairState::Unsupported => {
+                                            format!("Resolve {} before claiming support for {}", target, finding.indicator.id)
+                                        }
+                                        | FairState::Indeterminate | FairState::NotApplicable => finding.remediation.clone(),
+                                    };
+                                    check.with_fair_finding(FairFinding {
+                                        evidence,
+                                        remediation,
+                                        state,
+                                        ..finding
+                                    })
+                                }
+                                | None => check,
+                            }
+                        }
+                        | None => check,
+                    }
+                })
+                .collect(),
+        })
+        .collect()
 }
 pub(crate) async fn check_prose_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch
 where
@@ -258,6 +382,30 @@ where
             CheckBatch::single(check_err!(CheckCategory::Prose))
         }
     }
+}
+/// Evaluate FAIR evidence from typed metadata values.
+pub(crate) fn check_fair_for<T>(paths: &[PathBuf], standard: &str) -> CheckBatch
+where
+    T: InputOutput + serde::Serialize,
+{
+    paths
+        .par_iter()
+        .flat_map(|path| {
+            let uri = path.file_name_with_parent();
+            match T::read(path) {
+                | Ok(data) => match serde_json::to_value(data) {
+                    | Ok(value) => FairEvidence::from_value(uri.clone(), standard, &value)
+                        .assess()
+                        .into_iter()
+                        .map(|finding| Check::from(finding).with_uri(Some(uri.clone())))
+                        .collect(),
+                    | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+                },
+                | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+            }
+        })
+        .collect::<Vec<_>>()
+        .into()
 }
 pub(crate) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch
 where

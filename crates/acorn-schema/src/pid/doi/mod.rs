@@ -37,6 +37,17 @@ pub struct DOI {
     /// - No length limit is set to the suffix by the DOI System
     pub suffix: Option<String>,
 }
+impl DOI {
+    /// Normalize a DOI or URI for case-insensitive identity comparison.
+    pub fn normalize(value: &str) -> String {
+        let value = value.trim().trim_end_matches('/');
+        let identifier = <Self as PersistentIdentifierParse>::format(value);
+        match identifier.is_empty() {
+            | true => value.to_ascii_lowercase(),
+            | false => identifier.to_ascii_lowercase(),
+        }
+    }
+}
 impl Default for DOI {
     fn default() -> Self {
         Self::new()

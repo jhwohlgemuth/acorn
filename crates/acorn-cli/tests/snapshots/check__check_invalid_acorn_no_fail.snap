@@ -62,12 +62,12 @@ stdout:
     │               ───────────────────────────────────────────┬───────────────────────────────────────────  
     │                                                          ╰───────────────────────────────────────────── Subtitle is too long, reduce the length below 75 characters.
 ────╯
-0,error,schema,invalid_project_a/index.json,meta.identifier,"Provide ID in kebab-case format (e.g., invalid-project-a)",meta.identifier
-1,error,schema,invalid_project_a/index.json,meta.doi[2],Every publication identifier should be a valid DOI or arXiv identifier,meta.doi
-2,error,schema,invalid_project_a/index.json,meta.media[0].content_url,"Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension",meta.media[0].content_url
-3,error,schema,invalid_project_a/index.json,meta.websites[1].url,Provide valid URL,meta.websites[1].url
-4,error,schema,invalid_project_a/index.json,subtitle,"Subtitle is too long, reduce the length below 75 characters.",subtitle
-5,error,schema,invalid_project_a/index.json,sections.impact[4],Impact statements should begin with a capital letter,sections.impact
-6,error,schema,invalid_project_a/index.json,contact.email,Email address must be in the format name@example.com,contact.email
-7,error,schema,invalid_project_a/index.json,contact.telephone,Provide valid phone number,contact.telephone
+0,error,schema,invalid_project_a/index.json,meta.identifier,"Provide ID in kebab-case format (e.g., invalid-project-a)",meta.identifier,
+1,error,schema,invalid_project_a/index.json,meta.doi[2],Every publication identifier should be a valid DOI or arXiv identifier,meta.doi,
+2,error,schema,invalid_project_a/index.json,meta.media[0].content_url,"Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension",meta.media[0].content_url,
+3,error,schema,invalid_project_a/index.json,meta.websites[1].url,Provide valid URL,meta.websites[1].url,
+4,error,schema,invalid_project_a/index.json,subtitle,"Subtitle is too long, reduce the length below 75 characters.",subtitle,
+5,error,schema,invalid_project_a/index.json,sections.impact[4],Impact statements should begin with a capital letter,sections.impact,
+6,error,schema,invalid_project_a/index.json,contact.email,Email address must be in the format name@example.com,contact.email,
+7,error,schema,invalid_project_a/index.json,contact.telephone,Provide valid phone number,contact.telephone,
 stderr:

@@ -340,6 +340,7 @@ mod tests {
                 vec!["Link items found", "0"],
                 vec!["Prose items found", "0"],
                 vec!["Quality items found", "0"],
+                vec!["Fair items found", "0"],
                 vec!["Readability items found", "1"],
                 vec!["Crosswalk items found", "0"],
             ]

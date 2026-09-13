@@ -1,0 +1,330 @@
+[
+  {
+    "id": "RDA-F1-01M",
+    "indicator": "F1",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Metadata is identified by a persistent identifier",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F1-01D",
+    "indicator": "F1",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Data is identified by a persistent identifier",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F1-02M",
+    "indicator": "F1",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Metadata is identified by a globally unique identifier",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F1-02D",
+    "indicator": "F1",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Data is identified by a globally unique identifier",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F2-01M",
+    "indicator": "F2",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Rich metadata is provided to allow discovery",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F3-01M",
+    "indicator": "F3",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Metadata includes the identifier for the data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-F4-01M",
+    "indicator": "F4",
+    "principle": "findable",
+    "priority": "essential",
+    "description": "Metadata can be harvested and indexed",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-01M",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "important",
+    "description": "Metadata contains information that enables access to the data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-02M",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Metadata can be accessed manually",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-02D",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Data can be accessed manually",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-03M",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "The metadata identifier resolves to a metadata record",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-03D",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "The data identifier resolves to a digital object",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-04M",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Metadata is accessed through a standardized protocol",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-04D",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Data is accessed through a standardized protocol",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1-05D",
+    "indicator": "A1",
+    "principle": "accessible",
+    "priority": "important",
+    "description": "Data can be accessed automatically",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1.1-01M",
+    "indicator": "A1.1",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Metadata is accessible through a free access protocol",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1.1-01D",
+    "indicator": "A1.1",
+    "principle": "accessible",
+    "priority": "important",
+    "description": "Data is accessible through a free access protocol",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A1.2-01D",
+    "indicator": "A1.2",
+    "principle": "accessible",
+    "priority": "useful",
+    "description": "The data access protocol supports authentication and authorization",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-A2-01M",
+    "indicator": "A2",
+    "principle": "accessible",
+    "priority": "essential",
+    "description": "Metadata remains available after the data is unavailable",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I1-01M",
+    "indicator": "I1",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Metadata uses a standardized knowledge-representation format",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I1-01D",
+    "indicator": "I1",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Data uses a standardized knowledge-representation format",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I1-02M",
+    "indicator": "I1",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Metadata uses a machine-understandable knowledge representation",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I1-02D",
+    "indicator": "I1",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Data uses a machine-understandable knowledge representation",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I2-01M",
+    "indicator": "I2",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Metadata uses FAIR-compliant vocabularies",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I2-01D",
+    "indicator": "I2",
+    "principle": "interoperable",
+    "priority": "useful",
+    "description": "Data uses FAIR-compliant vocabularies",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-01M",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Metadata includes references to other metadata",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-01D",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "useful",
+    "description": "Data includes references to other data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-02M",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "useful",
+    "description": "Metadata includes references to other data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-02D",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "useful",
+    "description": "Data includes qualified references to other data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-03M",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "important",
+    "description": "Metadata includes qualified references to other metadata",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-I3-04M",
+    "indicator": "I3",
+    "principle": "interoperable",
+    "priority": "useful",
+    "description": "Metadata includes qualified references to other data",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1-01M",
+    "indicator": "R1",
+    "principle": "reusable",
+    "priority": "essential",
+    "description": "Accurate and relevant attributes are provided to allow reuse",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.1-01M",
+    "indicator": "R1.1",
+    "principle": "reusable",
+    "priority": "essential",
+    "description": "Metadata includes the license under which data can be reused",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.1-02M",
+    "indicator": "R1.1",
+    "principle": "reusable",
+    "priority": "important",
+    "description": "Metadata refers to a standard reuse license",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.1-03M",
+    "indicator": "R1.1",
+    "principle": "reusable",
+    "priority": "important",
+    "description": "Metadata refers to a machine-understandable reuse license",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.2-01M",
+    "indicator": "R1.2",
+    "principle": "reusable",
+    "priority": "important",
+    "description": "Metadata includes provenance using a community-specific standard",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.2-02M",
+    "indicator": "R1.2",
+    "principle": "reusable",
+    "priority": "useful",
+    "description": "Metadata includes provenance using a cross-community language",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.3-01M",
+    "indicator": "R1.3",
+    "principle": "reusable",
+    "priority": "essential",
+    "description": "Metadata complies with a community standard",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.3-01D",
+    "indicator": "R1.3",
+    "principle": "reusable",
+    "priority": "essential",
+    "description": "Data complies with a community standard",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.3-02M",
+    "indicator": "R1.3",
+    "principle": "reusable",
+    "priority": "essential",
+    "description": "Metadata complies with a machine-understandable community standard",
+    "url": "https://doi.org/10.15497/RDA00050"
+  },
+  {
+    "id": "RDA-R1.3-02D",
+    "indicator": "R1.3",
+    "principle": "reusable",
+    "priority": "important",
+    "description": "Data complies with a machine-understandable community standard",
+    "url": "https://doi.org/10.15497/RDA00050"
+  }
+]

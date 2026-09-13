@@ -97,9 +97,12 @@ isolate std-only modules   host abstraction traits
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
 
-### AI scraping and Rhai scripting
+### Scraping and Rhai scripting
 
-- [AI-enabled scraping and Rhai scripting extensibility](features/ai-scraping-rhai-scripting.md) extends `gather` with deterministic scraping and pluggable inference (Needle is one `Sidecar`, remote APIs via `Configuration`), and adds Rhai hooks for every workflow step with default-injected raw `acorn::{io,analyzer,util,core,schema}` surfaces. It consumes the discovery/analyzer, `Sidecar`, `OperationRegistry`/`ToolRegistry`, and `SafePath` contracts; it must not fork DTOs or take RPC/webhook/sidecar integration locks during the highest-priority lane.
+- [Configured Rhai scripting extensions](features/rhai-scripting.md) follows the analyzer result-boundary work and establishes capability-free Rhai quality gates with typed `ScriptResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
+- [Deterministic gather scraping](features/deterministic-gather-scraping.md) independently adds bounded HTML fetching and typed CSS extraction under existing HTTP/offline policy.
+- [Structured extraction inference](features/structured-extraction-inference.md) follows deterministic scraping and adds one explicit typed provider adapter before any generic registry is considered.
+- [Capability-brokered Rhai workflow hooks](features/rhai-workflow-hooks.md) follows proven use of constrained scripting, stable workflow/operation-effects contracts, and a separate security review. It is not an implementation candidate while those gates remain open.
 
 ### Export and interfaces
 

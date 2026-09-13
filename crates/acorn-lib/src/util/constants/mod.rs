@@ -4,6 +4,8 @@
 pub mod app;
 /// Runtime environment variable names.
 pub mod env;
+/// FAIR metadata names, tokens, and canonical references.
+pub mod fair;
 /// OCI artifact, ModelKit, ModelPack, and ORAS constants.
 pub mod oci;
 /// Vale runtime configuration and package constants.

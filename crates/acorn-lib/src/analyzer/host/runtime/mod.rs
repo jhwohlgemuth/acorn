@@ -3,10 +3,11 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use super::context::{AnalysisContext, ExecutionOptions};
-use super::service::{check_prose_for, check_readability_for, Analysis, SchemaCheck};
+use super::service::{check_fair_for, check_prose_for, check_readability_for, Analysis, SchemaCheck};
 use super::vale::{self, Vale, ValeConfig};
 use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
 use crate::analyzer::error::{DocumentTarget, ErrorKind, ValidatorIssues};
+use crate::analyzer::fair::FairEvidence;
 use crate::analyzer::model::{ValeOutput, ValeOutputItem};
 #[cfg(feature = "std")]
 use crate::io::document::SourceDocument;
@@ -265,6 +266,9 @@ impl Analysis for datacite::Record {
     fn standard() -> Standard {
         Standard::Datacite
     }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "DataCite 4.7")
+    }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
@@ -335,6 +339,9 @@ impl Analysis for datacite::Record {
 impl Analysis for dcat::Dataset {
     fn standard() -> Standard {
         Standard::Dcat
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "DCAT 3")
     }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
@@ -469,6 +476,9 @@ impl Analysis for huwise::Dataset {
     fn standard() -> Standard {
         Standard::Huwise
     }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "Huwise")
+    }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
     }
@@ -494,6 +504,9 @@ impl Analysis for huwise::Dataset {
 impl Analysis for invenio::Record {
     fn standard() -> Standard {
         Standard::Invenio
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "InvenioRDM")
     }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await
@@ -612,6 +625,9 @@ impl Analysis for raid::Metadata {
     fn standard() -> Standard {
         Standard::Raid
     }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "RAiD metadata 1.6")
+    }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
             .par_iter()
@@ -636,6 +652,49 @@ impl SchemaCheck for raid::Metadata {
 impl Analysis for ResearchActivity {
     fn standard() -> Standard {
         Standard::ResearchActivityData
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .par_iter()
+            .flat_map(|path| {
+                let uri = path.file_name_with_parent();
+                match Self::read(path) {
+                    | Ok(data) => match data.meta.outputs.as_ref() {
+                        | Some(outputs) if !outputs.is_empty() => {
+                            let activity = serde_json::to_value(&data.meta).ok();
+                            outputs
+                                .iter()
+                                .enumerate()
+                                .flat_map(|(index, output)| {
+                                    serde_json::to_value(output)
+                                        .ok()
+                                        .map(|mut value| {
+                                            if let (Some(values), Some(activity)) = (value.as_object_mut(), activity.clone()) {
+                                                values.insert("activityMetadata".to_string(), activity);
+                                            }
+                                            FairEvidence::from_value(format!("{uri}#meta.outputs[{index}]"), "Research Activity Data", &value)
+                                                .assess()
+                                                .into_iter()
+                                                .map(|finding| Check::from(finding).with_uri(Some(uri.clone())))
+                                                .collect::<Vec<_>>()
+                                        })
+                                        .unwrap_or_else(|| vec![check_err!(CheckCategory::Fair, uri: uri.clone())])
+                                })
+                                .collect()
+                        }
+                        | None | Some(_) => vec![check!(
+                            CheckCategory::Fair,
+                            false,
+                            severity: CheckSeverity::Suggestion,
+                            uri: uri,
+                            message: "Add structured meta.outputs entries to assess FAIR support"
+                        )],
+                    },
+                    | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+                }
+            })
+            .collect::<Vec<_>>()
+            .into()
     }
     async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_prose_for::<Self>(paths, options).await

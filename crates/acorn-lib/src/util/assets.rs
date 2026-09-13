@@ -11,6 +11,7 @@ impl EmbeddedAssets for Constant {
             | "accept.txt" => Some(String::from(include_str!("../../assets/constants/accept.txt"))),
             | "acronyms.csv" => Some(String::from(include_str!("../../assets/constants/acronyms.csv"))),
             | "application.json" => Some(String::from(include_str!("../../assets/constants/application.json"))),
+            | "fair.json" => Some(String::from(include_str!("../../assets/constants/fair.json"))),
             | "reject.txt" => Some(String::from(include_str!("../../assets/constants/reject.txt"))),
             | "words.csv" => Some(String::from(include_str!("../../assets/constants/words.csv"))),
             | _ => None,

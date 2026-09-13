@@ -1,10 +1,11 @@
 //! Check result types and helpers for analyzer output
 use super::error::ErrorKind;
+use super::fair::{FairFinding, FairState};
 use super::model::ValeOutputItemSeverity;
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
 use crate::{check, check_ok};
-use acorn_core::prelude::{format, vec, String, ToString, Vec};
+use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::MimeType;
 #[cfg(feature = "std")]
@@ -51,6 +52,9 @@ pub enum CheckCategory {
     /// Quality control and data consistency check
     #[display("quality")]
     Quality,
+    /// FAIR data support assessment
+    #[display("fair")]
+    Fair,
     /// Readability check using one of several metrics
     #[display("readability")]
     Readability,
@@ -122,7 +126,7 @@ pub enum Standard {
     /// Dublin Core
     #[display("dublin-core")]
     DublinCore,
-    /// HUBwise
+    /// Huwise
     #[display("huwise")]
     Huwise,
     /// InvenioRDM
@@ -160,6 +164,8 @@ pub struct Check {
     pub context: Option<String>,
     /// Internal payload used by check-specific renderers (e.g., prose source text)
     pub(super) data: Option<String>,
+    /// Structured FAIR assessment payload.
+    pub(super) fair_finding: Option<Box<FairFinding>>,
     #[builder(default)]
     pub(super) kind: CheckKind,
     /// Whether or not the check was successful
@@ -184,6 +190,8 @@ pub struct CheckBatch(Vec<Check>);
 /// Additive issue counts for analyzer checks.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct CheckSummary {
+    /// FAIR assessment issue count.
+    pub fair: usize,
     /// Schema validation issue count.
     pub schema: usize,
     /// Link issue count.
@@ -220,6 +228,7 @@ impl Check {
     /// Returns the number of errors
     pub fn issue_count(&self) -> usize {
         match self.category {
+            | CheckCategory::Fair => usize::from(!self.success),
             | CheckCategory::Link | CheckCategory::Quality | CheckCategory::Readability => 1,
             | CheckCategory::Prose => {
                 if let Some(kind) = &self.errors {
@@ -256,6 +265,28 @@ impl Check {
     pub fn with_context(self, value: String) -> Self {
         Self {
             context: Some(value),
+            ..self
+        }
+    }
+    /// Return the structured FAIR finding associated with this check.
+    pub fn fair_finding(&self) -> Option<&FairFinding> {
+        self.fair_finding.as_deref()
+    }
+    /// Replace the structured FAIR finding associated with this check.
+    #[cfg(feature = "analysis")]
+    pub(crate) fn with_fair_finding(self, finding: FairFinding) -> Self {
+        let context = finding.evidence.clone();
+        let locator = finding.locator.clone().or_else(|| Some(finding.indicator.id.to_string()));
+        let message = finding.remediation.clone();
+        let severity = CheckSeverity::from(finding.clone());
+        let success = FairState::is_supported(&finding.state) || FairState::is_not_applicable(&finding.state);
+        Self {
+            context,
+            fair_finding: Some(Box::new(finding)),
+            locator,
+            message,
+            severity,
+            success,
             ..self
         }
     }
@@ -314,6 +345,7 @@ impl CheckSummary {
     /// Create the additive identity containing no issues.
     pub const fn zero() -> Self {
         Self {
+            fair: 0,
             schema: 0,
             link: 0,
             prose: 0,
@@ -325,6 +357,7 @@ impl CheckSummary {
     /// Combine two summaries by adding corresponding category counts.
     pub fn combine(self, other: Self) -> Self {
         Self {
+            fair: self.fair.saturating_add(other.fair),
             schema: self.schema.saturating_add(other.schema),
             link: self.link.saturating_add(other.link),
             prose: self.prose.saturating_add(other.prose),
@@ -334,12 +367,13 @@ impl CheckSummary {
         }
     }
     /// Return category counts in stable display order.
-    pub fn counts(&self) -> [(CheckCategory, usize); 6] {
+    pub fn counts(&self) -> [(CheckCategory, usize); 7] {
         [
             (CheckCategory::Schema, self.schema),
             (CheckCategory::Link, self.link),
             (CheckCategory::Prose, self.prose),
             (CheckCategory::Quality, self.quality),
+            (CheckCategory::Fair, self.fair),
             (CheckCategory::Readability, self.readability),
             (CheckCategory::Crosswalk, self.crosswalk),
         ]
@@ -371,6 +405,7 @@ impl From<&Check> for CheckSummary {
     fn from(check: &Check) -> Self {
         let count = check.issue_count();
         match check.category {
+            | CheckCategory::Fair => Self { fair: count, ..Self::zero() },
             | CheckCategory::Schema => Self {
                 schema: count,
                 ..Self::zero()
@@ -428,6 +463,7 @@ impl CheckCategory {
             | Self::Link => "URL",
             | Self::Prose => "Prose",
             | Self::Quality => "Quality",
+            | Self::Fair => "FAIR support",
             | Self::Readability => "Readability",
             | Self::Schema => "Deserialization error",
             | Self::Crosswalk => "Crosswalk warning",
@@ -440,6 +476,7 @@ impl From<&str> for CheckCategory {
             | "link" => Self::Link,
             | "prose" => Self::Prose,
             | "quality" => Self::Quality,
+            | "fair" => Self::Fair,
             | "readability" => Self::Readability,
             | "crosswalk" => Self::Crosswalk,
             | "schema" => Self::Schema,
@@ -644,8 +681,9 @@ impl From<&CheckCategory> for u8 {
             | CheckCategory::Schema | CheckCategory::Link => 0,
             | CheckCategory::Prose => 1,
             | CheckCategory::Quality => 2,
-            | CheckCategory::Readability => 3,
-            | CheckCategory::Crosswalk => 4,
+            | CheckCategory::Fair => 3,
+            | CheckCategory::Readability => 4,
+            | CheckCategory::Crosswalk => 5,
         }
     }
 }

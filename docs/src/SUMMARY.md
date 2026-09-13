@@ -18,6 +18,7 @@
     - [💾 Data](./concepts/aspect/data.md)
   - [Persistent identifier lifecycle](./concepts/persistent-identifiers.md)
   - [Metadata enrichment](./concepts/enrichment.md)
+  - [FAIR evidence assessment](./concepts/fair-assessment.md)
   - [Rooted in Category Theory](./concepts/category-theory.md)
   - [...But Is It Agentic?](./concepts/agentic.md)
     - [Intelligence in Depth layers](./concepts/agentic-layers.md)
