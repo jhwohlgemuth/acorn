@@ -11,13 +11,10 @@ use crate::standard::crosswalk::{self, CrosswalkError, FieldValue, Fields, Schem
 use crate::standard::invenio;
 #[cfg(feature = "std")]
 use crate::standard::{dcat, huwise};
-use crate::validate::validate_license;
-use crate::validate::{is_iso_639_1_language_code, is_polygon};
-use crate::validate::{
-    validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_name_identifier,
-    validate_publisher_identifier,
+use crate::validation::{
+    is_iso_639_1_language_code, is_polygon, validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier,
+    validate_license, validate_name_identifier, validate_publisher_identifier, Property, PropertySet, Validate,
 };
-use crate::validation::{Property, PropertySet, Validate};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
 use acorn_core::util::ToProse;

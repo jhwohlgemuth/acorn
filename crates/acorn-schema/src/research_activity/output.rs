@@ -1,7 +1,7 @@
 //! Structured research outputs associated with a research activity
 use crate::research_activity::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
 use crate::standard::datacite::{self, Description, GeoLocation, Publisher, ResourceTypeGeneral};
-use crate::validation::Validate;
+use crate::validation::{is_iso_639_1_language_code, Validate};
 use crate::{Keyword, Website};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
@@ -142,7 +142,7 @@ pub struct ResearchOutput {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub resource_type: Option<String>,
     /// ISO 639-1 language code.
-    #[validate(custom(function = "crate::validate::is_iso_639_1_language_code"))]
+    #[validate(custom(function = "is_iso_639_1_language_code"))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub language: Option<String>,
     /// Alternate identifiers (typed).

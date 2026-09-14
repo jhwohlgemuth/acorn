@@ -7,6 +7,8 @@ use alloc::vec;
 use core::future;
 use serde::Serialize;
 
+mod custom;
+
 #[derive(Serialize, Validate)]
 struct AlternativeRules {
     #[validate(or(url, email))]

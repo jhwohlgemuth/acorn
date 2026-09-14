@@ -1,6 +1,5 @@
 #![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
-
-use super::*;
+use super::super::*;
 use crate::research_activity::ResearchActivityMetadata;
 use crate::validation::{rules, Validate};
 
@@ -103,7 +102,6 @@ fn test_country_rule() {
         .into_iter()
         .for_each(|value| assert!(rules::country(value).is_err(), "expected invalid country: {value}"));
 }
-
 #[test]
 fn test_date_validation() {
     ["2000-01-01", "2025-06-04", "1950-12-28"]
@@ -119,7 +117,6 @@ fn test_date_validation() {
         .into_iter()
         .for_each(|value| assert!(rules::year(value).is_err(), "expected invalid year: {value}"));
 }
-
 #[test]
 fn test_format_phone_number() {
     ["555-123-4567", "555.123.4567", "(555) 123-4567"]
@@ -129,7 +126,6 @@ fn test_format_phone_number() {
         .into_iter()
         .for_each(|value| assert_eq!(format_phone_number(value), Ok("+1.555.123.4567".to_string())));
 }
-
 #[test]
 fn test_format_timestamp() {
     assert_eq!(
@@ -140,7 +136,6 @@ fn test_format_timestamp() {
     assert_eq!(format_timestamp("2026-03-10T15:37:24.5-04:30"), "2026-03-10T15:37:24.500000-04:30");
     assert_eq!(format_timestamp("not-a-date"), "not-a-date");
 }
-
 #[test]
 fn test_has_image_extension() {
     [
@@ -157,7 +152,6 @@ fn test_has_image_extension() {
         .into_iter()
         .for_each(|value| assert!(has_image_extension(value).is_err(), "expected invalid image extension: {value}"));
 }
-
 #[test]
 fn test_is_ark() {
     VALID_ARK_VALUES
@@ -179,7 +173,6 @@ fn test_is_ark() {
         "Provide valid ARK value"
     );
 }
-
 #[test]
 fn test_is_commit() {
     [
@@ -202,7 +195,6 @@ fn test_is_commit() {
     .into_iter()
     .for_each(|value| assert!(rules::commit(value).is_err(), "expected invalid commit: {value}"));
 }
-
 #[test]
 fn test_is_doi() {
     VALID_DOI_VALUES
@@ -217,7 +209,6 @@ fn test_is_doi() {
     .into_iter()
     .for_each(|value| assert!(rules::doi(value).is_err(), "expected invalid DOI: {value}"));
 }
-
 #[test]
 fn test_is_handle() {
     ["10013/epic.10033", "hdl:20.5000/example", "https://hdl.handle.net/10013/example"]
@@ -227,7 +218,6 @@ fn test_is_handle() {
         .into_iter()
         .for_each(|value| assert!(rules::handle(value).is_err(), "expected invalid Handle: {value}"));
 }
-
 #[test]
 fn test_is_iso_639_language_code_validation() {
     ["en", "EN", "en-US"]
@@ -243,7 +233,6 @@ fn test_is_iso_639_language_code_validation() {
         .into_iter()
         .for_each(|value| assert!(is_iso_639_1_language_code(value).is_err()));
 }
-
 #[test]
 fn test_is_kebabcase() {
     ["this-is-valid", "thisisvalid"]
@@ -253,7 +242,6 @@ fn test_is_kebabcase() {
         .into_iter()
         .for_each(|value| assert!(rules::kebabcase(value).is_err()));
 }
-
 #[test]
 fn test_is_latlon() {
     [-90.0, -45.7, 0.0, 10.0, 90.0]
@@ -265,7 +253,6 @@ fn test_is_latlon() {
         .for_each(|value| assert!(rules::longitude(value).is_ok()));
     [-180.5, 180.5].into_iter().for_each(|value| assert!(rules::longitude(value).is_err()));
 }
-
 #[test]
 fn test_is_license() {
     ["MIT", "MIT License", "Not-A-Real-License"]
@@ -273,18 +260,15 @@ fn test_is_license() {
         .for_each(|value| assert!(is_license(value).is_ok()));
     assert!(is_license("").is_err());
 }
-
 #[test]
 fn test_is_license_invalid_database_path() {
     assert!(is_license("MIT").is_ok());
     assert_eq!(is_license(" ").expect_err("empty license should fail").code, "license");
 }
-
 #[test]
 fn test_is_license_missing_database_path_env() {
     assert!(is_license("MIT").is_ok());
 }
-
 #[test]
 fn test_is_orcid() {
     VALID_ORCID_VALUES
@@ -298,7 +282,6 @@ fn test_is_orcid() {
     .into_iter()
     .for_each(|value| assert!(rules::orcid(value).is_err(), "expected invalid ORCID: {value}"));
 }
-
 #[test]
 fn test_is_phone_number() {
     [
@@ -315,7 +298,6 @@ fn test_is_phone_number() {
         .into_iter()
         .for_each(|value| assert!(rules::phone(value).is_err(), "expected invalid phone: {value}"));
 }
-
 #[test]
 fn test_is_programming_language() {
     ["Rust", "Not A Language"]
@@ -323,12 +305,10 @@ fn test_is_programming_language() {
         .for_each(|value| assert!(is_programming_language(value).is_ok()));
     assert!(is_programming_language("").is_err());
 }
-
 #[test]
 fn test_is_programming_language_missing_database_path_env() {
     assert!(is_programming_language("Rust").is_ok());
 }
-
 #[test]
 fn test_is_ror() {
     VALID_ROR_VALUES
@@ -338,7 +318,6 @@ fn test_is_ror() {
         .into_iter()
         .for_each(|value| assert!(rules::ror(value).is_err(), "expected invalid ROR: {value}"));
 }
-
 #[test]
 fn test_is_semantic_version() {
     ["1", "1.2", "1.2.3", "0.0.0", "999.10.42"]
@@ -348,7 +327,6 @@ fn test_is_semantic_version() {
         .into_iter()
         .for_each(|value| assert!(rules::version(value).is_err()));
 }
-
 #[test]
 fn test_isni_and_gnd_validation() {
     assert!(rules::isni("https://isni.org/isni/0000000492299539").is_ok());
@@ -358,7 +336,6 @@ fn test_isni_and_gnd_validation() {
     assert!(is_gnd("gnd:118540238").is_ok());
     assert!(is_gnd("not-a-gnd").is_err());
 }
-
 #[test]
 fn test_metadata_ror_list_validation() {
     let valid = ResearchActivityMetadata::init()
@@ -370,7 +347,6 @@ fn test_metadata_ror_list_validation() {
         .build();
     assert!(invalid.validate().is_err());
 }
-
 #[test]
 fn test_scalar_enum_validation_helpers() {
     assert!(IntegerOrString::Number(42).validate().is_ok());
@@ -394,13 +370,11 @@ fn test_scalar_enum_validation_helpers() {
         .iter()
         .for_each(|value| assert!(value.validate().is_err()));
 }
-
 #[test]
 fn test_unix_epoch_rule() {
     assert!(rules::unix_epoch(1_759_017_645).is_ok());
     [42, 123_456_789].into_iter().for_each(|value| assert!(rules::unix_epoch(value).is_err()));
 }
-
 #[test]
 fn test_validate_postal_code() {
     [
@@ -419,7 +393,6 @@ fn test_validate_postal_code() {
     .iter()
     .for_each(|value| assert!(value.validate().is_err()));
 }
-
 #[test]
 fn test_validates_lowercase_sha256_digests() {
     assert!(rules::digest("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").is_ok());

@@ -3,8 +3,7 @@
 //! Portable, validated types reused across `ResearchActivity`, `ResearchOutput`, RAiD, DataCite, DCAT and discovery adapters.
 //! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/assets/standards-field-matrix.md`.
 use crate::pid::PID;
-use crate::validate::is_license;
-use crate::validation::{rules, IntoValidationReport, Validate, ValidationReport};
+use crate::validation::{is_license, rules, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
 use schemars::JsonSchema;

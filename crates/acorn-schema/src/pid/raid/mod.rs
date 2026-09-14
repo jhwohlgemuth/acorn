@@ -5,8 +5,7 @@
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
 use crate::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
-use crate::validate::validate_license;
-use crate::validation::{report_of, IntoValidationReport, Validate, ValidationReport};
+use crate::validation::{report_of, validate_license, IntoValidationReport, Validate, ValidationReport};
 use crate::vocabulary;
 use crate::Date;
 use crate::OneOrMany;

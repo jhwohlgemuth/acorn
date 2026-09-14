@@ -1,14 +1,14 @@
-//! # Schema validation helpers
+//! Schema validation helpers
 //!
-//! Generic validation functions and custom ACORN rules for validating schema data.
+//! Generic validation functions and custom rules for validating schema data.
 //!
+use super::{rules, IntoValidationReport, Validate, ValidationReport};
 use crate::geonames::{CodeFormat, GeonamesParser};
 use crate::regex_validator;
 use crate::standard::datacite::{Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier, Publisher};
 use crate::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
-use crate::validation::{rules, IntoValidationReport, Validate, ValidationReport};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::validation::ValidationError;
@@ -95,9 +95,6 @@ fn validate_typed_funder_identifier(identifier: &str, kind: Option<&FunderIdenti
         )),
     }
 }
-
-#[cfg(test)]
-mod tests;
 regex_validator!(is_gnd, RE_GND, "GND");
 regex_validator!(
     has_image_extension,
@@ -261,7 +258,7 @@ impl Validate for YearValue {
 ///
 /// ### Example
 /// ```rust
-/// use acorn_schema::validate::format_phone_number;
+/// use acorn_schema::validation::format_phone_number;
 ///
 /// assert_eq!(format_phone_number("(123) 456-7890"), Ok("123.456.7890".to_string()));
 /// ```
@@ -315,7 +312,7 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
 /// # Examples
 ///
 /// ```
-/// use acorn_schema::validate::format_timestamp;
+/// use acorn_schema::validation::format_timestamp;
 ///
 /// // Valid RFC3339 timestamp with nanoseconds gets normalized to microseconds
 /// let input = "2023-01-01T12:00:00.123456789Z";

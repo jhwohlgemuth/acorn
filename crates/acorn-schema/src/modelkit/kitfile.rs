@@ -1,6 +1,5 @@
 //! Portable KitOps ModelKit and Kitfile schema.
-use crate::validate::is_license;
-use crate::validation::{rules, Property, PropertySet, Validate, ValidationReport};
+use crate::validation::{is_license, rules, Property, PropertySet, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::validation::ValidationError;
 use acorn_core::Location;

@@ -9,8 +9,8 @@ use alloc::collections::BTreeSet;
 use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 #[cfg(feature = "std")]
-use crate::validate::format_phone_number;
-use crate::validation::{Each, Validate, ValidationReport};
+use crate::validation::format_phone_number;
+use crate::validation::{has_image_extension, Each, Validate, ValidationReport};
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType};
 use bon::Builder;
 #[cfg(feature = "std")]
@@ -40,7 +40,6 @@ use tracing::{debug, error, trace};
 
 use crate::graph::{node_from_label, node_name, node_parent};
 use crate::namespaces::{bibo, foaf, schema_org};
-use crate::validate::has_image_extension;
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity

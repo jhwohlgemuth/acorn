@@ -35,7 +35,6 @@ pub mod standard;
 #[macro_use]
 pub mod util;
 mod types;
-pub mod validate;
 pub mod validation;
 pub(crate) mod vocabulary;
 

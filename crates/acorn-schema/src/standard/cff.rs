@@ -1,8 +1,7 @@
 //! Module with data model and utilities for parsing and working with CITATION File Format (CFF) files
 //!
 //! See <https://github.com/citation-file-format/citation-file-format/blob/main/schema-guide.md> for more information on the CFF schema.
-use crate::validate::{validate_license, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue};
-use crate::validation::{Validate, ValidationReport};
+use crate::validation::{validate_license, IntegerOrString, MonthValue, NumberOrString, PostalCode, Validate, ValidationReport, YearValue};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{String, ToString, Vec};
 use acorn_core::util::{MarkdownSupport, ToProse};

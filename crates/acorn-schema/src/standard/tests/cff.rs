@@ -6,7 +6,7 @@
     clippy::unwrap_used
 )]
 use crate::standard::cff::{Agent, Cff, CffType, IdentifierType, ReferenceType};
-use crate::validate::{PostalCode, YearValue};
+use crate::validation::{PostalCode, YearValue};
 use crate::OneOrMany;
 use acorn_core::util::{MarkdownSupport, ToProse};
 

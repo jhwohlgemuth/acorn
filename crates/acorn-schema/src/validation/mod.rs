@@ -183,6 +183,18 @@ use core::future;
 use core::slice::Iter;
 use serde::{Deserialize, Serialize};
 
+mod custom;
+
+pub use custom::{
+    format_phone_number, format_timestamp, has_at_least_one_truthy, has_image_extension, is_gnd, is_iso_639_1_language_code,
+    is_iso_639_language_code, is_iso_date_or_rfc3339_timestamp, is_license, is_partial_date, is_polygon, is_programming_language, IntegerOrString,
+    MonthValue, NumberOrString, PostalCode, YearValue,
+};
+pub(crate) use custom::{
+    validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_license, validate_name_identifier,
+    validate_person_or_org_identifier, validate_publisher_identifier,
+};
+
 /// Built-in scalar validation rules used by the derive macro.
 pub mod rules {
     use super::ValidationError;
