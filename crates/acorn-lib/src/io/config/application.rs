@@ -7,7 +7,7 @@ use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
 use crate::io::sync::ConfigExt;
 use crate::io::{parse_jsonc_cst, read_file, sync, write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput};
-use crate::util::constants::app::DEFAULT_CONFIG_FILENAMES;
+use crate::util::constants::app::{APPLICATION, DEFAULT_CONFIG_FILENAMES};
 use crate::util::{text_diff_changes_with_color, Label};
 use acorn_core::prelude::{HashMap, HashSet};
 use acorn_core::util::{detect_json, MimeType};
@@ -140,6 +140,14 @@ pub struct WhitelistLookup {
     pub models: Option<OneOrMany<String>>,
 }
 impl ApplicationConfiguration {
+    /// Return whether any configured script subscribes to the requested hook.
+    pub fn has_hook(&self, hook: Hook) -> bool {
+        self.scripts
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .any(|entry| entry.hooks.contains(&hook))
+    }
     /// Load explicit or discovered application configuration, rejecting a missing explicit path.
     pub fn load(path: &Option<PathBuf>) -> ApiResult<Self> {
         match path {
@@ -149,10 +157,15 @@ impl ApplicationConfiguration {
     }
     /// Load configuration and return the resolved source path alongside the parsed value.
     pub fn load_with_path(path: &Option<PathBuf>) -> ApiResult<(Self, Option<PathBuf>)> {
-        let resolved = Self::resolve(path);
-        match &resolved {
-            | Some(p) => Self::read(p.clone()).map(|cfg| (cfg, resolved)),
-            | None => Ok((Self::default(), None)),
+        match path {
+            | Some(path) if !path.is_file() => Err(eyre!("Configuration file does not exist — {}", path.display())),
+            | _ => {
+                let resolved = Self::resolve(path);
+                match &resolved {
+                    | Some(p) => Self::read(p.clone()).map(|cfg| (cfg, resolved)),
+                    | None => Ok((Self::default(), None)),
+                }
+            }
         }
     }
     /// Return the project root directory containing the resolved configuration.
@@ -532,6 +545,19 @@ impl Validate for Entry {
                     (
                         "path",
                         ValidationError::new("traversal").with_message(format!("Script path `{}` must not contain `..`", self.path)),
+                    )
+                })
+            })
+            .or_else(|| {
+                let unix_prefix = format!(".{APPLICATION}/");
+                let windows_prefix = format!(".{APPLICATION}\\");
+                (!self.absolute && (self.path.starts_with(&unix_prefix) || self.path.starts_with(&windows_prefix))).then(|| {
+                    (
+                        "path",
+                        ValidationError::new("root").with_message(format!(
+                            "Script path `{}` must be relative to `.{APPLICATION}/` without repeating the directory prefix",
+                            self.path,
+                        )),
                     )
                 })
             })

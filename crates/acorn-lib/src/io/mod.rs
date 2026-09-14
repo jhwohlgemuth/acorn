@@ -32,6 +32,8 @@ use acorn_core::Location;
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
+#[cfg(feature = "exec")]
+pub use bytes::Bytes;
 use color_eyre::eyre::{eyre, Report};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use console::{measure_text_width, strip_ansi_codes};
@@ -89,6 +91,8 @@ pub mod adapter;
 pub mod api;
 mod archive;
 pub mod bagit;
+#[cfg(feature = "exec")]
+mod bytes;
 pub mod cache;
 #[cfg(feature = "chart")]
 pub mod chart;

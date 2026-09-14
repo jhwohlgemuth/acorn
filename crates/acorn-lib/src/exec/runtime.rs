@@ -5,8 +5,6 @@ use crate::{check_err, check_ok};
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::MAX_EXEC_BYTES;
 use color_eyre::eyre::{eyre, Report, Result};
-use core::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 use std::path::Path;
 
 /// Runtime contract for compiling and evaluating extension source.
@@ -26,7 +24,23 @@ impl Default for RhaiRuntime {
 impl RhaiRuntime {
     /// Check source without evaluating it.
     pub fn check_safe(path: &Path, content: &str) -> Vec<Check> {
-        let validation = match content.len() > MAX_EXEC_BYTES {
+        let validation = Self::validate_source(path, content);
+        match validation {
+            | Ok(()) => vec![check_ok!(
+                CheckCategory::Quality,
+                uri: path.display().to_string(),
+                message: "Rhai static check passed".to_string()
+            )],
+            | Err(why) => vec![check_err!(
+                CheckCategory::Quality,
+                uri: path.display().to_string(),
+                message: why.to_string()
+            )],
+        }
+    }
+    /// Validate source against the static ABI and restricted engine profile without evaluating it.
+    pub fn validate_source(path: &Path, content: &str) -> Result<(), Report> {
+        match content.len() > MAX_EXEC_BYTES {
             | true => Err(eyre!("script `{}` exceeds {} bytes", path.display(), MAX_EXEC_BYTES)),
             | false => parse_version_header(content)
                 .map_err(|why| eyre!("script `{}` header error — {why}", path.display()))
@@ -50,18 +64,6 @@ impl RhaiRuntime {
                         | _ => verify_evaluate_entry_point(&ast).map_err(|why| eyre!("script `{}` entry error — {why}", path.display())),
                     }
                 }),
-        };
-        match validation {
-            | Ok(()) => vec![check_ok!(
-                CheckCategory::Quality,
-                uri: path.display().to_string(),
-                message: "Rhai static check passed".to_string()
-            )],
-            | Err(why) => vec![check_err!(
-                CheckCategory::Quality,
-                uri: path.display().to_string(),
-                message: why.to_string()
-            )],
         }
     }
     /// Create the restricted engine profile used for compilation and evaluation.
@@ -88,12 +90,6 @@ impl Runtime for RhaiRuntime {
             })
         })
     }
-}
-/// Compute content digest for caching and audit.
-pub fn digest_bytes(bytes: &[u8]) -> String {
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
 }
 /// Check that the AST declares exactly one `evaluate` function with arity 1.
 pub fn verify_evaluate_entry_point(ast: &rhai::AST) -> Result<(), Report> {

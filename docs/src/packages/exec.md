@@ -33,6 +33,15 @@ Relative paths anchored to `<project-root>/.acorn/`, `.rhai` suffix optional, no
 
 Absolute paths require `absolute: true`, are local-only, and emit security warnings with canonical path and digest.
 
+Build with the `exec` feature and pass configuration explicitly when needed:
+
+```console
+acorn format ./metadata --config ./.acorn.json
+acorn format ./metadata --enrich --config ./.acorn.json
+```
+
+The format command prepares every proposed document change, resolves and statically compiles every matching script, then evaluates configured `format` and optional `enrich` gates in configuration order. Error findings or execution failures prevent all planned writes. Lower-severity findings are rendered through the analyzer output boundary.
+
 ## Inference
 
 `MimeType::infer` checks binary signatures first, then performs a bounded Rhai probe for UTF-8 source with the ABI marker and one `evaluate(context)` entry point. Path-based inference continues to recognize an explicit `.rhai` extension. Inference never executes source.

@@ -3,11 +3,16 @@ use super::result::{ExecutionResult, RhaiExt};
 use super::runtime::{verify_evaluate_entry_point, RhaiRuntime, Runtime};
 use crate::analyzer::{Check, CheckCategory, CheckSeverity, Finding, Findings};
 use crate::io::config::application::{ApplicationConfiguration, Entry, Hook};
+use crate::io::workflow::{Change, WorkflowAction};
 use acorn_core::util::constants::app::{MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use acorn_core::util::MimeType;
+use acorn_core::Location;
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::Validate as SchemaValidate;
 use core::str::FromStr;
+use std::fs::{create_dir, write};
 use std::path::Path;
+use tempfile::tempdir;
 use validator::Validate;
 
 const VALID_SOURCE: &str = "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: []} }";
@@ -26,6 +31,20 @@ fn finding(rule_id: &str) -> Finding {
     }
 }
 
+#[test]
+fn application_configuration_has_hook() {
+    let configuration = ApplicationConfiguration {
+        scripts: Some(vec![Entry {
+            path: "quality".to_string(),
+            hooks: vec![Hook::Check, Hook::Format],
+            absolute: false,
+        }]),
+        ..ApplicationConfiguration::default()
+    };
+    assert!(configuration.has_hook(Hook::Check));
+    assert!(configuration.has_hook(Hook::Format));
+    assert!(!configuration.has_hook(Hook::Link));
+}
 #[test]
 fn application_configuration_validates_entries_and_duplicate_paths() {
     let configuration = ApplicationConfiguration {
@@ -46,33 +65,28 @@ fn application_configuration_validates_entries_and_duplicate_paths() {
     let report = SchemaValidate::validate(&configuration).expect_err("duplicate paths fail validation");
     assert!(report.iter().any(|issue| issue.path == "scripts[1].path"));
 }
-
 #[test]
 fn check_safe_missing_header_fails() {
     assert!(RhaiRuntime::check_safe(Path::new("test.rhai"), "fn evaluate(context) {}")
         .iter()
         .any(Check::is_failure));
 }
-
 #[test]
 fn check_safe_oversized_fails() {
     let source = format!("// @acorn-exec-v0.2.0\nfn evaluate(context) {{}}\n{}", "x".repeat(MAX_EXEC_BYTES));
     assert!(RhaiRuntime::check_safe(Path::new("test.rhai"), &source).iter().any(Check::is_failure));
 }
-
 #[test]
 fn check_safe_valid_source_passes() {
     assert!(RhaiRuntime::check_safe(Path::new("test.rhai"), VALID_SOURCE)
         .iter()
         .all(|check| !check.is_failure()));
 }
-
 #[test]
 fn check_safe_wrong_arity_fails() {
     let source = "// @acorn-exec-v0.2.0\nfn evaluate(a,b) {}";
     assert!(RhaiRuntime::check_safe(Path::new("test.rhai"), source).iter().any(Check::is_failure));
 }
-
 #[test]
 fn config_entry_validation_duplicate_hooks() {
     let entry = Entry {
@@ -82,7 +96,6 @@ fn config_entry_validation_duplicate_hooks() {
     };
     assert!(SchemaValidate::validate(&entry).is_err());
 }
-
 #[test]
 fn config_entry_validation_empty_hooks() {
     let entry = Entry {
@@ -92,7 +105,6 @@ fn config_entry_validation_empty_hooks() {
     };
     assert!(SchemaValidate::validate(&entry).is_err());
 }
-
 #[test]
 fn config_entry_validation_parent_traversal() {
     let entry = Entry {
@@ -102,58 +114,125 @@ fn config_entry_validation_parent_traversal() {
     };
     assert!(SchemaValidate::validate(&entry).is_err());
 }
-
+#[test]
+fn config_entry_validation_repeated_root() {
+    let entry = Entry {
+        path: ".acorn/quality".to_string(),
+        hooks: vec![Hook::Check],
+        absolute: false,
+    };
+    assert!(SchemaValidate::validate(&entry).is_err());
+}
 #[test]
 fn config_hook_parse_invalid() {
     assert!(Hook::from_str("gather").is_err());
 }
-
 #[test]
 fn config_hook_parse_valid() {
     assert_eq!(Hook::from_str("check").unwrap(), Hook::Check);
 }
-
+#[test]
+fn configured_scripts_compile_completely_before_evaluation() {
+    let temporary = tempdir().expect("temporary project");
+    let script_root = temporary.path().join(".acorn");
+    create_dir(&script_root).expect("script directory");
+    write(script_root.join("first.rhai"), "// @acorn-exec-v0.2.0\nfn evaluate(context) { loop {} }").expect("first script");
+    write(script_root.join("second.rhai"), "// @acorn-exec-v0.2.0\nfn evaluate(context) {").expect("second script");
+    let configuration = ApplicationConfiguration {
+        scripts: Some(vec![
+            Entry {
+                path: "first".to_string(),
+                hooks: vec![Hook::Check],
+                absolute: false,
+            },
+            Entry {
+                path: "second".to_string(),
+                hooks: vec![Hook::Check],
+                absolute: false,
+            },
+        ]),
+        ..ApplicationConfiguration::default()
+    };
+    let changes = vec![Change::Document {
+        source: Location::from("activity.json"),
+        data: Box::new(ResearchActivity::default()),
+        content: String::new(),
+        changed: false,
+        linked: None,
+        failures: Vec::new(),
+        conflicts: Vec::new(),
+    }];
+    let error = configuration
+        .check_scripts(&changes, temporary.path(), WorkflowAction::Check)
+        .expect_err("invalid second script must fail before the first script evaluates");
+    assert!(error.to_string().contains("second.rhai` compile error"));
+}
 #[test]
 fn infer_explicit_rhai_extension() {
     assert_eq!(MimeType::from("script.rhai"), MimeType::Rhai);
 }
-
 #[test]
 fn infer_extensionless_text_is_not_rhai() {
     assert_eq!(MimeType::infer(b"hello world"), None);
 }
-
 #[test]
 fn infer_extensionless_valid_rhai_probe() {
     assert_eq!(MimeType::infer(VALID_SOURCE.as_bytes()), Some(MimeType::Rhai));
 }
-
 #[test]
 fn infer_invalid_entry_is_not_rhai() {
     let source = b"// @acorn-exec-v0.2.0\nfn evaluate(a,b) {}";
     assert_eq!(MimeType::infer(source), None);
 }
-
 #[test]
 fn module_loads() {
     assert_eq!(SUPPORTED_EXEC_VERSION.to_string(), "0.2.0");
 }
-
 #[test]
 fn result_empty_rule_fails() {
     assert!(finding("").validate().is_err());
 }
-
 #[test]
 fn result_rhai_ext_parses_findings() {
-    assert!(rhai::Dynamic::from(rhai::Array::new()).findings().expect("findings").is_empty());
+    let mut result = rhai::Map::new();
+    result.insert("findings".into(), rhai::Dynamic::from(rhai::Array::new()));
+    assert!(rhai::Dynamic::from(result).findings().expect("findings").is_empty());
 }
-
+#[test]
+fn result_rhai_ext_rejects_bare_array() {
+    assert!(rhai::Dynamic::from(rhai::Array::new()).findings().is_err());
+}
+#[test]
+fn result_rhai_ext_rejects_invalid_finding_fields() {
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"rule-1\", severity: \"error\", message: \"msg\", category: \"quality\"}]} }";
+    let dynamic = RhaiRuntime::new().check(source, rhai::Map::new()).expect("script evaluates");
+    assert_eq!(
+        dynamic.findings().expect_err("category is host-owned"),
+        "unknown finding field `category`"
+    );
+}
+#[test]
+fn result_rhai_ext_rejects_invalid_output() {
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{output: 1, findings: []} }";
+    let dynamic = RhaiRuntime::new().check(source, rhai::Map::new()).expect("script evaluates");
+    assert_eq!(
+        dynamic.findings().expect_err("quality output must be unit"),
+        "quality-check output must be omitted or unit"
+    );
+}
+#[test]
+fn result_rhai_ext_rejects_unknown_envelope_fields() {
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [], extra: true} }";
+    let dynamic = RhaiRuntime::new().check(source, rhai::Map::new()).expect("script evaluates");
+    assert_eq!(
+        dynamic.findings().expect_err("unknown field must fail"),
+        "unknown execution result field `extra`"
+    );
+}
 #[test]
 fn result_valid_finding_passes() {
     assert!(finding("rule-1").validate().is_ok());
 }
-
 #[test]
 fn result_validates() {
     let result = ExecutionResult {
@@ -162,19 +241,16 @@ fn result_validates() {
     };
     assert!(result.validate().is_ok());
 }
-
 #[test]
 fn runtime_missing_entry_fails() {
     let ast = RhaiRuntime::new().compile("// @acorn-exec-v0.2.0\nfn other(x) {}").expect("compile");
     assert!(verify_evaluate_entry_point(&ast).is_err());
 }
-
 #[test]
 fn runtime_valid_script_compiles_and_verifies() {
     let ast = RhaiRuntime::new().compile(VALID_SOURCE).expect("compile");
     assert!(verify_evaluate_entry_point(&ast).is_ok());
 }
-
 #[test]
 fn runtime_wrong_arity_fails() {
     let ast = RhaiRuntime::new()
@@ -182,17 +258,14 @@ fn runtime_wrong_arity_fails() {
         .expect("compile");
     assert!(verify_evaluate_entry_point(&ast).is_err());
 }
-
 #[test]
 fn version_missing_header_fails() {
     assert!(parse_version_header("fn evaluate(context) {}").is_err());
 }
-
 #[test]
 fn version_valid_header_parses() {
     assert_eq!(parse_version_header(VALID_SOURCE).unwrap(), SUPPORTED_EXEC_VERSION);
 }
-
 #[test]
 fn version_wrong_version_fails() {
     assert!(parse_version_header("// @acorn-exec-v2.0.0\nfn evaluate(context) {}").is_err());

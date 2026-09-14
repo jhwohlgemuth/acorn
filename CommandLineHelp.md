@@ -677,6 +677,7 @@ Formats research activity data in place (inherently includes some elements of `a
 
 * `-b`, `--branch <BRANCH>` — Format files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
+* `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
 * `--enrich` — Enrich research activity data after formatting it
 * `--no-color` — Disable color in dry-run output

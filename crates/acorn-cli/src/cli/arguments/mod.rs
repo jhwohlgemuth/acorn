@@ -739,6 +739,9 @@ pub(crate) struct Format {
     /// Format files that were changed in a given Git commit
     #[arg(short, long, value_name = "COMMIT", help_heading = "OPTIONS")]
     pub(crate) commit: Option<String>,
+    /// Path to application configuration containing Rhai quality gates
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
     /// Run format without making changes to target file(s). Will print a diff of changes.
     #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,

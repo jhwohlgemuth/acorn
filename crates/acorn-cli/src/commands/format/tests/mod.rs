@@ -60,6 +60,107 @@ fn captured_logs(operation: impl FnOnce()) -> String {
     let bytes = logs.lock().expect("lock logs").clone();
     String::from_utf8(bytes).unwrap_or_default()
 }
+#[cfg(feature = "exec")]
+#[tokio::test]
+async fn test_configured_format_gate_prevents_write() -> Result<()> {
+    let temp_dir = temp_test_dir("format_configured_gate");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file)?;
+    let original = fs::read_to_string(&dest_file)?;
+    let script_root = temp_dir.join(".acorn");
+    fs::create_dir(&script_root)?;
+    fs::write(
+        script_root.join("quality.rhai"),
+        "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"format-gate\", severity: \"error\", message: \"blocked\"}]} }",
+    )?;
+    let config = temp_dir.join(".acorn.json");
+    fs::write(&config, r#"{"scripts":[{"path":"quality","hooks":["format"]}]}"#)?;
+    let result = run(
+        &Some(dest_file.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &Some(config),
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err(), "error finding must block the format proposal");
+    assert_eq!(fs::read_to_string(dest_file)?, original);
+    Ok(())
+}
+#[cfg(feature = "exec")]
+#[tokio::test]
+async fn test_configured_format_missing_path_prevents_write() {
+    let temp_dir = temp_test_dir("format_missing_config");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file).expect("copy format fixture");
+    let original = fs::read_to_string(&dest_file).expect("read original fixture");
+    let result = run(
+        &Some(dest_file.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &Some(temp_dir.join("missing.json")),
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(
+        result.is_err_and(|why| why.to_string().contains("Configuration file does not exist")),
+        "missing explicit configuration must fail"
+    );
+    assert_eq!(fs::read_to_string(dest_file).expect("read unchanged fixture"), original);
+}
+#[cfg(not(feature = "exec"))]
+#[tokio::test]
+async fn test_configured_format_requires_exec_feature() {
+    let temp_dir = temp_test_dir("format_config_requires_exec");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file).expect("copy format fixture");
+    let original = fs::read_to_string(&dest_file).expect("read original fixture");
+    let config = temp_dir.join(".acorn.json");
+    fs::write(&config, "{}").expect("write application configuration");
+    let result = run(
+        &Some(dest_file.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &Some(config),
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(
+        result.is_err_and(|why| why.to_string().contains("--config requires the `exec` feature")),
+        "configuration must not be ignored without Rhai support"
+    );
+    assert_eq!(fs::read_to_string(dest_file).expect("read unchanged fixture"), original);
+}
 #[tokio::test]
 async fn test_format_dry_run() -> Result<()> {
     let temp_dir = temp_test_dir("format_dry_run");
@@ -71,6 +172,7 @@ async fn test_format_dry_run() -> Result<()> {
     let path = Some(dest_file.clone());
     let result = run(
         &path,
+        &None,
         &None,
         &None,
         &None,
@@ -103,6 +205,7 @@ async fn test_format_enrich_dry_run_does_not_write() -> Result<()> {
         &None,
         &None,
         &None,
+        &None,
         true,
         true,
         true,
@@ -126,6 +229,7 @@ async fn test_format_enrich_offline_fails_without_writing() -> Result<()> {
     let original = fs::read_to_string(&dest_file)?;
     let result = run(
         &Some(dest_file.clone()),
+        &None,
         &None,
         &None,
         &None,
@@ -190,6 +294,7 @@ async fn test_format_multiple_files() -> Result<()> {
         &None,
         &None,
         &None,
+        &None,
         false,
         false,
         false,
@@ -221,6 +326,7 @@ async fn test_format_no_changes_needed() -> Result<()> {
         &None,
         &None,
         &None,
+        &None,
         false,
         false,
         false,
@@ -245,6 +351,7 @@ async fn test_format_with_changes() -> Result<()> {
     let path = Some(dest_file.clone());
     let result = run(
         &path,
+        &None,
         &None,
         &None,
         &None,

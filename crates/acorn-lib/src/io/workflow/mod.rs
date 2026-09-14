@@ -127,13 +127,22 @@ impl ApplicationConfiguration {
     where
         T: serde::Serialize,
     {
+        self.check_script_hooks(changes, project_root, &[hook])
+    }
+    /// Run configured Rhai quality gates for an ordered set of workflow hooks.
+    ///
+    /// Every matching script is resolved and statically compiled before any script is evaluated.
+    pub fn check_script_hooks<T>(&self, changes: &[Change<T>], project_root: &Path, hooks: &[WorkflowAction]) -> ApiResult<Vec<Check>>
+    where
+        T: serde::Serialize,
+    {
         self.validate().map_err(|why| eyre!("{why}")).and_then(|()| {
             let relevant = self
                 .scripts
                 .as_deref()
                 .unwrap_or_default()
                 .iter()
-                .filter(|entry| entry.hooks.iter().any(|candidate| candidate == &hook))
+                .filter(|entry| hooks.iter().any(|hook| entry.hooks.iter().any(|candidate| candidate == hook)))
                 .cloned()
                 .collect::<Vec<_>>();
             match relevant.is_empty() {
@@ -157,9 +166,14 @@ impl ApplicationConfiguration {
                             .try_fold(Vec::new(), |checks, (document_index, source, data)| {
                                 let source = source.uri().unwrap_or_else(|| source.to_string());
                                 resolved.iter().try_fold(checks, |checks, script| {
-                                    script
-                                        .check(&source, data, document_index, hook)
-                                        .map(|extension_checks| checks.into_iter().chain(extension_checks).collect())
+                                    hooks
+                                        .iter()
+                                        .filter(|hook| script.entry.hooks.iter().any(|candidate| candidate == *hook))
+                                        .try_fold(checks, |checks, hook| {
+                                            script
+                                                .check(&source, data, document_index, *hook)
+                                                .map(|extension_checks| checks.into_iter().chain(extension_checks).collect())
+                                        })
                                 })
                             })
                     }),
@@ -247,6 +261,17 @@ impl<T> Plan<T>
 where
     T: InputOutput + Validate + Serialize + Clone + Send + Sync + 'static,
 {
+    /// Run configured quality gates before rendering and applying this plan.
+    #[cfg(feature = "exec")]
+    pub fn apply(self, options: Options, configuration: &ApplicationConfiguration, project_root: &Path, hooks: &[WorkflowAction]) -> ApiResult<()> {
+        configuration.check_script_hooks(&self.changes, project_root, hooks).and_then(|checks| {
+            checks.iter().for_each(|check| check.report(None));
+            match checks.iter().filter(|check| check.is_failure()).count() {
+                | 0 => self.apply_enriched(options),
+                | failures => Err(eyre!("configured Rhai quality gates found {failures} failure(s)")),
+            }
+        })
+    }
     /// Render and apply an enrichment plan, reporting provider conflicts and failures.
     pub fn apply_enriched(self, options: Options) -> ApiResult<()> {
         let failures = self

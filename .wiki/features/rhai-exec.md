@@ -27,13 +27,19 @@ Let a project keep Rhai scripts beneath its `.acorn/` directory and explicitly a
 
 # Current evidence
 
-- ACORN has no Rhai dependency, script runtime, extension ABI, or hook registry.
-- `Check` and `CheckBatch` are host-owned analyzer types rather than general serialized extension DTOs; `CheckBatch` wraps private state.
-- Analyzer execution includes asynchronous host services, while Rhai evaluation is synchronous.
-- Repository workflows preserve a typed plan/apply boundary. Generic script mutation would weaken that boundary.
-- `SafePath` validates relative materialization paths but is not a filesystem capability sandbox.
-- Application configuration is resolved from an explicit path or one of `.acorn.json`, `.acorn.jsonc`, `.acorn.yaml`, and `.acorn.yml` in the current directory. The loader can return the resolved source path with the parsed configuration.
-- `MimeType::infer` delegates to Anydoc and binary-signature detection, both of which intentionally return no match for ordinary source text. Extension inference returns `MimeType::Unknown` for an extensionless path, textual inference usually returns `MimeType::Text`, and `LocationExt::resolve_file_type` currently falls back to JSON after content and extension inference both fail.
+- The initial slice added the optional Rhai dependency and `exec` feature, versioned ABI parsing, restricted runtime, strict application configuration entries, MIME inference, explicit `exec check` and `exec check-safe` commands, analyzer finding conversion, fixtures, and package documentation.
+- The workflow boundary can resolve configured scripts beneath the project `.acorn/` directory and retains application configuration source paths for project-root derivation.
+- The current format-command slice plans formatting and optional enrichment before running configured `format` and `enrich` quality gates. Error findings prevent every planned write, while lower-severity findings use analyzer rendering.
+- Configured scripts are read once into an immutable bounded snapshot, identified by SHA-256, and all matching scripts are statically compiled before the first evaluation.
+- `ExecutionResult<()>` conversion now rejects non-map envelopes, unknown envelope or finding fields, bare finding arrays, non-unit output, missing or incorrectly typed required fields, invalid severities, and analyzer-owned category fields.
+- Direct `check`, `link`, and standalone `validate` command integration remains. Compile-probe caching, single-open descriptor hardening, complete engine limits, structured absolute-path warnings, and remote/TUI policy tests also remain.
+
+# Implementation progress
+
+1. **Initial execution and inference:** complete. The ABI, restricted runtime, configuration model, MIME inference, explicit development commands, and analyzer adapter are present behind `exec`.
+2. **Transactional configured format gates:** complete. `format --config <PATH>` and discovered project configuration run ordered `format` and optional `enrich` gates over a fully prepared plan, with no writes after an error finding or execution failure.
+3. **Remaining local hooks:** integrate configured gates with direct check, link, and validate flows without weakening their existing typed boundaries.
+4. **Security and portability completion:** finish descriptor-based absolute reads, structured warnings, compile caching, remaining resource limits, caller-policy denial tests, feature-graph checks, and full validation.
 
 # Decisions
 

@@ -2,10 +2,10 @@
 use crate::analyzer::Check;
 use crate::caution;
 use crate::exec::result::RhaiExt;
-use crate::exec::runtime::{self, RhaiRuntime, Runtime};
+use crate::exec::runtime::{RhaiRuntime, Runtime};
 use crate::io::config::application::{Entry, Hook};
 use crate::io::workflow::WorkflowAction;
-use crate::io::{read_file, ApiResult};
+use crate::io::{ApiResult, Bytes};
 use crate::util::constants::app::APPLICATION;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::MAX_EXEC_BYTES;
@@ -27,6 +27,7 @@ pub struct Resolved {
     pub digest: String,
     /// Whether this script was resolved via absolute trust exception.
     pub is_absolute: bool,
+    source: String,
 }
 impl Entry {
     /// Resolve this entry relative to the directory containing application configuration.
@@ -35,14 +36,7 @@ impl Entry {
             let root = project_root.join(format!(".{APPLICATION}"));
             let (candidate, is_absolute) = match self.absolute {
                 | true => (PathBuf::from(&self.path), true),
-                | false => {
-                    let path = self
-                        .path
-                        .strip_prefix(".acorn/")
-                        .or_else(|| self.path.strip_prefix(".acorn\\"))
-                        .unwrap_or(&self.path);
-                    (root.join(path), false)
-                }
+                | false => (root.join(&self.path), false),
             };
             let candidates = match candidate.extension().is_some() {
                 | true => vec![candidate.clone()],
@@ -77,8 +71,13 @@ impl Entry {
                                 | false => Ok((selected, bytes)),
                             })
                     })
-                    .map(|(selected, bytes)| {
-                        let digest = runtime::digest_bytes(&bytes);
+                    .and_then(|(selected, bytes)| {
+                        String::from_utf8(bytes)
+                            .map_err(|why| eyre!("script `{}` is not valid UTF-8 — {why}", selected.display()))
+                            .and_then(|source| RhaiRuntime::validate_source(&selected, &source).map(|()| (selected, source)))
+                    })
+                    .map(|(selected, source)| {
+                        let digest = Bytes::from(&source).digest();
                         let canonical = selected.canonicalize().unwrap_or(selected);
                         match is_absolute {
                             | true => {
@@ -97,6 +96,7 @@ impl Entry {
                             canonical,
                             digest,
                             is_absolute,
+                            source,
                         }
                     })
             })
@@ -137,27 +137,21 @@ impl Resolved {
     where
         T: serde::Serialize,
     {
-        read_file(&self.canonical)
-            .and_then(|content| match content.len() > MAX_EXEC_BYTES {
-                | true => Err(eyre!("script exceeds limit")),
-                | false => Ok(content),
-            })
-            .and_then(|script_source| {
-                let Resolved {
-                    digest,
-                    entry: Entry { path, .. },
-                    ..
-                } = self;
-                let canonical = &self.canonical.display();
-                caution!("Executing script `{path}` (canonical `{canonical}`, digest {digest}) for {hook} on {source}");
-                let mut context = rhai::Map::new();
-                context.insert("hook".into(), rhai::Dynamic::from(hook.to_string()));
-                context.insert("path".into(), rhai::Dynamic::from(source.to_string()));
-                let proposed = serde_json::to_string(data).unwrap_or_else(|_| "{}".to_string());
-                context.insert("proposed".into(), rhai::Dynamic::from(proposed));
-                context.insert("index".into(), rhai::Dynamic::from(i64::try_from(document_index).unwrap_or(i64::MAX)));
-                RhaiRuntime::new().check(&script_source, context)
-            })
+        let Resolved {
+            digest,
+            entry: Entry { path, .. },
+            ..
+        } = self;
+        let canonical = &self.canonical.display();
+        caution!("Executing script `{path}` (canonical `{canonical}`, digest {digest}) for {hook} on {source}");
+        let mut context = rhai::Map::new();
+        context.insert("hook".into(), rhai::Dynamic::from(hook.to_string()));
+        context.insert("path".into(), rhai::Dynamic::from(source.to_string()));
+        let proposed = serde_json::to_string(data).unwrap_or_else(|_| "{}".to_string());
+        context.insert("proposed".into(), rhai::Dynamic::from(proposed));
+        context.insert("index".into(), rhai::Dynamic::from(i64::try_from(document_index).unwrap_or(i64::MAX)));
+        RhaiRuntime::new()
+            .check(&self.source, context)
             .and_then(|dynamic| dynamic.findings().map_err(|why| eyre!("{why}")))
             .map(|findings| {
                 findings

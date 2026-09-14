@@ -6,9 +6,9 @@ use acorn::caution;
 #[cfg(feature = "exec")]
 use acorn::exec::result::RhaiExt;
 #[cfg(feature = "exec")]
-use acorn::exec::runtime::{self, RhaiRuntime, Runtime};
+use acorn::exec::runtime::{RhaiRuntime, Runtime};
 #[cfg(feature = "exec")]
-use acorn::io::read_file;
+use acorn::io::{read_file, Bytes};
 #[cfg(feature = "exec")]
 use acorn::util::Label;
 #[cfg(feature = "exec")]
@@ -50,7 +50,7 @@ pub async fn run_check(script: &Path, input: &Path) -> Result<(), Report> {
         })
         .and_then(|(source, input_text)| {
             let canonical = script.canonicalize().unwrap_or_else(|_| script.to_path_buf());
-            let digest = runtime::digest_bytes(source.as_bytes());
+            let digest = Bytes::from(&source).digest();
             caution!(
                 "Executing script `{}` (canonical `{}`, digest {digest})",
                 script.display(),

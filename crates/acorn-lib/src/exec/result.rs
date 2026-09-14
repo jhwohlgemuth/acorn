@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use validator::{Validate, ValidationError};
 
+const EXECUTION_RESULT_FIELDS: &[&str] = &["findings", "output"];
+const FINDING_FIELDS: &[&str] = &["locator", "message", "rule_id", "severity"];
 const MAX_FINDINGS: usize = 1024;
 
 /// Rhai dynamic-value conversion into analyzer findings.
@@ -28,6 +30,15 @@ pub trait RhaiExt: Sized {
     fn findings(&self) -> Result<Findings, String>;
     /// Convert an array of dynamic maps into findings.
     fn findings_from_array(array: rhai::Array) -> Result<Findings, String>;
+}
+/// Typed access and field validation for Rhai maps.
+pub trait RhaiMapExt {
+    /// Read an optional string field.
+    fn optional(&self, name: &str) -> Result<Option<String>, String>;
+    /// Read a required string field.
+    fn required(&self, name: &str) -> Result<String, String>;
+    /// Reject fields outside the supplied allowlist.
+    fn validate(&self, allowed: &[&str], kind: &str) -> Result<(), String>;
 }
 /// Strict, versioned envelope with typed output and findings.
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
@@ -75,50 +86,50 @@ impl Findings {
 }
 impl RhaiExt for rhai::Dynamic {
     fn finding(self) -> Result<Option<Finding>, String> {
-        match self.try_cast::<rhai::Map>() {
-            | Some(map) => {
-                let severity = map
-                    .get("severity")
-                    .and_then(|value| value.clone().into_string().ok())
-                    .unwrap_or_else(|| "error".into());
-                CheckSeverity::from_str(&severity).map(|severity| {
-                    Some(Finding {
-                        category: map
-                            .get("category")
-                            .and_then(|value| value.clone().into_string().ok())
-                            .map_or(CheckCategory::Quality, |category| CheckCategory::from(category.as_str())),
-                        context: None,
-                        fair: None,
-                        locator: map.get("locator").and_then(|value| value.clone().into_string().ok()),
-                        message: map.get("message").and_then(|value| value.clone().into_string().ok()).unwrap_or_default(),
-                        rule_id: map
-                            .get("rule_id")
-                            .or_else(|| map.get("ruleId"))
-                            .and_then(|value| value.clone().into_string().ok())
-                            .unwrap_or_default(),
-                        success: !severity.is_failure(),
-                        severity,
-                        uri: None,
+        self.try_cast::<rhai::Map>()
+            .ok_or_else(|| "each finding must be a map".to_string())
+            .and_then(|map| map.validate(FINDING_FIELDS, "finding").map(|()| map))
+            .and_then(|map| {
+                map.required("rule_id")
+                    .and_then(|rule_id| {
+                        map.required("severity")
+                            .and_then(|value| CheckSeverity::from_str(&value))
+                            .map(|severity| (rule_id, severity))
                     })
-                })
-            }
-            | None => Ok(None),
-        }
+                    .and_then(|(rule_id, severity)| map.required("message").map(|message| (rule_id, severity, message)))
+                    .and_then(|(rule_id, severity, message)| {
+                        map.optional("locator").map(|locator| Finding {
+                            category: CheckCategory::Quality,
+                            context: None,
+                            fair: None,
+                            locator,
+                            message,
+                            rule_id,
+                            success: !severity.is_failure(),
+                            severity,
+                            uri: None,
+                        })
+                    })
+                    .and_then(|finding| finding.validate().map_err(|why| why.to_string()).map(|()| Some(finding)))
+            })
     }
     fn findings(&self) -> Result<Findings, String> {
-        let findings = match self.clone().try_cast::<rhai::Map>() {
-            | Some(map) => match map.get("findings") {
-                | Some(findings) => findings
-                    .clone()
-                    .try_cast::<rhai::Array>()
-                    .map_or_else(|| Err("invalid findings type".to_string()), Self::findings_from_array),
+        let findings = self
+            .clone()
+            .try_cast::<rhai::Map>()
+            .ok_or_else(|| "execution result must be a map".to_string())
+            .and_then(|map| map.validate(EXECUTION_RESULT_FIELDS, "execution result").map(|()| map))
+            .and_then(|map| match map.get("output") {
+                | Some(output) if !output.is_unit() => Err("quality-check output must be omitted or unit".to_string()),
+                | _ => Ok(map),
+            })
+            .and_then(|map| match map.get("findings") {
+                | Some(findings) => findings.clone().try_cast::<rhai::Array>().map_or_else(
+                    || Err("execution result `findings` must be an array".to_string()),
+                    Self::findings_from_array,
+                ),
                 | None => Ok(Findings::default()),
-            },
-            | None => self
-                .clone()
-                .try_cast::<rhai::Array>()
-                .map_or_else(|| Ok(Findings::default()), Self::findings_from_array),
-        };
+            });
         findings.and_then(|findings| findings.validate().map(|()| findings).map_err(|why| why.to_string()))
     }
     fn findings_from_array(array: rhai::Array) -> Result<Findings, String> {
@@ -127,6 +138,22 @@ impl RhaiExt for rhai::Dynamic {
             .map(Self::finding)
             .collect::<Result<Vec<_>, _>>()
             .map(|findings| findings.into_iter().flatten().collect::<Vec<_>>().into())
+    }
+}
+impl RhaiMapExt for rhai::Map {
+    fn optional(&self, name: &str) -> Result<Option<String>, String> {
+        self.get(name)
+            .map(|value| value.clone().into_string().map_err(|_| format!("finding `{name}` must be a string")))
+            .transpose()
+    }
+    fn required(&self, name: &str) -> Result<String, String> {
+        self.optional(name)
+            .and_then(|value| value.ok_or_else(|| format!("finding is missing required `{name}`")))
+    }
+    fn validate(&self, allowed: &[&str], kind: &str) -> Result<(), String> {
+        self.keys()
+            .find(|key| !allowed.contains(&key.as_str()))
+            .map_or(Ok(()), |key| Err(format!("unknown {kind} field `{key}`")))
     }
 }
 fn is_unit_default<T>(_value: &T) -> bool {

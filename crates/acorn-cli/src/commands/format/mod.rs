@@ -1,7 +1,10 @@
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
 use acorn::fail;
+use acorn::io::config::application::{ApplicationConfiguration, Hook};
 use acorn::io::enrichment::Pipeline;
+#[cfg(feature = "exec")]
+use acorn::io::workflow::WorkflowAction;
 use acorn::io::workflow::{self, Workflow, WorkflowExtension};
 use acorn::io::{slice_path, FromPath, InputOutput};
 use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
@@ -27,6 +30,7 @@ pub async fn run(
     commit: &Option<String>,
     filter: &Option<String>,
     ignore: &Option<String>,
+    config: &Option<PathBuf>,
     dry_run: bool,
     enrich: bool,
     no_color: bool,
@@ -50,13 +54,33 @@ pub async fn run(
     preflight!(&options);
     match enrich && offline {
         | true => Err(eyre!("--enrich cannot be used with --offline")),
-        | false => match format(path, &options).await {
-            | Ok(()) if enrich => run_with_enrich(path, &options, providers).await,
-            | result => result,
+        | false => match ApplicationConfiguration::load_with_path(config) {
+            | Err(why) => Err(why),
+            | Ok((configuration, resolved)) => {
+                let root = ApplicationConfiguration::root(&resolved);
+                match (config.is_some(), enrich, configuration.has_hook(Hook::Format)) {
+                    #[cfg(not(feature = "exec"))]
+                    | (true, _, _) => Err(eyre!("--config requires the `exec` feature")),
+                    #[cfg(not(feature = "exec"))]
+                    | (false, _, true) => Err(eyre!("configured Rhai format hooks require the `exec` feature")),
+                    #[cfg(feature = "exec")]
+                    | (_, true, _) | (_, false, true) => run_workflow(&options, providers, enrich, &configuration, &root, path).await,
+                    #[cfg(not(feature = "exec"))]
+                    | (false, true, false) => run_workflow(&options, providers, enrich, &configuration, &root, path).await,
+                    | (_, false, false) => format(path, &options).await,
+                }
+            }
         },
     }
 }
-async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, providers: &[Provider]) -> Result<(), Report> {
+async fn run_workflow(
+    options: &CommandOptions,
+    providers: &[Provider],
+    enrich: bool,
+    configuration: &ApplicationConfiguration,
+    root: &Path,
+    path: &Option<PathBuf>,
+) -> Result<(), Report> {
     let pipeline = match providers.is_empty() {
         | true => Pipeline::default(),
         | false => Pipeline::new(providers.to_vec()),
@@ -70,7 +94,7 @@ async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, provi
         })
         .extension(WorkflowExtension {
             check: false,
-            enrich: true,
+            enrich,
             format: true,
             show_changes: options.verbose.log_level().is_some(),
             ..WorkflowExtension::default()
@@ -80,7 +104,19 @@ async fn run_with_enrich(path: &Option<PathBuf>, options: &CommandOptions, provi
         | Ok(paths) => {
             let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
             match Workflow::<ResearchActivity>::plan(&sources, workflow_options.clone(), Some(&pipeline)).await {
-                | Ok(plan) => plan.apply_enriched(workflow_options),
+                #[cfg(feature = "exec")]
+                | Ok(plan) => {
+                    let hooks = match enrich {
+                        | true => vec![WorkflowAction::Format, WorkflowAction::Enrich],
+                        | false => vec![WorkflowAction::Format],
+                    };
+                    plan.apply(workflow_options, configuration, root, &hooks)
+                }
+                #[cfg(not(feature = "exec"))]
+                | Ok(plan) => {
+                    let _ = (configuration, root);
+                    plan.apply_enriched(workflow_options)
+                }
                 | Err(why) => Err(why),
             }
         }

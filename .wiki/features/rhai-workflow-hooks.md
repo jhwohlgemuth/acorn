@@ -47,10 +47,19 @@ Permit a small set of explicitly configured Rhai hooks to propose typed workflow
 - Filesystem access, if approved, uses distinct read and write roots and a directory-capability design that addresses symlink and time-of-check/time-of-use behavior. The invocation directory is not an automatic grant.
 - Remote `script.execute`, MCP, JSON-RPC, webhook, GitLab, and TUI integration remain separate final slices after local typed hooks and policy tests pass.
 
+# Implementation sequence
+
+1. Split `OperationEffects` before adding any effectful script hook. Replace coarse read-only/open-world/mutation flags with explicit filesystem-read, filesystem-write, network-read, process, credentials, inference, mutation, and destructive effects. Filesystem-write, mutation, and destructive effects require mutation approval. Network-read is denied in offline mode. Process, credentials, and inference remain unavailable until a later policy explicitly enables them.
+2. Implement filesystem-read and filesystem-write as the first effectful Rhai hook slice. Add typed capabilities and host-brokered functions such as `read_text(path)`, `exists(path)`, and `write_text(path, content)`. Read operations are limited to declared read roots. Write operations are limited to declared write roots and propose host-owned file changes instead of writing directly.
+3. Add network-read immediately after the `OperationEffects` split and its offline/allowlist tests pass. Network access must use an allowlist, respect offline mode, enforce response-size and timeout bounds, avoid credential forwarding, and reject local/private/link-local targets unless a later policy explicitly allows them.
+4. Keep the first implementation local-CLI only. Do not expose remote JSON-RPC, MCP, webhook, GitLab, or TUI script execution in this slice.
+5. Add local validation commands for manifests and hooks after the filesystem hook path exists, such as `acorn script manifest check <MANIFEST>` and `acorn script hook check <SCRIPT> --manifest <MANIFEST> --hook <HOOK> --input <FILE>`.
+
 # Validation
 
 - Threat-model untrusted repositories, merge requests, local configuration, symlink races, SSRF, credential access, process execution, cache leakage, recursive hooks, replay, and partial application.
-- Contract-test every hook DTO, capability denial, manifest/digest mismatch, deterministic order, conflicting proposals, validator rejection, cancellation, timeout, audit provenance, rollback, and absence of partial effects.
+- Contract-test every hook DTO, explicit `OperationEffects` policy, filesystem-read denial, filesystem-write denial, manifest/digest mismatch, path traversal and symlink escape denial, deterministic order, conflicting proposals, validator rejection before writes, cancellation, timeout, audit provenance, rollback, and absence of partial effects.
+- Before enabling network-read hooks, prove offline denial, network allowlist denial and allow, response-size bounds, timeout behavior, redirect policy, credential isolation, and localhost/private/link-local rejection.
 - Prove ordinary CLI, TUI, RPC, webhook, and GitLab operations do not execute unconfigured scripts.
 - Run per-capability feature checks, policy tests, lint, full tests, audit, and portable graph checks before exposing any transport integration.
 
