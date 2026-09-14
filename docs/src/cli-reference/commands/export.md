@@ -116,7 +116,7 @@ Use `--format cff` to convert ACORN research activity data (RAD) into a CFF 1.2.
 acorn export /path/to/project/index.json --format cff
 ```
 
-The generated `/path/to/project/CITATION.cff` includes the RAD title, research purpose as the abstract, contact information as author and contact metadata, keywords, and DOI information when available. ACORN also supplies the CFF version and default citation message.
+The generated `/path/to/project/CITATION.cff` includes the RAD title, contact information as author and contact metadata, keywords, and DOI information when available. When narrative sections are present, the research purpose is used as the abstract. ACORN also supplies the CFF version and default citation message.
 
 For CFF export:
 
@@ -147,6 +147,8 @@ acorn --offline export C:\path\to\index.json --format pdf `
 ```
 
 When configured, this path is validated and used without checking ACORN's browser cache or downloading Chrome. Without it, offline export uses the cached pinned browser when available and otherwise lets `chromiumoxide` detect an installed browser. Connected export retains the pinned browser download fallback.
+
+Draft PDF and PowerPoint exports do not require authored media. When a RAD has no usable image, ACORN inserts its embedded 1920 × 1280 pixel (3:2) acorn placeholder so the layout remains meaningful. A media path that was explicitly authored but cannot be read is still reported as an error.
 
 ## PowerPoint reference template
 Use the `--reference` option to provide a PowerPoint template with the styles, layouts, and branding for the exported presentation.

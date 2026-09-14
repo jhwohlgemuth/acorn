@@ -16,8 +16,9 @@ use bon::Builder;
 #[cfg(feature = "std")]
 use convert_case::{Case, Casing};
 use core::hash::Hash;
-use core::iter::once;
+use core::iter::{once, FromIterator};
 use core::num::NonZeroU64;
+use core::ops::Deref;
 use core::slice::Iter;
 use derive_more::Display;
 #[cfg(feature = "std")]
@@ -30,7 +31,7 @@ use percy_dom::prelude::{html, IterableNodes, View, VirtualNode};
 use petgraph::graph::Graph;
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
@@ -566,42 +567,6 @@ pub struct Website {
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub description: String,
 }
-impl<'a, T> IntoIterator for &'a OneOrMany<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-#[cfg(feature = "std")]
-impl View for ContactPoint {
-    fn render(&self) -> VirtualNode {
-        let ContactPoint {
-            given_name,
-            family_name,
-            job_title: role,
-            email,
-            telephone,
-            ..
-        } = self;
-        html! {
-            <section id="contact">
-                <div>
-                    <span class="label">Contact</span>
-                    <span class="spacer"> </span>
-                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
-                    <span class="spacer">|</span>
-                    <span class="title">{ role }</span>
-                    <span class="spacer">|</span>
-                    <span class="email">{ email }</span>
-                    <span class="spacer">|</span>
-                    <span class="phone">{ telephone }</span>
-                </div>
-            </section>
-        }
-    }
-}
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
     #[cfg(feature = "std")]
@@ -730,6 +695,34 @@ impl MarkdownSupport for ContactPoint {
         .join("\n")
     }
 }
+#[cfg(feature = "std")]
+impl View for ContactPoint {
+    fn render(&self) -> VirtualNode {
+        let ContactPoint {
+            given_name,
+            family_name,
+            job_title: role,
+            email,
+            telephone,
+            ..
+        } = self;
+        html! {
+            <section id="contact">
+                <div>
+                    <span class="label">Contact</span>
+                    <span class="spacer"> </span>
+                    <span class="name">{ format!("{} {}", given_name, family_name) }</span>
+                    <span class="spacer">|</span>
+                    <span class="title">{ role }</span>
+                    <span class="spacer">|</span>
+                    <span class="email">{ email }</span>
+                    <span class="spacer">|</span>
+                    <span class="phone">{ telephone }</span>
+                </div>
+            </section>
+        }
+    }
+}
 impl Default for ContactPointContext {
     fn default() -> Self {
         Self::init()
@@ -792,6 +785,26 @@ impl Validate for MediaObject {
         }
     }
 }
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+impl<T> Default for OneOrMany<T> {
+    fn default() -> Self {
+        Self::Many(Vec::new())
+    }
+}
+impl<T> Deref for OneOrMany<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
 impl<T> Each for OneOrMany<T> {
     type Item = T;
     type Iter<'a>
@@ -800,6 +813,24 @@ impl<T> Each for OneOrMany<T> {
         T: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.iter()
+    }
+}
+impl<T> From<Vec<T>> for OneOrMany<T> {
+    fn from(values: Vec<T>) -> Self {
+        Self::Many(values)
+    }
+}
+impl<T> FromIterator<T> for OneOrMany<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self::Many(iter.into_iter().collect())
+    }
+}
+impl<T> IntoIterator for OneOrMany<T> {
+    type Item = T;
+    type IntoIter = alloc::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_vec().into_iter()
     }
 }
 impl<T> OneOrMany<T> {
@@ -825,6 +856,10 @@ impl<T> OneOrMany<T> {
             | Self::Many(values) => values,
         }
     }
+    /// Normalize the contained items to the multiple-values representation.
+    pub fn into_many(self) -> Self {
+        Self::Many(self.into_vec())
+    }
     /// Iterate over contained items by reference.
     pub fn iter(&self) -> Iter<'_, T> {
         self.as_slice().iter()
@@ -832,6 +867,16 @@ impl<T> OneOrMany<T> {
     /// Return the number of contained items.
     pub fn len(&self) -> usize {
         self.as_slice().len()
+    }
+    /// Transform every contained item while preserving the one-or-many shape.
+    pub fn map_items<U, F>(self, mut f: F) -> OneOrMany<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        match self {
+            | Self::One(value) => OneOrMany::One(f(value)),
+            | Self::Many(values) => OneOrMany::Many(values.into_iter().map(f).collect()),
+        }
     }
     /// Transform each item, propagating crosswalk failures.
     pub fn map<U, F>(self, f: F) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
@@ -1012,6 +1057,40 @@ impl MarkdownSupport for Website {
         let Website { description, url } = self;
         format!("[{}]({})", description, url)
     }
+}
+pub(crate) fn deserialize_one_or_many_strings<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<OneOrMany<String>>::deserialize(deserializer).map(|values| {
+        values
+            .map(OneOrMany::into_vec)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .collect()
+    })
+}
+pub(crate) fn deserialize_optional_one_or_many<'de, D, T>(deserializer: D) -> Result<Option<OneOrMany<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<OneOrMany<T>>::deserialize(deserializer).map(|values| values.map(OneOrMany::into_many))
+}
+pub(crate) fn deserialize_optional_one_or_many_strings<'de, D>(deserializer: D) -> Result<Option<OneOrMany<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_optional_one_or_many(deserializer).map(|values| {
+        values.map(|values| {
+            values
+                .into_iter()
+                .map(|value: String| value.trim().to_string())
+                .collect::<Vec<_>>()
+                .into()
+        })
+    })
 }
 #[cfg(feature = "std")]
 pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {

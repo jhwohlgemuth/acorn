@@ -10,6 +10,7 @@ use crate::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse,
 use crate::research_activity::output::Funding;
 use crate::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::standard::text::Text;
+use crate::types::{deserialize_one_or_many_strings, deserialize_optional_one_or_many, deserialize_optional_one_or_many_strings};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{
     MAX_COUNT_APPROACH, MAX_COUNT_CAPABILITIES, MAX_COUNT_IMPACT, MAX_COUNT_RESEARCH_AREAS, MAX_LENGTH_RESEARCH_FOCUS, MAX_LENGTH_SECTION_CHALLENGE,
@@ -59,7 +60,7 @@ use markdown::Document;
 pub use output::ResearchOutput;
 
 type ValidationResult = core::result::Result<(), ValidationError>;
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum StringOrStructured<T> {
     String(String),
@@ -145,9 +146,8 @@ pub struct ResearchActivity {
     pub subtitle: Option<String>,
     /// Prose components of associated research activity
     #[validate(nested)]
-    #[builder(default)]
     #[eserde(compat)]
-    pub sections: Sections,
+    pub sections: Option<Sections>,
     /// Time-coded developments augmenting canonical metadata and contact data.
     ///
     /// Entry timestamps are distinct from activity dates, record update timestamps, and lifecycle status.
@@ -201,8 +201,9 @@ pub struct ResearchActivityMetadata {
     #[serde(rename = "@type")]
     pub metadata_type: Option<String>,
     /// Deterministic record of metadata added by enrichment providers.
-    #[eserde(compat)]
-    pub enrichment: Option<Vec<EnrichmentProvenance>>,
+    #[builder(into)]
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub enrichment: Option<OneOrMany<EnrichmentProvenance>>,
     /// Classification level of associated research activity data
     #[eserde(compat)]
     pub classification: Option<ClassificationLevel>,
@@ -210,11 +211,15 @@ pub struct ResearchActivityMetadata {
     ///
     /// <div class="warning">Archived content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
     #[builder(default = false)]
+    #[serde(default)]
+    #[schemars(default)]
     pub archive: bool,
     /// Describes the draft status of the associated research activity data
     ///
     /// <div class="warning">Draft content typically will be omitted from public artifacts such as <a href="https://research.ornl.gov">the ORNL research activity index</a></div>
     #[builder(default = true)]
+    #[serde(default = "default_draft")]
+    #[schemars(default = "default_draft")]
     pub draft: bool,
     /// Describes the status of the associated research activity data
     #[builder(default = Status::Active)]
@@ -234,60 +239,73 @@ pub struct ResearchActivityMetadata {
     /// DOI or arXiv identifier(s) related to the associated research activity data
     ///
     /// See <https://www.doi.org/> for more information
+    #[builder(into)]
     #[validate(custom(function = "is_attribute_publication_identifier_list"))]
-    #[serde(default)]
-    pub doi: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub doi: Option<OneOrMany<String>>,
     /// Handle identifier(s) related to the associated research activity data.
+    #[builder(into)]
     #[validate(custom(function = "is_attribute_handle_list"))]
-    #[serde(default)]
-    pub handle: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub handle: Option<OneOrMany<String>>,
     /// ISBN(s) of books related to the associated research activity data
+    #[builder(into)]
     #[validate(custom(function = "is_attribute_books"))]
-    #[serde(default)]
-    pub books: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub books: Option<OneOrMany<String>>,
     /// Patent(s) related to the associated research activity data
-    #[serde(default)]
-    pub patents: Option<Vec<String>>,
+    #[builder(into)]
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub patents: Option<OneOrMany<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
+    #[builder(into)]
     #[validate(each(url))]
-    #[serde(default)]
-    pub publications: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub publications: Option<OneOrMany<String>>,
     /// Structured publications, datasets, software, and other products of this research activity.
+    #[builder(into)]
     #[validate(nested)]
-    #[eserde(compat)]
-    pub outputs: Option<Vec<ResearchOutput>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub outputs: Option<OneOrMany<ResearchOutput>>,
     /// Research Activity Identifier (RAiD)
+    #[builder(into)]
     #[validate(each(doi))]
-    #[serde(default)]
-    pub raid: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub raid: Option<OneOrMany<String>>,
     /// Software Hash Identifier(s) for software objects related to the research activity data
     ///
     /// See <https://www.swhid.org/> for more information
+    #[builder(into)]
     #[validate(custom(function = "is_attribute_swhid_list"))]
-    #[serde(default)]
-    pub swhid: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub swhid: Option<OneOrMany<String>>,
     /// Research Organization Registry
     ///
     /// See <https://www.ror.org/> for more information
+    #[builder(into)]
     #[validate(each(ror))]
-    #[serde(default)]
-    pub ror: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub ror: Option<OneOrMany<String>>,
     /// Type of associated research activity data when directly associated with an organization
     #[eserde(compat)]
     pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
+    #[builder(into)]
     #[validate(nested)]
     #[serde(alias = "graphics")]
-    #[eserde(compat)]
-    pub media: Option<Vec<MediaObject>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub media: Option<OneOrMany<MediaObject>>,
     /// Websites related to the associated research activity data
+    #[builder(into)]
     #[validate(nested)]
-    #[eserde(compat)]
-    pub websites: Option<Vec<Website>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub websites: Option<OneOrMany<Website>>,
     /// Keywords related to the associated research activity data
     ///
     /// See [Keyword]
     #[builder(default = Vec::<String>::new())]
+    #[serde(default, deserialize_with = "deserialize_one_or_many_strings", skip_serializing_if = "Vec::is_empty")]
+    #[schemars(with = "Option<OneOrMany<String>>")]
     pub keywords: Vec<Keyword>,
     /// Software, programmings languages, and digital resources (e.g., tools, libraries, frameworks, data) related to the associated research activity data
     /// ### Examples
@@ -299,7 +317,8 @@ pub struct ResearchActivityMetadata {
     ///
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/technology.csv">Full list of technologies</a></div>
     #[builder(default = Vec::<String>::new())]
-    #[serde(deserialize_with = "vec_string_trim")]
+    #[serde(default, deserialize_with = "deserialize_one_or_many_strings", skip_serializing_if = "Vec::is_empty")]
+    #[schemars(with = "Option<OneOrMany<String>>")]
     pub technology: Vec<String>,
     /// Organization(s) related to the associated research activity data
     /// ### Examples
@@ -307,7 +326,9 @@ pub struct ResearchActivityMetadata {
     /// - University of Tennessee
     /// - IBM
     /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/partners.csv">Full list of partners</a></div>
-    pub partners: Option<Vec<String>>,
+    #[builder(into)]
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
+    pub partners: Option<OneOrMany<String>>,
     /// Hardware/compute resource requirements
     /// ### Note
     /// Selected components should reflect the minimum hardware/compute resources required to perform the research activity
@@ -315,18 +336,20 @@ pub struct ResearchActivityMetadata {
     /// ### Example
     /// For an AI/ML workflow that requires at least one GPU to perform training that cannot be executed on a CPU alone,
     /// the resources attribute should include GPU, but need not include CPU
-    #[eserde(compat)]
-    pub resources: Option<Vec<Resource>>,
+    #[builder(into)]
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub resources: Option<OneOrMany<Resource>>,
     /// Structured activity dates (e.g. StartDate, EndDate, Created, Updated) with explicit date types.
     ///
     /// Distinct from `Changelog` entry timestamps and RAiD registry `metadata` timestamps; see `.wiki/assets/standards-field-matrix.md` Validity Levels.
     ///
     /// ### Example
     /// `"dates": [{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(alias = "dates")]
-    #[eserde(compat)]
-    pub typed_dates: Option<Vec<TypedActivityDate>>,
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub typed_dates: Option<OneOrMany<TypedActivityDate>>,
     /// Structured contributors with identifiers, affiliations and dated roles.
     ///
     /// Canonical — legacy `contact` remains accepted as input.
@@ -334,9 +357,11 @@ pub struct ResearchActivityMetadata {
     /// ### Examples
     /// - Simple: `"contributors": ["Doe, Jane"]`
     /// - Detailed: `"contributors": [{"name": "Doe, Jane", "identifiers": [{"value": "https://orcid.org/0000-0002-1825-0097", "scheme": "ORCID"}]}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub contributors: Option<Vec<ActivityContributor>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<ActivityContributor>>>")]
+    pub contributors: Option<OneOrMany<ActivityContributor>>,
     /// Structured organizations with identifiers and dated roles.
     ///
     /// Canonical — legacy `ror`/`sponsors`/`partners` remain accepted.
@@ -344,9 +369,11 @@ pub struct ResearchActivityMetadata {
     /// ### Examples
     /// - Simple: `"organizations": ["Oak Ridge National Laboratory"]`
     /// - Detailed: `"organizations": [{"name": "Oak Ridge National Laboratory", "identifiers": [{"value": "https://ror.org/01qz5mb56", "scheme": "ROR"}]}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub organizations: Option<Vec<ActivityOrganization>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<ActivityOrganization>>>")]
+    pub organizations: Option<OneOrMany<ActivityOrganization>>,
     /// Activity-level funders reusing structured output funding (funder name, ROR, award identifier/doi/url).
     ///
     /// Legacy `sponsors` input is accepted as an alias and normalized to structured funders.
@@ -354,9 +381,11 @@ pub struct ResearchActivityMetadata {
     /// ### Examples
     /// - Simple: `"funders": ["U.S. Department of Energy"]`
     /// - Detailed: `"funders": [{"name": "Example Funder", "awards": [{"identifier": "AWARD-1"}]}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(alias = "sponsors", default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub funders: Option<Vec<Funding>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<Funding>>>")]
+    pub funders: Option<OneOrMany<Funding>>,
     /// Typed related resources (activities, objects) with identifier, relation and resource type.
     ///
     /// Legacy `related` input is accepted as an alias and normalized to structured related resources.
@@ -364,9 +393,11 @@ pub struct ResearchActivityMetadata {
     /// ### Examples
     /// - Simple: `"relatedResources": ["related-activity"]`
     /// - Detailed: `"relatedResources": [{"identifier": {"value": "10.1038/nature12373", "scheme": "DOI"}, "relationType": "References"}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(alias = "related", default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub related_resources: Option<Vec<TypedRelatedResource>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<TypedRelatedResource>>>")]
+    pub related_resources: Option<OneOrMany<TypedRelatedResource>>,
     /// Languages using RAiD `Language` (`id` 3-letter `eng`, `schemaUri` URL).
     ///
     /// Direct reuse of `crate::pid::raid::Language`; see `.wiki/assets/standards-field-matrix.md` Language row.
@@ -374,33 +405,41 @@ pub struct ResearchActivityMetadata {
     /// ### Examples
     /// - Simple: `"languages": ["eng"]`
     /// - Detailed: `"languages": [{"id": "eng", "schemaUri": "https://iso639-3.sil.org/code/eng"}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub languages: Option<Vec<Language>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<Language>>>")]
+    pub languages: Option<OneOrMany<Language>>,
     /// Controlled subjects with scheme and value URIs (maps `Keyword` → DataCite `Subject` / RAiD `subject`).
     ///
     /// ### Examples
     /// - Simple: `"subjects": ["machine learning"]`
     /// - Detailed: `"subjects": [{"subject": "machine learning", "subjectScheme": "ACORN", "valueUri": "https://example.org/subjects/machine-learning"}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub subjects: Option<Vec<ControlledSubject>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<ControlledSubject>>>")]
+    pub subjects: Option<OneOrMany<ControlledSubject>>,
     /// Spatial coverage (repeated per location, do not duplicate organisational locations).
     ///
     /// ### Examples
     /// - Simple: `"spatialCoverage": ["US-TN"]`
     /// - Detailed: `"spatialCoverage": [{"id": "US-TN", "place": [{"text": "Oak Ridge", "language": null}]}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub spatial_coverage: Option<Vec<SpatialCoverage>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<SpatialCoverage>>>")]
+    pub spatial_coverage: Option<OneOrMany<SpatialCoverage>>,
     /// Structured rights (SPDX `rightsIdentifier` etc. via `validate_license` parity).
     ///
     /// ### Examples
     /// - Simple: `"rights": ["Copyright Example Organization"]`
     /// - Detailed: `"rights": [{"rightsIdentifier": "CC-BY-4.0", "rightsIdentifierScheme": "SPDX"}]`
+    #[builder(into)]
     #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_string_or_structured_vec")]
-    pub rights: Option<Vec<StructuredRights>>,
+    #[schemars(with = "Option<OneOrMany<StringOrStructured<StructuredRights>>>")]
+    pub rights: Option<OneOrMany<StructuredRights>>,
     /// Structured access statement (e.g. `open`, `embargoed`).
     ///
     /// ### Examples
@@ -642,7 +681,7 @@ impl From<&ResearchActivity> for Cff {
             .collect::<Vec<_>>();
         let identifiers = (!identifiers.is_empty()).then_some(identifiers);
         Cff {
-            abstract_text: Some(sections.mission),
+            abstract_text: sections.map(|sections| sections.mission),
             authors: vec![person.clone()],
             contact: Some(vec![person]),
             keywords,
@@ -723,9 +762,19 @@ impl MarkdownSupport for ResearchActivity {
     }
 }
 impl ResearchActivity {
+    /// Return the first non-empty authored image URL.
+    pub fn authored_image_url(&self) -> Option<String> {
+        self.meta.media.as_ref().and_then(|values| {
+            values.iter().find_map(|value| match value {
+                | MediaObject::Image(ImageObject { content_url: Some(url), .. }) if !url.trim().is_empty() => Some(url.trim().to_string()),
+                | _ => None,
+            })
+        })
+    }
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
         let activity_classification = self.meta.classification.clone().unwrap_or_default();
-        self.logbook
+        let classification_error = self
+            .logbook
             .as_ref()
             .into_iter()
             .flat_map(|logbook| &logbook.entries)
@@ -743,7 +792,22 @@ impl ResearchActivity {
                 error.add_param("entryClassification".into(), &entry.classification);
                 ValidationReport::from_error(format!("logbook.entries[{index}].classification"), error)
             })
-            .map_or(Ok(()), Err)
+            .map(Err)
+            .unwrap_or(Ok(()));
+        match (!self.meta.draft && self.sections.is_none(), classification_error) {
+            | (false, result) => result,
+            | (true, Ok(())) => Err(ValidationReport::from_error(
+                "sections",
+                ValidationError::new("required").with_message("Non-draft research activity data requires sections"),
+            )),
+            | (true, Err(mut report)) => {
+                report.add(
+                    "sections",
+                    ValidationError::new("required").with_message("Non-draft research activity data requires sections"),
+                );
+                Err(report)
+            }
+        }
     }
     /// Creates a new `ResearchActivity`
     pub fn new() -> Self {
@@ -826,7 +890,7 @@ impl ResearchActivity {
             .meta(meta)
             .title(title)
             .maybe_subtitle(subtitle)
-            .sections(sections)
+            .maybe_sections(sections)
             .maybe_logbook(logbook)
             .contact(contact)
             .maybe_notes(notes)
@@ -856,7 +920,7 @@ impl ToProse for ResearchActivity {
             .map(|website| website.to_markdown())
             .collect::<Vec<String>>()
             .join("\n");
-        let sections = self.sections.to_markdown();
+        let sections = self.sections.as_ref().map(MarkdownSupport::to_markdown).unwrap_or_default();
         match &self.subtitle {
             | Some(subtitle) => format!(
                 r#"{title}
@@ -935,8 +999,8 @@ impl ResearchActivityMetadata {
     pub fn format(self) -> Self {
         let keywords = Vocabulary::Keywords.resolve(Some(self.keywords.clone()));
         let technology = Vocabulary::Technology.resolve(Some(self.technology.clone()));
-        let partners = match Vocabulary::Partners.resolve(self.partners.clone()) {
-            | values if !values.is_empty() => Some(values),
+        let partners = match Vocabulary::Partners.resolve(self.partners.clone().map(OneOrMany::into_vec)) {
+            | values if !values.is_empty() => Some(values.into()),
             | _ => None,
         };
         let funders = self.funders.clone().and_then(|funders| {
@@ -950,7 +1014,7 @@ impl ResearchActivityMetadata {
                         .map(|name| Funding { name, ..funder })
                 })
                 .collect::<Vec<_>>();
-            (!funders.is_empty()).then_some(funders)
+            (!funders.is_empty()).then_some(funders.into())
         });
         Self {
             keywords,
@@ -1086,6 +1150,9 @@ fn default_access_context() -> String {
 fn default_contributors_context() -> String {
     schema_org("contributor")
 }
+fn default_draft() -> bool {
+    true
+}
 fn default_funders_context() -> String {
     codemeta("sponsor")
 }
@@ -1134,21 +1201,17 @@ where
         })
     })
 }
-fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
+fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<OneOrMany<T>>, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de> + From<String>,
 {
-    Option::<OneOrMany<StringOrStructured<T>>>::deserialize(deserializer).map(|values| {
+    deserialize_optional_one_or_many(deserializer).map(|values| {
         values.map(|values| {
-            values
-                .into_vec()
-                .into_iter()
-                .map(|value| match value {
-                    | StringOrStructured::String(value) => T::from(value),
-                    | StringOrStructured::Structured(value) => value,
-                })
-                .collect()
+            values.map_items(|value| match value {
+                | StringOrStructured::String(value) => T::from(value),
+                | StringOrStructured::Structured(value) => value,
+            })
         })
     })
 }

@@ -21,8 +21,8 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 | Phase | Status | Focus | Outcome |
 |---|---|---|---|
-| Export boundary hardening | In progress | OOXML, paths, export assets | Export failures become typed errors instead of silent corruption |
-| Shared abstractions | In progress | Export context and interpolation; safe paths complete | Duplicated mappings and interpolation logic are replaced |
+| Export boundary hardening | In progress | OOXML, paths, export assets | Structured slide/media mutations and strict image failures have landed; parser-backed interpolation and fuzzing remain |
+| Shared abstractions | In progress | Export context and interpolation; safe paths complete | Image and fallback selection is shared; full field projection and interpolation remain |
 | Structural modularization | Planned | CLI startup and API clients | Boundaries become explicit and testable |
 | Refinement | Planned | Bindings and portability | Repetition decreases and build targets broaden |
 

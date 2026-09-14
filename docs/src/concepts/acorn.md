@@ -8,6 +8,12 @@ ACORN's context awareness comes from explicit data. A research activity record p
 
 Commands use this context for different purposes. `acorn check` evaluates values against the appropriate schema and rules, `acorn format` normalizes controlled values, `acorn link` maps fields to defined ontologies, and `acorn export` carries the same project information into other formats. Optional model and agent workflows can receive the record, relevant evidence, and validation results as task context.
 
+## Draft authoring
+
+RAD can begin as a draft and become stricter as it matures. Input may omit `meta.archive` and `meta.draft`; ACORN defaults them to `false` and `true`, respectively. Narrative `sections` may be omitted while `draft` is true, but a non-draft record must provide them.
+
+List-shaped metadata is also permissive at the authoring boundary. `keywords`, `technology`, and every optional metadata vector accept either one item or an array. ACORN normalizes a single item to a one-item array. For optional vectors, an omitted or `null` value means absent, while `[]` remains explicitly empty. Canonical JSON, YAML, and Markdown output uses arrays; empty `keywords` and `technology` fields are omitted.
+
 Context-aware operation does not mean that ACORN knows facts absent from its inputs or that it has consciousness. Missing or unsupported information remains missing until a person or a defined provider supplies it. This boundary lets context reveal documented connections and gaps without turning an inference into project data.
 
 > [!NOTE]

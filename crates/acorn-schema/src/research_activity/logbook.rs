@@ -2,7 +2,7 @@
 use super::{ActivityContributor, ResearchActivity, ResearchActivityMetadata};
 use crate::enrichment::Provider;
 use crate::validation::{rules, Validate, ValidationReport};
-use crate::ClassificationLevel;
+use crate::{ClassificationLevel, OneOrMany};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::util::{frontmatter_and_body, MarkdownSupport};
 use acorn_core::validation::ValidationError;
@@ -527,7 +527,7 @@ impl ResearchActivity {
                         .map(ActivityContributor::from)
                         .collect::<Vec<_>>();
                     let contributors =
-                        (!existing.is_empty() || !additions.is_empty()).then(|| existing.into_iter().chain(additions).collect::<Vec<_>>());
+                        (!existing.is_empty() || !additions.is_empty()).then(|| existing.into_iter().chain(additions).collect::<OneOrMany<_>>());
                     Ok(Self {
                         meta: ResearchActivityMetadata {
                             classification,

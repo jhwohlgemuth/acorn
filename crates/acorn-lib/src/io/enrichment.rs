@@ -13,7 +13,7 @@ use acorn_schema::enrichment::Provider;
 use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use acorn_schema::research_activity::output::ResearchOutput;
 use acorn_schema::research_activity::{EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
-use acorn_schema::Website;
+use acorn_schema::{OneOrMany, Website};
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
@@ -21,7 +21,6 @@ use strum::IntoEnumIterator;
 use tracing::warn;
 
 pub(super) const ENRICHMENT_FIELDS: [&str; 6] = ["title", "subtitle", "contact.identifier", "meta.doi", "meta.outputs", "meta.ror"];
-
 /// Provider-specific enrichment operations for a supplied input type.
 #[async_trait]
 pub trait Enrich<Input: Send = ()>: Send + Sync {
@@ -102,6 +101,12 @@ impl Default for Pipeline {
         Self::new(Provider::iter().collect())
     }
 }
+impl Pipeline {
+    /// Construct a pipeline in the supplied deterministic provider order.
+    pub fn new(providers: Vec<Provider>) -> Self {
+        Self { providers }
+    }
+}
 #[async_trait]
 impl<T> Enrich<(Location, T)> for Pipeline
 where
@@ -155,12 +160,6 @@ where
                 },
             )
             .await)
-    }
-}
-impl Pipeline {
-    /// Construct a pipeline in the supplied deterministic provider order.
-    pub fn new(providers: Vec<Provider>) -> Self {
-        Self { providers }
     }
 }
 #[async_trait]
@@ -305,7 +304,7 @@ impl Enrich<()> for ResearchActivity {
                     Self {
                         subtitle: self.subtitle.clone().or(candidate.subtitle),
                         meta: ResearchActivityMetadata {
-                            doi: (!doi.is_empty()).then_some(doi),
+                            doi: (!doi.is_empty()).then(|| doi.into()),
                             ..self.meta.clone()
                         },
                         ..self.clone()
@@ -356,7 +355,7 @@ impl Enrich<()> for ResearchActivity {
                         | [record] => (
                             Self {
                                 meta: ResearchActivityMetadata {
-                                    ror: Some(vec![record.identifier.clone()]),
+                                    ror: Some(vec![record.identifier.clone()].into()),
                                     ..self.meta.clone()
                                 },
                                 ..self.clone()
@@ -419,15 +418,15 @@ impl EnrichmentMetadata for ResearchActivity {
 }
 impl ResearchOutputMetadata for ResearchActivity {
     fn publication_identifiers(&self) -> Vec<String> {
-        self.meta.doi.clone().unwrap_or_default()
+        self.meta.doi.clone().map(OneOrMany::into_vec).unwrap_or_default()
     }
     fn research_outputs(&self) -> Vec<ResearchOutput> {
-        self.meta.outputs.clone().unwrap_or_default()
+        self.meta.outputs.clone().map(OneOrMany::into_vec).unwrap_or_default()
     }
     fn with_research_outputs(self, outputs: Vec<ResearchOutput>) -> Self {
         Self {
             meta: ResearchActivityMetadata {
-                outputs: (!outputs.is_empty()).then_some(outputs),
+                outputs: (!outputs.is_empty()).then(|| outputs.into()),
                 ..self.meta
             },
             ..self

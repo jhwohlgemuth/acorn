@@ -28,15 +28,14 @@ use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
 const OFFLINE: bool = false;
-
 struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
 impl<'a> MakeWriter<'a> for SharedWriter {
     type Writer = SharedWriterGuard;
     fn make_writer(&'a self) -> Self::Writer {
         SharedWriterGuard(self.0.clone())
     }
 }
-struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
 impl Write for SharedWriterGuard {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         match self.0.lock() {
@@ -51,7 +50,6 @@ impl Write for SharedWriterGuard {
         Ok(())
     }
 }
-
 fn captured_logs(operation: impl FnOnce()) -> String {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let subscriber = tracing_subscriber::fmt()
@@ -62,7 +60,6 @@ fn captured_logs(operation: impl FnOnce()) -> String {
     let bytes = logs.lock().expect("lock logs").clone();
     String::from_utf8(bytes).unwrap_or_default()
 }
-
 #[tokio::test]
 async fn test_format_dry_run() -> Result<()> {
     let temp_dir = temp_test_dir("format_dry_run");
@@ -88,6 +85,61 @@ async fn test_format_dry_run() -> Result<()> {
     )
     .await;
     assert!(result.is_ok(), "Format dry run should succeed");
+    assert_eq!(fs::read_to_string(dest_file)?, original);
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_enrich_dry_run_does_not_write() -> Result<()> {
+    let temp_dir = temp_test_dir("format_enrich_dry_run");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let dest_file = temp_dir.join("index.json");
+    let mut data = ResearchActivity::default();
+    data.meta.ror = Some(vec!["https://ror.org/01qz5mb56".to_string()].into());
+    let original = serde_json::to_string_pretty(&data)?;
+    fs::write(&dest_file, &original)?;
+    let result = run(
+        &Some(dest_file.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        true,
+        true,
+        true,
+        &[Provider::Ror],
+        &false,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Enriched dry run should succeed");
+    assert_eq!(fs::read_to_string(dest_file)?, original);
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_enrich_offline_fails_without_writing() -> Result<()> {
+    let temp_dir = temp_test_dir("format_enrich_offline");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let dest_file = temp_dir.join("index.json");
+    copy(&source, &dest_file)?;
+    let original = fs::read_to_string(&dest_file)?;
+    let result = run(
+        &Some(dest_file.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        true,
+        false,
+        &[Provider::Ror],
+        &false,
+        &Verbosity::new(0, 0),
+        true,
+    )
+    .await;
+    assert!(result.is_err(), "Offline enrichment should fail");
     assert_eq!(fs::read_to_string(dest_file)?, original);
     Ok(())
 }
@@ -120,6 +172,34 @@ fn test_format_file_logs_path_for_no_changes() -> Result<()> {
     assert!(!logs.contains("WARN"));
     assert!(logs.contains(&slice_path(&dest_file, DISPLAY_PATH_CHARACTER_COUNT)));
     assert!(!logs.contains(&dest_file.display().to_string()));
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_multiple_files() -> Result<()> {
+    let temp_dir = temp_test_dir("format_multiple");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    for (i, fixture) in ["data/valid_project/index.json", "data/valid_highlight/index.json"].iter().enumerate() {
+        let source = fixture_path(fixture);
+        let dest_file = temp_dir.join(format!("file_{}.json", i));
+        copy(&source, &dest_file)?;
+    }
+    let path = Some(temp_dir);
+    let result = run(
+        &path,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        false,
+        &[],
+        &false,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Format multiple files should succeed");
     Ok(())
 }
 #[tokio::test]
@@ -182,88 +262,5 @@ async fn test_format_with_changes() -> Result<()> {
     let formatted_content = fs::read_to_string(&dest_file)?;
     let parsed: serde_json::Value = serde_json::from_str(&formatted_content)?;
     assert!(parsed.is_object(), "Formatted file should be valid JSON");
-    Ok(())
-}
-#[tokio::test]
-async fn test_format_multiple_files() -> Result<()> {
-    let temp_dir = temp_test_dir("format_multiple");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    for (i, fixture) in ["data/valid_project/index.json", "data/valid_highlight/index.json"].iter().enumerate() {
-        let source = fixture_path(fixture);
-        let dest_file = temp_dir.join(format!("file_{}.json", i));
-        copy(&source, &dest_file)?;
-    }
-    let path = Some(temp_dir);
-    let result = run(
-        &path,
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        false,
-        false,
-        &[],
-        &false,
-        &Verbosity::new(0, 0),
-        OFFLINE,
-    )
-    .await;
-    assert!(result.is_ok(), "Format multiple files should succeed");
-    Ok(())
-}
-#[tokio::test]
-async fn test_format_enrich_dry_run_does_not_write() -> Result<()> {
-    let temp_dir = temp_test_dir("format_enrich_dry_run");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let dest_file = temp_dir.join("index.json");
-    let mut data = ResearchActivity::default();
-    data.meta.ror = Some(vec!["https://ror.org/01qz5mb56".to_string()]);
-    let original = serde_json::to_string_pretty(&data)?;
-    fs::write(&dest_file, &original)?;
-    let result = run(
-        &Some(dest_file.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
-        true,
-        true,
-        true,
-        &[Provider::Ror],
-        &false,
-        &Verbosity::new(0, 0),
-        OFFLINE,
-    )
-    .await;
-    assert!(result.is_ok(), "Enriched dry run should succeed");
-    assert_eq!(fs::read_to_string(dest_file)?, original);
-    Ok(())
-}
-#[tokio::test]
-async fn test_format_enrich_offline_fails_without_writing() -> Result<()> {
-    let temp_dir = temp_test_dir("format_enrich_offline");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let source = fixture_path("data/format/unresolved_changes/index.json");
-    let dest_file = temp_dir.join("index.json");
-    copy(&source, &dest_file)?;
-    let original = fs::read_to_string(&dest_file)?;
-    let result = run(
-        &Some(dest_file.clone()),
-        &None,
-        &None,
-        &None,
-        &None,
-        false,
-        true,
-        false,
-        &[Provider::Ror],
-        &false,
-        &Verbosity::new(0, 0),
-        true,
-    )
-    .await;
-    assert!(result.is_err(), "Offline enrichment should fail");
-    assert_eq!(fs::read_to_string(dest_file)?, original);
     Ok(())
 }

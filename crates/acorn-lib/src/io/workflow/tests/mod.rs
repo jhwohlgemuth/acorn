@@ -4,6 +4,7 @@ use crate::analyzer::{Check, CheckCategory};
 use acorn_core::options::CommonRuntime;
 use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata, ResearchOutput};
 use acorn_schema::standard::cff::Cff;
+use acorn_schema::OneOrMany;
 use async_trait::async_trait;
 use tempfile::tempdir;
 
@@ -36,7 +37,7 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         Ok(EnrichmentResult {
             data: ResearchActivity {
                 meta: ResearchActivityMetadata {
-                    outputs: Some(vec![output]),
+                    outputs: Some(vec![output].into()),
                     ..data.meta
                 },
                 ..data
@@ -161,7 +162,7 @@ async fn test_plan_enriches_without_writing_source() {
     assert_eq!(plan.changes.len(), 1);
     let change = plan.changes.first().expect("plan should contain one change");
     assert!(change.is_changed());
-    assert_eq!(change.data().and_then(|data| data.meta.outputs.as_ref().map(Vec::len)), Some(1));
+    assert_eq!(change.data().and_then(|data| data.meta.outputs.as_ref().map(OneOrMany::len)), Some(1));
 }
 #[test]
 fn test_repository_accepts_every_registered_flat_file_format() {
@@ -275,7 +276,7 @@ async fn test_run_writes_enrichment_and_linked_artifact() {
         .expect("workflow run should succeed");
     let path = source.local_path().expect("source should have a local path");
     let written = ResearchActivity::read(path.clone()).expect("updated source should parse");
-    assert_eq!(written.meta.outputs.as_ref().map(Vec::len), Some(1));
+    assert_eq!(written.meta.outputs.as_ref().map(OneOrMany::len), Some(1));
     assert!(path.with_extension("jsonld").exists());
     assert_eq!(report.processed, 1);
     assert_eq!(report.changed, 1);

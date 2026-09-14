@@ -875,7 +875,7 @@ fn format_metadata(metadata: ResearchActivityMetadata, context: Option<PathBuf>)
                 | Some(values) if !values.is_empty() => values.into_iter().skip(1).collect::<Vec<_>>(),
                 | Some(_) | None => vec![],
             };
-            Some([vec![first_graphic], rest].concat())
+            Some([vec![first_graphic], rest].concat().into())
         }
         | None => metadata.media.clone(),
     };

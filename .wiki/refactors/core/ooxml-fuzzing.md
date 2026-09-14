@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Begin after [OOXML hardening](ooxml-interpolation-and-slide-copy.md) exposes deterministic parser-backed transforms; preserve the future `acorn-export` ownership.
+The parser-backed slide-list, relationship, content-type, and ASPECT transforms from [OOXML hardening](ooxml-interpolation-and-slide-copy.md) are ready for fuzzing now. Add interpolation targets after the remaining regex implementation is replaced. Preserve the future `acorn-export` ownership.
 
 # Goal
 
@@ -26,7 +26,9 @@ Add focused fuzz coverage for the pure OOXML transformation boundary used when c
 # Evidence
 
 - `crates/acorn-lib/src/io/powerpoint/ooxml.rs` implements a custom XML event loop in `add_slide_to_presentation_xml`, plus relationship rewriting and well-formedness validation.
-- These helpers process externally supplied PPTX XML and must handle malformed nesting, namespaces, duplicate slide lists, declarations, entities, truncated input, and large attributes without panicking or silently corrupting output.
+- The same module now has parser-backed transforms for PNG content types and ASPECT picture replacement. These helpers process externally supplied PPTX XML and must handle malformed nesting, namespace variants, duplicate slide lists, declarations, entities, truncated input, and large attributes without panicking or silently corrupting output.
+- Unit tests reject malformed slide-list XML and missing relationship targets. CLI tests cover slide copying, missing source parts, image relationship rewriting, the embedded draft placeholder, missing authored media, and ASPECT image packaging.
+- The focused PowerPoint test suites and end-to-end PPTX export test passed on 2026-09-13. These deterministic examples do not cover adversarial parser state or input growth.
 - `fuzz/` currently covers Research Activity, Location, and Repository parsing, but has no OOXML target.
 
 # Recommendation
@@ -36,15 +38,18 @@ Add focused fuzz coverage for the pure OOXML transformation boundary used when c
 3. Seed the corpus with a valid `presentation.xml` fixture and malformed variants that truncate or duplicate `p:sldIdLst`.
 4. Assert that the function never panics, every successful result is well formed, and successful output contains the requested `id` and `r:id` values without losing surrounding XML.
 5. Reapply the transform with different identifiers to verify that successful output remains well formed.
-6. Add `update_relationship_target` as a companion path once the slide-list target is stable, asserting that successful replacement changes only matching relationship targets and preserves valid XML.
+6. Add companion paths for `update_relationship_target`, `ensure_png_content_type`, and `replace_aspect_placeholders_with_picture`. Assert that successful mutations change only their intended elements, preserve unrelated XML, and remain well formed.
+7. Add the parser-backed interpolation transform after OOXML hardening removes the regex implementation, using split-run and namespace variants in its seed corpus.
 
 # Validation
 
-Build the target, run it against the seeded corpus, and execute a bounded fuzz session. Replay every discovered artifact as a regression case before closing the plan.
+Build each target, run it against the seeded corpus, and execute a bounded fuzz session. Replay every discovered artifact as a deterministic regression case before closing the plan. The focused unit and export tests are the baseline; they do not satisfy this plan without a cargo-fuzz target and bounded run.
 
 # Acceptance criteria
 
-The OOXML fuzz target runs without panics or invariant violations across the seed corpus and a bounded fuzz session; successful transformations remain well formed, contain the requested identifiers, and preserve unrelated XML content.
+1. OOXML fuzz targets run without panics or invariant violations across their seed corpora and bounded sessions.
+2. Every successful transformation remains well formed, makes the requested change, and preserves unrelated XML content.
+3. Every discovered artifact is minimized and retained as a deterministic regression case.
 
 # Related plans
 

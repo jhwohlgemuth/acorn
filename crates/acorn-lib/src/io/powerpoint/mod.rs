@@ -110,6 +110,17 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
     let updated = match read_file(path.clone()) {
         | Ok(content) => {
             let caption = data.meta.clone().first_image_caption();
+            let achievement = data
+                .sections
+                .as_ref()
+                .and_then(|sections| sections.achievement.clone())
+                .unwrap_or_default();
+            let approach = data.sections.as_ref().map(|sections| sections.approach.clone()).unwrap_or_default();
+            let areas = data.sections.as_ref().map(|sections| sections.research.areas.clone()).unwrap_or_default();
+            let challenge = data.sections.as_ref().map(|sections| sections.challenge.clone()).unwrap_or_default();
+            let focus = data.sections.as_ref().map(|sections| sections.research.focus.clone()).unwrap_or_default();
+            let impact = data.sections.as_ref().map(|sections| sections.impact.clone()).unwrap_or_default();
+            let mission = data.sections.as_ref().map(|sections| sections.mission.clone()).unwrap_or_default();
             let presentation_notes = match data.notes.clone() {
                 | Some(value) => match value {
                     | Other::Formatted(Notes { presentation, .. }) => match presentation {
@@ -147,7 +158,7 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
             }
             let replacements = vec![
                 Replacement::String("caption", caption),
-                Replacement::String("challenge", data.sections.challenge.clone()),
+                Replacement::String("challenge", challenge),
                 // TODO: Use CiteAs API to get in Chicago format
                 Replacement::String(
                     "citation",
@@ -155,10 +166,10 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
                 ),
                 Replacement::String("email", data.contact.email.clone()),
                 Replacement::String("first", data.contact.given_name.clone()),
-                Replacement::String("focus", data.sections.research.focus.clone()),
+                Replacement::String("focus", focus),
                 Replacement::String("last", data.contact.family_name.clone()),
                 Replacement::String("managers", managers.join(" and ")),
-                Replacement::String("mission", data.sections.mission.clone()),
+                Replacement::String("mission", mission),
                 Replacement::String("notes", presentation_notes),
                 Replacement::String("partners", data.meta.partners.clone().unwrap_or_default().join(", ")),
                 Replacement::String(
@@ -168,10 +179,10 @@ pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
                 Replacement::String("programs", programs.join(" and ")),
                 Replacement::String("subtitle", data.subtitle.clone().unwrap_or_default()),
                 Replacement::String("title", data.title.clone()),
-                Replacement::Bullets("achievement", data.sections.achievement.clone().unwrap_or_default()),
-                Replacement::Bullets("areas", data.sections.research.areas.clone()),
-                Replacement::Bullets("impact", data.sections.impact.clone()),
-                Replacement::Bullets("technical", data.sections.approach.clone()),
+                Replacement::Bullets("achievement", achievement),
+                Replacement::Bullets("areas", areas),
+                Replacement::Bullets("impact", impact),
+                Replacement::Bullets("technical", approach),
             ];
             let result = replacements.iter().fold(content.clone(), |acc, replacement| match replacement {
                 | Replacement::String(name, value) => acc.replace_placeholder_with_string(name, &escape_xml_text(value)),

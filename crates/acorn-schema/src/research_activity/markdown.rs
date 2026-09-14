@@ -4,7 +4,7 @@ use super::{Logbook, ResearchActivity, ResearchActivityContext, ResearchActivity
 use crate::research_activity::aspect::AspectFramework;
 use crate::util::constants::app::RAD_MARKDOWN_SCHEMA;
 #[cfg(feature = "std")]
-use crate::util::constants::app::{RAD_MARKDOWN_OPTIONAL_SECTIONS, RAD_MARKDOWN_REQUIRED_SECTIONS};
+use crate::util::constants::app::{RAD_MARKDOWN_OPTIONAL_SECTIONS, RAD_MARKDOWN_PROSE_SECTIONS, RAD_MARKDOWN_REQUIRED_SECTIONS};
 use crate::{ContactPoint, ContactPointContext, Other};
 use acorn_core::prelude::alloc::{format, String, ToString};
 #[cfg(feature = "std")]
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 struct Body {
     title: String,
     subtitle: Option<String>,
-    sections: Sections,
+    sections: Option<Sections>,
     contact: ContactPoint,
 }
 #[cfg(feature = "std")]
@@ -73,47 +73,60 @@ struct Header {
 #[cfg(feature = "std")]
 impl BodySections {
     fn into_body(self, frontmatter: &Header) -> AcornResult<Body> {
-        let achievement = self.optional_list("Achievement");
-        let capabilities = self.optional_list("Capabilities");
-        let mission = self.required_text("Mission");
-        let challenge = self.required_text("Challenge");
-        let approach = self.required_list("Approach");
-        let impact = self.required_list("Impact");
-        let focus = self.required_text("Focus");
-        let areas = self.required_list("Areas");
-        let contact = self.contact(frontmatter);
-        achievement
-            .and_then(|achievement| capabilities.map(|capabilities| (achievement, capabilities)))
-            .and_then(|(achievement, capabilities)| mission.map(|mission| (achievement, capabilities, mission)))
-            .and_then(|(achievement, capabilities, mission)| challenge.map(|challenge| (achievement, capabilities, mission, challenge)))
-            .and_then(|(achievement, capabilities, mission, challenge)| {
-                approach.map(|approach| (achievement, capabilities, mission, challenge, approach))
+        self.sections().and_then(|sections| {
+            self.contact(frontmatter).map(|contact| Body {
+                title: self.title,
+                subtitle: self.subtitle,
+                sections,
+                contact,
             })
-            .and_then(|(achievement, capabilities, mission, challenge, approach)| {
-                impact.map(|impact| (achievement, capabilities, mission, challenge, approach, impact))
-            })
-            .and_then(|(achievement, capabilities, mission, challenge, approach, impact)| {
-                focus.map(|focus| (achievement, capabilities, mission, challenge, approach, impact, focus))
-            })
-            .and_then(|(achievement, capabilities, mission, challenge, approach, impact, focus)| {
-                areas.map(|areas| (achievement, capabilities, mission, challenge, approach, impact, focus, areas))
-            })
-            .and_then(|(achievement, capabilities, mission, challenge, approach, impact, focus, areas)| {
-                contact.map(|contact| Body {
-                    title: self.title,
-                    subtitle: self.subtitle,
-                    sections: Sections {
-                        mission,
-                        challenge,
-                        approach,
-                        impact,
-                        achievement,
-                        capabilities,
-                        research: Research { focus, areas },
-                    },
-                    contact,
-                })
-            })
+        })
+    }
+    fn sections(&self) -> AcornResult<Option<Sections>> {
+        let has_sections = RAD_MARKDOWN_PROSE_SECTIONS
+            .into_iter()
+            .chain(["Achievement", "Capabilities"])
+            .any(|name| self.values.contains_key(name));
+        match has_sections {
+            | false => Ok(None),
+            | true => {
+                let achievement = self.optional_list("Achievement");
+                let capabilities = self.optional_list("Capabilities");
+                let mission = self.required_text("Mission");
+                let challenge = self.required_text("Challenge");
+                let approach = self.required_list("Approach");
+                let impact = self.required_list("Impact");
+                let focus = self.required_text("Focus");
+                let areas = self.required_list("Areas");
+                achievement
+                    .and_then(|achievement| capabilities.map(|capabilities| (achievement, capabilities)))
+                    .and_then(|(achievement, capabilities)| mission.map(|mission| (achievement, capabilities, mission)))
+                    .and_then(|(achievement, capabilities, mission)| challenge.map(|challenge| (achievement, capabilities, mission, challenge)))
+                    .and_then(|(achievement, capabilities, mission, challenge)| {
+                        approach.map(|approach| (achievement, capabilities, mission, challenge, approach))
+                    })
+                    .and_then(|(achievement, capabilities, mission, challenge, approach)| {
+                        impact.map(|impact| (achievement, capabilities, mission, challenge, approach, impact))
+                    })
+                    .and_then(|(achievement, capabilities, mission, challenge, approach, impact)| {
+                        focus.map(|focus| (achievement, capabilities, mission, challenge, approach, impact, focus))
+                    })
+                    .and_then(|(achievement, capabilities, mission, challenge, approach, impact, focus)| {
+                        areas.map(|areas| (achievement, capabilities, mission, challenge, approach, impact, focus, areas))
+                    })
+                    .map(|(achievement, capabilities, mission, challenge, approach, impact, focus, areas)| {
+                        Some(Sections {
+                            mission,
+                            challenge,
+                            approach,
+                            impact,
+                            achievement,
+                            capabilities,
+                            research: Research { focus, areas },
+                        })
+                    })
+            }
+        }
     }
     fn required_text(&self, name: &str) -> AcornResult<String> {
         self.values
@@ -193,7 +206,10 @@ impl TryFrom<&str> for BodySections {
                     .collect::<AcornResult<Vec<_>>>()
                     .map(|values| (!values.is_empty()).then(|| values.join("\n").decode_markdown_text()));
                 subtitle.and_then(|subtitle| {
-                    let allowed = RAD_MARKDOWN_REQUIRED_SECTIONS.into_iter().chain(RAD_MARKDOWN_OPTIONAL_SECTIONS);
+                    let allowed = RAD_MARKDOWN_REQUIRED_SECTIONS
+                        .into_iter()
+                        .chain(RAD_MARKDOWN_PROSE_SECTIONS)
+                        .chain(RAD_MARKDOWN_OPTIONAL_SECTIONS);
                     let invalid = headings
                         .iter()
                         .map(|(_, name)| name.as_str())
@@ -436,7 +452,7 @@ impl MarkdownSupport for Document {
         format!(
             "---\n{frontmatter}---\n# {title}\n{subtitle}{sections}\n\n{contact}{aspect}\n",
             title = self.body.title.to_markdown_text(),
-            sections = self.body.sections.to_markdown(),
+            sections = self.body.sections.as_ref().map(MarkdownSupport::to_markdown).unwrap_or_default(),
             contact = self.body.contact.to_markdown().trim_end(),
         )
     }

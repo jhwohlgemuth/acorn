@@ -4,13 +4,13 @@
 
 - [Remote create container targets](remote-create-container-targets.md) - Add preflight, rollback, cleanup, and live validation for remote container creation.
 - [OOXML interpolation and slide-copy hardening](ooxml-interpolation-and-slide-copy.md) - Replace remaining fragile OOXML mutations.
+- [Shared export context](export-context.md) - Complete the shared renderer projection started by common image and draft-fallback selection.
 
 ## Planned
 
 - [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.
 - [Shared interpolation primitives](interpolation-primitives.md) - Unify string and list placeholder behavior.
 - [OOXML slide-list fuzzing](ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
-- [Shared export context](export-context.md) - Centralize renderer input extraction.
 - [Research activity lifecycle, credit, license, and award fields](research-activity-lifecycle-credit-fields.md) - Add typed schema targets for provider enrichment that does not belong in notes.
 - [CLI parse and execution models](cli-parse-execution-models.md) - Separate clap parsing from execution options.
 - [CLI error boundary](cli-error-boundary.md) - Map internal errors to exit codes in one place.

@@ -5,6 +5,7 @@ use super::migrate::Migration;
 use super::*;
 use crate::test::utils::fixture_path;
 use acorn_schema::agent::opencode;
+use acorn_schema::research_activity::Sections;
 use acorn_schema::standard::cff::IdentifierType;
 use acorn_schema::standard::text::Document;
 use std::fs::{read, write};
@@ -110,7 +111,8 @@ fn test_malformed_jsonc_reports_error() {
 }
 #[test]
 fn test_migrate_allows_strict_read() {
-    let mut value = serde_json::to_value(ResearchActivity::default()).expect("default RAD should serialize");
+    let activity = ResearchActivity::init().sections(Sections::default()).build();
+    let mut value = serde_json::to_value(activity).expect("RAD should serialize");
     value["meta"]["media"] = serde_json::json!([{"caption": "Caption", "href": "image.png"}]);
     let impact = value["sections"].as_object_mut().expect("sections is an object").remove("impact");
     value["sections"]["outcomes"] = impact.expect("serialized sections contain impact");

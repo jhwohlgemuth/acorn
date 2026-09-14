@@ -30,7 +30,6 @@ fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
         .summary("Doe, Jane")
         .build()
 }
-
 #[test]
 fn test_activity_contributor_nested_validation() {
     let contributor = ActivityContributor::init().name("Doe, Jane").build();
@@ -125,136 +124,6 @@ fn test_alias_migration_accepts_deprecated_fields_with_canonical_output() {
     let sections = serde_json::to_value(sections).expect("sections should serialize");
     assert!(sections.get("impact").is_some());
     assert!(sections.get("outcomes").is_none());
-}
-#[test]
-fn test_metadata_aliases_and_flattened_values_use_canonical_fields() {
-    let mut metadata = serde_json::to_value(ResearchActivityMetadata::default()).expect("metadata should serialize");
-    let metadata = metadata.as_object_mut().expect("metadata is an object");
-    metadata.insert(
-        "dates".to_string(),
-        serde_json::json!([{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]),
-    );
-    metadata.insert("contributors".to_string(), serde_json::json!(" Doe, Jane "));
-    metadata.insert("organizations".to_string(), serde_json::json!([" Example Organization "]));
-    metadata.insert(
-        "sponsors".to_string(),
-        serde_json::json!([" Example Funder ", {"name": "Structured Funder", "awards": []}]),
-    );
-    metadata.insert("related".to_string(), serde_json::json!(" related-activity "));
-    metadata.insert("languages".to_string(), serde_json::json!([" eng ", {"id": "fra", "schemaUri": null}]));
-    metadata.insert("subjects".to_string(), serde_json::json!(" Climate change "));
-    metadata.insert("spatialCoverage".to_string(), serde_json::json!(" US-TN "));
-    metadata.insert("rights".to_string(), serde_json::json!(" Copyright Example "));
-    metadata.insert("access".to_string(), serde_json::json!("open"));
-    let parsed: ResearchActivityMetadata =
-        serde_json::from_value(serde_json::Value::Object(metadata.clone())).expect("aliases and flattened values should deserialize");
-    assert_eq!(parsed.typed_dates.as_ref().expect("dates").len(), 1);
-    assert_eq!(parsed.contributors.as_ref().expect("contributors")[0].name, "Doe, Jane");
-    assert_eq!(parsed.organizations.as_ref().expect("organizations")[0].name, "Example Organization");
-    assert_eq!(parsed.funders.as_ref().expect("funders")[0].name, "Example Funder");
-    assert_eq!(
-        parsed.related_resources.as_ref().expect("related resources")[0].identifier.value,
-        "related-activity"
-    );
-    assert_eq!(parsed.languages.as_ref().expect("languages")[0].id, "eng");
-    assert_eq!(parsed.subjects.as_ref().expect("subjects")[0].subject, "Climate change");
-    assert_eq!(parsed.spatial_coverage.as_ref().expect("spatial coverage")[0].id, "US-TN");
-    assert_eq!(parsed.rights.as_ref().expect("rights")[0].rights.as_deref(), Some("Copyright Example"));
-    assert!(matches!(
-        parsed.access.as_ref().and_then(|access| access.access.as_ref()),
-        Some(RightsAccess::Open)
-    ));
-    let canonical = serde_json::to_value(parsed).expect("metadata should serialize canonically");
-    for alias in ["dates", "sponsors", "related"] {
-        assert!(canonical.get(alias).is_none());
-    }
-    for field in ["typedDates", "funders", "relatedResources"] {
-        assert!(canonical.get(field).is_some());
-    }
-    let mut context = serde_json::to_value(ResearchActivityMetadataContext::default()).expect("context should serialize");
-    let context = context.as_object_mut().expect("context is an object");
-    let funders = context.remove("funders").expect("context contains funders");
-    let related = context.remove("relatedResources").expect("context contains related resources");
-    context.insert("sponsors".to_string(), funders);
-    context.insert("related".to_string(), related);
-    let context: ResearchActivityMetadataContext =
-        serde_json::from_value(serde_json::Value::Object(context.clone())).expect("legacy context aliases should deserialize");
-    let canonical = serde_json::to_value(context).expect("context should serialize canonically");
-    assert!(canonical.get("sponsors").is_none());
-    assert!(canonical.get("related").is_none());
-    assert!(canonical.get("funders").is_some());
-    assert!(canonical.get("relatedResources").is_some());
-}
-#[test]
-fn test_datacite_aligned_metadata_fixture_supports_simple_and_detailed_forms() {
-    let path = fixtures_dir().join("data/valid_project_datacite/index.json");
-    let content = std::fs::read_to_string(path).expect("DataCite-aligned RAD fixture should exist");
-    let activity: ResearchActivity = eserde::json::from_str(&content).expect("DataCite-aligned RAD fixture should deserialize");
-    let validation = activity.validate();
-    assert!(validation.is_ok(), "DataCite-aligned RAD fixture should validate: {validation:?}");
-    let contributors = activity.meta.contributors.as_ref().expect("contributors should be present");
-    assert_eq!(contributors[0].name, "Doe, Jane");
-    assert_eq!(contributors[1].identifiers.len(), 1);
-    let funders = activity.meta.funders.as_ref().expect("funders should be present");
-    assert_eq!(funders[0].name, "U.S. Department of Energy");
-    assert_eq!(funders[1].awards.len(), 1);
-    let languages = activity.meta.languages.as_ref().expect("languages should be present");
-    assert_eq!(languages[0].id, "eng");
-    assert_eq!(languages[1].schema_uri.as_deref(), Some("https://iso639-3.sil.org/code/fra"));
-    let canonical = serde_json::to_value(activity).expect("fixture should serialize canonically");
-    let metadata = &canonical["meta"];
-    assert!(metadata.get("dates").is_none());
-    assert!(metadata.get("typedDates").is_some());
-    for field in [
-        "contributors",
-        "organizations",
-        "funders",
-        "relatedResources",
-        "languages",
-        "subjects",
-        "spatialCoverage",
-        "rights",
-    ] {
-        assert!(metadata[field].as_array().expect("metadata field should be an array")[0].is_object());
-    }
-    assert!(metadata["access"].is_object());
-}
-#[test]
-fn test_invalid_datacite_aligned_metadata_fixture_reports_nested_errors() {
-    let path = fixtures_dir().join("data/invalid_project_datacite/index.json");
-    let content = std::fs::read_to_string(path).expect("invalid DataCite-aligned RAD fixture should exist");
-    let activity: ResearchActivity =
-        eserde::json::from_str(&content).expect("invalid DataCite-aligned RAD fixture should deserialize before validation");
-    let report = activity
-        .validate()
-        .expect_err("invalid DataCite-aligned RAD fixture should fail validation");
-    let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
-    [
-        "meta.typed_dates[0].date",
-        "meta.contributors[0].name",
-        "meta.contributors[1].identifiers[0].scheme_uri",
-        "meta.organizations[0].name",
-        "meta.organizations[1].identifiers[0].scheme_uri",
-        "meta.funders[0].name",
-        "meta.funders[1].ror",
-        "meta.funders[1].awards[0].doi",
-        "meta.funders[1].awards[0].url",
-        "meta.related_resources[0].identifier.value",
-        "meta.related_resources[1].identifier.value",
-        "meta.related_resources[1].relation_type",
-        "meta.languages[0].id",
-        "meta.languages[1].id",
-        "meta.languages[1].schema_uri",
-        "meta.subjects[0].subject",
-        "meta.subjects[1].scheme_uri",
-        "meta.subjects[1].value_uri",
-        "meta.spatial_coverage[1].schema_uri",
-        "meta.rights[1].rights_uri",
-        "meta.rights[1].scheme_uri",
-        "meta.access.rights_uri",
-    ]
-    .into_iter()
-    .for_each(|expected| assert!(paths.contains(&expected), "missing validation path {expected}: {paths:?}"));
 }
 #[test]
 fn test_alias_migration_retains_established_compatibility_fields() {
@@ -425,6 +294,40 @@ fn test_controlled_subject_and_rights() {
     let invalid_license = StructuredRights::init().rights_identifier("").build();
     assert!(invalid_license.validate().is_err());
     assert!(serde_json::from_str::<StructuredRights>(r#"{"access":"unexpected"}"#).is_err());
+}
+#[test]
+fn test_datacite_aligned_metadata_fixture_supports_simple_and_detailed_forms() {
+    let path = fixtures_dir().join("data/valid_project_datacite/index.json");
+    let content = std::fs::read_to_string(path).expect("DataCite-aligned RAD fixture should exist");
+    let activity: ResearchActivity = eserde::json::from_str(&content).expect("DataCite-aligned RAD fixture should deserialize");
+    let validation = activity.validate();
+    assert!(validation.is_ok(), "DataCite-aligned RAD fixture should validate: {validation:?}");
+    let contributors = activity.meta.contributors.as_ref().expect("contributors should be present");
+    assert_eq!(contributors[0].name, "Doe, Jane");
+    assert_eq!(contributors[1].identifiers.len(), 1);
+    let funders = activity.meta.funders.as_ref().expect("funders should be present");
+    assert_eq!(funders[0].name, "U.S. Department of Energy");
+    assert_eq!(funders[1].awards.len(), 1);
+    let languages = activity.meta.languages.as_ref().expect("languages should be present");
+    assert_eq!(languages[0].id, "eng");
+    assert_eq!(languages[1].schema_uri.as_deref(), Some("https://iso639-3.sil.org/code/fra"));
+    let canonical = serde_json::to_value(activity).expect("fixture should serialize canonically");
+    let metadata = &canonical["meta"];
+    assert!(metadata.get("dates").is_none());
+    assert!(metadata.get("typedDates").is_some());
+    for field in [
+        "contributors",
+        "organizations",
+        "funders",
+        "relatedResources",
+        "languages",
+        "subjects",
+        "spatialCoverage",
+        "rights",
+    ] {
+        assert!(metadata[field].as_array().expect("metadata field should be an array")[0].is_object());
+    }
+    assert!(metadata["access"].is_object());
 }
 #[test]
 fn test_dated_roles_require_timestamp_offset() {
@@ -677,6 +580,43 @@ fn test_deserialize_metadata_with_unit_resources() {
     assert!(matches!(resources[3], Resource::ASIC { .. }));
     assert!(matches!(resources[4], Resource::DSP { .. }));
     assert!(matches!(&resources[5], Resource::Other(s) if s == "unique-hardware"));
+}
+#[test]
+fn test_invalid_datacite_aligned_metadata_fixture_reports_nested_errors() {
+    let path = fixtures_dir().join("data/invalid_project_datacite/index.json");
+    let content = std::fs::read_to_string(path).expect("invalid DataCite-aligned RAD fixture should exist");
+    let activity: ResearchActivity =
+        eserde::json::from_str(&content).expect("invalid DataCite-aligned RAD fixture should deserialize before validation");
+    let report = activity
+        .validate()
+        .expect_err("invalid DataCite-aligned RAD fixture should fail validation");
+    let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
+    [
+        "meta.typed_dates[0].date",
+        "meta.contributors[0].name",
+        "meta.contributors[1].identifiers[0].scheme_uri",
+        "meta.organizations[0].name",
+        "meta.organizations[1].identifiers[0].scheme_uri",
+        "meta.funders[0].name",
+        "meta.funders[1].ror",
+        "meta.funders[1].awards[0].doi",
+        "meta.funders[1].awards[0].url",
+        "meta.related_resources[0].identifier.value",
+        "meta.related_resources[1].identifier.value",
+        "meta.related_resources[1].relation_type",
+        "meta.languages[0].id",
+        "meta.languages[1].id",
+        "meta.languages[1].schema_uri",
+        "meta.subjects[0].subject",
+        "meta.subjects[1].scheme_uri",
+        "meta.subjects[1].value_uri",
+        "meta.spatial_coverage[1].schema_uri",
+        "meta.rights[1].rights_uri",
+        "meta.rights[1].scheme_uri",
+        "meta.access.rights_uri",
+    ]
+    .into_iter()
+    .for_each(|expected| assert!(paths.contains(&expected), "missing validation path {expected}: {paths:?}"));
 }
 #[test]
 fn test_is_attribute_areas() {
@@ -983,11 +923,11 @@ fn test_markdown_body_values_round_trip_structural_text() {
     let data = ResearchActivity {
         title: "Title with\n## Contact".to_string(),
         subtitle: Some("Subtitle &amp;\n## Areas".to_string()),
-        sections: Sections {
+        sections: Some(Sections {
             mission: "Purpose with\n## Contact".to_string(),
             approach: vec!["Approach with\n## Areas &amp;".to_string()],
             ..Sections::default()
-        },
+        }),
         contact: ContactPoint {
             organization: "Organization with\n## Mission".to_string(),
             ..ContactPoint::default()
@@ -1003,19 +943,32 @@ fn test_markdown_body_values_round_trip_structural_text() {
     );
 }
 #[test]
-fn test_markdown_normalizes_empty_required_frontmatter_lists() {
+fn test_markdown_normalizes_empty_frontmatter_lists() {
     let canonical = ResearchActivity::default().to_markdown();
-    for replacement in ["", " null"] {
-        let markdown = canonical
-            .replace("  keywords: []", &format!("  keywords:{replacement}"))
-            .replace("  technology: []", &format!("  technology:{replacement}"));
-        let parsed = ResearchActivity::from_markdown(&markdown).expect("empty required frontmatter lists should parse");
+    for value in ["null", "[]"] {
+        let metadata = format!("  identifier: some-research-project\n  keywords: {value}\n  technology: {value}");
+        let markdown = canonical.replace("  identifier: some-research-project", &metadata);
+        let parsed = ResearchActivity::from_markdown(&markdown).expect("empty frontmatter lists should parse");
         assert!(parsed.meta.keywords.is_empty());
         assert!(parsed.meta.technology.is_empty());
         let serialized = parsed.to_markdown();
-        assert!(serialized.contains("  keywords: []"));
-        assert!(serialized.contains("  technology: []"));
+        assert!(!serialized.contains("  keywords:"));
+        assert!(!serialized.contains("  technology:"));
     }
+}
+#[test]
+fn test_markdown_normalizes_scalar_frontmatter_values() {
+    let canonical = ResearchActivity::default().to_markdown();
+    let markdown = canonical.replace(
+        "  identifier: some-research-project",
+        "  identifier: some-research-project\n  keywords: metadata\n  technology: Rust",
+    );
+    let parsed = ResearchActivity::from_markdown(&markdown).expect("scalar frontmatter values should parse");
+    assert_eq!(parsed.meta.keywords, ["metadata"]);
+    assert_eq!(parsed.meta.technology, ["Rust"]);
+    let serialized = parsed.to_markdown();
+    assert!(serialized.contains("  keywords:\n  - metadata"));
+    assert!(serialized.contains("  technology:\n  - Rust"));
 }
 #[test]
 fn test_markdown_recognizes_quoted_schema_discriminator() {
@@ -1032,14 +985,6 @@ fn test_markdown_rejects_malformed_optional_section() {
         .replace("## Contact", "## Achievement\nnot a list\n\n## Contact");
     let error = ResearchActivity::from_markdown(&markdown).expect_err("malformed optional section should fail");
     assert!(error.to_string().contains("section 'Achievement' must contain only '- ' list items"));
-}
-#[test]
-fn test_markdown_rejects_non_list_required_frontmatter_value() {
-    let markdown = ResearchActivity::default()
-        .to_markdown()
-        .replace("  technology: []", "  technology: Rust");
-    let error = ResearchActivity::from_markdown(&markdown).expect_err("non-list technology should fail");
-    assert!(error.contains("invalid type: string \"Rust\", expected a sequence"));
 }
 #[test]
 fn test_markdown_rejects_undiscriminated_format() {
@@ -1095,6 +1040,118 @@ fn test_metadata() {
         .build();
     assert_eq!(meta.clone().first_image_content_url(), DEFAULT_HREF);
     assert_eq!(meta.first_image_caption(), DEFAULT_CAPTION);
+}
+#[test]
+fn test_metadata_aliases_and_flattened_values_use_canonical_fields() {
+    let mut metadata = serde_json::to_value(ResearchActivityMetadata::default()).expect("metadata should serialize");
+    let metadata = metadata.as_object_mut().expect("metadata is an object");
+    metadata.insert(
+        "dates".to_string(),
+        serde_json::json!([{"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"}]),
+    );
+    metadata.insert("contributors".to_string(), serde_json::json!(" Doe, Jane "));
+    metadata.insert("organizations".to_string(), serde_json::json!([" Example Organization "]));
+    metadata.insert(
+        "sponsors".to_string(),
+        serde_json::json!([" Example Funder ", {"name": "Structured Funder", "awards": []}]),
+    );
+    metadata.insert("related".to_string(), serde_json::json!(" related-activity "));
+    metadata.insert("languages".to_string(), serde_json::json!([" eng ", {"id": "fra", "schemaUri": null}]));
+    metadata.insert("subjects".to_string(), serde_json::json!(" Climate change "));
+    metadata.insert("spatialCoverage".to_string(), serde_json::json!(" US-TN "));
+    metadata.insert("rights".to_string(), serde_json::json!(" Copyright Example "));
+    metadata.insert("access".to_string(), serde_json::json!("open"));
+    let parsed: ResearchActivityMetadata =
+        serde_json::from_value(serde_json::Value::Object(metadata.clone())).expect("aliases and flattened values should deserialize");
+    assert_eq!(parsed.typed_dates.as_ref().expect("dates").len(), 1);
+    assert_eq!(parsed.contributors.as_ref().expect("contributors")[0].name, "Doe, Jane");
+    assert_eq!(parsed.organizations.as_ref().expect("organizations")[0].name, "Example Organization");
+    assert_eq!(parsed.funders.as_ref().expect("funders")[0].name, "Example Funder");
+    assert_eq!(
+        parsed.related_resources.as_ref().expect("related resources")[0].identifier.value,
+        "related-activity"
+    );
+    assert_eq!(parsed.languages.as_ref().expect("languages")[0].id, "eng");
+    assert_eq!(parsed.subjects.as_ref().expect("subjects")[0].subject, "Climate change");
+    assert_eq!(parsed.spatial_coverage.as_ref().expect("spatial coverage")[0].id, "US-TN");
+    assert_eq!(parsed.rights.as_ref().expect("rights")[0].rights.as_deref(), Some("Copyright Example"));
+    assert!(matches!(
+        parsed.access.as_ref().and_then(|access| access.access.as_ref()),
+        Some(RightsAccess::Open)
+    ));
+    let canonical = serde_json::to_value(parsed).expect("metadata should serialize canonically");
+    for alias in ["dates", "sponsors", "related"] {
+        assert!(canonical.get(alias).is_none());
+    }
+    for field in ["typedDates", "funders", "relatedResources"] {
+        assert!(canonical.get(field).is_some());
+    }
+    let mut context = serde_json::to_value(ResearchActivityMetadataContext::default()).expect("context should serialize");
+    let context = context.as_object_mut().expect("context is an object");
+    let funders = context.remove("funders").expect("context contains funders");
+    let related = context.remove("relatedResources").expect("context contains related resources");
+    context.insert("sponsors".to_string(), funders);
+    context.insert("related".to_string(), related);
+    let context: ResearchActivityMetadataContext =
+        serde_json::from_value(serde_json::Value::Object(context.clone())).expect("legacy context aliases should deserialize");
+    let canonical = serde_json::to_value(context).expect("context should serialize canonically");
+    assert!(canonical.get("sponsors").is_none());
+    assert!(canonical.get("related").is_none());
+    assert!(canonical.get("funders").is_some());
+    assert!(canonical.get("relatedResources").is_some());
+}
+#[test]
+fn test_metadata_optional_vectors_accept_one_or_many_values() {
+    let cases = [
+        ("books", serde_json::json!("978-3-16-148410-0")),
+        ("contributors", serde_json::json!("Doe, Jane")),
+        ("doi", serde_json::json!("10.1000/xyz123")),
+        ("enrichment", serde_json::json!({"provider": "osti", "fields": []})),
+        ("funders", serde_json::json!("Example Funder")),
+        ("handle", serde_json::json!("hdl:10013/epic.10033")),
+        ("languages", serde_json::json!("eng")),
+        ("media", serde_json::json!({"caption": "Draft image"})),
+        ("organizations", serde_json::json!("Example Organization")),
+        ("outputs", serde_json::json!({"title": "Output", "keywords": []})),
+        ("partners", serde_json::json!("Example Partner")),
+        ("patents", serde_json::json!("US123")),
+        ("publications", serde_json::json!("https://example.com/publication")),
+        ("raid", serde_json::json!("10.1234/raid.example")),
+        ("relatedResources", serde_json::json!("related-activity")),
+        ("resources", serde_json::json!("CPU")),
+        ("rights", serde_json::json!("Copyright Example")),
+        ("ror", serde_json::json!("https://ror.org/01qz5mb56")),
+        ("spatialCoverage", serde_json::json!("US-TN")),
+        ("swhid", serde_json::json!("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")),
+        ("subjects", serde_json::json!("metadata")),
+        ("typedDates", serde_json::json!({"dateType": "StartDate", "date": "2024-01-15T10:00:00Z"})),
+        ("websites", serde_json::json!({"url": "https://example.com", "description": "Example"})),
+    ];
+    cases.into_iter().for_each(|(field, item)| {
+        let mut metadata = serde_json::json!({"identifier": "one-or-many"});
+        metadata[field] = item;
+        let parsed: ResearchActivityMetadata =
+            serde_json::from_value(metadata).unwrap_or_else(|why| panic!("{field} scalar should deserialize: {why}"));
+        let canonical = serde_json::to_value(parsed).unwrap_or_else(|why| panic!("{field} should serialize: {why}"));
+        assert_eq!(
+            canonical[field].as_array().map(Vec::len),
+            Some(1),
+            "{field} should serialize canonically as a one-item array"
+        );
+    });
+}
+#[test]
+fn test_metadata_optional_vectors_preserve_absent_null_and_empty_states() {
+    let absent: ResearchActivityMetadata = serde_json::from_value(serde_json::json!({"identifier": "absent"})).expect("absent vectors");
+    assert!(absent.partners.is_none());
+    let null: ResearchActivityMetadata = serde_json::from_value(serde_json::json!({"identifier": "null", "partners": null})).expect("null vector");
+    assert!(null.partners.is_none());
+    let empty: ResearchActivityMetadata = serde_json::from_value(serde_json::json!({"identifier": "empty", "partners": []})).expect("empty vector");
+    assert_eq!(empty.partners, Some(OneOrMany::Many(Vec::new())));
+    assert_eq!(
+        serde_json::to_value(empty).expect("serialize empty vector")["partners"],
+        serde_json::json!([])
+    );
 }
 #[test]
 fn test_metadata_resources_roundtrip() {
@@ -1256,51 +1313,23 @@ fn test_research_activity_default() {
     );
 }
 #[test]
-fn test_with_derive_updates_activity_and_metadata_immutably() {
-    let metadata = ResearchActivityMetadata::default();
-    let updated_metadata = metadata.clone().with_archive(true).with_identifier("updated-activity");
-    assert!(!metadata.archive);
-    assert_eq!(metadata.identifier, "some-research-project");
-    assert!(updated_metadata.archive);
-    assert_eq!(updated_metadata.identifier, "updated-activity");
-    let activity = ResearchActivity::default();
-    let updated_activity = activity
-        .clone()
-        .with_meta(updated_metadata)
-        .with_subtitle(Some("Updated subtitle".to_string()))
-        .with_title("Updated research activity");
-    assert_eq!(activity.title, "Research Activity Title");
-    assert_eq!(activity.subtitle, None);
-    assert_eq!(updated_activity.title, "Updated research activity");
-    assert_eq!(updated_activity.subtitle.as_deref(), Some("Updated subtitle"));
-    assert_eq!(updated_activity.meta.identifier, "updated-activity");
-    let linked = updated_activity.with_context();
-    assert!(linked.context.is_some());
-    assert!(linked.meta.context.is_some());
-}
-#[test]
-fn test_with_derive_updates_research_and_sections_immutably() {
-    let research = Research::init().build();
-    let updated_research = research
-        .clone()
-        .with_areas(vec!["Materials science".to_string()])
-        .with_focus("Updated research focus");
-    assert_eq!(research.focus, "Focus of the research");
-    assert_eq!(research.areas, vec!["Areas of research"]);
-    assert_eq!(updated_research.focus, "Updated research focus");
-    assert_eq!(updated_research.areas, vec!["Materials science"]);
-    let sections = Sections::init().build();
-    let updated_sections = sections.clone().with_mission("Updated research mission").with_research(updated_research);
-    assert_eq!(sections.mission, "Purpose of the research");
-    assert_eq!(updated_sections.mission, "Updated research mission");
-    assert_eq!(updated_sections.research.focus, "Updated research focus");
+fn test_research_activity_draft_defaults_deserialize_through_eserde() {
+    let mut value = serde_json::to_value(ResearchActivity::default()).expect("default activity should serialize");
+    let metadata = value["meta"].as_object_mut().expect("metadata should be an object");
+    metadata.remove("archive");
+    metadata.remove("draft");
+    let content = serde_json::to_string(&value).expect("draft input should serialize");
+    let parsed = eserde::json::from_str::<ResearchActivity>(&content).expect("sectionless draft should deserialize");
+    assert!(!parsed.meta.archive);
+    assert!(parsed.meta.draft);
+    assert!(parsed.sections.is_none());
 }
 #[test]
 fn test_research_activity_into_cff() {
     let rad = ResearchActivity::default();
     let cff: Cff = rad.into();
     assert_eq!(cff.title, "Research Activity Title");
-    assert_eq!(cff.abstract_text, Some("Purpose of the research".to_string()));
+    assert_eq!(cff.abstract_text, None);
     assert_eq!(cff.cff_version, "1.2.0");
     assert!(matches!(&cff.authors[0], Agent::Person(_)));
     assert!(matches!(&cff.contact.as_ref().unwrap()[0], Agent::Person(_)));
@@ -1376,10 +1405,31 @@ fn test_research_activity_into_cff() {
     assert_eq!(identifier.description.as_deref(), Some("Handle identifier"));
 }
 #[test]
+fn test_research_activity_metadata_defaults_are_applied_and_serialized() {
+    let metadata: ResearchActivityMetadata =
+        serde_json::from_value(serde_json::json!({"identifier": "metadata-defaults"})).expect("metadata defaults should deserialize");
+    assert!(!metadata.archive);
+    assert!(metadata.draft);
+    let canonical = serde_json::to_value(metadata).expect("metadata defaults should serialize");
+    assert_eq!(canonical["archive"], false);
+    assert_eq!(canonical["draft"], true);
+}
+#[test]
 fn test_research_activity_metadata_without_outputs_remains_compatible() {
     let serialized = serde_json::to_string(&ResearchActivityMetadata::default()).expect("default metadata should serialize");
     let parsed: ResearchActivityMetadata = serde_json::from_str(&serialized).expect("metadata without outputs should deserialize");
     assert!(parsed.outputs.is_none());
+}
+#[test]
+fn test_research_activity_sections_are_optional_only_for_drafts() {
+    let draft = ResearchActivity::default();
+    assert!(draft.sections.is_none());
+    assert!(draft.validate().is_ok());
+    let published = draft.clone().with_meta(draft.meta.clone().with_draft(false));
+    let report = published.validate().expect_err("non-draft activity without sections should fail");
+    assert!(report.iter().any(|issue| issue.path == "sections"));
+    let complete = published.with_sections(Some(Sections::default()));
+    assert!(complete.validate().is_ok());
 }
 #[test]
 fn test_research_output_rejects_invalid_identifiers_and_date() {
@@ -1439,14 +1489,17 @@ fn test_to_prose() {
     let default = ResearchActivity::default();
     let prose = default.to_prose();
     assert!(prose.starts_with("Research Activity Title"));
-    assert!(prose.contains("## Mission"));
-    assert!(prose.contains("## Challenge"));
-    assert!(prose.contains("## Approach"));
-    assert!(prose.contains("## Impact"));
+    assert!(!prose.contains("## Mission"));
     assert!(!prose.contains("---"));
     assert!(!prose.contains("classification"));
     assert!(!prose.contains("@"));
     insta::assert_snapshot!("to_prose_default", prose);
+    let with_sections = ResearchActivity::init().sections(Sections::default()).build();
+    let prose = with_sections.to_prose();
+    assert!(prose.contains("## Mission"));
+    assert!(prose.contains("## Challenge"));
+    assert!(prose.contains("## Approach"));
+    assert!(prose.contains("## Impact"));
     let with_subtitle = ResearchActivity::init()
         .title("Test Title".to_string())
         .subtitle("A subtitle".to_string())
@@ -1524,4 +1577,44 @@ fn test_typed_related_resource_with_other() {
         r#"{"identifier":{"value":"10.5072/related"},"relationType":"Other","category":"unexpected"}"#
     )
     .is_err());
+}
+#[test]
+fn test_with_derive_updates_activity_and_metadata_immutably() {
+    let metadata = ResearchActivityMetadata::default();
+    let updated_metadata = metadata.clone().with_archive(true).with_identifier("updated-activity");
+    assert!(!metadata.archive);
+    assert_eq!(metadata.identifier, "some-research-project");
+    assert!(updated_metadata.archive);
+    assert_eq!(updated_metadata.identifier, "updated-activity");
+    let activity = ResearchActivity::default();
+    let updated_activity = activity
+        .clone()
+        .with_meta(updated_metadata)
+        .with_subtitle(Some("Updated subtitle".to_string()))
+        .with_title("Updated research activity");
+    assert_eq!(activity.title, "Research Activity Title");
+    assert_eq!(activity.subtitle, None);
+    assert_eq!(updated_activity.title, "Updated research activity");
+    assert_eq!(updated_activity.subtitle.as_deref(), Some("Updated subtitle"));
+    assert_eq!(updated_activity.meta.identifier, "updated-activity");
+    let linked = updated_activity.with_context();
+    assert!(linked.context.is_some());
+    assert!(linked.meta.context.is_some());
+}
+#[test]
+fn test_with_derive_updates_research_and_sections_immutably() {
+    let research = Research::init().build();
+    let updated_research = research
+        .clone()
+        .with_areas(vec!["Materials science".to_string()])
+        .with_focus("Updated research focus");
+    assert_eq!(research.focus, "Focus of the research");
+    assert_eq!(research.areas, vec!["Areas of research"]);
+    assert_eq!(updated_research.focus, "Updated research focus");
+    assert_eq!(updated_research.areas, vec!["Materials science"]);
+    let sections = Sections::init().build();
+    let updated_sections = sections.clone().with_mission("Updated research mission").with_research(updated_research);
+    assert_eq!(sections.mission, "Purpose of the research");
+    assert_eq!(updated_sections.mission, "Updated research mission");
+    assert_eq!(updated_sections.research.focus, "Updated research focus");
 }

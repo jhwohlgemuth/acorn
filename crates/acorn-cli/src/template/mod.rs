@@ -2,7 +2,7 @@ use acorn::io::ApiResult;
 use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::Label;
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::{Research, ResearchActivity, Sections};
+use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::ContactPoint;
 use color_eyre::eyre::eyre;
 use core::str::from_utf8;
@@ -15,6 +15,7 @@ use percy_dom::prelude::{html, IterableNodes, VirtualNode};
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
+pub(crate) const DRAFT_PLACEHOLDER_ASSET: &str = "draft-placeholder-1920x1280.png";
 pub trait Convert {
     fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode>;
 }
@@ -45,20 +46,20 @@ pub enum TargetLabel {
 }
 struct DataUri {}
 #[derive(Embed)]
-#[folder = "assets/images/"]
-struct Image;
-#[derive(Embed)]
 #[folder = "assets/fonts/"]
 struct Font;
-#[derive(Embed)]
-#[folder = "assets/styles/"]
-struct Style;
 struct HtmlFooter {
     pub label: TargetLabel,
 }
 struct HtmlHead<'a> {
     pub stylesheet: &'a str,
 }
+#[derive(Embed)]
+#[folder = "assets/images/"]
+struct Image;
+#[derive(Embed)]
+#[folder = "assets/styles/"]
+struct Style;
 impl DataUri {
     fn from_bytes(data: &[u8], mime: MimeType) -> String {
         format!("data:{};base64,{}", mime, BASE64.encode(data))
@@ -81,39 +82,6 @@ impl DataUri {
                 | None => Err(eyre!("Missing embedded image asset: {value}")),
             },
             | _ => Err(eyre!("Unsupported embedded asset MIME type: {value}")),
-        }
-    }
-}
-impl Style {
-    pub fn to_string(file_name: String) -> ApiResult<String> {
-        Style::get(&file_name)
-            .map(|EmbeddedFile { data, .. }| data)
-            .ok_or_else(|| eyre!("Missing embedded style asset: {file_name}"))
-            .and_then(|data| {
-                from_utf8(data.as_ref())
-                    .map(str::to_string)
-                    .map_err(|why| eyre!("Invalid UTF-8 in embedded style asset {file_name}: {why}"))
-            })
-    }
-}
-impl TargetLabel {
-    /// Returns a string representing the folder name for the given TargetLabel
-    pub fn folder(self) -> String {
-        match self {
-            | TargetLabel::Bessd => "bessd".to_string(),
-            | TargetLabel::Wpp => "wpp".to_string(),
-            | TargetLabel::Nssd => "nssd".to_string(),
-            | TargetLabel::Ornl => TargetLabel::default().folder().to_owned(),
-        }
-    }
-    /// Returns a TargetLabel based on the given organization name
-    pub fn from_organization(name: &str) -> Self {
-        match name {
-            | "Biological and Environmental Systems Science Directorate" => TargetLabel::Bessd,
-            | "National Security Sciences Division" => TargetLabel::Nssd,
-            | "Oak Ridge National Laboratory" => TargetLabel::Ornl,
-            | "Water Power Program" => TargetLabel::Wpp,
-            | _ => TargetLabel::default(),
         }
     }
 }
@@ -174,15 +142,24 @@ impl Convert for ResearchActivity {
             ..
         } = self;
         let ContactPoint { affiliation, .. } = contact;
-        let Sections {
-            mission,
-            challenge,
-            approach,
-            impact,
-            research,
-            ..
-        } = &self.sections;
-        let Research { focus, areas, .. } = research;
+        let approach = self
+            .sections
+            .as_ref()
+            .map(|sections| sections.approach.join("</li><li>"))
+            .unwrap_or_default();
+        let areas = self
+            .sections
+            .as_ref()
+            .map(|sections| sections.research.areas.join("</li><li>"))
+            .unwrap_or_default();
+        let challenge = self.sections.as_ref().map(|sections| sections.challenge.clone()).unwrap_or_default();
+        let focus = self.sections.as_ref().map(|sections| sections.research.focus.clone()).unwrap_or_default();
+        let impact = self
+            .sections
+            .as_ref()
+            .map(|sections| sections.impact.join("</li><li>"))
+            .unwrap_or_default();
+        let mission = self.sections.as_ref().map(|sections| sections.mission.clone()).unwrap_or_default();
         let label = match affiliation {
             | Some(affiliation) => TargetLabel::from_organization(affiliation),
             | None => TargetLabel::default(),
@@ -191,8 +168,13 @@ impl Convert for ResearchActivity {
         let footer = HtmlFooter { label };
         let folder = label.folder();
         let path = format!("fact-sheet/{folder}/header.jpg");
-        let graphic = meta.clone().first_image_content_url();
         let caption = meta.clone().first_image_caption();
+        let authored_graphic = self.authored_image_url();
+        let graphic_alt = match authored_graphic.is_some() {
+            | true => caption.clone(),
+            | false => "Draft image placeholder; recommended dimensions 1920 by 1280 pixels".to_string(),
+        };
+        let graphic = authored_graphic.map_or_else(|| DataUri::from_asset(DRAFT_PLACEHOLDER_ASSET), Ok);
         let aspect_chart = aspect_chart.map(|bytes| DataUri::from_bytes(bytes, MimeType::Svg));
         let qrcode = match generate_qr_code(&format!("{}/{}", BASE_URL, meta.identifier)) {
             | Some(bytes) => DataUri::from_bytes(&bytes, MimeType::Png),
@@ -202,10 +184,11 @@ impl Convert for ResearchActivity {
             }
         };
         head.render()
-            .and_then(|head| footer.render().map(|footer| (head, footer)))
-            .and_then(|(head, footer)| DataUri::from_asset(&path).map(|header| (head, footer, header)))
-            .and_then(|(head, footer, header)| DataUri::from_asset("logo_leaf.svg").map(|logo| (head, footer, header, logo)))
-            .map(|(head, footer, header, logo)| {
+            .and_then(|head| graphic.map(|graphic| (head, graphic)))
+            .and_then(|(head, graphic)| footer.render().map(|footer| (head, graphic, footer)))
+            .and_then(|(head, graphic, footer)| DataUri::from_asset(&path).map(|header| (head, graphic, footer, header)))
+            .and_then(|(head, graphic, footer, header)| DataUri::from_asset("logo_leaf.svg").map(|logo| (head, graphic, footer, header, logo)))
+            .map(|(head, graphic, footer, header, logo)| {
                 let header_style = format!("background-image: url({header});");
                 html! {
                     <html>
@@ -230,22 +213,22 @@ impl Convert for ResearchActivity {
                                     </section>
                                     <section>
                                         <h3>{ "Approach" }</h3>
-                                        <ul><li>{ approach.join("</li><li>") }</li></ul>
+                                        <ul><li>{ approach }</li></ul>
                                     </section>
                                     <section>
                                         <h3>{ "Impact" }</h3>
-                                        <ul><li>{ impact.join("</li><li>") }</li></ul>
+                                        <ul><li>{ impact }</li></ul>
                                     </section>
                                 </main>
                                 <aside>
                                     <div class="graphic">
-                                        <img src={ graphic }/>
+                                        <img src={ graphic } alt={ graphic_alt }/>
                                     </div>
                                     <div class="caption">{ caption }</div>
                                     <div class="research-focus">
                                         <h3>{ "Research Focus" }</h3>
                                         <p>{ focus }</p>
-                                        <ul><li>{ areas.join("</li><li>") }</li></ul>
+                                        <ul><li>{ areas }</li></ul>
                                     </div>
                                     <div class="codes">
                                         {
@@ -264,6 +247,44 @@ impl Convert for ResearchActivity {
                 }
             })
     }
+}
+impl Style {
+    pub fn to_string(file_name: String) -> ApiResult<String> {
+        Style::get(&file_name)
+            .map(|EmbeddedFile { data, .. }| data)
+            .ok_or_else(|| eyre!("Missing embedded style asset: {file_name}"))
+            .and_then(|data| {
+                from_utf8(data.as_ref())
+                    .map(str::to_string)
+                    .map_err(|why| eyre!("Invalid UTF-8 in embedded style asset {file_name}: {why}"))
+            })
+    }
+}
+impl TargetLabel {
+    /// Returns a string representing the folder name for the given TargetLabel
+    pub fn folder(self) -> String {
+        match self {
+            | TargetLabel::Bessd => "bessd".to_string(),
+            | TargetLabel::Wpp => "wpp".to_string(),
+            | TargetLabel::Nssd => "nssd".to_string(),
+            | TargetLabel::Ornl => TargetLabel::default().folder().to_owned(),
+        }
+    }
+    /// Returns a TargetLabel based on the given organization name
+    pub fn from_organization(name: &str) -> Self {
+        match name {
+            | "Biological and Environmental Systems Science Directorate" => TargetLabel::Bessd,
+            | "National Security Sciences Division" => TargetLabel::Nssd,
+            | "Oak Ridge National Laboratory" => TargetLabel::Ornl,
+            | "Water Power Program" => TargetLabel::Wpp,
+            | _ => TargetLabel::default(),
+        }
+    }
+}
+pub(crate) fn draft_placeholder_bytes() -> ApiResult<Vec<u8>> {
+    Image::get(DRAFT_PLACEHOLDER_ASSET)
+        .map(|file| file.data.into_owned())
+        .ok_or_else(|| eyre!("Missing embedded image asset: {DRAFT_PLACEHOLDER_ASSET}"))
 }
 fn generate_font_faces() -> ApiResult<String> {
     DataUri::from_asset("aptos.ttf")
@@ -306,46 +327,4 @@ fn generate_qr_code(text: &str) -> Option<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{Convert, DataUri, Style};
-    use acorn_schema::research_activity::ResearchActivity;
-
-    #[test]
-    fn test_required_embedded_assets_exist() {
-        let assets = [
-            "aptos.ttf",
-            "aptos_bold.ttf",
-            "aptos_italic.ttf",
-            "fact-sheet/bessd/footer.jpg",
-            "fact-sheet/bessd/header.jpg",
-            "fact-sheet/nssd/footer.jpg",
-            "fact-sheet/nssd/header.jpg",
-            "fact-sheet/wpp/footer.jpg",
-            "fact-sheet/wpp/header.jpg",
-            "logo_doe_white.png",
-            "logo_leaf.svg",
-            "logo_ornl_white.svg",
-        ];
-        assert!(assets.into_iter().all(|asset| DataUri::from_asset(asset).is_ok()));
-        assert!(Style::to_string("project.css".to_string()).is_ok());
-    }
-    #[test]
-    fn test_missing_embedded_assets_return_errors() {
-        assert!(DataUri::from_asset("missing.png").is_err());
-        assert!(Style::to_string("missing.css".to_string()).is_err());
-    }
-    #[test]
-    fn test_aspect_chart_precedes_qr_code_in_shared_container() {
-        let activity: ResearchActivity = serde_json::from_str(include_str!("../../../../tests/fixtures/data/highlight/hecate/index.json"))
-            .expect("HECATE fixture should deserialize");
-        let html = activity
-            .to_html(Some(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"))
-            .expect("fixture should render")
-            .to_string();
-        let codes = html.find("class=\"codes\"").expect("code container should render");
-        let aspect = html.find("class=\"aspect-chart\"").expect("ASPECT chart should render");
-        let qr = html.find("class=\"qrcode\"").expect("QR code should render");
-        assert!(codes < aspect);
-        assert!(aspect < qr);
-    }
-}
+mod tests;
