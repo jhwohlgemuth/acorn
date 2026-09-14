@@ -98,6 +98,7 @@ check: check-portable check-host
 
 check-host:
 	@cargo check -p acorn-lib
+	@cargo check -p acorn-lib --no-default-features --features analysis
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
 

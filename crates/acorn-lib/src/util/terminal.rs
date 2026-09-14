@@ -1,20 +1,20 @@
 //! Terminal output helpers
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::skip;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::prelude::Vec;
 use acorn_core::prelude::{format, String, ToString};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use comfy_table::presets::UTF8_FULL;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use comfy_table::{ContentArrangement, Table};
 #[cfg(feature = "unicode")]
 use console::Emoji;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use owo_colors::{OwoColorize, Style, Styled};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use similar::{
     ChangeTag::{self, Delete, Equal, Insert},
     TextDiff,
@@ -55,24 +55,24 @@ impl Label {
     }
     /// Format a changed label
     pub fn fmt_changed(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!("{}{value}", Self::RERUN)
                 .style(Style::new().yellow().bold().on_default_color())
                 .to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!("{}{value}", Self::RERUN)
         }
     }
     /// Styled dry-run label
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub fn dry_run() -> Styled<&'static &'static str> {
         Self::DRY_RUN.style(Style::new().black().on_yellow())
     }
     /// Plain dry-run label
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(any(feature = "analysis", feature = "std")))]
     pub fn dry_run() -> String {
         String::from(Self::DRY_RUN)
     }
@@ -82,11 +82,11 @@ impl Label {
     }
     /// Format an invalid label
     pub fn fmt_invalid(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.style(Style::new().red().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
@@ -97,11 +97,11 @@ impl Label {
     }
     /// Format a valid label
     pub fn fmt_valid(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.style(Style::new().green().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
@@ -112,11 +112,11 @@ impl Label {
     }
     /// Format a failure label
     pub fn fmt_fail(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!(" ✗ {value} ").style(Style::new().white().on_red()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!(" ✗ {value} ")
         }
@@ -127,11 +127,11 @@ impl Label {
     }
     /// Format a found label
     pub fn fmt_found(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.to_string().style(Style::new().green().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
@@ -142,11 +142,11 @@ impl Label {
     }
     /// Format a not-found label
     pub fn fmt_not_found(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.style(Style::new().red().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
@@ -157,11 +157,11 @@ impl Label {
     }
     /// Format an output label
     pub fn fmt_output(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.style(Style::new().cyan().dimmed().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
@@ -172,24 +172,24 @@ impl Label {
     }
     /// Format a pass label
     pub fn fmt_pass(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!("{}{}", Self::CHECKMARK, value)
                 .style(Style::new().green().bold().on_default_color())
                 .to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!("{}{value}", Self::CHECKMARK)
         }
     }
     /// Read label
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub fn read() -> Styled<&'static &'static str> {
         "READ".style(Style::new().green().on_default_color())
     }
     /// Plain read label
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(any(feature = "analysis", feature = "std")))]
     pub fn read() -> String {
         String::from("READ")
     }
@@ -199,11 +199,11 @@ impl Label {
     }
     /// Format a rejected label
     pub fn fmt_rejected(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!("🛑 {value} ").style(Style::new().red().on_default_color()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!("🛑 {value} ")
         }
@@ -214,11 +214,11 @@ impl Label {
     }
     /// Format a run label
     pub fn fmt_run(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!(" {value} ▶ ").style(Style::new().black().on_yellow()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!(" {value} ▶ ")
         }
@@ -229,13 +229,13 @@ impl Label {
     }
     /// Format a skip label
     pub fn fmt_skip(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             format!("{}{}", Self::CAUTION, value)
                 .style(Style::new().yellow().on_default_color())
                 .to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             format!("{}{value}", Self::CAUTION)
         }
@@ -250,23 +250,23 @@ impl Label {
     }
     /// Format a using label.
     pub fn fmt_using(value: &str) -> String {
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "analysis", feature = "std"))]
         {
             value.style(Style::new().cyan()).to_string()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(any(feature = "analysis", feature = "std")))]
         {
             value.to_string()
         }
     }
 }
 /// Print line-oriented changes with ANSI colors
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn print_changes(old: &str, new: &str) {
     print_changes_with_color(old, new, true);
 }
 /// Print line-oriented changes with optional ANSI colors
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
     let changes = text_diff_changes_with_color(old, new, color);
     if changes.iter().all(|(tag, _)| *tag == Equal) {
@@ -276,7 +276,7 @@ pub fn print_changes_with_color(old: &str, new: &str, color: bool) {
     }
 }
 /// Print rows as a host-formatted table
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn print_values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>)
 where
     T: ToString,
@@ -284,7 +284,7 @@ where
     println!("{}", values_as_table(headers, rows, title));
 }
 /// Render rows as a host-formatted table without writing to stdout
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn values_as_table<T>(headers: Vec<&str>, rows: Vec<Vec<String>>, title: Option<T>) -> String
 where
     T: ToString,
@@ -301,12 +301,12 @@ where
     title.map_or_else(|| table.to_string(), |value| format!("{} \n{table}", value.to_string()))
 }
 /// Return line-oriented diff changes with ANSI colors
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn text_diff_changes(old: &str, new: &str) -> Vec<(ChangeTag, String)> {
     text_diff_changes_with_color(old, new, true)
 }
 /// Return line-oriented diff changes with optional ANSI colors
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn text_diff_changes_with_color(old: &str, new: &str, color: bool) -> Vec<(ChangeTag, String)> {
     TextDiff::from_lines(old, new)
         .iter_all_changes()

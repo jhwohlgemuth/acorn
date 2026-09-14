@@ -11,8 +11,10 @@ use crate::io::database::{CandidateAction, CandidatePersistence, Database, Opera
 use crate::io::document::SourceDocument;
 use crate::io::{standard_project_folder, write_file, ApiResult};
 use crate::util::{values_as_table, Label, StringConversion};
+use crate::LocationExt;
+#[cfg(feature = "agentic")]
+use crate::RepositoryExt;
 use crate::{check, check_err};
-use crate::{LocationExt, RepositoryExt};
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::util::merge_unique;
 use acorn_core::{Location, Repository};
@@ -453,6 +455,7 @@ impl ArtifactCandidate {
             .into_iter()
             .collect()
     }
+    #[cfg(feature = "agentic")]
     /// Enrich this candidate from any overt GitHub or configured GitLab repository URL.
     pub(crate) async fn enrich_repository(self, options: Option<api::gitlab::Options>) -> Self {
         let domain = options.clone().unwrap_or_else(api::gitlab::Options::from_env).domain().to_string();

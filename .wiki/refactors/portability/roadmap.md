@@ -20,6 +20,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - Portable string/byte codecs live on schema types, while path/file behavior lives in the std-only `io::adapter` and `io::document` modules. OpenCode I/O, model-weight persistence, contextual RAD formatting, and RAD Markdown document indexing have moved outward.
 - Schema validation no longer reads `ACORN_DATABASE_PATH`; license and programming-language catalog membership is a host-service concern rather than derive-time schema policy.
 - The `analyzer` feature compiles the check/error/readability model kernel with `alloc`; the `analysis` feature adds native execution and rendering under `analyzer::host`.
+- The native `analysis` feature compiles without the full `std` umbrella and excludes Axum/RMCP server capabilities, DuckDB, doctor, chart, and shell-lint dependencies.
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
 - The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
 - `make check-portable` and the dedicated optional `test-portability` CI job check the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs when invoked manually or by the Saturday weekly schedule.
@@ -55,7 +56,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Validation
 
-Check the default, no-default, alloc, analyzer, std, and WASM target configurations independently. Verified 2026-09-05 with the analyzer-only native and WASM checks, `acorn-wasm` artifact and JavaScript tests, dependency deny policy, focused portable analyzer tests, and full workspace checks.
+Check the default, no-default, alloc, analyzer, analysis, std, and WASM target configurations independently. Verified 2026-09-13 with the standalone native analysis build and 756-test library suite, the 1,682-test workspace suite, analyzer-only native and WASM checks, `acorn-wasm` compilation, dependency deny policy, and default/all-feature library checks. The complete `wasm-pack` artifact gate requires the package tool installed by CI.
 
 # Related plans
 

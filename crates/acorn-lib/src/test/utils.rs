@@ -10,12 +10,15 @@ use crate::cmd;
 use crate::io::command_exists;
 use crate::util::process::CommandOutput;
 use core::time::Duration;
+#[cfg(feature = "agentic")]
 use data_encoding::BASE64;
 use jiff::Timestamp;
+#[cfg(feature = "agentic")]
 use ring::hmac as ring_hmac;
 use std::path::PathBuf;
 use std::time::SystemTime;
 /// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
+#[cfg(feature = "agentic")]
 pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {
     let key_bytes = BASE64.decode(signing_token_base64.strip_prefix("whsec_").unwrap().as_bytes()).unwrap();
     let key = ring_hmac::Key::new(ring_hmac::HMAC_SHA256, &key_bytes);
@@ -24,10 +27,12 @@ pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, web
     format!("v1,{}", BASE64.encode(ring_hmac::sign(&key, &message).as_ref()))
 }
 /// Returns the current UTC time as a Unix timestamp string.
+#[cfg(feature = "agentic")]
 pub(crate) fn current_unix_timestamp() -> String {
     Timestamp::now().as_second().to_string()
 }
 /// Returns a Unix timestamp string that is `stale_by_secs` seconds in the past.
+#[cfg(feature = "agentic")]
 pub(crate) fn stale_unix_timestamp(stale_by_secs: u64) -> String {
     (Timestamp::now().as_second() - stale_by_secs as i64).to_string()
 }

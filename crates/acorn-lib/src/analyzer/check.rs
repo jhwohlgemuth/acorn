@@ -8,17 +8,17 @@ use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
 use crate::{check, check_ok};
 use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::util::MimeType;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::OneOrMany;
 use alloc::borrow::Cow;
 use bon::Builder;
@@ -31,10 +31,10 @@ use strum::{EnumIs, EnumIter, VariantNames};
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 /// Utility type alias for a vector of [`ConversionWarning`]
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub type ConversionWarnings = Vec<ConversionWarning>;
 /// Trait for converting values to an ordered batch of checks.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub trait IntoChecks {
     /// Convert to an ordered batch of checks.
     fn to_checks(&self, uri: Option<String>) -> CheckBatch;
@@ -592,7 +592,7 @@ impl From<CheckBatch> for CheckSummary {
         Self::from(&checks)
     }
 }
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl IntoChecks for ConversionWarnings {
     /// Convert crosswalk conversion warnings into Check objects with Warning severity.
     ///
@@ -687,7 +687,7 @@ impl From<&Map<String, Value>> for Standard {
         }
     }
 }
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl Standard {
     /// Convert serialized content from one metadata standard to another.
     ///
@@ -883,7 +883,7 @@ fn contains_layer_identity(value: &Value) -> bool {
     }
 }
 /// Parse source content and apply a FieldMapping to detect missing optional fields.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 fn process_crosswalk_warnings<T>(
     content: &str,
     mime: &MimeType,

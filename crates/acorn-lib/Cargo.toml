@@ -116,6 +116,7 @@ rhai = { workspace = true, optional = true }
 validator = { workspace = true }
 
 [dev-dependencies]
+axum = { workspace = true, features = ["http1", "json", "tokio"] }
 criterion = "0.8.2"
 indicatif = { workspace = true, features = ["in_memory"] }
 insta = { workspace = true, features = ["json", "yaml"] }
@@ -146,7 +147,7 @@ alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/
 wasm = ["alloc", "acorn-schema/alloc"]
 analyzer = ["alloc"]
 std-core = ["alloc", "acorn-core/std", "acorn-schema/alloc", "jiff/std", "dep:color-eyre"]
-net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:lychee-lib", "dep:tokio", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob"]
+net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:lychee-lib", "dep:tokio", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
 archive = ["std-core", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
 template = ["std-core", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
 progress = ["std-core", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]
@@ -154,7 +155,22 @@ cli-util = ["std-core", "dep:directories", "dep:dotenvy", "dep:which", "dep:is_e
 db = ["std-core", "dep:rusqlite"]
 unicode = ["std-core", "console/std"]
 agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower"]
-analysis = ["analyzer", "std-core", "dep:ariadne", "dep:bat", "dep:polars", "dep:rayon", "dep:rust-ini"]
+analysis = [
+  "analyzer",
+  "archive",
+  "cli-util",
+  "cmd",
+  "db",
+  "net",
+  "progress",
+  "template",
+  "unicode",
+  "dep:ariadne",
+  "dep:bat",
+  "dep:polars",
+  "dep:rayon",
+  "dep:rust-ini",
+]
 chart = ["dep:resvg"]
 default = ["std"]
 doctor = ["std-core", "dep:sysinfo"]

@@ -1,10 +1,10 @@
 use jiff::SignedDuration;
 
 /// Default ACORN HTTP User-Agent header value when std is available.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
 /// Default ACORN HTTP User-Agent header value when std is unavailable.
-#[cfg(not(feature = "std"))]
+#[cfg(not(any(feature = "analysis", feature = "std")))]
 pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
 /// Application name.
 pub const APPLICATION: &str = "acorn";

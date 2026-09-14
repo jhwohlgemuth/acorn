@@ -20,7 +20,7 @@ use schemars::schema_for;
 use tracing::info;
 
 /// Document indexes available to host renderers, keyed by display URI.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub type DocumentIndexes = HashMap<String, Arc<DocumentIndex>>;
 /// Renders analyzer checks using native terminal facilities.
 pub trait Render {
@@ -38,7 +38,7 @@ struct DocumentReport<'a> {
     color: Color,
 }
 /// Host rendering inputs kept separate from portable check values.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 #[derive(Clone, Copy, Debug)]
 pub struct RenderContext<'a> {
     /// Source indexes used for precise diagnostics.
@@ -84,7 +84,7 @@ impl Render for [Check] {
     }
 }
 impl Check {
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex> {
         self.uri
             .as_ref()
@@ -92,7 +92,7 @@ impl Check {
             .map(Arc::as_ref)
     }
     /// Fancy output in contrast with more compressed output of Display impl
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub fn report(&self, document: Option<&DocumentIndex>) {
         let index = self.index;
         let Check {
@@ -292,12 +292,12 @@ impl Check {
             }
         }
     }
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(any(feature = "analysis", feature = "std")))]
     pub fn report(&self) {
         // Portable fallback without document rendering or Vale/HTTP
         tracing::info!(category = %self.category, uri = ?self.uri, message = %self.message, "check report");
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub(crate) fn resolve_locator(self, document: &DocumentIndex) -> Self {
         let prose_locators = match (&self.category, &self.errors) {
             | (CheckCategory::Prose, Some(ErrorKind::Vale(values))) => values.iter().map(|item| self.prose_locator(document, item)).collect(),
@@ -310,16 +310,16 @@ impl Check {
             ..self
         }
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn prose_locator(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<String> {
         self.prose_position(document, item)
             .map(|position| format!("Line {}, Character {}", position.line, position.column))
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn prose_position(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentPosition> {
         self.prose_span(document, item).and_then(|span| document.position(span.0.start))
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn prose_span(&self, document: &DocumentIndex, item: &ValeOutputItem) -> Option<DocumentSpan> {
         match self.data.as_deref() == Some(document.document().content.as_str()) {
             | true => document.span_from_line_columns(item.line, &item.span),
@@ -329,7 +329,7 @@ impl Check {
             },
         }
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub(crate) fn terse(&self, document: Option<&DocumentIndex>) -> String {
         let uri = self.uri.as_deref().unwrap_or_default();
         let positions = document.map_or_else(Vec::new, |document| match (&self.category, &self.kind, &self.errors) {
@@ -395,7 +395,7 @@ impl fmt::Display for Check {
                 }
             },
             | CheckCategory::Prose => {
-                #[cfg(feature = "std")]
+                #[cfg(any(feature = "analysis", feature = "std"))]
                 {
                     match &self.errors {
                         | Some(ErrorKind::Vale(values)) => {
@@ -420,7 +420,7 @@ impl fmt::Display for Check {
                         | None | Some(_) => write!(f, ""),
                     }
                 }
-                #[cfg(not(feature = "std"))]
+                #[cfg(not(any(feature = "analysis", feature = "std")))]
                 {
                     let details = self.message.clone();
                     f.write_str(&format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details))
@@ -582,7 +582,7 @@ impl DocumentIndex {
         })
     }
 }
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl<'a> RenderContext<'a> {
     /// Create a rendering context without source indexes.
     pub fn new(options: &'a ReportOptions) -> Self {
@@ -608,7 +608,7 @@ impl From<CheckSeverity> for ReportKind<'_> {
 }
 impl Standard {
     /// Print JSON or YAML schema for this standard to stdout
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     pub fn to_schema(&self, format: &str) {
         match *self {
             | Standard::ResearchActivityData => ResearchActivity::to_schema(format),
@@ -625,7 +625,7 @@ impl Standard {
     }
 }
 /// Print JSON or YAML schema for type `T` to stdout
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 fn print_schema<T: schemars::JsonSchema>(format: &str) {
     let schema = schema_for!(T);
     let output = match format.to_lowercase().as_str() {

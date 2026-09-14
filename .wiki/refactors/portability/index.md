@@ -6,6 +6,7 @@
 
 ## In Progress
 
+- [Dependency feature defaults](dependency-feature-defaults.md) - Narrow host capability graphs one independently compiling boundary at a time.
 - [no-std and WASM CI](no-std-wasm-ci.md) - Enforce current portable graphs and expand the gate as packages appear.
 
 ## Planned

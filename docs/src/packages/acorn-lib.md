@@ -31,6 +31,14 @@ Applications that need system diagnostics or PowerPoint support can enable those
 cargo add acorn-lib --features doctor,powerpoint
 ```
 
+Native applications that only need ACORN's analysis host can omit the full default feature set:
+
+```sh
+cargo add acorn-lib --no-default-features --features analysis
+```
+
+This feature includes the analyzer's filesystem, network, document, database, and rendering adapters. It excludes the agentic server and MCP stack, system diagnostics, PowerPoint support, and shell linting. The lower-level `analyzer` feature remains the portable, allocation-only analysis kernel.
+
 For the portable data model without host services, use [`acorn-schema`](acorn-schema.md).
 
 ## Immutable updates

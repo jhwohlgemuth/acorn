@@ -9,13 +9,13 @@ use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, St
 use crate::analyzer::error::{DocumentTarget, ErrorKind, ValidatorIssues};
 use crate::analyzer::fair::FairEvidence;
 use crate::analyzer::model::{ValeOutput, ValeOutputItem};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::document::SourceDocument;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::http::get;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::InputOutput;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
 use crate::util::constants::vale::{
@@ -56,7 +56,7 @@ use std::fs::{create_dir_all, remove_file, write, File};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use tar::Archive;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 use which::which;
@@ -91,7 +91,7 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Perform synchronization when supported by the analyzer
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()>;
     /// Retry synchronization when supported by the analyzer.
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn retry_sync(self, options: &ExecutionOptions) -> ApiResult<()>
     where
         Self: Sized,
@@ -155,7 +155,7 @@ impl Analysis for Cff {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
@@ -285,7 +285,7 @@ impl Analysis for datacite::Record {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
@@ -359,7 +359,7 @@ impl Analysis for dcat::Dataset {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
@@ -447,7 +447,7 @@ impl Analysis for Document {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| async move {
             match Self::read(path) {
@@ -524,7 +524,7 @@ impl Analysis for invenio::Record {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
@@ -712,7 +712,7 @@ impl Analysis for ResearchActivity {
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
@@ -1127,7 +1127,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     async fn retry_sync(self, options: &ExecutionOptions) -> ApiResult<()> {
         let command = self.command();
         let mut attempt = 1;

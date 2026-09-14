@@ -11,11 +11,11 @@ status: in-progress
 
 # Current slice
 
-The dedicated optional `test-portability` job runs `make check-portable` on demand and from the weekly extended-test schedule, covering the core, alloc, minimal, analyzer-only native, analyzer-only WASM, and `acorn-wasm` configurations. It also generates a development web package and runs JavaScript-facing tests. `scripts/check-portable-dependencies.sh` rejects host reporting, terminal, database, process, native HTTP, async-runtime, and embedded-asset dependencies from the analyzer-only and `acorn-wasm` graphs.
+The dedicated optional `test-portability` job runs `make check-portable` on demand and from the weekly extended-test schedule, covering the core, alloc, minimal, analyzer-only native, analyzer-only WASM, and `acorn-wasm` configurations. The host check additionally compiles the native analysis-only configuration. The portability job generates a development web package and runs JavaScript-facing tests. `scripts/check-portable-dependencies.sh` rejects host reporting, terminal, database, process, native HTTP, async-runtime, and embedded-asset dependencies from the analyzer-only and `acorn-wasm` graphs, plus unrelated host stacks from the analysis-only graph.
 
 # Current evidence
 
-`Makefile` exposes `check-portable` as the shared local/CI contract, `wasm` as the target-specific compile subset, and `build-wasm` as the artifact and JavaScript-test gate. Portability checks pass `--dev` to the package build while direct release builds retain the optimized profile. `.gitlab-ci.yml` installs the pinned package tool when necessary and offers the complete matrix as a manual or scheduled job in the `extended-test` stage. The active GitLab schedule targets `main` at 04:30 Saturday in `America/New_York` and sets `RUN_EXTENDED_TESTS=true`. Browser-adapter cases remain pending until a concrete browser service is added.
+`Makefile` exposes `check-portable` as the shared local/CI contract, `wasm` as the target-specific compile subset, and `build-wasm` as the artifact and JavaScript-test gate. `check-host` compiles the independently selected native `analysis` feature, while the dependency script rejects unrelated server, MCP, database-engine, doctor, chart, and shell-lint dependencies from that graph. Portability checks pass `--dev` to the package build while direct release builds retain the optimized profile. `.gitlab-ci.yml` installs the pinned package tool when necessary and offers the complete matrix as a manual or scheduled job in the `extended-test` stage. The active GitLab schedule targets `main` at 04:30 Saturday in `America/New_York` and sets `RUN_EXTENDED_TESTS=true`. Browser-adapter cases remain pending until a concrete browser service is added.
 
 # Project code boundaries
 
@@ -32,6 +32,7 @@ The dedicated optional `test-portability` job runs `make check-portable` on dema
 ```text
 cargo check -p acorn-lib --no-default-features
 cargo check -p acorn-lib --no-default-features --features alloc
+cargo check -p acorn-lib --no-default-features --features analysis
 make check-portable
 ```
 

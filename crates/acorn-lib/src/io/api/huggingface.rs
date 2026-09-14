@@ -12,6 +12,7 @@ use crate::util::constants::app::{
 };
 use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
 use crate::util::Label;
+use ::http::HeaderMap;
 use acorn_core::prelude::HashMap;
 use acorn_core::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric};
 use acorn_core::{Location, Repository};
@@ -20,7 +21,6 @@ use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
 use async_trait::async_trait;
-use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::{cmp::Reverse, fmt, ops::Deref};

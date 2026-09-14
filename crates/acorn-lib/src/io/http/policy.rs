@@ -2,8 +2,8 @@
 use crate::io::http::HttpMethod;
 use crate::util::constants::app::{HTTP_RETRY_INITIAL_BACKOFF_MILLISECONDS, HTTP_RETRY_MAX_BACKOFF_SECONDS};
 use crate::util::constants::env::{HTTP_MAX_RETRIES, HTTP_STALL_TIMEOUT};
-use axum::http::header::RETRY_AFTER;
-use axum::http::HeaderMap;
+use http::header::RETRY_AFTER;
+use http::HeaderMap;
 use jiff::{SignedDuration, Timestamp};
 use tower::layer::util::{Identity, Stack};
 use tower::timeout::TimeoutLayer;

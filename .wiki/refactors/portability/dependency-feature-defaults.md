@@ -16,7 +16,9 @@ Host reporting (`color-eyre`), terminal formatting (`console`, `owo-colors`), di
 
 Verified 2026-09-01 against `cargo tree -p acorn-lib --no-default-features` (commit `d05ad1b9` + `28615bac`): `async-trait`, `futures`, `glob` and `shell-words` are now `optional = true` in `crates/acorn-lib/Cargo.toml:35,51-52,77` and wired behind `std` (`Cargo.toml:148-189` `dep:async-trait`, `dep:futures`, `dep:glob`, `dep:shell-words`). The minimal and `alloc` trees no longer resolve them; only `sophia` remains unconditional (`Cargo.toml:97`, `default-features = false`) — deliberately retained because `schema/namespaces.rs:5` uses `sophia::api::ns::Namespace` in portable RDF namespace handling with no host service.
 
-Remaining broad wiring is unresolved rather than a compatibility contract: `analysis`, `agentic`, `cmd`, and `shell-lint` still imply `std`, and the `std` feature still selects unrelated host capabilities. Narrow the in-tree analyzer dependency cut first. Do not add compatibility mappings or extract a crate merely to hide this feature coupling.
+Verified 2026-09-13: `analysis` is now an independently compiling native capability over the existing `analyzer` kernel. It explicitly selects the archive, CLI utility, command, database, network, progress, template, and Unicode capabilities used by analyzer host execution and rendering without selecting the full `std` umbrella. Provider HTTP headers use the `http` crate directly; Axum-backed JSON-RPC, webhook, GitLab automation, and bot modules remain gated by `agentic`. The analysis dependency gate rejects Axum, RMCP, DuckDB, system diagnostics, charts, and shell linting.
+
+Remaining broad wiring is unresolved rather than a compatibility contract: `agentic`, `cmd`, and `shell-lint` still require independently meaningful host cuts, and the `std` feature still selects unrelated host capabilities. Do not add compatibility mappings or extract a crate merely to hide this feature coupling.
 
 # Project code boundaries
 
@@ -37,9 +39,21 @@ Dependency investigation is read-only and can run with any lane. Manifest edits 
 
 Prefer core- or alloc-compatible workspace defaults and enable std-dependent features from `acorn-lib`'s `std` feature.
 
+# Validation
+
+```text
+cargo check -p acorn-lib --no-default-features --features analysis
+cargo test -p acorn-lib --lib --no-default-features --features analysis
+cargo clippy --workspace --no-deps --all-features --all-targets -- -D warnings
+bash scripts/check-portable-dependencies.sh
+make test
+```
+
 # Acceptance criteria
 
 No-default-feature dependency trees contain only the capabilities required by the selected build.
+
+The native analysis slice satisfies this criterion for `--no-default-features --features analysis`; the overall plan remains in progress until the remaining host feature cuts are independently enforced.
 
 # Related plans
 

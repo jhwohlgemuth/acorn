@@ -9,7 +9,7 @@ pub mod readability;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub use check::IntoChecks;
 pub use check::{
     check_readability_for_text, Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Finding, Findings, OutputFormat, Standard,

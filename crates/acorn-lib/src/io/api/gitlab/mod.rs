@@ -1,5 +1,6 @@
 //! Module for interacting with GitLab API
 //!
+#[cfg(feature = "agentic")]
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::{
     self, require_non_empty_secret, Authenticator, Configuration, Credential, DatabasePersistence, EmptyField, Endpoint, Fallback, Identifier, Param,
@@ -30,19 +31,26 @@ use strum::EnumIs;
 use tracing::debug;
 use veil::Redact;
 
+#[cfg(feature = "agentic")]
 pub mod automation;
+#[cfg(feature = "agentic")]
 pub mod bot;
+#[cfg(feature = "agentic")]
 mod effects;
-#[cfg(feature = "analysis")]
+#[cfg(all(feature = "agentic", feature = "analysis"))]
 pub mod intake;
+#[cfg(feature = "agentic")]
 pub mod policy;
-#[cfg(feature = "analysis")]
+#[cfg(all(feature = "agentic", feature = "analysis"))]
 pub mod review;
 pub mod service;
+#[cfg(feature = "agentic")]
 pub mod webhook;
 
+#[cfg(feature = "agentic")]
 pub use policy::{DeploymentConfig, WorkflowEffect, WorkflowOutputMode, WorkflowOutputs, WorkflowPolicy};
 pub use service::*;
+#[cfg(feature = "agentic")]
 pub use webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
 
 /// Type for a GitLab commit status list response
@@ -675,7 +683,8 @@ pub struct Options {
     /// GitLab domain (defaults to gitlab.com)
     #[builder(default = String::from("gitlab.com"))]
     pub domain: String,
-    /// Durable operation queue used to reconcile webhook effects
+    #[cfg(feature = "agentic")]
+    /// Durable operation queue used to reconcile webhook effects.
     pub effects: Option<OperationQueue>,
     /// Project or group identifier
     pub identifier: Option<String>,
@@ -1295,6 +1304,7 @@ impl Configuration for Options {
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
             description: None,
+            #[cfg(feature = "agentic")]
             effects: None,
             path: None,
             page: 1,
@@ -1368,6 +1378,7 @@ impl Options {
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| eyre!("GitLab commit-status description is required"))
     }
+    #[cfg(feature = "agentic")]
     /// Return the durable operation queue, when configured.
     pub fn effects(&self) -> Option<&OperationQueue> {
         self.effects.as_ref()
@@ -1415,6 +1426,7 @@ impl Options {
             ..self
         }
     }
+    #[cfg(feature = "agentic")]
     /// Return a copy of options with a durable operation queue set.
     pub fn with_effects(self, value: OperationQueue) -> Self {
         Self {
@@ -1815,5 +1827,5 @@ impl WorkItemUser {
         }
     }
 }
-#[cfg(test)]
+#[cfg(all(test, feature = "agentic"))]
 mod tests;

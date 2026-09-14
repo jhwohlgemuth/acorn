@@ -2,6 +2,18 @@
 set -euo pipefail
 
 readonly forbidden='^(ammonia|anydoc|arboard|ariadne|async-trait|axum|bat|color-eyre|comfy-table|console|directories|dotenvy|flate2|futures|glob|http|httpdate|indicatif|infer|is_executable|lychee-lib|nanoid|owo-colors|pdf-inspector|percy-dom|polars|rand|rayon|reqwest|ring|rsa|rusqlite|rust-embed|rust-ini|sevenz-rust2|shell-words|shuck-linter|shuck-parser|similar|tar|tera|tokio|tower|which|zip) v'
+readonly forbidden_analysis='^(axum|duckdb|resvg|rmcp|shuck-linter|shuck-parser|sysinfo) v'
+
+check_analysis_tree() {
+    local tree
+    local matches
+    tree="$(cargo tree --locked -p acorn-lib --no-default-features --features analysis --edges normal --prefix none)"
+    matches="$(printf '%s\n' "$tree" | grep -E "$forbidden_analysis" || true)"
+    if [[ -n "$matches" ]]; then
+        printf 'Unrelated host dependencies leaked into the analysis graph:\n%s\n' "$matches" >&2
+        exit 1
+    fi
+}
 
 check_tree() {
     local label="$1"
@@ -27,6 +39,7 @@ check_wasm_tree() {
     fi
 }
 
+check_analysis_tree
 check_tree native
 check_tree wasm --target wasm32-unknown-unknown
 check_wasm_tree

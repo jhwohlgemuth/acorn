@@ -33,7 +33,7 @@ pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
 use color_eyre::eyre::{eyre, Report};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use console::{measure_text_width, strip_ansi_codes};
 use core::fmt;
 use core::iter::once;
@@ -84,7 +84,7 @@ use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
 use urlencoding::encode;
 use which::which;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub mod adapter;
 pub mod api;
 mod archive;
@@ -843,7 +843,7 @@ impl FromCommand for SemanticVersion {
     /// let version = SemanticVersion::from_command("cargo").to_string();
     /// assert_eq!(version, "1.90.0");
     /// ```
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn from_command<S>(name: S) -> Option<SemanticVersion>
     where
         S: Into<String> + core::marker::Copy,
@@ -1671,7 +1671,7 @@ pub fn parse_jsonc_cst<T: DeserializeOwned>(content: &str) -> ApiResult<(T, CstR
 ///
 /// The border is rendered with UTF-8 rounded corners and correctly measures ANSI escape sequences and emoji width via `console`.
 /// When `title` is `Some`, it is embedded in the top border as `╭─ {title} ─…─╮`.
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
     let inner = text.to_string();
     let title_string = title.map(|value| value.to_string());

@@ -2,7 +2,7 @@
 //!
 //! This crate provides ACORN services and host adapters. Portable primitives and
 //! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(any(feature = "analysis", feature = "std")), no_std)]
 
 #[cfg(any(feature = "std", feature = "analyzer"))]
 extern crate alloc;
@@ -18,35 +18,35 @@ pub mod doctor;
 pub mod error;
 #[cfg(feature = "exec")]
 pub mod exec;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub mod io;
 pub mod util;
 
 pub use acorn_macros::{Validate, With};
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::api::{github, gitlab, Configuration};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::http::get;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::prelude::{format, String, Vec};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::util::MimeType;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::{Location, Release, Repository, Scheme};
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::ControlledVocabulary;
-#[cfg(all(feature = "std", feature = "analysis"))]
+#[cfg(feature = "analysis")]
 use analyzer::host::runtime::link_check;
-#[cfg(all(feature = "std", feature = "analysis"))]
+#[cfg(feature = "analysis")]
 use analyzer::Check;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use std::path::PathBuf;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use tracing::{debug, error, trace, warn};
 
 /// Native filesystem and content-detection operations for [`Location`].
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub trait LocationExt {
     /// Convert the location URI to a normalized filesystem path.
     fn uri_as_path(&self) -> PathBuf;
@@ -59,7 +59,7 @@ pub trait LocationExt {
     fn exists(self) -> impl core::future::Future<Output = bool> + Send;
 }
 /// Native provider operations for [`Repository`].
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 pub trait RepositoryExt {
     /// Get metadata for the latest repository release.
     fn latest_release(self) -> impl core::future::Future<Output = Option<Release>> + Send;
@@ -71,7 +71,7 @@ pub trait RepositoryExt {
     #[doc(hidden)]
     fn releases(self) -> impl core::future::Future<Output = Vec<Release>> + Send;
 }
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl LocationExt for Location {
     fn uri_as_path(&self) -> PathBuf {
         io::uri_to_path(self.uri().unwrap_or_default())
@@ -103,7 +103,7 @@ impl LocationExt for Location {
         }
     }
 }
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 impl RepositoryExt for Repository {
     async fn latest_release(self) -> Option<Release> {
         self.releases()
@@ -170,5 +170,5 @@ impl RepositoryExt for Repository {
     }
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, any(feature = "analysis", feature = "std")))]
 mod test;

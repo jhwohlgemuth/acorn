@@ -1,7 +1,7 @@
 //! Error module for handling check errors
 use super::readability::score::ReadabilityScore;
 use crate::analyzer::model::ValeOutputItem;
-#[cfg(feature = "std")]
+#[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::document::{DocumentPath, DocumentQuery};
 use acorn_core::prelude::{format, HashMap, String, ToString, Vec};
 use acorn_core::util::MarkdownSupport;
@@ -18,7 +18,7 @@ pub trait DocumentTarget {
     /// Return source text
     fn source_text(&self) -> String;
     /// Return format-neutral criteria for resolving the finding in its original document (host).
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn query(&self) -> DocumentQuery;
 }
 /// ACORN validation error codes used by analyzer diagnostics.
@@ -206,7 +206,7 @@ impl DocumentTarget for ValidatorIssue {
             | None => " ".to_string(),
         }
     }
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "analysis", feature = "std"))]
     fn query(&self) -> DocumentQuery {
         let locator = self.locator();
         let query = DocumentQuery::new().with_path(DocumentPath::parse(&locator));

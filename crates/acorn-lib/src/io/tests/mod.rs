@@ -66,6 +66,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
+#[cfg(feature = "swhid-compute")]
 mod swhid;
 
 const OCI_TEST_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";

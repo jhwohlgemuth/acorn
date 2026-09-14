@@ -16,14 +16,14 @@ use acorn_core::{Location, Repository, Scheme};
 use acorn_schema::agent::AuthenticationScheme;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
-use axum::http::header::{HeaderName, HeaderValue};
-use axum::http::HeaderMap;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::iter::once;
 use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
+use http::header::{HeaderName, HeaderValue};
+use http::HeaderMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;
@@ -48,6 +48,7 @@ pub mod gitlab;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;
+#[cfg(feature = "agentic")]
 pub mod json_rpc;
 pub mod localhost;
 pub mod models_dev;
@@ -62,6 +63,7 @@ pub mod ror;
 pub mod spdx;
 pub mod swhid;
 /// Provider-neutral webhook verification and callback transport contracts.
+#[cfg(feature = "agentic")]
 pub mod webhooks;
 
 lazy_static! {
