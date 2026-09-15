@@ -50,6 +50,16 @@ pub struct Config {
 pub struct Tuple(String, u32);
 
 #[derive(Debug, Clone, PartialEq, With)]
+pub enum Enum {
+    Named {
+        value: String,
+        #[with(skip)]
+        fixed: u32,
+    },
+    Unit,
+}
+
+#[derive(Debug, Clone, PartialEq, With)]
 pub struct Generic<T> {
     value: T,
 }
@@ -136,6 +146,23 @@ fn tuple_with_uses_index_naming() {
     // Into
     let t2 = Tuple("a".into(), 1).with_0("c");
     assert_eq!(t2.0, "c");
+}
+
+#[test]
+fn enum_with_updates_named_variants_and_preserves_other_variants() {
+    let named = Enum::Named {
+        value: "before".to_string(),
+        fixed: 1,
+    }
+    .with_value("after");
+    assert_eq!(
+        named,
+        Enum::Named {
+            value: "after".to_string(),
+            fixed: 1
+        }
+    );
+    assert_eq!(Enum::Unit.with_value("unused"), Enum::Unit);
 }
 
 #[test]

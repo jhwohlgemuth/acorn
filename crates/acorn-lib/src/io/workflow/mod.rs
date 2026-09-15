@@ -5,15 +5,13 @@
 #[cfg(feature = "analysis")]
 use crate::analyzer::Check;
 #[cfg(feature = "exec")]
-use crate::caution;
-#[cfg(feature = "exec")]
-use crate::exec::config;
+use crate::exec::config::{self, ExecutionOrigin};
 #[cfg(feature = "exec")]
 use crate::io::config::application::ApplicationConfiguration;
 use crate::io::enrichment::Enrich;
 use crate::io::{read_file, write_file, ApiResult, FromPath, InputOutput};
 use crate::util::{print_changes_with_color, Label, StringConversion};
-use crate::{fail, LocationExt};
+use crate::{fail, LocationExt, With};
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::{Box, String, Vec};
 use acorn_core::util::MimeType;
@@ -40,7 +38,7 @@ pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, Repository
 /// Options shared by workflow interfaces.
 pub type Options = RuntimeOptions<WorkflowExtension>;
 /// One planned change to a supported data source.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, With)]
 pub enum Change<T> {
     /// A fully planned document rewrite and its optional companion artifact.
     Document {
@@ -99,6 +97,22 @@ pub struct Report {
     /// Number of JSON-LD companion artifacts planned.
     pub linked: usize,
 }
+impl<T> Plan<T> {
+    /// Keep planned companion artifacts while suppressing source-document rewrites.
+    pub fn without_source_changes(self) -> Self {
+        Self {
+            changes: self
+                .changes
+                .into_iter()
+                .map(|change| match change {
+                    | Change::Document { .. } => change.with_changed(false),
+                    #[cfg(feature = "analysis")]
+                    | Change::Check(_) => change,
+                })
+                .collect(),
+        }
+    }
+}
 /// Service for planning and applying workflows for a supported standard.
 #[derive(Clone, Copy, Debug)]
 pub struct Workflow<T>(PhantomData<fn() -> T>);
@@ -123,16 +137,22 @@ impl ApplicationConfiguration {
     ///
     /// Scripts are resolved and evaluated after proposal validation but before application. Any
     /// resolution, compilation, execution, or validation failure aborts with no partial application.
-    pub fn check_scripts<T>(&self, changes: &[Change<T>], project_root: &Path, hook: WorkflowAction) -> ApiResult<Vec<Check>>
+    pub fn check_scripts<T>(&self, changes: &[Change<T>], project_root: &Path, hook: WorkflowAction, origin: ExecutionOrigin) -> ApiResult<Vec<Check>>
     where
         T: serde::Serialize,
     {
-        self.check_script_hooks(changes, project_root, &[hook])
+        self.check_script_hooks(changes, project_root, &[hook], origin)
     }
     /// Run configured Rhai quality gates for an ordered set of workflow hooks.
     ///
     /// Every matching script is resolved and statically compiled before any script is evaluated.
-    pub fn check_script_hooks<T>(&self, changes: &[Change<T>], project_root: &Path, hooks: &[WorkflowAction]) -> ApiResult<Vec<Check>>
+    pub fn check_script_hooks<T>(
+        &self,
+        changes: &[Change<T>],
+        project_root: &Path,
+        hooks: &[WorkflowAction],
+        origin: ExecutionOrigin,
+    ) -> ApiResult<Vec<Check>>
     where
         T: serde::Serialize,
     {
@@ -149,12 +169,9 @@ impl ApplicationConfiguration {
                 | true => Ok(Vec::new()),
                 | false => relevant
                     .iter()
-                    .map(|entry| entry.resolve(project_root))
+                    .map(|entry| entry.resolve(project_root, origin))
                     .collect::<Result<Vec<config::Resolved>, _>>()
                     .and_then(|resolved| {
-                        if resolved.iter().any(|script| script.is_absolute) {
-                            caution!("Absolute scripts require explicit local trust — remote callers must reject");
-                        }
                         changes
                             .iter()
                             .enumerate()
@@ -263,14 +280,23 @@ where
 {
     /// Run configured quality gates before rendering and applying this plan.
     #[cfg(feature = "exec")]
-    pub fn apply(self, options: Options, configuration: &ApplicationConfiguration, project_root: &Path, hooks: &[WorkflowAction]) -> ApiResult<()> {
-        configuration.check_script_hooks(&self.changes, project_root, hooks).and_then(|checks| {
-            checks.iter().for_each(|check| check.report(None));
-            match checks.iter().filter(|check| check.is_failure()).count() {
-                | 0 => self.apply_enriched(options),
-                | failures => Err(eyre!("configured Rhai quality gates found {failures} failure(s)")),
-            }
-        })
+    pub fn apply(
+        self,
+        options: Options,
+        configuration: &ApplicationConfiguration,
+        project_root: &Path,
+        hooks: &[WorkflowAction],
+        origin: ExecutionOrigin,
+    ) -> ApiResult<()> {
+        configuration
+            .check_script_hooks(&self.changes, project_root, hooks, origin)
+            .and_then(|checks| {
+                checks.iter().for_each(|check| check.report(None));
+                match checks.iter().filter(|check| check.is_failure()).count() {
+                    | 0 => self.apply_enriched(options),
+                    | failures => Err(eyre!("configured Rhai quality gates found {failures} failure(s)")),
+                }
+            })
     }
     /// Render and apply an enrichment plan, reporting provider conflicts and failures.
     pub fn apply_enriched(self, options: Options) -> ApiResult<()> {

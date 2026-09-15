@@ -13,12 +13,20 @@
 //! assert_eq!(version.major, 1);
 //! ```
 //!
+#[cfg(any(feature = "exec", feature = "std"))]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
+#[cfg(feature = "exec")]
+use super::constants::app::{
+    MAX_EXEC_ARRAY_SIZE, MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTIONS, MAX_EXEC_FUNCTION_DEPTH, MAX_EXEC_INTERNED_STRINGS, MAX_EXEC_MAP_SIZE,
+    MAX_EXEC_MODULES, MAX_EXEC_OPERATIONS, MAX_EXEC_PROBE_CACHE_ENTRIES, MAX_EXEC_STRING_SIZE, MAX_EXEC_VARIABLES,
+};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
 use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
+#[cfg(feature = "exec")]
+use alloc::collections::VecDeque;
 use bon::Builder;
 use core::fmt;
 use core::iter::{once, successors};
@@ -33,6 +41,8 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(feature = "exec")]
+use std::sync::{Mutex, OnceLock};
 use strum::EnumIs;
 
 /// Trait for augmenting data with linked data context
@@ -1376,16 +1386,38 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
 }
 #[cfg(feature = "exec")]
 fn rhai_probe_compiles(source: &str) -> bool {
-    let mut engine = rhai::Engine::new_raw();
-    engine.disable_symbol("eval");
-    engine.set_max_operations(100_000);
-    engine.set_max_string_size(64 * 1024);
-    engine.set_max_array_size(1024);
-    engine.set_max_map_size(1024);
-    engine.compile(source).is_ok_and(|ast| {
-        let entry_points = ast.iter_functions().filter(|function| function.name == "evaluate").collect::<Vec<_>>();
-        matches!(entry_points.as_slice(), [entry_point] if entry_point.params.len() == 1)
-    })
+    static CACHE: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
+    match cache.lock().is_ok_and(|entries| entries.iter().any(|entry| entry == source)) {
+        | true => true,
+        | false => {
+            let mut engine = rhai::Engine::new_raw();
+            engine.disable_symbol("eval");
+            engine.set_max_array_size(MAX_EXEC_ARRAY_SIZE);
+            engine.set_max_call_levels(MAX_EXEC_FUNCTION_DEPTH);
+            engine.set_max_expr_depths(MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTION_DEPTH);
+            engine.set_max_functions(MAX_EXEC_FUNCTIONS);
+            engine.set_max_map_size(MAX_EXEC_MAP_SIZE);
+            engine.set_max_modules(MAX_EXEC_MODULES);
+            engine.set_max_operations(MAX_EXEC_OPERATIONS);
+            engine.set_max_string_size(MAX_EXEC_STRING_SIZE);
+            engine.set_max_strings_interned(MAX_EXEC_INTERNED_STRINGS);
+            engine.set_max_variables(MAX_EXEC_VARIABLES);
+            let is_valid = engine.compile(source).is_ok_and(|ast| {
+                let entry_points = ast.iter_functions().filter(|function| function.name == "evaluate").collect::<Vec<_>>();
+                matches!(entry_points.as_slice(), [entry_point] if entry_point.params.len() == 1)
+            });
+            if is_valid {
+                let _ = cache.lock().map(|mut entries| {
+                    if entries.len() == MAX_EXEC_PROBE_CACHE_ENTRIES {
+                        entries.pop_front();
+                    }
+                    entries.push_back(source.to_string());
+                });
+            }
+            is_valid
+        }
+    }
 }
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example

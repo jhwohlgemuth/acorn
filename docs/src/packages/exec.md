@@ -36,11 +36,17 @@ Absolute paths require `absolute: true`, are local-only, and emit security warni
 Build with the `exec` feature and pass configuration explicitly when needed:
 
 ```console
+acorn check ./metadata --config ./.acorn.json
 acorn format ./metadata --config ./.acorn.json
 acorn format ./metadata --enrich --config ./.acorn.json
+acorn link ./metadata --config ./.acorn.json
 ```
 
-The format command prepares every proposed document change, resolves and statically compiles every matching script, then evaluates configured `format` and optional `enrich` gates in configuration order. Error findings or execution failures prevent all planned writes. Lower-severity findings are rendered through the analyzer output boundary.
+Configured execution is local-CLI only. TUI, repository snapshots, JSON-RPC, MCP, webhooks, and GitLab automation cannot run project scripts. Absolute scripts are an explicitly warned, non-portable local trust exception.
+
+Every matching script is opened into one bounded snapshot, identified by digest, and compiled before the first evaluation. The context contains `hook`, `path`, `index`, `input`, and `proposed`; input and proposal values are serialized copies without host handles. Error findings or execution failures prevent planned writes, while lower-severity findings use analyzer rendering.
+
+`check` gates join native findings. A `validate` hook runs as part of `acorn check` when schema checks are enabled and is omitted by `--skip schema`. `format` and optional `enrich` gates run after the complete proposal is prepared. `link` gates evaluate every planned companion artifact before any artifact is written.
 
 ## Inference
 

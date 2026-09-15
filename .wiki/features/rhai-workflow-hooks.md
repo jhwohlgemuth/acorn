@@ -11,15 +11,15 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/script/{mod,result}.rs`, `crates/acorn-lib/src/io/workflow/{mod,repository}.rs`, workspace and `acorn-lib` manifests, focused CLI configuration, dedicated tests, documentation, and generated help. Transport and TUI files remain outside the first implementation slice.
-- **Create:** `crates/acorn-lib/src/script/{capability,manifest,hooks}.rs` plus dedicated hook policy and lifecycle fixtures. Reconcile these paths with the implemented script and workflow layout before work begins.
+- **Update:** `crates/acorn-lib/src/exec/{mod,result,runtime,config}.rs`, `crates/acorn-lib/src/io/workflow/{mod,repository}.rs`, workspace and `acorn-lib` manifests, focused CLI configuration, dedicated tests, documentation, and generated help. Transport and TUI files remain outside the first implementation slice.
+- **Create:** `crates/acorn-lib/src/exec/{capability,manifest,hooks}.rs` plus dedicated hook policy and lifecycle fixtures.
 - **Delete:** None.
 
 # Dependencies
 
 This plan is not an implementation candidate until all of the following are true:
 
-1. [Configured Rhai exec](rhai-exec.md) has landed and real use demonstrates a need beyond configuration-authorized, pure workflow quality gates.
+1. [Configured Rhai exec](../../docs/src/packages/exec.md) has landed; real use must still demonstrate a need beyond configuration-authorized, pure workflow quality gates.
 2. Workflow plan/apply and analyzer result boundaries are stable.
 3. Operation effects can express filesystem-read, filesystem-write, network-read, process, credentials, inference, and mutation separately.
 4. A security review chooses in-process capability brokering or process isolation for effectful and untrusted execution.
@@ -35,6 +35,7 @@ Permit a small set of explicitly configured Rhai hooks to propose typed workflow
 - `SafePath` is a useful output-path validator but is not a complete filesystem sandbox or capability broker.
 - JSON-RPC's mutation flag does not express the finer-grained authority required by arbitrary scripts.
 - CLI, TUI, workflow service, and repository automation do not all share one automatic hook path today.
+- Configured capability-free execution is local-CLI only and uses an explicit caller-origin denial boundary; that policy is the prerequisite baseline, not authorization for effectful execution.
 
 # Decisions required before implementation
 

@@ -10,6 +10,11 @@ use acorn::analyzer::host::tabular::checks_to_csv;
 use acorn::analyzer::host::vale::Vale;
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard};
+#[cfg(feature = "exec")]
+use acorn::exec::config::ExecutionOrigin;
+use acorn::io::config::application::{ApplicationConfiguration, Hook};
+#[cfg(feature = "exec")]
+use acorn::io::workflow::{Workflow, WorkflowAction};
 use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
 use acorn::util::constants::env::READABILITY_METRIC;
 use acorn::util::{print_values_as_table, Label};
@@ -18,13 +23,15 @@ use acorn::{fail, skip};
 use acorn_core::options::CommonRuntime;
 use acorn_core::util::{regex_join, suffix, MimeType};
 use acorn_core::Location;
+#[cfg(feature = "exec")]
+use acorn_schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
 use jiff::SignedDuration;
 use std::env::temp_dir;
 use std::fs::{create_dir_all, remove_dir_all, remove_file, write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, error};
 
 trait PrepareLocation {
@@ -188,12 +195,23 @@ fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
         .flat_map(|category| apply_early_exit_policy(category.checks.clone(), &category.category, report.render_context(&options.report)))
         .collect()
 }
-async fn execute(input: Input, options: &AnalysisContext) -> Result<(), Report> {
+async fn execute(input: Input, options: &AnalysisContext, configuration: &ApplicationConfiguration, project_root: &Path) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
     let fair_profiles = Vec::<FairProfile>::from(&report);
     let collected = collect(&report, options);
-    let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
-    handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report))
+    #[cfg(feature = "exec")]
+    let collected = configured_checks(&input.paths, options, configuration, project_root)
+        .await
+        .map(|checks| collected.combine(checks.into()));
+    #[cfg(not(feature = "exec"))]
+    let collected = {
+        let _ = (configuration, project_root);
+        Ok::<CheckBatch, Report>(collected)
+    };
+    collected.and_then(|collected| {
+        let issues = filter_by_visibility(collected.as_slice(), options.report.extension.all);
+        handle(&issues, &fair_profiles, &input.paths, options, report.render_context(&options.report))
+    })
 }
 fn failure_count(issues: &[Check]) -> usize {
     issues.iter().filter(|issue| issue.is_failure()).map(Check::issue_count).sum::<usize>()
@@ -323,6 +341,7 @@ pub async fn run(
     ignore_sync_failure: bool,
     sync_retry_interval: SignedDuration,
     format: &Option<MimeType>,
+    config: &Option<PathBuf>,
 ) -> Result<(), Report> {
     let is_silent = verbose.is_silent();
     let command_options = CommandOptions::init()
@@ -357,7 +376,23 @@ pub async fn run(
                 ignore_sync_failure,
                 sync_retry_interval,
             );
-            run_source(source, &command_options, &options, format.as_ref(), watch).await
+            match ApplicationConfiguration::load_with_path(config) {
+                | Err(why) => Err(why),
+                | Ok((configuration, resolved)) => {
+                    let project_root = ApplicationConfiguration::root(&resolved);
+                    #[cfg(feature = "exec")]
+                    let supported = Ok::<(), Report>(());
+                    #[cfg(not(feature = "exec"))]
+                    let supported = match config.is_some() || configuration.has_hook(Hook::Check) || configuration.has_hook(Hook::Validate) {
+                        | true => Err(eyre!("configured Rhai check hooks require the `exec` feature")),
+                        | false => Ok(()),
+                    };
+                    match supported {
+                        | Ok(()) => run_source(source, &command_options, &options, &configuration, &project_root, format.as_ref(), watch).await,
+                        | Err(why) => Err(why),
+                    }
+                }
+            }
         }
         | Err(why) => Err(why),
     }
@@ -366,17 +401,19 @@ async fn run_source(
     source: InputSource,
     command_options: &CommandOptions,
     options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
     format: Option<&MimeType>,
     watch: Option<WatchOptions>,
 ) -> Result<(), Report> {
     match watch {
         | Some(watch) => match &source {
-            | InputSource::Location(location) => watch_run(location, command_options, options, watch).await,
+            | InputSource::Location(location) => watch_run(location, command_options, options, watch, configuration, project_root).await,
             | InputSource::Text { .. } => Err(eyre!("Standard input and clipboard text cannot be used with --watch")),
         },
         | None => match sync_analyzer_before_check(options).await {
             | Ok(run_options) => match prepare(&source, command_options, format).await {
-                | Ok(prepared) => execute(prepared.value, &run_options).await,
+                | Ok(prepared) => execute(prepared.value, &run_options, configuration, project_root).await,
                 | Err(why) => Err(why),
             },
             | Err(why) => Err(why),
@@ -418,7 +455,14 @@ async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<Analysi
         | Err(why) => Err(why),
     }
 }
-async fn watch_run(location: &Location, command_options: &CommandOptions, options: &AnalysisContext, watch: WatchOptions) -> Result<(), Report> {
+async fn watch_run(
+    location: &Location,
+    command_options: &CommandOptions,
+    options: &AnalysisContext,
+    watch: WatchOptions,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
+) -> Result<(), Report> {
     let scheme = location.scheme();
     let network = scheme.is_http() || scheme.is_https() || command_options.merge_request;
     let roots = match location {
@@ -433,11 +477,38 @@ async fn watch_run(location: &Location, command_options: &CommandOptions, option
                 &roots,
                 WatchOptions { network, ..watch },
                 || location.prepare(command_options),
-                |input| execute(input, &run_options),
+                |input| execute(input, &run_options, configuration, project_root),
             )
             .await
         }
         | Err(why) => Err(why),
+    }
+}
+#[cfg(feature = "exec")]
+async fn configured_checks(
+    paths: &[PathBuf],
+    options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
+) -> Result<Vec<Check>, Report> {
+    let should_validate = !options
+        .analysis
+        .skip
+        .iter()
+        .any(|category| CheckCategory::from(category) == CheckCategory::Schema);
+    let lifecycle_hooks = [
+        configuration.has_hook(Hook::Check).then_some(WorkflowAction::Check),
+        (should_validate && configuration.has_hook(Hook::Validate)).then_some(WorkflowAction::Validate),
+    ];
+    let hooks = lifecycle_hooks.into_iter().flatten().collect::<Vec<_>>();
+    match hooks.is_empty() {
+        | true => Ok(Vec::new()),
+        | false => {
+            let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
+            Workflow::<ResearchActivity>::plan(&sources, Default::default(), None)
+                .await
+                .and_then(|plan| configuration.check_script_hooks(&plan.changes, project_root, &hooks, ExecutionOrigin::Local))
+        }
     }
 }
 #[cfg(test)]

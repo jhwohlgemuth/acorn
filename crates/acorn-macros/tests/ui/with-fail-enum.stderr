@@ -1,8 +1,0 @@
-error: With only works with structs
- --> tests/ui/with-fail-enum.rs:4:1
-  |
-4 | / enum Foo {
-5 | |     A,
-6 | |     B,
-7 | | }
-  | |_^

@@ -1,3 +1,4 @@
+use super::config::ExecutionOrigin;
 use super::parse_version_header;
 use super::result::{ExecutionResult, RhaiExt};
 use super::runtime::{verify_evaluate_entry_point, RhaiRuntime, Runtime};
@@ -163,9 +164,67 @@ fn configured_scripts_compile_completely_before_evaluation() {
         conflicts: Vec::new(),
     }];
     let error = configuration
-        .check_scripts(&changes, temporary.path(), WorkflowAction::Check)
+        .check_scripts(&changes, temporary.path(), WorkflowAction::Check, ExecutionOrigin::Local)
         .expect_err("invalid second script must fail before the first script evaluates");
     assert!(error.to_string().contains("second.rhai` compile error"));
+}
+#[test]
+fn configured_scripts_deny_non_local_callers() {
+    let temporary = tempdir().expect("temporary project");
+    let script_root = temporary.path().join(".acorn");
+    create_dir(&script_root).expect("script directory");
+    write(script_root.join("quality.rhai"), VALID_SOURCE).expect("script");
+    let entry = Entry {
+        path: "quality".to_string(),
+        hooks: vec![Hook::Check],
+        absolute: false,
+    };
+    let error = entry
+        .resolve(temporary.path(), ExecutionOrigin::NonLocal)
+        .expect_err("non-local execution must be denied");
+    assert!(error.to_string().contains("unavailable to non-local callers"));
+}
+#[test]
+fn configured_scripts_use_immutable_compiled_snapshot() {
+    let temporary = tempdir().expect("temporary project");
+    let script_root = temporary.path().join(".acorn");
+    create_dir(&script_root).expect("script directory");
+    let path = script_root.join("quality.rhai");
+    write(&path, VALID_SOURCE).expect("script");
+    let resolved = Entry {
+        path: "quality".to_string(),
+        hooks: vec![Hook::Check],
+        absolute: false,
+    }
+    .resolve(temporary.path(), ExecutionOrigin::Local)
+    .expect("prepared script");
+    write(&path, "invalid after preparation").expect("changed script");
+    assert!(resolved
+        .check("activity.json", &ResearchActivity::default(), 0, WorkflowAction::Check)
+        .expect("prepared AST evaluates")
+        .is_empty());
+}
+#[test]
+fn configured_validate_findings_use_schema_category() {
+    let temporary = tempdir().expect("temporary project");
+    let script_root = temporary.path().join(".acorn");
+    create_dir(&script_root).expect("script directory");
+    let source =
+        "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"rule-1\", severity: \"warning\", message: context.hook}]} }";
+    write(script_root.join("quality.rhai"), source).expect("script");
+    let resolved = Entry {
+        path: "quality".to_string(),
+        hooks: vec![Hook::Validate],
+        absolute: false,
+    }
+    .resolve(temporary.path(), ExecutionOrigin::Local)
+    .expect("prepared script");
+    let checks = resolved
+        .check("activity.json", &ResearchActivity::default(), 0, WorkflowAction::Validate)
+        .expect("validate hook evaluates");
+    let check = checks.first().expect("validate finding");
+    assert_eq!(check.category, CheckCategory::Schema);
+    assert_eq!(check.message, "validate");
 }
 #[test]
 fn infer_explicit_rhai_extension() {
@@ -245,6 +304,11 @@ fn result_validates() {
 fn runtime_missing_entry_fails() {
     let ast = RhaiRuntime::new().compile("// @acorn-exec-v0.2.0\nfn other(x) {}").expect("compile");
     assert!(verify_evaluate_entry_point(&ast).is_err());
+}
+#[test]
+fn runtime_operation_limit_stops_infinite_loop() {
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { loop {} }";
+    assert!(RhaiRuntime::new().check(source, rhai::Map::new()).is_err());
 }
 #[test]
 fn runtime_valid_script_compiles_and_verifies() {

@@ -112,6 +112,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 paste,
                 branch,
                 commit,
+                config: application_config,
                 filter,
                 format,
                 ignore,
@@ -155,6 +156,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 *ignore_sync_failure,
                 resolve_poll_interval(args),
                 format,
+                application_config,
             )
             .await
         }),
@@ -362,9 +364,9 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 path,
                 branch,
                 commit,
+                config: application_config,
                 filter,
                 ignore,
-                config: application_config,
                 dry_run,
                 enrich,
                 no_color,
@@ -478,6 +480,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 path,
                 branch,
                 commit,
+                config: application_config,
                 ignore,
                 dry_run,
                 merge_request,
@@ -485,7 +488,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 ..
             } = arguments.as_ref();
             initialize_database_with_policy(config, true).await?;
-            link::run(path, branch, commit, ignore, *dry_run, *merge_request, verbose).await
+            link::run(path, branch, commit, ignore, application_config, *dry_run, *merge_request, verbose).await
         }),
         | Some(Commands::Skill) => skill::run(),
         | Some(Commands::Sync(arguments)) => {

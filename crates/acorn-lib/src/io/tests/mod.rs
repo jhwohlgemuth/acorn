@@ -20,9 +20,9 @@ use crate::io::oci::{
 use crate::io::{
     archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
     files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, uri_to_path, walk, write_file_bytes,
-    write_rsa_keypair, zip_entries, ContainerTarget, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath, SafePathError,
-    Source, SourceAction, TextOrigin,
+    read_file_snapshot, read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, uri_to_path, walk,
+    write_file_bytes, write_rsa_keypair, zip_entries, ContainerTarget, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath,
+    SafePathError, Source, SourceAction, TextOrigin,
 };
 use crate::util::constants::env::NO_LOCAL_DATABASE;
 use crate::util::constants::oci::{
@@ -1256,6 +1256,17 @@ fn test_path_ext_compares_normalized_paths() {
     assert!(Path::new("./data/input.json").same_as(Path::new("data/input.json")));
     assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
 }
+#[test]
+fn test_path_ext_matches_open_file() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let path = directory.path().join("source.txt");
+    let other = directory.path().join("other.txt");
+    write(&path, "source").expect("write source");
+    write(&other, "other").expect("write other");
+    let file = File::open(&path).expect("open source");
+    assert!(path.as_path().is_open_file(&file));
+    assert!(!other.as_path().is_open_file(&file));
+}
 #[cfg(unix)]
 #[test]
 fn test_path_ext_detects_symlinks() {
@@ -1370,6 +1381,20 @@ fn test_read_file_large_content() {
     let content = read_file(path.clone()).unwrap();
     assert_eq!(content, expected);
     remove_file(path).unwrap();
+}
+#[test]
+fn test_read_file_snapshot_is_bounded_and_uses_open_metadata() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let path = directory.path().join("source.txt");
+    write(&path, "source").expect("write source");
+    let (canonical, content, metadata) = read_file_snapshot(&path, 6).expect("read bounded snapshot");
+    assert_eq!(canonical, path.canonicalize().expect("canonical source"));
+    assert_eq!(content, "source");
+    assert!(metadata.is_file());
+    assert!(read_file_snapshot(&path, 5)
+        .expect_err("reject oversized source")
+        .to_string()
+        .contains("exceeds 5 bytes"));
 }
 #[test]
 fn test_read_large_file() {

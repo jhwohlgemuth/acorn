@@ -619,16 +619,103 @@ fn expand_with(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
     let methods = match &input.data {
         | Data::Struct(data) => match &data.fields {
-            | Fields::Named(fields) => expand_with_named(&fields.named, &config, vis)?,
-            | Fields::Unnamed(fields) => expand_with_unnamed(&fields.unnamed, &config, vis)?,
-            | Fields::Unit => Vec::new(),
+            | Fields::Named(fields) => expand_with_named(&fields.named, &config, vis),
+            | Fields::Unnamed(fields) => expand_with_unnamed(&fields.unnamed, &config, vis),
+            | Fields::Unit => Ok(Vec::new()),
         },
-        | _ => return Err(syn::Error::new_spanned(input, "With only works with structs")),
+        | Data::Enum(data) => expand_with_enum(data, &config, vis),
+        | _ => Err(syn::Error::new_spanned(input, "With only works with structs or enums")),
     };
-    Ok(quote! {
-        impl #impl_generics #name #type_generics #where_clause {
-            #(#methods)*
+    methods.map(|methods| {
+        quote! {
+            impl #impl_generics #name #type_generics #where_clause {
+                #(#methods)*
+            }
         }
+    })
+}
+fn expand_with_enum(data: &syn::DataEnum, config: &WithConfig, vis: &syn::Visibility) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    let candidates = data
+        .variants
+        .iter()
+        .flat_map(|variant| match &variant.fields {
+            | Fields::Named(fields) => fields.named.iter().map(move |field| (variant, field)).collect::<Vec<_>>(),
+            | Fields::Unnamed(_) | Fields::Unit => Vec::new(),
+        })
+        .map(|(variant, field)| extract_with_field_config(&field.attrs).map(|field_config| (variant, field, field_config)))
+        .collect::<syn::Result<Vec<_>>>();
+    candidates.and_then(|candidates| {
+        let duplicate = candidates.iter().enumerate().find_map(|(index, (_, field, config))| {
+            let ident = field.ident.as_ref();
+            (!config.skip)
+                .then_some(ident)
+                .flatten()
+                .and_then(|ident| {
+                    candidates
+                        .iter()
+                        .skip(index.saturating_add(1))
+                        .find(|(_, candidate, candidate_config)| !candidate_config.skip && candidate.ident.as_ref() == Some(ident))
+                })
+                .and(ident)
+        });
+        match duplicate {
+            | Some(ident) => Err(syn::Error::new_spanned(
+                ident,
+                "With requires field names to be unique across enum variants",
+            )),
+            | None => candidates
+                .into_iter()
+                .filter(|(_, _, field_config)| !field_config.skip)
+                .map(|(variant, field, field_config)| expand_with_enum_field(variant, field, field_config, config, vis))
+                .collect(),
+        }
+    })
+}
+fn expand_with_enum_field(
+    variant: &syn::Variant,
+    field: &syn::Field,
+    field_config: WithFieldConfig,
+    config: &WithConfig,
+    vis: &syn::Visibility,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let ident = field
+        .ident
+        .as_ref()
+        .ok_or_else(|| syn::Error::new_spanned(field, "With requires named fields"));
+    ident.and_then(|ident| {
+        let stripped = ident.to_string().trim_start_matches("r#").to_string();
+        let method = format_ident!("{}{}", config.prefix, stripped, span = ident.span());
+        let parameter = format_ident!("__with_{}", stripped, span = ident.span());
+        let ty = &field.ty;
+        let visibility = match field_config.visibility {
+            | Some(WithFieldVisibility::Private) => quote! {},
+            | Some(WithFieldVisibility::Public) => quote! { pub },
+            | None => quote! { #vis },
+        };
+        expand_with_parameter(ty, &parameter, field_config.some).map(|(parameter_ty, value)| {
+            let variant_ident = &variant.ident;
+            let bindings = match &variant.fields {
+                | Fields::Named(fields) => fields.named.iter().filter_map(|field| field.ident.as_ref()).collect::<Vec<_>>(),
+                | Fields::Unnamed(_) | Fields::Unit => Vec::new(),
+            };
+            let patterns = bindings.iter().map(|binding| match *binding == ident {
+                | true => quote! { #binding: _ },
+                | false => quote! { #binding },
+            });
+            let fields = bindings.iter().map(|binding| match *binding == ident {
+                | true => quote! { #binding: #value },
+                | false => quote! { #binding },
+            });
+            quote! {
+                #[doc = ::core::concat!("Setter for `", stringify!(#ident), "` — consumes `self` and returns updated `Self`.")]
+                #visibility fn #method(self, #parameter: #parameter_ty) -> Self {
+                    match self {
+                        Self::#variant_ident { #(#patterns),* } => Self::#variant_ident { #(#fields),* },
+                        other => other,
+                    }
+                }
+            }
+        })
     })
 }
 fn expand_with_parameter(ty: &Type, parameter: &syn::Ident, some: bool) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {

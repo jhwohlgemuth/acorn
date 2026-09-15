@@ -9,7 +9,6 @@
 
 ## Planned
 
-- [Configured Rhai exec extensions](rhai-exec.md) - Infer Rhai through restricted compilation and run capability-free hooks from project-root `.acorn/`, with a warned local-only absolute-path escape hatch.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
 - [Capability-brokered Rhai workflow hooks](rhai-workflow-hooks.md) - Evaluate typed, explicitly trusted Rhai hooks through declared capabilities and transactional workflow boundaries after configured quality gates prove demand.

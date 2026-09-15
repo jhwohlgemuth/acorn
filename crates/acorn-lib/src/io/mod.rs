@@ -68,14 +68,14 @@ use serde_json::Value;
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
 use std::env::{consts, current_dir, temp_dir, var, var_os};
 use std::ffi::OsString;
-use std::fs::{self, canonicalize, create_dir_all, write, File, OpenOptions};
+use std::fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions};
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
 use std::fs::{set_permissions, Permissions};
 use std::io::{self, BufReader, Cursor, Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::symlink as platform_symlink;
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
 use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
@@ -230,6 +230,8 @@ pub trait PathConversion: AsRef<Path> {
 }
 /// Filesystem path comparison extensions.
 pub trait PathExt {
+    /// Return whether this path still identifies the supplied open regular file.
+    fn is_open_file(&self, file: &File) -> bool;
     /// Return split GGUF filename parts as `(group, index, count)`.
     fn to_gguf_parts(&self) -> Option<(String, u64, u64)>;
     /// Return whether a GGUF filename denotes an auxiliary projector or adapter.
@@ -242,6 +244,16 @@ pub trait PathExt {
     fn is_windows(&self) -> bool;
     /// Return whether two paths identify the same absolute path.
     fn same_as(&self, other: &Path) -> bool;
+}
+/// Runtime-agnostic target for container or service execution.
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
+pub enum ContainerTarget {
+    /// Local execution.
+    Local,
+    /// SSH host or alias (`ssh://…` or bare `alias` / `user@alias`).
+    Ssh(Remote),
+    /// Named runtime context/connection (`docker context` / `podman connection`).
+    Context(Location),
 }
 /// The "engine" or "execution method" that determines where and how to run (e.g., "execute") code.
 /// ### Note
@@ -569,6 +581,15 @@ impl PathConversion for Path {
     }
 }
 impl PathExt for Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        let metadata = self.symlink_metadata().ok().zip(file.metadata().ok());
+        #[cfg(unix)]
+        let matches =
+            metadata.is_some_and(|(path, open)| !path.is_symlink() && open.is_file() && path.dev() == open.dev() && path.ino() == open.ino());
+        #[cfg(not(unix))]
+        let matches = metadata.is_some_and(|(path, open)| !path.is_symlink() && open.is_file());
+        matches
+    }
     fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
         self.file_name()
             .and_then(|value| value.to_str())
@@ -648,6 +669,9 @@ impl PathConversion for &Path {
     }
 }
 impl PathExt for &Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        <Path as PathExt>::is_open_file(self, file)
+    }
     fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
         <Path as PathExt>::to_gguf_parts(self)
     }
@@ -751,16 +775,6 @@ impl Remote {
     pub fn location(&self) -> &Location {
         &self.0
     }
-}
-/// Runtime-agnostic target for container or service execution.
-#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
-pub enum ContainerTarget {
-    /// Local execution.
-    Local,
-    /// SSH host or alias (`ssh://…` or bare `alias` / `user@alias`).
-    Ssh(Remote),
-    /// Named runtime context/connection (`docker context` / `podman connection`).
-    Context(Location),
 }
 impl ContainerTarget {
     /// Construct from optional host/context args.
@@ -1765,6 +1779,45 @@ where
             }
         }
     }
+}
+/// Read one bounded UTF-8 snapshot from a regular, non-symlink file.
+///
+/// The path is checked against the open file handle before bytes are read.
+/// The returned tuple contains the canonical path, exact content, and metadata from that handle.
+pub fn read_file_snapshot(path: impl AsRef<Path>, max_bytes: usize) -> ApiResult<(PathBuf, String, Metadata)> {
+    let path = path.as_ref();
+    path.symlink_metadata()
+        .map_err(|why| eyre!("File `{}` metadata — {why}", path.display()))
+        .and_then(|metadata| match (metadata.is_symlink(), metadata.is_file()) {
+            | (true, _) => Err(eyre!("File `{}` must not be a symbolic link", path.display())),
+            | (_, false) => Err(eyre!("File `{}` is not a regular file", path.display())),
+            | _ => File::open(path).map_err(|why| eyre!("Failed to open file `{}` — {why}", path.display())),
+        })
+        .and_then(|file| match path.is_open_file(&file) {
+            | true => file
+                .metadata()
+                .map_err(|why| eyre!("File `{}` open-file metadata — {why}", path.display()))
+                .map(|metadata| (file, metadata)),
+            | false => Err(eyre!("File `{}` changed while it was being opened", path.display())),
+        })
+        .and_then(|(file, metadata)| {
+            let mut bytes = Vec::new();
+            file.take(u64::try_from(max_bytes).unwrap_or(u64::MAX).saturating_add(1))
+                .read_to_end(&mut bytes)
+                .map_err(|why| eyre!("Failed to read file `{}` — {why}", path.display()))
+                .map(|_| (bytes, metadata))
+        })
+        .and_then(|(bytes, metadata)| match bytes.len() > max_bytes {
+            | true => Err(eyre!("File `{}` exceeds {max_bytes} bytes", path.display())),
+            | false => String::from_utf8(bytes)
+                .map_err(|why| eyre!("File `{}` is not valid UTF-8 — {why}", path.display()))
+                .map(|content| (content, metadata)),
+        })
+        .and_then(|(content, metadata)| {
+            canonicalize(path)
+                .map_err(|why| eyre!("Failed to canonicalize file `{}` — {why}", path.display()))
+                .map(|canonical| (canonical, content, metadata))
+        })
 }
 /// Reads large files and returns the contents as a string.
 ///

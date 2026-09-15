@@ -1,11 +1,11 @@
 //! Application configuration integration for executable hooks.
-use crate::analyzer::Check;
+use crate::analyzer::{Check, CheckCategory};
 use crate::caution;
 use crate::exec::result::RhaiExt;
 use crate::exec::runtime::{RhaiRuntime, Runtime};
 use crate::io::config::application::{Entry, Hook};
 use crate::io::workflow::WorkflowAction;
-use crate::io::{ApiResult, Bytes};
+use crate::io::{read_file_snapshot, ApiResult, Bytes};
 use crate::util::constants::app::APPLICATION;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::MAX_EXEC_BYTES;
@@ -16,6 +16,14 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+/// Origin authorized to request configured script execution.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExecutionOrigin {
+    /// An explicit invocation by the local command-line user.
+    Local,
+    /// Any TUI, transport, automation, or repository-snapshot caller.
+    NonLocal,
+}
 /// Resolved script with canonical path and content digest.
 #[derive(Clone, Debug)]
 pub struct Resolved {
@@ -27,58 +35,40 @@ pub struct Resolved {
     pub digest: String,
     /// Whether this script was resolved via absolute trust exception.
     pub is_absolute: bool,
-    source: String,
+    ast: rhai::AST,
 }
 impl Entry {
     /// Resolve this entry relative to the directory containing application configuration.
-    pub fn resolve(&self, project_root: &Path) -> Result<Resolved, Report> {
-        self.validate().map_err(|why| eyre!("{why}")).and_then(|()| {
-            let root = project_root.join(format!(".{APPLICATION}"));
-            let (candidate, is_absolute) = match self.absolute {
-                | true => (PathBuf::from(&self.path), true),
-                | false => (root.join(&self.path), false),
-            };
-            let candidates = match candidate.extension().is_some() {
-                | true => vec![candidate.clone()],
-                | false => vec![candidate.clone(), candidate.with_extension("rhai")],
-            };
-            self.select(&candidates).and_then(|selected| {
-                selected
-                    .symlink_metadata()
-                    .map_err(|why| eyre!("script `{}` metadata — {why}", selected.display()))
-                    .and_then(|metadata| match (metadata.is_symlink(), metadata.is_file()) {
-                        | (true, _) => Err(eyre!("script `{}` must not be a symbolic link", selected.display())),
-                        | (_, false) => Err(eyre!("script `{}` is not a regular file", selected.display())),
-                        | _ => Ok((selected, metadata)),
-                    })
-                    .and_then(|(selected, metadata)| {
-                        let escapes = !is_absolute
-                            && !selected
-                                .canonicalize()
-                                .unwrap_or_else(|_| selected.clone())
-                                .starts_with(root.canonicalize().unwrap_or_else(|_| root.clone()));
-                        match escapes {
-                            | true => Err(eyre!("script `{}` escapes project `.acorn/` directory", self.path)),
-                            | false => Ok((selected, metadata)),
-                        }
-                    })
-                    .and_then(|(selected, metadata)| validate_permissions(&selected, &metadata, is_absolute).map(|()| selected))
-                    .and_then(|selected| {
-                        std::fs::read(&selected)
+    pub fn resolve(&self, project_root: &Path, origin: ExecutionOrigin) -> Result<Resolved, Report> {
+        self.validate().map_err(|why| eyre!("{why}")).and_then(|()| match origin {
+            | ExecutionOrigin::NonLocal => Err(eyre!("configured Rhai scripts are unavailable to non-local callers")),
+            | ExecutionOrigin::Local => {
+                let root = project_root.join(format!(".{APPLICATION}"));
+                let (candidate, is_absolute) = match self.absolute {
+                    | true => (PathBuf::from(&self.path), true),
+                    | false => (root.join(&self.path), false),
+                };
+                let candidates = match candidate.extension().is_some() {
+                    | true => vec![candidate.clone()],
+                    | false => vec![candidate.clone(), candidate.with_extension("rhai")],
+                };
+                self.select(&candidates).and_then(|selected| {
+                    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
+                    let canonical_location = selected.canonicalize().unwrap_or_else(|_| selected.clone());
+                    let is_valid_location = is_absolute || canonical_location.starts_with(canonical_root);
+                    match is_valid_location {
+                        | true => read_file_snapshot(&selected, MAX_EXEC_BYTES)
                             .map_err(|why| eyre!("Failed to read script `{}` — {why}", selected.display()))
-                            .and_then(|bytes| match bytes.len() > MAX_EXEC_BYTES {
-                                | true => Err(eyre!("script `{}` exceeds {} bytes", selected.display(), MAX_EXEC_BYTES)),
-                                | false => Ok((selected, bytes)),
-                            })
-                    })
-                    .and_then(|(selected, bytes)| {
-                        String::from_utf8(bytes)
-                            .map_err(|why| eyre!("script `{}` is not valid UTF-8 — {why}", selected.display()))
-                            .and_then(|source| RhaiRuntime::validate_source(&selected, &source).map(|()| (selected, source)))
-                    })
-                    .map(|(selected, source)| {
+                            .and_then(|(canonical, source, metadata)| {
+                                validate_permissions(&selected, &metadata, is_absolute).map(|()| (canonical, source))
+                            }),
+                        | false => Err(eyre!("script `{}` escapes project `.acorn/` directory", self.path)),
+                    }
+                    .and_then(|(canonical, source)| {
                         let digest = Bytes::from(&source).digest();
-                        let canonical = selected.canonicalize().unwrap_or(selected);
+                        RhaiRuntime::compile_source(&canonical, &source).map(|ast| (canonical, digest, ast))
+                    })
+                    .map(|(canonical, digest, ast)| {
                         match is_absolute {
                             | true => {
                                 caution!(
@@ -96,10 +86,11 @@ impl Entry {
                             canonical,
                             digest,
                             is_absolute,
-                            source,
+                            ast,
                         }
                     })
-            })
+                })
+            }
         })
     }
     fn select(&self, candidates: &[PathBuf]) -> Result<PathBuf, Report> {
@@ -132,6 +123,33 @@ impl PartialEq<WorkflowAction> for Hook {
     }
 }
 impl Resolved {
+    /// Prepare one explicitly supplied local script using the absolute-script trust policy.
+    pub fn direct(path: &Path) -> Result<Self, Report> {
+        read_file_snapshot(path, MAX_EXEC_BYTES)
+            .map_err(|why| eyre!("Failed to read script `{}` — {why}", path.display()))
+            .and_then(|(canonical, source, metadata)| validate_permissions(path, &metadata, true).map(|()| (canonical, source)))
+            .and_then(|(canonical, source)| {
+                let digest = Bytes::from(&source).digest();
+                RhaiRuntime::compile_source(&canonical, &source).map(|ast| {
+                    caution!(
+                        "Explicit script `{}` → canonical `{}` (digest {digest}) — non-portable trust exception",
+                        path.display(),
+                        canonical.display()
+                    );
+                    Self {
+                        entry: Entry {
+                            absolute: true,
+                            hooks: vec![Hook::Check],
+                            path: path.display().to_string(),
+                        },
+                        canonical,
+                        digest,
+                        is_absolute: true,
+                        ast,
+                    }
+                })
+            })
+    }
     /// Evaluate this extension for one workflow document and convert its findings to checks.
     pub fn check<T>(&self, source: &str, data: &T, document_index: usize, hook: WorkflowAction) -> ApiResult<Vec<Check>>
     where
@@ -143,15 +161,18 @@ impl Resolved {
             ..
         } = self;
         let canonical = &self.canonical.display();
-        caution!("Executing script `{path}` (canonical `{canonical}`, digest {digest}) for {hook} on {source}");
+        if self.is_absolute {
+            caution!("Executing absolute script `{path}` (canonical `{canonical}`, digest {digest}) for {hook} on {source}");
+        }
         let mut context = rhai::Map::new();
         context.insert("hook".into(), rhai::Dynamic::from(hook.to_string()));
         context.insert("path".into(), rhai::Dynamic::from(source.to_string()));
         let proposed = serde_json::to_string(data).unwrap_or_else(|_| "{}".to_string());
+        context.insert("input".into(), rhai::Dynamic::from(proposed.clone()));
         context.insert("proposed".into(), rhai::Dynamic::from(proposed));
         context.insert("index".into(), rhai::Dynamic::from(i64::try_from(document_index).unwrap_or(i64::MAX)));
         RhaiRuntime::new()
-            .check(&self.source, context)
+            .check_ast(&self.ast, context)
             .and_then(|dynamic| dynamic.findings().map_err(|why| eyre!("{why}")))
             .map(|findings| {
                 findings
@@ -159,7 +180,12 @@ impl Resolved {
                     .enumerate()
                     .map(|(finding_index, finding)| {
                         let index = document_index.saturating_mul(100).saturating_add(finding_index);
-                        Check::from(finding).with_index(index).with_uri(Some(source.to_string()))
+                        let mut check = Check::from(finding);
+                        check.category = match hook {
+                            | WorkflowAction::Validate => CheckCategory::Schema,
+                            | _ => CheckCategory::Quality,
+                        };
+                        check.with_index(index).with_uri(Some(source.to_string()))
                     })
                     .collect()
             })

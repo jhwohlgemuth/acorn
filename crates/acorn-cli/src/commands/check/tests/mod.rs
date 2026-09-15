@@ -31,8 +31,12 @@ use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
 use jiff::SignedDuration;
+#[cfg(feature = "exec")]
+use std::fs::{create_dir, write};
 use std::fs::{read, read_to_string};
 use std::path::PathBuf;
+#[cfg(feature = "exec")]
+use tempfile::tempdir;
 
 const OFFLINE: bool = true;
 #[test]
@@ -96,6 +100,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         false,
         SignedDuration::from_secs(1),
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
@@ -118,6 +123,44 @@ fn test_check_accepts_piped_text() {
         .expect("run check with standard input");
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
+}
+#[cfg(feature = "exec")]
+#[test]
+fn test_configured_validate_hook_follows_schema_selection() {
+    let temporary = tempdir().expect("temporary project");
+    create_dir(temporary.path().join(".acorn")).expect("script directory");
+    write(
+        temporary.path().join(".acorn/validate.rhai"),
+        "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"validate-gate\", severity: \"error\", message: context.hook}]} }",
+    )
+    .expect("script");
+    let config = temporary.path().join(".acorn.json");
+    write(&config, r#"{"scripts":[{"path":"validate","hooks":["validate"]}]}"#).expect("configuration");
+    let input = fixture_path("data/valid_project/index.json");
+    let base = [
+        "--offline",
+        "--no-local-database",
+        "check",
+        input.to_str().expect("fixture path"),
+        "--config",
+        config.to_str().expect("config path"),
+        "--skip",
+    ];
+    let enabled = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args(base.into_iter().chain(["prose,link,quality,readability,fair,crosswalk"]))
+        .output()
+        .expect("run configured validate hook");
+    assert!(enabled.status.success(), "{}", String::from_utf8_lossy(&enabled.stderr));
+    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",error,schema,"));
+    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",validate,"));
+    let skipped = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args(base.into_iter().chain(["prose,link,schema,quality,readability,fair,crosswalk"]))
+        .output()
+        .expect("run check with schema skipped");
+    assert!(skipped.status.success(), "{}", String::from_utf8_lossy(&skipped.stderr));
+    assert!(!String::from_utf8_lossy(&skipped.stdout).contains(",validate,"));
 }
 #[tokio::test]
 async fn test_check_datacite_standard() -> Result<()> {
@@ -158,6 +201,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         false,
         SignedDuration::from_secs(1),
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -196,6 +240,7 @@ async fn test_check_remote_project() -> Result<()> {
         false,
         SignedDuration::from_secs(1),
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Remote project should be checked: {result:?}");
@@ -229,6 +274,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         false,
         SignedDuration::from_secs(1),
         &None,
+        &None,
     )
     .await;
     assert!(result.is_err());
@@ -260,6 +306,7 @@ async fn test_check_terse_mode() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
     )
     .await;
@@ -293,6 +340,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         false,
         SignedDuration::from_secs(1),
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check: {result:?}");
@@ -324,6 +372,7 @@ async fn test_check_valid_project() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
     )
     .await;
@@ -359,6 +408,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             false,
             SignedDuration::from_secs(1),
             &None,
+            &None,
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -391,6 +441,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
     )
     .await;

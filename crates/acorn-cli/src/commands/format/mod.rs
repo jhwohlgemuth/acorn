@@ -1,5 +1,7 @@
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
+#[cfg(feature = "exec")]
+use acorn::exec::config::ExecutionOrigin;
 use acorn::fail;
 use acorn::io::config::application::{ApplicationConfiguration, Hook};
 use acorn::io::enrichment::Pipeline;
@@ -110,7 +112,7 @@ async fn run_workflow(
                         | true => vec![WorkflowAction::Format, WorkflowAction::Enrich],
                         | false => vec![WorkflowAction::Format],
                     };
-                    plan.apply(workflow_options, configuration, root, &hooks)
+                    plan.apply(workflow_options, configuration, root, &hooks, ExecutionOrigin::Local)
                 }
                 #[cfg(not(feature = "exec"))]
                 | Ok(plan) => {

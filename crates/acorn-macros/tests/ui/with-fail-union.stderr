@@ -1,4 +1,4 @@
-error: With only works with structs
+error: With only works with structs or enums
  --> tests/ui/with-fail-union.rs:4:1
   |
 4 | / union Foo {

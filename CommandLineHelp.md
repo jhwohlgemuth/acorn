@@ -168,6 +168,7 @@ Perform static analysis on research activity data and apply standardized best pr
    Check files that were changed in the last 10 commits &> acorn check --commit HEAD~10..HEAD
 
    See <https://git-scm.com/book/en/v2/Git-Tools-Revision-Selection> for more information of commit ranges
+* `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--disable-website-checks` — Disable website checks that require internet connection
 * `--all` — Include all check results, including suggestions and info messages
 * `-e`, `--exit-on-first-error` — Exit on first error
@@ -963,6 +964,7 @@ Add linked data context to research activity data
 
 * `-b`, `--branch <BRANCH>` — Process files that were changed in a given Git branch
 * `-c`, `--commit <COMMIT>` — Process files that were changed in a given Git commit
+* `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--dry-run` [alias: `what-if`] — Run link without making changes to target file(s). Will print a diff of changes
 * `-i`, `--ignore <REGEX>` — Regex pattern applied to absolute paths of files that determines whether they should be included in processing
 

@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This plan consumes the existing HTTP/offline and gather discovery boundaries. It is independent of [constrained Rhai exec](rhai-exec.md). [Structured extraction inference](structured-extraction-inference.md) may consume its normalized extraction request and provenance after this plan lands.
+This plan consumes the existing HTTP/offline and gather discovery boundaries. It is independent of the implemented [constrained Rhai exec](../../docs/src/packages/exec.md). [Structured extraction inference](structured-extraction-inference.md) may consume its normalized extraction request and provenance after this plan lands.
 
 # Goal
 

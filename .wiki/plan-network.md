@@ -99,7 +99,7 @@ isolate std-only modules   host abstraction traits
 
 ### Scraping and Rhai exec
 
-- [Configured Rhai exec extensions](features/rhai-exec.md) follows the analyzer result-boundary work and establishes capability-free Rhai quality gates with typed `ExecutionResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
+- The implemented [configured Rhai exec extensions](../docs/src/packages/exec.md) establish capability-free local CLI quality gates with typed `ExecutionResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
 - [Deterministic gather scraping](features/deterministic-gather-scraping.md) independently adds bounded HTML fetching and typed CSS extraction under existing HTTP/offline policy.
 - [Structured extraction inference](features/structured-extraction-inference.md) follows deterministic scraping and adds one explicit typed provider adapter before any generic registry is considered.
 - [Capability-brokered Rhai workflow hooks](features/rhai-workflow-hooks.md) follows proven use of constrained scripting, stable workflow/operation-effects contracts, and a separate security review. It is not an implementation candidate while those gates remain open.

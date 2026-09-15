@@ -34,7 +34,7 @@ color-eyre = { workspace = true }
 crossterm = { version = "0.28", features = ["event-stream"] }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }
-directories.workspace = true
+directories = { workspace = true }
 dotenvy = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fancy-regex = { workspace = true }
