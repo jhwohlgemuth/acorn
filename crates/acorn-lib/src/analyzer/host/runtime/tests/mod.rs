@@ -16,6 +16,7 @@ use crate::analyzer::host::vale::{
 };
 use crate::analyzer::{Check, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
+use crate::io::make_executable;
 use crate::test::utils::unique_path;
 use crate::{check, check_ok};
 use acorn_core::options::CommonRuntime;
@@ -30,7 +31,7 @@ use ariadne::ReportKind;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
 use serde_json::Value;
-use std::fs::{create_dir_all, read_to_string, remove_file, write};
+use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 
 #[derive(Validate)]
@@ -847,7 +848,8 @@ async fn test_vale_offline_save_writes_normalized_configuration() {
         .packages(vec![" Google ".to_string(), "Google".to_string()])
         .build()
         .save(true)
-        .await;
+        .await
+        .unwrap();
     let output = read_to_string(&path).unwrap();
     remove_file(path).unwrap();
     assert_eq!(config.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
@@ -952,10 +954,58 @@ fn test_terse_output_includes_resolved_line_and_column() {
 fn test_vale_config_unwrap_or_default_uses_default_values() {
     let value: Option<ValeConfig> = Vec::<ValeConfig>::new().into_iter().next();
     let config = value.unwrap_or_default();
-    assert_eq!(config.path, PathBuf::from("./.vale/.vale.ini"));
+    assert!(config.path.as_os_str().is_empty());
     assert!(!config.packages.is_empty());
     assert!(!config.vocabularies.is_empty());
     assert!(!config.disabled.is_empty());
+}
+#[tokio::test]
+async fn test_vale_custom_directory_is_read_only() {
+    let root = unique_path("vale-custom", "dir");
+    create_dir_all(&root).unwrap();
+    let binary = root.join(if cfg!(windows) { "vale.exe" } else { "vale" });
+    let config_path = root.join(".vale.ini");
+    write(&binary, []).unwrap();
+    assert!(make_executable(&binary));
+    write(&config_path, "StylesPath=styles").unwrap();
+    let vale = Vale::resolve(ValeConfig::default().with_directory(root.clone()), false, false)
+        .await
+        .unwrap();
+    assert_eq!(vale.binary.as_ref(), Some(&binary));
+    assert_eq!(vale.config.as_ref().map(|config| &config.path), Some(&config_path));
+    assert!(!root.join("styles").exists());
+    vale.sync(false, true).await.unwrap();
+    assert!(!root.join("styles").exists());
+    remove_dir_all(root).unwrap();
+}
+#[tokio::test]
+async fn test_vale_custom_directory_missing_binary_fails_without_fallback() {
+    let root = unique_path("vale-custom-missing", "dir");
+    create_dir_all(&root).unwrap();
+    write(root.join(".vale.ini"), "StylesPath=styles").unwrap();
+    let error = Vale::resolve(ValeConfig::default().with_directory(root.clone()), false, false)
+        .await
+        .expect_err("missing custom Vale binary should fail");
+    assert!(error.to_string().contains("Custom Vale executable"));
+    remove_dir_all(root).unwrap();
+}
+#[test]
+fn test_vale_managed_directory_uses_project_cache() {
+    let expected = directories::ProjectDirs::from(
+        crate::util::constants::app::QUALIFIER,
+        crate::util::constants::app::ORGANIZATION,
+        crate::util::constants::app::APPLICATION,
+    )
+    .unwrap()
+    .cache_dir()
+    .join("vale");
+    let vale = Vale::default();
+    assert_eq!(vale.managed_directory().unwrap(), expected);
+    let config = ValeConfig {
+        path: expected.join(".vale.ini"),
+        ..ValeConfig::default()
+    };
+    assert!(!config.custom_directory());
 }
 #[test]
 fn test_vale_output_item_location_matches_prose_display_format() {

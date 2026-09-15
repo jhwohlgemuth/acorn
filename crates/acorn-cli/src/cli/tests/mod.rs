@@ -84,6 +84,14 @@ fn test_check_format_argument() {
     assert!(Arguments::try_parse_from(["acorn", "check", "notes.json", "--format", "json"]).is_err());
 }
 #[test]
+fn test_check_vale_directory_argument() {
+    let arguments = Arguments::try_parse_from(["acorn", "check", "--vale-directory", "/opt/vale"]).expect("parse --vale-directory");
+    match arguments.command {
+        | Some(Commands::Check(arguments)) => assert_eq!(arguments.vale_directory, Some(PathBuf::from("/opt/vale"))),
+        | _ => panic!("expected check arguments"),
+    }
+}
+#[test]
 fn test_cli() {
     Arguments::command().debug_assert();
     assert!(Arguments::try_parse_from(["acorn", "-V"]).is_err());

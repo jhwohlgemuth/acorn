@@ -126,6 +126,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 no_fail,
                 raw,
                 terse,
+                vale_directory,
                 standard,
                 readability_metric,
                 verbose,
@@ -155,6 +156,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 watch,
                 *ignore_sync_failure,
                 resolve_poll_interval(args),
+                vale_directory,
                 format,
                 application_config,
             )

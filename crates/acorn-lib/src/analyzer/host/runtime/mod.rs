@@ -19,13 +19,13 @@ use crate::io::InputOutput;
 use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
 use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
 use crate::util::constants::vale::{
-    CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, DEFAULT_VALE_ROOT, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
+    CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
 };
 use crate::util::process::CommandOutput;
 use crate::util::{Constant, Label, StringConversion};
 use crate::RepositoryExt;
+use crate::{args, cmd, skip};
 use crate::{check, check_err, check_ok};
-use crate::{cmd, skip};
 use acorn_core::prelude::{Arc, HashMap};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::SemanticVersion;
@@ -50,11 +50,11 @@ use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
 use futures::future::{BoxFuture, FutureExt};
 use ini::Ini;
+use is_executable::IsExecutable;
 use lychee_lib::{CacheStatus, Response, Status};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::{create_dir_all, remove_file, write, File};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use tar::Archive;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use tokio::time::sleep;
@@ -79,13 +79,17 @@ pub trait StaticAnalyzer<Config: StaticAnalyzerConfig> {
     /// Get command name (e.g. "vale")
     fn command(&self) -> String;
     /// Download binary
-    async fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> Self;
+    async fn download(self, config: Option<Config>, skip_verify_checksum: bool) -> ApiResult<Self>
+    where
+        Self: Sized;
     /// Download checksum values
     async fn download_checksums(self) -> ApiResult<HashMap<String, String>>;
     /// Extract binary
-    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf;
+    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf>;
     /// Resolve analyzer
-    async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> Self;
+    async fn resolve(_config: Config, _is_offline: bool, _skip_verify_checksum: bool) -> ApiResult<Self>
+    where
+        Self: Sized;
     /// Run analyzer on content
     async fn run(&self, path: PathBuf, content: String, output: Option<String>) -> CheckBatch;
     /// Perform synchronization when supported by the analyzer
@@ -115,9 +119,9 @@ pub trait StaticAnalyzerConfig {
     /// Convert to INI
     async fn ini(self) -> Ini;
     /// Save configuration while respecting offline execution policy.
-    async fn save(self, is_offline: bool) -> Self;
-    /// Set parent path of configuration
-    fn with_path(self, path: PathBuf) -> Self;
+    async fn save(self, is_offline: bool) -> ApiResult<Self>
+    where
+        Self: Sized;
     /// Resolve package source: convert bare package name to download URL or pass through existing URL/path
     fn resolve_package(value: impl AsRef<str>) -> String;
 }
@@ -790,36 +794,73 @@ impl StaticAnalyzer<ValeConfig> for Vale {
     }
     /// Resolve Vale
     /// ### Notes
-    /// - Will use system `vale` command if available
-    /// - Will use local `vale` binary if available (will expect local binary if offline)
-    /// - Will download `vale` binary if not available by other means
-    async fn resolve(config: ValeConfig, is_offline: bool, skip_verify_checksum: bool) -> Vale {
-        fn any_exist<S>(paths: Vec<S>) -> bool
-        where
-            S: Into<PathBuf>,
-        {
-            paths.into_iter().any(|s| s.into().exists())
-        }
-        let root = DEFAULT_VALE_ROOT;
-        let name = "vale";
+    /// - Will use an explicitly configured Vale directory without modifying it
+    /// - Will use the system `vale` command if available
+    /// - Will use the cached binary if available
+    /// - Will download `vale` only when online and not available by other means
+    async fn resolve(config: ValeConfig, is_offline: bool, skip_verify_checksum: bool) -> ApiResult<Vale> {
         let init = Vale::init().build();
-        let vale = if command_exists(name) {
-            let init_with_config = init.with_config(config);
-            init_with_config.with_system_command()
-        } else if is_offline || any_exist(vec![format!("{root}{name}"), format!("{root}{name}.exe")]) {
-            info!("=> {} Local {} binary", Label::using(), name.green().bold());
-            #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-            {
-                init.with_config(config).with_binary(format!("{root}{name}"))
-            }
-            #[cfg(windows)]
-            {
-                init.with_config(config).with_binary(format!("{root}{name}.exe"))
-            }
-        } else {
-            init.download(Some(config), skip_verify_checksum).await
+        let name = init.command();
+        let custom_directory = config.custom_directory();
+        let root = match custom_directory {
+            | true => config
+                .path
+                .parent()
+                .map(Path::to_path_buf)
+                .ok_or_else(|| eyre!("Custom Vale configuration has no parent directory")),
+            | false => init.managed_directory(),
         };
-        vale
+        match root {
+            | Ok(root) => {
+                let config = match custom_directory {
+                    | true => Ok(config.with_custom_directory(true)),
+                    | false => {
+                        config
+                            .with_custom_directory(false)
+                            .with_path(root.join(".vale.ini"))
+                            .save(is_offline)
+                            .await
+                    }
+                };
+                match config {
+                    | Ok(config) => {
+                        let cached_binary = root.join(&name);
+                        let cached_binary = match cfg!(windows) {
+                            | true => cached_binary.with_extension("exe"),
+                            | false => cached_binary,
+                        };
+                        if custom_directory {
+                            match (cached_binary.is_executable(), config.path.is_file()) {
+                                | (true, true) => Ok(init.with_config(config).with_binary(cached_binary)),
+                                | (false, _) => Err(eyre!(
+                                    "Custom Vale executable is missing or is not executable: {}",
+                                    cached_binary.display()
+                                )),
+                                | (_, false) => Err(eyre!("Custom Vale configuration does not exist: {}", config.path.display())),
+                            }
+                        } else if command_exists(&name) {
+                            let vale = init.with_config(config).with_system_command();
+                            match vale.binary.as_ref().is_some_and(|binary| binary.is_executable()) {
+                                | true => Ok(vale),
+                                | false => Err(eyre!("Failed to resolve the system Vale executable")),
+                            }
+                        } else if cached_binary.is_executable() {
+                            info!("=> {} Local {} binary", Label::using(), name.green().bold());
+                            Ok(init.with_config(config).with_binary(cached_binary))
+                        } else if is_offline {
+                            Err(eyre!(
+                                "Vale is unavailable in offline mode; install it on PATH, cache it at {}, or use --vale-directory",
+                                root.display()
+                            ))
+                        } else {
+                            init.download(Some(config), skip_verify_checksum).await
+                        }
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        }
     }
     async fn run(&self, path: PathBuf, content: String, output_format: Option<String>) -> CheckBatch {
         let uri = path.file_name_with_parent();
@@ -918,7 +959,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             }
         }
     }
-    async fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> Vale {
+    async fn download(self, config: Option<ValeConfig>, skip_verify_checksum: bool) -> ApiResult<Vale> {
         let platform = vale::release_filename();
         let release = match self.version {
             | Some(value) => value,
@@ -926,44 +967,52 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         };
         let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_{platform}", self.command());
         info!(url, "=> {} Vale release v{release}", Label::using());
-        let binary = match download_binary(&url, ".").await {
-            | Ok(path) => {
-                if !skip_verify_checksum {
-                    let dowloaded_checksum = match self.clone().download_checksums().await {
-                        | Ok(value) => value.get(&platform).unwrap_or(&String::new()).to_string(),
-                        | Err(_) => "".to_string(),
-                    };
-                    if let Some(calculated) = file_checksum(path.clone(), None) {
-                        if !dowloaded_checksum.eq(&calculated.checksum_value) {
-                            error!(dowloaded_checksum, calculated = calculated.checksum_value, "=> {}", Label::invalid());
-                            let _cleanup = remove_file(path.clone());
+        match config {
+            | Some(config) if config.custom_directory() => Err(eyre!("ACORN does not download into a custom Vale directory")),
+            | Some(config) => match config.path.parent().map(Path::to_path_buf) {
+                | Some(destination) => match download_binary(url.as_str(), destination.clone()).await {
+                    | Ok(archive) => {
+                        let verification = if skip_verify_checksum {
+                            skip!("Checksum verification");
+                            Ok(())
                         } else {
-                            info!(checksum = dowloaded_checksum, "=> {} Checksum verification", Label::pass());
-                        }
-                    };
-                } else {
-                    skip!("Checksum verification");
-                }
-                let destination = match config.clone() {
-                    | Some(value) => value.path.parent().map(Path::to_path_buf).unwrap_or(PathBuf::from("./.vale/")),
-                    | None => PathBuf::from("./.vale/"),
-                };
-                let binary = self.clone().extract(path.clone(), Some(destination));
-                if make_executable(&binary) {
-                    let _cleanup = remove_file(path);
-                    Some(binary)
-                } else {
-                    error!("=> {} {} not executable", Label::fail(), self.command());
-                    None
-                }
-            }
-            | Err(why) => {
-                error!(url, "=> {} {} download — {why}", Label::fail(), self.command());
-                None
-            }
-        };
-        let builder = Vale::init().version(release).maybe_binary(binary);
-        builder.config(config.unwrap_or_default()).build()
+                            match self.clone().download_checksums().await {
+                                | Ok(checksums) => match checksums.get(&platform) {
+                                    | Some(expected) => match file_checksum(archive.clone(), None) {
+                                        | Some(calculated) if expected == &calculated.checksum_value => {
+                                            info!(checksum = expected, "=> {} Checksum verification", Label::pass());
+                                            Ok(())
+                                        }
+                                        | Some(calculated) => Err(eyre!(
+                                            "Vale checksum mismatch: expected {expected}, calculated {}",
+                                            calculated.checksum_value
+                                        )),
+                                        | None => Err(eyre!("Failed to calculate the Vale archive checksum")),
+                                    },
+                                    | None => Err(eyre!("Vale checksums do not include {platform}")),
+                                },
+                                | Err(why) => Err(why),
+                            }
+                        };
+                        let result = match verification {
+                            | Ok(()) => match self.clone().extract(archive.clone(), Some(destination)) {
+                                | Ok(binary) => match make_executable(&binary) {
+                                    | true => Ok(Vale::init().version(release).binary(binary).config(config).build()),
+                                    | false => Err(eyre!("Downloaded Vale binary is not executable: {}", binary.display())),
+                                },
+                                | Err(why) => Err(why),
+                            },
+                            | Err(why) => Err(why),
+                        };
+                        let _cleanup = remove_file(archive);
+                        result
+                    }
+                    | Err(why) => Err(eyre!("Failed to download Vale from {url} — {why}")),
+                },
+                | None => Err(eyre!("Vale configuration has no parent directory")),
+            },
+            | None => Err(eyre!("Vale configuration is required before downloading")),
+        }
     }
     async fn download_checksums(self) -> ApiResult<HashMap<String, String>> {
         let release = match self.version {
@@ -998,132 +1047,108 @@ impl StaticAnalyzer<ValeConfig> for Vale {
             | Err(why) => Err(why),
         }
     }
-    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> PathBuf {
+    fn extract(self, path: PathBuf, destination: Option<PathBuf>) -> ApiResult<PathBuf> {
         let command = self.command();
-        let parent = match destination {
-            | Some(value) => value.to_absolute_path(),
-            | None => format!("./.{command}/"),
-        };
-        let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string();
-        match extension.as_str() {
-            | "7z" | "zip" | "gz" => match extract(path, Some(parent.into()), None) {
-                | Ok(value) => {
-                    let path = value.join(command);
-                    if cfg!(windows) {
-                        path.with_extension("exe")
-                    } else {
-                        path
-                    }
-                }
-                | Err(why) => {
-                    error!("=> {} {command} extract — {why}", Label::fail());
-                    let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
-                    if cfg!(windows) {
-                        path.with_extension("exe")
-                    } else {
-                        path
-                    }
-                }
-            },
-            | "tgz" => match File::open(path) {
-                | Ok(tar_gz) => {
-                    let tar = GzDecoder::new(tar_gz);
-                    let mut archive = Archive::new(tar);
-                    match archive.unpack(parent.clone()) {
-                        | Ok(_) => {
-                            debug!(parent, "=> {} Extracted {command} binary", Label::using());
-                            PathBuf::from(format!("{parent}/{command}"))
-                        }
-                        | Err(why) => {
-                            error!("=> {} {command} extract — {why}", Label::fail());
-                            let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
+        match destination.map(|value| value.to_absolute_path()) {
+            | Some(parent) => {
+                let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_string();
+                match extension.as_str() {
+                    | "7z" | "zip" | "gz" => match extract(path, Some(parent.into()), None) {
+                        | Ok(value) => {
+                            let path = value.join(command);
                             if cfg!(windows) {
-                                path.with_extension("exe")
+                                Ok(path.with_extension("exe"))
                             } else {
-                                path
+                                Ok(path)
                             }
                         }
-                    }
+                        | Err(why) => Err(eyre!("Failed to extract {command} — {why}")),
+                    },
+                    | "tgz" => match File::open(path) {
+                        | Ok(tar_gz) => {
+                            let tar = GzDecoder::new(tar_gz);
+                            let mut archive = Archive::new(tar);
+                            match archive.unpack(parent.clone()) {
+                                | Ok(_) => {
+                                    debug!(parent, "=> {} Extracted {command} binary", Label::using());
+                                    Ok(PathBuf::from(format!("{parent}/{command}")))
+                                }
+                                | Err(why) => Err(eyre!("Failed to extract {command} — {why}")),
+                            }
+                        }
+                        | Err(why) => Err(eyre!("Failed to open the {command} archive — {why}")),
+                    },
+                    | _ => Err(eyre!("Unsupported {command} archive format: {extension}")),
                 }
-                | Err(why) => {
-                    error!("=> {} {command} extract — {why}", Label::fail());
-                    let path = PathBuf::from(DEFAULT_VALE_ROOT).join(command);
-                    if cfg!(windows) {
-                        path.with_extension("exe")
-                    } else {
-                        path
-                    }
-                }
-            },
-            | _ => {
-                error!("=> {} {command} extract — Unsupported format", Label::fail());
-                PathBuf::from(DEFAULT_VALE_ROOT).join(command)
             }
+            | None => Err(eyre!("No extraction directory was provided for {command}")),
         }
     }
     async fn sync(self, is_offline: bool, quiet: bool) -> ApiResult<()> {
-        let command = self.command();
-        let binary_path = match self.binary {
-            | Some(value) => value,
-            | None => {
-                error!("=> {} {} binary", Label::not_found(), command);
-                PathBuf::from(DEFAULT_VALE_ROOT).join(command)
+        match (self.binary, self.config) {
+            | (None, _) => Err(eyre!("Vale executable was not resolved")),
+            | (Some(_), None) => Err(eyre!("Vale configuration was not resolved")),
+            | (Some(binary_path), Some(_)) if !binary_path.is_executable() => {
+                Err(eyre!("Vale executable is missing or is not executable: {}", binary_path.display()))
             }
-        };
-        let config_path = self.config.unwrap_or_default().path;
-        let result: ApiResult<()> = if is_offline {
-            skip!("Vale sync");
-            Ok(())
-        } else {
-            let pipe = || if quiet { Stdio::null() } else { Stdio::inherit() };
-            let status = Command::new(binary_path.clone())
-                .arg("--config")
-                .arg(config_path.clone())
-                .arg("sync")
-                .stdout(pipe())
-                .stderr(pipe())
-                .status();
-            match status {
-                | Ok(value) if value.success() => Ok(()),
-                | Ok(value) => Err(eyre!("Vale sync failed ({value})")),
-                | Err(why) => Err(eyre!("Vale sync failed — {why}")),
-            }
-        };
-        match result {
-            | Ok(_) => {
-                let parent_dir = config_path.parent().map(|p| p.display().to_string()).unwrap_or_default();
-                let parent = format!("{parent_dir}/styles/config/vocabularies/{APPLICATION}");
-                debug!(parent, "=> {} Vocabularies", Label::using());
-                match create_dir_all(parent.clone()) {
-                    | Ok(_) => {}
-                    | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
-                }
-                let acronyms = Constant::last_values("acronyms");
-                let partners = SchemaConstant::nth_values("partners", 1);
-                let sponsors = SchemaConstant::nth_values("sponsors", 1);
-                let abbreviations = Organization::alternative_names();
-                let words = Constant::read_lines("accept.txt");
-                let accept_content = acronyms
-                    .chain(partners)
-                    .chain(sponsors)
-                    .chain(abbreviations)
-                    .chain(words)
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                match write(format!("{parent}/accept.txt"), accept_content.as_bytes()) {
+            | (Some(_), Some(config)) if !config.path.is_file() => Err(eyre!("Vale configuration does not exist: {}", config.path.display())),
+            | (Some(binary_path), Some(config)) => {
+                let custom_directory = config.custom_directory();
+                let config_path = config.path;
+                let result: ApiResult<()> = if is_offline || custom_directory {
+                    skip!("Vale sync");
+                    Ok(())
+                } else {
+                    let arguments = args!["--config", config_path.clone(), "sync"];
+                    let binary = binary_path.to_absolute_path();
+                    let status = match quiet {
+                        | true => cmd!(&binary, arguments).map(|output| output.status),
+                        | false => cmd!(status & binary, arguments),
+                    };
+                    match status {
+                        | Ok(value) if value.success() => Ok(()),
+                        | Ok(value) => Err(eyre!("Vale sync failed ({value})")),
+                        | Err(why) => Err(eyre!("Vale sync failed — {why}")),
+                    }
+                };
+                match result {
+                    | Ok(_) if custom_directory => Ok(()),
                     | Ok(_) => {
-                        let reject_content = Constant::read_lines("reject.txt").join("\n");
-                        match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
-                            | Ok(_) => Ok(()),
-                            | Err(why) => Err(eyre!("Write reject.txt failed — {why}")),
+                        let parent_dir = config_path.parent().map(|p| p.display().to_string()).unwrap_or_default();
+                        let parent = format!("{parent_dir}/styles/config/vocabularies/{APPLICATION}");
+                        debug!(parent, "=> {} Vocabularies", Label::using());
+                        match create_dir_all(parent.clone()) {
+                            | Ok(_) => {}
+                            | Err(why) => error!(directory = parent, "=> {} Create - {why}", Label::fail()),
+                        }
+                        let acronyms = Constant::last_values("acronyms");
+                        let partners = SchemaConstant::nth_values("partners", 1);
+                        let sponsors = SchemaConstant::nth_values("sponsors", 1);
+                        let abbreviations = Organization::alternative_names();
+                        let words = Constant::read_lines("accept.txt");
+                        let accept_content = acronyms
+                            .chain(partners)
+                            .chain(sponsors)
+                            .chain(abbreviations)
+                            .chain(words)
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        match write(format!("{parent}/accept.txt"), accept_content.as_bytes()) {
+                            | Ok(_) => {
+                                let reject_content = Constant::read_lines("reject.txt").join("\n");
+                                match write(format!("{parent}/reject.txt"), reject_content.as_bytes()) {
+                                    | Ok(_) => Ok(()),
+                                    | Err(why) => Err(eyre!("Write reject.txt failed — {why}")),
+                                }
+                            }
+                            | Err(why) => Err(eyre!("Write accept.txt failed — {why}")),
                         }
                     }
-                    | Err(why) => Err(eyre!("Write accept.txt failed — {why}")),
+                    | Err(why) => {
+                        error!(config = config_path.to_absolute_path(), "=> {} Vale sync — {why}", Label::fail());
+                        Err(why)
+                    }
                 }
-            }
-            | Err(why) => {
-                error!(config = config_path.to_absolute_path(), "=> {} Vale sync — {why}", Label::fail());
-                Err(why)
             }
         }
     }
@@ -1212,27 +1237,30 @@ impl StaticAnalyzerConfig for ValeConfig {
     fn resolve_package(value: impl AsRef<str>) -> String {
         ValeConfig::resolve_package(value)
     }
-    async fn save(self, is_offline: bool) -> ValeConfig {
-        let config = self.normalize();
-        let path = config.path.clone();
-        let parent = path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
-        match create_dir_all(parent.clone()) {
-            | Ok(_) => {}
-            | Err(why) => error!(directory = parent.to_absolute_path(), "=> {} Create — {why}", Label::fail()),
-        }
-        let package_url = vale_package_url(is_offline).await;
-        match config.clone().materialize(&package_url).write_to_file(path.clone()) {
-            | Ok(_) => {
-                debug!(path = path.to_absolute_path(), "=> {} Saved configuration", Label::using());
+    async fn save(self, is_offline: bool) -> ApiResult<ValeConfig> {
+        match self.custom_directory() {
+            | true => Err(eyre!("ACORN does not write configuration into a custom Vale directory")),
+            | false => {
+                let config = self.normalize();
+                let path = config.path.clone();
+                match path.parent().map(Path::to_path_buf) {
+                    | Some(parent) => match create_dir_all(&parent) {
+                        | Ok(()) => {
+                            let package_url = vale_package_url(is_offline).await;
+                            match config.clone().materialize(&package_url).write_to_file(path.clone()) {
+                                | Ok(()) => {
+                                    debug!(path = path.to_absolute_path(), "=> {} Saved configuration", Label::using());
+                                    Ok(config)
+                                }
+                                | Err(why) => Err(eyre!("Failed to save Vale configuration at {} — {why}", path.display())),
+                            }
+                        }
+                        | Err(why) => Err(eyre!("Failed to create Vale directory at {} — {why}", parent.display())),
+                    },
+                    | None => Err(eyre!("Vale configuration has no parent directory")),
+                }
             }
-            | Err(why) => {
-                error!("=> {} Save configuration — {why}", Label::fail());
-            }
         }
-        config
-    }
-    fn with_path(self, path: PathBuf) -> Self {
-        Self { path, ..self }
     }
 }
 impl ValeConfig {

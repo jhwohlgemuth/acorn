@@ -3,6 +3,7 @@ use super::runtime::{StaticAnalyzer, StaticAnalyzerConfig};
 use super::vale::ValeConfig;
 use crate::analyzer::check::{OutputFormat, Standard};
 use crate::analyzer::readability::ReadabilityType;
+use crate::io::ApiResult;
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::prelude::Vec;
 use bon::Builder;
@@ -104,12 +105,12 @@ impl Default for ExecutionExtension {
 }
 impl ExecutionExtension {
     /// Resolve the configured static analyzer.
-    pub async fn resolve_analyzer<Analyzer, Config>(&self, runtime: &CommonRuntime, config: Config) -> Analyzer
+    pub async fn resolve_analyzer<Analyzer, Config>(&self, runtime: &CommonRuntime, config: Config) -> ApiResult<Analyzer>
     where
         Analyzer: StaticAnalyzer<Config>,
         Config: StaticAnalyzerConfig + Send,
     {
-        Analyzer::resolve(config.save(runtime.offline).await, runtime.offline, self.skip_verify_checksum).await
+        Analyzer::resolve(config, runtime.offline, self.skip_verify_checksum).await
     }
     /// Return execution policy with analyzer synchronization disabled.
     pub fn without_sync(self) -> Self {

@@ -7,7 +7,7 @@ use acorn::analyzer::host::render::{Render, RenderContext};
 use acorn::analyzer::host::runtime::StaticAnalyzer;
 use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
 use acorn::analyzer::host::tabular::checks_to_csv;
-use acorn::analyzer::host::vale::Vale;
+use acorn::analyzer::host::vale::{Vale, ValeConfig};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard};
 #[cfg(feature = "exec")]
@@ -147,6 +147,7 @@ fn build_analysis_context(
     offline: bool,
     ignore_sync_failure: bool,
     sync_retry_interval: SignedDuration,
+    vale_directory: Option<PathBuf>,
 ) -> AnalysisContext {
     let analysis = AnalysisOptions::init()
         .readability_metric(readability_metric)
@@ -166,6 +167,7 @@ fn build_analysis_context(
                 .ignore_sync_failure(ignore_sync_failure)
                 .skip_verify_checksum(skip_verify_checksum)
                 .sync_retry_interval(sync_retry_interval)
+                .maybe_vale_config(vale_directory.map(|directory| ValeConfig::default().with_directory(directory)))
                 .build(),
         )
         .build();
@@ -340,6 +342,7 @@ pub async fn run(
     watch: Option<WatchOptions>,
     ignore_sync_failure: bool,
     sync_retry_interval: SignedDuration,
+    vale_directory: &Option<PathBuf>,
     format: &Option<MimeType>,
     config: &Option<PathBuf>,
 ) -> Result<(), Report> {
@@ -375,6 +378,7 @@ pub async fn run(
                 offline,
                 ignore_sync_failure,
                 sync_retry_interval,
+                vale_directory.clone(),
             );
             match ApplicationConfiguration::load_with_path(config) {
                 | Err(why) => Err(why),
@@ -431,18 +435,18 @@ async fn sync_analyzer_before_check(options: &AnalysisContext) -> Result<Analysi
     let should_sync = should_sync_analyzer(options);
     let sync_result = match should_sync {
         | false => Ok(()),
-        | true => {
-            options
-                .execution
-                .extension
-                .resolve_analyzer::<Vale, _>(
-                    &options.execution.common,
-                    options.execution.extension.vale_config.clone().unwrap_or_default(),
-                )
-                .await
-                .retry_sync(&options.execution)
-                .await
-        }
+        | true => match options
+            .execution
+            .extension
+            .resolve_analyzer::<Vale, _>(
+                &options.execution.common,
+                options.execution.extension.vale_config.clone().unwrap_or_default(),
+            )
+            .await
+        {
+            | Ok(analyzer) => analyzer.retry_sync(&options.execution).await,
+            | Err(why) => Err(why),
+        },
     };
     match sync_result {
         | Ok(()) => Ok(AnalysisContext {

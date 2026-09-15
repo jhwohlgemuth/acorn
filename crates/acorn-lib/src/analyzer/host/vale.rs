@@ -2,17 +2,22 @@
 //!
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
+use super::runtime::StaticAnalyzer;
 use crate::analyzer::error::DocumentTarget;
 pub use crate::analyzer::model::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
 use crate::io::document::DocumentQuery;
-use crate::util::constants::app::{APPLICATION, ORGANIZATION};
+use crate::io::ApiResult;
+use crate::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER};
 use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
 use crate::util::{is_uri_or_path, Label};
+use crate::With;
 use acorn_core::util::{SemanticVersion, StringExt};
 use ariadne::{Color, ReportKind};
 use bon::Builder;
+use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use derive_more::Display;
+use directories::ProjectDirs;
 use itertools::Itertools;
 use std::env::consts;
 use std::path::PathBuf;
@@ -33,12 +38,14 @@ pub struct Vale {
 /// Vale configuration
 ///
 /// See <https://vale.sh/docs/vale-ini> for more information
-#[derive(Builder, Clone, Debug, Display, Eq, PartialEq)]
+#[derive(Builder, Clone, Debug, Display, Eq, PartialEq, With)]
 #[display("{:?}", path)]
 #[builder(start_fn = init)]
 pub struct ValeConfig {
+    #[builder(default = false)]
+    pub(super) custom_directory: bool,
     /// Path to Vale configuration
-    #[builder(default = PathBuf::from("./.vale/.vale.ini"))]
+    #[builder(default)]
     pub path: PathBuf,
     /// List of Vale packages
     ///
@@ -81,6 +88,14 @@ impl Default for ValeConfig {
         config
     }
 }
+impl Vale {
+    /// Return the platform-standard directory for ACORN-managed Vale artifacts.
+    pub fn managed_directory(&self) -> ApiResult<PathBuf> {
+        ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
+            .map(|directories| directories.cache_dir().join(self.command()))
+            .ok_or_else(|| eyre!("Failed to determine the ACORN cache directory for Vale"))
+    }
+}
 impl ValeConfig {
     /// Apply the deterministic Vale configuration policy in its declared order.
     ///
@@ -90,6 +105,17 @@ impl ValeConfig {
         [Self::normalize_packages, Self::merge_policy, Self::deduplicate]
             .into_iter()
             .fold(self, |config, transform| transform(config))
+    }
+    /// Use an existing Vale installation without modifying or synchronizing it.
+    pub fn with_directory(self, directory: impl Into<PathBuf>) -> Self {
+        Self {
+            path: directory.into().join(".vale.ini"),
+            ..self
+        }
+        .with_custom_directory(true)
+    }
+    pub(crate) fn custom_directory(&self) -> bool {
+        self.custom_directory
     }
     pub(crate) fn resolve_package(value: impl AsRef<str>) -> String {
         let value = value.as_ref().trim();
@@ -115,6 +141,7 @@ impl ValeConfig {
     pub(crate) fn merge_policy(self) -> Self {
         let policy = Self::policy();
         Self {
+            custom_directory: self.custom_directory,
             path: self.path,
             packages: policy.packages.into_iter().chain(self.packages).collect(),
             vocabularies: policy.vocabularies.into_iter().chain(self.vocabularies).collect(),

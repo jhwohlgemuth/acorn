@@ -101,6 +101,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         SignedDuration::from_secs(1),
         &None,
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
@@ -202,6 +203,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         SignedDuration::from_secs(1),
         &None,
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check with no_fail should return Ok even with failures");
@@ -241,6 +243,7 @@ async fn test_check_remote_project() -> Result<()> {
         SignedDuration::from_secs(1),
         &None,
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Remote project should be checked: {result:?}");
@@ -273,6 +276,7 @@ async fn test_check_remote_project_rejects_offline_mode() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
         &None,
     )
@@ -308,6 +312,7 @@ async fn test_check_terse_mode() -> Result<()> {
         SignedDuration::from_secs(1),
         &None,
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Check in terse mode should succeed");
@@ -341,6 +346,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         SignedDuration::from_secs(1),
         &None,
         &None,
+        &None,
     )
     .await;
     assert!(result.is_ok(), "Valid highlight should pass check: {result:?}");
@@ -372,6 +378,7 @@ async fn test_check_valid_project() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
         &None,
     )
@@ -409,6 +416,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             SignedDuration::from_secs(1),
             &None,
             &None,
+            &None,
         )
         .await;
         assert!(result.is_ok(), "Check with {:?} metric should succeed", metric);
@@ -441,6 +449,7 @@ async fn test_check_with_skip_categories() -> Result<()> {
         None,
         false,
         SignedDuration::from_secs(1),
+        &None,
         &None,
         &None,
     )

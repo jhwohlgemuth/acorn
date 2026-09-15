@@ -3,6 +3,7 @@ use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions};
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{CheckCategory, OutputFormat, Standard};
 use jiff::SignedDuration;
+use std::path::PathBuf;
 
 #[test]
 fn test_check_context_builder_assigns_every_option_to_its_owner() {
@@ -21,6 +22,7 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
         true,
         true,
         SignedDuration::from_secs(7),
+        Some(PathBuf::from("/opt/vale")),
     );
     assert_eq!(context.analysis.readability_metric, ReadabilityType::ARI);
     assert_eq!(context.analysis.skip, ["schema", "link"]);
@@ -32,6 +34,10 @@ fn test_check_context_builder_assigns_every_option_to_its_owner() {
     assert!(!context.execution.extension.skip_sync);
     assert!(context.execution.extension.skip_verify_checksum);
     assert_eq!(context.execution.extension.sync_retry_interval, SignedDuration::from_secs(7));
+    assert_eq!(
+        context.execution.extension.vale_config.as_ref().map(|config| config.path.clone()),
+        Some(PathBuf::from("/opt/vale/.vale.ini"))
+    );
     assert!(context.report.extension.all);
     assert!(context.report.extension.exit_on_first_error);
     assert_eq!(context.report.extension.format, OutputFormat::Console);
@@ -57,6 +63,7 @@ fn test_check_context_builder_keeps_non_raw_output_visible() {
         false,
         false,
         SignedDuration::from_secs(1),
+        None,
     );
     assert!(!context.execution.common.quiet);
     assert!(!context.report.common.quiet);

@@ -207,6 +207,7 @@ Perform static analysis on research activity data and apply standardized best pr
 
   Default value: `fkgl`
 * `-t`, `--terse` — Use compact output format instead of detailed output
+* `--vale-directory <PATH>` — Existing Vale installation directory containing the executable and `.vale.ini`
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

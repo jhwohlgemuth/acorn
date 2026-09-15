@@ -407,6 +407,9 @@ pub struct Check {
     /// Use compact output format instead of detailed output
     #[arg(short = 't', long, value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) terse: bool,
+    /// Existing Vale installation directory containing the executable and `.vale.ini`
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) vale_directory: Option<PathBuf>,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

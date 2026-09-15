@@ -307,7 +307,7 @@ where
     T: Analysis + InputOutput + ToProse,
 {
     let resolved_options = options.cloned().unwrap_or_default();
-    let analyzer = resolved_options
+    let resolved_analyzer = resolved_options
         .execution
         .extension
         .resolve_analyzer::<Vale, _>(
@@ -315,43 +315,51 @@ where
             resolved_options.execution.extension.vale_config.clone().unwrap_or_default(),
         )
         .await;
-    let sync = match resolved_options.execution.extension.skip_sync {
-        | true => Ok(()),
-        | false => {
-            analyzer
-                .clone()
-                .sync(resolved_options.execution.common.offline, resolved_options.execution.common.quiet)
-                .await
-        }
-    };
-    match sync {
-        | Ok(_) => {
-            let analyzer = Arc::new(analyzer);
-            let results = paths.iter().map(|path| {
-                let analyzer = Arc::clone(&analyzer);
-                let path = path.clone();
-                async move {
-                    let uri = Some(path.file_name_with_parent());
-                    match T::read(&path) {
-                        | Ok(data) => {
-                            let output = T::output_path(&path, &data);
-                            let content = data.to_prose();
-                            analyzer
-                                .run(output, content, Some("JSON".into()))
-                                .await
-                                .into_iter()
-                                .map(|check| check.with_uri(uri.clone()))
-                                .collect()
-                        }
-                        | Err(why) => CheckBatch::single(check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)),
-                    }
+    match resolved_analyzer {
+        | Ok(analyzer) => {
+            let sync = match resolved_options.execution.extension.skip_sync {
+                | true => Ok(()),
+                | false => {
+                    analyzer
+                        .clone()
+                        .sync(resolved_options.execution.common.offline, resolved_options.execution.common.quiet)
+                        .await
                 }
-            });
-            join_all(results).await.into_iter().collect()
+            };
+            match sync {
+                | Ok(_) => {
+                    let analyzer = Arc::new(analyzer);
+                    let results = paths.iter().map(|path| {
+                        let analyzer = Arc::clone(&analyzer);
+                        let path = path.clone();
+                        async move {
+                            let uri = Some(path.file_name_with_parent());
+                            match T::read(&path) {
+                                | Ok(data) => {
+                                    let output = T::output_path(&path, &data);
+                                    let content = data.to_prose();
+                                    analyzer
+                                        .run(output, content, Some("JSON".into()))
+                                        .await
+                                        .into_iter()
+                                        .map(|check| check.with_uri(uri.clone()))
+                                        .collect()
+                                }
+                                | Err(why) => CheckBatch::single(check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)),
+                            }
+                        }
+                    });
+                    join_all(results).await.into_iter().collect()
+                }
+                | Err(why) => {
+                    error!("=> {} Vale sync — {why}", Label::fail());
+                    CheckBatch::single(check_err!(CheckCategory::Prose))
+                }
+            }
         }
         | Err(why) => {
-            error!("=> {} Vale sync — {why}", Label::fail());
-            CheckBatch::single(check_err!(CheckCategory::Prose))
+            error!("=> {} Resolve Vale — {why}", Label::fail());
+            CheckBatch::single(check_err!(CheckCategory::Prose, message: why.to_string()))
         }
     }
 }

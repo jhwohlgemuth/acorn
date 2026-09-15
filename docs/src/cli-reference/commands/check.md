@@ -119,6 +119,14 @@ Include `--exit-on-first-error` to stop execution upon encountering the first er
 
 Bypass verifying the checksum of downloaded artifacts with `--skip-verify-checksum`[^warn]
 
+### Configure Vale
+
+By default, ACORN uses a `vale` executable on `PATH`, reuses an ACORN-managed executable when available, or downloads its pinned Vale release into the platform cache directory. Generated configuration, synchronized styles, and vocabularies are stored alongside the managed installation rather than in the checked project.
+
+Use `--vale-directory <PATH>` to select an existing installation containing `vale` (or `vale.exe` on Windows) and `.vale.ini`. ACORN treats this directory as read-only: it does not download, rewrite configuration, or run `vale sync` there.
+
+In `--offline` mode, ACORN can use a custom, system, or previously cached installation, but it never performs release discovery, downloads, or synchronization. If no installation is available, the command reports how to provide one.
+
 ### Skip checks
 - `--skip schema` : Skip schema validation checks
 - `--skip fair` : Skip FAIR evidence assessment
