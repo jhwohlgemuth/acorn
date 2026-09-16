@@ -27,7 +27,7 @@ Provider names are case-insensitive.
 | OSTI | `meta.identifier` is `osti-<code>` or the RAD has a DOI | Missing subtitle and DOI metadata from DOE CODE | None |
 | OpenAlex | The RAD has one or more DOIs | Structured research outputs: OpenAlex ID, DOI, title, type, publication date, contributors and affiliations, funding, locations, keywords, and access metadata | `OPENALEX_API_KEY` is optional but recommended. `OPENALEX_API_HOST` optionally overrides `api.openalex.org`. |
 | CiteAs | A DOI is not already represented in `meta.outputs` | A basic research output with identifier, DOI, title, type, publication year, and CiteAs URL | `CITEAS_API_TOKEN` is optional. `CITEAS_SERVER_HOST` optionally overrides `citeas.org`. |
-| ORCID | `contact.identifier` is missing and the contact has given and family names | An ORCID for one unambiguous exact name match | `ORCID_API_TOKEN` is optional. `ORCID_SERVER_HOST` optionally overrides `pub.orcid.org`. |
+| ORCID | The contact has complete names but no identifier, or an identifier with a missing given or family name | An ORCID for one unambiguous exact name match, or missing names from an exact ORCID profile | `ORCID_API_TOKEN` is optional. `ORCID_SERVER_HOST` optionally overrides `pub.orcid.org`. |
 | ROR | `meta.ror` is missing and the contact has an affiliation or organization | A ROR for one unambiguous active organization match | `ROR_API_TOKEN` is optional. `ROR_SERVER_HOST` optionally overrides `api.ror.org`. |
 
 The public defaults work without provider environment variables. Tokens are sent only when configured. Host overrides are mainly useful for proxies, compatible deployments, and tests.
@@ -50,9 +50,9 @@ Do not commit secrets in `.env` files. Environment variables set by the shell ta
 
 OpenAlex merges missing metadata into an existing output with the same normalized DOI. CiteAs adds an output only when that DOI is not already represented. Existing non-empty scalar values and non-empty collections win over provider candidates.
 
-ORCID requires an exact normalized given-name and family-name match. When several records match, ACORN uses the contact email or organization to disambiguate; otherwise it reports a conflict and leaves the identifier unchanged. ROR similarly requires an exact active display name or alias and uses the contact email domain when several organizations match.
+ORCID identifier discovery requires an exact normalized given-name and family-name match. When several records match, ACORN uses the contact email or organization to disambiguate; otherwise it reports a conflict and leaves the identifier unchanged. When an identifier is already present, ACORN uses its exact profile to fill only blank given or family names; populated local names are preserved, and the public credit name is not split or inferred. ROR similarly requires an exact active display name or alias and uses the contact email domain when several organizations match.
 
-When a provider changes `title`, `subtitle`, `contact.identifier`, `meta.doi`, `meta.outputs`, or `meta.ror`, ACORN records the provider, lookup source, and changed field paths in `meta.enrichment`. Provider failures are retained and the remaining providers continue. Successful changes can therefore be applied even when the command ultimately reports a nonzero status for one or more provider failures.
+When a provider changes `title`, `subtitle`, `contact.familyName`, `contact.givenName`, `contact.identifier`, `meta.doi`, `meta.outputs`, or `meta.ror`, ACORN records the provider, lookup source, and changed field paths in `meta.enrichment`. ORCID provenance uses the identifier for profile-based name enrichment and the full name for identifier discovery. Provider failures are retained and the remaining providers continue. Successful changes can therefore be applied even when the command ultimately reports a nonzero status for one or more provider failures.
 
 ## How enrichment fits the workflow
 

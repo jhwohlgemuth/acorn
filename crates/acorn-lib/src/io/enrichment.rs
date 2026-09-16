@@ -13,14 +13,23 @@ use acorn_schema::enrichment::Provider;
 use acorn_schema::pid::{PersistentIdentifierParse, PublicationIdentifierType, DOI};
 use acorn_schema::research_activity::output::ResearchOutput;
 use acorn_schema::research_activity::{EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
-use acorn_schema::{OneOrMany, Website};
+use acorn_schema::{ContactPoint, OneOrMany, Website};
 use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
 use strum::IntoEnumIterator;
 use tracing::warn;
 
-pub(super) const ENRICHMENT_FIELDS: [&str; 6] = ["title", "subtitle", "contact.identifier", "meta.doi", "meta.outputs", "meta.ror"];
+pub(super) const ENRICHMENT_FIELDS: [&str; 8] = [
+    "title",
+    "subtitle",
+    "contact.familyName",
+    "contact.givenName",
+    "contact.identifier",
+    "meta.doi",
+    "meta.outputs",
+    "meta.ror",
+];
 /// Provider-specific enrichment operations for a supplied input type.
 #[async_trait]
 pub trait Enrich<Input: Send = ()>: Send + Sync {
@@ -42,7 +51,7 @@ pub trait Enrich<Input: Send = ()>: Send + Sync {
     {
         Ok((self.clone(), None, Vec::new()))
     }
-    /// Resolve a missing contact ORCID when an unambiguous exact match exists.
+    /// Resolve a missing contact ORCID or fill missing contact names from an ORCID profile.
     async fn enrich_orcid(&self) -> ApiResult<(Self, Option<String>)>
     where
         Self: Clone + Sized,
@@ -215,9 +224,23 @@ impl Enrich<()> for ResearchActivity {
             .map(|result| (result.data, None, result.failures))
     }
     async fn enrich_orcid(&self) -> ApiResult<(Self, Option<String>)> {
-        match self.contact.identifier.is_some() || self.contact.given_name.trim().is_empty() || self.contact.family_name.trim().is_empty() {
-            | true => Ok((self.clone(), None)),
-            | false => {
+        let identifier = self.contact.identifier.as_deref().filter(|value| !value.trim().is_empty());
+        let given_name_missing = self.contact.given_name.trim().is_empty();
+        let family_name_missing = self.contact.family_name.trim().is_empty();
+        match (identifier, given_name_missing || family_name_missing) {
+            | (Some(identifier), true) => {
+                let options = orcid::Options::from_env().with_identifier(identifier);
+                orcid::record(&options).await.map(|profile| {
+                    (
+                        Self {
+                            contact: with_orcid_names(&self.contact, &profile),
+                            ..self.clone()
+                        },
+                        None,
+                    )
+                })
+            }
+            | (None, false) => {
                 let options = orcid::Options::from_env().with_params(vec![param!(
                     QueryPair,
                     "q",
@@ -227,56 +250,11 @@ impl Enrich<()> for ResearchActivity {
                     )
                 )]);
                 orcid::search(&options).await.map(|response| {
-                    let matches = response
-                        .results
-                        .into_iter()
-                        .filter(|result| {
-                            result
-                                .given_names
-                                .as_deref()
-                                .is_some_and(|value| value.normalized() == self.contact.given_name.normalized())
-                                && result
-                                    .family_names
-                                    .as_deref()
-                                    .is_some_and(|value| value.normalized() == self.contact.family_name.normalized())
-                        })
-                        .collect::<Vec<_>>();
-                    let matches = match matches.len() > 1 {
-                        | true => matches
-                            .into_iter()
-                            .filter(|result| {
-                                (!self.contact.email.trim().is_empty()
-                                    && result
-                                        .emails
-                                        .as_ref()
-                                        .is_some_and(|values| values.iter().any(|value| value.eq_ignore_ascii_case(self.contact.email.trim()))))
-                                    || (!self.contact.organization.trim().is_empty()
-                                        && result.institution_names.as_ref().is_some_and(|values| {
-                                            values.iter().any(|value| value.normalized() == self.contact.organization.normalized())
-                                        }))
-                            })
-                            .collect::<Vec<_>>(),
-                        | false => matches,
-                    };
-                    match matches.as_slice() {
-                        | [result] => (
-                            Self {
-                                contact: acorn_schema::ContactPoint {
-                                    identifier: result.orcid_id.clone(),
-                                    ..self.contact.clone()
-                                },
-                                ..self.clone()
-                            },
-                            None,
-                        ),
-                        | [] => (self.clone(), None),
-                        | _ => (
-                            self.clone(),
-                            Some("ambiguous exact contact match; identifier was not changed".to_string()),
-                        ),
-                    }
+                    let (contact, conflict) = with_orcid_identifier(&self.contact, response);
+                    (Self { contact, ..self.clone() }, conflict)
                 })
             }
+            | _ => Ok((self.clone(), None)),
         }
     }
     async fn enrich_osti(&self) -> ApiResult<(Self, Option<String>)> {
@@ -482,5 +460,173 @@ impl Enrich<bool> for SourceDocuments {
                     },
                 ),
         }
+    }
+}
+fn with_orcid_identifier(contact: &ContactPoint, response: orcid::SearchResponse) -> (ContactPoint, Option<String>) {
+    let matches = response
+        .results
+        .into_iter()
+        .filter(|result| {
+            result
+                .given_names
+                .as_deref()
+                .is_some_and(|value| value.normalized() == contact.given_name.normalized())
+                && result
+                    .family_names
+                    .as_deref()
+                    .is_some_and(|value| value.normalized() == contact.family_name.normalized())
+        })
+        .collect::<Vec<_>>();
+    let matches = match matches.len() > 1 {
+        | true => matches
+            .into_iter()
+            .filter(|result| {
+                (!contact.email.trim().is_empty()
+                    && result
+                        .emails
+                        .as_ref()
+                        .is_some_and(|values| values.iter().any(|value| value.eq_ignore_ascii_case(contact.email.trim()))))
+                    || (!contact.organization.trim().is_empty()
+                        && result
+                            .institution_names
+                            .as_ref()
+                            .is_some_and(|values| values.iter().any(|value| value.normalized() == contact.organization.normalized())))
+            })
+            .collect::<Vec<_>>(),
+        | false => matches,
+    };
+    match matches.as_slice() {
+        | [result] => (
+            ContactPoint {
+                identifier: result.orcid_id.clone(),
+                ..contact.clone()
+            },
+            None,
+        ),
+        | [] => (contact.clone(), None),
+        | _ => (
+            contact.clone(),
+            Some("ambiguous exact contact match; identifier was not changed".to_string()),
+        ),
+    }
+}
+fn with_orcid_names(contact: &ContactPoint, profile: &orcid::SearchResult) -> ContactPoint {
+    let fill = |current: &str, candidate: &Option<String>| match current.trim().is_empty() {
+        | true => candidate
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| current.to_string()),
+        | false => current.to_string(),
+    };
+    ContactPoint {
+        family_name: fill(&contact.family_name, &profile.family_names),
+        given_name: fill(&contact.given_name, &profile.given_names),
+        ..contact.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contact(given_name: &str, family_name: &str, identifier: Option<&str>) -> ContactPoint {
+        ContactPoint {
+            given_name: given_name.to_string(),
+            family_name: family_name.to_string(),
+            identifier: identifier.map(ToString::to_string),
+            ..ContactPoint::default()
+        }
+    }
+    fn profile(identifier: &str, given_name: Option<&str>, family_name: Option<&str>) -> orcid::SearchResult {
+        orcid::SearchResult {
+            orcid_id: Some(identifier.to_string()),
+            given_names: given_name.map(ToString::to_string),
+            family_names: family_name.map(ToString::to_string),
+            credit_name: None,
+            emails: None,
+            institution_names: None,
+            other_name: None,
+        }
+    }
+    fn response(results: impl IntoIterator<Item = orcid::SearchResult>) -> orcid::SearchResponse {
+        let results = results.into_iter().collect::<Vec<_>>();
+        orcid::SearchResponse {
+            num_found: results.len(),
+            namespace: String::new(),
+            results,
+        }
+    }
+    #[tokio::test]
+    async fn test_orcid_enrichment_skips_complete_or_incomplete_contacts() {
+        let incomplete = ResearchActivity {
+            contact: contact("Jane", "", None),
+            ..ResearchActivity::default()
+        };
+        let (actual, conflict) = incomplete.enrich_orcid().await.expect("incomplete contact should be skipped");
+        assert!(actual.contact.identifier.is_none());
+        assert_eq!(actual.contact.given_name, "Jane");
+        assert!(actual.contact.family_name.is_empty());
+        assert!(conflict.is_none());
+        let complete = ResearchActivity {
+            contact: contact("Jason", "Wohlgemuth", Some("0000-0002-2057-9115")),
+            ..ResearchActivity::default()
+        };
+        let (actual, conflict) = complete.enrich_orcid().await.expect("complete contact should be skipped");
+        assert_eq!(actual.contact.given_name, "Jason");
+        assert_eq!(actual.contact.family_name, "Wohlgemuth");
+        assert!(conflict.is_none());
+    }
+    #[test]
+    fn test_orcid_identifier_uses_exact_matches_and_reports_ambiguity() {
+        let exact = contact(" Jason ", "Wohlgemuth", None);
+        let (actual, conflict) = with_orcid_identifier(
+            &exact,
+            response([
+                profile("0000-0002-1825-0097", Some("Other"), Some("Person")),
+                profile("0000-0002-2057-9115", Some("jason"), Some("Wohlgemuth")),
+            ]),
+        );
+        assert_eq!(actual.identifier.as_deref(), Some("0000-0002-2057-9115"));
+        assert!(conflict.is_none());
+        let ambiguous = ContactPoint {
+            email: "jane@example.com".to_string(),
+            ..contact("Jane", "Doe", None)
+        };
+        let matches = ["0000-0002-1825-0097", "0000-0002-2057-9115"].map(|identifier| orcid::SearchResult {
+            emails: Some(vec![ambiguous.email.clone()]),
+            ..profile(identifier, Some("Jane"), Some("Doe"))
+        });
+        let (actual, conflict) = with_orcid_identifier(&ambiguous, response(matches));
+        assert!(actual.identifier.is_none());
+        assert_eq!(conflict.as_deref(), Some("ambiguous exact contact match; identifier was not changed"));
+    }
+    #[test]
+    fn test_orcid_names_fill_only_missing_values() {
+        let blank = contact("", "", Some("0000-0002-2057-9115"));
+        let actual = with_orcid_names(&blank, &profile("0000-0002-2057-9115", Some("Jane"), Some("Doe")));
+        assert_eq!(actual.given_name, "Jane");
+        assert_eq!(actual.family_name, "Doe");
+        let partial = contact("Jane", "", Some("0000-0002-2057-9115"));
+        let actual = with_orcid_names(&partial, &profile("0000-0002-2057-9115", Some("Janet"), Some("Doe")));
+        assert_eq!(actual.given_name, "Jane");
+        assert_eq!(actual.family_name, "Doe");
+        let unavailable = contact("", " ", Some("0000-0002-2057-9115"));
+        let actual = with_orcid_names(&unavailable, &profile("0000-0002-2057-9115", None, Some(" ")));
+        assert!(actual.given_name.is_empty());
+        assert_eq!(actual.family_name, " ");
+    }
+    #[test]
+    fn test_orcid_source_prefers_identifier_then_names() {
+        let identified = ResearchActivity {
+            contact: contact("", "", Some("0000-0002-2057-9115")),
+            ..ResearchActivity::default()
+        };
+        assert_eq!(identified.source_from(Provider::Orcid).as_deref(), Some("0000-0002-2057-9115"));
+        let named = ResearchActivity {
+            contact: contact("Jane", "Doe", None),
+            ..ResearchActivity::default()
+        };
+        assert_eq!(named.source_from(Provider::Orcid).as_deref(), Some("Jane Doe"));
     }
 }

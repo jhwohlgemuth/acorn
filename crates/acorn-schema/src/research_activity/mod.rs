@@ -831,7 +831,12 @@ impl ResearchActivity {
     pub fn source_from(&self, provider: Provider) -> Option<String> {
         match provider {
             | Provider::CiteAs | Provider::OpenAlex => self.meta.doi.as_ref().and_then(|values| values.first()).cloned(),
-            | Provider::Orcid => Some(format!("{} {}", self.contact.given_name, self.contact.family_name)),
+            | Provider::Orcid => self
+                .contact
+                .identifier
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| Some(format!("{} {}", self.contact.given_name, self.contact.family_name))),
             | Provider::Osti => Some(self.meta.identifier.clone()),
             | Provider::Ror => self
                 .contact

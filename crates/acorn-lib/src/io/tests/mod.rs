@@ -293,7 +293,16 @@ fn test_directory_roots_reduces_files_to_unique_parents() {
 fn test_enrichment_fields_and_provider_order_are_deterministic() {
     assert_eq!(
         crate::io::enrichment::ENRICHMENT_FIELDS,
-        ["title", "subtitle", "contact.identifier", "meta.doi", "meta.outputs", "meta.ror"]
+        [
+            "title",
+            "subtitle",
+            "contact.familyName",
+            "contact.givenName",
+            "contact.identifier",
+            "meta.doi",
+            "meta.outputs",
+            "meta.ror"
+        ]
     );
     assert_eq!(
         Provider::iter().collect::<Vec<_>>(),
@@ -301,8 +310,12 @@ fn test_enrichment_fields_and_provider_order_are_deterministic() {
     );
     assert_eq!("OPENALEX".parse::<Provider>(), Ok(Provider::OpenAlex));
     assert!("unknown".parse::<Provider>().is_err());
-    let before = serde_json::json!({"title": "Existing", "meta": {}});
-    let after = serde_json::json!({"title": "Existing", "meta": {"ror": ["https://ror.org/01qz5mb56"]}});
+    let before = serde_json::json!({"contact": {"familyName": "", "givenName": ""}, "title": "Existing", "meta": {}});
+    let after = serde_json::json!({
+        "contact": {"familyName": "Doe", "givenName": "Jane"},
+        "title": "Existing",
+        "meta": {"ror": ["https://ror.org/01qz5mb56"]}
+    });
     let fields = crate::io::enrichment::ENRICHMENT_FIELDS
         .into_iter()
         .filter(|path| {
@@ -310,7 +323,7 @@ fn test_enrichment_fields_and_provider_order_are_deterministic() {
                 != path.split('.').try_fold(&after, |value, component| value.get(component))
         })
         .collect::<Vec<_>>();
-    assert_eq!(fields, ["meta.ror"]);
+    assert_eq!(fields, ["contact.familyName", "contact.givenName", "meta.ror"]);
 }
 #[test]
 fn test_env_var_is_truthy() {
