@@ -5,11 +5,15 @@
 #[cfg(feature = "analysis")]
 use crate::analyzer::Check;
 #[cfg(feature = "exec")]
-use crate::exec::config::{self, ExecutionOrigin};
+use crate::exec::capability::FileProposal;
+#[cfg(feature = "exec")]
+use crate::exec::config::ExecutionOrigin;
+#[cfg(feature = "exec")]
+use crate::exec::hooks::{HookAuditRecord, HookOptions};
 #[cfg(feature = "exec")]
 use crate::io::config::application::ApplicationConfiguration;
 use crate::io::enrichment::Enrich;
-use crate::io::{read_file, write_file, ApiResult, FromPath, InputOutput};
+use crate::io::{read_file, ApiResult, FromPath, InputOutput};
 use crate::util::{print_changes_with_color, Label, StringConversion};
 use crate::{fail, LocationExt, With};
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
@@ -21,6 +25,8 @@ use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use owo_colors::OwoColorize;
+#[cfg(feature = "exec")]
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "exec")]
 use std::path::Path;
@@ -31,6 +37,7 @@ use tracing::warn;
 pub mod registry;
 /// Transport-neutral repository workflow data contracts.
 pub mod repository;
+mod transaction;
 
 pub use registry::RepositoryWorkflowRegistry;
 pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, WorkflowAction, WorkflowFileReport};
@@ -82,12 +89,20 @@ pub struct EnrichmentResult<T> {
 /// A complete, validated set of changes prepared before any writes occur.
 #[derive(Clone, Debug, Default)]
 pub struct Plan<T> {
+    /// Additional host-owned files proposed by executable hooks.
+    pub additional: Vec<Artifact>,
+    /// Audit provenance for executable hooks.
+    #[cfg(feature = "exec")]
+    pub audits: Vec<HookAuditRecord>,
     /// Planned source changes and companion artifacts.
     pub changes: Vec<Change<T>>,
 }
 /// Summary of a workflow application.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Report {
+    /// Audit provenance for executable hooks.
+    #[cfg(feature = "exec")]
+    pub audits: Vec<HookAuditRecord>,
     /// Number of source files processed.
     pub processed: usize,
     /// Number of source files whose content differed after processing.
@@ -96,22 +111,6 @@ pub struct Report {
     pub written: usize,
     /// Number of JSON-LD companion artifacts planned.
     pub linked: usize,
-}
-impl<T> Plan<T> {
-    /// Keep planned companion artifacts while suppressing source-document rewrites.
-    pub fn without_source_changes(self) -> Self {
-        Self {
-            changes: self
-                .changes
-                .into_iter()
-                .map(|change| match change {
-                    | Change::Document { .. } => change.with_changed(false),
-                    #[cfg(feature = "analysis")]
-                    | Change::Check(_) => change,
-                })
-                .collect(),
-        }
-    }
 }
 /// Service for planning and applying workflows for a supported standard.
 #[derive(Clone, Copy, Debug)]
@@ -141,7 +140,7 @@ impl ApplicationConfiguration {
     where
         T: serde::Serialize,
     {
-        self.check_script_hooks(changes, project_root, &[hook], origin)
+        self.check_script_hooks(changes, project_root, &[hook], origin, false, false)
     }
     /// Run configured Rhai quality gates for an ordered set of workflow hooks.
     ///
@@ -152,50 +151,59 @@ impl ApplicationConfiguration {
         project_root: &Path,
         hooks: &[WorkflowAction],
         origin: ExecutionOrigin,
+        explicit_configuration: bool,
+        offline: bool,
     ) -> ApiResult<Vec<Check>>
     where
         T: serde::Serialize,
     {
         self.validate().map_err(|why| eyre!("{why}")).and_then(|()| {
-            let relevant = self
-                .scripts
-                .as_deref()
-                .unwrap_or_default()
-                .iter()
-                .filter(|entry| hooks.iter().any(|hook| entry.hooks.iter().any(|candidate| candidate == hook)))
-                .cloned()
-                .collect::<Vec<_>>();
-            match relevant.is_empty() {
-                | true => Ok(Vec::new()),
-                | false => relevant
-                    .iter()
-                    .map(|entry| entry.resolve(project_root, origin))
-                    .collect::<Result<Vec<config::Resolved>, _>>()
-                    .and_then(|resolved| {
-                        changes
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(document_index, change)| match change {
-                                | Change::Document { source, data, .. } => Some((document_index, source, data.as_ref())),
-                                #[cfg(feature = "analysis")]
-                                | Change::Check(_) => None,
+            self.prepare_scripts(project_root, hooks, origin, explicit_configuration)
+                .and_then(|relevant| match relevant.is_empty() {
+                    | true => Ok(Vec::new()),
+                    | false => changes
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(document_index, change)| match change {
+                            | Change::Document { source, data, .. } => Some((document_index, source, data.as_ref())),
+                            #[cfg(feature = "analysis")]
+                            | Change::Check(_) => None,
+                        })
+                        .try_fold(Vec::new(), |checks, (document_index, source, data)| {
+                            let source = source.uri().unwrap_or_else(|| source.to_string());
+                            relevant.iter().try_fold(checks, |checks, script| {
+                                hooks
+                                    .iter()
+                                    .filter(|hook| script.resolved.entry.hooks.iter().any(|candidate| candidate == *hook))
+                                    .try_fold(checks, |checks, hook| {
+                                        script
+                                            .resolved
+                                            .evaluate_hook(
+                                                &source,
+                                                data,
+                                                HookOptions::init()
+                                                    .maybe_authorization(script.authorization.as_ref())
+                                                    .document_index(document_index)
+                                                    .hook(*hook)
+                                                    .maybe_manifest_source(script.manifest_source.as_deref())
+                                                    .offline(offline)
+                                                    .build(),
+                                            )
+                                            .map(|execution| checks.into_iter().chain(execution.checks).collect())
+                                    })
                             })
-                            .try_fold(Vec::new(), |checks, (document_index, source, data)| {
-                                let source = source.uri().unwrap_or_else(|| source.to_string());
-                                resolved.iter().try_fold(checks, |checks, script| {
-                                    hooks
-                                        .iter()
-                                        .filter(|hook| script.entry.hooks.iter().any(|candidate| candidate == *hook))
-                                        .try_fold(checks, |checks, hook| {
-                                            script
-                                                .check(&source, data, document_index, *hook)
-                                                .map(|extension_checks| checks.into_iter().chain(extension_checks).collect())
-                                        })
-                                })
-                            })
-                    }),
-            }
+                        }),
+                })
         })
+    }
+}
+#[cfg(feature = "exec")]
+impl From<FileProposal> for Artifact {
+    fn from(proposal: FileProposal) -> Self {
+        Self {
+            content: proposal.content,
+            path: proposal.path,
+        }
     }
 }
 impl<T> Change<T>
@@ -274,6 +282,129 @@ impl<T> From<Check> for Change<T> {
         Self::Check(value)
     }
 }
+impl<T> Plan<T> {
+    /// Keep planned companion artifacts while suppressing source-document rewrites.
+    pub fn without_source_changes(self) -> Self {
+        Self {
+            additional: self.additional,
+            #[cfg(feature = "exec")]
+            audits: self.audits,
+            changes: self
+                .changes
+                .into_iter()
+                .map(|change| match change {
+                    | Change::Document { .. } => change.with_changed(false),
+                    #[cfg(feature = "analysis")]
+                    | Change::Check(_) => change,
+                })
+                .collect(),
+        }
+    }
+}
+#[cfg(feature = "exec")]
+impl<T> Plan<T>
+where
+    T: DeserializeOwned + InputOutput + Validate + Serialize,
+{
+    fn evaluate_script_hooks(
+        mut self,
+        configuration: &ApplicationConfiguration,
+        project_root: &Path,
+        hooks: &[WorkflowAction],
+        origin: ExecutionOrigin,
+        explicit_configuration: bool,
+        offline: bool,
+    ) -> ApiResult<Self> {
+        configuration
+            .prepare_scripts(project_root, hooks, origin, explicit_configuration)
+            .and_then(|scripts| {
+                hooks.iter().try_for_each(|hook| {
+                    self.changes.iter_mut().enumerate().try_for_each(|(document_index, change)| match change {
+                        | Change::Document {
+                            source,
+                            data,
+                            content,
+                            changed,
+                            ..
+                        } => scripts
+                            .iter()
+                            .filter(|script| script.resolved.entry.hooks.iter().any(|candidate| candidate == hook))
+                            .try_for_each(|script| {
+                                let source_name = source.uri().unwrap_or_else(|| source.to_string());
+                                script
+                                    .resolved
+                                    .evaluate_hook(
+                                        &source_name,
+                                        data.as_ref(),
+                                        HookOptions::init()
+                                            .maybe_authorization(script.authorization.as_ref())
+                                            .document_index(document_index)
+                                            .hook(*hook)
+                                            .maybe_manifest_source(script.manifest_source.as_deref())
+                                            .offline(offline)
+                                            .build(),
+                                    )
+                                    .and_then(|execution| {
+                                        execution.checks.iter().for_each(|check| check.report(None));
+                                        let failures = execution.checks.iter().filter(|check| check.is_failure()).count();
+                                        match failures {
+                                            | 0 => Ok(execution),
+                                            | _ => Err(eyre!("configured Rhai quality gates found {failures} failure(s)")),
+                                        }
+                                    })
+                                    .and_then(|execution| {
+                                        let mutation_granted = script
+                                            .authorization
+                                            .as_ref()
+                                            .is_some_and(|authorization| authorization.capabilities.mutation);
+                                        match (execution.document, mutation_granted) {
+                                            | (Some(_), false) => Err(eyre!("script document replacement requires the `mutation` capability")),
+                                            | (Some(document), true) => serde_json::from_str::<T>(&document)
+                                                .map_err(|why| eyre!("script returned an invalid typed document — {why}"))
+                                                .and_then(|replacement| {
+                                                    replacement
+                                                        .validate()
+                                                        .map_err(|why| eyre!("script document validation failed — {why}"))
+                                                        .map(|()| replacement)
+                                                })
+                                                .and_then(|replacement| {
+                                                    let format = source
+                                                        .local_path()
+                                                        .map(|path| MimeType::from_path(&path))
+                                                        .unwrap_or_else(|| MimeType::from(source_name.as_str()));
+                                                    replacement.serialize_as(&format).map(|serialized| (replacement, serialized))
+                                                })
+                                                .map(|(replacement, serialized)| {
+                                                    **data = replacement;
+                                                    *content = serialized;
+                                                    *changed = true;
+                                                }),
+                                            | (None, _) => Ok(()),
+                                        }
+                                        .and_then(|()| {
+                                            execution.files.into_iter().try_for_each(|proposal| {
+                                                let proposal = Artifact::from(proposal);
+                                                match self.additional.iter().find(|artifact| artifact.path == proposal.path) {
+                                                    | Some(artifact) if artifact.content == proposal.content => Ok(()),
+                                                    | Some(_) => Err(eyre!("conflicting file proposal for `{}`", proposal.path.display())),
+                                                    | None => {
+                                                        self.additional.push(proposal);
+                                                        Ok(())
+                                                    }
+                                                }
+                                            })
+                                        })
+                                        .map(|()| self.audits.push(execution.audit))
+                                    })
+                            }),
+                        #[cfg(feature = "analysis")]
+                        | Change::Check(_) => Ok(()),
+                    })
+                })
+            })
+            .map(|()| self)
+    }
+}
 impl<T> Plan<T>
 where
     T: InputOutput + Validate + Serialize + Clone + Send + Sync + 'static,
@@ -287,16 +418,13 @@ where
         project_root: &Path,
         hooks: &[WorkflowAction],
         origin: ExecutionOrigin,
-    ) -> ApiResult<()> {
-        configuration
-            .check_script_hooks(&self.changes, project_root, hooks, origin)
-            .and_then(|checks| {
-                checks.iter().for_each(|check| check.report(None));
-                match checks.iter().filter(|check| check.is_failure()).count() {
-                    | 0 => self.apply_enriched(options),
-                    | failures => Err(eyre!("configured Rhai quality gates found {failures} failure(s)")),
-                }
-            })
+        explicit_configuration: bool,
+    ) -> ApiResult<()>
+    where
+        T: DeserializeOwned,
+    {
+        self.evaluate_script_hooks(configuration, project_root, hooks, origin, explicit_configuration, options.common.offline)
+            .and_then(|plan| plan.apply_enriched(options))
     }
     /// Render and apply an enrichment plan, reporting provider conflicts and failures.
     pub fn apply_enriched(self, options: Options) -> ApiResult<()> {
@@ -351,12 +479,19 @@ where
                 .then(|source| Self::plan_source(source, &options, enrichment))
                 .try_collect()
                 .await
-                .map(|changes| Plan { changes }),
+                .map(|changes| Plan {
+                    additional: Vec::new(),
+                    #[cfg(feature = "exec")]
+                    audits: Vec::new(),
+                    changes,
+                }),
         }
     }
     /// Apply a previously prepared plan
     pub fn apply(plan: Plan<T>, options: Options) -> ApiResult<Report> {
         let report = Report {
+            #[cfg(feature = "exec")]
+            audits: plan.audits.clone(),
             processed: plan.changes.len(),
             changed: plan.changes.iter().filter(|change| change.is_changed()).count(),
             linked: plan.changes.iter().filter(|change| change.has_linked_artifact()).count(),
@@ -364,35 +499,31 @@ where
         };
         match options.common.dry_run {
             | true => Ok(report),
-            | false => plan.changes.into_iter().try_fold(report, |report, change| match change {
-                | Change::Document {
-                    source,
-                    content,
-                    changed,
-                    linked,
-                    ..
-                } => source
-                    .local_path()
-                    .ok_or_else(|| eyre!("Workflow source is not an available local file: {source}"))
-                    .and_then(|path| match changed {
-                        | true => write_file(path, content).map(|()| 1),
-                        | false => Ok(0),
-                    })
-                    .and_then(|source_written| {
-                        linked
-                            .map(|artifact| write_file(artifact.path, artifact.content).map(|()| 1))
-                            .transpose()
-                            .map(|linked_written| Report {
-                                written: report
-                                    .written
-                                    .saturating_add(source_written)
-                                    .saturating_add(linked_written.unwrap_or_default()),
-                                ..report
-                            })
+            | false => plan
+                .changes
+                .into_iter()
+                .try_fold(plan.additional, |mut files, change| match change {
+                    | Change::Document {
+                        source,
+                        content,
+                        changed,
+                        linked,
+                        ..
+                    } => match changed {
+                        | true => source
+                            .local_path()
+                            .ok_or_else(|| eyre!("Workflow source is not an available local file: {source}"))
+                            .map(|path| files.push(Artifact { path, content })),
+                        | false => Ok(()),
+                    }
+                    .map(|()| {
+                        files.extend(linked);
+                        files
                     }),
-                #[cfg(feature = "analysis")]
-                | Change::Check(_) => Err(eyre!("A check must be resolved into a document change before it can be applied")),
-            }),
+                    #[cfg(feature = "analysis")]
+                    | Change::Check(_) => Err(eyre!("A check must be resolved into a document change before it can be applied")),
+                })
+                .and_then(|files| transaction::Artifacts::from(files).apply().map(|written| Report { written, ..report })),
         }
     }
     /// Plan and apply processing for all sources

@@ -57,4 +57,4 @@ When deterministic extraction leaves explicitly required fields unresolved, allo
 
 # Follow-on work
 
-Additional providers and automatic selection require their own evidence-backed slices after the common contract is demonstrated. Remote script access remains governed by [capability-brokered Rhai workflow hooks](rhai-workflow-hooks.md), not by this provider interface.
+Additional providers and automatic selection require their own evidence-backed slices after the common contract is demonstrated. Remote script access remains excluded by the implemented [Rhai exec policy](../../docs/src/packages/exec.md), not governed by this provider interface.

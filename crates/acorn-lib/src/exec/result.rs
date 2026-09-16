@@ -6,6 +6,7 @@ use crate::analyzer::host::render::{Render, RenderContext};
 #[cfg(feature = "analysis")]
 use crate::analyzer::{Check, CheckBatch, OutputFormat};
 use crate::analyzer::{CheckCategory, CheckSeverity, Finding, Findings};
+use crate::io::workflow::WorkflowAction;
 #[cfg(feature = "analysis")]
 use acorn_core::options::CommonRuntime;
 use acorn_core::prelude::{String, Vec};
@@ -18,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use validator::{Validate, ValidationError};
 
+const DOCUMENT_OUTPUT_FIELDS: &[&str] = &["document"];
 const EXECUTION_RESULT_FIELDS: &[&str] = &["findings", "output"];
 const FINDING_FIELDS: &[&str] = &["locator", "message", "rule_id", "severity"];
 const MAX_FINDINGS: usize = 1024;
@@ -30,6 +32,10 @@ pub trait RhaiExt: Sized {
     fn findings(&self) -> Result<Findings, String>;
     /// Convert an array of dynamic maps into findings.
     fn findings_from_array(array: rhai::Array) -> Result<Findings, String>;
+    /// Convert a hook output value into an optional serialized replacement document.
+    fn hook_output(self, hook: WorkflowAction) -> Result<Option<String>, String>;
+    /// Convert a dynamic hook result into validated findings and an optional replacement document.
+    fn hook_result(self, hook: WorkflowAction) -> Result<(Findings, Option<String>), String>;
 }
 /// Typed access and field validation for Rhai maps.
 pub trait RhaiMapExt {
@@ -51,38 +57,6 @@ pub struct ExecutionResult<T> {
     #[serde(default)]
     #[validate(nested)]
     pub findings: Findings,
-}
-impl Findings {
-    /// Validate the collection size and every contained finding.
-    pub fn is_valid(&self) -> Result<(), ValidationError> {
-        (self.len() <= MAX_FINDINGS)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("length").with_message(Cow::Owned(format!("findings exceed {MAX_FINDINGS} entries"))))
-    }
-    /// Render findings through the host analyzer and fail when any finding is fatal.
-    #[cfg(feature = "analysis")]
-    pub fn render(&self, input: &Path) -> EyreResult<(), Report> {
-        let uri = input.display().to_string();
-        let checks = self
-            .iter()
-            .cloned()
-            .enumerate()
-            .map(|(index, finding)| Check::from(finding).with_index(index).with_uri(Some(uri.clone())))
-            .collect::<Vec<_>>();
-        let batch = CheckBatch::from(checks);
-        let context = RenderContext {
-            options: &ReportOptions::init()
-                .common(CommonRuntime::default())
-                .extension(ReportExtension::init().format(OutputFormat::Console).build())
-                .build(),
-            documents: None,
-        };
-        batch.as_slice().render(context);
-        match batch.iter().any(Check::is_failure) {
-            | true => Err(eyre!("exec check found {} failure(s)", batch.len())),
-            | false => Ok(()),
-        }
-    }
 }
 impl RhaiExt for rhai::Dynamic {
     fn finding(self) -> Result<Option<Finding>, String> {
@@ -138,6 +112,69 @@ impl RhaiExt for rhai::Dynamic {
             .map(Self::finding)
             .collect::<Result<Vec<_>, _>>()
             .map(|findings| findings.into_iter().flatten().collect::<Vec<_>>().into())
+    }
+    fn hook_output(self, action: WorkflowAction) -> Result<Option<String>, String> {
+        match self.is_unit() {
+            | true => Ok(None),
+            | false if action.is_enrich() || action.is_format() => self
+                .try_cast::<rhai::Map>()
+                .ok_or_else(|| "hook output must be a map".to_string())
+                .and_then(|map| map.validate(DOCUMENT_OUTPUT_FIELDS, "hook output").map(|()| map))
+                .and_then(|map| {
+                    map.get("document")
+                        .cloned()
+                        .ok_or_else(|| "missing required hook output field `document`".to_string())
+                })
+                .and_then(|document| {
+                    rhai::serde::from_dynamic::<serde_json::Value>(&document).map_err(|why| format!("invalid document output — {why}"))
+                })
+                .and_then(|document| serde_json::to_string(&document).map_err(|why| format!("failed to serialize document output — {why}")))
+                .map(Some),
+            | false => Err(format!("{action} hook output must be omitted or unit")),
+        }
+    }
+    fn hook_result(self, action: WorkflowAction) -> Result<(Findings, Option<String>), String> {
+        self.try_cast::<rhai::Map>()
+            .ok_or_else(|| "execution result must be a map".to_string())
+            .and_then(|mut map| {
+                let output = map.remove("output").unwrap_or(rhai::Dynamic::UNIT);
+                map.insert("output".into(), rhai::Dynamic::UNIT);
+                rhai::Dynamic::from(map)
+                    .findings()
+                    .and_then(|findings| output.hook_output(action).map(|document| (findings, document)))
+            })
+    }
+}
+impl Findings {
+    /// Validate the collection size and every contained finding.
+    pub fn is_valid(&self) -> Result<(), ValidationError> {
+        (self.len() <= MAX_FINDINGS)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("length").with_message(Cow::Owned(format!("findings exceed {MAX_FINDINGS} entries"))))
+    }
+    /// Render findings through the host analyzer and fail when any finding is fatal.
+    #[cfg(feature = "analysis")]
+    pub fn render(&self, input: &Path) -> EyreResult<(), Report> {
+        let uri = input.display().to_string();
+        let checks = self
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(index, finding)| Check::from(finding).with_index(index).with_uri(Some(uri.clone())))
+            .collect::<Vec<_>>();
+        let batch = CheckBatch::from(checks);
+        let context = RenderContext {
+            options: &ReportOptions::init()
+                .common(CommonRuntime::default())
+                .extension(ReportExtension::init().format(OutputFormat::Console).build())
+                .build(),
+            documents: None,
+        };
+        batch.as_slice().render(context);
+        match batch.iter().any(Check::is_failure) {
+            | true => Err(eyre!("exec check found {} failure(s)", batch.len())),
+            | false => Ok(()),
+        }
     }
 }
 impl RhaiMapExt for rhai::Map {

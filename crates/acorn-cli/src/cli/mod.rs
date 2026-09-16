@@ -266,10 +266,8 @@ pub enum Commands {
     ///
     /// ABI version: `// @acorn-exec-v0.2.0`
     ///
-    /// The evaluation context contains `hook`, `path`, `input`, `proposed`, and
-    /// non-secret `metadata`. Scripts return a map containing a `findings` array.
-    /// Source is limited to 512 KiB; evaluation is bounded and does not permit
-    /// dynamic evaluation or imports.
+    /// The evaluation context contains `hook`, `path`, `index`, `input`, and `proposed`. Scripts return a map containing a `findings` array.
+    /// Source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
     ///
     #[clap(verbatim_doc_comment)]
     Exec {
@@ -302,6 +300,28 @@ pub enum ExecCommands {
     Check(Box<arguments::ExecCheck>),
     /// Check Rhai source without evaluating it
     CheckSafe(Box<arguments::ExecCheckSafe>),
+    /// Validate or evaluate a manifest-authorized workflow hook.
+    Hook {
+        #[command(subcommand)]
+        command: Option<ExecHookCommands>,
+    },
+    /// Validate executable-hook deployment manifests.
+    Manifest {
+        #[command(subcommand)]
+        command: Option<ExecManifestCommands>,
+    },
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum ExecHookCommands {
+    /// Evaluate one hook without applying its proposals.
+    Check(Box<arguments::ExecHookCheck>),
+}
+#[derive(Debug, Subcommand)]
+#[command(long_about = None)]
+pub enum ExecManifestCommands {
+    /// Parse and validate a script manifest.
+    Check(Box<arguments::ExecManifestCheck>),
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

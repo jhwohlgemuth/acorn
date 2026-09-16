@@ -186,7 +186,7 @@ use serde::{Deserialize, Serialize};
 mod custom;
 
 pub use custom::{
-    format_phone_number, format_timestamp, has_at_least_one_truthy, has_image_extension, is_gnd, is_iso_639_1_language_code,
+    format_phone_number, format_timestamp, has_at_least_one_truthy, has_image_extension, is_gnd, is_identifier, is_iso_639_1_language_code,
     is_iso_639_language_code, is_iso_date_or_rfc3339_timestamp, is_license, is_partial_date, is_polygon, is_programming_language, IntegerOrString,
     MonthValue, NumberOrString, PostalCode, YearValue,
 };
@@ -613,37 +613,6 @@ pub struct ValidationIssue {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ValidationReport(Vec<ValidationIssue>);
-impl<G, L, O, V> Validate for SyncConfig<G, L, O, V>
-where
-    G: SyncInner + Validate,
-    L: SyncInner + Validate,
-    O: SyncInner + Validate,
-    V: SyncInner + Validate,
-{
-    fn validate(&self) -> Result<(), ValidationReport> {
-        ValidationReport::new()
-            .merge("goose", report_of(self.goose.as_ref().map_or(Ok(()), Validate::validate)))
-            .merge("llamaSwap", report_of(self.llama_swap.as_ref().map_or(Ok(()), Validate::validate)))
-            .merge("opencode", report_of(self.opencode.as_ref().map_or(Ok(()), Validate::validate)))
-            .merge("vscode", report_of(self.vscode.as_ref().map_or(Ok(()), Validate::validate)))
-            .finish()
-    }
-}
-impl<I> Validate for TargetConfig<I>
-where
-    I: SyncInner + Validate,
-{
-    fn validate(&self) -> Result<(), ValidationReport> {
-        self.path
-            .as_ref()
-            .filter(|path| path.is_empty())
-            .map_or_else(ValidationReport::new, |_| {
-                ValidationReport::from_error("path", ValidationError::new("length").with_message("Length must be at least 1"))
-            })
-            .merge("", report_of(self.inner.validate()))
-            .finish()
-    }
-}
 impl<C> Each for &C
 where
     C: Each + ?Sized,
@@ -745,6 +714,37 @@ impl Optional for str {
 impl Optional for String {
     fn is_absent(&self) -> bool {
         self.is_empty()
+    }
+}
+impl<G, L, O, V> Validate for SyncConfig<G, L, O, V>
+where
+    G: SyncInner + Validate,
+    L: SyncInner + Validate,
+    O: SyncInner + Validate,
+    V: SyncInner + Validate,
+{
+    fn validate(&self) -> Result<(), ValidationReport> {
+        ValidationReport::new()
+            .merge("goose", report_of(self.goose.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("llamaSwap", report_of(self.llama_swap.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("opencode", report_of(self.opencode.as_ref().map_or(Ok(()), Validate::validate)))
+            .merge("vscode", report_of(self.vscode.as_ref().map_or(Ok(()), Validate::validate)))
+            .finish()
+    }
+}
+impl<I> Validate for TargetConfig<I>
+where
+    I: SyncInner + Validate,
+{
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.path
+            .as_ref()
+            .filter(|path| path.is_empty())
+            .map_or_else(ValidationReport::new, |_| {
+                ValidationReport::from_error("path", ValidationError::new("length").with_message("Length must be at least 1"))
+            })
+            .merge("", report_of(self.inner.validate()))
+            .finish()
     }
 }
 impl IntoValidationReport for ValidationError {

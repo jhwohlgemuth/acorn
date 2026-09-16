@@ -1,3 +1,4 @@
+use super::transaction::{Artifacts, StagedFile, StagedFiles};
 use super::*;
 #[cfg(feature = "analysis")]
 use crate::analyzer::{Check, CheckCategory};
@@ -6,6 +7,7 @@ use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::OneOrMany;
 use async_trait::async_trait;
+use std::fs;
 use tempfile::tempdir;
 
 struct CffEnrichment;
@@ -282,6 +284,74 @@ async fn test_run_writes_enrichment_and_linked_artifact() {
     assert_eq!(report.changed, 1);
     assert_eq!(report.linked, 1);
     assert_eq!(report.written, 2);
+}
+#[test]
+fn test_transaction_rejects_conflicting_destinations_before_writing() {
+    let temporary = tempdir().expect("temporary directory");
+    let target = temporary.path().join("target.txt");
+    let result = Artifacts::from(vec![
+        Artifact {
+            content: "first".to_string(),
+            path: target.clone(),
+        },
+        Artifact {
+            content: "second".to_string(),
+            path: target.clone(),
+        },
+    ])
+    .apply();
+    assert!(result.is_err());
+    assert!(!target.exists());
+}
+#[test]
+fn test_transaction_replaces_all_staged_files() {
+    let temporary = tempdir().expect("temporary directory");
+    let first = temporary.path().join("first.txt");
+    let second = temporary.path().join("second.txt");
+    fs::write(&first, "old").expect("existing file");
+    let written = Artifacts::from(vec![
+        Artifact {
+            content: "new".to_string(),
+            path: first.clone(),
+        },
+        Artifact {
+            content: "created".to_string(),
+            path: second.clone(),
+        },
+    ])
+    .apply()
+    .expect("transaction");
+    assert_eq!(written, 2);
+    assert_eq!(fs::read_to_string(first).expect("replacement"), "new");
+    assert_eq!(fs::read_to_string(second).expect("creation"), "created");
+}
+#[test]
+fn test_transaction_rolls_back_a_committed_replacement() {
+    let temporary = tempdir().expect("temporary directory");
+    let first = temporary.path().join("first.txt");
+    let first_stage = temporary.path().join("first.stage");
+    let first_backup = temporary.path().join("first.backup");
+    let second = temporary.path().join("second.txt");
+    let missing_stage = temporary.path().join("missing.stage");
+    fs::write(&first, "old").expect("existing file");
+    fs::write(&first_stage, "new").expect("first stage");
+    let result = StagedFiles::from(vec![
+        StagedFile {
+            backup: Some(first_backup.clone()),
+            stage: first_stage,
+            target: first.clone(),
+        },
+        StagedFile {
+            backup: None,
+            stage: missing_stage,
+            target: second.clone(),
+        },
+    ])
+    .commit();
+    assert!(result.is_err());
+    assert_eq!(fs::read_to_string(first).expect("rolled back file"), "old");
+    assert!(!first_backup.exists());
+    assert!(!second.exists());
 }
 #[tokio::test]
 async fn test_workflow_processes_and_enriches_non_rad_standard() {

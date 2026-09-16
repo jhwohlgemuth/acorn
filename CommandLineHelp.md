@@ -33,6 +33,10 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli exec`↴](#acorn-cli-exec)
 * [`acorn-cli exec check`↴](#acorn-cli-exec-check)
 * [`acorn-cli exec check-safe`↴](#acorn-cli-exec-check-safe)
+* [`acorn-cli exec hook`↴](#acorn-cli-exec-hook)
+* [`acorn-cli exec hook check`↴](#acorn-cli-exec-hook-check)
+* [`acorn-cli exec manifest`↴](#acorn-cli-exec-manifest)
+* [`acorn-cli exec manifest check`↴](#acorn-cli-exec-manifest-check)
 
 ## `acorn-cli`
 
@@ -1219,8 +1223,8 @@ Execute constrained Rhai extensions
 
 ABI version: `// @acorn-exec-v0.2.0`
 
-The evaluation context contains `hook`, `path`, `input`, `proposed`, and
-non-secret `metadata`. Scripts return a map containing a `findings` array.
+The evaluation context contains `hook`, `path`, `index`, `input`, and
+`proposed`. Scripts return a map containing a `findings` array.
 Source is limited to 512 KiB; evaluation is bounded and does not permit
 dynamic evaluation or imports.
 
@@ -1230,6 +1234,8 @@ dynamic evaluation or imports.
 
 * `check` — Evaluate a script against supplied input and render findings
 * `check-safe` — Check Rhai source without evaluating it
+* `hook` — Validate or evaluate a manifest-authorized workflow hook
+* `manifest` — Validate executable-hook deployment manifests
 
 
 
@@ -1264,6 +1270,67 @@ Check Rhai source without evaluating it
 ###### **Options:**
 
 * `--format <FORMAT>` — Output format (json or markdown)
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli exec hook`
+
+Validate or evaluate a manifest-authorized workflow hook
+
+**Usage:** `acorn-cli exec hook [COMMAND]`
+
+###### **Subcommands:**
+
+* `check` — Evaluate one hook without applying its proposals
+
+
+
+## `acorn-cli exec hook check`
+
+Evaluate one hook without applying its proposals
+
+**Usage:** `acorn-cli exec hook check [OPTIONS] --manifest <MANIFEST> --hook <HOOK> --input <FILE> <SCRIPT>`
+
+###### **Arguments:**
+
+* `<SCRIPT>` — Rhai script path
+
+###### **Options:**
+
+* `--manifest <MANIFEST>` — Deployment manifest name or explicit manifest path
+* `--hook <HOOK>` — Workflow hook to evaluate
+* `--input <FILE>` — Input file to evaluate against
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli exec manifest`
+
+Validate executable-hook deployment manifests
+
+**Usage:** `acorn-cli exec manifest [COMMAND]`
+
+###### **Subcommands:**
+
+* `check` — Parse and validate a script manifest
+
+
+
+## `acorn-cli exec manifest check`
+
+Parse and validate a script manifest
+
+**Usage:** `acorn-cli exec manifest check [OPTIONS] <MANIFEST>`
+
+###### **Arguments:**
+
+* `<MANIFEST>` — Script manifest path
+
+###### **Options:**
+
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

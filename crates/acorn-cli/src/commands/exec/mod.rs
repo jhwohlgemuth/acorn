@@ -1,8 +1,16 @@
 //! Executable Rhai extension commands.
 #[cfg(feature = "exec")]
+use crate::cli::parse::parse_hook_input;
+#[cfg(feature = "exec")]
 use acorn::analyzer::Check;
 #[cfg(feature = "exec")]
 use acorn::exec::config::Resolved;
+#[cfg(feature = "exec")]
+use acorn::exec::hooks::HookOptions;
+#[cfg(feature = "exec")]
+use acorn::exec::manifest::{ScriptManifest, ScriptManifestSource};
+#[cfg(feature = "exec")]
+use acorn::io::config::application::Hook;
 #[cfg(feature = "exec")]
 use acorn::io::read_file;
 #[cfg(feature = "exec")]
@@ -75,5 +83,89 @@ pub fn run_check_safe(script: &Path, format: Option<&MimeType>) -> Result<(), Re
 /// Report an unavailable executable-extension feature.
 #[cfg(not(feature = "exec"))]
 pub fn run_check_safe(_script: &Path, _format: Option<&acorn_core::util::MimeType>) -> Result<(), Report> {
+    Err(eyre!("`exec` feature is not enabled — rebuild with --features exec"))
+}
+/// Evaluate one manifest-authorized hook without applying its proposals.
+#[cfg(feature = "exec")]
+pub fn run_hook_check(script: &Path, manifest: &str, hook: Hook, input: &Path, offline: bool) -> Result<(), Report> {
+    let source = Path::new(manifest);
+    let resolved_manifest = match source.is_file() {
+        | true => ScriptManifest::read(source).map(|manifest| (manifest, source.display().to_string())),
+        | false => ScriptManifestSource::Path(manifest.to_string())
+            .resolve(true)
+            .map(|resolved| (resolved.manifest, resolved.source)),
+    };
+    resolved_manifest.and_then(|(manifest, manifest_source)| {
+        Resolved::direct(script).and_then(|mut resolved| {
+            let action = WorkflowAction::from(hook);
+            let authorizations = manifest
+                .scripts
+                .iter()
+                .filter(|authorization| authorization.digest == resolved.digest && authorization.hooks.iter().any(|candidate| candidate == &action))
+                .collect::<Vec<_>>();
+            match authorizations.as_slice() {
+                | [authorization] => {
+                    resolved.entry.id = Some(authorization.id.clone());
+                    read_file(input)
+                        .map_err(|why| eyre!("Failed to read input `{}` — {why}", input.display()))
+                        .and_then(|content| parse_hook_input(input, &content))
+                        .and_then(|document| {
+                            resolved.evaluate_hook(
+                                &input.display().to_string(),
+                                &document,
+                                HookOptions::init()
+                                    .maybe_authorization(Some(authorization))
+                                    .hook(action)
+                                    .maybe_manifest_source(Some(&manifest_source))
+                                    .offline(offline)
+                                    .build(),
+                            )
+                        })
+                        .and_then(|execution| {
+                            execution.checks.iter().for_each(|check| check.report(None));
+                            execution.files.iter().for_each(|file| {
+                                println!("{} Propose {}", Label::run(), file.path.display());
+                            });
+                            let failures = execution.checks.iter().filter(|check| check.is_failure()).count();
+                            match failures {
+                                | 0 => Ok(()),
+                                | _ => Err(eyre!("exec hook check found {failures} failure(s)")),
+                            }
+                        })
+                }
+                | [] => Err(eyre!("manifest has no authorization matching the script digest and `{action}` hook")),
+                | _ => Err(eyre!(
+                    "manifest has multiple authorizations matching the script digest and `{action}` hook"
+                )),
+            }
+        })
+    })
+}
+/// Report an unavailable executable-extension feature.
+#[cfg(not(feature = "exec"))]
+pub fn run_hook_check(
+    _script: &Path,
+    _manifest: &str,
+    _hook: acorn::io::config::application::Hook,
+    _input: &Path,
+    _offline: bool,
+) -> Result<(), Report> {
+    Err(eyre!("`exec` feature is not enabled — rebuild with --features exec"))
+}
+/// Parse and validate one executable-hook manifest.
+#[cfg(feature = "exec")]
+pub fn run_manifest_check(manifest: &Path) -> Result<(), Report> {
+    ScriptManifest::read(manifest).map(|manifest| {
+        println!(
+            "{} Manifest `{}` authorizes {} script(s)",
+            Label::pass(),
+            manifest.version,
+            manifest.scripts.len()
+        );
+    })
+}
+/// Report an unavailable executable-extension feature.
+#[cfg(not(feature = "exec"))]
+pub fn run_manifest_check(_manifest: &Path) -> Result<(), Report> {
     Err(eyre!("`exec` feature is not enabled — rebuild with --features exec"))
 }

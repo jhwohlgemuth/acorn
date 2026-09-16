@@ -6,6 +6,7 @@ use super::parse::{
 use super::DownloadCommands;
 use acorn::analyzer::host::discovery::CitationFormat;
 use acorn::analyzer::{self, Standard};
+use acorn::io::config::application::Hook;
 use acorn::io::swhid::CalculationKind;
 use acorn::io::{Executor, Platform, Remote};
 use acorn::util::constants::app::{
@@ -24,6 +25,7 @@ use derive_more::Display;
 use jiff::SignedDuration;
 use std::path::PathBuf;
 use strum::EnumIs;
+
 /// Bot command arguments.
 pub(crate) mod bot {
     use super::{parse_executor, DetachArgs, Executor, PathBuf, RemoteTarget, ValueEnum, Verbosity};
@@ -596,6 +598,33 @@ pub(crate) struct ExecCheckSafe {
     /// Output format (json or markdown)
     #[arg(long, value_name = "FORMAT", value_parser = parse_exec_format, help_heading = "OPTIONS")]
     pub(crate) format: Option<MimeType>,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ExecHookCheck {
+    /// Rhai script path.
+    #[arg(value_name = "SCRIPT", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) script: PathBuf,
+    /// Deployment manifest name or explicit manifest path.
+    #[arg(long, value_name = "MANIFEST", help_heading = "OPTIONS")]
+    pub(crate) manifest: String,
+    /// Workflow hook to evaluate.
+    #[arg(long, value_name = "HOOK", help_heading = "OPTIONS")]
+    pub(crate) hook: Hook,
+    /// Input file to evaluate against.
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) input: PathBuf,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ExecManifestCheck {
+    /// Script manifest path.
+    #[arg(value_name = "MANIFEST", value_hint = ValueHint::FilePath, help_heading = "ARGS")]
+    pub(crate) manifest: PathBuf,
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }

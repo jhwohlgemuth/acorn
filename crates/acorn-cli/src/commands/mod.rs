@@ -1,6 +1,7 @@
 use crate::cli::arguments::OutputFormat;
 use crate::cli::{
-    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ImportCommands, ServeCommands, Void, WatchOptions,
+    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands, ExecManifestCommands,
+    ImportCommands, ServeCommands, Void, WatchOptions,
 };
 use crate::io::{is_stdout_piped, read_stdin, write_stdout};
 use acorn::analyzer::host::discovery;
@@ -595,6 +596,16 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
         | Some(Commands::Exec { command }) => match command {
             | Some(ExecCommands::Check(arguments)) => with_runtime(async { exec::run_check(&arguments.script, &arguments.input).await }),
             | Some(ExecCommands::CheckSafe(arguments)) => exec::run_check_safe(&arguments.script, arguments.format.as_ref()),
+            | Some(ExecCommands::Hook { command }) => match command {
+                | Some(ExecHookCommands::Check(arguments)) => {
+                    exec::run_hook_check(&arguments.script, &arguments.manifest, arguments.hook, &arguments.input, offline)
+                }
+                | None => Err(eyre::eyre!("No subcommand provided for 'exec hook'")),
+            },
+            | Some(ExecCommands::Manifest { command }) => match command {
+                | Some(ExecManifestCommands::Check(arguments)) => exec::run_manifest_check(&arguments.manifest),
+                | None => Err(eyre::eyre!("No subcommand provided for 'exec manifest'")),
+            },
             | None => Err(eyre::eyre!("No subcommand provided for 'exec'")),
         },
         | Some(Commands::Swhid(arguments)) => swhid::run(arguments),

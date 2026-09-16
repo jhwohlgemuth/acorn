@@ -44,6 +44,12 @@ enum Temporary {
     Directory(PathBuf),
     File(PathBuf),
 }
+#[derive(Clone, Copy)]
+struct HookConfiguration<'a> {
+    application: &'a ApplicationConfiguration,
+    explicit: bool,
+    project_root: &'a Path,
+}
 struct Input {
     paths: Vec<PathBuf>,
     temporary: Option<Temporary>,
@@ -197,17 +203,60 @@ fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
         .flat_map(|category| apply_early_exit_policy(category.checks.clone(), &category.category, report.render_context(&options.report)))
         .collect()
 }
-async fn execute(input: Input, options: &AnalysisContext, configuration: &ApplicationConfiguration, project_root: &Path) -> Result<(), Report> {
+#[cfg(feature = "exec")]
+async fn configured_checks(
+    paths: &[PathBuf],
+    options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
+    explicit_configuration: bool,
+) -> Result<Vec<Check>, Report> {
+    let should_validate = !options
+        .analysis
+        .skip
+        .iter()
+        .any(|category| CheckCategory::from(category) == CheckCategory::Schema);
+    let lifecycle_hooks = [
+        configuration.has_hook(Hook::Check).then_some(WorkflowAction::Check),
+        (should_validate && configuration.has_hook(Hook::Validate)).then_some(WorkflowAction::Validate),
+    ];
+    let hooks = lifecycle_hooks.into_iter().flatten().collect::<Vec<_>>();
+    match hooks.is_empty() {
+        | true => Ok(Vec::new()),
+        | false => {
+            let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
+            Workflow::<ResearchActivity>::plan(&sources, Default::default(), None)
+                .await
+                .and_then(|plan| {
+                    configuration.check_script_hooks(
+                        &plan.changes,
+                        project_root,
+                        &hooks,
+                        ExecutionOrigin::Local,
+                        explicit_configuration,
+                        options.execution.common.offline,
+                    )
+                })
+        }
+    }
+}
+async fn execute(
+    input: Input,
+    options: &AnalysisContext,
+    configuration: &ApplicationConfiguration,
+    project_root: &Path,
+    explicit_configuration: bool,
+) -> Result<(), Report> {
     let report = analyze_paths(&input.paths, options).await;
     let fair_profiles = Vec::<FairProfile>::from(&report);
     let collected = collect(&report, options);
     #[cfg(feature = "exec")]
-    let collected = configured_checks(&input.paths, options, configuration, project_root)
+    let collected = configured_checks(&input.paths, options, configuration, project_root, explicit_configuration)
         .await
         .map(|checks| collected.combine(checks.into()));
     #[cfg(not(feature = "exec"))]
     let collected = {
-        let _ = (configuration, project_root);
+        let _ = (configuration, explicit_configuration, project_root);
         Ok::<CheckBatch, Report>(collected)
     };
     collected.and_then(|collected| {
@@ -392,7 +441,21 @@ pub async fn run(
                         | false => Ok(()),
                     };
                     match supported {
-                        | Ok(()) => run_source(source, &command_options, &options, &configuration, &project_root, format.as_ref(), watch).await,
+                        | Ok(()) => {
+                            run_source(
+                                source,
+                                &command_options,
+                                &options,
+                                HookConfiguration {
+                                    application: &configuration,
+                                    explicit: config.is_some(),
+                                    project_root: &project_root,
+                                },
+                                format.as_ref(),
+                                watch,
+                            )
+                            .await
+                        }
                         | Err(why) => Err(why),
                     }
                 }
@@ -405,19 +468,23 @@ async fn run_source(
     source: InputSource,
     command_options: &CommandOptions,
     options: &AnalysisContext,
-    configuration: &ApplicationConfiguration,
-    project_root: &Path,
+    hooks: HookConfiguration<'_>,
     format: Option<&MimeType>,
     watch: Option<WatchOptions>,
 ) -> Result<(), Report> {
+    let HookConfiguration {
+        application,
+        explicit,
+        project_root,
+    } = hooks;
     match watch {
         | Some(watch) => match &source {
-            | InputSource::Location(location) => watch_run(location, command_options, options, watch, configuration, project_root).await,
+            | InputSource::Location(location) => watch_run(location, command_options, options, watch, application, project_root, explicit).await,
             | InputSource::Text { .. } => Err(eyre!("Standard input and clipboard text cannot be used with --watch")),
         },
         | None => match sync_analyzer_before_check(options).await {
             | Ok(run_options) => match prepare(&source, command_options, format).await {
-                | Ok(prepared) => execute(prepared.value, &run_options, configuration, project_root).await,
+                | Ok(prepared) => execute(prepared.value, &run_options, application, project_root, explicit).await,
                 | Err(why) => Err(why),
             },
             | Err(why) => Err(why),
@@ -466,6 +533,7 @@ async fn watch_run(
     watch: WatchOptions,
     configuration: &ApplicationConfiguration,
     project_root: &Path,
+    explicit_configuration: bool,
 ) -> Result<(), Report> {
     let scheme = location.scheme();
     let network = scheme.is_http() || scheme.is_https() || command_options.merge_request;
@@ -481,38 +549,11 @@ async fn watch_run(
                 &roots,
                 WatchOptions { network, ..watch },
                 || location.prepare(command_options),
-                |input| execute(input, &run_options, configuration, project_root),
+                |input| execute(input, &run_options, configuration, project_root, explicit_configuration),
             )
             .await
         }
         | Err(why) => Err(why),
-    }
-}
-#[cfg(feature = "exec")]
-async fn configured_checks(
-    paths: &[PathBuf],
-    options: &AnalysisContext,
-    configuration: &ApplicationConfiguration,
-    project_root: &Path,
-) -> Result<Vec<Check>, Report> {
-    let should_validate = !options
-        .analysis
-        .skip
-        .iter()
-        .any(|category| CheckCategory::from(category) == CheckCategory::Schema);
-    let lifecycle_hooks = [
-        configuration.has_hook(Hook::Check).then_some(WorkflowAction::Check),
-        (should_validate && configuration.has_hook(Hook::Validate)).then_some(WorkflowAction::Validate),
-    ];
-    let hooks = lifecycle_hooks.into_iter().flatten().collect::<Vec<_>>();
-    match hooks.is_empty() {
-        | true => Ok(Vec::new()),
-        | false => {
-            let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
-            Workflow::<ResearchActivity>::plan(&sources, Default::default(), None)
-                .await
-                .and_then(|plan| configuration.check_script_hooks(&plan.changes, project_root, &hooks, ExecutionOrigin::Local))
-        }
     }
 }
 #[cfg(test)]

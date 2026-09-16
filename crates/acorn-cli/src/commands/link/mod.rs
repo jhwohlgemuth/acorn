@@ -71,7 +71,14 @@ pub async fn run(
                             .and_then(|plan| {
                                 #[cfg(feature = "exec")]
                                 {
-                                    plan.apply(apply_options, &configuration, &root, &[WorkflowAction::Link], ExecutionOrigin::Local)
+                                    plan.apply(
+                                        apply_options,
+                                        &configuration,
+                                        &root,
+                                        &[WorkflowAction::Link],
+                                        ExecutionOrigin::Local,
+                                        config.is_some(),
+                                    )
                                 }
                                 #[cfg(not(feature = "exec"))]
                                 {

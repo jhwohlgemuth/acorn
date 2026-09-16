@@ -4,6 +4,8 @@
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
 use acorn::io::ApiResult;
+#[cfg(feature = "exec")]
+use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
 use acorn_core::util::MimeType;
 use acorn_schema::enrichment::Provider;
@@ -101,6 +103,17 @@ pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {
              docker, apptainer, kubernetes, podman, sandbox, shell, ssh, \
              virtual-machine, other"
         )),
+    }
+}
+/// Parse one executable-hook input according to its path.
+#[cfg(feature = "exec")]
+pub(crate) fn parse_hook_input(path: &Path, content: &str) -> ApiResult<Value> {
+    match MimeType::from_path(path) {
+        | MimeType::Json | MimeType::Jsonc => jsonc_parse_value(content),
+        | MimeType::Cff | MimeType::Yaml => {
+            serde_norway::from_str(content).map_err(|why| eyre!("Failed to parse hook input `{}` — {why}", path.display()))
+        }
+        | _ => Ok(Value::String(content.to_string())),
     }
 }
 /// Parse an MCP Bundle target platform, including the 64-bit Windows target.

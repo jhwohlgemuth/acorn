@@ -1,6 +1,8 @@
 //! Application configuration I/O
 //!
 //! Handles discovery, parsing, rendering and synchronization of ACORN files.
+#[cfg(feature = "exec")]
+use crate::exec::manifest::ScriptManifestSource;
 #[cfg(feature = "agentic")]
 use crate::io::api::gitlab::DeploymentConfig;
 use crate::io::api::Endpoint;
@@ -12,7 +14,7 @@ use crate::util::{text_diff_changes_with_color, Label};
 use acorn_core::prelude::{HashMap, HashSet};
 use acorn_core::util::{detect_json, MimeType};
 use acorn_core::validation::ValidationError;
-use acorn_schema::validation::{Validate, ValidationReport};
+use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
 use acorn_schema::OneOrMany;
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -110,6 +112,11 @@ pub struct ApplicationConfiguration {
     /// Deployment-owned repository workflow policy.
     #[eserde(compat)]
     pub workflow: Option<DeploymentConfig>,
+    /// Deployment manifest name or an inline executable-hook manifest.
+    #[cfg(feature = "exec")]
+    #[eserde(compat)]
+    #[serde(rename = "scriptManifest")]
+    pub script_manifest: Option<ScriptManifestSource>,
     /// Optional ordered list of constrained Rhai script hooks.
     #[eserde(compat)]
     pub scripts: Option<Vec<Entry>>,
@@ -118,6 +125,9 @@ pub struct ApplicationConfiguration {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Entry {
+    /// Stable identifier used to match a deployment manifest entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     /// Path to the script, relative to `<project-root>/.acorn/` unless `absolute` is true.
     pub path: String,
     /// Non-empty, duplicate-free hooks.
@@ -499,6 +509,19 @@ impl Validate for ApplicationConfiguration {
             }
             paths
         });
+        entries
+            .iter()
+            .enumerate()
+            .filter_map(|(index, entry)| entry.id.as_deref().map(|id| (index, id)))
+            .fold(HashSet::<&str>::new(), |mut identifiers, (index, id)| {
+                if !identifiers.insert(id) {
+                    report.add(
+                        format!("scripts[{index}].id"),
+                        ValidationError::new("duplicate").with_message(format!("Duplicate script identifier `{id}`")),
+                    );
+                }
+                identifiers
+            });
         report.finish()
     }
 }
@@ -511,11 +534,19 @@ impl Validate for Entry {
             .extension()
             .and_then(|extension| extension.to_str())
             .filter(|extension| !extension.eq_ignore_ascii_case("rhai"));
+        let identifier_error = match (self.id.as_deref(), self.id.as_deref().filter(is_identifier)) {
+            | (Some(id), None) => Some((
+                "id",
+                ValidationError::new("format").with_message(format!("Invalid script identifier `{id}`")),
+            )),
+            | _ => None,
+        };
         let error = self
             .path
             .trim()
             .is_empty()
             .then(|| ("path", ValidationError::new("required").with_message("Script path must not be empty")))
+            .or(identifier_error)
             .or_else(|| {
                 self.hooks.is_empty().then(|| {
                     (

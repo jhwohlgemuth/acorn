@@ -145,9 +145,9 @@ fn method_names_are_validated() {
 #[tokio::test]
 async fn mutation_and_offline_policies_are_enforced() {
     let effects = OperationEffects {
-        destructive: false,
-        open_world: true,
-        read_only: false,
+        mutation: true,
+        network_read: true,
+        ..OperationEffects::default()
     };
     let method = MethodName::from(["mutate"]);
     let definition = OperationDefinition::new::<AddInput, AddOutput>(method.clone(), effects).unwrap();

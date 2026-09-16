@@ -2,7 +2,10 @@
 use acorn_core::util::constants::app::{EXEC_HEADER_PREFIX, SUPPORTED_EXEC_VERSION};
 use acorn_core::util::SemanticVersion;
 
+pub mod capability;
 pub mod config;
+pub mod hooks;
+pub mod manifest;
 pub mod result;
 pub mod runtime;
 

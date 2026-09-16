@@ -1,4 +1,6 @@
 //! Restricted Rhai engine profile
+use super::capability::InvocationCapability;
+use super::manifest::ResourceLimits;
 use super::parse_version_header;
 use crate::analyzer::{Check, CheckCategory};
 use crate::{check_err, check_ok};
@@ -8,6 +10,7 @@ use acorn_core::util::constants::app::{
     MAX_EXEC_MAP_SIZE, MAX_EXEC_MODULES, MAX_EXEC_OPERATIONS, MAX_EXEC_STRING_SIZE, MAX_EXEC_VARIABLES,
 };
 use color_eyre::eyre::{eyre, Report, Result};
+use jiff::{SignedDuration, Timestamp};
 use std::path::Path;
 
 /// Runtime contract for compiling and evaluating extension source.
@@ -27,6 +30,17 @@ impl Default for RhaiRuntime {
     }
 }
 impl RhaiRuntime {
+    /// Create a restricted runtime with one invocation's manifest-brokered host functions.
+    pub fn with_capability(capability: &InvocationCapability, limits: &ResourceLimits) -> Self {
+        let duration = SignedDuration::from_millis(i64::try_from(limits.max_runtime).unwrap_or(i64::MAX));
+        let deadline = Timestamp::now().checked_add(duration).unwrap_or(Timestamp::MAX);
+        let mut runtime = Self::new().set_max_operations(limits.max_operations);
+        runtime
+            .engine_mut()
+            .on_progress(move |_| (Timestamp::now() >= deadline).then(|| "script wall-clock limit exceeded".into()));
+        capability.register(runtime.engine_mut());
+        runtime
+    }
     /// Check source without evaluating it.
     pub fn check_safe(path: &Path, content: &str) -> Vec<Check> {
         let validation = Self::validate_source(path, content);
@@ -92,6 +106,15 @@ impl RhaiRuntime {
         engine.set_max_strings_interned(MAX_EXEC_INTERNED_STRINGS);
         engine.set_max_variables(MAX_EXEC_VARIABLES);
         Self(engine)
+    }
+    /// Return mutable access to the restricted Rhai engine.
+    pub fn engine_mut(&mut self) -> &mut rhai::Engine {
+        &mut self.0
+    }
+    /// Set the Rhai operation ceiling and return the updated runtime.
+    pub fn set_max_operations(mut self, maximum: u64) -> Self {
+        self.0.set_max_operations(maximum);
+        self
     }
 }
 impl Runtime for RhaiRuntime {

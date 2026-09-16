@@ -11,7 +11,6 @@
 
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
-- [Capability-brokered Rhai workflow hooks](rhai-workflow-hooks.md) - Evaluate typed, explicitly trusted Rhai hooks through declared capabilities and transactional workflow boundaries after configured quality gates prove demand.
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Register inference services while preserving official ACP transport, then stage prompt hydration, structured suggestions, and verified deterministic remediation.
 - [MCP client](mcp-client.md) - Add outbound RMCP client sessions that reuse the shared operation and policy boundaries.
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.

@@ -1,4 +1,10 @@
-use super::config::ExecutionOrigin;
+use super::capability::InvocationCapability;
+use super::config::{ExecutionOrigin, Resolved};
+use super::hooks::{HookExecution, HookOptions};
+use super::manifest::{
+    FilesystemCapability, NetworkCapability, ResourceLimits, ScriptAuthorization, ScriptCapabilities, ScriptManifest, ScriptManifestSource,
+    SCRIPT_MANIFEST_VERSION,
+};
 use super::parse_version_header;
 use super::result::{ExecutionResult, RhaiExt};
 use super::runtime::{verify_evaluate_entry_point, RhaiRuntime, Runtime};
@@ -10,14 +16,26 @@ use acorn_core::util::MimeType;
 use acorn_core::Location;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::validation::Validate as SchemaValidate;
+use alloc::collections::BTreeMap;
 use core::str::FromStr;
 use std::fs::{create_dir, write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use validator::Validate;
 
 const VALID_SOURCE: &str = "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: []} }";
 
+fn authorization(capabilities: ScriptCapabilities) -> ScriptAuthorization {
+    ScriptAuthorization {
+        version: SUPPORTED_EXEC_VERSION.to_string(),
+        capabilities,
+        digest: "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
+        entry: "evaluate".to_string(),
+        hooks: vec![Hook::Check, Hook::Format],
+        id: "quality".to_string(),
+        limits: ResourceLimits::default(),
+    }
+}
 fn finding(rule_id: &str) -> Finding {
     Finding {
         category: CheckCategory::Quality,
@@ -31,11 +49,38 @@ fn finding(rule_id: &str) -> Finding {
         uri: None,
     }
 }
+fn fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/exec").join(name)
+}
+fn fixture_execution(name: &str, hook: WorkflowAction, data: &serde_json::Value, capabilities: ScriptCapabilities) -> HookExecution {
+    let path = fixture(name);
+    let mut resolved = Resolved::direct(&path).expect("resolve fixture script");
+    resolved.entry.id = Some(name.to_string());
+    let authorization = authorization(capabilities);
+    resolved
+        .evaluate_hook(
+            "activity.json",
+            data,
+            HookOptions::init()
+                .maybe_authorization(Some(&authorization))
+                .hook(hook)
+                .maybe_manifest_source(Some("test-fixture"))
+                .build(),
+        )
+        .expect("execute fixture script")
+}
+fn manifest(capabilities: ScriptCapabilities) -> ScriptManifest {
+    ScriptManifest {
+        version: SCRIPT_MANIFEST_VERSION.to_string(),
+        scripts: vec![authorization(capabilities)],
+    }
+}
 
 #[test]
 fn application_configuration_has_hook() {
     let configuration = ApplicationConfiguration {
         scripts: Some(vec![Entry {
+            id: None,
             path: "quality".to_string(),
             hooks: vec![Hook::Check, Hook::Format],
             absolute: false,
@@ -45,17 +90,20 @@ fn application_configuration_has_hook() {
     assert!(configuration.has_hook(Hook::Check));
     assert!(configuration.has_hook(Hook::Format));
     assert!(!configuration.has_hook(Hook::Link));
+    assert_eq!(WorkflowAction::from(Hook::Check), WorkflowAction::Check);
 }
 #[test]
 fn application_configuration_validates_entries_and_duplicate_paths() {
     let configuration = ApplicationConfiguration {
         scripts: Some(vec![
             Entry {
+                id: None,
                 path: "quality".to_string(),
                 hooks: vec![Hook::Check],
                 absolute: false,
             },
             Entry {
+                id: None,
                 path: "quality".to_string(),
                 hooks: vec![Hook::Format],
                 absolute: false,
@@ -91,6 +139,7 @@ fn check_safe_wrong_arity_fails() {
 #[test]
 fn config_entry_validation_duplicate_hooks() {
     let entry = Entry {
+        id: None,
         path: "foo".to_string(),
         hooks: vec![Hook::Check, Hook::Check],
         absolute: false,
@@ -100,6 +149,7 @@ fn config_entry_validation_duplicate_hooks() {
 #[test]
 fn config_entry_validation_empty_hooks() {
     let entry = Entry {
+        id: None,
         path: "foo".to_string(),
         hooks: vec![],
         absolute: false,
@@ -109,6 +159,7 @@ fn config_entry_validation_empty_hooks() {
 #[test]
 fn config_entry_validation_parent_traversal() {
     let entry = Entry {
+        id: None,
         path: "../escape".to_string(),
         hooks: vec![Hook::Check],
         absolute: false,
@@ -118,6 +169,7 @@ fn config_entry_validation_parent_traversal() {
 #[test]
 fn config_entry_validation_repeated_root() {
     let entry = Entry {
+        id: None,
         path: ".acorn/quality".to_string(),
         hooks: vec![Hook::Check],
         absolute: false,
@@ -142,11 +194,13 @@ fn configured_scripts_compile_completely_before_evaluation() {
     let configuration = ApplicationConfiguration {
         scripts: Some(vec![
             Entry {
+                id: None,
                 path: "first".to_string(),
                 hooks: vec![Hook::Check],
                 absolute: false,
             },
             Entry {
+                id: None,
                 path: "second".to_string(),
                 hooks: vec![Hook::Check],
                 absolute: false,
@@ -175,6 +229,7 @@ fn configured_scripts_deny_non_local_callers() {
     create_dir(&script_root).expect("script directory");
     write(script_root.join("quality.rhai"), VALID_SOURCE).expect("script");
     let entry = Entry {
+        id: None,
         path: "quality".to_string(),
         hooks: vec![Hook::Check],
         absolute: false,
@@ -192,6 +247,7 @@ fn configured_scripts_use_immutable_compiled_snapshot() {
     let path = script_root.join("quality.rhai");
     write(&path, VALID_SOURCE).expect("script");
     let resolved = Entry {
+        id: None,
         path: "quality".to_string(),
         hooks: vec![Hook::Check],
         absolute: false,
@@ -213,6 +269,7 @@ fn configured_validate_findings_use_schema_category() {
         "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"rule-1\", severity: \"warning\", message: context.hook}]} }";
     write(script_root.join("quality.rhai"), source).expect("script");
     let resolved = Entry {
+        id: None,
         path: "quality".to_string(),
         hooks: vec![Hook::Validate],
         absolute: false,
@@ -225,6 +282,206 @@ fn configured_validate_findings_use_schema_category() {
     let check = checks.first().expect("validate finding");
     assert_eq!(check.category, CheckCategory::Schema);
     assert_eq!(check.message, "validate");
+}
+#[test]
+fn effectful_runtime_reads_and_proposes_without_writing() {
+    let temporary = tempdir().expect("temporary capability root");
+    write(temporary.path().join("input.txt"), "content").expect("input");
+    let roots = BTreeMap::from([("project".to_string(), temporary.path().to_path_buf())]);
+    let authorization = authorization(ScriptCapabilities {
+        read: Some(FilesystemCapability {
+            max_bytes: 1024,
+            max_files: 1,
+            roots: roots.clone(),
+        }),
+        write: Some(FilesystemCapability {
+            max_bytes: 1024,
+            max_files: 1,
+            roots,
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, false, WorkflowAction::Format).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { let value = read_text(\"project\", \"input.txt\"); write_text(\"project\", \"output.txt\", value); #{findings: []} }";
+    let result = runtime.check(source, rhai::Map::new());
+    assert!(result.is_ok());
+    let proposals = capability.proposals().expect("proposals");
+    assert_eq!(proposals.len(), 1);
+    assert_eq!(proposals.first().expect("one proposal").content, "content");
+    assert!(!temporary.path().join("output.txt").exists());
+}
+#[test]
+fn filesystem_read_enforces_distinct_file_limit() {
+    let temporary = tempdir().expect("temporary capability root");
+    write(temporary.path().join("first.txt"), "first").expect("first input");
+    write(temporary.path().join("second.txt"), "second").expect("second input");
+    let authorization = authorization(ScriptCapabilities {
+        read: Some(FilesystemCapability {
+            max_bytes: 1024,
+            max_files: 1,
+            roots: BTreeMap::from([("project".to_string(), temporary.path().to_path_buf())]),
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, false, WorkflowAction::Check).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { read_text(\"project\", \"first.txt\"); read_text(\"project\", \"second.txt\"); #{findings: []} }";
+    let error = runtime.check(source, rhai::Map::new()).expect_err("file limit must fail");
+    assert!(error.to_string().contains("file limit"));
+}
+#[cfg(unix)]
+#[test]
+fn filesystem_read_rejects_symlink_escape() {
+    use std::os::unix::fs::symlink;
+
+    let temporary = tempdir().expect("temporary capability root");
+    let outside = tempdir().expect("outside root");
+    write(outside.path().join("secret.txt"), "secret").expect("outside input");
+    symlink(outside.path(), temporary.path().join("escape")).expect("symlink");
+    let authorization = authorization(ScriptCapabilities {
+        read: Some(FilesystemCapability {
+            max_bytes: 1024,
+            max_files: 1,
+            roots: BTreeMap::from([("project".to_string(), temporary.path().to_path_buf())]),
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, false, WorkflowAction::Check).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { read_text(\"project\", \"escape/secret.txt\"); #{findings: []} }";
+    assert!(runtime.check(source, rhai::Map::new()).is_err());
+}
+#[test]
+fn filesystem_write_is_unavailable_to_check_hooks() {
+    let temporary = tempdir().expect("temporary capability root");
+    let roots = BTreeMap::from([("project".to_string(), temporary.path().to_path_buf())]);
+    let authorization = authorization(ScriptCapabilities {
+        write: Some(FilesystemCapability {
+            max_bytes: 1024,
+            max_files: 1,
+            roots,
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, false, WorkflowAction::Check).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { write_text(\"project\", \"output.txt\", \"content\"); #{findings: []} }";
+    assert!(runtime.check(source, rhai::Map::new()).is_err());
+    assert!(!temporary.path().join("output.txt").exists());
+}
+#[test]
+fn fixture_check_hook_reports_draft_activity() {
+    let execution = fixture_execution(
+        "check-draft.rhai",
+        WorkflowAction::Check,
+        &serde_json::json!({"meta": {"draft": true}, "title": "Draft activity"}),
+        ScriptCapabilities::default(),
+    );
+    let check = execution.checks.first().expect("draft finding");
+    assert_eq!(check.category, CheckCategory::Quality);
+    assert_eq!(check.locator.as_deref(), Some("meta.draft"));
+    assert_eq!(check.message, "Project metadata is still marked as draft");
+}
+#[test]
+fn fixture_enrich_hook_adds_keywords() {
+    let execution = fixture_execution(
+        "enrich-keywords.rhai",
+        WorkflowAction::Enrich,
+        &serde_json::json!({"meta": {"keywords": []}, "title": "Research activity"}),
+        ScriptCapabilities {
+            mutation: true,
+            ..ScriptCapabilities::default()
+        },
+    );
+    let document = execution.document.expect("enriched document");
+    let document = serde_json::from_str::<serde_json::Value>(&document).expect("valid JSON document");
+    assert_eq!(
+        document.pointer("/meta/keywords"),
+        Some(&serde_json::json!(["reproducibility", "research software"]))
+    );
+}
+#[test]
+fn fixture_format_hook_normalizes_title() {
+    let execution = fixture_execution(
+        "format-title.rhai",
+        WorkflowAction::Format,
+        &serde_json::json!({"meta": {"id": "activity-1"}, "title": "  research title  "}),
+        ScriptCapabilities {
+            mutation: true,
+            ..ScriptCapabilities::default()
+        },
+    );
+    let document = execution.document.expect("formatted document");
+    let document = serde_json::from_str::<serde_json::Value>(&document).expect("valid JSON document");
+    assert_eq!(document.get("title"), Some(&serde_json::json!("Normalized research title")));
+}
+#[test]
+fn fixture_link_hook_proposes_summary_file() {
+    let temporary = tempdir().expect("temporary output root");
+    let execution = fixture_execution(
+        "link-summary.rhai",
+        WorkflowAction::Link,
+        &serde_json::json!({"meta": {"id": "activity-1"}, "title": "Linked activity"}),
+        ScriptCapabilities {
+            write: Some(FilesystemCapability {
+                max_bytes: 1024,
+                max_files: 1,
+                roots: BTreeMap::from([("output".to_string(), temporary.path().to_path_buf())]),
+            }),
+            ..ScriptCapabilities::default()
+        },
+    );
+    let proposal = execution.files.first().expect("summary proposal");
+    assert_eq!(proposal.content, "Linked activity");
+    assert_eq!(proposal.path, temporary.path().join("activity-summary.txt"));
+    assert!(!proposal.path.exists());
+}
+#[test]
+fn fixture_validate_hook_rejects_missing_identifier() {
+    let execution = fixture_execution(
+        "validate-identifier.rhai",
+        WorkflowAction::Validate,
+        &serde_json::json!({"meta": {"id": ""}, "title": "Unidentified activity"}),
+        ScriptCapabilities::default(),
+    );
+    let check = execution.checks.first().expect("identifier finding");
+    assert_eq!(check.category, CheckCategory::Schema);
+    assert_eq!(check.severity, CheckSeverity::Error);
+    assert_eq!(check.locator.as_deref(), Some("meta.id"));
+}
+#[test]
+fn format_hook_returns_a_structured_document_proposal_and_audit() {
+    let temporary = tempdir().expect("temporary script root");
+    let script = temporary.path().join("format.rhai");
+    write(
+        &script,
+        "// @acorn-exec-v0.2.0\nfn evaluate(context) { context.proposed.test = \"changed\"; #{findings: [], output: #{document: context.proposed}} }",
+    )
+    .expect("script");
+    let mut resolved = Resolved::direct(&script).expect("resolved script");
+    resolved.entry.id = Some("quality".to_string());
+    let execution = resolved
+        .evaluate_hook(
+            "activity.json",
+            &serde_json::json!({"test": "original"}),
+            HookOptions::init()
+                .maybe_authorization(Some(&authorization(ScriptCapabilities {
+                    mutation: true,
+                    ..ScriptCapabilities::default()
+                })))
+                .hook(WorkflowAction::Format)
+                .maybe_manifest_source(Some("inline"))
+                .build(),
+        )
+        .expect("hook execution");
+    let document = execution.document.expect("document proposal");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&document).expect("JSON document").get("test"),
+        Some(&serde_json::Value::String("changed".to_string()))
+    );
+    assert_eq!(execution.audit.script_id, "quality");
+    assert_eq!(execution.audit.proposal_digests.len(), 1);
 }
 #[test]
 fn infer_explicit_rhai_extension() {
@@ -244,8 +501,85 @@ fn infer_invalid_entry_is_not_rhai() {
     assert_eq!(MimeType::infer(source), None);
 }
 #[test]
+fn inline_effectful_manifest_requires_explicit_configuration() {
+    let source = ScriptManifestSource::Inline(manifest(ScriptCapabilities {
+        mutation: true,
+        ..ScriptCapabilities::default()
+    }));
+    assert!(source.resolve(false).is_err());
+    assert!(source.resolve(true).is_ok());
+}
+#[test]
+fn inline_manifest_deserializes_from_application_configuration() {
+    let configuration = ApplicationConfiguration::parse(format!(
+        r#"{{"scriptManifest":{{"version":"{SCRIPT_MANIFEST_VERSION}","scripts":[]}},"scripts":[]}}"#
+    ));
+    assert!(configuration.is_ok());
+    assert!(configuration.expect("configuration").script_manifest.is_some());
+}
+#[test]
+fn manifest_deserializes_simple_names() {
+    let content = format!(
+        r#"{{"version":"{SCRIPT_MANIFEST_VERSION}","scripts":[{{"id":"quality","version":"{SUPPORTED_EXEC_VERSION}","entry":"evaluate","digest":"sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad","hooks":["check"],"capabilities":{{"read":null,"write":null,"network":null}}}}]}}"#
+    );
+    let manifest = ScriptManifest::parse(Path::new("manifest.json"), &content).expect("manifest parses");
+    assert!(SchemaValidate::validate(&manifest).is_ok());
+    let authorization = manifest.scripts.first().expect("authorization");
+    assert_eq!(authorization.entry, "evaluate");
+    assert_eq!(authorization.version, SUPPORTED_EXEC_VERSION.to_string());
+}
+#[test]
+fn manifest_rejects_an_unsupported_script_abi() {
+    let mut manifest = manifest(ScriptCapabilities::default());
+    manifest.scripts.first_mut().expect("authorization").version = "9.0.0".to_string();
+    assert!(manifest.validate().is_err());
+}
+#[test]
 fn module_loads() {
     assert_eq!(SUPPORTED_EXEC_VERSION.to_string(), "0.2.0");
+}
+#[test]
+fn network_capability_denies_offline_requests() {
+    let authorization = authorization(ScriptCapabilities {
+        network: Some(NetworkCapability {
+            hosts: vec!["example.com".to_string()],
+            max_requests: 1,
+            max_response_bytes: 1024,
+            timeout: 100,
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, true, WorkflowAction::Check).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { http_get(\"https://example.com\"); #{findings: []} }";
+    let error = runtime.check(source, rhai::Map::new()).expect_err("offline request must fail");
+    assert!(error.to_string().contains("offline"));
+}
+#[test]
+fn network_capability_denies_unlisted_and_private_targets() {
+    let authorization = authorization(ScriptCapabilities {
+        network: Some(NetworkCapability {
+            hosts: vec!["127.0.0.1".to_string()],
+            max_requests: 2,
+            max_response_bytes: 1024,
+            timeout: 100,
+        }),
+        ..ScriptCapabilities::default()
+    });
+    let capability = InvocationCapability::new(&authorization, false, WorkflowAction::Check).expect("capability");
+    let runtime = RhaiRuntime::with_capability(&capability, &authorization.limits);
+    let unlisted = "// @acorn-exec-v0.2.0\nfn evaluate(context) { http_get(\"https://example.com\"); #{findings: []} }";
+    let private = "// @acorn-exec-v0.2.0\nfn evaluate(context) { http_get(\"https://127.0.0.1\"); #{findings: []} }";
+    assert!(runtime
+        .check(unlisted, rhai::Map::new())
+        .expect_err("unlisted host")
+        .to_string()
+        .contains("not allowlisted"));
+    assert!(runtime
+        .check(private, rhai::Map::new())
+        .expect_err("private address")
+        .to_string()
+        .contains("prohibited address"));
 }
 #[test]
 fn result_empty_rule_fails() {

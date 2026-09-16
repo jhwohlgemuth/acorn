@@ -123,15 +123,25 @@ pub struct OperationDefinition {
     pub result_schema: Value,
 }
 /// Effect metadata enforced before an operation handler runs.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationEffects {
+    /// Whether the operation can access credentials.
+    pub credentials: bool,
     /// Whether the operation can destroy or irreversibly replace data.
     pub destructive: bool,
-    /// Whether the operation can interact with external systems.
-    pub open_world: bool,
+    /// Whether the operation can read from the host filesystem.
+    pub filesystem_read: bool,
+    /// Whether the operation can write to the host filesystem.
+    pub filesystem_write: bool,
+    /// Whether the operation can invoke inference services.
+    pub inference: bool,
     /// Whether the operation may change state.
-    pub read_only: bool,
+    pub mutation: bool,
+    /// Whether the operation can read from remote network services.
+    pub network_read: bool,
+    /// Whether the operation can start or communicate with processes.
+    pub process: bool,
 }
 /// Immutable registry of explicitly registered ACORN operations.
 #[derive(Clone, Default)]
@@ -263,15 +273,6 @@ impl OperationDefinition {
             })
     }
 }
-impl Default for OperationEffects {
-    fn default() -> Self {
-        Self {
-            destructive: false,
-            open_world: false,
-            read_only: true,
-        }
-    }
-}
 impl fmt::Debug for OperationRegistry {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let definitions: Vec<OperationDefinition> = self.operations.iter().map(|operation| operation.definition.clone()).collect();
@@ -346,9 +347,10 @@ impl OperationRegistry {
                 OperationDefinition::new::<OperationInput, ReplayOutput>(
                     MethodName::from(["operations", "replay"]),
                     OperationEffects {
-                        destructive: false,
-                        open_world: false,
-                        read_only: false,
+                        filesystem_read: true,
+                        filesystem_write: true,
+                        mutation: true,
+                        ..OperationEffects::default()
                     },
                 )
                 .and_then(|replay| {
@@ -556,6 +558,11 @@ impl RpcError {
         .unwrap_or(Value::Null)
     }
 }
+impl From<MethodName> for String {
+    fn from(value: MethodName) -> Self {
+        value.to_string()
+    }
+}
 impl<'de> Deserialize<'de> for StrictValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -635,15 +642,15 @@ impl<'de> Deserialize<'de> for StrictValue {
         deserializer.deserialize_any(StrictVisitor)
     }
 }
-impl From<MethodName> for String {
-    fn from(value: MethodName) -> Self {
-        value.to_string()
-    }
-}
 fn policy_error(effects: &OperationEffects, context: &InvocationContext) -> Option<RpcError> {
-    match (!effects.read_only && !context.allow_mutation, effects.open_world && context.offline) {
-        | (true, _) => Some(RpcError::new(POLICY_DENIED, "Operation requires mutation approval")),
-        | (_, true) => Some(RpcError::new(POLICY_DENIED, "Operation is unavailable while offline")),
+    let requires_mutation = effects.destructive || effects.filesystem_write || effects.mutation;
+    let unavailable = effects.credentials || effects.inference || effects.process;
+    let mutation_denied = requires_mutation && !context.allow_mutation;
+    let offline = effects.network_read && context.offline;
+    match (unavailable, mutation_denied, offline) {
+        | (true, _, _) => Some(RpcError::new(POLICY_DENIED, "Operation declares an unavailable effect")),
+        | (_, true, _) => Some(RpcError::new(POLICY_DENIED, "Operation requires mutation approval")),
+        | (_, _, true) => Some(RpcError::new(POLICY_DENIED, "Operation is unavailable while offline")),
         | _ => None,
     }
 }

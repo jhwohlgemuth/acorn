@@ -72,6 +72,7 @@ use std::env::temp_dir;
 use std::sync::Mutex;
 use tokio::net::TcpListener;
 use tracing::{error, info};
+
 /// Callback used to process merge request note events.
 ///
 /// Handlers are called once for each merge request note event returned by a
@@ -259,9 +260,11 @@ impl Config {
     }
     fn registry(&self) -> ApiResult<OperationRegistry> {
         let effects = OperationEffects {
-            destructive: false,
-            open_world: true,
-            read_only: false,
+            filesystem_read: true,
+            filesystem_write: true,
+            mutation: true,
+            network_read: true,
+            ..OperationEffects::default()
         };
         [
             MethodName::from(["webhooks", "gitlab", "merge-request"]),
@@ -441,6 +444,11 @@ impl Config {
         }
     }
 }
+impl fmt::Display for Config {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", self.address)
+    }
+}
 impl From<DeploymentConfig> for Config {
     fn from(deployment: DeploymentConfig) -> Self {
         Self {
@@ -460,11 +468,6 @@ impl From<DeploymentConfig> for Config {
             #[cfg(feature = "analysis")]
             analysis_options: AnalysisContext::default(),
         }
-    }
-}
-impl fmt::Display for Config {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", self.address)
     }
 }
 impl<'a> TryFrom<&'a EventDetails> for MergeRequestNoteEvent {
