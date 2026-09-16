@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.1</version>
+  <numberOfRecords>2</numberOfRecords>
+  <records>
+    <record><recordData><responseRecord><isniUnformatted>0000000492299539</isniUnformatted><isniStatus>assigned</isniStatus><organisation><organisationName><mainName>First</mainName></organisationName></organisation></responseRecord></recordData></record>
+    <record><recordData><responseRecord><isniUnformatted>0000000492299539</isniUnformatted><isniStatus>assigned</isniStatus><organisation><organisationName><mainName>Second</mainName></organisationName></organisation></responseRecord></recordData></record>
+  </records>
+</searchRetrieveResponse>

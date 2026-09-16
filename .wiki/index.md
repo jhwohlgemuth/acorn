@@ -42,7 +42,7 @@ The [crate boundary architecture](refactors/crate-boundary-architecture.md), [po
 
 1. Verify evidence and status against the current code before editing a plan.
 2. Update frontmatter and body together when scope, package, priority, or status changes.
-3. Delete finished plans and remove their index entries.
+3. Delete finished plans immediately and remove their index and network entries; do not retain completed-plan sections or status records in the planning wiki.
 4. Consolidate overlapping proposals into one canonical concept instead of duplicating them.
 5. Keep external claims cited and verify that internal links resolve.
 6. Preserve OKF frontmatter and the reserved `index.md` and `log.md` filename conventions.

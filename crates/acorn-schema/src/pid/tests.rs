@@ -6,6 +6,28 @@
     clippy::unwrap_used
 )]
 use super::*;
+use std::collections::BTreeSet;
+
+const ALL_SUPPORTED_PID_FIXTURE: &str = include_str!("../../../../tests/fixtures/gather/all-supported-pids.txt");
+const ALL_SUPPORTED_PID_CASES: [(PID, &str, &str); 13] = [
+    (PID::ARK, "https://n2t.net/ark:/13030/xf93gt2q", "invalid ARK value"),
+    (PID::Arxiv, "https://arxiv.org/abs/2106.09685", "arXiv:2100.00000"),
+    (PID::DOI, "https://doi.org/10.1000/182", "invalid DOI value"),
+    (PID::Handle, "https://hdl.handle.net/10013/epic.10033", "invalid Handle value"),
+    (PID::ISBN, "978-0-306-40627-0", "0-306-40615-3"),
+    (PID::ISNI, "https://isni.org/isni/0000000492299539", "0000000492299538"),
+    (PID::ORCID, "https://orcid.org/0000-0002-2057-9115", "0000-0002-2057-9114"),
+    (PID::Patent, "US20250123456A2", "US ABC123 B2"),
+    (PID::RAID, "RAID:10.83962/fb5be317", "11.83962/fb5be317"),
+    (PID::ROR, "https://ror.org/01qz5mb56", "01qz5mb55"),
+    (PID::RRID, "RRID:SCR_003512", "https://example.org/RRID:BAD"),
+    (
+        PID::SWHID,
+        "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b",
+        "swh:2:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b",
+    ),
+    (PID::URL, "https://example.org/research/artifact", "ftp://example.org/research/artifact"),
+];
 
 const MOD_10_OR_11_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 6] = [
     ("0-306-40615-2", Some(&['2'])),
@@ -39,6 +61,48 @@ fn test_betanumeric() {
     assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
 }
 #[test]
+fn test_all_supported_pid_fixture_covers_valid_and_invalid_instances() {
+    assert_eq!(ALL_SUPPORTED_PID_FIXTURE.split("\n\n").count(), 4);
+    let fixture_kinds = ALL_SUPPORTED_PID_CASES.iter().map(|(kind, _, _)| kind.clone()).collect::<BTreeSet<_>>();
+    let supported_kinds = PID::iter().filter(|kind| kind.is_discoverable()).collect::<BTreeSet<_>>();
+    assert_eq!(fixture_kinds, supported_kinds);
+    ALL_SUPPORTED_PID_CASES.iter().for_each(|(kind, valid, invalid)| {
+        assert_eq!(
+            ALL_SUPPORTED_PID_FIXTURE.matches(valid).count(),
+            1,
+            "fixture should contain one valid {kind}"
+        );
+        assert_eq!(
+            ALL_SUPPORTED_PID_FIXTURE.matches(invalid).count(),
+            1,
+            "fixture should contain one invalid {kind}"
+        );
+        assert!(
+            Identifier {
+                kind: kind.clone(),
+                value: (*valid).to_string(),
+            }
+            .normalized()
+            .is_some_and(|identifier| identifier.kind == *kind),
+            "expected valid {kind}: {valid}"
+        );
+        assert!(
+            Identifier {
+                kind: kind.clone(),
+                value: (*invalid).to_string(),
+            }
+            .normalized()
+            .is_none(),
+            "expected invalid {kind}: {invalid}"
+        );
+    });
+    let discovered_kinds = Identifier::find_all(ALL_SUPPORTED_PID_FIXTURE)
+        .into_iter()
+        .map(|identifier| identifier.kind)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(discovered_kinds, supported_kinds);
+}
+#[test]
 fn test_identifier_normalize_uses_declared_kind() {
     let doi = Identifier {
         kind: PID::DOI,
@@ -52,6 +116,13 @@ fn test_identifier_normalize_uses_declared_kind() {
         value: "https://doi.org/10.1234/ABC".to_string(),
     };
     assert!(mismatched.normalized().is_none());
+}
+#[test]
+fn test_identifier_unknown_name_identifier_is_ambiguous() {
+    assert!(Identifier::new("0000-0002-2057-9115").normalized().is_none());
+    assert!(Identifier::new("0000000492299539").normalized().is_none());
+    assert_eq!(Identifier::new("ORCID: 0000-0002-2057-9115").normalized().unwrap().kind, PID::ORCID);
+    assert_eq!(Identifier::new("ISNI: 0000 0004 9229 9539").normalized().unwrap().kind, PID::ISNI);
 }
 #[test]
 fn test_idutils_url_cases() {
@@ -118,6 +189,24 @@ fn test_normalize_discovery_url_preserves_case_sensitive_components() {
     let normalized = Identifier::new("https://Example.org/Data/Artifact?Key=Value").normalized().unwrap();
     assert_eq!(normalized.kind, PID::URL);
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
+}
+#[test]
+fn test_normalize_pid_values_filters_invalid_values_and_duplicates() {
+    assert_eq!(
+        normalize::<ISNI>(vec![
+            "https://isni.org/isni/0000000492299539".to_string(),
+            "0000000492299538".to_string(),
+            "0000 0004 9229 9539".to_string(),
+        ]),
+        ["0000000492299539"]
+    );
+    assert_eq!(
+        normalize::<ORCID>(vec![
+            "https://orcid.org/0000-0002-2057-9115".to_string(),
+            "0000-0002-2057-9114".to_string(),
+        ]),
+        ["0000-0002-2057-9115"]
+    );
 }
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {

@@ -48,6 +48,7 @@ pub mod gitlab;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;
+pub mod isni;
 #[cfg(feature = "agentic")]
 pub mod json_rpc;
 pub mod localhost;

@@ -79,10 +79,14 @@ pub const RE_ISBN_13_TEXT: &str =
     r#"(?<prefix_element>97[89])[ -]?(?<registration_group>\d{1,5})[ -]?(?<publisher>\d{1,7})[ -]?(?<title>\d{1,6})[ -]?(?<check_digit>\d)"#;
 /// Pattern text for ISBN regular expression defined by [`RE_ISBN`]
 pub const RE_ISBN_TEXT: &str = r#"(?<![A-Za-z0-9])(?i:urn:isbn:)?(?:97[89][ -]?\d{1,5}[ -]?\d{1,7}[ -]?\d{1,6}[ -]?\d|(?:999\d{2}|99[0-8]\d|9[5-8]\d|8\d|9[0-4]|[0-5]|7)[ -]\d{1,7}[ -]\d{1,6}[ -][0-9Xx]|\d{9}[0-9Xx])(?![A-Za-z0-9])"#;
-/// Pattern text for International Standard Name Identifier regular expression defined by [`RE_ISNI`]
-pub const RE_ISNI_TEXT: &str = r#"(?<![A-Za-z0-9])(?<schema_uri>https?[:]//isni\.org/isni/)?(?<identifier>[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
-/// Pattern text for ORCiD regular expression defined by [`RE_ORCID`]
-pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?<schema_uri>(?i:https?[:]\/\/orcid\.org\/))?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
+/// Pattern text for explicitly labeled ISNI values and approved resolver URLs.
+pub const RE_ISNI_DISCOVERY_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?i:ISNI)(?:[ \t]*:[ \t]*|[ \t]+)(?<isni_labeled>(?:https?[:]//isni\.org/isni/)?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}[0-9X])|(?<isni_url>https?[:]//isni\.org/isni/[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}[0-9X]))(?![A-Za-z0-9])"#;
+/// Pattern text for International Standard Name Identifier parsing.
+pub const RE_ISNI_TEXT: &str = r#"(?<![A-Za-z0-9])(?:(?i:ISNI)(?:[ \t]*:[ \t]*|[ \t]+))?(?<schema_uri>https?[:]//isni\.org/isni/)?(?<identifier>[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
+/// Pattern text for explicitly labeled ORCID values and approved resolver URLs.
+pub const RE_ORCID_DISCOVERY_TEXT: &str = r#"(?<![A-Za-z0-9/])(?:(?i:ORCID)(?:[ \t]*:[ \t]*|[ \t]+)(?<orcid_labeled>(?:https?[:]//orcid\.org/)?[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}[0-9X])|(?<orcid_url>https?[:]//orcid\.org/[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}[0-9X]))(?![A-Za-z0-9])"#;
+/// Pattern text for ORCID parsing.
+pub const RE_ORCID_TEXT: &str = r#"(?<![A-Za-z0-9/])(?:(?i:ORCID)(?:[ \t]*:[ \t]*|[ \t]+))?(?<schema_uri>(?i:https?[:]\/\/orcid\.org\/))?(?<identifier>[0-9]{4}-?[0-9]{4}-?[0-9]{4}-?[0-9]{3}(?<check_digit>[0-9X]))(?![A-Za-z0-9])"#;
 /// Pattern text for USPTO patent identifiers
 pub const RE_PATENT_TEXT: &str = r#"(?<![A-Za-z0-9])(?<country_code>US|CN|DE|EP|JP|KR)\s*(?<year>19[5-9][0-9]|20[0-2][0-9])?\/?(?<serial_number>[\d,]{5,11})\s*(?<kind_code>[A-Z]\d)(?![A-Za-z0-9])"#;
 /// Pattern text for RAID regular expression defined by [`RE_RAID`]
@@ -120,13 +124,13 @@ lazy_static! {
     /// Regex that should match an International Standard Book Number (ISBN)
     pub static ref RE_ISBN: Regex = Regex::new(RE_ISBN_TEXT).expect("RE_ISBN_TEXT should compile as a valid regex");
     /// Regex that should match an International Standard Name Identifier (ISNI)
-    pub static ref RE_ISNI: Regex = Regex::new(RE_ISNI_TEXT).expect("RE_ISNI_TEXT should compile as a valid regex");
+    pub static ref RE_ISNI: Regex = Regex::new(RE_ISNI_DISCOVERY_TEXT).expect("RE_ISNI_DISCOVERY_TEXT should compile as a valid regex");
     /// Regex that should match a USPTO patent identifier (granted patent, application, or publication)
     pub static ref RE_PATENT: Regex = Regex::new(RE_PATENT_TEXT).expect("RE_PATENT_TEXT should compile as a valid regex");
     /// Regex that should match an Open Researcher and Contributor ID (ORCiD) value
     ///
 /// See <https://orcid.org/> for more information
-    pub static ref RE_ORCID: Regex = Regex::new(RE_ORCID_TEXT).expect("RE_ORCID_TEXT should compile as a valid regex");
+    pub static ref RE_ORCID: Regex = Regex::new(RE_ORCID_DISCOVERY_TEXT).expect("RE_ORCID_DISCOVERY_TEXT should compile as a valid regex");
     /// Regex that should match a Research Activity Identifier (RAiD)
     ///
     /// See <https://raid.org/> for more information

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<searchRetrieveResponse xmlns="http://www.loc.gov/zing/srw/">
+  <version>1.1</version>
+  <numberOfRecords>1</numberOfRecords>
+  <records>
+    <record>
+      <recordData>
+        <responseRecord xmlns="http://isni.org/isni-b/1.0">
+          <isniUnformatted>0000000121491740</isniUnformatted>
+          <mergedISNI>0000000368647620</mergedISNI>
+          <isniStatus>assigned</isniStatus>
+          <dataConfidence>high</dataConfidence>
+          <personOrFiction>
+            <personalName><forename>Ruth</forename><surname>Rendell</surname><nameUse>public</nameUse></personalName>
+            <personalName><forename>Barbara</forename><surname>Vine</surname></personalName>
+            <source><sourceCode>VIAF</sourceCode><sourceIdentifier>108639130</sourceIdentifier></source>
+            <location><countryCode>GB</countryCode><countryName>United Kingdom</countryName></location>
+          </personOrFiction>
+        </responseRecord>
+      </recordData>
+    </record>
+  </records>
+</searchRetrieveResponse>

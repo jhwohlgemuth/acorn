@@ -191,8 +191,8 @@ pub use custom::{
     MonthValue, NumberOrString, PostalCode, YearValue,
 };
 pub(crate) use custom::{
-    validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_license, validate_name_identifier,
-    validate_person_or_org_identifier, validate_publisher_identifier,
+    validate_affiliation_identifier, validate_agent_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_license,
+    validate_name_identifier, validate_person_or_org_identifier, validate_publisher_identifier,
 };
 
 /// Built-in scalar validation rules used by the derive macro.

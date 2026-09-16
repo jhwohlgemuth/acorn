@@ -46,7 +46,7 @@ Validation is local. It checks syntax, components, and a checksum where the impl
 
 ACORN's regression suite maintains shared test-vector parity with [Metadata Tools](https://github.com/caltechlibrary/metadatatools) for arXiv, DOI, ISBN, ISNI, ORCID, RAiD, and ROR, and with [idutils](https://github.com/inveniosoftware/idutils/blob/master/tests/test_idutils.py) for ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, RAiD, ROR, RRID, and SWHID. Here, parity means ACORN runs corresponding upstream cases for these overlapping identifier types; it does not mean the libraries have identical APIs, normalization policies, or support for other identifier families.
 
-Schema validation recognizes ISNI in DataCite name, affiliation, publisher, and funder identifiers; InvenioRDM person or organization identifiers; and RAiD contributors whose `schemaUri` is `https://isni.org`.
+Schema validation recognizes ISNI in RAD agent identifiers; DataCite name, affiliation, publisher, and funder identifiers; InvenioRDM person or organization identifiers; and RAiD contributors whose `schemaUri` is `https://isni.org`. For known ISNI, ORCID, and ROR schemes, the declared scheme, scheme URI, and identifier value must agree. Explicitly named extension schemes remain available for identifiers outside those known registries.
 
 ## A. Prepare evidence locally (steps 1-4)
 
@@ -70,7 +70,7 @@ assert_eq!(found[0].identifier(), "10.11578/dc.20250604.1");
 
 </details>
 
-The `gather` command runs the supported finders across file, document, URL, standard-input, and literal-text content. It removes duplicate normalized discoveries from the report while retaining the source reference for discovery history. To avoid classifying ordinary paths as Handles, unstructured discovery requires `hdl:` or an `hdl.handle.net` resolver URL; structured fields and direct parsing also accept bare Handles. RRID discovery similarly requires an explicit `RRID:` label or an approved N2T/SciCrunch resolver URL. Bare registry payloads such as `SCR_003512` are not discovered as RRIDs.
+The `gather` command runs the supported finders across file, document, URL, standard-input, and literal-text content. It removes duplicate normalized discoveries from the report while retaining the source reference for discovery history. ISNI and ORCID share the same 16-character number and checksum shape, so unstructured discovery requires an `ISNI` or `ORCID` label or the corresponding registry URL; ACORN does not guess the type of an unlabeled compatible value. Callers that already specify the PID type can still parse bare, spaced, or hyphenated values. To avoid classifying ordinary paths as Handles, unstructured discovery requires `hdl:` or an `hdl.handle.net` resolver URL; structured fields and direct parsing also accept bare Handles. RRID discovery similarly requires an explicit `RRID:` label or an approved N2T/SciCrunch resolver URL. Bare registry payloads such as `SCR_003512` are not discovered as RRIDs.
 
 ## 2. Parse components
 
@@ -169,14 +169,17 @@ A provider can explicitly relate person or organization evidence to a project, b
 
 - **arXiv / DOI** → CiteAs
 - **Handle** → public Handle proxy REST API
+- **ISNI** → public ISNI SRU registry
 - **ORCID** → ORCID API
 - **RAiD** → RAiD resolver
 - **SWHID** → Software Heritage resolver
-- **ISNI / RRID** → local-only (no remote resolver; normalized and retained as evidence)
+- **RRID** → local-only (no remote resolver; normalized and retained as evidence)
 
 Use the [RRID portal](https://www.rrids.org/rrid-system) to confirm or search RRIDs. ACORN does not send SciCrunch API keys because the published machine-API material supports query-string credentials and does not document the operational, lifecycle, and retention guarantees required for a credential-safe provider.
 
-Handle resolution retains the complete public record as provenance and maps only direct HTTP(S) `URL` string values to websites on a project candidate found in the same source; it does not interpret `10320/loc` or make a Handle project identity. SWHID resolution confirms archive presence and returns resolver metadata, not citation data. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback, and failed resolutions retain the original normalized identifier while reporting a failure on stderr.
+ISNI resolution sends one exact anonymous lookup per unique normalized identifier to the OCLC-hosted public SRU service and accepts only one assigned record whose canonical or merged identifiers account for the request. The typed outcome preserves the public person-or-organization kind, canonical and merged ISNIs, confidence, names, locations, organization types, source identifiers, and original XML as provenance. Resolution confirms an assigned public registry record; it does not prove legal identity, copyright ownership, affiliation, or a relationship to a research activity. Registry diagnostics, unavailable or malformed responses, and ambiguous or missing matches produce a failed resolution while retaining the locally valid discovery.
+
+Handle resolution retains the complete public record as provenance and maps only direct HTTP(S) `URL` string values to websites on a project candidate found in the same source; it does not interpret `10320/loc` or make a Handle project identity. SWHID resolution confirms archive presence and returns resolver metadata, not citation data. A successful response contributes only values with a direct candidate mapping: identifiers, title, description, websites, keywords, sponsors, partners, and related activities. A resolver failure does not turn a locally valid identifier into invalid evidence. In `--raw` output, resolved arXiv and DOI values use the citation family selected by `--citation-format`, then `ACORN_CITATION_FORMAT`, then IEEE; resolved ISNIs use `Public Name (canonical ISNI URL)` when the registry supplies a usable name, and resolved ORCIDs use `Given Family (normalized ORCID)` with public credit name as fallback. Failed resolutions retain the original normalized identifier while reporting a failure on stderr.
 
 Remote DOE CODE project matches enter the same candidate pipeline with a provider identity such as `osti-project:<code_id>` and a DOI when one is available. DOE CODE supplies project descriptions, websites, and role-separated organization names. A `--lab` filter additionally associates the selected laboratory's known ROR. With `--resolve`, valid ORCIDs enrich person reports, project DOIs and person ORCIDs receive structured resolver outcomes and resolved raw rendering, repository URLs can contribute provider-reported programming languages, and provider-confirmed links are checked for liveness. These optional online operations retain the original DOE CODE result when they fail. DOE CODE people and organization searches remain report-only.
 

@@ -32,6 +32,10 @@ pub const HUGGINGFACE_CACHE_LOCATIONS: [&str; 5] = [
 ];
 /// Environment variable names used to resolve Hugging Face API tokens.
 pub const HUGGINGFACE_TOKEN_VARIABLE_NAMES: [&str; 3] = ["HF_TOKEN", "HF_API_TOKEN", "HUGGINGFACE_HUB_TOKEN"];
+/// Optional environment variable reserved by the shared API options contract for ISNI.
+pub const ISNI_API_TOKEN: &str = "ISNI_API_TOKEN";
+/// Environment variable overriding the ISNI SRU host.
+pub const ISNI_SERVER_HOST: &str = "ISNI_SERVER_HOST";
 /// Environment variable used to set the minimum download count for model fallbacks.
 pub const MINIMUM_DOWNLOAD_COUNT: &str = "ACORN_MINIMUM_DOWNLOAD_COUNT";
 /// Environment variable used to set the model download whitelist.

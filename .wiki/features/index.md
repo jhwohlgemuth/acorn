@@ -3,7 +3,6 @@
 ## In progress
 
 - [Canonical research activity database](research-activity-database.md) - Maintain revisioned canonical RAD, linked logbook entries, enrichment evidence, and reconciliation decisions as ACORN's durable working truth.
-- [ISNI top-tier persistent-identifier support](isni-top-tier-support.md) - Complete unambiguous ISNI discovery, strict agent-identifier validation, exact public-registry resolution, typed identity metadata, provenance, and gather reporting.
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 

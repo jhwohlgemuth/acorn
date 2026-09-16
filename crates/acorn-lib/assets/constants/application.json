@@ -326,6 +326,18 @@
       ]
     },
     {
+      "name": "isni",
+      "domain": "isni.oclc.org",
+      "root": "sru",
+      "resources": [
+        {
+          "name": "record",
+          "method": "get",
+          "template": "{{ base }}/{{ query }}"
+        }
+      ]
+    },
+    {
       "name": "models-dev",
       "domain": "models.dev",
       "resources": [

@@ -303,6 +303,14 @@ fn test_datacite_isni_identifier_validation() {
         name_identifier: "0000000492299538".to_string(),
         ..name.clone()
     };
+    let mismatched_scheme = NameIdentifier {
+        name_identifier_scheme: Some("ORCID".to_string()),
+        ..name.clone()
+    };
+    let mismatched_uri = NameIdentifier {
+        scheme_uri: Some("https://orcid.org/".to_string()),
+        ..name.clone()
+    };
     let affiliation = Affiliation {
         name: "Example".to_string(),
         affiliation_identifier: Some(isni.to_string()),
@@ -331,6 +339,8 @@ fn test_datacite_isni_identifier_validation() {
     assert!(name.validate().is_ok());
     assert!(blank_name.validate().is_err());
     assert!(identifier.validate().is_err());
+    assert!(mismatched_scheme.validate().is_err());
+    assert!(mismatched_uri.validate().is_err());
     assert!(affiliation.validate().is_ok());
     assert!(publisher.validate().is_ok());
     assert!(funder_id.validate().is_ok());

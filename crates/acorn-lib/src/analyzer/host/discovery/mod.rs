@@ -21,7 +21,7 @@ use acorn_core::{Location, Repository};
 use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use acorn_schema::pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID};
 use acorn_schema::{ControlledVocabulary, Keyword};
-use alloc::collections::BTreeSet;
+use alloc::collections::{BTreeMap, BTreeSet};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
@@ -1019,7 +1019,7 @@ impl Record {
     }
 }
 impl Record {
-    async fn resolve(self) -> Self {
+    async fn resolve(self, isni_outcomes: &BTreeMap<String, ResolutionOutcome<String>>) -> Self {
         match self {
             | Self::Discovery {
                 identifier,
@@ -1032,6 +1032,10 @@ impl Record {
                     | PID::Arxiv => ResolutionOutcome::from(Arxiv::from_string(&identifier).to_citations().await),
                     | PID::DOI => ResolutionOutcome::from(DOI::from_string(&identifier).to_citations().await),
                     | PID::Handle => ResolutionOutcome::from(api::handle::resolve(&Handle::from_string(&identifier)).await),
+                    | PID::ISNI => isni_outcomes
+                        .get(&identifier)
+                        .cloned()
+                        .unwrap_or_else(|| ResolutionOutcome::Failed(format!("ISNI resolution outcome not found for {identifier}"))),
                     | PID::ORCID => ResolutionOutcome::from(
                         api::orcid::record(&api::orcid::Options::from_env().with_identifier(identifier.clone()))
                             .await
@@ -1134,6 +1138,20 @@ impl From<Vec<SourceDocument>> for Records {
     }
 }
 impl Records {
+    fn isni_identifiers(&self) -> Vec<String> {
+        self.0
+            .iter()
+            .filter_map(|record| match record {
+                | Record::Discovery {
+                    identifier,
+                    identifier_type: PID::ISNI,
+                    ..
+                } => Some(identifier.clone()),
+                | _ => None,
+            })
+            .unique()
+            .collect()
+    }
     fn link_checks(&self) -> CheckBatch {
         self.0
             .iter()
@@ -1317,7 +1335,13 @@ impl Records {
     }
     /// Resolve supported identifiers through their metadata providers
     pub async fn resolve(self) -> Self {
-        Self(join_all(self.0.into_iter().map(Record::resolve)).await, self.1)
+        let isni_identifiers = self.isni_identifiers();
+        let futures = join_all(isni_identifiers.into_iter().map(|identifier| async move {
+            let options = api::isni::Options::from_env().with_identifier(identifier.clone());
+            (identifier, ResolutionOutcome::from(api::isni::record(&options).await))
+        }));
+        let isni_outcomes = futures.await.into_iter().collect::<BTreeMap<_, _>>();
+        Self(join_all(self.0.into_iter().map(|record| record.resolve(&isni_outcomes))).await, self.1)
     }
 }
 impl SchemaCheck for Records {}
@@ -1931,6 +1955,12 @@ fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value
                 })
             })
             .ok_or_else(|| format!("Public name not found for ORCID {identifier}")),
+        | PID::ISNI => serde_json::from_value::<api::isni::Resolution>(metadata.clone())
+            .map(|resolution| {
+                let url = resolution.record.url();
+                resolution.record.display_name().map(|name| format!("{name} ({url})")).unwrap_or(url)
+            })
+            .map_err(|_| format!("Invalid ISNI resolver metadata for {identifier}")),
         | _ => Ok(identifier.to_string()),
     }
 }

@@ -256,6 +256,23 @@ fn test_raw_format_normalizes_arxiv_urls() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "arXiv:2106.09685v2\n");
 }
 #[test]
+fn test_raw_format_normalizes_explicit_isni_and_ignores_bare_ambiguity() {
+    let output = Command::cargo_bin("acorn")
+        .unwrap()
+        .args([
+            "--offline",
+            "--no-local-database",
+            "gather",
+            "--text",
+            "ISNI: 0000 0004 9229 9539; 0000 0004 9229 9539",
+            "--raw",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "https://isni.org/isni/0000000492299539\n");
+}
+#[test]
 fn test_raw_format_normalizes_rrid_aliases() {
     let output = Command::cargo_bin("acorn")
         .unwrap()

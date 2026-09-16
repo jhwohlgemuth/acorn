@@ -62,7 +62,7 @@ fn test_orcid_find_all() {
     let results = ORCID::find_all(&text);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].to_string(), "https://orcid.org/0000-0002-2057-9115");
-    let text = format!("I worked with people with orcids {valid}, {valid} and {valid}. Please check them out.");
+    let text = format!("I worked with people with ORCID {valid}, ORCID: {valid} and {valid}. Please check them out.");
     let results = ORCID::find_all(&text);
     assert_eq!(results.len(), 3);
     assert_eq!(results[0].to_string(), valid);
@@ -71,7 +71,7 @@ fn test_orcid_find_all() {
     let text = format!(
         r#"I know people with ORCiDs
 - {valid},
-- 0000000220579115
+- ORCID: 0000000220579115
 - {valid} (words about something)
 
 Please check them out!"#
@@ -118,8 +118,7 @@ fn test_orcid_trait_contract() {
     assert_eq!(pid.check_digit(), Some(vec!['5']));
     assert!(pid.url().is_empty());
     let found = <ORCID as PersistentIdentifierParse>::find_all(format!("Identifier: {CONTRACT_VALID}"));
-    assert_eq!(found.len(), 1);
-    assert_eq!(found.first().map(ToString::to_string).as_deref(), Some(CONTRACT_CANONICAL));
+    assert!(found.is_empty());
     assert!(CONTRACT_VALID.is_pid(PID::ORCID));
     assert_eq!(CONTRACT_VALID.format_as(PID::ORCID), CONTRACT_CANONICAL);
     assert_eq!(CONTRACT_VALID.to_pid(PID::ORCID).to_orcid().to_string(), CONTRACT_CANONICAL);

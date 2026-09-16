@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns:isni="http://isni.org/isni-b/1.0">
+  <srw:version>1.1</srw:version>
+  <srw:numberOfRecords>1</srw:numberOfRecords>
+  <srw:records>
+    <srw:record>
+      <srw:recordData>
+        <isni:responseRecord>
+          <isni:isniUnformatted>0000000492299539</isni:isniUnformatted>
+          <isni:isniStatus>assigned</isni:isniStatus>
+          <isni:dataConfidence>high</isni:dataConfidence>
+          <isni:organisation>
+            <isni:organisationName><isni:mainName>Oak Ridge National Laboratory</isni:mainName></isni:organisationName>
+            <isni:organisationType>Research organization</isni:organisationType>
+            <isni:source><isni:sourceCode>ROR</isni:sourceCode><isni:sourceIdentifier>01qz5mb56</isni:sourceIdentifier></isni:source>
+            <isni:location><isni:countryCode>US</isni:countryCode><isni:countryName>United States</isni:countryName></isni:location>
+          </isni:organisation>
+        </isni:responseRecord>
+      </srw:recordData>
+    </srw:record>
+  </srw:records>
+</srw:searchRetrieveResponse>

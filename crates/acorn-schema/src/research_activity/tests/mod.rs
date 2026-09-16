@@ -38,9 +38,48 @@ fn test_activity_contributor_nested_validation() {
     assert!(invalid.validate().is_err());
     let with_identifiers = ActivityContributor::init()
         .name("Doe, Jane")
-        .identifiers(vec![AgentIdentifier::init().value("https://orcid.org/0000-0001-2345-6789").build()])
+        .identifiers(vec![AgentIdentifier::init()
+            .value("https://orcid.org/0000-0001-2345-6789")
+            .scheme("ORCID")
+            .build()])
         .build();
     assert!(with_identifiers.validate().is_ok());
+}
+#[test]
+fn test_agent_identifier_rejects_known_scheme_mismatches() {
+    let invalid = [
+        AgentIdentifier::init().value("0000000492299538").scheme("ISNI").build(),
+        AgentIdentifier::init()
+            .value("https://isni.org/isni/0000000492299539")
+            .scheme("ISNI")
+            .scheme_uri("https://orcid.org")
+            .build(),
+        AgentIdentifier::init()
+            .value("https://isni.org/isni/0000000492299539")
+            .scheme_uri("https://isni.org")
+            .build(),
+        AgentIdentifier::init().value("legacy-value").build(),
+    ];
+    invalid.into_iter().for_each(|value| assert!(value.validate().is_err()));
+}
+#[test]
+fn test_agent_identifier_reports_validation_context() {
+    let report = AgentIdentifier::init()
+        .value("0000000492299538")
+        .scheme("ISNI")
+        .scheme_uri("https://isni.org/isni")
+        .build()
+        .validate()
+        .expect_err("invalid ISNI should report validation context");
+    let issue = report
+        .into_issues()
+        .into_iter()
+        .find(|issue| issue.error.code.eq_ignore_ascii_case("ISNI"))
+        .expect("ISNI validation issue should be present");
+    assert_eq!(issue.path, "value");
+    assert_eq!(issue.error.params.get("identifier"), Some(&serde_json::json!("0000000492299538")));
+    assert_eq!(issue.error.params.get("scheme"), Some(&serde_json::json!("ISNI")));
+    assert_eq!(issue.error.params.get("scheme_uri"), Some(&serde_json::json!("https://isni.org/isni")));
 }
 #[test]
 fn test_agent_identifier_round_trips() {
@@ -53,6 +92,30 @@ fn test_agent_identifier_round_trips() {
     let json = serde_json::to_string(&agent).expect("serialize");
     let parsed: AgentIdentifier = serde_json::from_str(&json).expect("parse");
     assert_eq!(parsed.value, agent.value);
+}
+#[test]
+fn test_agent_identifier_validates_known_schemes() {
+    let valid = [
+        ("https://isni.org/isni/0000000492299539", "ISNI", "https://isni.org/isni/"),
+        ("https://orcid.org/0000-0002-2057-9115", "ORCID", "https://orcid.org/"),
+        ("https://ror.org/01qz5mb56", "ROR", "https://ror.org/"),
+    ];
+    valid.into_iter().for_each(|(value, scheme, scheme_uri)| {
+        assert!(AgentIdentifier::init()
+            .value(value)
+            .scheme(scheme)
+            .scheme_uri(scheme_uri)
+            .build()
+            .validate()
+            .is_ok());
+    });
+    assert!(AgentIdentifier::init()
+        .value("0000 0004 9229 9539")
+        .scheme("ISNI")
+        .build()
+        .validate()
+        .is_ok());
+    assert!(AgentIdentifier::init().value("local:123").scheme("LOCAL").build().validate().is_ok());
 }
 #[test]
 fn test_alias_migration_accepts_canonical_fields() {
@@ -331,7 +394,10 @@ fn test_datacite_aligned_metadata_fixture_supports_simple_and_detailed_forms() {
 }
 #[test]
 fn test_dated_roles_require_timestamp_offset() {
-    let agent = AgentIdentifier::init().value("https://orcid.org/0000-0001-2345-6789").build();
+    let agent = AgentIdentifier::init()
+        .value("https://orcid.org/0000-0001-2345-6789")
+        .scheme("ORCID")
+        .build();
     let role = DatedAgentRole::init()
         .agent(agent)
         .start_date("2024-01-15T10:00:00Z")
@@ -339,7 +405,7 @@ fn test_dated_roles_require_timestamp_offset() {
         .build();
     assert!(role.validate().is_ok());
     let bad = DatedAgentRole::init()
-        .agent(AgentIdentifier::init().value("x").build())
+        .agent(AgentIdentifier::init().value("x").scheme("LOCAL").build())
         .start_date("2024-01-15")
         .build();
     assert!(bad.validate().is_err());

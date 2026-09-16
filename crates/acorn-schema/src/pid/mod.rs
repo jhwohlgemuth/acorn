@@ -349,28 +349,31 @@ impl Identifier {
                 } else {
                     PID::DOI
                 };
-                [
-                    PID::Arxiv,
-                    primary,
-                    PID::ARK,
-                    PID::Handle,
-                    PID::ISBN,
-                    PID::ORCID,
-                    PID::ISNI,
-                    PID::Patent,
-                    PID::ROR,
-                    PID::RRID,
-                    PID::SWHID,
-                    PID::URL,
-                ]
-                .into_iter()
-                .find_map(|kind| {
-                    Self {
-                        kind,
-                        value: self.value.clone(),
-                    }
-                    .normalized()
-                })
+                match ISNI::is_valid(trimmed) && ORCID::is_valid(trimmed) {
+                    | true => None,
+                    | false => [
+                        PID::Arxiv,
+                        primary,
+                        PID::ARK,
+                        PID::Handle,
+                        PID::ISBN,
+                        PID::ORCID,
+                        PID::ISNI,
+                        PID::Patent,
+                        PID::ROR,
+                        PID::RRID,
+                        PID::SWHID,
+                        PID::URL,
+                    ]
+                    .into_iter()
+                    .find_map(|kind| {
+                        Self {
+                            kind,
+                            value: self.value.clone(),
+                        }
+                        .normalized()
+                    }),
+                }
             }
             | _ => None,
         }
@@ -1049,6 +1052,24 @@ where
         .and_then(|value| u8::try_from(value).ok())
         .and_then(to_betanumeric)
         .map(|value| vec![value])
+}
+/// Normalize valid persistent identifiers into unique compact identifier values.
+///
+/// Input order is preserved, while invalid values and later duplicates are discarded.
+pub fn normalize<T>(values: Vec<String>) -> Vec<String>
+where
+    T: PersistentIdentifier + PersistentIdentifierParse,
+{
+    values
+        .into_iter()
+        .filter(|value| T::is_valid(value))
+        .map(T::from_string)
+        .map(|value| value.identifier())
+        .filter(|value| !value.is_empty())
+        .fold(Vec::new(), |items, value| match items.contains(&value) {
+            | true => items,
+            | false => items.into_iter().chain([value]).collect(),
+        })
 }
 fn to_betanumeric(value: u8) -> Option<char> {
     match BETANUMERIC_DIGITS.chars().enumerate().find(|(i, _)| *i == value as usize) {

@@ -1,0 +1,7 @@
+The archive paragraph cites valid ARK https://n2t.net/ark:/13030/xf93gt2q, valid arXiv https://arxiv.org/abs/2106.09685, valid DOI https://doi.org/10.1000/182, and valid Handle https://hdl.handle.net/10013/epic.10033. Its deliberately invalid counterparts are ARK invalid ARK value, arXiv arXiv:2100.00000, DOI invalid DOI value, and Handle invalid Handle value.
+
+The identity paragraph contains valid ISBN 978-0-306-40627-0, valid ISNI https://isni.org/isni/0000000492299539, and valid ORCID https://orcid.org/0000-0002-2057-9115. The negative examples are ISBN 0-306-40615-3, ISNI 0000000492299538, and ORCID 0000-0002-2057-9114.
+
+The project paragraph records valid Patent US20250123456A2, valid RAiD RAID:10.83962/fb5be317, and valid ROR https://ror.org/01qz5mb56. It also records invalid Patent US ABC123 B2, invalid RAiD 11.83962/fb5be317, and invalid ROR 01qz5mb55.
+
+The artifact paragraph lists valid RRID RRID:SCR_003512, valid SWHID swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b, and valid URL https://example.org/research/artifact. The intentionally invalid forms are RRID https://example.org/RRID:BAD, SWHID swh:2:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b, and URL ftp://example.org/research/artifact.

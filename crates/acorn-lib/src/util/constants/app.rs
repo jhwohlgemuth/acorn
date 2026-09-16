@@ -45,6 +45,8 @@ pub const DEFAULT_HUGGINGFACE_MODEL_REVISION: &str = "main";
 pub const DEFAULT_HUGGINGFACE_SEARCH_LIMIT: usize = 20;
 /// Default Hugging Face model search term.
 pub const DEFAULT_HUGGINGFACE_SEARCH_TERM: &str = "gguf";
+/// Default ISNI SRU API domain.
+pub const DEFAULT_ISNI_DOMAIN: &str = "isni.oclc.org";
 /// Default maximum JSON-RPC request-body size.
 pub const DEFAULT_JSON_RPC_MAX_BODY_BYTES: usize = 1024 * 1024;
 /// Default llama-swap configuration path beneath the user's home directory.

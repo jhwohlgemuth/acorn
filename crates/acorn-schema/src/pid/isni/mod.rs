@@ -1,6 +1,6 @@
 //! International Standard Name Identifier parsing and formatting.
 use crate::namespaces::DEFAULT_ISNI_SCHEMA_URI;
-use crate::pid::{mod_11_2_check_digit, PersistentIdentifier, PersistentIdentifierParse, ORCID};
+use crate::pid::{mod_11_2_check_digit, PersistentIdentifier, PersistentIdentifierParse};
 use crate::util::constants::{RE_ISNI, RE_ISNI_TEXT};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::util::regex_capture_lookup;
@@ -53,6 +53,9 @@ impl PersistentIdentifier for ISNI {
     fn check_digit(&self) -> Option<Vec<char>> {
         mod_11_2_check_digit(self.identifier())
     }
+    fn url(&self) -> String {
+        self.to_string()
+    }
 }
 impl PersistentIdentifierParse for ISNI {
     /// Find all [`ISNI`] values present in a string
@@ -60,9 +63,14 @@ impl PersistentIdentifierParse for ISNI {
         RE_ISNI
             .find_iter(&value.to_string())
             .filter_map(Result::ok)
-            .filter(|matched| ISNI::is_valid(matched.as_str()) && !ORCID::is_valid(matched.as_str()))
+            .filter(|matched| ISNI::is_valid(matched.as_str()))
             .map(|matched| ISNI::from_string(matched.as_str()))
-            .collect()
+            .fold(Vec::new(), |values, isni| {
+                match values.iter().any(|value: &ISNI| value.to_string() == isni.to_string()) {
+                    | true => values,
+                    | false => values.into_iter().chain([isni]).collect(),
+                }
+            })
     }
     /// Parse and format an [`ISNI`] as its canonical resolver URL
     fn format(value: impl ToString) -> String {

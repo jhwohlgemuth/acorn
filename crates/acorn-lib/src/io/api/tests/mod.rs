@@ -16,7 +16,8 @@ use crate::io::read_file;
 use crate::param;
 use crate::test::utils::fixture_path;
 use crate::util::constants::app::{
-    DEFAULT_CITEAS_DOMAIN, DEFAULT_OPENAI_DOMAIN, DEFAULT_OPENALEX_DOMAIN, DEFAULT_ORCID_DOMAIN, DEFAULT_RAID_DOMAIN, DEFAULT_ROR_DOMAIN,
+    DEFAULT_CITEAS_DOMAIN, DEFAULT_ISNI_DOMAIN, DEFAULT_OPENAI_DOMAIN, DEFAULT_OPENALEX_DOMAIN, DEFAULT_ORCID_DOMAIN, DEFAULT_RAID_DOMAIN,
+    DEFAULT_ROR_DOMAIN,
 };
 use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
 use acorn_core::util::Searchable;
@@ -199,6 +200,7 @@ mod handle_api {
 
 mod harbor;
 mod huggingface;
+mod isni;
 mod localhost;
 
 mod models_dev {
@@ -1108,7 +1110,7 @@ fn test_endpoint_parse() {
 }
 #[test]
 fn test_endpoints_length() {
-    assert_eq!(INCLUDED_ENDPOINTS.len(), 18);
+    assert_eq!(INCLUDED_ENDPOINTS.len(), 19);
 }
 #[test]
 fn test_extract_template_keys() {
@@ -1138,6 +1140,7 @@ fn test_generic_api_options_configuration() {
     let built = api::openai::Options::with_token("builder-token").build();
     assert_eq!(built.domain(), DEFAULT_OPENAI_DOMAIN);
     assert_eq!(api::citeas::Options::default().domain, DEFAULT_CITEAS_DOMAIN);
+    assert_eq!(api::isni::Options::default().domain, DEFAULT_ISNI_DOMAIN);
     assert_eq!(api::openai::Options::default().domain, DEFAULT_OPENAI_DOMAIN);
     assert_eq!(api::openalex::Options::default().domain, DEFAULT_OPENALEX_DOMAIN);
     assert_eq!(api::orcid::Options::default().domain, DEFAULT_ORCID_DOMAIN);

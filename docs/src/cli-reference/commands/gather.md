@@ -68,7 +68,7 @@ acorn gather --text "doi:10.1234/example hdl:10013/epic.10033 RRID:SCR_012345"
 printf 'https://ror.org/01qz5mb56' | acorn gather
 ```
 
-Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. RRIDs require an explicit `RRID:` label or an approved `n2t.net` or SciCrunch resolver URL; an unlabeled registry payload is not discovered. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
+Non-empty standard input is gathered automatically and can be combined with positional inputs. arXiv identifiers may use modern or legacy `arXiv:` forms or `arxiv.org/abs/` and `/pdf/` URLs. ISNI and ORCID have the same number shape, so discovery requires an explicit `ISNI` or `ORCID` label or the corresponding registry URL; an unlabeled compatible value is not guessed. RRIDs require an explicit `RRID:` label or an approved `n2t.net` or SciCrunch resolver URL; an unlabeled registry payload is not discovered. Remote URLs require network access. Global `--offline` mode rejects remote input and cannot be combined with `--resolve`.
 
 ## Enrich RAD inputs
 
@@ -80,6 +80,7 @@ Use `--enrich` to enrich valid RAD inputs in memory before identifier discovery.
 acorn gather path/to/project --enrich
 acorn gather path/to/project --raw --enrich > enriched.jsonl
 acorn gather report.docx --resolve
+acorn gather --text "ISNI: 0000 0004 9229 9539" --raw --resolve
 ```
 
 ## Watch mode
@@ -98,7 +99,7 @@ acorn gather --watch --osti projects "ACORN"
 
 Gather supports `console`, `json`, `markdown`, and `yaml` output. When `--format` is omitted, an interactive terminal receives a table containing only discoveries and remote provider matches; piped or file output uses JSON. Resolution checks are rendered separately using the same detailed format as `acorn check`. Use `--terse` to render compact checks without the discovery table. Warning and error states are visible by default, while `-vv` also shows informational transitions such as `found`, `resolved`, `created`, `enriched`, and `unchanged`.
 
-Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. Raw stdout remains machine-readable: check diagnostics are suppressed unless `-v` is present, and verbose diagnostics are written to stderr without a table. With `--raw --resolve`, arXiv and DOI lines become citations and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress output.
+Use `--raw` to print only the normalized identifiers, one per line, for piping to another command. Raw stdout remains machine-readable: check diagnostics are suppressed unless `-v` is present, and verbose diagnostics are written to stderr without a table. With `--raw --resolve`, arXiv and DOI lines become citations, ISNI lines become `Public Name (https://isni.org/isni/...)`, and ORCID lines become `Given Family (https://orcid.org/...)`; other PID types retain their normalized form. An ISNI response without a usable public name uses its canonical URL. Use `--citation-format` to select `apa`, `chicago`, `harvard`, `ieee`, `mla`, or `vancouver`. The CLI option takes precedence over `ACORN_CITATION_FORMAT`, and the default is IEEE. Unsupported environment values produce a warning and use IEEE; unsupported CLI values are rejected. Use `-q` or `--quiet` to suppress output.
 
 ```sh
 acorn gather report.docx --format console
@@ -108,7 +109,7 @@ acorn gather report.docx --raw | sort -u
 acorn gather report.docx --raw --resolve --citation-format apa
 ```
 
-Resolved raw output remains machine-readable: successful values use one line each. Load or resolution failures retain a nonzero exit status; they are silent by default and are rendered to stderr when verbosity is enabled. A DOI without the selected citation style and an ORCID without public given/family or credit-name data falls back to its normalized identifier.
+Resolved raw output remains machine-readable: successful values use one line each. Load or resolution failures retain a nonzero exit status; they are silent by default and are rendered to stderr when verbosity is enabled. A DOI without the selected citation style and an ORCID without public given/family or credit-name data falls back to its normalized identifier. ISNI resolution queries the public registry once per unique normalized value, preserves the typed registry record as provenance, and leaves the local ISNI intact when the registry is unavailable, malformed, ambiguous, or has no assigned match. An assigned ISNI record confirms registry status only; it does not establish legal identity, ownership, affiliation, or a project relationship.
 
 ## Research activity candidates
 

@@ -3,7 +3,7 @@
 //! Portable, validated types reused across `ResearchActivity`, `ResearchOutput`, RAiD, DataCite, DCAT and discovery adapters.
 //! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/assets/standards-field-matrix.md`.
 use crate::pid::PID;
-use crate::validation::{is_license, rules, IntoValidationReport, Validate, ValidationReport};
+use crate::validation::{is_license, rules, validate_agent_identifier, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
 use schemars::JsonSchema;
@@ -96,6 +96,7 @@ pub struct ActivityOrganization {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "validate_agent_identifier", skip_on_field_errors = false))]
 pub struct AgentIdentifier {
     /// Identifier value
     #[validate(nonempty)]

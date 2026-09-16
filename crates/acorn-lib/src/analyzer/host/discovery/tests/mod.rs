@@ -3,7 +3,7 @@ mod finalization;
 
 use super::*;
 use crate::io::api::osti::SearchResults;
-use crate::io::api::{orcid, osti};
+use crate::io::api::{isni, orcid, osti};
 use crate::io::read_file;
 use acorn_schema::discovery::{Person, ProjectOrganization};
 use std::fs::remove_file;
@@ -358,6 +358,25 @@ fn test_isni_url_is_not_discovered_as_orcid() {
     assert_eq!(identifiers.iter().filter(|identifier| identifier.kind == PID::ORCID).count(), 0);
 }
 #[test]
+fn test_isni_resolution_deduplicates_lookups() {
+    let identifier = "https://isni.org/isni/0000000492299539";
+    let records = Records(
+        ["first.md", "second.md"]
+            .into_iter()
+            .map(|source| Record::Discovery {
+                identifier: identifier.to_string(),
+                identifier_type: PID::ISNI,
+                metadata: None,
+                resolution_status: ResolutionStatus::NotRequested,
+                source: source.to_string(),
+                source_format: "markdown".to_string(),
+            })
+            .collect(),
+        Vec::new(),
+    );
+    assert_eq!(records.isni_identifiers(), [identifier]);
+}
+#[test]
 fn test_markdown_report_contains_checks_and_summary() {
     let report = Report {
         checks: vec![Record::Check {
@@ -466,6 +485,40 @@ fn test_orcid_raw_resolution_prefers_names_then_credit_name() {
         "Jason W. (https://orcid.org/0000-0002-2057-9115)"
     );
     assert!(resolved_pid_output(identifier, PID::ORCID, &response(None, None, None), CitationFormat::Ieee).is_err());
+}
+#[test]
+fn test_isni_raw_resolution_uses_public_name_and_canonical_url() {
+    let identifier = "https://isni.org/isni/0000000492299539";
+    let resolution = |names| isni::Resolution {
+        raw_xml: "<response />".to_string(),
+        record: isni::Record {
+            canonical_isni: "0000000492299539".to_string(),
+            confidence: Some("high".to_string()),
+            identity_kind: isni::IdentityKind::Organisation,
+            locations: Vec::new(),
+            merged_isnis: Vec::new(),
+            names,
+            organization_types: vec!["Research institution".to_string()],
+            sources: Vec::new(),
+        },
+        requested_isni: "0000000492299539".to_string(),
+    };
+    let metadata = serde_json::to_value(resolution(vec![isni::Name {
+        forename: None,
+        main_name: Some("Oak Ridge National Laboratory".to_string()),
+        name_use: Some("public".to_string()),
+        surname: None,
+    }]))
+    .unwrap();
+    assert_eq!(
+        resolved_pid_output(identifier, PID::ISNI, &metadata, CitationFormat::Ieee).unwrap(),
+        "Oak Ridge National Laboratory (https://isni.org/isni/0000000492299539)"
+    );
+    let unnamed = serde_json::to_value(resolution(Vec::new())).unwrap();
+    assert_eq!(
+        resolved_pid_output(identifier, PID::ISNI, &unnamed, CitationFormat::Ieee).unwrap(),
+        "https://isni.org/isni/0000000492299539"
+    );
 }
 #[test]
 fn test_osti_project_maps_candidate_metadata() {
