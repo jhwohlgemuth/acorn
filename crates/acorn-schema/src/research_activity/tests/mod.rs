@@ -805,11 +805,61 @@ fn test_logbook_context_uses_activitystreams_ordered_collection() {
     );
 }
 #[test]
-fn test_logbook_discovered_identifier_is_stable_and_bounded() {
-    let source = "source value/".repeat(20);
+fn test_logbook_discovered_identifier_length_boundary() {
+    for length in [90, 91] {
+        let source = "a".repeat(length);
+        let identifier = Provider::OpenAlex.discovered_identifier(&source);
+        assert_eq!(identifier, format!("openalex-{source}"));
+        assert_eq!(identifier.len(), length + 9);
+        assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+    }
+    let identifier = Provider::OpenAlex.discovered_identifier(&"a".repeat(92));
+    assert_eq!(identifier, format!("openalex-{}-qxrbtusdyfdrtyqq", "a".repeat(74)));
+    assert_eq!(identifier.len(), 100);
+    assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+}
+#[test]
+fn test_logbook_discovered_identifier_normalization() {
+    // These expectations record the current lossy normalization, including collisions.
+    for (source, expected) in [
+        ("", "citeas"),
+        (" /._ ", "citeas"),
+        ("A/B", "citeas-a-b"),
+        ("a-b", "citeas-a-b"),
+        ("  Mixed...SOURCE///value__ ", "citeas-mixed-source-value"),
+        ("café", "citeas-caf"),
+        ("研究", "citeas"),
+    ] {
+        let identifier = Provider::CiteAs.discovered_identifier(source);
+        assert_eq!(identifier, expected, "source: {source:?}");
+        assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+    }
+}
+#[test]
+fn test_logbook_discovered_identifier_provider_prefixes() {
+    for (provider, expected) in [
+        (Provider::CiteAs, "citeas-source"),
+        (Provider::OpenAlex, "openalex-source"),
+        (Provider::Orcid, "orcid-source"),
+        (Provider::Osti, "osti-source"),
+        (Provider::Ror, "ror-source"),
+    ] {
+        assert_eq!(provider.discovered_identifier("source"), expected);
+    }
+}
+#[test]
+fn test_logbook_discovered_identifier_truncation_is_stable() {
+    let identifier = Provider::OpenAlex.discovered_identifier(&"source value/".repeat(20));
+    assert_eq!(identifier, format!("openalex-{}source-va-bzrweavwcavdxwwz", "source-value-".repeat(5)));
+    assert_eq!(identifier.len(), 100);
+    assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
+}
+#[test]
+fn test_logbook_discovered_identifier_truncation_trims_separator() {
+    let source = format!("{}-{}", "a".repeat(73), "b".repeat(30));
     let identifier = Provider::OpenAlex.discovered_identifier(&source);
-    assert_eq!(identifier, Provider::OpenAlex.discovered_identifier(&source));
-    assert!(identifier.len() <= 100);
+    assert_eq!(identifier, format!("openalex-{}-ccvawbebavzqdtus", "a".repeat(73)));
+    assert_eq!(identifier.len(), 99);
     assert!(crate::validation::rules::kebabcase(&identifier).is_ok(), "{identifier}");
 }
 #[test]
