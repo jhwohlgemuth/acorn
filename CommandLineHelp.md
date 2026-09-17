@@ -67,7 +67,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `download` — Download research activity data from buckets or model weights for local inference
 * `export` — Export research activity data to a specific target
 * `infer` — Run bounded local tool inference through the managed Needle sidecar
-* `format` — Formats research activity data in place (inherently includes some elements of `acorn check`)
+* `format` — Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
@@ -108,9 +108,7 @@ This document contains the help content for the `acorn-cli` command-line program
     Poll local and network sources
 
 * `-p`, `--poll-interval <DURATION>` — Set the interval used by watch polling and Vale sync retries
-* `-t`, `--threads <N>` — Limit number of threads used by rayon for parallel processing
-
-   See Rayon documentation for more information
+* `-t`, `--threads <N>` — Limit concurrent work used for parallel processing
 
   Default value: `10`
 * `--clear-cache` — Clear database cache data and downloaded Chromium artifacts
@@ -657,7 +655,7 @@ Run bounded local tool inference through the managed Needle sidecar
 
 ## `acorn-cli format`
 
-Formats research activity data in place (inherently includes some elements of `acorn check`)
+Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
 
     $> acorn format /path/to/file.json
 
@@ -685,7 +683,7 @@ Formats research activity data in place (inherently includes some elements of `a
 * `-c`, `--commit <COMMIT>` — Format files that were changed in a given Git commit
 * `--config <PATH>` — Path to application configuration containing Rhai quality gates
 * `-d`, `--dry-run` [alias: `what-if`] — Run format without making changes to target file(s). Will print a diff of changes
-* `--enrich` — Enrich research activity data after formatting it
+* `--enrich` — Enrich metadata after formatting it
 * `--no-color` — Disable color in dry-run output
 * `--provider <PROVIDER>` — Enrichment provider(s); may be repeated or comma-delimited
 * `--filter <REGEX>` — Regex pattern applied to absolute paths of files to include in formatting process

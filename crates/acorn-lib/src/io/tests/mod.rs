@@ -66,6 +66,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
+mod enrichment;
 #[cfg(feature = "swhid-compute")]
 mod swhid;
 
@@ -299,6 +300,7 @@ fn test_enrichment_fields_and_provider_order_are_deterministic() {
             "contact.familyName",
             "contact.givenName",
             "contact.identifier",
+            "meta.contributors",
             "meta.doi",
             "meta.outputs",
             "meta.ror"
@@ -1269,17 +1271,6 @@ fn test_path_ext_compares_normalized_paths() {
     assert!(Path::new("./data/input.json").same_as(Path::new("data/input.json")));
     assert!(!Path::new("data/input.json").same_as(Path::new("data/other.json")));
 }
-#[test]
-fn test_path_ext_matches_open_file() {
-    let directory = tempfile::tempdir().expect("create temporary directory");
-    let path = directory.path().join("source.txt");
-    let other = directory.path().join("other.txt");
-    write(&path, "source").expect("write source");
-    write(&other, "other").expect("write other");
-    let file = File::open(&path).expect("open source");
-    assert!(path.as_path().is_open_file(&file));
-    assert!(!other.as_path().is_open_file(&file));
-}
 #[cfg(unix)]
 #[test]
 fn test_path_ext_detects_symlinks() {
@@ -1296,6 +1287,17 @@ fn test_path_ext_detects_windows_paths() {
     assert!(Path::new("C:\\Users\\acorn\\project.json").is_windows());
     assert!(!Path::new("./data/input.json").is_windows());
     assert!(!Path::new("/home/acorn/project.json").is_windows());
+}
+#[test]
+fn test_path_ext_matches_open_file() {
+    let directory = tempfile::tempdir().expect("create temporary directory");
+    let path = directory.path().join("source.txt");
+    let other = directory.path().join("other.txt");
+    write(&path, "source").expect("write source");
+    write(&other, "other").expect("write other");
+    let file = File::open(&path).expect("open source");
+    assert!(path.as_path().is_open_file(&file));
+    assert!(!other.as_path().is_open_file(&file));
 }
 #[test]
 fn test_progress_renderer_coordinates_log_and_bar_redraw() {

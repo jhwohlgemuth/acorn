@@ -9,7 +9,6 @@
 ## Planned groups and independent work
 
 - [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to duplicated model parsing, gather output, JSONC policy, PID helpers, synchronization, TUI controls, API status calls, and test utilities.
-- [Schema module flattening](schema-module-flattening.md) - Remove the redundant Rust schema namespace and migrate first-party and Python binding consumers.
 - [Portability](portability/) - Host traits, WASM adapters, portable CI, and size work downstream of the critical path.
 - [Core refactors](core/) - Export, CLI, schema, path, interpolation, and binding boundaries.
 - [Analyzer](analyzer/) - Composable analysis and validation boundaries developed in-tree; package extraction remains deferred.

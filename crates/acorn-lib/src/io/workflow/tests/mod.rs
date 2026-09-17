@@ -7,11 +7,18 @@ use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::OneOrMany;
 use async_trait::async_trait;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::time::Duration;
 use std::fs;
 use tempfile::tempdir;
 
 struct CffEnrichment;
 struct OutputEnrichment;
+#[derive(Default)]
+struct TrackingEnrichment {
+    active: AtomicUsize,
+    maximum: AtomicUsize,
+}
 #[async_trait]
 impl Enrich<(Location, Cff)> for CffEnrichment {
     type Output = ApiResult<EnrichmentResult<Cff>>;
@@ -44,6 +51,34 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
                 },
                 ..data
             },
+            conflicts: Vec::new(),
+            failures: Vec::new(),
+        })
+    }
+}
+impl TrackingEnrichment {
+    fn maximum(&self) -> usize {
+        self.maximum.load(Ordering::SeqCst)
+    }
+}
+#[async_trait]
+impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
+    type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
+    async fn enrich(&self, (source, data): (Location, ResearchActivity)) -> Self::Output {
+        let active = self.active.fetch_add(1, Ordering::SeqCst).saturating_add(1);
+        self.maximum.fetch_max(active, Ordering::SeqCst);
+        let delay = source
+            .local_path()
+            .and_then(|path| {
+                path.file_stem()
+                    .and_then(|value| value.to_str())
+                    .and_then(|value| value.parse::<u64>().ok())
+            })
+            .unwrap_or_default();
+        tokio::time::sleep(Duration::from_millis(delay)).await;
+        self.active.fetch_sub(1, Ordering::SeqCst);
+        Ok(EnrichmentResult {
+            data,
             conflicts: Vec::new(),
             failures: Vec::new(),
         })
@@ -143,6 +178,80 @@ async fn test_enrichment_requires_capability_and_online_mode() {
     .await;
     assert!(missing.is_err());
     assert!(offline.is_err());
+}
+#[tokio::test]
+async fn test_parallel_enrichment_honors_limit_and_preserves_order() {
+    let temporary = tempdir().expect("temporary workflow directory should be created");
+    let sources = [50_u64, 20, 1]
+        .into_iter()
+        .map(|delay| {
+            let path = temporary.path().join(format!("{delay}.json"));
+            ResearchActivity::default()
+                .write_json(path.clone())
+                .expect("research activity fixture should be written");
+            Location::from(&path.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let enrichment = TrackingEnrichment::default();
+    let plan = Workflow::<ResearchActivity>::plan(
+        &sources,
+        options(
+            CommonRuntime {
+                threads: 2,
+                ..CommonRuntime::default()
+            },
+            WorkflowExtension {
+                enrich: true,
+                ..WorkflowExtension::default()
+            },
+        ),
+        Some(&enrichment),
+    )
+    .await
+    .expect("parallel workflow plan should succeed");
+    let planned_sources = plan
+        .changes
+        .iter()
+        .filter_map(|change| match change {
+            | Change::Document { source, .. } => Some(source.to_string()),
+            #[cfg(feature = "analysis")]
+            | Change::Check(_) => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(enrichment.maximum(), 2);
+    assert_eq!(planned_sources, sources.iter().map(ToString::to_string).collect::<Vec<_>>());
+}
+#[tokio::test]
+async fn test_parallel_enrichment_treats_zero_threads_as_one() {
+    let temporary = tempdir().expect("temporary workflow directory should be created");
+    let sources = [20_u64, 10]
+        .into_iter()
+        .map(|delay| {
+            let path = temporary.path().join(format!("{delay}.json"));
+            ResearchActivity::default()
+                .write_json(path.clone())
+                .expect("research activity fixture should be written");
+            Location::from(&path.display().to_string())
+        })
+        .collect::<Vec<_>>();
+    let enrichment = TrackingEnrichment::default();
+    let plan = Workflow::<ResearchActivity>::plan(
+        &sources,
+        options(
+            CommonRuntime {
+                threads: 0,
+                ..CommonRuntime::default()
+            },
+            WorkflowExtension {
+                enrich: true,
+                ..WorkflowExtension::default()
+            },
+        ),
+        Some(&enrichment),
+    )
+    .await;
+    assert!(plan.is_ok());
+    assert_eq!(enrichment.maximum(), 1);
 }
 #[tokio::test]
 async fn test_plan_enriches_without_writing_source() {

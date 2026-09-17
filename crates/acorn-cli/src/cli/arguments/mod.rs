@@ -780,7 +780,7 @@ pub(crate) struct Format {
     /// Run format without making changes to target file(s). Will print a diff of changes.
     #[arg(short, long = "dry-run", visible_alias = "what-if", value_name = "BOOL", help_heading = "FLAGS")]
     pub(crate) dry_run: bool,
-    /// Enrich research activity data after formatting it.
+    /// Enrich metadata after formatting it.
     #[arg(long, help_heading = "FLAGS")]
     pub(crate) enrich: bool,
     /// Disable color in dry-run output

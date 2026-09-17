@@ -1,10 +1,11 @@
 use crate::cli::{resolve_paths, CommandOptions};
 use crate::commands::preflight;
+use acorn::analyzer::Standard;
 #[cfg(feature = "exec")]
 use acorn::exec::config::ExecutionOrigin;
 use acorn::fail;
 use acorn::io::config::application::{ApplicationConfiguration, Hook};
-use acorn::io::enrichment::Pipeline;
+use acorn::io::enrichment::{EnrichmentMetadata, Pipeline};
 #[cfg(feature = "exec")]
 use acorn::io::workflow::WorkflowAction;
 use acorn::io::workflow::{self, Workflow, WorkflowExtension};
@@ -16,19 +17,47 @@ use acorn_core::util::MimeType;
 use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::cff::Cff;
+use acorn_schema::standard::{datacite, invenio};
+use acorn_schema::validation::Validate;
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use std::fs::write;
 use std::path::{Path, PathBuf};
+use strum::IntoEnumIterator;
 use tracing::info;
 
-async fn format(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report> {
+struct StandardOptions<'a> {
+    command: &'a CommandOptions,
+    configuration: &'a ApplicationConfiguration,
+    enrich: bool,
+    explicit_configuration: bool,
+    path: &'a Option<PathBuf>,
+    providers: &'a [Provider],
+    root: &'a Path,
+    standard: Standard,
+}
+impl StandardOptions<'_> {
+    fn config_is_unsupported(&self) -> Option<Report> {
+        match (self.explicit_configuration, self.configuration.has_hook(Hook::Format)) {
+            #[cfg(not(feature = "exec"))]
+            | (true, _) => Some(eyre!("--config requires the `exec` feature")),
+            #[cfg(not(feature = "exec"))]
+            | (false, true) => Some(eyre!("configured Rhai format hooks require the `exec` feature")),
+            | _ => None,
+        }
+    }
+}
+async fn format<T>(path: &Option<PathBuf>, options: &CommandOptions) -> Result<(), Report>
+where
+    T: InputOutput + Serialize,
+{
     resolve_paths(path, options)
         .await
-        .and_then(|paths| paths.par_iter().try_for_each(|path| format_file::<ResearchActivity>(path, options)))
+        .and_then(|paths| paths.par_iter().try_for_each(|path| format_file::<T>(path, options)))
 }
 fn format_file<T>(path: &Path, options: &CommandOptions) -> Result<(), Report>
 where
@@ -36,8 +65,8 @@ where
 {
     T::read(path.to_path_buf())
         .map_err(|why| {
-            fail!("Read research activity data — {why}");
-            eyre!("Read research activity data — {why}")
+            fail!("Read metadata — {why}");
+            eyre!("Read metadata — {why}")
         })
         .and_then(|data| {
             let mime = MimeType::from_path(path);
@@ -109,6 +138,8 @@ pub async fn run(
     no_color: bool,
     providers: &[Provider],
     merge_request: &bool,
+    standard: Standard,
+    threads: usize,
     verbose: &Verbosity,
     offline: bool,
 ) -> Result<(), Report> {
@@ -123,6 +154,7 @@ pub async fn run(
         .no_color(no_color)
         .verbose(*verbose)
         .quiet(verbose.is_silent())
+        .threads(threads)
         .build();
     preflight!(&options);
     match enrich && offline {
@@ -131,41 +163,87 @@ pub async fn run(
             | Err(why) => Err(why),
             | Ok((configuration, resolved)) => {
                 let root = ApplicationConfiguration::root(&resolved);
-                match (config.is_some(), enrich, configuration.has_hook(Hook::Format)) {
-                    #[cfg(not(feature = "exec"))]
-                    | (true, _, _) => Err(eyre!("--config requires the `exec` feature")),
-                    #[cfg(not(feature = "exec"))]
-                    | (false, _, true) => Err(eyre!("configured Rhai format hooks require the `exec` feature")),
-                    #[cfg(feature = "exec")]
-                    | (_, true, _) | (_, false, true) => {
-                        run_workflow(&options, providers, enrich, &configuration, &root, config.is_some(), path).await
-                    }
-                    #[cfg(not(feature = "exec"))]
-                    | (false, true, false) => run_workflow(&options, providers, enrich, &configuration, &root, false, path).await,
-                    | (_, false, false) => format(path, &options).await,
+                let standard_options = StandardOptions {
+                    command: &options,
+                    configuration: &configuration,
+                    enrich,
+                    explicit_configuration: config.is_some(),
+                    path,
+                    providers,
+                    root: &root,
+                    standard,
+                };
+                match standard {
+                    | Standard::CitationFileFormat => run_as::<Cff>(standard_options).await,
+                    | Standard::Datacite => run_as::<datacite::Record>(standard_options).await,
+                    | Standard::Invenio => run_as::<invenio::Record>(standard_options).await,
+                    | Standard::ResearchActivityData => run_as::<ResearchActivity>(standard_options).await,
+                    | _ => Err(eyre!("Formatting is not supported for the {standard} standard")),
                 }
             }
         },
     }
 }
-async fn run_workflow(
+async fn run_as<T>(options: StandardOptions<'_>) -> Result<(), Report>
+where
+    T: Clone + DeserializeOwned + EnrichmentMetadata + InputOutput + Send + Serialize + Sync + Validate + 'static,
+{
+    let config_is_unsupported = options.config_is_unsupported();
+    let StandardOptions {
+        command,
+        configuration,
+        enrich,
+        explicit_configuration,
+        path,
+        providers,
+        root,
+        standard,
+    } = options;
+    let selected = match (standard, providers.is_empty()) {
+        | (Standard::ResearchActivityData, true) => Ok(Provider::iter().collect()),
+        | (Standard::ResearchActivityData, false) => Ok(providers.to_vec()),
+        | (_, true) => Ok(vec![Provider::Orcid]),
+        | (_, false) if providers.iter().all(|provider| matches!(provider, Provider::Orcid)) => Ok(providers.to_vec()),
+        | _ => Err(eyre!("Only the ORCID provider supports enrichment for the {standard} standard")),
+    };
+    let workflow = match (config_is_unsupported, selected) {
+        | (Some(why), _) | (_, Err(why)) => Err(why),
+        | (None, Ok(selected)) => match enrich || configuration.has_hook(Hook::Format) {
+            | true => {
+                run_workflow::<T>(
+                    command,
+                    Pipeline::new(selected),
+                    enrich,
+                    configuration,
+                    root,
+                    explicit_configuration,
+                    path,
+                )
+                .await
+            }
+            | false => format::<T>(path, command).await,
+        },
+    };
+    workflow
+}
+async fn run_workflow<T>(
     options: &CommandOptions,
-    providers: &[Provider],
+    pipeline: Pipeline,
     enrich: bool,
     configuration: &ApplicationConfiguration,
     root: &Path,
     explicit_configuration: bool,
     path: &Option<PathBuf>,
-) -> Result<(), Report> {
-    let pipeline = match providers.is_empty() {
-        | true => Pipeline::default(),
-        | false => Pipeline::new(providers.to_vec()),
-    };
+) -> Result<(), Report>
+where
+    T: Clone + DeserializeOwned + EnrichmentMetadata + InputOutput + Send + Serialize + Sync + Validate + 'static,
+{
     let workflow_options = workflow::Options::init()
         .common(CommonRuntime {
             dry_run: options.dry_run,
             no_color: options.no_color,
             offline: options.offline,
+            threads: options.threads,
             ..CommonRuntime::default()
         })
         .extension(WorkflowExtension {
@@ -179,7 +257,7 @@ async fn run_workflow(
     match resolve_paths(path, options).await {
         | Ok(paths) => {
             let sources = paths.iter().map(|path| Location::from(&path.display().to_string())).collect::<Vec<_>>();
-            match Workflow::<ResearchActivity>::plan(&sources, workflow_options.clone(), Some(&pipeline)).await {
+            match Workflow::<T>::plan(&sources, workflow_options.clone(), Some(&pipeline)).await {
                 #[cfg(feature = "exec")]
                 | Ok(plan) => {
                     let hooks = match enrich {

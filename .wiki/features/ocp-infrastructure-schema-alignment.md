@@ -4,7 +4,7 @@ title: "Align infrastructure metadata with Open Compute Project records"
 description: "Add portable infrastructure and OCP schema models while converting existing standard modules to folder format and using the consolidated portable validation contract."
 difficulty: high
 impact: high
-package: [acorn-lib, acorn-schema]
+package: [acorn-schema]
 tags: [feature, schema, infrastructure, hardware, open-compute-project, ocp, redfish, standards, validation]
 status: planned
 priority: next
@@ -12,13 +12,13 @@ priority: next
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/hardware/`, `src/schema/research_activity/mod.rs`, portable validation and adjacent schema tests/fixtures; target `acorn-schema` after extraction.
-- **Create:** OCP/standard claim modules and fixtures under the schema boundary described by this plan.
+- **Update:** `crates/acorn-schema/src/hardware/`, `crates/acorn-schema/src/research_activity/mod.rs`, portable validation, and adjacent schema tests/fixtures.
+- **Create:** OCP/standard claim modules and fixtures under `crates/acorn-schema/src/`.
 - **Delete:** superseded single-file standard modules only when folder conversions preserve public re-exports; no schema field is deleted.
 
 # Dependencies
 
-Land the portable `acorn-schema` boundary before broad module moves. The consolidated `schema::validate` folder module and portable rule primitives are already implemented; this plan consumes them without repeating the consolidation. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
+The portable `acorn-schema` boundary and consolidated `acorn_schema::validation` module are already implemented; this plan consumes them without repeating either refactor. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
 
 # Goal
 
@@ -26,19 +26,19 @@ Represent how a research activity requires and uses compute infrastructure, and 
 
 The implementation must introduce exactly two new logical Rust modules:
 
-- `acorn::schema::infrastructure`
-- `acorn::schema::standard::ocp`
+- `acorn_schema::infrastructure`
+- `acorn_schema::standard::ocp`
 
-Existing standard modules may move to folder-format entry points without changing their Rust paths. Generic standard-reference types remain in the existing `acorn::schema::standard` root. Schema validation is already consolidated in `acorn::schema::validate`. Sustainability data models are outside this plan.
+Existing standard modules may move to folder-format entry points without changing their Rust paths. Generic standard-reference types remain in the existing `acorn_schema::standard` root. Schema validation is already consolidated in `acorn_schema::validation`. Sustainability data models are outside this plan.
 
 # Current evidence
 
-- `ResearchActivityMetadata::resources` describes minimum hardware or compute requirements and stores `Option<Vec<Resource>>` in `crates/acorn-lib/src/schema/research_activity/mod.rs`.
-- `Resource` already models ASIC, CPU, DPU, DSP, FPGA, GPU, NPU, neuromorphic, quantum, sensor, and TPU requirements in `crates/acorn-lib/src/schema/hardware/mod.rs`.
-- `Resource` currently derives only `Clone, Debug, Serialize, JsonSchema` and does not implement `Validate`; no `#[validate(...)]` attribute appears within `schema::hardware` (including `memory.rs`, `vendor.rs`, and the `quantum` submodule), and `ResearchActivityMetadata::resources` carries only `#[eserde(compat)]` without `#[validate(nested)]`. Resource requirements are therefore not validated through a complete RAD value today; this plan must add the `Validate` derive to `Resource` and its nested hardware types and request nested validation on the metadata field.
-- `schema::standard` exposes CFF, crosswalk, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, and text models. `dcat` and `crosswalk` are already folder-format modules; `cff`, `datacite`, `dublin_core`, `huwise`, `invenio`, and `text` remain root `.rs` entry files.
-- `schema::validate` is already a folder-format module (`crates/acorn-lib/src/schema/validate/mod.rs`, exported as `pub mod validate` from `crates/acorn-lib/src/schema/mod.rs`) that co-locates general and standard-specific validators, importing `standard::datacite::GeoLocationPoint` and other DataCite types plus `standard::invenio::PersonOrOrgIdentifier` and geonames helpers. No `standard::validate` module exists; the only remaining internal helper is `standard::dcat::validate` (`pub(crate)` in `crates/acorn-lib/src/schema/standard/dcat/mod.rs`), which is scoped to DCAT views and separate from the consolidated contract.
-- No `schema::infrastructure` or `schema::standard::ocp` module currently exists.
+- `ResearchActivityMetadata::resources` describes minimum hardware or compute requirements and stores `Option<Vec<Resource>>` in `crates/acorn-schema/src/research_activity/mod.rs`.
+- `Resource` already models ASIC, CPU, DPU, DSP, FPGA, GPU, NPU, neuromorphic, quantum, sensor, and TPU requirements in `crates/acorn-schema/src/hardware/mod.rs`.
+- `Resource` currently derives only `Clone, Debug, Serialize, JsonSchema` and does not implement `Validate`; no `#[validate(...)]` attribute appears within `acorn_schema::hardware` (including `memory.rs`, `vendor.rs`, and the `quantum` submodule), and `ResearchActivityMetadata::resources` carries only `#[eserde(compat)]` without `#[validate(nested)]`. Resource requirements are therefore not validated through a complete RAD value today; this plan must add the `Validate` derive to `Resource` and its nested hardware types and request nested validation on the metadata field.
+- `acorn_schema::standard` exposes CFF, crosswalk, DataCite, DCAT, Dublin Core, HuWise, InvenioRDM, and text models. `dcat` and `crosswalk` are already folder-format modules; `cff`, `datacite`, `dublin_core`, `huwise`, `invenio`, and `text` remain root `.rs` entry files.
+- `acorn_schema::validation` is already a folder-format module (`crates/acorn-schema/src/validation/mod.rs`, exported as `pub mod validation` from `crates/acorn-schema/src/lib.rs`) that co-locates general and standard-specific validators. No `standard::validation` module exists; the only remaining internal helper is `standard::dcat::validate` (`pub(crate)` in `crates/acorn-schema/src/standard/dcat/mod.rs`), which is scoped to DCAT views and separate from the consolidated contract.
+- No `acorn_schema::infrastructure` or `acorn_schema::standard::ocp` module currently exists.
 - The planned crate boundary assigns standards, hardware data models, validation, and crosswalks to portable `acorn-schema`; network resolution and provider DTOs remain adapter concerns ([crate boundary architecture](../refactors/crate-boundary-architecture.md)).
 - OCP applies open collaboration to scalable compute infrastructure and organizes contributions around efficiency, impact, openness, scalability, and sustainability, but OCP describes itself as a community that develops technology norms rather than a conventional standards body ([OCP history, mission, and tenets](https://www.opencompute.org/about), [OCP home](https://www.opencompute.org/)).
 - The OCP contribution process distinguishes specifications, design files, embedded software, reference architectures, tested configurations, requirements documents, and other contribution forms; accepted records are published in the OCP Contributions Database ([OCP contribution process](https://www.opencompute.org/contributions/welcome), [OCP Contributions Database](https://www.opencompute.org/contributions)).
@@ -62,15 +62,15 @@ Schema types parse, serialize, validate, and crosswalk immutable data. OCP catal
 
 ## Enforce the module boundary literally
 
-All initial infrastructure types live directly in `schema/infrastructure/mod.rs`. All initial OCP types live directly in `schema/standard/ocp/mod.rs`. Do not create `standard::reference`, `infrastructure::platform`, `infrastructure::facility`, `infrastructure::environment`, `ocp::contribution`, `ocp::recognition`, `ocp::profile`, or `ocp::crosswalk` modules in this plan.
+All initial infrastructure types live directly in `crates/acorn-schema/src/infrastructure/mod.rs`. All initial OCP types live directly in `crates/acorn-schema/src/standard/ocp/mod.rs`. Do not create `standard::reference`, `infrastructure::platform`, `infrastructure::facility`, `infrastructure::environment`, `ocp::contribution`, `ocp::recognition`, `ocp::profile`, or `ocp::crosswalk` modules in this plan.
 
 # Target layout
 
 ```text
-schema/
+crates/acorn-schema/src/
 ├── infrastructure/
 │   └── mod.rs
-├── validate/
+├── validation/
 │   └── mod.rs
 └── standard/
     ├── mod.rs
@@ -96,13 +96,13 @@ schema/
         └── mod.rs
 ```
 
-Only `infrastructure` and `standard::ocp` are new logical modules. `validate` and the converted standard paths already exist as Rust modules.
+Only `infrastructure` and `standard::ocp` are new logical modules. `validation` and the converted standard paths already exist as Rust modules.
 
 # Schema design
 
 ## Generic standard claims
 
-Add the following public types directly to the existing `schema::standard` root:
+Add the following public types directly to the existing `acorn_schema::standard` root:
 
 - `StandardReference`: authority, identifier, optional title, optional version, and canonical URI.
 - `StandardsClaim`: standard reference, relationship, assessment, and optional evidence URI.
@@ -113,7 +113,7 @@ Require an absolute HTTP or HTTPS URI, non-empty authority and identifier, and e
 
 ## OCP records
 
-Define the following directly in `schema::standard::ocp`:
+Define the following directly in `acorn_schema::standard::ocp`:
 
 - `OcpContributionId`: validated `S` followed by one or more digits without assuming a fixed width.
 - `OcpProject`: an open newtype rather than an enum because OCP projects and workstreams evolve.
@@ -128,7 +128,7 @@ An OCP Ready recognition is valid only for a facility. Platform recognition may 
 
 ## Infrastructure
 
-Define the following directly in `schema::infrastructure`:
+Define the following directly in `acorn_schema::infrastructure`:
 
 - `ComputePlatform`: identifier, name, optional manufacturer and model, contained `Resource` values, standards claims, OCP recognitions, and management-profile claims.
 - `ComputeFacility`: identifier, name, optional operator and appropriately coarse location, standards claims, and OCP recognitions.
@@ -146,11 +146,11 @@ Validate nested resources and claims. Restrict OCP Ready recognition to `Compute
 
 ## 2. Consume the consolidated validation module
 
-The folder-format `schema::validate` consolidation has landed. This plan relies on it without repeating the move:
+The folder-format `acorn_schema::validation` consolidation has landed. This plan relies on it without repeating the move:
 
-1. The consolidated `schema::validate` folder module is already present with general and standard validators together (see Current evidence); re-confirm it before moving files.
+1. The consolidated `acorn_schema::validation` folder module is already present with general and standard validators together (see Current evidence); re-confirm it before moving files.
 2. Reference the portable rule primitives (`nonempty`, URI checks) where new claim fields need them.
-3. Do not re-perform the move or re-create `schema/standard/validate.rs`.
+3. Do not re-perform the move or create `standard/validation.rs`.
 4. Preserve existing validation behavior and error codes from the consolidated module.
 
 ## 3. Convert existing standard modules to folder format
@@ -159,26 +159,26 @@ Move entry files without changing logical module paths:
 
 | Existing entry | Folder-format entry | Rust path |
 |---|---|---|
-| `standard/cff.rs` | `standard/cff/mod.rs` | `schema::standard::cff` |
-| `standard/datacite.rs` | `standard/datacite/mod.rs` | `schema::standard::datacite` |
-| `standard/dublin_core.rs` | `standard/dublin_core/mod.rs` | `schema::standard::dublin_core` |
-| `standard/huwise.rs` | `standard/huwise/mod.rs` | `schema::standard::huwise` |
-| `standard/invenio.rs` | `standard/invenio/mod.rs` | `schema::standard::invenio` |
-| `standard/text.rs` | `standard/text/mod.rs` | `schema::standard::text` |
+| `standard/cff.rs` | `standard/cff/mod.rs` | `acorn_schema::standard::cff` |
+| `standard/datacite.rs` | `standard/datacite/mod.rs` | `acorn_schema::standard::datacite` |
+| `standard/dublin_core.rs` | `standard/dublin_core/mod.rs` | `acorn_schema::standard::dublin_core` |
+| `standard/huwise.rs` | `standard/huwise/mod.rs` | `acorn_schema::standard::huwise` |
+| `standard/invenio.rs` | `standard/invenio/mod.rs` | `acorn_schema::standard::invenio` |
+| `standard/text.rs` | `standard/text/mod.rs` | `acorn_schema::standard::text` |
 
 Leave `standard/dcat`, `standard/crosswalk`, and `standard/tests` in their existing folder layouts. Move one entry at a time and run focused checks between moves so path or relative-import regressions remain attributable.
 
 ## 4. Add generic standard claims and OCP types
 
-1. Add generic reference and claim types to `schema::standard::mod.rs` with portable validation, serde, and JSON Schema support.
-2. Create `schema/standard/ocp/mod.rs` and add contribution, recognition, and management-profile types.
+1. Add generic reference and claim types to `crates/acorn-schema/src/standard/mod.rs` with portable validation, serde, and JSON Schema support.
+2. Create `crates/acorn-schema/src/standard/ocp/mod.rs` and add contribution, recognition, and management-profile types.
 3. Add pure conversions from `OcpContribution` to generic standard references or claims in `ocp/mod.rs` or the existing `standard::crosswalk::mapping` module; do not create another OCP submodule.
 4. Add focused tests for identifiers, open fallback values, evidence rules, recognition source URIs, and management-profile results.
 
 ## 5. Add infrastructure and integrate RAD
 
-1. Create `schema/infrastructure/mod.rs` with platform, facility, and compute-environment types.
-2. Export the module and its primary types from the existing schema facade as appropriate.
+1. Create `crates/acorn-schema/src/infrastructure/mod.rs` with platform, facility, and compute-environment types.
+2. Export the module and its primary types from the crate root as appropriate.
 3. Derive `Validate` on `Resource` and its nested hardware types (none currently derives it), keep `ResearchActivityMetadata::resources` unchanged in representation and meaning, and add `#[validate(nested)]` so resource validation executes through a complete RAD value.
 4. Add an optional `infrastructure: Option<Vec<ComputeEnvironment>>` field to research-activity metadata.
 5. Add the corresponding optional linked-data context term using established predicates such as `dcterms:conformsTo`, `dcterms:identifier`, `dcterms:source`, `dcterms:hasVersion`, `schema:manufacturer`, and `schema:location` where their semantics fit.
@@ -196,11 +196,11 @@ Leave `standard/dcat`, `standard/crosswalk`, and `standard/tests` in their exist
 Run focused checks after each implementation stage, followed by repository gates:
 
 ```sh
-cargo nextest run --package acorn-lib schema::standard
-cargo nextest run --package acorn-lib schema::hardware
-cargo nextest run --package acorn-lib schema::research_activity
-cargo check -p acorn-lib --no-default-features
-cargo check -p acorn-lib --no-default-features --features alloc
+cargo nextest run --package acorn-schema standard
+cargo nextest run --package acorn-schema hardware
+cargo nextest run --package acorn-schema research_activity
+cargo check -p acorn-schema --no-default-features
+cargo check -p acorn-schema --no-default-features --features alloc
 make check-wasm
 make lint
 make test
@@ -211,8 +211,8 @@ Also verify:
 
 - Existing public imports compile without changes after each folder migration.
 - No paired `standard/foo.rs` and `standard/foo/mod.rs` entry files remain.
-- `standard/validate.rs` and the `standard::validate` declaration are absent.
-- `schema/validate/mod.rs` preserves existing validator behavior, feature gates, and error codes.
+- `standard/validation.rs` and the `standard::validation` declaration are absent.
+- `validation/mod.rs` preserves existing validator behavior, feature gates, and error codes.
 - Existing standard and RAD serialization snapshots remain unchanged except for explicitly approved optional-field output.
 - JSON and YAML round trips cover all new types.
 - Unknown fields are rejected where the external record is modeled as a closed contract; open OCP categories retain explicit fallback variants.
@@ -225,8 +225,8 @@ Also verify:
 
 # Acceptance criteria
 
-1. The only new logical Rust modules are `acorn::schema::infrastructure` and `acorn::schema::standard::ocp`.
-2. `schema::validate` is a folder-format module containing both general and standard-specific schema validators; `schema::standard::validate` no longer exists.
+1. The only new logical Rust modules are `acorn_schema::infrastructure` and `acorn_schema::standard::ocp`.
+2. `acorn_schema::validation` is a folder-format module containing both general and standard-specific schema validators; `acorn_schema::standard::validation` does not exist.
 3. CFF, DataCite, Dublin Core, HuWise, InvenioRDM, and text use folder-format entry points while retaining their existing Rust paths and public behavior.
 4. Generic standard claims preserve authority, identifier, version, relationship, assessment, canonical source, and verification evidence.
 5. OCP contributions, recognition programs, and management-profile results are distinct typed concepts with authoritative evidence.

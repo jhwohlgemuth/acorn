@@ -4,14 +4,14 @@ title: "Align research activity data with established metadata standards"
 description: "Make RAD interoperable with RAiD, DataCite 4.7, DCAT, persistent-identifier registries, and contributor-role vocabularies without replacing its activity-focused authoring model."
 difficulty: high
 impact: high
-package: [acorn-schema]
+package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [feature, research-activity, schema, datacite, datacite-4.7, raid, dcat, crosswalk, metadata, pid, credit, timeline]
 status: in-progress
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/research_activity/{mod.rs,output.rs}`, `crates/acorn-schema/src/pid/raid/mod.rs`, `crates/acorn-schema/src/standard/{datacite.rs,dcat/,crosswalk/}`, `crates/acorn-schema/src/validation/`, `crates/acorn-lib/src/analyzer/` traverse/check consumers, `crates/acorn-cli/src/commands/{check,export}/` crosswalk consumers, `tests/fixtures/schema/{datacite,raid,dcat}/`, and docs.
+- **Update:** `crates/acorn-schema/src/research_activity/{mod.rs,output.rs}`, `crates/acorn-schema/src/pid/raid/mod.rs`, `crates/acorn-schema/src/standard/{datacite.rs,dcat/,crosswalk/}`, `crates/acorn-schema/src/validation/`, `crates/acorn-lib/src/{analyzer/,io/enrichment.rs,io/workflow/}` traverse/check/enrichment consumers, `crates/acorn-cli/src/commands/{check,export,format}/` crosswalk and enrichment consumers, `tests/fixtures/schema/{datacite,raid,dcat}/`, and docs.
 - **Create:** reusable contributor, relation, funding, lifecycle, license, and loss-reporting types in `crates/acorn-schema/src/research_activity/` or `crates/acorn-schema/src/standard/crosswalk/` plus pinned 4.7 conformance fixtures under `tests/fixtures/schema/datacite/4.7/` and `tests/fixtures/schema/raid/`.
 - **Delete:** duplicated or lossy field adapters only after compatibility migrations and round-trip tests; no existing serialized field is removed implicitly. Remove temporary compat shims only after the deposit-readiness validator is the documented gate.
 
@@ -29,6 +29,8 @@ Preserve RAD's concise authoring fields, including `title`, `subtitle`, and `sec
 
 - `crates/acorn-schema/src/research_activity/mod.rs` retains the concise identifier collections and primary `contact` while adding canonical `typedDates`, `contributors`, `organizations`, `funders`, `relatedResources`, `languages`, `subjects`, `spatialCoverage`, `rights`, and `access` fields. Compatibility aliases normalize legacy `sponsors` and `related` input into structured fields; precedence and standards-adapter behavior still need Slice 5 coverage.
 - `crates/acorn-schema/src/research_activity/output.rs:110` now provides the additive DataCite-facing fields listed in the 2026-09-05 status above. Its remaining profile gaps are controlled contributor roles, organizational contributors, complete funder identifiers, and a `ResearchOutput` conversion/readiness boundary; those gaps prevent claiming a complete round trip despite the expanded storage model.
+- `crates/acorn-lib/src/io/enrichment.rs` reuses `Enrich`, `EnrichmentMetadata`, and `Pipeline` for best-effort ORCID enrichment of RAD contacts, activity contributors, and output people plus CFF, DataCite JSON, and Invenio person records. `acorn format --standard ... --enrich --provider orcid` dispatches through the existing generic workflow, requires a unique normalized structured-name, exact given-name component plus family name, alternate display-name, or exact-email match, preserves populated values, and reports lookup failures plus ambiguous or absent compatible matches per person. Contact lookup first tries exact email with the person's name, falls back to name-only discovery, and retries every unresolved name result with an `email:*@domain` constraint. If that does not resolve the person, affiliations are matched by name or alias against the embedded `organization.json` hierarchy; the root parent's name is used as an institution discriminator and its ROR is combined with the person's name for a final lookup. Empty or ambiguous refinements retain the stronger prior response, and explicit identifiers resolve directly. Normalized full emails keep otherwise identical people in separate requests. Website URLs are not followed; site-specific resolution remains outside the provider-neutral core for a future extension or configurable allowlist. Reconciled 2026-09-16; the focused 15-test enrichment suite and full 1,726-test repository suite pass.
+- `crates/acorn-lib/src/io/workflow/mod.rs` plans enriched source files concurrently up to the existing `CommonRuntime::threads` limit while retaining source order; zero is normalized to one. Provider stages, per-document ORCID requests, hook evaluation, and transactional application remain sequential. Reconciled 2026-09-16; the focused 15-test workflow suite and 10-test format-command suite pass.
 - `crates/acorn-schema/src/standard/datacite.rs:1` now models DataCite Metadata Schema 4.7 in JSON (`Record`/`Attributes` `datacite.rs:515`) and XML (`Resource` `datacite.rs:1128`) forms with `RelatedIdentifierType::Raid`/`Swhid` `datacite.rs:168`, `RelationType::Other` `datacite.rs:237`, `ResourceTypeGeneral::Poster`/`Presentation` `datacite.rs:321`, `RelatedItem`/`RelatedItems` and `relationTypeInformation` on `RelatedIdentifier` `datacite.rs:968` + `RelatedItem` `datacite.rs:1080`, and `validate_deposit_ready()` gates `datacite.rs:1525`. The two forms expose symmetric 4.7 coverage; mandatory JSON properties remain optional on `Attributes` with deposit readiness enforced via `validate_deposit_ready()` rather than `Validate`. Reconciled 2026-09-03 against `acorn-schema` at `0.1.76` (Slice 0).
 - `crates/acorn-schema/src/standard/crosswalk/` supports DataCite, DCAT, HuWise, and Invenio, but not RAD or `ResearchOutput`. `Standard::crosswalk` dispatch lives in `crates/acorn-lib/src/analyzer/check.rs:1044` (analysis feature) and will migrate with the crosswalk registry.
 - `crates/acorn-schema/src/standard/crosswalk/mod.rs:238` `convert` now propagates `FieldMapping::apply` `mapping.rs:194` missing list into `ConversionWarning::omitted` (`from`/`to`/`field` with details) and `crates/acorn-schema/src/standard/crosswalk/mapping.rs:194` `FieldMapping::apply` now propagates `MissingRequiredField`/`TransformationFailed` instead of swallowing. `crates/acorn-lib/src/analyzer/check.rs:1099` `collect_crosswalk_warnings` now propagates `Err` instead of `Err(_) => Vec::new()`, and `crates/acorn-schema/src/standard/crosswalk/mapping.rs:482` `resource_type_to_iri`/`iri_to_resource_type` handle `Poster`/`Presentation`. Reconciled 2026-09-03 (Slice 0).
@@ -126,6 +128,9 @@ cargo nextest run -p acorn-schema --lib research_activity
 cargo nextest run -p acorn-schema --lib pid::raid
 cargo check -p acorn-schema --no-default-features
 cargo check -p acorn-schema --no-default-features --features alloc
+cargo test -p acorn-lib io::tests::enrichment --lib
+cargo test -p acorn-lib io::workflow --lib
+cargo test -p acorn-cli commands::format
 make check-wasm
 make lint
 make test
@@ -156,6 +161,8 @@ Additional checks:
 - Logbook entries remain losslessly represented in RAD; every value omitted from RAiD or DataCite projection is classified and reported as a warning with source/target paths.
 - Every omitted, defaulted, coerced, unsupported, or many-to-one field produces a structured `ConversionWarning`; lossy-but-successful conversions never return an empty warning list when `FieldMapping::apply` reports missing fields.
 - Existing RAD fixtures continue to deserialize throughout the additive implementation phases.
+- ORCID contact enrichment tries exact email with the person's name, falls back to name-only discovery, retries every unresolved search with a normalized contact email-domain filter, and then retries with the root-parent ROR resolved from an embedded organization-hierarchy affiliation name or alias. Root organization names participate in institution disambiguation, exact alternate display names and exact given-name components are accepted, absent compatible matches are reported, empty refinements retain the stronger prior response, and contacts with different full email addresses are not deduplicated. Website URLs are not used as identity evidence.
+- Enriched workflow planning honors the global thread limit across files, preserves source order regardless of completion order, treats zero as a concurrency limit of one, and leaves provider ordering and transactional writes unchanged.
 - Lossless round-trip tests retain all fields classified as exact or reversible transformations.
 - Generated JSON Schema exposes controlled values, nested validation, and conditional requirements where supported; `RelatedItem`/`RAiD`/`RRID`/`SWHID` appear in schema output.
 - Default, minimal (`--no-default-features`), `alloc`, and WASM builds remain supported; `make check-wasm` passes per slice.

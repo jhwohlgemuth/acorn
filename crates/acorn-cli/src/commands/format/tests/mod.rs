@@ -14,10 +14,12 @@ extern crate alloc;
 use crate::cli::CommandOptions;
 use crate::commands::format::{format_file, run};
 use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
+use acorn::analyzer::Standard;
 use acorn::io::slice_path;
 use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::cff::Cff;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
@@ -89,6 +91,8 @@ async fn test_configured_format_gate_prevents_write() -> Result<()> {
         true,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -118,6 +122,8 @@ async fn test_configured_format_missing_path_prevents_write() {
         true,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -151,6 +157,8 @@ async fn test_configured_format_requires_exec_feature() {
         true,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -160,6 +168,55 @@ async fn test_configured_format_requires_exec_feature() {
         "configuration must not be ignored without Rhai support"
     );
     assert_eq!(fs::read_to_string(dest_file).expect("read unchanged fixture"), original);
+}
+#[tokio::test]
+async fn test_format_dispatches_cff_and_rejects_unsupported_provider() {
+    let temp_dir = temp_test_dir("format_cff");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join("CITATION.cff");
+    let cff = Cff {
+        title: "Example".to_string(),
+        ..Cff::default()
+    };
+    fs::write(&path, serde_norway::to_string(&cff).expect("serialize CFF")).expect("write CFF");
+    let formatted = run(
+        &Some(path.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        true,
+        &[],
+        &false,
+        Standard::CitationFileFormat,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(formatted.is_ok(), "CFF formatting should use the selected standard");
+    let unsupported = run(
+        &Some(path),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        true,
+        true,
+        true,
+        &[Provider::Ror],
+        &false,
+        Standard::CitationFileFormat,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(unsupported.is_err_and(|why| why.to_string().contains("Only the ORCID provider")));
 }
 #[tokio::test]
 async fn test_format_dry_run() -> Result<()> {
@@ -182,6 +239,8 @@ async fn test_format_dry_run() -> Result<()> {
         false,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -211,6 +270,8 @@ async fn test_format_enrich_dry_run_does_not_write() -> Result<()> {
         true,
         &[Provider::Ror],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -239,6 +300,8 @@ async fn test_format_enrich_offline_fails_without_writing() -> Result<()> {
         false,
         &[Provider::Ror],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         true,
     )
@@ -300,6 +363,8 @@ async fn test_format_multiple_files() -> Result<()> {
         false,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -332,6 +397,8 @@ async fn test_format_no_changes_needed() -> Result<()> {
         false,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )
@@ -361,6 +428,8 @@ async fn test_format_with_changes() -> Result<()> {
         false,
         &[],
         &false,
+        Standard::ResearchActivityData,
+        1,
         &Verbosity::new(0, 0),
         OFFLINE,
     )

@@ -375,8 +375,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 no_color,
                 provider,
                 merge_request,
+                standard,
                 verbose,
-                ..
             } = arguments.as_ref();
             initialize_database_with_policy(config, true).await?;
             format::run(
@@ -391,6 +391,8 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 *no_color,
                 provider,
                 merge_request,
+                *standard,
+                threads,
                 verbose,
                 offline,
             )

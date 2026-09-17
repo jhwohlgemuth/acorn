@@ -154,7 +154,7 @@ pub enum Commands {
     ///     $> acorn infer "Validate this" --custom-location oci://harbor.example/acorn/needle@sha256:...
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS", visible_alias = "ask")]
     Infer(Box<arguments::Infer>),
-    /// Formats research activity data in place (inherently includes some elements of `acorn check`)
+    /// Formats supported metadata standards in place (inherently includes some elements of `acorn check`)
     ///
     ///     $> acorn format /path/to/file.json
     ///
@@ -427,9 +427,7 @@ pub struct Arguments {
     /// Set the interval used by watch polling and Vale sync retries
     #[arg(short = 'p', long, value_parser = parse_watch_duration, value_name = "DURATION", help_heading = "OPTIONS")]
     pub poll_interval: Option<SignedDuration>,
-    /// Limit number of threads used by rayon for parallel processing
-    ///
-    /// See Rayon documentation for more information
+    /// Limit concurrent work used for parallel processing
     #[arg(default_value_t = 10, short, long, value_name = "N", help_heading = "FLAGS")]
     pub threads: usize,
     /// Clear database cache data and downloaded Chromium artifacts

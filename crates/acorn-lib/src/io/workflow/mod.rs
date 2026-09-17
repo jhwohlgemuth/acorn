@@ -470,13 +470,18 @@ where
         enrichment: Option<&dyn Enrich<(Location, T), Output = ApiResult<EnrichmentResult<T>>>>,
     ) -> ApiResult<Plan<T>> {
         let RuntimeOptions { common, extension, .. } = &options;
-        let CommonRuntime { offline, .. } = common;
+        let CommonRuntime { offline, threads, .. } = common;
         let WorkflowExtension { enrich, .. } = extension;
+        let concurrency = match enrich {
+            | true => (*threads).max(1),
+            | false => 1,
+        };
         match (*enrich, *offline, enrichment.is_some()) {
             | (true, true, _) => Err(eyre!("Enrichment cannot run while the workflow is offline")),
             | (true, false, false) => Err(eyre!("Enrichment is enabled but no enrichment capability was supplied")),
             | _ => stream::iter(sources)
-                .then(|source| Self::plan_source(source, &options, enrichment))
+                .map(|source| Self::plan_source(source, &options, enrichment))
+                .buffered(concurrency)
                 .try_collect()
                 .await
                 .map(|changes| Plan {
