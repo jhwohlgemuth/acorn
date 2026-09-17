@@ -342,13 +342,11 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("snake_case").with_message(format!("Provide ID in snake_case format (e.g., {valid})")))
     }
-
-    /// Validate an ACORN-supported ISO 8601 calendar date.
-    ///
-    /// # Examples
-    ///
+    /// Validate an ACORN-supported ISO 8601 calendar date
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::date("2025-01-01").is_ok());
     /// assert!(rules::date("1949-12-31").is_err());
     /// ```
@@ -398,12 +396,11 @@ pub mod rules {
                     .map_err(|_| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
             })
     }
-    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset.
-    ///
-    /// # Examples
-    ///
+    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::timestamp("2026-08-29T12:30:00Z").is_ok());
     /// assert!(rules::timestamp("2026-08-29").is_err());
     /// ```
@@ -418,12 +415,11 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("epoch").with_message("Provide valid Unix epoch timestamp"))
     }
-    /// Validate text containing at least one non-whitespace Unicode scalar.
-    ///
-    /// # Examples
-    ///
+    /// Validate text containing at least one non-whitespace Unicode scalar
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::nonempty(" ACORN ").is_ok());
     /// assert!(rules::nonempty("\u{2003}\n").is_err());
     /// ```
@@ -434,12 +430,11 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("nonempty").with_message("Provide text containing a non-whitespace character"))
     }
-    /// Validate an email address using the established ACORN-compatible shape.
-    ///
-    /// # Examples
-    ///
+    /// Validate an email address using the established ACORN-compatible shape
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::email("research@example.org").is_ok());
     /// assert!(rules::email("not an email").is_err());
     /// ```
@@ -471,12 +466,11 @@ pub mod rules {
         });
         valid.then_some(()).ok_or_else(|| ValidationError::new("email"))
     }
-    /// Validate an absolute URL.
-    ///
-    /// # Examples
-    ///
+    /// Validate an absolute URL
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::url("https://example.org/research").is_ok());
     /// assert!(rules::url("relative/path").is_err());
     /// ```
@@ -487,12 +481,11 @@ pub mod rules {
             .map(|_| ())
             .ok_or_else(|| ValidationError::new("url"))
     }
-    /// Validate ACORN's exact abbreviated semantic-version syntax.
-    ///
-    /// # Examples
-    ///
+    /// Validate ACORN's exact abbreviated semantic-version syntax
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::version("1.2.3").is_ok());
     /// assert!(rules::version("v1.2.3").is_err());
     /// ```
@@ -535,12 +528,11 @@ pub mod rules {
             .map(|_| ())
             .map_err(|_| ValidationError::new("json").with_message("Provide valid JSON"))
     }
-    /// Validate a four-digit year that is not in the future when a clock is available.
-    ///
-    /// # Examples
-    ///
+    /// Validate a four-digit year that is not in the future when a clock is available
+    /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;
+    ///
     /// assert!(rules::year(2020).is_ok());
     /// assert!(rules::year("20").is_err());
     /// ```

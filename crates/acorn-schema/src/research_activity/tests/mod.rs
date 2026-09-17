@@ -1569,6 +1569,17 @@ fn test_research_output_rejects_invalid_identifiers_and_date() {
     assert!(output.validate().is_err());
 }
 #[test]
+fn test_research_output_reports_every_missing_datacite_deposit_field() {
+    let output = ResearchOutput::init().title("").build();
+    assert_eq!(
+        output.validate_deposit_ready().expect_err("partial output is not deposit-ready"),
+        ["doi", "titles", "creators", "publisher", "publicationYear", "resourceType"]
+            .map(str::to_string)
+            .to_vec()
+    );
+    assert!(output.validate().is_err(), "the empty title remains invalid RAD metadata");
+}
+#[test]
 fn test_research_output_roundtrip_and_validation() {
     let output = ResearchOutput::init()
         .identifier("https://openalex.org/W2741809807".to_string())

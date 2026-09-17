@@ -41,10 +41,49 @@ use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
 
 pub mod mapping;
+mod research_output;
 mod rrid;
 
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
 
+/// Convert between metadata schemas with tracking of warnings and data loss
+///
+/// Implementers provide error context and track lossy conversions via ConversionWarning.
+///
+/// # Example
+///
+/// ```ignore
+/// use acorn_schema::standard::crosswalk::Crosswalk;
+///
+/// let datacite_record = /* ... */;
+/// let (dcat_dataset, warnings) = datacite_record.crosswalk()?;
+/// for warning in warnings {
+///     eprintln!("Note: {}", warning);
+/// }
+/// ```
+pub trait Crosswalk<T>: Sized {
+    /// Convert self to target type, tracking data loss via warnings
+    ///
+    /// Returns `Ok((target, warnings))` on success, even if some fields were unmapped.
+    /// Returns `Err` only for missing required fields or transformation errors.
+    fn crosswalk(&self) -> Result<(T, Vec<ConversionWarning>), CrosswalkError>;
+}
+/// Reconstruct a schema type from normalized fields
+///
+/// Implementers build their type from a `FieldMap`, enabling schema-agnostic transformation targets.
+pub trait SchemaBuilder: Sized {
+    /// Build from normalized fields
+    ///
+    /// Returns `Err` if required fields are missing or invalid.
+    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError>;
+}
+/// Extract normalized fields from a schema type
+///
+/// Implementers decompose their type into a `FieldMap`, enabling schema-agnostic transformations.
+pub trait SchemaExtractor {
+    /// Extract all fields into normalized form
+    fn extract_fields(&self) -> Fields;
+}
 /// Error type for crosswalk operations
 #[derive(Clone, Debug)]
 pub enum CrosswalkError {
@@ -92,19 +131,6 @@ pub struct ConversionWarning {
     /// Optional details about the loss (e.g., "sizes and formats omitted")
     pub details: Option<String>,
 }
-impl fmt::Display for ConversionWarning {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} → {}: {} ({}) {}",
-            self.from,
-            self.to,
-            self.field,
-            self.loss_type,
-            self.details.as_deref().unwrap_or("")
-        )
-    }
-}
 impl ConversionWarning {
     /// Create a new warning for a field with no equivalent in target schema
     pub fn no_equivalent(from: &'static str, to: &'static str, field: impl Into<String>) -> Self {
@@ -147,6 +173,19 @@ impl ConversionWarning {
         }
     }
 }
+impl fmt::Display for ConversionWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} → {}: {} ({}) {}",
+            self.from,
+            self.to,
+            self.field,
+            self.loss_type,
+            self.details.as_deref().unwrap_or("")
+        )
+    }
+}
 impl fmt::Display for CrosswalkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -175,44 +214,6 @@ impl fmt::Display for FieldLossType {
             | Self::BlockNotSelected => write!(f, "metadata block not selected"),
         }
     }
-}
-/// Convert between metadata schemas with tracking of warnings and data loss
-///
-/// Implementers provide error context and track lossy conversions via ConversionWarning.
-///
-/// # Example
-///
-/// ```ignore
-/// use acorn_schema::standard::crosswalk::Crosswalk;
-///
-/// let datacite_record = /* ... */;
-/// let (dcat_dataset, warnings) = datacite_record.crosswalk()?;
-/// for warning in warnings {
-///     eprintln!("Note: {}", warning);
-/// }
-/// ```
-pub trait Crosswalk<T>: Sized {
-    /// Convert self to target type, tracking data loss via warnings
-    ///
-    /// Returns `Ok((target, warnings))` on success, even if some fields were unmapped.
-    /// Returns `Err` only for missing required fields or transformation errors.
-    fn crosswalk(&self) -> Result<(T, Vec<ConversionWarning>), CrosswalkError>;
-}
-/// Extract normalized fields from a schema type
-///
-/// Implementers decompose their type into a `FieldMap`, enabling schema-agnostic transformations.
-pub trait SchemaExtractor {
-    /// Extract all fields into normalized form
-    fn extract_fields(&self) -> Fields;
-}
-/// Reconstruct a schema type from normalized fields
-///
-/// Implementers build their type from a `FieldMap`, enabling schema-agnostic transformation targets.
-pub trait SchemaBuilder: Sized {
-    /// Build from normalized fields
-    ///
-    /// Returns `Err` if required fields are missing or invalid.
-    fn build_from_fields(fields: &Fields) -> Result<Self, CrosswalkError>;
 }
 /// Execute a schema conversion using the pipeline
 ///

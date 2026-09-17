@@ -26,6 +26,22 @@ pub enum ActivityDateType {
     Issued,
     /// Date or interval covered by the activity.
     Coverage,
+    /// Date the publisher accepted the output.
+    Accepted,
+    /// Date the output became publicly available.
+    Available,
+    /// Date or interval during which output content was collected.
+    Collected,
+    /// Date the output received copyrighted status.
+    Copyrighted,
+    /// Date the creator submitted the output.
+    Submitted,
+    /// Date or interval during which the output is accurate.
+    Valid,
+    /// Date the output was removed.
+    Withdrawn,
+    /// A date that does not fit another controlled type.
+    Other,
 }
 /// Legacy research activity field represented by a related resource.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -235,6 +251,27 @@ pub struct TypedActivityDate {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub information: Option<String>,
 }
+/// Typed identifier with value, scheme and scheme URI
+///
+/// Covers DOI, Handle, RAiD, SWHID, ROR, ORCID, ISNI, ARK etc. without network resolution. See `.wiki/assets/standards-field-matrix.md` identifiers.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "TypedIdentifier::is_valid", skip_on_field_errors = false))]
+pub struct TypedIdentifier {
+    /// Identifier value (e.g. `10.5072/example`, `swh:1:cnt:...`, `https://ror.org/...`).
+    #[validate(nonempty)]
+    #[serde(deserialize_with = "string_trim")]
+    pub value: String,
+    /// Identifier scheme (e.g. `DOI`, `RAiD`, `SWHID`, `ROR`, `ORCID`, `ISNI`).
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub scheme: Option<String>,
+    /// Scheme URI (e.g. `https://doi.org`, `https://ror.org`).
+    #[validate(url)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub scheme_uri: Option<String>,
+}
 /// Typed related resource with identifier, relation, resource type and category
 ///
 /// Unifies DataCite `RelatedIdentifier`/`RelatedItem` for RAD. `relationType` includes `Other` with `relationTypeInformation`.
@@ -258,27 +295,6 @@ pub struct TypedRelatedResource {
     pub resource_type_general: Option<String>,
     /// Activity category for related activities (e.g. `sponsors`, `partners`, `related`)
     pub category: Option<RelatedResourceCategory>,
-}
-/// Typed identifier with value, scheme and scheme URI
-///
-/// Covers DOI, Handle, RAiD, SWHID, ROR, ORCID, ISNI, ARK etc. without network resolution. See `.wiki/assets/standards-field-matrix.md` identifiers.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-#[validate(schema(function = "TypedIdentifier::is_valid", skip_on_field_errors = false))]
-pub struct TypedIdentifier {
-    /// Identifier value (e.g. `10.5072/example`, `swh:1:cnt:...`, `https://ror.org/...`).
-    #[validate(nonempty)]
-    #[serde(deserialize_with = "string_trim")]
-    pub value: String,
-    /// Identifier scheme (e.g. `DOI`, `RAiD`, `SWHID`, `ROR`, `ORCID`, `ISNI`).
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub scheme: Option<String>,
-    /// Scheme URI (e.g. `https://doi.org`, `https://ror.org`).
-    #[validate(url)]
-    #[serde(default, deserialize_with = "option_string_trim")]
-    pub scheme_uri: Option<String>,
 }
 impl TypedIdentifier {
     pub(crate) fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {

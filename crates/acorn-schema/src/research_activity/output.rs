@@ -1,7 +1,8 @@
 //! Structured research outputs associated with a research activity
+use crate::pid::raid::CreditRole;
 use crate::research_activity::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
 use crate::standard::datacite::{self, Description, GeoLocation, Publisher, ResourceTypeGeneral};
-use crate::validation::{is_iso_639_1_language_code, Validate};
+use crate::validation::{is_iso_639_1_language_code, rules::nonempty, Property, PropertySet, Validate};
 use crate::{Keyword, Website};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
@@ -63,7 +64,7 @@ pub struct Award {
     #[validate(url)]
     pub url: Option<String>,
 }
-/// A person credited on a research output.
+/// A person or organization credited on a research output.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
@@ -73,10 +74,22 @@ pub struct Contributor {
     #[validate(length(min = 1))]
     #[serde(deserialize_with = "string_trim")]
     pub name: String,
+    /// Whether the credited agent is a person or organization.
+    pub name_type: Option<datacite::NameType>,
     /// ORCID associated with the contributor.
     #[validate(orcid)]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub orcid: Option<String>,
+    /// Research Organization Registry identifier for an organizational contributor.
+    #[validate(ror)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub ror: Option<String>,
+    /// DataCite contributor role, distinct from CRediT output roles.
+    pub contributor_type: Option<datacite::ContributorType>,
+    /// CRediT roles asserted for this output.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<CreditRole>,
     /// Whether the source identifies this person as a corresponding author.
     pub corresponding: Option<bool>,
     /// Position in the output byline, such as `first`, `middle`, or `last`.
@@ -97,6 +110,15 @@ pub struct Funding {
     #[validate(length(min = 1))]
     #[serde(deserialize_with = "string_trim")]
     pub name: String,
+    /// Funder identifier for registries other than ROR.
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub identifier: Option<String>,
+    /// Registry type for `identifier`.
+    pub identifier_type: Option<datacite::FunderIdentifierType>,
+    /// URI of the identifier registry.
+    #[validate(url)]
+    #[serde(default, deserialize_with = "option_string_trim")]
+    pub scheme_uri: Option<String>,
     /// Research Organization Registry identifier for the funder.
     #[validate(ror)]
     #[serde(default, deserialize_with = "option_string_trim")]
@@ -109,7 +131,7 @@ pub struct Funding {
 /// A publication, dataset, software package, or other product of a research activity.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
-#[builder(start_fn = init)]
+#[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchOutput {
     /// Provider-native or globally resolvable identifier for the output.
@@ -177,7 +199,7 @@ pub struct ResearchOutput {
     /// Creators distinct from contributors (deposit mandatory `creators`).
     #[validate(nested)]
     pub creators: Option<Vec<Contributor>>,
-    /// People credited on this output (DataCite `contributors`).
+    /// People or organizations credited on this output (DataCite `contributors`).
     #[validate(nested)]
     pub contributors: Option<Vec<Contributor>>,
     /// Funding associated specifically with this output.
@@ -194,6 +216,41 @@ pub struct ResearchOutput {
     pub access: Option<Access>,
 }
 impl ResearchOutput {
+    /// Validate that the output contains every DataCite deposit-mandatory property.
+    ///
+    /// This gate is intentionally stricter than [`Validate`], which permits partial
+    /// output metadata while it is being authored or enriched.
+    pub fn validate_deposit_ready(&self) -> Result<(), Vec<String>> {
+        let ResearchOutput {
+            doi,
+            title,
+            creators,
+            publisher,
+            publication_year,
+            resource_type_general,
+            ..
+        } = self;
+        let properties = [
+            Property::new("doi", doi.as_deref().is_some_and(|value| nonempty(value).is_ok())),
+            Property::new("titles", nonempty(title).is_ok()),
+            Property::new(
+                "creators",
+                creators
+                    .as_ref()
+                    .is_some_and(|creators| creators.iter().map(|creator| creator.name.as_str()).any(|name| nonempty(name).is_ok())),
+            ),
+            Property::new(
+                "publisher",
+                publisher
+                    .as_ref()
+                    .map(|publisher| publisher.name.as_str())
+                    .is_some_and(|name| nonempty(name).is_ok()),
+            ),
+            Property::new("publicationYear", publication_year.is_some()),
+            Property::new("resourceType", resource_type_general.is_some()),
+        ];
+        PropertySet::new(properties).validate()
+    }
     /// Merge candidate metadata into empty fields while preserving existing values.
     pub fn merge(self, candidate: Self) -> Self {
         Self {
