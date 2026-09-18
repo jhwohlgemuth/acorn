@@ -4,20 +4,20 @@ title: "Add research activity lifecycle, credit, license, and award fields"
 description: "Give provider metadata dedicated schema targets instead of storing dates, contributors, licenses, and award identifiers in notes."
 difficulty: high
 impact: high
-package: [acorn-lib, acorn-cli]
+package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [schema, research-activity, enrichment, provenance]
 status: planned
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/research_activity/{mod,output}.rs`, `src/schema/pid/raid/mod.rs`, `src/schema/standard/cff.rs`, OSTI/discovery enrichment adapters, fixtures, and tests; target `acorn-schema`.
-- **Create:** typed lifecycle, contributor-role, license, and award fields plus compatibility/defaulting tests.
+- **Update:** `crates/acorn-schema/src/research_activity/{mod,logbook,output}.rs`, `crates/acorn-schema/src/pid/raid/mod.rs`, `crates/acorn-schema/src/standard/cff.rs`, OSTI/discovery enrichment adapters, fixtures, and tests.
+- **Create:** typed lifecycle, contributor-role, license, and award fields plus compatibility/defaulting and deterministic graduation-candidate tests.
 - **Delete:** enrichment notes used solely as placeholders after structured fields preserve the same information and provenance.
 
 # Dependencies
 
-Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md) and crosswalk loss contract.
+Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md) and crosswalk loss contract. Follow the MVP of [PowerApps logbook intake and sponsor reporting](../../features/powerapps-gitlab-logbook-reporting.md); that workflow uses the existing classification and contributor targets first, then consumes the additional deterministic graduation targets defined here.
 
 # Goal
 
@@ -43,9 +43,11 @@ Retain the new optional `ResearchOutput` collection for output-specific assertio
 
 Define merge identity and conflict behavior for every new type before connecting providers. Map only explicitly asserted source values: RAiD contributor/contact flags and organization roles, CFF authors/contact/license/date fields, and OSTI release dates, credited people, and primary awards. Keep raw provider values in provenance and do not redirect unsupported values into `notes`.
 
+For each new activity field, define which logbook category/event combinations may propose it, how `GraduationCandidates` renders the proposed value, how accepted values merge with populated canonical data, and which conflicts require review. Graduation remains deterministic and archives rather than deletes the source entry.
+
 # Validation
 
-Add adjacent schema round-trip and validation tests, candidate merge tests, and fixture-backed OSTI, CFF, and RAiD mappings. Regenerate JSON schemas and command documentation where their checked-in output changes. Run `make lint`, `make test`, and the portable WASM check because the new domain types belong to `acorn-lib`.
+Add adjacent schema round-trip and validation tests, graduation-candidate and accepted-graduation tests, candidate merge tests, and fixture-backed OSTI, CFF, and RAiD mappings. Regenerate JSON schemas and command documentation where their checked-in output changes. Run `make lint`, `make test`, and the portable WASM check because the new domain types belong to `acorn-schema`.
 
 # Acceptance criteria
 
@@ -57,3 +59,4 @@ Add adjacent schema round-trip and validation tests, candidate merge tests, and 
 - Candidate merging deduplicates structured values by documented stable keys and records incompatible populated values as provenance conflicts.
 - OSTI, CFF, and RAiD fixtures demonstrate lossless mappings into the new fields.
 - Dates, contributors, licenses, and award identifiers are no longer placed in free-form notes.
+- Every field accepted from logbook graduation has a documented source-category rule, stable candidate identity, deterministic merge, and explicit conflict test.

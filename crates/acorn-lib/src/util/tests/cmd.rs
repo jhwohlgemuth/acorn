@@ -230,6 +230,29 @@ mod cmd_macro {
         assert!(!output.status.success());
     }
     #[test]
+    fn test_output_with_child_environment() {
+        const KEY: &str = "ACORN_CMD_CHILD_ENV_TEST";
+        let inherited = std::env::var_os(KEY);
+        let output = if cfg!(unix) {
+            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; env: [(KEY, "hello world")]).expect("environment output")
+        } else {
+            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; env: [(KEY, "hello world")]).expect("environment output")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello world");
+        let current_dir = std::env::current_dir().expect("current directory");
+        let output = if cfg!(unix) {
+            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; dir: current_dir, env: [(KEY, "hello from directory")])
+                .expect("directory environment output")
+        } else {
+            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; dir: current_dir, env: [(KEY, "hello from directory")])
+                .expect("directory environment output")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello from directory");
+        assert_eq!(std::env::var_os(KEY), inherited);
+    }
+    #[test]
     fn test_sh_literal_splat_output() {
         let args = ["hello", "world"];
         let output = if cfg!(unix) {

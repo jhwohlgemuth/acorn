@@ -133,10 +133,23 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
+    run_output_with_env(binary, args, dir, core::iter::empty::<(OsString, OsString)>())
+}
+/// Run a command, capture output, with an optional working directory and child-process environment overrides.
+#[doc(hidden)]
+pub fn run_output_with_env<I, S, E, K, V>(binary: impl AsRef<str>, args: I, dir: Option<&Path>, envs: E) -> io::Result<Output>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
     let binary = binary.as_ref();
     let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
     log_command(binary, &args, dir);
     let mut cmd = command_with_args(binary, &args, dir);
+    cmd.envs(envs);
     cmd.output()
 }
 /// Run a command with standard-input bytes and capture its output.

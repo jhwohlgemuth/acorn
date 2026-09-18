@@ -144,6 +144,7 @@
 ///
 /// // Variable args
 /// cmd!("git", args)
+/// cmd!("git", args; env: [("GIT_CONFIG_NOSYSTEM", "1")])
 ///
 /// // Try form — returns Result<String, String>
 /// cmd!(try "git" "rev-parse" "HEAD")
@@ -151,6 +152,7 @@
 ///
 /// // With working directory
 /// cmd!("git" "status"; dir: project_dir)
+/// cmd!("git", args; dir: project_dir, env: environment)
 /// cmd!(try sh "npm test"; dir: project_dir)
 /// cmd!(status bash "echo hello"; dir: project_dir)
 /// cmd!(try pwsh "Write-Output 'hello'"; dir: project_dir)
@@ -576,6 +578,15 @@ macro_rules! cmd {
     // CLI-style (no dir)
     ($binary:literal $($arg:literal)*) => {{
         $crate::util::cmd::run_output($binary, [$($arg),*], None)
+    }};
+    // ── default output with child environment ────────────────
+    // expression args + dir + environment
+    ($binary:expr, $args:expr; dir: $dir:expr, env: $env:expr) => {{
+        $crate::util::cmd::run_output_with_env($binary, $args, Some($dir.as_ref()), $env)
+    }};
+    // expression args + environment
+    ($binary:expr, $args:expr; env: $env:expr) => {{
+        $crate::util::cmd::run_output_with_env($binary, $args, None, $env)
     }};
     // ── default output array ──────────────────────────────────
     // array + dir

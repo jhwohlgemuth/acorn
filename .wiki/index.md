@@ -17,11 +17,12 @@ This directory is the authoritative home for ACORN implementation plans. It is a
 
 ## Next execution phase
 
-The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC, webhook runtime, and GitLab repository automation foundations are complete; continue in this strict order:
+The dedicated RPC and automation lane is the highest-priority initiative. The JSON-RPC, webhook runtime, GitLab repository automation, canonical RAD persistence, logbook graduation, and updates PDF foundations are complete; continue in this strict order:
 
-1. [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md)
-2. [ACP inference and verified fixes](features/opencode-acp-inference.md)
-3. [MCP client](features/mcp-client.md)
+1. [PowerApps logbook intake and sponsor reporting](features/powerapps-gitlab-logbook-reporting.md)
+2. [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md)
+3. [ACP inference and verified fixes](features/opencode-acp-inference.md)
+4. [MCP client](features/mcp-client.md)
 
 After this lane, continue [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md), dependency-feature narrowing, and consumer-proven [WASM browser services](refactors/portability/wasm-feature-path.md). These may supply reviewed prerequisites, but they do not displace the lane's priority or authorize overlapping writers.
 

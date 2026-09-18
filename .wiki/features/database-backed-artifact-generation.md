@@ -27,13 +27,13 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 # Dependencies
 
-[Canonical research activity database](research-activity-database.md) must first stabilize typed lookup, revision identity, restore semantics, and migration compatibility. Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
+The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan follows the MVP of [PowerApps logbook intake and sponsor reporting](powerapps-gitlab-logbook-reporting.md) for the shared bounded reporting-window and artifact-manifest contracts; it is not a prerequisite for that bucket-file workflow. Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
 
 # Recommendation
 
 1. Add an artifact source enum that selects a canonical activity by portable database ID or an immutable revision ID and resolves to a typed `ResearchActivity` before renderer dispatch.
 2. Reuse existing serializers, crosswalks, update reports, PDF, and PowerPoint transforms unchanged after source resolution. Database code must not absorb rendering policy.
-3. Emit a machine-readable manifest beside or within each artifact recording activity ID, revision ID or current-state timestamp, format/profile, ACORN version, applied options, and a digest of the canonical serialized input.
+3. Reuse the reporting workflow's machine-readable manifest identity, source, time-bound, ACORN-version, option, and digest fields; extend it with database activity and revision IDs rather than introducing a parallel artifact manifest.
 4. Add CLI and MCP selection with mutually exclusive file/activity/revision sources, explicit overwrite policy, and clear errors for missing or ambiguous identities.
 5. Support current RAD JSON/YAML/Markdown and logbook-update artifacts first; add standards profiles and binary documents only after deterministic source-to-render tests are green.
 
@@ -48,5 +48,6 @@ Let users create the same supported artifacts from ACORN's maintained research a
 - Every existing supported renderer can consume a typed activity resolved from the database without a parallel implementation.
 - Users can select current state or one immutable revision by portable ID through CLI and MCP contracts.
 - Generated artifacts include a reproducibility manifest and stable input digest.
+- Database-backed logbook reports use the same bounded-window and manifest semantics as bucket-file sponsor reports.
 - Historical revision exports remain byte-stable where the target format is deterministic and semantically stable otherwise.
 - File-backed behavior remains compatible and all full-workspace and renderer validation passes.
