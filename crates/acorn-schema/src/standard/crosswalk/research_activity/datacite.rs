@@ -315,6 +315,7 @@ impl ResearchActivity {
             (!self.meta.technology.is_empty()).then_some("meta.technology"),
             self.meta.partners.as_ref().map(|_| "meta.partners"),
             self.meta.resources.as_ref().map(|_| "meta.resources"),
+            self.meta.infrastructure.as_ref().map(|_| "meta.infrastructure"),
             self.meta.languages.as_ref().map(|_| "meta.languages"),
             self.meta.ror.as_ref().map(|_| "meta.ror"),
         ];

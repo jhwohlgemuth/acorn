@@ -1395,6 +1395,7 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             "phone",
             "snake_case",
             "state",
+            "uri",
             "unix_epoch",
         ];
         match path.get_ident() {

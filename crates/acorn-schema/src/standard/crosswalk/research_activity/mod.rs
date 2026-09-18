@@ -1327,6 +1327,7 @@ impl Export for ResearchActivity {
             self.meta.media.as_ref().map(|_| "meta.media"),
             (!self.meta.technology.is_empty()).then_some("meta.technology"),
             self.meta.resources.as_ref().map(|_| "meta.resources"),
+            self.meta.infrastructure.as_ref().map(|_| "meta.infrastructure"),
             self.meta.rights.as_ref().map(|_| "meta.rights"),
         ];
         fields

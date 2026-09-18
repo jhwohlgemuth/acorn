@@ -5,6 +5,7 @@
     clippy::panic,
     clippy::unwrap_used
 )]
+use crate::infrastructure::ComputeEnvironment;
 use crate::pid::raid::{self, CreditRole};
 use crate::research_activity::output::{Award, Contributor, Funding, ResearchOutput};
 use crate::research_activity::{
@@ -70,6 +71,10 @@ fn datacite_project_activity() -> ResearchActivity {
             .build(),
         ..ResearchActivity::default()
     }
+}
+fn infrastructure_environment() -> ComputeEnvironment {
+    serde_json::from_str(include_str!("../../../../../../../tests/fixtures/schema/ocp/infrastructure.json"))
+        .expect("infrastructure fixture should deserialize")
 }
 fn raid_contact() -> ContactPoint {
     ContactPoint::init()
@@ -1149,6 +1154,25 @@ fn test_research_activity_datacite_project_crosswalk_rejects_missing_or_ambiguou
         activity.to_datacite_project(),
         Err(CrosswalkError::TransformationFailed { field, .. }) if field == "meta.doi"
     ));
+}
+#[test]
+fn test_research_activity_infrastructure_is_reported_as_local_only() {
+    let environment = infrastructure_environment();
+    let mut datacite = datacite_project_activity();
+    datacite.meta.infrastructure = Some(OneOrMany::One(environment.clone()));
+    let (_, warnings) = datacite.to_datacite_project().expect("DataCite project conversion should succeed");
+    assert!(warnings.iter().any(|warning| {
+        warning.field == "meta.infrastructure"
+            && warning.loss_type == FieldLossType::NoEquivalent
+            && warning.from == "rad"
+            && warning.to == "datacite"
+    }));
+    let mut raid = raid_ready_activity();
+    raid.meta.infrastructure = Some(OneOrMany::One(environment));
+    let (_, warnings) = raid.to_raid(&RaidExportOptions::default()).expect("RAiD conversion should succeed");
+    assert!(warnings.iter().any(|warning| {
+        warning.field == "meta.infrastructure" && warning.loss_type == FieldLossType::NoEquivalent && warning.from == "rad" && warning.to == "raid"
+    }));
 }
 #[test]
 fn test_research_activity_legacy_and_canonical_field_conflicts_are_rejected() {

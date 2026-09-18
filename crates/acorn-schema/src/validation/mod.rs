@@ -466,6 +466,24 @@ pub mod rules {
         });
         valid.then_some(()).ok_or_else(|| ValidationError::new("email"))
     }
+    /// Validate an absolute HTTP(S) URI with a non-empty authority.
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::uri("https://example.org/research").is_ok());
+    /// assert!(rules::uri("urn:example:research").is_err());
+    /// ```
+    pub fn uri(value: &str) -> Result<(), ValidationError> {
+        let authority = value
+            .split_once(':')
+            .filter(|(scheme, rest)| (scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https")) && rest.starts_with("//"))
+            .and_then(|(_, rest)| rest.strip_prefix("//"))
+            .and_then(|rest| rest.split(['/', '?', '#']).next());
+        (authority.is_some_and(|authority| !authority.is_empty()) && url(value).is_ok())
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("uri").with_message("Provide an absolute HTTP or HTTPS URI"))
+    }
     /// Validate an absolute URL
     /// ### Examples
     /// ```
@@ -768,6 +786,13 @@ impl fmt::Display for ValidationReport {
     }
 }
 impl ValidationReport {
+    /// Create an empty report or one non-empty collection failure at `path`.
+    pub fn empty(path: impl Into<String>, empty: bool) -> Self {
+        match empty {
+            | true => Self::from_error(path, ValidationError::new("nonempty").with_message("Provide at least one item")),
+            | false => Self::new(),
+        }
+    }
     /// Create an empty report.
     pub const fn new() -> Self {
         Self(Vec::new())

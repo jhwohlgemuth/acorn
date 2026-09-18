@@ -16,6 +16,8 @@ use acorn_core::util::Searchable;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
+mod infrastructure;
+
 #[test]
 fn test_dcat_us_dataset_deserialization() {
     let content = include_str!("../../../../tests/fixtures/schema/dcat/dcat-us-dataset.json");

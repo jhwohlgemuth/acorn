@@ -1,0 +1,10 @@
+{
+  "identifier": "S0806",
+  "title": "Hardware Management Profile",
+  "project": "Hardware Management",
+  "kind": "specification",
+  "version": "1.0",
+  "status": "accepted",
+  "canonicalUri": "https://www.opencompute.org/contributions?menu%5Bspec_id%5D=S0806",
+  "license": "OWFa 1.0"
+}

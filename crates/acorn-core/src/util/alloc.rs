@@ -530,11 +530,8 @@ impl fmt::Display for Checksum {
         write!(f, "{}", self.checksum_value)
     }
 }
-impl TryFrom<&str> for Checksum {
-    type Error = String;
-
-    /// Parse an `algorithm:value` digest string (e.g., `sha256:abc123`).
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+impl From<&str> for Checksum {
+    fn from(value: &str) -> Self {
         value
             .split_once(':')
             .filter(|(_, checksum_value)| !checksum_value.is_empty())
@@ -542,7 +539,15 @@ impl TryFrom<&str> for Checksum {
                 algorithm: ChecksumAlgorithm::from(algorithm),
                 checksum_value: checksum_value.to_string(),
             })
-            .ok_or_else(|| format!("Expected `algorithm:value` checksum format, found `{value}`"))
+            .unwrap_or_else(|| Checksum {
+                algorithm: ChecksumAlgorithm::default(),
+                checksum_value: value.to_string(),
+            })
+    }
+}
+impl From<String> for Checksum {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 impl From<&str> for ChecksumAlgorithm {
@@ -1669,18 +1674,20 @@ mod tests {
         assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
     }
     #[test]
-    fn test_checksum_try_from_parses_algorithm_and_value() {
-        let checksum = Checksum::try_from("SHA512:abc123").expect("valid checksum");
+    fn test_checksum_from_parses_borrowed_and_owned_values() {
+        let checksum = Checksum::from("SHA512:abc123");
         assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha512);
         assert_eq!(checksum.checksum_value, "abc123");
+        let owned_checksum = Checksum::from("md5:def456".to_string());
+        assert_eq!(owned_checksum.algorithm, ChecksumAlgorithm::Md5);
+        assert_eq!(owned_checksum.checksum_value, "def456");
     }
     #[test]
-    fn test_checksum_try_from_rejects_missing_algorithm_value_separator_or_value() {
+    fn test_checksum_from_uses_default_algorithm_for_malformed_values() {
         ["abc123", "sha256:"].into_iter().for_each(|value| {
-            assert_eq!(
-                Checksum::try_from(value).err(),
-                Some(format!("Expected `algorithm:value` checksum format, found `{value}`"))
-            )
+            let checksum = Checksum::from(value);
+            assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha256);
+            assert_eq!(checksum.checksum_value, value);
         });
     }
     #[test]

@@ -1205,6 +1205,7 @@ fn test_metadata_aliases_and_flattened_values_use_canonical_fields() {
     let mut context = serde_json::to_value(ResearchActivityMetadataContext::default()).expect("context should serialize");
     let context = context.as_object_mut().expect("context is an object");
     let funders = context.remove("funders").expect("context contains funders");
+    context.remove("infrastructure").expect("context contains infrastructure");
     let related = context.remove("relatedResources").expect("context contains related resources");
     context.insert("sponsors".to_string(), funders);
     context.insert("related".to_string(), related);
@@ -1214,6 +1215,7 @@ fn test_metadata_aliases_and_flattened_values_use_canonical_fields() {
     assert!(canonical.get("sponsors").is_none());
     assert!(canonical.get("related").is_none());
     assert!(canonical.get("funders").is_some());
+    assert!(canonical.get("infrastructure").is_some());
     assert!(canonical.get("relatedResources").is_some());
 }
 #[test]
@@ -1225,6 +1227,18 @@ fn test_metadata_optional_vectors_accept_one_or_many_values() {
         ("enrichment", serde_json::json!({"provider": "osti", "fields": []})),
         ("funders", serde_json::json!("Example Funder")),
         ("handle", serde_json::json!("hdl:10013/epic.10033")),
+        (
+            "infrastructure",
+            serde_json::json!({
+                "identifier": "environment-1",
+                "name": "Environment 1",
+                "platforms": {
+                    "identifier": "platform-1",
+                    "name": "Platform 1",
+                    "resources": "CPU"
+                }
+            }),
+        ),
         ("languages", serde_json::json!("eng")),
         ("media", serde_json::json!({"caption": "Draft image"})),
         ("organizations", serde_json::json!("Example Organization")),
@@ -1314,6 +1328,33 @@ fn test_metadata_validates_handles() {
         ResearchActivityMetadataContext::default().handle,
         "https://codemeta.github.io/terms/identifier"
     );
+}
+#[test]
+fn test_metadata_validates_nested_resource_vendor() {
+    let invalid_resource = Resource::GPU {
+        architecture: Some(GpuArchitecture::Hopper),
+        backend: None,
+        compute_capability: None,
+        count: Some(1),
+        memory: None,
+        name: None,
+        required: None,
+        vendor: Some(Vendor::AMD),
+    };
+    let direct = invalid_resource
+        .validate()
+        .expect_err("resource should reject an architecture/vendor mismatch");
+    assert!(direct.iter().any(|issue| issue.path == "vendor" && issue.error.code == "vendor_mismatch"));
+    let activity = ResearchActivity {
+        meta: ResearchActivityMetadata::init().resources(vec![invalid_resource]).build(),
+        ..ResearchActivity::default()
+    };
+    let nested = activity
+        .validate()
+        .expect_err("complete RAD validation should retain nested resource validation");
+    assert!(nested
+        .iter()
+        .any(|issue| issue.path == "meta.resources[0].vendor" && issue.error.code == "vendor_mismatch"));
 }
 #[test]
 fn test_metadata_validates_publication_identifiers() {

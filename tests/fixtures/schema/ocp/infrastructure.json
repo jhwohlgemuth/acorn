@@ -1,0 +1,85 @@
+{
+  "identifier": "environment-1",
+  "name": "Research Compute Environment",
+  "platforms": [
+    {
+      "identifier": "platform-1",
+      "name": "Accelerated Platform",
+      "manufacturer": "Example Manufacturer",
+      "model": "Example Model",
+      "resources": [
+        {
+          "GPU": {
+            "architecture": "Hopper",
+            "count": 1,
+            "vendor": "NVIDIA"
+          }
+        }
+      ],
+      "standardsClaims": [
+        {
+          "standard": {
+            "authority": "Open Compute Project",
+            "identifier": "S0806",
+            "title": "Hardware Management Profile",
+            "version": "1.0",
+            "canonicalUri": "https://www.opencompute.org/contributions?menu%5Bspec_id%5D=S0806"
+          },
+          "relationship": "conformsTo",
+          "assessment": "verified",
+          "evidenceUri": "https://example.org/evidence/S0806"
+        }
+      ],
+      "recognitions": [
+        {
+          "program": "accepted",
+          "subjectIdentifier": "official-product-1",
+          "sourceUri": "https://www.opencompute.org/products/official-product-1",
+          "awardedAt": "2026-01-01T00:00:00Z",
+          "expiresAt": "2027-01-01T00:00:00Z"
+        }
+      ],
+      "managementProfileClaims": [
+        {
+          "profile": {
+            "authority": "Open Compute Project",
+            "identifier": "S0806",
+            "canonicalUri": "https://www.opencompute.org/contributions?menu%5Bspec_id%5D=S0806"
+          },
+          "underlyingStandard": {
+            "authority": "DMTF",
+            "identifier": "Redfish",
+            "canonicalUri": "https://www.dmtf.org/standards/redfish"
+          },
+          "validatorIdentity": "Redfish Interop Validator",
+          "validatorVersion": "2.5.0",
+          "testedAt": "2026-09-18T12:30:00-04:00",
+          "result": "pass",
+          "evidenceUri": "https://example.org/reports/platform-1"
+        }
+      ]
+    }
+  ],
+  "facility": {
+    "identifier": "facility-1",
+    "name": "Research Data Center",
+    "operator": "Example Operator",
+    "location": "Tennessee, US",
+    "ror": "https://ror.org/01qz5mb56",
+    "recognitions": [
+      {
+        "program": "ready",
+        "subjectIdentifier": "official-facility-1",
+        "sourceUri": "https://www.opencompute.org/facilities/official-facility-1"
+      }
+    ]
+  },
+  "recognitions": [
+    {
+      "program": "integratedSolution",
+      "subjectIdentifier": "official-solution-1",
+      "sourceUri": "https://www.opencompute.org/solutions/official-solution-1"
+    }
+  ],
+  "observedAt": "2026-09-18T12:30:00-04:00"
+}

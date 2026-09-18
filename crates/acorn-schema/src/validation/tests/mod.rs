@@ -204,6 +204,13 @@ struct SkippedAsyncSchema {
     #[validate(length(min = 4))]
     value: String,
 }
+#[derive(Serialize, Validate)]
+struct UriRules {
+    #[validate(uri)]
+    uri: String,
+    #[validate(each(uri))]
+    uris: Vec<String>,
+}
 impl Validate for ManualAsyncValidation {
     fn validate(&self) -> Result<(), ValidationReport> {
         Ok(())
@@ -821,4 +828,23 @@ fn test_timestamp_requires_a_complete_valid_instant_with_an_explicit_offset() {
     ]
     .into_iter()
     .for_each(|value| assert!(super::rules::timestamp(value).is_err(), "expected invalid timestamp {value}"));
+}
+#[test]
+fn test_uri_rule_requires_http_or_https_authority() {
+    let valid = UriRules {
+        uri: "https://example.org/evidence".to_string(),
+        uris: vec!["http://example.org/report".to_string()],
+    };
+    assert!(valid.validate().is_ok());
+    let report = UriRules {
+        uri: "urn:example:evidence".to_string(),
+        uris: vec!["https:///missing-authority".to_string(), "relative/path".to_string()],
+    }
+    .validate()
+    .expect_err("URI validation should require HTTP(S) and a non-empty authority");
+    assert_eq!(
+        report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(),
+        ["uri", "uris[0]", "uris[1]"]
+    );
+    assert!(report.iter().all(|issue| issue.error.code == "uri"));
 }

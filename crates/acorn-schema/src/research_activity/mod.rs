@@ -4,6 +4,7 @@
 //!
 use crate::enrichment::Provider;
 use crate::hardware::Resource;
+use crate::infrastructure::ComputeEnvironment;
 use crate::namespaces::{activity_streams, bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::pid::raid::{Language, SpatialCoverage};
 use crate::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
@@ -337,8 +338,14 @@ pub struct ResearchActivityMetadata {
     /// For an AI/ML workflow that requires at least one GPU to perform training that cannot be executed on a CPU alone,
     /// the resources attribute should include GPU, but need not include CPU
     #[builder(into)]
+    #[validate(nested)]
     #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
     pub resources: Option<OneOrMany<Resource>>,
+    /// Configured compute environments used by this research activity.
+    #[builder(into)]
+    #[validate(nested)]
+    #[serde(default, deserialize_with = "deserialize_optional_one_or_many")]
+    pub infrastructure: Option<OneOrMany<ComputeEnvironment>>,
     /// Structured activity dates (e.g. StartDate, EndDate, Created, Updated) with explicit date types.
     ///
     /// Distinct from `Changelog` entry timestamps and RAiD registry `metadata` timestamps; see `.wiki/assets/standards-field-matrix.md` Validity Levels.
@@ -495,6 +502,9 @@ pub struct ResearchActivityMetadataContext {
     pub partners: String,
     /// Hardware/compute resource requirements
     pub resources: String,
+    /// Configured compute environments
+    #[serde(default = "default_infrastructure_context")]
+    pub infrastructure: String,
     /// Structured activity dates
     #[serde(default = "default_typed_dates_context")]
     pub typed_dates: String,
@@ -1051,6 +1061,7 @@ impl Default for ResearchActivityMetadataContext {
             .technology(schema_org("DefinedTerm"))
             .partners(schema_org("Text"))
             .resources(schema_org("DefinedTerm"))
+            .infrastructure(default_infrastructure_context())
             .typed_dates(dcterms("date"))
             .contributors(schema_org("contributor"))
             .organizations(schema_org("Organization"))
@@ -1163,6 +1174,9 @@ fn default_funders_context() -> String {
 }
 fn default_handle_context() -> String {
     codemeta("identifier")
+}
+fn default_infrastructure_context() -> String {
+    dcterms("relation")
 }
 fn default_languages_context() -> String {
     dcterms("language")
