@@ -1,5 +1,7 @@
 //! Constants that define portable schema values and identifier resolution.
 
+/// CRediT taxonomy schema URI.
+pub const CREDIT_SCHEMA_URI: &str = "https://credit.niso.org/";
 /// Default organization affiliation used by research activity schemas.
 pub const DEFAULT_AFFILIATION: &str = "Oak Ridge National Laboratory";
 /// Default Hugging Face domain represented by agent schema values.
@@ -8,6 +10,8 @@ pub const DEFAULT_HUGGINGFACE_DOMAIN: &str = "huggingface.co";
 pub const HANDLE_RESOLVER_URI: &str = "https://hdl.handle.net";
 /// identifiers.org resolver URI accepted for SWHID values.
 pub const IDENTIFIERS_ORG_URI: &str = "https://identifiers.org";
+/// ISNI identifier schema URI.
+pub const ISNI_SCHEMA_URI: &str = "https://isni.org/";
 /// Maximum length of an opaque RRID payload.
 pub const MAX_RRID_PAYLOAD_LENGTH: usize = 255;
 /// Name-to-Thing resolver URI accepted for SWHID values.
@@ -20,6 +24,10 @@ pub const RAD_MARKDOWN_PROSE_SECTIONS: [&str; 6] = ["Mission", "Challenge", "App
 pub const RAD_MARKDOWN_REQUIRED_SECTIONS: [&str; 1] = ["Contact"];
 /// Canonical schema discriminator for Markdown research activity data.
 pub const RAD_MARKDOWN_SCHEMA: &str = "acorn/research-activity";
+/// ORCID identifier schema URI.
+pub const ORCID_SCHEMA_URI: &str = "https://orcid.org/";
+/// RAiD metadata schema URI.
+pub const RAID_SCHEMA_URI: &str = "https://raid.org/";
 /// RRID system documentation URI.
 pub const RRID_SCHEMA_URI: &str = "https://www.rrids.org/rrid-system";
 /// SciCrunch resolver URI accepted for RRID values.

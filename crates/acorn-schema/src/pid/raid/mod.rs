@@ -1049,6 +1049,37 @@ impl Contributor {
         self.leader
     }
 }
+impl TryFrom<&str> for CreditRole {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value
+            .trim()
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            | "conceptualization" => Ok(Self::Conceptualization),
+            | "data-curation" => Ok(Self::DataCuration),
+            | "formal-analysis" => Ok(Self::FormalAnalysis),
+            | "funding-acquisition" => Ok(Self::FundingAcquisition),
+            | "investigation" => Ok(Self::Investigation),
+            | "methodology" => Ok(Self::Methodology),
+            | "project-administration" => Ok(Self::ProjectAdministration),
+            | "resources" => Ok(Self::Resources),
+            | "software" => Ok(Self::Software),
+            | "supervision" => Ok(Self::Supervision),
+            | "validation" => Ok(Self::Validation),
+            | "visualization" => Ok(Self::Visualization),
+            | "writing-original-draft" => Ok(Self::WritingOriginalDraft),
+            | "writing-review-editing" => Ok(Self::WritingReviewEditing),
+            | _ => Err("unknown CRediT role"),
+        }
+    }
+}
 impl<'a> Extractor<'a> {
     /// Create an extractor over RAiD metadata records.
     pub fn new(records: &'a [Metadata]) -> Self {
@@ -1130,11 +1161,70 @@ impl Metadata {
         println!("{output}");
     }
 }
+impl From<&str> for ObjectType {
+    fn from(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().replace([' ', '_'], "-").as_str() {
+            | "audiovisual" => Self::Audiovisual,
+            | "book" => Self::Book,
+            | "bookchapter" | "book-chapter" => Self::BookChapter,
+            | "computationalnotebook" | "computational-notebook" => Self::ComputationalNotebook,
+            | "conferencepaper" | "conference-paper" => Self::ConferencePaper,
+            | "conferenceproceeding" | "conference-proceeding" => Self::ConferenceProceeding,
+            | "datapaper" | "data-paper" => Self::DataPaper,
+            | "dataset" => Self::Dataset,
+            | "dissertation" => Self::Dissertation,
+            | "event" => Self::Event,
+            | "funding" => Self::Funding,
+            | "image" => Self::Image,
+            | "instrument" => Self::Instrument,
+            | "learningobject" | "learning-object" => Self::LearningObject,
+            | "model" => Self::Model,
+            | "outputmanagementplan" | "output-management-plan" => Self::OutputManagementPlan,
+            | "physicalobject" | "physical-object" => Self::PhysicalObject,
+            | "poster" | "conference-poster" => Self::ConferencePoster,
+            | "preprint" => Self::Preprint,
+            | "report" => Self::Report,
+            | "service" => Self::Service,
+            | "software" => Self::Software,
+            | "sound" => Self::Sound,
+            | "standard" => Self::Standard,
+            | "workflow" => Self::Workflow,
+            | _ => Self::Text,
+        }
+    }
+}
 impl Organization {
     fn is_lead_research_organization(&self) -> bool {
         self.role
             .iter()
             .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
+    }
+}
+impl From<&str> for OrganizationRoleType {
+    fn from(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().replace([' ', '_'], "-").as_str() {
+            | "contractor" => Self::Contractor,
+            | "facility" => Self::Facility,
+            | "funder" => Self::Funder,
+            | "lead-research-organization" | "lead-research-organisation" => Self::LeadResearchOrganization,
+            | "other-research-organization" | "other-research-organisation" => Self::OtherResearchOrganization,
+            | "partner-organization" | "partner-organisation" => Self::PartnerOrganization,
+            | _ => Self::OtherOrganization,
+        }
+    }
+}
+impl TryFrom<&str> for PositionType {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.trim().to_ascii_lowercase().replace([' ', '_'], "-").as_str() {
+            | "co-investigator" => Ok(Self::CoInvestigator),
+            | "consultant" => Ok(Self::Consultant),
+            | "other" => Ok(Self::Other),
+            | "partner-investigator" => Ok(Self::PartnerInvestigator),
+            | "principal-investigator" => Ok(Self::PrincipalInvestigator),
+            | _ => Err("unknown contributor position"),
+        }
     }
 }
 impl Default for RAID {
@@ -1223,6 +1313,23 @@ impl PersistentIdentifierParse for RAID {
         };
         let suffix_is_valid = pid.suffix().is_some();
         prefix_is_valid && suffix_is_valid
+    }
+}
+impl TryFrom<&str> for RelatedRaidType {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.trim().to_ascii_lowercase().replace([' ', '_'], "-").as_str() {
+            | "continues" => Ok(Self::Continues),
+            | "has-part" => Ok(Self::HasPart),
+            | "is-continued-by" => Ok(Self::IsContinuedBy),
+            | "is-derived-from" => Ok(Self::IsDerivedFrom),
+            | "is-obsoleted-by" => Ok(Self::IsObsoletedBy),
+            | "is-part-of" => Ok(Self::IsPartOf),
+            | "is-source-of" => Ok(Self::IsSourceOf),
+            | "obsoletes" => Ok(Self::Obsoletes),
+            | _ => Err("unknown related RAiD type"),
+        }
     }
 }
 fn has_start_date(value: &Date) -> Result<(), ValidationError> {

@@ -41,11 +41,12 @@ use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
 
 pub mod mapping;
+mod research_activity;
 mod research_output;
 mod rrid;
 
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
-
+pub use research_activity::{RaidExportOptions, RaidImportOptions};
 /// Convert between metadata schemas with tracking of warnings and data loss
 ///
 /// Implementers provide error context and track lossy conversions via ConversionWarning.
@@ -103,6 +104,13 @@ pub enum CrosswalkError {
     /// Output serialization failed
     SerializeFailed(String),
 }
+#[derive(Clone, Copy, Debug)]
+enum CrosswalkSchema {
+    DataCite,
+    Rad,
+    RadOutput,
+    Raid,
+}
 /// Type of data loss during conversion
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FieldLossType {
@@ -116,6 +124,10 @@ pub enum FieldLossType {
     Omitted,
     /// Field mapping exists but target-specific block not available (HuWise only)
     BlockNotSelected,
+}
+struct Conversion<T> {
+    value: T,
+    warnings: Vec<ConversionWarning>,
 }
 /// Documents data loss during a schema conversion
 #[derive(Clone, Debug)]
@@ -131,42 +143,65 @@ pub struct ConversionWarning {
     /// Optional details about the loss (e.g., "sizes and formats omitted")
     pub details: Option<String>,
 }
+impl<T> Conversion<T> {
+    fn new(value: T, warnings: Vec<ConversionWarning>) -> Self {
+        Self { value, warnings }
+    }
+    fn into_parts(self) -> (T, Vec<ConversionWarning>) {
+        (self.value, self.warnings)
+    }
+}
+impl<T> From<(T, Vec<ConversionWarning>)> for Conversion<T> {
+    fn from((value, warnings): (T, Vec<ConversionWarning>)) -> Self {
+        Self::new(value, warnings)
+    }
+}
+impl From<CrosswalkSchema> for &'static str {
+    fn from(schema: CrosswalkSchema) -> Self {
+        match schema {
+            | CrosswalkSchema::DataCite => "datacite",
+            | CrosswalkSchema::Rad => "rad",
+            | CrosswalkSchema::RadOutput => "rad-output",
+            | CrosswalkSchema::Raid => "raid",
+        }
+    }
+}
 impl ConversionWarning {
     /// Create a new warning for a field with no equivalent in target schema
-    pub fn no_equivalent(from: &'static str, to: &'static str, field: impl Into<String>) -> Self {
+    pub fn no_equivalent(from: impl Into<&'static str>, to: impl Into<&'static str>, field: impl Into<String>) -> Self {
         Self {
-            from,
-            to,
+            from: from.into(),
+            to: to.into(),
             field: field.into(),
             details: None,
             loss_type: FieldLossType::NoEquivalent,
         }
     }
     /// Create a new warning for an approximated mapping
-    pub fn approximated(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn approximated(from: impl Into<&'static str>, to: impl Into<&'static str>, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            from,
-            to,
+            from: from.into(),
+            to: to.into(),
             field: field.into(),
             details: Some(details.into()),
             loss_type: FieldLossType::Approximated,
         }
     }
     /// Create a new warning for a simplified mapping
-    pub fn simplified(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn simplified(from: impl Into<&'static str>, to: impl Into<&'static str>, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            from,
-            to,
+            from: from.into(),
+            to: to.into(),
             field: field.into(),
             details: Some(details.into()),
             loss_type: FieldLossType::Simplified,
         }
     }
     /// Create a new warning for an omitted field
-    pub fn omitted(from: &'static str, to: &'static str, field: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn omitted(from: impl Into<&'static str>, to: impl Into<&'static str>, field: impl Into<String>, details: impl Into<String>) -> Self {
         Self {
-            from,
-            to,
+            from: from.into(),
+            to: to.into(),
             field: field.into(),
             details: Some(details.into()),
             loss_type: FieldLossType::Omitted,

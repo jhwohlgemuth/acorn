@@ -4,7 +4,7 @@ okf_version: "0.1"
 
 # Standards Field Matrix — RAD | RAiD 1.x | DataCite 4.7 | DCAT 3 | CodeMeta | Schema.org
 
-**Pin:** DataCite kernel-4.7 `https://schema.datacite.org/meta/kernel-4.7/metadata.xsd` + JSON API, RAiD `https://metadata.raid.org/en/latest/` (ISO 23527:2022), DCAT 3 `https://www.w3.org/TR/vocab-dcat-3/`, CodeMeta `https://codemeta.github.io/`, Schema.org `https://schema.org/`. Reconciled `2026-09-03` against `acorn-schema` at `0.1.76` (Slice 0). Owner: `:.wiki/features/rad-metadata-standards-alignment.md:102`.
+**Pin:** DataCite kernel-4.7 `https://schema.datacite.org/meta/kernel-4.7/metadata.xsd` + JSON API, RAiD `https://metadata.raid.org/en/latest/` (ISO 23527:2022), DCAT 3 `https://www.w3.org/TR/vocab-dcat-3/`, CodeMeta `https://codemeta.github.io/`, Schema.org `https://schema.org/`. Reconciled `2026-09-17` against `acorn-schema` at `0.2.0` (RAiD adapter portion of Slice 2). Owner: `:.wiki/features/rad-metadata-standards-alignment.md`.
 
 Slice 0 fixtures (referenced per row): `tests/fixtures/schema/datacite/4.7/valid-4.7-deltas.json` (Poster/Presentation + RAiD/SWHID/Other+info + RelatedItem), `tests/fixtures/schema/datacite/4.7/valid-4.7-related-item.xml` (Resource + RelatedItems), `tests/fixtures/schema/datacite/4.7/invalid-missing-mandatory.json` (missing `titles`), `tests/fixtures/schema/datacite/4.7/invalid-missing-creators.json`.
 
@@ -85,7 +85,7 @@ Every `Option<Vec<T>>` field below accepts one `T` or an array at input. Scalars
 | `resourceType: Option<String>` | `types.resourceType` | `resourceType` text | related-object category where representable | `dcterms:type` label | `additionalType` | transformed | trim | free text | 0..1 | Specific type complements `resourceTypeGeneral`. |
 | `language: Option<String>` | `language` | `language` | language | `dcterms:language` | `inLanguage` | exact | ISO 639-1 validation | ISO 639-1 | 0..1 | Portable validation only. |
 | `alternateIdentifiers: Option<Vec<TypedIdentifier>>` | `alternateIdentifiers[]` | `alternateIdentifiers` | `alternateIdentifier[]` | `dcterms:identifier` | `identifier` | transformed | typed identifier mapping | extensible scheme | 0..n | Scheme and optional scheme URI are retained. |
-| `relatedIdentifiers: Option<Vec<TypedRelatedResource>>` | `relatedIdentifiers[]` | `relatedIdentifiers` | `relatedObject[]`/`relatedRaid[]` | qualified relation | `citation`/`isPartOf`/related properties | transformed | relation vocabulary mapping | DOI/RAiD/RRID/SWHID/etc. | 0..n | The RRID leaf crosswalk canonicalizes the identifier and preserves explicit DataCite relation, relation information, general resource type, and scheme URI. It reports the local category and DataCite-only metadata-scheme fields as structured `NoEquivalent` losses. Full Record/Project adapter assembly and `Other` relation-information coverage remain pending. JATS 1.4 RRID markup is pinned in `tests/fixtures/rrid/jats-1.4.xml` without claiming a general XML adapter. |
+| `relatedIdentifiers: Option<Vec<TypedRelatedResource>>` | `relatedIdentifiers[]` | `relatedIdentifiers` | `relatedObject[]`/`relatedRaid[]` | qualified relation | `citation`/`isPartOf`/related properties | transformed | relation vocabulary mapping | DOI/RAiD/RRID/SWHID/etc. | 0..n | The RRID leaf crosswalk canonicalizes the identifier and preserves explicit DataCite relation, relation information, general resource type, and scheme URI. It reports the local category and DataCite-only metadata-scheme fields as structured `NoEquivalent` losses. Record assembly and `Other` relation-information coverage are implemented; whole-activity Project assembly remains pending. JATS 1.4 RRID markup is pinned in `tests/fixtures/rrid/jats-1.4.xml` without claiming a general XML adapter. |
 | `relatedItems: Option<Vec<datacite::RelatedItem>>` | `relatedItems[]` | `relatedItems` | related object when representable | qualified relation | related creative work | transformed | direct DataCite shape then target mapping | DataCite 4.7 | 0..n | Distinct from identifier-only relations. |
 | `version: Option<String>` (`version`) | `version` | `version` | alternate identifier/context | `dcat:version` | `version` | exact | semantic-version validation | SemVer | 0..1 | Non-semantic provider versions remain unsupported. |
 | `rightsList: Option<Vec<StructuredRights>>` | `rightsList[]` | `rightsList/rights` | `access`/license | `dcterms:license`/`accessRights` | `license` | transformed | SPDX and URI mapping | SPDX/extensible | 0..n | Canonical structured rights; distinct from OA summary `access`. |
@@ -101,13 +101,13 @@ Every `Option<Vec<T>>` field below accepts one `T` or an array at input. Scalars
 | `keywords: Vec<Keyword>` | `subjects[]` | `subjects/subject` | `subject` | `dcat:keyword` | `keywords` | exact | `Keyword` normalize | ACORN `keywords.csv` | 0..n | `datacite.json: subjects[0] Climate change` |
 | `access: Option<Access>` (`open`, `status`, `url`, `license`) | derived access summary only | derived access summary only | `access` | `dcterms:accessRights` | access mode | local-only | provider OA summary | provider vocabulary | 0..1 | Structured license exchange uses `rightsList`. |
 
-**ResearchOutput profile completed 2026-09-16:** `ResearchOutput <-> DataCite Record`, output-specific deposit readiness, organizational agents, DataCite contributor types, CRediT role storage, complete funder identifier schemes, and structured conversion-loss reporting are implemented. Whole-activity RAiD and DataCite Project profiles remain in the next slice.
+**ResearchOutput profile completed 2026-09-16:** `ResearchOutput <-> DataCite Record`, output-specific deposit readiness, organizational agents, DataCite contributor types, CRediT role storage, complete funder identifier schemes, and structured conversion-loss reporting are implemented. The whole-activity RAiD profile followed on 2026-09-17; DataCite Project remains in the next slice.
 
 ### RAiD Top-Level (`pid/raid/mod.rs` `Metadata`, `deny_unknown_fields`, `Validate`)
 
 | RAiD Field | RAD Source | Classification | Transform | Occ | Vocabulary |
 |---|---|---|---|---|---|
-| `identifier` (`MetadataIdentifier`) | `meta.identifier` | exact | kebab → `10.26259/` | 0..1 | DOI-like |
+| `identifier` (`MetadataIdentifier`) | `meta.raid` plus explicit registry metadata | conditionally-required | normalize the authored RAiD; require `RaidExportOptions::identifier` in strict mode or explicitly infer registry fields | 0..1 | DOI-like |
 | `title[]` (`TitleType` Primary required) | `title` + `subtitle` | transformed | `subtitle` → `AlternativeTitle` | 1..n | — |
 | `contributor[]` (`id`, `role`, `position`, `leader`, `contact`, `email`) | `contributors[]` plus legacy primary `contact` | transformed | map typed identifiers, affiliations, dated roles, and assertions without inventing flags | 1..n | ORCID/ISNI, CreditRole |
 | `organization[]` (`id`, `role`) | `organizations[]`, `funders[]`, plus legacy `ror`/`partners` | transformed | map typed identifiers and dated roles; funders map separately | 0..n | ROR, organization roles |
@@ -116,11 +116,11 @@ Every `Option<Vec<T>>` field below accepts one `T` or an array at input. Scalars
 | `relatedRaid[]` | `relatedResources[]` with RAiD identifiers | transformed | normalize RAiD identifier and relation | 0..n | `RelatedRaidType` |
 | `subject[]` (`keyword`) | `subjects[]` plus authoring `keywords` | transformed | preserve controlled scheme/value URI where supported | 0..n | RAiD subject/ACORN keywords |
 | `spatialCoverage[]` (`place`) | `spatialCoverage[]` | transformed | map structured place records | 0..n | `Place` |
-| `access` | `access` and `rights[]` | transformed | map structured access and license assertions | 0..1 | RAiD access vocabularies |
+| `access` | `access` and `rights[]` | transformed | map structured access and rights assertions | 1 | RAiD access vocabularies |
 | `description` / `alternateIdentifier` / `alternateUrl` / `traditionalKnowledgeLabel` | prose, identifier, and website fields where approved | transformed or unsupported | adapter must report omissions | 0..n | target-specific |
 | `metadata` (`created`/`updated`) | `typedDates[]` with `Created`/`Updated` | transformed | select explicit values only; do not use logbook timestamps | 0..1 | timestamp/date type |
 
-Inference rule `rad-metadata-standards-alignment.md:41,168`: **Do not fabricate** `date`, `leader`/`contact` role, `owner`/`registrationAgency`, `CC0` license, or `relatedObject` when RAD absent; gate behind `allow_infer: bool` default false with `ConversionWarning::Approximated` after Slice 5.
+Inference rule: **Do not fabricate** `date`, `leader`/`contact` role, `owner`/`registrationAgency`, `CC0` license, or `relatedObject` when RAD absent. The implemented adapter gates supported defaults behind `RaidExportOptions::allow_infer`, which defaults to false, requires an explicit `inference_date`, and emits `ConversionWarning::Approximated` for every inferred assertion.
 
 ### DCAT 3 / Invenio / HuWise / CFF Crosswalk (existing `crosswalk/`)
 
@@ -132,7 +132,7 @@ Inference rule `rad-metadata-standards-alignment.md:41,168`: **Do not fabricate*
 | License | `license` `IRI` | `rightsURI` | direct | exact | SPDX `validate_license` |
 | Type | `resource-type` `String` | `type_` `IRI` | `resource_type_to_iri` / `iri_to_resource_type` `mapping.rs:482` (`Poster`→`Poster`) | transformed | DataCite ↔ DCAT IRI |
 
-Existing `Standard::crosswalk` `analyzer/check.rs:1044` supports `datacite ↔ dcat ↔ invenio ↔ huwise` via `FieldMapping::apply` `mapping.rs:194` with loss warnings `crosswalk/mod.rs:238` (`Omitted` for missing optional). RAD ↔ standards not yet (Slice 5 after matrix).
+Existing `Standard::crosswalk` `analyzer/check.rs:1044` supports `datacite ↔ dcat ↔ invenio ↔ huwise` via `FieldMapping::apply` `mapping.rs:194` with loss warnings `crosswalk/mod.rs:238` (`Omitted` for missing optional). The portable `ResearchActivity ↔ RAiD Metadata` API is implemented; CLI/check dispatch integration remains in the workflow portion of Slice 2.
 
 ## Controlled Vocabularies & Normalization
 
@@ -150,10 +150,11 @@ Existing `Standard::crosswalk` `analyzer/check.rs:1044` supports `datacite ↔ d
 * `tests/fixtures/schema/datacite/4.7/invalid-missing-creators.json` — missing `creators`
 * `tests/fixtures/schema/datacite.json` / `tests/fixtures/schema/datacite.xml` — baseline
 * `tests/fixtures/schema/datacite-invalid-2-errors.json` — 2-error case
-* RAiD fixtures to pin next: `tests/fixtures/schema/raid/valid.json` (access+contributor+date+title) + `invalid-missing-required.json`
+* `tests/fixtures/raid/mint.json` — pinned RAiD mint response used by the import crosswalk; strict missing-required and inference cases are constructed in adjacent unit tests
 
 ## Change Log
 
 * 2026-09-03 Slice 0: Added `Raid`/`Swhid`, `Other`, `Poster`/`Presentation`, `RelatedItem`, `relationTypeInformation`, `validate_deposit_ready`, warning pipeline `Omitted` (from `mod.rs:232`), `mapping.rs:194` propagation, `check.rs:1099`, `as_vec` for `doi->identifier`.
 * 2026-09-16 Slice 1: Added output contributor/funder profile fields, complete DataCite date vocabulary coverage, `ResearchOutput::validate_deposit_ready`, and warning-aware `ResearchOutput <-> DataCite Record` conversion with focused round-trip coverage.
-* Next: Implement assertion-preserving `ResearchActivity <-> RAiD Metadata` and opt-in `ResearchActivity -> DataCite Project` adapters without inferred defaults.
+* 2026-09-17 Slice 2 (RAiD adapter): Added warning-aware `ResearchActivity <-> RAiD Metadata`, strict default export, explicit dated inference, caller-supplied import identity context/name maps, and pinned-fixture coverage.
+* Next: Integrate RAiD conversion into existing workflows and implement opt-in `ResearchActivity -> DataCite Project` without inferred defaults.

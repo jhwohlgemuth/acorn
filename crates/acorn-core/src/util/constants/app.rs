@@ -2,6 +2,8 @@
 
 use crate::util::SemanticVersion;
 
+/// Canonical application name shared across ACORN crates.
+pub const APPLICATION: &str = "acorn";
 /// Prefix for an executable Rhai extension ABI marker.
 pub const EXEC_HEADER_PREFIX: &str = "// @acorn-exec-v";
 /// Maximum array length produced by executable Rhai extensions.

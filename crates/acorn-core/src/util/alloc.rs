@@ -35,15 +35,22 @@ use core::str::from_utf8;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
-use jiff::{tz::Offset, Timestamp};
+use jiff::{fmt::temporal::DateTimeParser, tz::Offset, Timestamp};
 use jsonc_parser::{parse_to_serde_value, ParseOptions};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(feature = "std")]
+use std::fs::canonicalize;
+#[cfg(feature = "std")]
+use std::path::{Path, PathBuf};
 #[cfg(feature = "exec")]
 use std::sync::{Mutex, OnceLock};
 use strum::EnumIs;
+use urlencoding::encode;
+
+static DATE_TIME_PARSER: DateTimeParser = DateTimeParser::new();
 
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
@@ -124,6 +131,28 @@ pub trait Searchable<T> {
     }
     /// Filter list by name and return the first match
     fn find_by_name(&self, value: impl Into<String>) -> Option<T>;
+}
+/// Trait for augmenting and formatting string-like values for display.
+pub trait StringConversion {
+    /// Return a file name with its parent folder.
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String;
+    /// Collapse whitespace and convert text to lowercase.
+    fn normalized(&self) -> String;
+    /// Percent-encode the string for use in a URL component.
+    fn percent_encode(&self) -> String;
+    /// Return an absolute path string.
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String;
+    /// Normalize text to lowercase ASCII alphanumeric characters.
+    fn to_ascii_alphanumeric(&self) -> String;
+    /// Return the value when it is a complete ISO 8601 calendar date.
+    fn to_complete_date(&self) -> Option<&str> {
+        None
+    }
+    /// Render a path string using native separators.
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String;
 }
 /// Add persistent-identifier utilities to string values.
 pub trait StringExt {
@@ -1435,6 +1464,39 @@ where
 {
     (if value == T::from(1) { "" } else { "s" }).to_string()
 }
+#[cfg(feature = "std")]
+fn cross_platform_path(path: &Path) -> String {
+    let value = path.display().to_string();
+    #[cfg(windows)]
+    let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
+    value
+}
+#[cfg(feature = "std")]
+fn file_name_with_parent(path: &Path) -> String {
+    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
+    match path.is_dir() {
+        | true => name,
+        | false => {
+            let parent_name = path
+                .parent()
+                .and_then(|value| value.file_name())
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
+            match parent_name.is_empty() {
+                | true => name,
+                | false => format!("{parent_name}/{name}"),
+            }
+        }
+    }
+}
+#[cfg(feature = "std")]
+fn to_absolute_path(path: &Path) -> String {
+    let result = canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let value = result.display().to_string();
+    #[cfg(windows)]
+    let value = value.strip_prefix(r"\\?\").unwrap_or(&value).to_string();
+    value
+}
 /// Normalize a string to lowercase ASCII alphanumeric characters
 pub fn to_ascii_alphanumeric(value: &str) -> String {
     value
@@ -1452,11 +1514,111 @@ pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
 }
 
+impl StringConversion for str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(Path::new(self))
+    }
+    fn normalized(&self) -> String {
+        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn percent_encode(&self) -> String {
+        encode(self).into_owned()
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        to_absolute_path(Path::new(self))
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        (self.len() == 10 && DATE_TIME_PARSER.parse_date(self).is_ok()).then_some(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        cross_platform_path(Path::new(self))
+    }
+}
+impl StringConversion for String {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self.as_str())
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self.as_str())
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self.as_str())
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self.as_str())
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self.as_str())
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self.as_str())
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self.as_str())
+    }
+}
+impl StringConversion for &str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self)
+    }
+}
+#[cfg(feature = "std")]
+impl StringConversion for PathBuf {
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        self.to_string_lossy().as_ref().normalized()
+    }
+    fn percent_encode(&self) -> String {
+        self.to_string_lossy().as_ref().percent_encode()
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
+    }
+    fn to_cross_platform_path(&self) -> String {
+        cross_platform_path(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "std")]
     use super::MimeType;
-    use super::{SemanticVersion, StringExt};
+    use super::{SemanticVersion, StringConversion, StringExt};
     use crate::prelude::alloc::{String, ToString};
     use crate::util::constants::app::EXEC_HEADER_PREFIX;
 
@@ -1483,6 +1645,13 @@ mod tests {
     fn test_string_ext_default_compaction_is_identity() {
         let value = " value ".to_string();
         assert_eq!(value.clone().trim_and_compact(), value);
+    }
+    #[test]
+    fn test_string_conversion_complete_date() {
+        assert_eq!("2024-02-29".to_complete_date(), Some("2024-02-29"));
+        assert_eq!("2023-02-29".to_complete_date(), None);
+        assert_eq!("2024-02".to_complete_date(), None);
+        assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
     }
     #[test]
     fn test_string_ext_vectors_trim_compact_and_detect_numeric_values() {

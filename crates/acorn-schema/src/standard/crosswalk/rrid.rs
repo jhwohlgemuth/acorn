@@ -1,11 +1,8 @@
 use crate::pid::{PID, RRID};
 use crate::research_activity::{TypedIdentifier, TypedRelatedResource};
-use crate::standard::crosswalk::{ConversionWarning, Crosswalk, CrosswalkError};
+use crate::standard::crosswalk::{ConversionWarning, Crosswalk, CrosswalkError, CrosswalkSchema};
 use crate::standard::datacite::{RelatedIdentifier, RelatedIdentifierType, RelationType, ResourceTypeGeneral};
 use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
-
-const DATACITE: &str = "datacite";
-const RAD: &str = "rad";
 
 impl Crosswalk<RelatedIdentifier> for TypedRelatedResource {
     fn crosswalk(&self) -> Result<(RelatedIdentifier, Vec<ConversionWarning>), CrosswalkError> {
@@ -40,7 +37,13 @@ impl Crosswalk<RelatedIdentifier> for TypedRelatedResource {
                                     let warnings = self
                                         .category
                                         .as_ref()
-                                        .map(|_| vec![ConversionWarning::no_equivalent(RAD, DATACITE, "relatedResources[].category")])
+                                        .map(|_| {
+                                            vec![ConversionWarning::no_equivalent(
+                                                CrosswalkSchema::Rad,
+                                                CrosswalkSchema::DataCite,
+                                                "relatedResources[].category",
+                                            )]
+                                        })
                                         .unwrap_or_default();
                                     let related = RelatedIdentifier::init()
                                         .related_identifier(identifier)
@@ -87,7 +90,7 @@ impl Crosswalk<TypedRelatedResource> for RelatedIdentifier {
                             let warnings = locations
                                 .into_iter()
                                 .flatten()
-                                .map(|field| ConversionWarning::no_equivalent(DATACITE, RAD, field))
+                                .map(|field| ConversionWarning::no_equivalent(CrosswalkSchema::DataCite, CrosswalkSchema::Rad, field))
                                 .collect();
                             let value = TypedIdentifier::init()
                                 .value(identifier)

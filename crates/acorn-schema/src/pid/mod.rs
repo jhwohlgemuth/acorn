@@ -595,6 +595,30 @@ impl PID {
             | _ => "unknown",
         }
     }
+    /// Infer a declared PID type or recognizable registry from a string-like value.
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::pid::PID;
+    ///
+    /// assert_eq!(PID::infer("doi"), PID::DOI);
+    /// assert_eq!(PID::infer("https://orcid.org/"), PID::ORCID);
+    /// ```
+    pub fn infer(value: impl AsRef<str>) -> Self {
+        let value = value.as_ref();
+        match Self::from(value) {
+            | Self::Unknown => {
+                let value = value.to_ascii_lowercase();
+                if value.contains("orcid") {
+                    Self::ORCID
+                } else if value.contains("isni") {
+                    Self::ISNI
+                } else {
+                    Self::Unknown
+                }
+            }
+            | declared => declared,
+        }
+    }
     /// Whether this PID type can independently identify a research project.
     pub fn is_project_identifier(&self) -> bool {
         self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark() || self.is_swhid()

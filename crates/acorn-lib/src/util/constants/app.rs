@@ -1,13 +1,13 @@
 use jiff::SignedDuration;
 
+pub use acorn_core::util::constants::app::APPLICATION;
+
 /// Default ACORN HTTP User-Agent header value when std is available.
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub const ACORN_USER_AGENT: &str = concat!("ACORN/", env!("CARGO_PKG_VERSION"), " (https://acorn.ornl.gov; mailto:research@ornl.gov)");
 /// Default ACORN HTTP User-Agent header value when std is unavailable.
 #[cfg(not(any(feature = "analysis", feature = "std")))]
 pub const ACORN_USER_AGENT: &str = "ACORN (https://acorn.ornl.gov; mailto:research@ornl.gov)";
-/// Application name.
-pub const APPLICATION: &str = "acorn";
 /// Maximum number of archive bytes inspected while inferring its format.
 pub const ARCHIVE_INFERENCE_BYTES: u64 = 8192;
 /// Base URL for deploying ORNL data.

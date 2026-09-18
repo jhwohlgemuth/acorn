@@ -3,7 +3,8 @@ use crate::research_activity::output::{Affiliation, Award, Contributor, Funding,
 use crate::research_activity::{
     ActivityDateType, ControlledSubject, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
 };
-use crate::standard::crosswalk::{ConversionWarning, Crosswalk, CrosswalkError};
+use crate::standard::crosswalk::CrosswalkSchema::{DataCite as DATACITE, RadOutput as RAD_OUTPUT};
+use crate::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError};
 use crate::standard::datacite::{
     self, AlternateIdentifier, Attributes, Creator, Date, DateType, FunderIdentifierType, FundingReference, NameIdentifier, RelatedIdentifier,
     RelatedIdentifierType, ResourceTypes, Rights, Subject, Title,
@@ -13,15 +14,8 @@ use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-const DATACITE: &str = "datacite";
 const PROVIDER_IDENTIFIER_TYPE: &str = "ACORN Provider";
-const RAD_OUTPUT: &str = "rad-output";
 type FundingIdentity = (Option<String>, Option<FunderIdentifierType>, Option<String>);
-
-struct Conversion<T> {
-    value: T,
-    warnings: Vec<ConversionWarning>,
-}
 struct OutputIdentifiers {
     identifier: Option<String>,
     alternate_identifiers: Option<Vec<TypedIdentifier>>,
@@ -697,20 +691,6 @@ impl TryFrom<TypedRelatedResource> for Conversion<RelatedIdentifier> {
         }
     }
 }
-impl<T> Conversion<T> {
-    fn new(value: T, warnings: Vec<ConversionWarning>) -> Self {
-        Self { value, warnings }
-    }
-    fn into_parts(self) -> (T, Vec<ConversionWarning>) {
-        (self.value, self.warnings)
-    }
-}
-impl<T> From<(T, Vec<ConversionWarning>)> for Conversion<T> {
-    fn from((value, warnings): (T, Vec<ConversionWarning>)) -> Self {
-        Self::new(value, warnings)
-    }
-}
-
 impl From<Affiliation> for datacite::Affiliation {
     fn from(value: Affiliation) -> Self {
         let identifier_scheme = value.ror.as_ref().map(|_| "ROR".to_string());

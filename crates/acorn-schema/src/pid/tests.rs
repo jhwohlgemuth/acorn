@@ -226,6 +226,13 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("unsupported"), PID::Unknown);
 }
 #[test]
+fn test_pid_infer() {
+    assert_eq!(PID::infer("doi"), PID::DOI);
+    assert_eq!(PID::infer(String::from("https://orcid.org/")), PID::ORCID);
+    assert_eq!(PID::infer("https://isni.org/isni/"), PID::ISNI);
+    assert_eq!(PID::infer("unsupported"), PID::Unknown);
+}
+#[test]
 fn test_rrid_is_discoverable_but_not_project_identifying() {
     assert!(PID::RRID.is_discoverable());
     assert!(!PID::RRID.is_project_identifier());

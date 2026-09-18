@@ -5,10 +5,11 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::pid::raid::CreditRole;
+use crate::pid::raid::{self, CreditRole};
 use crate::research_activity::output::{Award, Contributor, Funding, ResearchOutput};
 use crate::research_activity::{
-    ActivityDateType, ControlledSubject, RelatedResourceCategory, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
+    ActivityContributor, ActivityDateType, AgentIdentifier, ControlledSubject, DatedAgentRole, RelatedResourceCategory, ResearchActivity,
+    ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
 };
 use crate::standard::crosswalk::*;
 use crate::standard::crosswalk::{
@@ -20,7 +21,8 @@ use crate::standard::crosswalk::{
 };
 use crate::standard::{datacite, dcat, huwise, invenio};
 use crate::validation::Validate;
-use crate::OneOrMany;
+use crate::{ContactPoint, OneOrMany};
+use alloc::collections::BTreeMap;
 use proptest::prelude::*;
 use serde_json::json;
 
@@ -35,6 +37,43 @@ fn rrid_related_resource() -> TypedRelatedResource {
         relation_type_information: Some("Experimental software input".to_string()),
         resource_type_general: Some("Software".to_string()),
         category: Some(RelatedResourceCategory::Related),
+    }
+}
+
+fn raid_contact() -> ContactPoint {
+    ContactPoint::init()
+        .given_name("Jane".to_string())
+        .family_name("Doe".to_string())
+        .identifier("https://orcid.org/0000-0002-1825-0097".to_string())
+        .email("jane.doe@example.com".to_string())
+        .build()
+}
+
+fn raid_ready_activity() -> ResearchActivity {
+    let agent = AgentIdentifier::init()
+        .value("https://orcid.org/0000-0002-1825-0097".to_string())
+        .scheme("ORCID".to_string())
+        .scheme_uri("https://orcid.org/".to_string())
+        .build();
+    let contributor = ActivityContributor::init()
+        .name("Jane Doe".to_string())
+        .identifiers(vec![agent.clone()])
+        .roles(vec![DatedAgentRole::init().agent(agent).leader(true).build()])
+        .build();
+    ResearchActivity {
+        meta: ResearchActivityMetadata {
+            identifier: "raid-crosswalk".to_string(),
+            typed_dates: Some(OneOrMany::Many(vec![TypedActivityDate::init()
+                .date_type(ActivityDateType::StartDate)
+                .date("2026-09-17T12:30:00-04:00".to_string())
+                .build()])),
+            contributors: Some(OneOrMany::Many(vec![contributor])),
+            access: Some(StructuredRights::init().access(RightsAccess::Open).build()),
+            ..ResearchActivityMetadata::default()
+        },
+        title: "RAiD crosswalk activity".to_string(),
+        contact: raid_contact(),
+        ..ResearchActivity::default()
     }
 }
 
@@ -1081,5 +1120,246 @@ fn test_rrid_crosswalk_round_trips_datacite_fixture_and_reports_unrepresented_fi
     assert!(matches!(
         <datacite::RelatedIdentifier as Crosswalk<TypedRelatedResource>>::crosswalk(&missing_relation),
         Err(CrosswalkError::MissingRequiredField(_))
+    ));
+}
+#[test]
+fn test_research_activity_raid_crosswalk_is_strict_and_warning_aware() {
+    let activity = raid_ready_activity();
+    let (metadata, warnings) = activity.to_raid(&RaidExportOptions::default()).unwrap();
+    assert!(metadata.validate().is_ok());
+    assert_eq!(metadata.date.as_ref().and_then(|date| date.start_date.as_deref()), Some("2026-09-17"));
+    assert_eq!(metadata.title.as_ref().unwrap()[0].text.as_deref(), Some("RAiD crosswalk activity"));
+    assert!(metadata
+        .contributor
+        .as_ref()
+        .unwrap()
+        .iter()
+        .any(|contributor| contributor.contact && contributor.leader));
+    assert!(warnings.iter().any(|warning| warning.field == "typedDates[StartDate]"));
+    assert!(warnings.iter().any(|warning| warning.field == "contributors[].name"));
+    let mut missing_date = raid_ready_activity();
+    missing_date.meta.typed_dates = None;
+    assert!(matches!(
+        missing_date.to_raid(&RaidExportOptions::default()),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "typedDates[StartDate]"
+    ));
+    let mut malformed_date = raid_ready_activity();
+    malformed_date.meta.typed_dates = Some(OneOrMany::One(
+        TypedActivityDate::init()
+            .date_type(ActivityDateType::StartDate)
+            .date("2026-09-17Tinvalid".to_string())
+            .build(),
+    ));
+    assert!(matches!(
+        malformed_date.to_raid(&RaidExportOptions::default()),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "typedDates[StartDate]"
+    ));
+    let mut missing_access = raid_ready_activity();
+    missing_access.meta.access = None;
+    assert!(matches!(
+        missing_access.to_raid(&RaidExportOptions::default()),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "meta.access"
+    ));
+    let mut missing_leader = raid_ready_activity();
+    missing_leader.meta.contributors = None;
+    assert!(matches!(
+        missing_leader.to_raid(&RaidExportOptions::default()),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "contributors[].leader"
+    ));
+    let mut ambiguous_leader = raid_ready_activity();
+    let contributor = ambiguous_leader.meta.contributors.as_ref().unwrap().first().unwrap().clone();
+    ambiguous_leader.meta.contributors = Some(OneOrMany::Many(vec![contributor.clone(), contributor]));
+    assert!(matches!(
+        ambiguous_leader.to_raid(&RaidExportOptions::default()),
+        Err(CrosswalkError::TransformationFailed { field, .. }) if field == "contributors[].leader"
+    ));
+}
+#[test]
+fn test_research_activity_raid_crosswalk_inference_is_explicit() {
+    let activity = ResearchActivity {
+        meta: ResearchActivityMetadata {
+            identifier: "legacy-raid-crosswalk".to_string(),
+            raid: Some(OneOrMany::One("10.83962/fb5be317".to_string())),
+            ror: Some(OneOrMany::One("https://ror.org/01qz5mb56".to_string())),
+            funders: Some(OneOrMany::One(
+                Funding::init()
+                    .name("Oak Ridge National Laboratory".to_string())
+                    .ror("https://ror.org/01qz5mb56".to_string())
+                    .build(),
+            )),
+            ..ResearchActivityMetadata::default()
+        },
+        title: "Legacy RAiD crosswalk".to_string(),
+        contact: raid_contact(),
+        ..ResearchActivity::default()
+    };
+    assert!(activity.to_raid(&RaidExportOptions::default()).is_err());
+    let options = RaidExportOptions {
+        allow_infer: true,
+        inference_date: Some("2026-09-17".to_string()),
+        identifier: None,
+    };
+    let (metadata, warnings) = activity.to_raid(&options).unwrap();
+    assert!(metadata.validate().is_ok());
+    assert_eq!(metadata.date.as_ref().and_then(|date| date.start_date.as_deref()), Some("2026-09-17"));
+    assert_eq!(metadata.identifier.as_ref().and_then(|identifier| identifier.version), Some(1));
+    let organization = metadata.organization.as_ref().unwrap().first().unwrap();
+    assert!(organization.role.iter().any(|role| matches!(role.id, raid::OrganizationRoleType::Funder)));
+    assert!(organization
+        .role
+        .iter()
+        .any(|role| matches!(role.id, raid::OrganizationRoleType::LeadResearchOrganization)));
+    assert!(warnings
+        .iter()
+        .any(|warning| { warning.field == "date.startDate" && warning.loss_type == FieldLossType::Approximated }));
+    assert!(warnings
+        .iter()
+        .any(|warning| { warning.field == "identifier.license" && warning.loss_type == FieldLossType::Approximated }));
+    let missing_date = RaidExportOptions {
+        inference_date: None,
+        ..options
+    };
+    assert!(matches!(
+        activity.to_raid(&missing_date),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "options.inferenceDate"
+    ));
+    let fully_authored = raid_ready_activity();
+    assert!(matches!(
+        fully_authored.to_raid(&RaidExportOptions {
+                allow_infer: true,
+                ..RaidExportOptions::default()
+            }),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "options.inferenceDate"
+    ));
+}
+#[test]
+fn test_raid_research_activity_crosswalk_requires_local_identity_context() {
+    let (metadata, _) = raid_ready_activity().to_raid(&RaidExportOptions::default()).unwrap();
+    assert!(matches!(
+        <raid::Metadata as Crosswalk<ResearchActivity>>::crosswalk(&metadata),
+        Err(CrosswalkError::MissingRequiredField(field)) if field == "options.contact"
+    ));
+    let options = RaidImportOptions {
+        contact: Some(raid_contact()),
+        identifier: None,
+        contributor_names: BTreeMap::new(),
+        organization_names: BTreeMap::new(),
+    };
+    let (activity, warnings) = metadata.to_research_activity(&options).unwrap();
+    assert!(activity.validate().is_ok());
+    assert_eq!(activity.meta.identifier, "raid-crosswalk");
+    assert_eq!(activity.title, "RAiD crosswalk activity");
+    assert_eq!(activity.contact.identifier.as_deref(), Some("https://orcid.org/0000-0002-1825-0097"));
+    assert!(activity
+        .meta
+        .typed_dates
+        .as_ref()
+        .unwrap()
+        .iter()
+        .any(|date| date.date == "2026-09-17T00:00:00Z"));
+    assert!(warnings.iter().any(|warning| warning.field == "date.startDate"));
+}
+#[test]
+fn test_raid_research_activity_crosswalk_uses_name_maps_and_retains_unmapped_rors() {
+    let mut metadata = raid_ready_activity().to_raid(&RaidExportOptions::default()).unwrap().0;
+    metadata.organization = Some(vec![raid::Organization {
+        id: "https://ror.org/01qz5mb56".to_string(),
+        schema_uri: Some("https://ror.org/".to_string()),
+        role: vec![raid::OrganizationRole {
+            id: raid::OrganizationRoleType::LeadResearchOrganization,
+            schema_uri: None,
+            date: crate::Date {
+                start_date: Some("2026-09-17".to_string()),
+                end_date: None,
+            },
+        }],
+    }]);
+    let mut organization_names = BTreeMap::new();
+    organization_names.insert("01qz5mb56".to_string(), "Oak Ridge National Laboratory".to_string());
+    let options = RaidImportOptions {
+        contact: Some(raid_contact()),
+        identifier: None,
+        contributor_names: BTreeMap::new(),
+        organization_names,
+    };
+    let (activity, warnings) = metadata.to_research_activity(&options).unwrap();
+    assert_eq!(
+        activity.meta.organizations.as_ref().unwrap().first().unwrap().name,
+        "Oak Ridge National Laboratory"
+    );
+    assert!(activity.meta.ror.is_none());
+    assert!(!warnings.iter().any(|warning| warning.field == "organization[]"));
+    let unmapped = RaidImportOptions {
+        organization_names: BTreeMap::new(),
+        ..options
+    };
+    let (activity, warnings) = metadata.to_research_activity(&unmapped).unwrap();
+    assert_eq!(
+        activity.meta.ror.as_ref().and_then(OneOrMany::first).map(String::as_str),
+        Some("https://ror.org/01qz5mb56")
+    );
+    assert!(warnings.iter().any(|warning| warning.field == "organization[]"));
+}
+#[test]
+fn test_raid_research_activity_crosswalk_imports_pinned_mint_fixture() {
+    let metadata: raid::Metadata = serde_json::from_str(include_str!("../../../../../../tests/fixtures/raid/mint.json")).unwrap();
+    let contact = ContactPoint::init()
+        .given_name("Fixture".to_string())
+        .family_name("Contact".to_string())
+        .build();
+    let options = RaidImportOptions {
+        contact: Some(contact),
+        identifier: Some("fixture-raid".to_string()),
+        contributor_names: BTreeMap::new(),
+        organization_names: BTreeMap::new(),
+    };
+    let (activity, warnings) = metadata.to_research_activity(&options).unwrap();
+    assert!(activity.validate().is_ok());
+    assert_eq!(activity.meta.identifier, "fixture-raid");
+    assert_eq!(activity.title, "Created from API");
+    assert!(activity.contact.identifier.is_none());
+    assert!(warnings.iter().any(|warning| warning.field == "contributor[contact].id"));
+    assert!(warnings.iter().any(|warning| warning.field == "date.startDate"));
+}
+#[test]
+fn test_raid_research_activity_crosswalk_rejects_ambiguous_or_conflicting_identity() {
+    let (metadata, _) = raid_ready_activity().to_raid(&RaidExportOptions::default()).unwrap();
+    let mut conflicting_contact = raid_contact();
+    conflicting_contact.identifier = Some("https://orcid.org/0000-0002-2057-9115".to_string());
+    let options = RaidImportOptions {
+        contact: Some(conflicting_contact),
+        identifier: None,
+        contributor_names: BTreeMap::new(),
+        organization_names: BTreeMap::new(),
+    };
+    assert!(matches!(
+        metadata.to_research_activity(&options),
+        Err(CrosswalkError::TransformationFailed { field, .. }) if field == "options.contact.identifier"
+    ));
+    let mut ambiguous_title = metadata.clone();
+    let primary = ambiguous_title.title.as_ref().unwrap()[0].clone();
+    ambiguous_title.title.as_mut().unwrap().push(primary);
+    let options = RaidImportOptions {
+        contact: Some(raid_contact()),
+        identifier: None,
+        contributor_names: BTreeMap::new(),
+        organization_names: BTreeMap::new(),
+    };
+    assert!(matches!(
+        ambiguous_title.to_research_activity(&options),
+        Err(CrosswalkError::TransformationFailed { field, .. }) if field == "title"
+    ));
+    let mut ambiguous_identifier = metadata;
+    ambiguous_identifier
+        .alternate_identifier
+        .as_mut()
+        .unwrap()
+        .push(raid::AlternateIdentifier {
+            id: "second-local-identifier".to_string(),
+            alternate_identifier_type: "ACORN".to_string(),
+        });
+    assert!(matches!(
+        ambiguous_identifier.to_research_activity(&options),
+        Err(CrosswalkError::TransformationFailed { field, .. }) if field == "alternateIdentifier[ACORN]"
     ));
 }

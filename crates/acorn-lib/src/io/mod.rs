@@ -27,7 +27,7 @@ use crate::{args, cmd};
 use acorn_core::prelude::HashSet;
 #[cfg(windows)]
 use acorn_core::util::file_extension;
-use acorn_core::util::{case_insensitive_glob, suffix, to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, MimeType, SemanticVersion};
+use acorn_core::util::{case_insensitive_glob, suffix, Checksum, ChecksumAlgorithm, MimeType, SemanticVersion};
 use acorn_core::Location;
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
@@ -84,7 +84,6 @@ use strum::EnumIs;
 pub use temporary::TemporaryDirectory;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, trace, warn};
-use urlencoding::encode;
 use which::which;
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub mod adapter;
@@ -643,26 +642,6 @@ impl PathConversion for PathBuf {
         <Path as PathConversion>::cross_platform_display(self)
     }
 }
-impl StringConversion for PathBuf {
-    fn normalized(&self) -> String {
-        self.to_string_lossy().as_ref().normalized()
-    }
-    fn percent_encode(&self) -> String {
-        self.to_string_lossy().as_ref().percent_encode()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
-    }
-    fn to_cross_platform_path(&self) -> String {
-        self.cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(self.clone())
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(self.clone())
-    }
-}
 impl PathConversion for &Path {
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(*self)
@@ -890,46 +869,6 @@ impl FileExtension for String {
 impl From<Executor> for String {
     fn from(value: Executor) -> Self {
         value.to_string()
-    }
-}
-impl StringConversion for String {
-    fn normalized(&self) -> String {
-        self.as_str().normalized()
-    }
-    fn percent_encode(&self) -> String {
-        self.as_str().percent_encode()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        Path::new(self).cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(self.clone())
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(self.clone())
-    }
-}
-impl StringConversion for &str {
-    fn normalized(&self) -> String {
-        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
-    }
-    fn percent_encode(&self) -> String {
-        encode(self).into_owned()
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        Path::new(self).cross_platform_display()
-    }
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(*self)
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_string(*self)
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {

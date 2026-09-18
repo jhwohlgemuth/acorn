@@ -45,6 +45,28 @@ fn test_raid() {
     assert_eq!(RAID::format("https://raid.org/10.1000/182"), "10.1000/182");
 }
 #[test]
+fn test_raid_vocabulary_conversions() {
+    assert!(matches!(
+        CreditRole::try_from("https://credit.niso.org/contributor-roles/software/"),
+        Ok(CreditRole::Software)
+    ));
+    assert!(CreditRole::try_from("unknown").is_err());
+    assert!(matches!(ObjectType::from("Book Chapter"), ObjectType::BookChapter));
+    assert!(matches!(ObjectType::from("unknown"), ObjectType::Text));
+    assert!(matches!(
+        OrganizationRoleType::from("partner_organisation"),
+        OrganizationRoleType::PartnerOrganization
+    ));
+    assert!(matches!(OrganizationRoleType::from("unknown"), OrganizationRoleType::OtherOrganization));
+    assert!(matches!(
+        PositionType::try_from("principal investigator"),
+        Ok(PositionType::PrincipalInvestigator)
+    ));
+    assert!(PositionType::try_from("unknown").is_err());
+    assert!(matches!(RelatedRaidType::try_from("is derived from"), Ok(RelatedRaidType::IsDerivedFrom)));
+    assert!(RelatedRaidType::try_from("unknown").is_err());
+}
+#[test]
 fn test_raid_contributor_accepts_orcid_and_isni() {
     let contributor = |id: &str, schema_uri: &str| crate::pid::raid::Contributor {
         id: Some(id.to_string()),
