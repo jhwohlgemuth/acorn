@@ -18,7 +18,7 @@ priority: next
 
 # Dependencies
 
-The portable `acorn-schema` boundary and consolidated `acorn_schema::validation` module are already implemented; this plan consumes them without repeating either refactor. Coordinate shared RAD fields with [metadata standards alignment](rad-metadata-standards-alignment.md).
+The portable `acorn-schema` boundary, consolidated `acorn_schema::validation` module, and [standards field matrix](../assets/standards-field-matrix.md) are already implemented; this plan consumes them without repeating those contracts.
 
 # Goal
 

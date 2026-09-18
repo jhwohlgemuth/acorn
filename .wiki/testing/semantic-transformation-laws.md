@@ -81,7 +81,7 @@ Shared module indexes, `crates/acorn-cli/src/commands/link/mod.rs`, and shared f
 # Dependencies and coordination
 
 - The normalization, codec, linked-data, and merge laws can start against current contracts.
-- Crosswalk preservation and loss-accounting laws consume Slice 0 and the field matrix from [RAD metadata standards alignment](../features/rad-metadata-standards-alignment.md). They must extend that plan's existing property tests instead of creating a competing crosswalk model.
+- Crosswalk preservation and loss-accounting laws consume the implemented [standards field matrix](../assets/standards-field-matrix.md) and existing property tests instead of creating a competing crosswalk model.
 - Command/workflow commutation coordinates with [CLI test coverage phase 1](cli-coverage-phase-1.md), which owns the first focused link-command suite. Only one slice edits `crates/acorn-cli/src/commands/link/mod.rs` or its test module at a time.
 - This plan does not depend on schema versioning, a generic migration framework, crate extraction, or a new graph model.
 
@@ -165,7 +165,7 @@ All law tests are deterministic, bounded, offline, and report the smallest faili
 
 # Related concepts
 
-- [RAD metadata standards alignment](../features/rad-metadata-standards-alignment.md)
+- [Standards field matrix](../assets/standards-field-matrix.md)
 - [CLI test coverage phase 1](cli-coverage-phase-1.md)
 - [Analyzer composition](../refactors/analyzer/analyzer-composition.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)

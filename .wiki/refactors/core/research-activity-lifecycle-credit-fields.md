@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Coordinate with [metadata standards alignment](../../features/rad-metadata-standards-alignment.md).
+Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md) and crosswalk loss contract.
 
 # Goal
 

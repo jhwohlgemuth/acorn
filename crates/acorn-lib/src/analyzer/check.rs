@@ -11,11 +11,15 @@ use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::util::MimeType;
 #[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_schema::pid::raid;
+#[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_schema::research_activity::ResearchActivity;
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
 #[cfg(any(feature = "analysis", feature = "std"))]
-use acorn_schema::standard::crosswalk::{ConversionWarning, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
+use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -406,18 +410,18 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl IntoIterator for CheckBatch {
-    type Item = Check;
-    type IntoIter = alloc::vec::IntoIter<Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
 impl<'a> IntoIterator for &'a CheckBatch {
     type Item = &'a Check;
     type IntoIter = core::slice::Iter<'a, Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+impl IntoIterator for CheckBatch {
+    type Item = Check;
+    type IntoIter = alloc::vec::IntoIter<Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 impl CheckCategory {
@@ -680,6 +684,10 @@ impl From<&Map<String, Value>> for Standard {
                 | true => Standard::ModelKit,
                 | false => Standard::Kitfile,
             }
+        } else if object.contains_key("contact") && object.contains_key("meta") && object.contains_key("title") {
+            Standard::ResearchActivityData
+        } else if object.contains_key("access") && object.contains_key("contributor") && object.contains_key("date") && object.contains_key("title") {
+            Standard::Raid
         } else if object.contains_key("metadata") || object.contains_key("pids") || object.contains_key("resource_type") {
             Standard::Invenio
         } else {
@@ -743,14 +751,22 @@ impl Standard {
                     .and_then(|b| b.serialize(target_mime)),
                 | _ => Err(self.unsupported_crosswalk(target)),
             }),
-            | Standard::Kitfile
-            | Standard::ModelKit
-            | Standard::CitationFileFormat
-            | Standard::Document
-            | Standard::DublinCore
-            | Standard::Raid
-            | Standard::ResearchActivityData
-            | Standard::Text => Err(self.unsupported_crosswalk(target)),
+            | Standard::Raid => OneOrMany::<raid::Metadata>::parse(content, mime).and_then(|source| match target {
+                | Standard::Raid => source.serialize(target_mime),
+                | Standard::ResearchActivityData => {
+                    crosswalk_batch::<raid::Metadata, ResearchActivity>(source, target_mime).map(Conversion::into_value)
+                }
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::ResearchActivityData => OneOrMany::<ResearchActivity>::parse(content, mime).and_then(|source| match target {
+                | Standard::Datacite => crosswalk_batch::<ResearchActivity, datacite::Record>(source, target_mime).map(Conversion::into_value),
+                | Standard::Raid => crosswalk_batch::<ResearchActivity, raid::Metadata>(source, target_mime).map(Conversion::into_value),
+                | Standard::ResearchActivityData => source.serialize(target_mime),
+                | _ => Err(self.unsupported_crosswalk(target)),
+            }),
+            | Standard::Kitfile | Standard::ModelKit | Standard::CitationFileFormat | Standard::Document | Standard::DublinCore | Standard::Text => {
+                Err(self.unsupported_crosswalk(target))
+            }
         }
     }
     /// Convert serialized content from one metadata standard to another, returning both the converted content and any field-level warnings.
@@ -762,9 +778,19 @@ impl Standard {
         mime: MimeType,
         target: Standard,
         target_mime: MimeType,
-    ) -> Result<(String, ConversionWarnings), CrosswalkError> {
-        self.collect_crosswalk_warnings(content, &mime, target)
-            .and_then(|warnings| self.crosswalk(content, mime, target, target_mime).map(|content| (content, warnings)))
+    ) -> Result<Conversion<String>, CrosswalkError> {
+        match (*self, target) {
+            | (Standard::Raid, Standard::ResearchActivityData) => OneOrMany::<raid::Metadata>::parse(content, mime)
+                .and_then(|source| crosswalk_batch::<raid::Metadata, ResearchActivity>(source, target_mime)),
+            | (Standard::ResearchActivityData, Standard::Datacite) => OneOrMany::<ResearchActivity>::parse(content, mime)
+                .and_then(|source| crosswalk_batch::<ResearchActivity, datacite::Record>(source, target_mime)),
+            | (Standard::ResearchActivityData, Standard::Raid) => OneOrMany::<ResearchActivity>::parse(content, mime)
+                .and_then(|source| crosswalk_batch::<ResearchActivity, raid::Metadata>(source, target_mime)),
+            | _ => self.collect_crosswalk_warnings(content, &mime, target).and_then(|warnings| {
+                self.crosswalk(content, mime, target, target_mime)
+                    .map(|content| Conversion::new(content, warnings))
+            }),
+        }
     }
     /// Run the FieldMapping pipeline to detect field-level losses for a given pair.
     fn collect_crosswalk_warnings(&self, content: &str, mime: &MimeType, target: Standard) -> Result<ConversionWarnings, CrosswalkError> {
@@ -792,7 +818,7 @@ impl Standard {
     }
     fn unsupported_crosswalk(&self, target: Standard) -> CrosswalkError {
         CrosswalkError::BuildFailed(format!(
-            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: datacite, dcat, invenio, huwise)"
+            "Unsupported metadata crosswalk pair: {self} -> {target} (supported: rads, raid, datacite, dcat, invenio, huwise)"
         ))
     }
 }
@@ -880,6 +906,35 @@ fn contains_layer_identity(value: &Value) -> bool {
         | Value::Object(object) => object.contains_key("digest") || object.contains_key("diffId") || object.values().any(contains_layer_identity),
         | Value::Array(values) => values.iter().any(contains_layer_identity),
         | _ => false,
+    }
+}
+#[cfg(any(feature = "analysis", feature = "std"))]
+fn crosswalk_batch<S, T>(source: OneOrMany<S>, target_mime: MimeType) -> Result<Conversion<String>, CrosswalkError>
+where
+    S: Crosswalk<T>,
+    T: Serialize,
+{
+    match source {
+        | OneOrMany::One(source) => source.crosswalk().and_then(|(target, warnings)| {
+            OneOrMany::One(target)
+                .serialize(target_mime)
+                .map(|content| Conversion::new(content, warnings))
+        }),
+        | OneOrMany::Many(sources) => sources
+            .into_iter()
+            .enumerate()
+            .map(|(index, source)| {
+                source
+                    .crosswalk()
+                    .map_err(|error| CrosswalkError::BuildFailed(format!("Failed to convert record at index {index} — {error}")))
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .and_then(|converted| {
+                let (targets, warnings): (Vec<_>, Vec<_>) = converted.into_iter().unzip();
+                OneOrMany::Many(targets)
+                    .serialize(target_mime)
+                    .map(|content| Conversion::new(content, warnings.into_iter().flatten().collect()))
+            }),
     }
 }
 /// Parse source content and apply a FieldMapping to detect missing optional fields.

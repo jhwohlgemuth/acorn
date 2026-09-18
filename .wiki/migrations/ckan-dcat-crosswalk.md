@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Requires stabilized DCAT/loss contracts from [metadata standards alignment](../features/rad-metadata-standards-alignment.md) and must preserve the schema/adapter boundary in the [crate boundary architecture](../refactors/crate-boundary-architecture.md).
+Consumes the stabilized DCAT/loss contracts in the [standards field matrix](../assets/standards-field-matrix.md) and must preserve the schema/adapter boundary in the [crate boundary architecture](../refactors/crate-boundary-architecture.md).
 
 # Goal
 

@@ -27,7 +27,7 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 # Dependencies
 
-[Canonical research activity database](research-activity-database.md) must first stabilize typed lookup, revision identity, restore semantics, and migration compatibility. Standards-specific artifacts also follow the mapping and loss contracts in [RAD metadata standards alignment](rad-metadata-standards-alignment.md). Renderer hardening remains owned by the existing export/OOXML plans.
+[Canonical research activity database](research-activity-database.md) must first stabilize typed lookup, revision identity, restore semantics, and migration compatibility. Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
 
 # Recommendation
 
@@ -50,4 +50,3 @@ Let users create the same supported artifacts from ACORN's maintained research a
 - Generated artifacts include a reproducibility manifest and stable input digest.
 - Historical revision exports remain byte-stable where the target format is deterministic and semantically stable otherwise.
 - File-backed behavior remains compatible and all full-workspace and renderer validation passes.
-

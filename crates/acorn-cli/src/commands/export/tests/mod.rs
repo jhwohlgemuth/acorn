@@ -21,9 +21,15 @@ use crate::test::util::{fixture_path, temp_test_dir, TestCleanup};
 use acorn::analyzer::Standard;
 #[cfg(feature = "pdf")]
 use acorn::util::constants::env::CHROME_PATH;
-use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
+use acorn_schema::pid::raid;
+use acorn_schema::research_activity::{
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, LogbookEntry,
+    ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
+};
 use acorn_schema::standard::datacite;
 use acorn_schema::standard::invenio;
+use acorn_schema::validation::Validate;
+use acorn_schema::{ContactPoint, OneOrMany};
 use clap_verbosity_flag::Verbosity;
 #[cfg(feature = "pdf")]
 use color_eyre::eyre::eyre;
@@ -117,6 +123,67 @@ fn copy_pdf_fixture(source: &Path, destination: &Path) -> Result<()> {
                     })
                 })
         })
+}
+fn crosswalk_ready_activity() -> ResearchActivity {
+    let orcid = AgentIdentifier::init()
+        .value("https://orcid.org/0000-0002-1825-0097".to_string())
+        .scheme("ORCID".to_string())
+        .scheme_uri("https://orcid.org".to_string())
+        .build();
+    let contributor = ActivityContributor::init()
+        .name("Jane Doe".to_string())
+        .identifiers(vec![orcid.clone()])
+        .roles(vec![DatedAgentRole::init().agent(orcid).leader(true).contact(true).build()])
+        .build();
+    let ror = TypedIdentifier::init()
+        .value("https://ror.org/01qz5mb56".to_string())
+        .scheme("ROR".to_string())
+        .scheme_uri("https://ror.org".to_string())
+        .build();
+    let organization = ActivityOrganization::init()
+        .name("Example Repository".to_string())
+        .identifiers(vec![ror.clone()])
+        .roles(vec![
+            DatedOrganizationRole::init()
+                .organization(ror.clone())
+                .role("Publisher".to_string())
+                .start_date("2026-09-17T00:00:00Z".to_string())
+                .build(),
+            DatedOrganizationRole::init()
+                .organization(ror)
+                .role("Lead Research Organization".to_string())
+                .start_date("2026-09-17T00:00:00Z".to_string())
+                .build(),
+        ])
+        .build();
+    ResearchActivity {
+        meta: ResearchActivityMetadata {
+            identifier: "workflow-crosswalk".to_string(),
+            doi: Some(OneOrMany::One("10.5072/workflow-project".to_string())),
+            typed_dates: Some(OneOrMany::Many(vec![
+                TypedActivityDate::init()
+                    .date_type(ActivityDateType::StartDate)
+                    .date("2026-09-17T00:00:00Z".to_string())
+                    .build(),
+                TypedActivityDate::init()
+                    .date_type(ActivityDateType::Issued)
+                    .date("2026-09-17T00:00:00Z".to_string())
+                    .build(),
+            ])),
+            contributors: Some(OneOrMany::One(contributor)),
+            organizations: Some(OneOrMany::One(organization)),
+            access: Some(StructuredRights::init().access(RightsAccess::Open).build()),
+            ..ResearchActivityMetadata::default()
+        },
+        title: "Workflow crosswalk activity".to_string(),
+        contact: ContactPoint::init()
+            .given_name("Jane".to_string())
+            .family_name("Doe".to_string())
+            .identifier("https://orcid.org/0000-0002-1825-0097".to_string())
+            .organization("Example Repository".to_string())
+            .build(),
+        ..ResearchActivity::default()
+    }
 }
 #[cfg(feature = "pdf")]
 fn pdf_test_browser() -> Result<PathBuf> {
@@ -332,6 +399,155 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     let output_content = read_to_string(output_dir.join("invenio.json"))?;
     let parsed: Vec<datacite::Record> = serde_json::from_str(&output_content)?;
     assert!(!parsed.is_empty(), "Expected at least one DataCite record in output");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_rad_workflows() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_rad_workflows");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activity.json");
+    write(&source, serde_json::to_string_pretty(&crosswalk_ready_activity())?)?;
+    let datacite_output = temp_dir.join("datacite");
+    create_dir_all(&datacite_output)?;
+    run(
+        &Some(datacite_output.clone()),
+        &Some(source.clone()),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &None,
+        &Some(Standard::Datacite),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await?;
+    let record: datacite::Record = serde_json::from_str(&read_to_string(datacite_output.join("activity.json"))?)?;
+    assert!(record.validate_deposit_ready().is_ok());
+    assert_eq!(
+        record.attributes.resource_types.and_then(|types| types.resource_type_general),
+        Some(datacite::ResourceTypeGeneral::Project)
+    );
+    let raid_output = temp_dir.join("raid");
+    create_dir_all(&raid_output)?;
+    run(
+        &Some(raid_output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::ResearchActivityData),
+        &Some(Standard::Raid),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await?;
+    let metadata: raid::Metadata = serde_json::from_str(&read_to_string(raid_output.join("activity.json"))?)?;
+    assert!(metadata.validate().is_ok());
+    let raid_source = raid_output.join("activity.json");
+    let rad_output = temp_dir.join("rad");
+    create_dir_all(&rad_output)?;
+    let import = run(
+        &Some(rad_output.clone()),
+        &Some(raid_source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &None,
+        &Some(Standard::ResearchActivityData),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(import.is_err_and(|error| error.to_string().contains("options.contact")));
+    assert!(!rad_output.join("activity.json").exists());
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_strict_rejects_losses_before_writing() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_strict_rejects_losses_before_writing");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activity.json");
+    write(&source, serde_json::to_string_pretty(&crosswalk_ready_activity())?)?;
+    let output = temp_dir.join("strict");
+    create_dir_all(&output)?;
+    let result = run(
+        &Some(output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Json,
+        None,
+        &None,
+        &Some(Standard::ResearchActivityData),
+        &Some(Standard::Datacite),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        true,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(!output.join("activity.json").exists());
     Ok(())
 }
 #[tokio::test]

@@ -16,7 +16,7 @@ use crate::validation::{
     validate_license, validate_name_identifier, validate_publisher_identifier, Property, PropertySet, Validate,
 };
 use crate::OneOrMany;
-use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
+use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
 use bon::Builder;
 use core::fmt;
@@ -688,7 +688,8 @@ pub struct Dates {
 ///
 /// See <https://datacite-metadata-schema.readthedocs.io/en/4.7/properties/description/> for details
 #[skip_serializing_none]
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
 pub struct Description {
     /// Description text
     // TODO: Add prose validation
@@ -1299,6 +1300,22 @@ pub struct Titles {
     /// Title list
     pub title: Vec<Title>,
 }
+impl TryFrom<&str> for ContributorType {
+    type Error = CrosswalkError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.trim().to_ascii_lowercase().replace([' ', '_'], "-").as_str() {
+            | "lead-research-organisation" | "lead-research-organization" | "leadresearchorganisation" | "leadresearchorganization" => {
+                Ok(Self::HostingInstitution)
+            }
+            | "funder" => Ok(Self::Sponsor),
+            | _ => serde_json::from_value(serde_json::Value::String(value.to_string())).map_err(|_| CrosswalkError::TransformationFailed {
+                field: "contributorType".to_string(),
+                reason: format!("unsupported contributor type '{value}'"),
+            }),
+        }
+    }
+}
 impl Eq for GeoLocationPoint {}
 impl fmt::Display for GeoLocationPoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1309,32 +1326,6 @@ impl fmt::Display for GeoLocationPoint {
 impl PartialEq for GeoLocationPoint {
     fn eq(&self, other: &Self) -> bool {
         self.longitude.to_bits() == other.longitude.to_bits() && self.latitude.to_bits() == other.latitude.to_bits()
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<&dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
-        Record::try_from(dataset.clone())
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<dcat::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
-        let mapping = dcat_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
-    }
-}
-#[cfg(feature = "std")]
-impl TryFrom<huwise::Dataset> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
-        let mapping = huwise_to_datacite();
-        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
 impl Record {
@@ -1447,11 +1438,7 @@ impl SchemaBuilder for Record {
         }
         let mut descriptions = None;
         if let Some(desc_str) = fields.get_string_opt("description") {
-            descriptions = Some(vec![Description {
-                description: desc_str,
-                description_type: None,
-                language: None,
-            }]);
+            descriptions = Some(vec![Description::init().description(desc_str).build()]);
         }
         let language = fields.get_string_opt("language");
         let mut creators = None;
@@ -1596,11 +1583,37 @@ impl ToProse for Record {
             .join("\n\n")
     }
 }
+#[cfg(feature = "std")]
+impl TryFrom<&dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: &dcat::Dataset) -> Result<Self, Self::Error> {
+        Record::try_from(dataset.clone())
+    }
+}
 impl TryFrom<&invenio::Record> for Record {
     type Error = CrosswalkError;
 
     fn try_from(record: &invenio::Record) -> Result<Self, Self::Error> {
         Record::try_from(record.clone())
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<dcat::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: dcat::Dataset) -> Result<Self, Self::Error> {
+        let mapping = dcat_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
+    }
+}
+#[cfg(feature = "std")]
+impl TryFrom<huwise::Dataset> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(dataset: huwise::Dataset) -> Result<Self, Self::Error> {
+        let mapping = huwise_to_datacite();
+        crosswalk::convert(&dataset, &mapping).map(|(record, _)| record)
     }
 }
 impl TryFrom<invenio::Record> for Record {

@@ -42,7 +42,6 @@ use core::fmt;
 
 pub mod mapping;
 mod research_activity;
-mod research_output;
 mod rrid;
 
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
@@ -125,7 +124,9 @@ pub enum FieldLossType {
     /// Field mapping exists but target-specific block not available (HuWise only)
     BlockNotSelected,
 }
-struct Conversion<T> {
+/// A converted value paired with warnings describing any lossy mappings.
+#[derive(Clone, Debug)]
+pub struct Conversion<T> {
     value: T,
     warnings: Vec<ConversionWarning>,
 }
@@ -144,26 +145,30 @@ pub struct ConversionWarning {
     pub details: Option<String>,
 }
 impl<T> Conversion<T> {
-    fn new(value: T, warnings: Vec<ConversionWarning>) -> Self {
+    /// Create a conversion from its value and warnings.
+    pub fn new(value: T, warnings: Vec<ConversionWarning>) -> Self {
         Self { value, warnings }
     }
-    fn into_parts(self) -> (T, Vec<ConversionWarning>) {
+    /// Consume the conversion and return its value and warnings.
+    pub fn into_parts(self) -> (T, Vec<ConversionWarning>) {
         (self.value, self.warnings)
+    }
+    /// Consume the conversion and return its value.
+    pub fn into_value(self) -> T {
+        self.value
+    }
+    /// Borrow the converted value.
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+    /// Borrow the conversion warnings.
+    pub fn warnings(&self) -> &[ConversionWarning] {
+        &self.warnings
     }
 }
 impl<T> From<(T, Vec<ConversionWarning>)> for Conversion<T> {
     fn from((value, warnings): (T, Vec<ConversionWarning>)) -> Self {
         Self::new(value, warnings)
-    }
-}
-impl From<CrosswalkSchema> for &'static str {
-    fn from(schema: CrosswalkSchema) -> Self {
-        match schema {
-            | CrosswalkSchema::DataCite => "datacite",
-            | CrosswalkSchema::Rad => "rad",
-            | CrosswalkSchema::RadOutput => "rad-output",
-            | CrosswalkSchema::Raid => "raid",
-        }
     }
 }
 impl ConversionWarning {
@@ -205,6 +210,18 @@ impl ConversionWarning {
             field: field.into(),
             details: Some(details.into()),
             loss_type: FieldLossType::Omitted,
+        }
+    }
+    /// Rebase the warning source and replace the first matching field prefix.
+    pub fn rebase(self, from: impl Into<&'static str>, fields: &[(&str, &str)]) -> Self {
+        let field = fields
+            .iter()
+            .find_map(|(source, target)| self.field.strip_prefix(source).map(|suffix| format!("{target}{suffix}")))
+            .unwrap_or(self.field);
+        Self {
+            from: from.into(),
+            field,
+            ..self
         }
     }
 }
@@ -250,6 +267,16 @@ impl fmt::Display for FieldLossType {
         }
     }
 }
+impl From<CrosswalkSchema> for &'static str {
+    fn from(schema: CrosswalkSchema) -> Self {
+        match schema {
+            | CrosswalkSchema::DataCite => "datacite",
+            | CrosswalkSchema::Rad => "rad",
+            | CrosswalkSchema::RadOutput => "rad-output",
+            | CrosswalkSchema::Raid => "raid",
+        }
+    }
+}
 /// Execute a schema conversion using the pipeline
 ///
 /// # Steps
@@ -288,6 +315,3 @@ where
         T::build_from_fields(&target_fields).map(|target| (target, warnings))
     })
 }
-
-#[cfg(all(test, feature = "std"))]
-mod tests;

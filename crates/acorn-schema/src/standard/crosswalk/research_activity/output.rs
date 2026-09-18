@@ -1,3 +1,4 @@
+//! Bidirectional crosswalks between canonical research outputs and DataCite metadata.
 use crate::pid::{PersistentIdentifierParse, DOI, PID};
 use crate::research_activity::output::{Affiliation, Award, Contributor, Funding, ResearchOutput};
 use crate::research_activity::{
@@ -43,239 +44,6 @@ impl Contributor {
                 )
             })
             .collect()
-    }
-}
-impl From<&ResearchOutput> for Conversion<Option<Vec<Subject>>> {
-    fn from(value: &ResearchOutput) -> Self {
-        let structured = value.subjects.as_deref().unwrap_or_default().iter().map(|subject| {
-            let warning = (subject.subject_scheme.is_none() && subject.scheme_uri.is_none() && subject.value_uri.is_none()).then(|| {
-                ConversionWarning::approximated(
-                    RAD_OUTPUT,
-                    DATACITE,
-                    "subjects[]",
-                    "an unqualified structured subject is indistinguishable from an output keyword",
-                )
-            });
-            (
-                Subject {
-                    subject: subject.subject.clone(),
-                    language: None,
-                    subject_scheme: subject.subject_scheme.clone(),
-                    scheme_uri: subject.scheme_uri.clone(),
-                    value_uri: subject.value_uri.clone(),
-                    classification_code: None,
-                },
-                warning,
-            )
-        });
-        let keywords = value.keywords.iter().map(|keyword| {
-            (
-                Subject {
-                    subject: keyword.clone(),
-                    language: None,
-                    subject_scheme: None,
-                    scheme_uri: None,
-                    value_uri: None,
-                    classification_code: None,
-                },
-                None,
-            )
-        });
-        let converted = structured.chain(keywords).collect::<Vec<_>>();
-        let subjects = (!converted.is_empty()).then(|| converted.iter().map(|(subject, _)| subject.clone()).collect());
-        let warnings = converted.into_iter().filter_map(|(_, warning)| warning).collect();
-        Self::new(subjects, warnings)
-    }
-}
-impl From<Award> for Conversion<Option<String>> {
-    fn from(value: Award) -> Self {
-        let doi_uri = value.doi.as_ref().map(|doi| format!("https://doi.org/{}", DOI::format(doi)));
-        let conflict = doi_uri
-            .as_ref()
-            .zip(value.url.as_ref())
-            .filter(|(doi, url)| DOI::normalize(doi) != DOI::normalize(url))
-            .map(|_| {
-                ConversionWarning::omitted(
-                    RAD_OUTPUT,
-                    DATACITE,
-                    "funding[].awards[].url",
-                    "DataCite has one awardURI; the grant DOI was retained",
-                )
-            });
-        Self::new(doi_uri.or(value.url), conflict.into_iter().collect())
-    }
-}
-impl From<Contributor> for Conversion<Creator> {
-    fn from(value: Contributor) -> Self {
-        let warnings = value.warnings(true);
-        let name_identifiers = Conversion::<Option<Vec<NameIdentifier>>>::from(value.clone()).value;
-        Self::new(
-            Creator {
-                name: value.name,
-                name_type: value.name_type,
-                given_name: None,
-                family_name: None,
-                name_identifiers,
-                affiliation: (!value.affiliations.is_empty()).then(|| value.affiliations.into_iter().map(datacite::Affiliation::from).collect()),
-            },
-            warnings,
-        )
-    }
-}
-impl From<Contributor> for Conversion<Option<Vec<NameIdentifier>>> {
-    fn from(value: Contributor) -> Self {
-        let identifiers = [
-            value.orcid.as_ref().map(|orcid| Contributor {
-                orcid: Some(orcid.clone()),
-                ror: None,
-                ..value.clone()
-            }),
-            value.ror.as_ref().map(|ror| Contributor {
-                orcid: None,
-                ror: Some(ror.clone()),
-                ..value
-            }),
-        ]
-        .into_iter()
-        .flatten()
-        .map(NameIdentifier::try_from)
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
-        Self::new((!identifiers.is_empty()).then_some(identifiers), Vec::new())
-    }
-}
-impl From<Creator> for Conversion<Contributor> {
-    fn from(value: Creator) -> Self {
-        let Conversion {
-            value: (orcid, ror),
-            warnings: identifier_warnings,
-        } = Conversion::from(value.name_identifiers);
-        let affiliation = collect_conversions(value.affiliation.unwrap_or_default().into_iter().map(Conversion::<Affiliation>::from));
-        let warnings = identifier_warnings
-            .into_iter()
-            .chain(affiliation.warnings)
-            .chain(person_fields_warning(&value.given_name, &value.family_name, "creators[]"))
-            .collect();
-        Self::new(
-            Contributor {
-                name: value.name,
-                name_type: value.name_type,
-                orcid,
-                ror,
-                contributor_type: None,
-                roles: Vec::new(),
-                corresponding: None,
-                position: None,
-                affiliations: affiliation.value,
-            },
-            warnings,
-        )
-    }
-}
-impl From<datacite::Affiliation> for Conversion<Affiliation> {
-    fn from(value: datacite::Affiliation) -> Self {
-        let is_ror = value
-            .affiliation_identifier_scheme
-            .as_deref()
-            .is_some_and(|scheme| scheme.eq_ignore_ascii_case("ROR"));
-        let ror = is_ror.then(|| value.affiliation_identifier.clone()).flatten();
-        let identifier_warning = value
-            .affiliation_identifier
-            .as_ref()
-            .filter(|_| !is_ror)
-            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].affiliationIdentifier"));
-        let scheme_warning = value
-            .scheme_uri
-            .as_deref()
-            .filter(|uri| is_ror && uri.trim_end_matches('/') != "https://ror.org")
-            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].schemeURI"));
-        let orphaned_scheme_warning = (value.affiliation_identifier.is_none()
-            && (value.affiliation_identifier_scheme.is_some() || value.scheme_uri.is_some()))
-        .then(|| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].affiliationIdentifierScheme"));
-        Self::new(
-            Affiliation { name: value.name, ror },
-            [identifier_warning, scheme_warning, orphaned_scheme_warning]
-                .into_iter()
-                .flatten()
-                .collect(),
-        )
-    }
-}
-impl From<datacite::Contributor> for Conversion<Contributor> {
-    fn from(value: datacite::Contributor) -> Self {
-        let Conversion {
-            value: (orcid, ror),
-            warnings: identifier_warnings,
-        } = Conversion::from(value.name_identifiers);
-        let affiliation = collect_conversions(value.affiliation.unwrap_or_default().into_iter().map(Conversion::<Affiliation>::from));
-        let warnings = identifier_warnings
-            .into_iter()
-            .chain(affiliation.warnings)
-            .chain(person_fields_warning(&value.given_name, &value.family_name, "contributors[]"))
-            .collect();
-        Self::new(
-            Contributor {
-                name: value.name,
-                name_type: value.name_type,
-                orcid,
-                ror,
-                contributor_type: Some(value.contributor_type),
-                roles: Vec::new(),
-                corresponding: None,
-                position: None,
-                affiliations: affiliation.value,
-            },
-            warnings,
-        )
-    }
-}
-impl From<FundingReference> for Conversion<Funding> {
-    fn from(value: FundingReference) -> Self {
-        let (identifier, identifier_type, ror) = match value.funder_identifier_type {
-            | Some(FunderIdentifierType::Ror) => (None, None, value.funder_identifier.clone()),
-            | identifier_type => (value.funder_identifier.clone(), identifier_type, None),
-        };
-        let award = value.award_number.as_ref().map(|award_number| {
-            let doi = value.award_uri.as_deref().map(DOI::format).filter(|value| !value.is_empty());
-            Award {
-                identifier: award_number.clone(),
-                title: value.award_title.clone(),
-                doi,
-                url: value
-                    .award_uri
-                    .clone()
-                    .filter(|_| value.award_uri.as_deref().map(DOI::format).is_some_and(|doi| doi.is_empty())),
-            }
-        });
-        let orphaned_award_warnings = [
-            (value.award_number.is_none() && value.award_uri.is_some()).then(|| {
-                ConversionWarning::omitted(
-                    DATACITE,
-                    RAD_OUTPUT,
-                    "fundingReferences[].awardURI",
-                    "award metadata without awardNumber cannot be represented as a RAD award",
-                )
-            }),
-            (value.award_number.is_none() && value.award_title.is_some()).then(|| {
-                ConversionWarning::omitted(
-                    DATACITE,
-                    RAD_OUTPUT,
-                    "fundingReferences[].awardTitle",
-                    "award metadata without awardNumber cannot be represented as a RAD award",
-                )
-            }),
-        ];
-        Self::new(
-            Funding {
-                name: value.funder_name,
-                identifier,
-                identifier_type,
-                scheme_uri: value.scheme_uri,
-                ror,
-                awards: award.into_iter().collect(),
-            },
-            orphaned_award_warnings.into_iter().flatten().collect(),
-        )
     }
 }
 impl From<Option<Vec<NameIdentifier>>> for Conversion<(Option<String>, Option<String>)> {
@@ -339,82 +107,130 @@ impl From<Option<Vec<NameIdentifier>>> for Conversion<(Option<String>, Option<St
         )
     }
 }
-impl From<Option<Vec<Subject>>> for Conversion<OutputSubjects> {
-    fn from(values: Option<Vec<Subject>>) -> Self {
-        let (structured, keywords, warnings) = values.unwrap_or_default().into_iter().fold(
-            (Vec::new(), Vec::new(), Vec::new()),
-            |(mut structured, mut keywords, mut warnings), subject| {
-                let is_structured = subject.subject_scheme.is_some() || subject.scheme_uri.is_some() || subject.value_uri.is_some();
-                match is_structured {
-                    | true => structured.push(ControlledSubject {
-                        subject: subject.subject,
-                        subject_scheme: subject.subject_scheme,
-                        scheme_uri: subject.scheme_uri,
-                        value_uri: subject.value_uri,
-                    }),
-                    | false => keywords.push(subject.subject),
-                }
-                if subject.language.is_some() {
-                    warnings.push(ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "subjects[].language"));
-                }
-                if subject.classification_code.is_some() {
-                    warnings.push(ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "subjects[].classificationCode"));
-                }
-                (structured, keywords, warnings)
-            },
-        );
-        Self::new(
-            OutputSubjects {
-                subjects: (!structured.is_empty()).then_some(structured),
-                keywords,
-            },
-            warnings,
-        )
-    }
-}
-impl From<Rights> for Conversion<StructuredRights> {
-    fn from(value: Rights) -> Self {
-        let identifiers = value.rights_identifier.map(OneOrMany::into_vec).unwrap_or_default();
-        let warnings = if identifiers.len() > 1 {
-            vec![ConversionWarning::simplified(
-                DATACITE,
-                RAD_OUTPUT,
-                "rightsList[].rightsIdentifier",
-                "only one rights identifier can be stored per RAD rights statement",
-            )]
-        } else {
-            Vec::new()
-        };
-        Self::new(
-            StructuredRights {
-                rights: value.rights,
-                rights_uri: value.rights_uri,
-                rights_identifier: identifiers.into_iter().next(),
-                rights_identifier_scheme: value.rights_identifier_scheme,
-                scheme_uri: value.scheme_uri,
-                access: None::<RightsAccess>,
-            },
-            warnings,
-        )
-    }
-}
-impl From<StructuredRights> for Conversion<Rights> {
-    fn from(value: StructuredRights) -> Self {
-        let warnings = value
-            .access
+impl From<datacite::Affiliation> for Conversion<Affiliation> {
+    fn from(value: datacite::Affiliation) -> Self {
+        let is_ror = value
+            .affiliation_identifier_scheme
+            .as_deref()
+            .is_some_and(|scheme| scheme.eq_ignore_ascii_case("ROR"));
+        let ror = is_ror.then(|| value.affiliation_identifier.clone()).flatten();
+        let identifier_warning = value
+            .affiliation_identifier
             .as_ref()
-            .map(|_| vec![ConversionWarning::no_equivalent(RAD_OUTPUT, DATACITE, "rightsList[].access")])
-            .unwrap_or_default();
+            .filter(|_| !is_ror)
+            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].affiliationIdentifier"));
+        let scheme_warning = value
+            .scheme_uri
+            .as_deref()
+            .filter(|uri| is_ror && uri.trim_end_matches('/') != "https://ror.org")
+            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].schemeURI"));
+        let orphaned_scheme_warning = (value.affiliation_identifier.is_none()
+            && (value.affiliation_identifier_scheme.is_some() || value.scheme_uri.is_some()))
+        .then(|| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "affiliation[].affiliationIdentifierScheme"));
         Self::new(
-            Rights {
-                rights: value.rights,
-                rights_uri: value.rights_uri,
-                rights_identifier: value.rights_identifier.map(OneOrMany::One),
-                rights_identifier_scheme: value.rights_identifier_scheme,
-                scheme_uri: value.scheme_uri,
+            Affiliation { name: value.name, ror },
+            [identifier_warning, scheme_warning, orphaned_scheme_warning]
+                .into_iter()
+                .flatten()
+                .collect(),
+        )
+    }
+}
+impl From<Creator> for Conversion<Contributor> {
+    fn from(value: Creator) -> Self {
+        let Conversion {
+            value: (orcid, ror),
+            warnings: identifier_warnings,
+        } = Conversion::from(value.name_identifiers);
+        let affiliation = collect_conversions(value.affiliation.unwrap_or_default().into_iter().map(Conversion::<Affiliation>::from));
+        let warnings = identifier_warnings
+            .into_iter()
+            .chain(affiliation.warnings)
+            .chain(person_fields_warning(&value.given_name, &value.family_name, "creators[]"))
+            .collect();
+        Self::new(
+            Contributor {
+                name: value.name,
+                name_type: value.name_type,
+                orcid,
+                ror,
+                contributor_type: None,
+                roles: Vec::new(),
+                corresponding: None,
+                position: None,
+                affiliations: affiliation.value,
             },
             warnings,
         )
+    }
+}
+impl From<datacite::Contributor> for Conversion<Contributor> {
+    fn from(value: datacite::Contributor) -> Self {
+        let Conversion {
+            value: (orcid, ror),
+            warnings: identifier_warnings,
+        } = Conversion::from(value.name_identifiers);
+        let affiliation = collect_conversions(value.affiliation.unwrap_or_default().into_iter().map(Conversion::<Affiliation>::from));
+        let warnings = identifier_warnings
+            .into_iter()
+            .chain(affiliation.warnings)
+            .chain(person_fields_warning(&value.given_name, &value.family_name, "contributors[]"))
+            .collect();
+        Self::new(
+            Contributor {
+                name: value.name,
+                name_type: value.name_type,
+                orcid,
+                ror,
+                contributor_type: Some(value.contributor_type),
+                roles: Vec::new(),
+                corresponding: None,
+                position: None,
+                affiliations: affiliation.value,
+            },
+            warnings,
+        )
+    }
+}
+impl From<Contributor> for Conversion<Creator> {
+    fn from(value: Contributor) -> Self {
+        let warnings = value.warnings(true);
+        let name_identifiers = Conversion::<Option<Vec<NameIdentifier>>>::from(value.clone()).value;
+        Self::new(
+            Creator {
+                name: value.name,
+                name_type: value.name_type,
+                given_name: None,
+                family_name: None,
+                name_identifiers,
+                affiliation: (!value.affiliations.is_empty()).then(|| value.affiliations.into_iter().map(datacite::Affiliation::from).collect()),
+            },
+            warnings,
+        )
+    }
+}
+impl TryFrom<Contributor> for Conversion<datacite::Contributor> {
+    type Error = CrosswalkError;
+
+    fn try_from(value: Contributor) -> Result<Self, Self::Error> {
+        let contributor_type = value
+            .contributor_type
+            .clone()
+            .ok_or_else(|| CrosswalkError::MissingRequiredField("contributors[].contributorType".to_string()))?;
+        let warnings = value.warnings(false);
+        let name_identifiers = Conversion::<Option<Vec<NameIdentifier>>>::from(value.clone()).value;
+        Ok(Self::new(
+            datacite::Contributor {
+                name: value.name,
+                contributor_type,
+                name_type: value.name_type,
+                given_name: None,
+                family_name: None,
+                name_identifiers,
+                affiliation: (!value.affiliations.is_empty()).then(|| value.affiliations.into_iter().map(datacite::Affiliation::from).collect()),
+            },
+            warnings,
+        ))
     }
 }
 impl From<TypedActivityDate> for Conversion<Date> {
@@ -452,24 +268,71 @@ impl From<TypedActivityDate> for Conversion<Date> {
         )
     }
 }
-impl From<Vec<FundingReference>> for Conversion<Vec<Funding>> {
-    fn from(values: Vec<FundingReference>) -> Self {
-        let converted = collect_conversions(values.into_iter().map(Conversion::<Funding>::from));
-        let fundings = converted.value.into_iter().fold(Vec::<Funding>::new(), |mut grouped, funding| {
-            let existing = grouped.iter_mut().find(|candidate| {
-                candidate.name == funding.name
-                    && candidate.identifier == funding.identifier
-                    && candidate.identifier_type == funding.identifier_type
-                    && candidate.scheme_uri == funding.scheme_uri
-                    && candidate.ror == funding.ror
-            });
-            match existing {
-                | Some(existing) => existing.awards.extend(funding.awards),
-                | None => grouped.push(funding),
+impl From<FundingReference> for Conversion<Funding> {
+    fn from(value: FundingReference) -> Self {
+        let (identifier, identifier_type, ror) = match value.funder_identifier_type {
+            | Some(FunderIdentifierType::Ror) => (None, None, value.funder_identifier.clone()),
+            | identifier_type => (value.funder_identifier.clone(), identifier_type, None),
+        };
+        let award = value.award_number.as_ref().map(|award_number| {
+            let doi = value.award_uri.as_deref().map(DOI::format).filter(|value| !value.is_empty());
+            Award {
+                identifier: award_number.clone(),
+                title: value.award_title.clone(),
+                doi,
+                url: value
+                    .award_uri
+                    .clone()
+                    .filter(|_| value.award_uri.as_deref().map(DOI::format).is_some_and(|doi| doi.is_empty())),
             }
-            grouped
         });
-        Self::new(fundings, converted.warnings)
+        let orphaned_award_warnings = [
+            (value.award_number.is_none() && value.award_uri.is_some()).then(|| {
+                ConversionWarning::omitted(
+                    DATACITE,
+                    RAD_OUTPUT,
+                    "fundingReferences[].awardURI",
+                    "award metadata without awardNumber cannot be represented as a RAD award",
+                )
+            }),
+            (value.award_number.is_none() && value.award_title.is_some()).then(|| {
+                ConversionWarning::omitted(
+                    DATACITE,
+                    RAD_OUTPUT,
+                    "fundingReferences[].awardTitle",
+                    "award metadata without awardNumber cannot be represented as a RAD award",
+                )
+            }),
+        ];
+        Self::new(
+            Funding {
+                name: value.funder_name,
+                identifier,
+                identifier_type,
+                scheme_uri: value.scheme_uri,
+                ror,
+                awards: award.into_iter().collect(),
+            },
+            orphaned_award_warnings.into_iter().flatten().collect(),
+        )
+    }
+}
+impl From<Award> for Conversion<Option<String>> {
+    fn from(value: Award) -> Self {
+        let doi_uri = value.doi.as_ref().map(|doi| format!("https://doi.org/{}", DOI::format(doi)));
+        let conflict = doi_uri
+            .as_ref()
+            .zip(value.url.as_ref())
+            .filter(|(doi, url)| DOI::normalize(doi) != DOI::normalize(url))
+            .map(|_| {
+                ConversionWarning::omitted(
+                    RAD_OUTPUT,
+                    DATACITE,
+                    "funding[].awards[].url",
+                    "DataCite has one awardURI; the grant DOI was retained",
+                )
+            });
+        Self::new(doi_uri.or(value.url), conflict.into_iter().collect())
     }
 }
 impl TryFrom<&ResearchOutput> for Conversion<Option<Vec<AlternateIdentifier>>> {
@@ -513,121 +376,101 @@ impl TryFrom<&ResearchOutput> for Conversion<Option<Vec<AlternateIdentifier>>> {
             })
     }
 }
-impl TryFrom<Contributor> for Conversion<datacite::Contributor> {
-    type Error = CrosswalkError;
-
-    fn try_from(value: Contributor) -> Result<Self, Self::Error> {
-        let contributor_type = value
-            .contributor_type
-            .clone()
-            .ok_or_else(|| CrosswalkError::MissingRequiredField("contributors[].contributorType".to_string()))?;
-        let warnings = value.warnings(false);
-        let name_identifiers = Conversion::<Option<Vec<NameIdentifier>>>::from(value.clone()).value;
-        Ok(Self::new(
-            datacite::Contributor {
-                name: value.name,
-                contributor_type,
-                name_type: value.name_type,
-                given_name: None,
-                family_name: None,
-                name_identifiers,
-                affiliation: (!value.affiliations.is_empty()).then(|| value.affiliations.into_iter().map(datacite::Affiliation::from).collect()),
+impl From<Contributor> for Conversion<Option<Vec<NameIdentifier>>> {
+    fn from(value: Contributor) -> Self {
+        let identifiers = [
+            value.orcid.as_ref().map(|orcid| Contributor {
+                orcid: Some(orcid.clone()),
+                ror: None,
+                ..value.clone()
+            }),
+            value.ror.as_ref().map(|ror| Contributor {
+                orcid: None,
+                ror: Some(ror.clone()),
+                ..value
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .map(NameIdentifier::try_from)
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+        Self::new((!identifiers.is_empty()).then_some(identifiers), Vec::new())
+    }
+}
+impl From<&ResearchOutput> for Conversion<Option<Vec<Subject>>> {
+    fn from(value: &ResearchOutput) -> Self {
+        let structured = value.subjects.as_deref().unwrap_or_default().iter().map(|subject| {
+            let warning = (subject.subject_scheme.is_none() && subject.scheme_uri.is_none() && subject.value_uri.is_none()).then(|| {
+                ConversionWarning::approximated(
+                    RAD_OUTPUT,
+                    DATACITE,
+                    "subjects[]",
+                    "an unqualified structured subject is indistinguishable from an output keyword",
+                )
+            });
+            (
+                Subject {
+                    subject: subject.subject.clone(),
+                    language: None,
+                    subject_scheme: subject.subject_scheme.clone(),
+                    scheme_uri: subject.scheme_uri.clone(),
+                    value_uri: subject.value_uri.clone(),
+                    classification_code: None,
+                },
+                warning,
+            )
+        });
+        let keywords = value.keywords.iter().map(|keyword| {
+            (
+                Subject {
+                    subject: keyword.clone(),
+                    language: None,
+                    subject_scheme: None,
+                    scheme_uri: None,
+                    value_uri: None,
+                    classification_code: None,
+                },
+                None,
+            )
+        });
+        let converted = structured.chain(keywords).collect::<Vec<_>>();
+        let subjects = (!converted.is_empty()).then(|| converted.iter().map(|(subject, _)| subject.clone()).collect());
+        let warnings = converted.into_iter().filter_map(|(_, warning)| warning).collect();
+        Self::new(subjects, warnings)
+    }
+}
+impl From<Option<Vec<Subject>>> for Conversion<OutputSubjects> {
+    fn from(values: Option<Vec<Subject>>) -> Self {
+        let (structured, keywords, warnings) = values.unwrap_or_default().into_iter().fold(
+            (Vec::new(), Vec::new(), Vec::new()),
+            |(mut structured, mut keywords, mut warnings), subject| {
+                let is_structured = subject.subject_scheme.is_some() || subject.scheme_uri.is_some() || subject.value_uri.is_some();
+                match is_structured {
+                    | true => structured.push(ControlledSubject {
+                        subject: subject.subject,
+                        subject_scheme: subject.subject_scheme,
+                        scheme_uri: subject.scheme_uri,
+                        value_uri: subject.value_uri,
+                    }),
+                    | false => keywords.push(subject.subject),
+                }
+                if subject.language.is_some() {
+                    warnings.push(ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "subjects[].language"));
+                }
+                if subject.classification_code.is_some() {
+                    warnings.push(ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "subjects[].classificationCode"));
+                }
+                (structured, keywords, warnings)
+            },
+        );
+        Self::new(
+            OutputSubjects {
+                subjects: (!structured.is_empty()).then_some(structured),
+                keywords,
             },
             warnings,
-        ))
-    }
-}
-impl TryFrom<Funding> for Conversion<Vec<FundingReference>> {
-    type Error = CrosswalkError;
-
-    fn try_from(value: Funding) -> Result<Self, Self::Error> {
-        value
-            .identity()
-            .map(|(identifier, identifier_type, scheme_uri)| match value.awards.is_empty() {
-                | true => Self::new(
-                    vec![FundingReference {
-                        funder_name: value.name,
-                        funder_identifier: identifier,
-                        funder_identifier_type: identifier_type,
-                        scheme_uri,
-                        award_number: None,
-                        award_uri: None,
-                        award_title: None,
-                    }],
-                    Vec::new(),
-                ),
-                | false => {
-                    let funder_name = value.name;
-                    let converted = value.awards.into_iter().map(|award| {
-                        let award_title = award.title.clone();
-                        let award_number = award.identifier.clone();
-                        let award_uri = Conversion::<Option<String>>::from(award);
-                        Conversion::new(
-                            FundingReference {
-                                funder_name: funder_name.clone(),
-                                funder_identifier: identifier.clone(),
-                                funder_identifier_type: identifier_type.clone(),
-                                scheme_uri: scheme_uri.clone(),
-                                award_number: Some(award_number),
-                                award_uri: award_uri.value,
-                                award_title,
-                            },
-                            award_uri.warnings,
-                        )
-                    });
-                    collect_conversions(converted)
-                }
-            })
-    }
-}
-impl TryFrom<RelatedIdentifier> for Conversion<TypedRelatedResource> {
-    type Error = CrosswalkError;
-
-    fn try_from(value: RelatedIdentifier) -> Result<Self, Self::Error> {
-        match value.related_identifier_type.as_ref() {
-            | Some(RelatedIdentifierType::Rrid) => value.crosswalk().map(Self::from),
-            | _ => value
-                .related_identifier_type
-                .as_ref()
-                .ok_or_else(|| CrosswalkError::MissingRequiredField("relatedIdentifiers[].relatedIdentifierType".to_string()))
-                .and_then(|identifier_type| serialize_enum(identifier_type, "relatedIdentifiers[].relatedIdentifierType"))
-                .and_then(|scheme| {
-                    value
-                        .relation_type
-                        .as_ref()
-                        .ok_or_else(|| CrosswalkError::MissingRequiredField("relatedIdentifiers[].relationType".to_string()))
-                        .map(|relation_type| (scheme, relation_type.to_string()))
-                })
-                .map(|(scheme, relation_type)| {
-                    let warnings = [
-                        value
-                            .related_metadata_scheme
-                            .as_ref()
-                            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "relatedIdentifiers[].relatedMetadataScheme")),
-                        value
-                            .scheme_type
-                            .as_ref()
-                            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "relatedIdentifiers[].schemeType")),
-                    ]
-                    .into_iter()
-                    .flatten()
-                    .collect();
-                    Self::new(
-                        TypedRelatedResource {
-                            identifier: TypedIdentifier {
-                                value: value.related_identifier,
-                                scheme: Some(scheme),
-                                scheme_uri: value.scheme_uri,
-                            },
-                            relation_type,
-                            relation_type_information: value.relation_type_information,
-                            resource_type_general: value.resource_type_general.as_ref().map(ToString::to_string),
-                            category: None,
-                        },
-                        warnings,
-                    )
-                }),
-        }
+        )
     }
 }
 impl TryFrom<TypedRelatedResource> for Conversion<RelatedIdentifier> {
@@ -689,6 +532,164 @@ impl TryFrom<TypedRelatedResource> for Conversion<RelatedIdentifier> {
                     )
                 }),
         }
+    }
+}
+impl From<StructuredRights> for Conversion<Rights> {
+    fn from(value: StructuredRights) -> Self {
+        let warnings = value
+            .access
+            .as_ref()
+            .map(|_| vec![ConversionWarning::no_equivalent(RAD_OUTPUT, DATACITE, "rightsList[].access")])
+            .unwrap_or_default();
+        Self::new(
+            Rights {
+                rights: value.rights,
+                rights_uri: value.rights_uri,
+                rights_identifier: value.rights_identifier.map(OneOrMany::One),
+                rights_identifier_scheme: value.rights_identifier_scheme,
+                scheme_uri: value.scheme_uri,
+            },
+            warnings,
+        )
+    }
+}
+impl From<Rights> for Conversion<StructuredRights> {
+    fn from(value: Rights) -> Self {
+        let identifiers = value.rights_identifier.map(OneOrMany::into_vec).unwrap_or_default();
+        let warnings = if identifiers.len() > 1 {
+            vec![ConversionWarning::simplified(
+                DATACITE,
+                RAD_OUTPUT,
+                "rightsList[].rightsIdentifier",
+                "only one rights identifier can be stored per RAD rights statement",
+            )]
+        } else {
+            Vec::new()
+        };
+        Self::new(
+            StructuredRights {
+                rights: value.rights,
+                rights_uri: value.rights_uri,
+                rights_identifier: identifiers.into_iter().next(),
+                rights_identifier_scheme: value.rights_identifier_scheme,
+                scheme_uri: value.scheme_uri,
+                access: None::<RightsAccess>,
+            },
+            warnings,
+        )
+    }
+}
+impl TryFrom<RelatedIdentifier> for Conversion<TypedRelatedResource> {
+    type Error = CrosswalkError;
+
+    fn try_from(value: RelatedIdentifier) -> Result<Self, Self::Error> {
+        match value.related_identifier_type.as_ref() {
+            | Some(RelatedIdentifierType::Rrid) => value.crosswalk().map(Self::from),
+            | _ => value
+                .related_identifier_type
+                .as_ref()
+                .ok_or_else(|| CrosswalkError::MissingRequiredField("relatedIdentifiers[].relatedIdentifierType".to_string()))
+                .and_then(|identifier_type| serialize_enum(identifier_type, "relatedIdentifiers[].relatedIdentifierType"))
+                .and_then(|scheme| {
+                    value
+                        .relation_type
+                        .as_ref()
+                        .ok_or_else(|| CrosswalkError::MissingRequiredField("relatedIdentifiers[].relationType".to_string()))
+                        .map(|relation_type| (scheme, relation_type.to_string()))
+                })
+                .map(|(scheme, relation_type)| {
+                    let warnings = [
+                        value
+                            .related_metadata_scheme
+                            .as_ref()
+                            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "relatedIdentifiers[].relatedMetadataScheme")),
+                        value
+                            .scheme_type
+                            .as_ref()
+                            .map(|_| ConversionWarning::no_equivalent(DATACITE, RAD_OUTPUT, "relatedIdentifiers[].schemeType")),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                    Self::new(
+                        TypedRelatedResource {
+                            identifier: TypedIdentifier {
+                                value: value.related_identifier,
+                                scheme: Some(scheme),
+                                scheme_uri: value.scheme_uri,
+                            },
+                            relation_type,
+                            relation_type_information: value.relation_type_information,
+                            resource_type_general: value.resource_type_general.as_ref().map(ToString::to_string),
+                            category: None,
+                        },
+                        warnings,
+                    )
+                }),
+        }
+    }
+}
+impl From<Vec<FundingReference>> for Conversion<Vec<Funding>> {
+    fn from(values: Vec<FundingReference>) -> Self {
+        let converted = collect_conversions(values.into_iter().map(Conversion::<Funding>::from));
+        let fundings = converted.value.into_iter().fold(Vec::<Funding>::new(), |mut grouped, funding| {
+            let existing = grouped.iter_mut().find(|candidate| {
+                candidate.name == funding.name
+                    && candidate.identifier == funding.identifier
+                    && candidate.identifier_type == funding.identifier_type
+                    && candidate.scheme_uri == funding.scheme_uri
+                    && candidate.ror == funding.ror
+            });
+            match existing {
+                | Some(existing) => existing.awards.extend(funding.awards),
+                | None => grouped.push(funding),
+            }
+            grouped
+        });
+        Self::new(fundings, converted.warnings)
+    }
+}
+impl TryFrom<Funding> for Conversion<Vec<FundingReference>> {
+    type Error = CrosswalkError;
+
+    fn try_from(value: Funding) -> Result<Self, Self::Error> {
+        value
+            .identity()
+            .map(|(identifier, identifier_type, scheme_uri)| match value.awards.is_empty() {
+                | true => Self::new(
+                    vec![FundingReference {
+                        funder_name: value.name,
+                        funder_identifier: identifier,
+                        funder_identifier_type: identifier_type,
+                        scheme_uri,
+                        award_number: None,
+                        award_uri: None,
+                        award_title: None,
+                    }],
+                    Vec::new(),
+                ),
+                | false => {
+                    let funder_name = value.name;
+                    let converted = value.awards.into_iter().map(|award| {
+                        let award_title = award.title.clone();
+                        let award_number = award.identifier.clone();
+                        let award_uri = Conversion::<Option<String>>::from(award);
+                        Conversion::new(
+                            FundingReference {
+                                funder_name: funder_name.clone(),
+                                funder_identifier: identifier.clone(),
+                                funder_identifier_type: identifier_type.clone(),
+                                scheme_uri: scheme_uri.clone(),
+                                award_number: Some(award_number),
+                                award_uri: award_uri.value,
+                                award_title,
+                            },
+                            award_uri.warnings,
+                        )
+                    });
+                    collect_conversions(converted)
+                }
+            })
     }
 }
 impl From<Affiliation> for datacite::Affiliation {
@@ -940,7 +941,6 @@ impl From<Option<Vec<AlternateIdentifier>>> for OutputIdentifiers {
         }
     }
 }
-
 impl Crosswalk<datacite::Record> for ResearchOutput {
     fn crosswalk(&self) -> Result<(datacite::Record, Vec<ConversionWarning>), CrosswalkError> {
         self.validate_deposit_ready().map_err(missing_output_fields).and_then(|_| {

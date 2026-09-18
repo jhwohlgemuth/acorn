@@ -530,6 +530,21 @@ impl fmt::Display for Checksum {
         write!(f, "{}", self.checksum_value)
     }
 }
+impl TryFrom<&str> for Checksum {
+    type Error = String;
+
+    /// Parse an `algorithm:value` digest string (e.g., `sha256:abc123`).
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value
+            .split_once(':')
+            .filter(|(_, checksum_value)| !checksum_value.is_empty())
+            .map(|(algorithm, checksum_value)| Checksum {
+                algorithm: ChecksumAlgorithm::from(algorithm),
+                checksum_value: checksum_value.to_string(),
+            })
+            .ok_or_else(|| format!("Expected `algorithm:value` checksum format, found `{value}`"))
+    }
+}
 impl From<&str> for ChecksumAlgorithm {
     fn from(value: &str) -> Self {
         match value.to_lowercase().as_str() {
@@ -1618,7 +1633,7 @@ impl StringConversion for PathBuf {
 mod tests {
     #[cfg(feature = "std")]
     use super::MimeType;
-    use super::{SemanticVersion, StringConversion, StringExt};
+    use super::{Checksum, ChecksumAlgorithm, SemanticVersion, StringConversion, StringExt};
     use crate::prelude::alloc::{String, ToString};
     use crate::util::constants::app::EXEC_HEADER_PREFIX;
 
@@ -1652,6 +1667,21 @@ mod tests {
         assert_eq!("2023-02-29".to_complete_date(), None);
         assert_eq!("2024-02".to_complete_date(), None);
         assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
+    }
+    #[test]
+    fn test_checksum_try_from_parses_algorithm_and_value() {
+        let checksum = Checksum::try_from("SHA512:abc123").expect("valid checksum");
+        assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha512);
+        assert_eq!(checksum.checksum_value, "abc123");
+    }
+    #[test]
+    fn test_checksum_try_from_rejects_missing_algorithm_value_separator_or_value() {
+        ["abc123", "sha256:"].into_iter().for_each(|value| {
+            assert_eq!(
+                Checksum::try_from(value).err(),
+                Some(format!("Expected `algorithm:value` checksum format, found `{value}`"))
+            )
+        });
     }
     #[test]
     fn test_string_ext_vectors_trim_compact_and_detect_numeric_values() {

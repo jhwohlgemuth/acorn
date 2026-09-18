@@ -30,7 +30,7 @@ Make ACORN's database the durable working truth for research activity data: inge
 
 # Dependencies
 
-This plan consumes portable RAD/logbook types and coordinates serialized-shape changes with [RAD metadata standards alignment](rad-metadata-standards-alignment.md). It provides the canonical query and snapshot contract required by [database-backed artifact generation](database-backed-artifact-generation.md). A future `acorn-store` extraction follows the crate-boundary network and is not a prerequisite for completing the in-tree contract.
+This plan consumes portable RAD/logbook types and preserves the serialized shapes in the [standards field matrix](../assets/standards-field-matrix.md). It provides the canonical query and snapshot contract required by [database-backed artifact generation](database-backed-artifact-generation.md). A future `acorn-store` extraction follows the crate-boundary network and is not a prerequisite for completing the in-tree contract.
 
 # Recommendation
 

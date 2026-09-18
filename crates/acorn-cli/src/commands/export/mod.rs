@@ -17,6 +17,7 @@ use acorn_core::prelude::HashMap;
 use acorn_core::prelude::{Arc, HashSet};
 use acorn_core::util::{format_bytes, regex_join, suffix, MimeType};
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::crosswalk::{Conversion, CrosswalkError};
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
@@ -32,111 +33,6 @@ use tracing::{debug, info};
 mod pdf;
 mod powerpoint;
 mod updates;
-
-/// Export the canonical Needle-native catalog to `tools.json` atomically.
-pub fn tools(output: Option<&Path>, dry_run: bool) -> ApiResult<()> {
-    let directory = output.unwrap_or_else(|| Path::new("./export"));
-    let destination = directory.join("tools.json");
-    match (dry_run, destination.exists()) {
-        | (true, _) => {
-            info!("{} Would export Needle tools to {}", Label::run(), destination.display());
-            Ok(())
-        }
-        | (false, true) => Err(eyre!("Refusing to overwrite existing Needle tool catalog — {}", destination.display())),
-        | (false, false) => create_dir_all(directory)
-            .map_err(|why| eyre!("Failed to create tools export directory {} — {why}", directory.display()))
-            .and_then(|()| {
-                let temporary = directory.join(format!(".tools-{}.json.tmp", nanoid!()));
-                sidecar::needle::write_tools(temporary.clone()).and_then(|()| {
-                    rename(&temporary, &destination).map_err(|why| {
-                        let _ = remove_file(&temporary);
-                        eyre!("Failed to publish Needle tool catalog {} — {why}", destination.display())
-                    })
-                })
-            })
-            .map(|()| info!("{} Exported Needle tools to {}", Label::pass(), destination.display())),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    output: &Option<PathBuf>,
-    path: &Option<PathBuf>,
-    branch: &Option<String>,
-    chrome_path: &Option<PathBuf>,
-    commit: &Option<String>,
-    filter: &[String],
-    ignore: &[String],
-    show_aspect_labels: bool,
-    show_aspect_scores: bool,
-    format: &FileFormat,
-    archive_format: Option<ArchiveType>,
-    reference: &Option<PathBuf>,
-    from: &Option<Standard>,
-    to: &Option<Standard>,
-    combine: &bool,
-    merge_request: &bool,
-    raw: &bool,
-    skip: &[CheckCategory],
-    dry_run: bool,
-    strict: bool,
-    target: Target,
-    since: Option<&str>,
-    threads: usize,
-    verbose: &Verbosity,
-    offline: bool,
-) -> ApiResult<()> {
-    match archive_format.is_some() && !matches!(format, FileFormat::Bag) {
-        | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
-        | false => {
-            let is_silent = verbose.is_silent();
-            let progress_type = match is_silent || *raw {
-                | true => ProgressType::Silent,
-                | false => ProgressType::Bar,
-            };
-            let options = CommandOptions::init()
-                .maybe_branch(branch.clone())
-                .maybe_commit(commit.clone())
-                .maybe_filter(regex_join(filter))
-                .maybe_ignore(regex_join(ignore))
-                .merge_request(*merge_request)
-                .offline(offline)
-                .quiet(is_silent)
-                .supported(true)
-                .threads(threads)
-                .build();
-            preflight!(&options);
-            match offline && *merge_request {
-                | true => Err(eyre!("Export cannot resolve a remote merge request in offline mode")),
-                | false => {
-                    let request = ExportRequest::init()
-                        .maybe_output(output.clone())
-                        .maybe_path(path.clone())
-                        .maybe_chrome_path(chrome_path.clone())
-                        .format(format.clone())
-                        .maybe_archive_format(archive_format)
-                        .show_aspect_labels(show_aspect_labels)
-                        .show_aspect_scores(show_aspect_scores)
-                        .maybe_reference(reference.clone())
-                        .combine(*combine)
-                        .dry_run(dry_run)
-                        .strict(strict)
-                        .target(target)
-                        .maybe_since(since.map(str::to_string))
-                        .skip(skip.to_vec())
-                        .progress_type(progress_type)
-                        .options(options)
-                        .build();
-                    let exporter = request.exporter();
-                    match (from.is_some() || to.is_some()) && format.is_structured() {
-                        | true => exporter.crosswalk(request, *from, *to).await,
-                        | false => exporter.export(request).await,
-                    }
-                }
-            }
-        }
-    }
-}
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
@@ -148,6 +44,8 @@ trait ExportHandler {
         })
     }
 }
+struct BagExportHandler;
+struct CffExportHandler;
 #[derive(Builder, Debug, Default)]
 #[builder(start_fn = init)]
 struct ExportRequest {
@@ -180,8 +78,6 @@ struct ExportRequest {
     target: Target,
     since: Option<String>,
 }
-struct BagExportHandler;
-struct CffExportHandler;
 struct PdfExportHandler;
 struct PowerPointExportHandler;
 struct StructuredExportHandler;
@@ -431,6 +327,33 @@ impl ExportHandler for UpdatesExportHandler {
         Box::pin(async move { updates::export(request).await })
     }
 }
+fn crosswalk_item(
+    item: &Path,
+    from: Option<Standard>,
+    target: Standard,
+    format: &FileFormat,
+    skip_crosswalk: bool,
+) -> Result<Conversion<String>, CrosswalkError> {
+    read_file(item.to_path_buf())
+        .map_err(|error| CrosswalkError::ParseFailed(error.to_string()))
+        .and_then(|content| {
+            let mime = MimeType::from_path(item);
+            let source = match from {
+                | Some(value) => Ok(value),
+                | None => infer_standard_from_content(item, &content, &mime).map_err(|error| CrosswalkError::ParseFailed(error.to_string())),
+            };
+            source.and_then(|resolved| {
+                let target_mime = MimeType::from(format);
+                if skip_crosswalk {
+                    resolved
+                        .crosswalk(&content, mime, target, target_mime)
+                        .map(|converted| Conversion::new(converted, Vec::new()))
+                } else {
+                    resolved.crosswalk_with_warnings(&content, mime, target, target_mime)
+                }
+            })
+        })
+}
 async fn export_as_format(
     path: &Option<PathBuf>,
     options: CommandOptions,
@@ -524,6 +447,31 @@ async fn export_as_format_crosswalk(
                     let collected_checks: Arc<Mutex<Vec<Check>>> = Arc::new(Mutex::new(Vec::new()));
                     let output_dir = output.clone();
                     let skip_crosswalk = skip.contains(&CheckCategory::Crosswalk);
+                    if strict && !skip_crosswalk {
+                        let preflight = items.iter().try_fold(Vec::new(), |mut checks, item| {
+                            crosswalk_item(item, from, target, format, false).map(|conversion| {
+                                let (_, warnings) = conversion.into_parts();
+                                checks.extend(warnings.to_checks(Some(item.to_string_lossy().to_string())));
+                                checks
+                            })
+                        });
+                        match preflight {
+                            | Ok(checks) if checks.is_empty() => {}
+                            | Ok(checks) => {
+                                let warning_count = checks.len();
+                                if !matches!(progress_type, ProgressType::Silent) {
+                                    info!("=> Crosswalk warnings ({} total):", checks.len().cyan().bold());
+                                    for check in &checks {
+                                        info!("  {check}");
+                                    }
+                                    print_values_as_table::<String>(vec!["", "Count"], CheckSummary::from(checks.as_slice()).rows(), None);
+                                }
+                                fail!("Strict mode — {warning_count} crosswalk warning(s) found");
+                                return Err(eyre!("Strict mode — {warning_count} crosswalk warning(s) found"));
+                            }
+                            | Err(why) => return Err(eyre!("Crosswalk failed — {why}")),
+                        }
+                    }
                     let progress = with_progress(
                         items,
                         |item| format!("Generating {format} for {}", item.display()),
@@ -539,48 +487,32 @@ async fn export_as_format_crosswalk(
                                     }
                                     | None => output_path(&item, &ext),
                                 };
-                                match read_file(item.clone()) {
-                                    | Ok(content) => {
-                                        let mime = MimeType::from_path(&item);
-                                        let source = match from {
-                                            | Some(value) => Ok(value),
-                                            | None => infer_standard_from_content(&item, &content, &mime),
-                                        };
-                                        let processed = source.and_then(|resolved| {
-                                            let target_mime = MimeType::from(format);
-                                            if strict || dry_run || skip_crosswalk {
-                                                resolved
-                                                    .crosswalk(&content, mime, target, target_mime)
-                                                    .map(|c| (c, Vec::new()))
-                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
-                                            } else {
-                                                resolved
-                                                    .crosswalk_with_warnings(&content, mime, target, target_mime)
-                                                    .map_err(|e| eyre!("Crosswalk failed — {e}"))
-                                            }
-                                        });
-                                        match processed {
-                                            | Ok((content, warnings)) => {
-                                                let uri = item.to_string_lossy().to_string();
-                                                if let Ok(mut guard) = checks.lock() {
-                                                    guard.extend(warnings.to_checks(Some(uri)));
-                                                }
-                                                if dry_run {
-                                                    info!(
-                                                        "  {} would write {} ({} warnings)",
-                                                        Label::fmt_skip("DRYRUN"),
-                                                        output.display(),
-                                                        warnings.len()
-                                                    );
-                                                    Ok(())
-                                                } else {
-                                                    write_file(output, content)
-                                                }
-                                            }
-                                            | Err(why) => Err(why),
+                                match crosswalk_item(&item, from, target, format, skip_crosswalk) {
+                                    | Ok(conversion) => {
+                                        let (content, warnings) = conversion.into_parts();
+                                        let uri = item.to_string_lossy().to_string();
+                                        if let Ok(mut guard) = checks.lock() {
+                                            guard.extend(warnings.to_checks(Some(uri)));
+                                        }
+                                        if strict && !warnings.is_empty() {
+                                            Err(eyre!(
+                                                "Strict mode — {} crosswalk warning(s) found for {}",
+                                                warnings.len(),
+                                                item.display()
+                                            ))
+                                        } else if dry_run {
+                                            info!(
+                                                "  {} would write {} ({} warnings)",
+                                                Label::fmt_skip("DRYRUN"),
+                                                output.display(),
+                                                warnings.len()
+                                            );
+                                            Ok(())
+                                        } else {
+                                            write_file(output, content)
                                         }
                                     }
-                                    | Err(why) => Err(why),
+                                    | Err(why) => Err(eyre!("Crosswalk failed — {why}")),
                                 }
                             }
                         },
@@ -632,8 +564,111 @@ async fn export_as_format_crosswalk(
             }
         }
         | None => Err(eyre!(
-            "Crosswalk export requires --to <STANDARD> (supported: datacite, dcat, invenio, huwise)"
+            "Crosswalk export requires --to <STANDARD> (supported: rads, raid, datacite, dcat, invenio, huwise)"
         )),
+    }
+}
+#[allow(clippy::too_many_arguments)]
+pub async fn run(
+    output: &Option<PathBuf>,
+    path: &Option<PathBuf>,
+    branch: &Option<String>,
+    chrome_path: &Option<PathBuf>,
+    commit: &Option<String>,
+    filter: &[String],
+    ignore: &[String],
+    show_aspect_labels: bool,
+    show_aspect_scores: bool,
+    format: &FileFormat,
+    archive_format: Option<ArchiveType>,
+    reference: &Option<PathBuf>,
+    from: &Option<Standard>,
+    to: &Option<Standard>,
+    combine: &bool,
+    merge_request: &bool,
+    raw: &bool,
+    skip: &[CheckCategory],
+    dry_run: bool,
+    strict: bool,
+    target: Target,
+    since: Option<&str>,
+    threads: usize,
+    verbose: &Verbosity,
+    offline: bool,
+) -> ApiResult<()> {
+    match archive_format.is_some() && !matches!(format, FileFormat::Bag) {
+        | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
+        | false => {
+            let is_silent = verbose.is_silent();
+            let progress_type = match is_silent || *raw {
+                | true => ProgressType::Silent,
+                | false => ProgressType::Bar,
+            };
+            let options = CommandOptions::init()
+                .maybe_branch(branch.clone())
+                .maybe_commit(commit.clone())
+                .maybe_filter(regex_join(filter))
+                .maybe_ignore(regex_join(ignore))
+                .merge_request(*merge_request)
+                .offline(offline)
+                .quiet(is_silent)
+                .supported(true)
+                .threads(threads)
+                .build();
+            preflight!(&options);
+            match offline && *merge_request {
+                | true => Err(eyre!("Export cannot resolve a remote merge request in offline mode")),
+                | false => {
+                    let request = ExportRequest::init()
+                        .maybe_output(output.clone())
+                        .maybe_path(path.clone())
+                        .maybe_chrome_path(chrome_path.clone())
+                        .format(format.clone())
+                        .maybe_archive_format(archive_format)
+                        .show_aspect_labels(show_aspect_labels)
+                        .show_aspect_scores(show_aspect_scores)
+                        .maybe_reference(reference.clone())
+                        .combine(*combine)
+                        .dry_run(dry_run)
+                        .strict(strict)
+                        .target(target)
+                        .maybe_since(since.map(str::to_string))
+                        .skip(skip.to_vec())
+                        .progress_type(progress_type)
+                        .options(options)
+                        .build();
+                    let exporter = request.exporter();
+                    match (from.is_some() || to.is_some()) && format.is_structured() {
+                        | true => exporter.crosswalk(request, *from, *to).await,
+                        | false => exporter.export(request).await,
+                    }
+                }
+            }
+        }
+    }
+}
+/// Export the canonical Needle-native catalog to `tools.json` atomically.
+pub fn tools(output: Option<&Path>, dry_run: bool) -> ApiResult<()> {
+    let directory = output.unwrap_or_else(|| Path::new("./export"));
+    let destination = directory.join("tools.json");
+    match (dry_run, destination.exists()) {
+        | (true, _) => {
+            info!("{} Would export Needle tools to {}", Label::run(), destination.display());
+            Ok(())
+        }
+        | (false, true) => Err(eyre!("Refusing to overwrite existing Needle tool catalog — {}", destination.display())),
+        | (false, false) => create_dir_all(directory)
+            .map_err(|why| eyre!("Failed to create tools export directory {} — {why}", directory.display()))
+            .and_then(|()| {
+                let temporary = directory.join(format!(".tools-{}.json.tmp", nanoid!()));
+                sidecar::needle::write_tools(temporary.clone()).and_then(|()| {
+                    rename(&temporary, &destination).map_err(|why| {
+                        let _ = remove_file(&temporary);
+                        eyre!("Failed to publish Needle tool catalog {} — {why}", destination.display())
+                    })
+                })
+            })
+            .map(|()| info!("{} Exported Needle tools to {}", Label::pass(), destination.display())),
     }
 }
 #[cfg(test)]

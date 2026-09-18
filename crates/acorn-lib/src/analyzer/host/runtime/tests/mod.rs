@@ -34,6 +34,7 @@ use serde_json::Value;
 use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
 use std::path::PathBuf;
 
+static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Validate)]
 struct ArrayParamModel {
     #[validate(length(min = 3))]
@@ -74,14 +75,7 @@ struct RepeatedNameParentModel {
     #[validate(nested)]
     child: RepeatedNameModel,
 }
-static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
 struct ValidationProbe;
-impl Validate for ValidationProbe {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        VALIDATION_CALLS.fetch_add(1, Ordering::SeqCst);
-        Ok(())
-    }
-}
 impl ValeOutputItem {
     fn fixture(line: u32, span: Vec<u32>, word_match: &str) -> Self {
         Self {
@@ -100,6 +94,12 @@ impl ValeOutputItem {
         }
     }
 }
+impl Validate for ValidationProbe {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        VALIDATION_CALLS.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+}
 fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem) -> (Check, Arc<DocumentIndex>) {
     let document = SourceDocument::init().content(content).format(source).source(source).build();
     let document = Arc::new(DocumentIndex::new(document));
@@ -113,7 +113,6 @@ fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem
         .resolve_locator(&document);
     (check, document)
 }
-
 #[tokio::test]
 async fn test_cff_check_quality_returns_ok_for_readable_file() {
     let path = unique_path("cff-quality-valid", "cff");
@@ -304,14 +303,6 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
         "expected nested indexed path in display output: {rendered}"
     );
     assert!(rendered.contains("EMAIL"), "expected EMAIL code in display output: {rendered}");
-}
-#[tokio::test]
-async fn test_schema_parse_failure_skips_dependent_validation() {
-    VALIDATION_CALLS.store(0, Ordering::SeqCst);
-    let checks = check_schema_path::<ValidationProbe, _>(PathBuf::from("invalid.json"), Err("parse failure")).await;
-    assert_eq!(VALIDATION_CALLS.load(Ordering::SeqCst), 0);
-    assert_eq!(checks.len(), 1);
-    assert_eq!(checks.as_slice()[0].context.as_deref(), Some("parse failure"));
 }
 #[test]
 fn test_conversion_warnings_use_into_checks_trait() {
@@ -786,94 +777,13 @@ fn test_resolve_vale_package_source() {
         ]
     );
 }
-#[test]
-fn test_vale_config_normalization_is_ordered_and_idempotent() {
-    let config = ValeConfig::init()
-        .path(PathBuf::from("custom/.vale.ini"))
-        .packages(vec![" Google ".to_string(), "Custom".to_string(), "Custom".to_string(), String::new()])
-        .vocabularies(vec![" Project ".to_string(), "Project".to_string()])
-        .disabled(vec![" Custom.Rule ".to_string(), "Custom.Rule".to_string()])
-        .build();
-    let packages_normalized = config.clone().normalize_packages();
-    assert_eq!(packages_normalized.packages, vec!["Google", "Custom", "Custom"]);
-    assert_eq!(packages_normalized.vocabularies, vec!["Project", "Project"]);
-    assert_eq!(packages_normalized.disabled, vec!["Custom.Rule", "Custom.Rule"]);
-    let policy_merged = packages_normalized.clone().merge_policy();
-    assert_eq!(policy_merged.packages.first().map(String::as_str), Some("Google"));
-    assert_eq!(policy_merged.packages.last().map(String::as_str), Some("Custom"));
-    let deduplicated = policy_merged.clone().deduplicate();
-    assert_eq!(deduplicated.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
-    assert_eq!(deduplicated.packages.iter().filter(|package| package.as_str() == "Custom").count(), 1);
-    let normalized = config.normalize();
-    assert_eq!(normalized, deduplicated);
-    assert_eq!(normalized.path, PathBuf::from("custom/.vale.ini"));
-    assert_eq!(normalized.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
-    assert_eq!(normalized.packages.iter().filter(|package| package.as_str() == "Custom").count(), 1);
-    assert_eq!(
-        normalized
-            .vocabularies
-            .iter()
-            .filter(|vocabulary| vocabulary.as_str() == "Project")
-            .count(),
-        1
-    );
-    assert_eq!(normalized.disabled.iter().filter(|rule| rule.as_str() == "Custom.Rule").count(), 1);
-    assert!(normalized.packages.iter().all(|package| !package.trim().is_empty()));
-    assert_eq!(normalized.clone().normalize(), normalized);
-}
-#[test]
-fn test_vale_materialization_preserves_ini_order_and_names() {
-    let config = ValeConfig::init().packages(vec![" Google ".to_string()]).build().normalize();
-    let ini = config.materialize("https://example.org/science.zip");
-    let mut output = Vec::new();
-    ini.write_to(&mut output).unwrap();
-    let output = String::from_utf8(output).unwrap();
-    assert!(output.find("StylesPath=styles").unwrap() < output.find("Vocab=").unwrap());
-    assert!(output.contains("https://github.com/errata-ai/Google/releases/latest/download/Google.zip"));
-    assert!(output.contains("https://example.org/science.zip"));
-    assert!(output.contains("BasedOnStyles=Vale, Science, Google, proselint, write-good, Joblint"));
-}
 #[tokio::test]
-async fn test_vale_offline_package_url_uses_fallback() {
-    assert_eq!(
-        vale_package_url(true).await,
-        "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip"
-    );
-}
-#[tokio::test]
-async fn test_vale_offline_save_writes_normalized_configuration() {
-    let path = unique_path("vale-offline", "ini");
-    let config = ValeConfig::init()
-        .path(path.clone())
-        .packages(vec![" Google ".to_string(), "Google".to_string()])
-        .build()
-        .save(true)
-        .await
-        .unwrap();
-    let output = read_to_string(&path).unwrap();
-    remove_file(path).unwrap();
-    assert_eq!(config.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
-    assert!(output.contains("https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip"));
-}
-#[test]
-fn test_vale_package_source_transformation_is_idempotent() {
-    let config = ValeConfig::init()
-        .packages(vec![
-            "Google".to_string(),
-            "https://example.org/custom-style.zip".to_string(),
-            "/tmp/custom-style".to_string(),
-        ])
-        .build();
-    let resolved = config.resolve_package_sources();
-    assert_eq!(
-        resolved.packages,
-        vec![
-            "https://github.com/errata-ai/Google/releases/latest/download/Google.zip".to_string(),
-            "https://example.org/custom-style.zip".to_string(),
-            "/tmp/custom-style".to_string(),
-        ]
-    );
-    assert_eq!(resolved.clone().resolve_package_sources(), resolved);
+async fn test_schema_parse_failure_skips_dependent_validation() {
+    VALIDATION_CALLS.store(0, Ordering::SeqCst);
+    let checks = check_schema_path::<ValidationProbe, _>(PathBuf::from("invalid.json"), Err("parse failure")).await;
+    assert_eq!(VALIDATION_CALLS.load(Ordering::SeqCst), 0);
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks.as_slice()[0].context.as_deref(), Some("parse failure"));
 }
 #[test]
 fn test_source_text_formats_array_values_as_markdown_list() {
@@ -898,6 +808,13 @@ fn test_standard_detection_distinguishes_kitfile_and_modelkit() {
     });
     assert_eq!(Standard::from(kitfile.as_object().unwrap()), Standard::Kitfile);
     assert_eq!(Standard::from(modelkit.as_object().unwrap()), Standard::ModelKit);
+}
+#[test]
+fn test_standard_detection_recognizes_rad_and_raid() {
+    let rad = serde_json::json!({"contact": {}, "meta": {}, "title": "RAD"});
+    let raid = serde_json::json!({"access": {}, "contributor": [], "date": {}, "metadata": {}, "title": []});
+    assert_eq!(Standard::from(rad.as_object().unwrap()), Standard::ResearchActivityData);
+    assert_eq!(Standard::from(raid.as_object().unwrap()), Standard::Raid);
 }
 #[test]
 fn test_standard_detection_uses_dcat_jsonld_type() {
@@ -949,6 +866,41 @@ fn test_terse_output_includes_resolved_line_and_column() {
         .build();
     let document = DocumentIndex::new(document);
     assert!(check.terse(Some(&document)).contains("path=index.json:2:11"));
+}
+#[test]
+fn test_vale_config_normalization_is_ordered_and_idempotent() {
+    let config = ValeConfig::init()
+        .path(PathBuf::from("custom/.vale.ini"))
+        .packages(vec![" Google ".to_string(), "Custom".to_string(), "Custom".to_string(), String::new()])
+        .vocabularies(vec![" Project ".to_string(), "Project".to_string()])
+        .disabled(vec![" Custom.Rule ".to_string(), "Custom.Rule".to_string()])
+        .build();
+    let packages_normalized = config.clone().normalize_packages();
+    assert_eq!(packages_normalized.packages, vec!["Google", "Custom", "Custom"]);
+    assert_eq!(packages_normalized.vocabularies, vec!["Project", "Project"]);
+    assert_eq!(packages_normalized.disabled, vec!["Custom.Rule", "Custom.Rule"]);
+    let policy_merged = packages_normalized.clone().merge_policy();
+    assert_eq!(policy_merged.packages.first().map(String::as_str), Some("Google"));
+    assert_eq!(policy_merged.packages.last().map(String::as_str), Some("Custom"));
+    let deduplicated = policy_merged.clone().deduplicate();
+    assert_eq!(deduplicated.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
+    assert_eq!(deduplicated.packages.iter().filter(|package| package.as_str() == "Custom").count(), 1);
+    let normalized = config.normalize();
+    assert_eq!(normalized, deduplicated);
+    assert_eq!(normalized.path, PathBuf::from("custom/.vale.ini"));
+    assert_eq!(normalized.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
+    assert_eq!(normalized.packages.iter().filter(|package| package.as_str() == "Custom").count(), 1);
+    assert_eq!(
+        normalized
+            .vocabularies
+            .iter()
+            .filter(|vocabulary| vocabulary.as_str() == "Project")
+            .count(),
+        1
+    );
+    assert_eq!(normalized.disabled.iter().filter(|rule| rule.as_str() == "Custom.Rule").count(), 1);
+    assert!(normalized.packages.iter().all(|package| !package.trim().is_empty()));
+    assert_eq!(normalized.clone().normalize(), normalized);
 }
 #[test]
 fn test_vale_config_unwrap_or_default_uses_default_values() {
@@ -1006,6 +958,40 @@ fn test_vale_managed_directory_uses_project_cache() {
         ..ValeConfig::default()
     };
     assert!(!config.custom_directory());
+}
+#[test]
+fn test_vale_materialization_preserves_ini_order_and_names() {
+    let config = ValeConfig::init().packages(vec![" Google ".to_string()]).build().normalize();
+    let ini = config.materialize("https://example.org/science.zip");
+    let mut output = Vec::new();
+    ini.write_to(&mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.find("StylesPath=styles").unwrap() < output.find("Vocab=").unwrap());
+    assert!(output.contains("https://github.com/errata-ai/Google/releases/latest/download/Google.zip"));
+    assert!(output.contains("https://example.org/science.zip"));
+    assert!(output.contains("BasedOnStyles=Vale, Science, Google, proselint, write-good, Joblint"));
+}
+#[tokio::test]
+async fn test_vale_offline_package_url_uses_fallback() {
+    assert_eq!(
+        vale_package_url(true).await,
+        "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip"
+    );
+}
+#[tokio::test]
+async fn test_vale_offline_save_writes_normalized_configuration() {
+    let path = unique_path("vale-offline", "ini");
+    let config = ValeConfig::init()
+        .path(path.clone())
+        .packages(vec![" Google ".to_string(), "Google".to_string()])
+        .build()
+        .save(true)
+        .await
+        .unwrap();
+    let output = read_to_string(&path).unwrap();
+    remove_file(path).unwrap();
+    assert_eq!(config.packages.iter().filter(|package| package.as_str() == "Google").count(), 1);
+    assert!(output.contains("https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip"));
 }
 #[test]
 fn test_vale_output_item_location_matches_prose_display_format() {
@@ -1076,6 +1062,26 @@ fn test_vale_output_severity_colored() {
     assert!(!warning.colored().is_empty());
     assert!(!error.colored().is_empty());
     assert!(!suggestion.colored().is_empty());
+}
+#[test]
+fn test_vale_package_source_transformation_is_idempotent() {
+    let config = ValeConfig::init()
+        .packages(vec![
+            "Google".to_string(),
+            "https://example.org/custom-style.zip".to_string(),
+            "/tmp/custom-style".to_string(),
+        ])
+        .build();
+    let resolved = config.resolve_package_sources();
+    assert_eq!(
+        resolved.packages,
+        vec![
+            "https://github.com/errata-ai/Google/releases/latest/download/Google.zip".to_string(),
+            "https://example.org/custom-style.zip".to_string(),
+            "/tmp/custom-style".to_string(),
+        ]
+    );
+    assert_eq!(resolved.clone().resolve_package_sources(), resolved);
 }
 #[tokio::test]
 async fn test_vale_retry_sync_can_ignore_exhaustion() {

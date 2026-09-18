@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-The portable identifier and RO-Crate slices build on `PersistentIdentifier`, `PersistentIdentifierParse`, `PID`, `Identifier`, `TypedIdentifier`, `ResearchActivity`, `ResearchOutput`, and the existing crosswalk loss-reporting contract. Adding a general activity `identifiers` collection must serialize with [RAD metadata standards alignment](rad-metadata-standards-alignment.md), which owns the broader RAD field and standards-adapter contract. dPID must reuse that extensible field instead of adding another scheme-specific `meta.dpid` field.
+The portable identifier and RO-Crate slices build on `PersistentIdentifier`, `PersistentIdentifierParse`, `PID`, `Identifier`, `TypedIdentifier`, `ResearchActivity`, `ResearchOutput`, and the existing crosswalk loss-reporting contract. Adding a general activity `identifiers` collection must preserve the broader RAD field and standards-adapter contract in the [standards field matrix](../assets/standards-field-matrix.md). dPID must reuse that extensible field instead of adding another scheme-specific `meta.dpid` field.
 
 The resolver slice uses ACORN's bounded HTTP transport, configurable endpoints, `ResolutionOutcome`, and discovery provenance. It must coordinate `io/api/mod.rs` and `application.json` with the API shared-contract lane, `analyzer/host/discovery/mod.rs` with [analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md), `transfer.rs` with the research-activity store lane, and CLI roots/generated help with the CLI composition lane. The portable parser and RO-Crate codec remain usable without network access and must preserve the supported no-default-features/WASM boundary.
 
@@ -121,7 +121,7 @@ Project root metadata as follows:
 | resolver version time | import provenance only | Never infer started, completed, published, or modified activity dates |
 | unknown graph entity/property | retained source plus loss report | Never silently drop an unknown value while claiming lossless import |
 
-The crosswalk should return a value plus structured warnings, following the RAD standards plan. Missing optional descriptions or labels do not fail import; missing root identity, selected manifest, graph root, or an internally referenced required entity does. Duplicate graph ids and conflicting scalar values fail closed rather than using last-write-wins behavior.
+The crosswalk should return a value plus structured warnings, following the implemented RAD crosswalk contract. Missing optional descriptions or labels do not fail import; missing root identity, selected manifest, graph root, or an internally referenced required entity does. Duplicate graph ids and conflicting scalar values fail closed rather than using last-write-wins behavior.
 
 ## User workflows
 
@@ -160,7 +160,7 @@ Add `acorn import dpid <DPID> [OUTPUT]` as the explicit transformation workflow.
 - Add the optional `identifiers` collection to activity metadata and one pure scheme-aware coherence validator for dPID values and scheme URI. Preserve unknown explicitly named schemes and existing serialized RAD documents.
 - Define deterministic deduplication and ordering by normalized scheme plus value. Multiple versions of one dPID may coexist as provenance, but candidate/database identity collapses only on `dpid:<root>`.
 - Teach project database key derivation to consume general activity identifiers and emit the dPID root key without replacing current scheme-specific keys or the local RAD key.
-- Add round-trip, schema-generation, invalid-scheme, duplicate, multiple-version, and migration-compatibility tests. Coordinate any shared `TypedIdentifier` validator change with the RAD standards owner.
+- Add round-trip, schema-generation, invalid-scheme, duplicate, multiple-version, and migration-compatibility tests. Serialize any shared `TypedIdentifier` validator change through the schema-features lane.
 
 **Gate:** focused research-activity and transfer tests prove old documents retain their shape and all dPID versions map to the same project identity.
 

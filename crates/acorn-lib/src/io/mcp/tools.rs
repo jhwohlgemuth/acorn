@@ -522,9 +522,12 @@ async fn crosswalk(input: CrosswalkInput) -> ApiResult<CrosswalkOutput> {
             input.target.standard(),
             input.output_format.mime(),
         )
-        .map(|(content, warnings)| CrosswalkOutput {
-            content,
-            warnings: warnings.into_iter().map(|warning| warning.to_string()).collect(),
+        .map(|conversion| {
+            let (content, warnings) = conversion.into_parts();
+            CrosswalkOutput {
+                content,
+                warnings: warnings.into_iter().map(|warning| warning.to_string()).collect(),
+            }
         })
         .map_err(|why| eyre!("Crosswalk failed — {why}"))
 }
