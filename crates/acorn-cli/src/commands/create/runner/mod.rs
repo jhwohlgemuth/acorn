@@ -15,205 +15,58 @@ use std::ffi::OsString;
 use std::fs::remove_file;
 use std::path::PathBuf;
 use tracing::{debug, error, info};
+
 type BooleanOutcome = (Vec<Result<(), String>>, Vec<Result<(), String>>);
 type RunnerOperation = (RunnerDetails, Executor, Option<ContainerTarget>);
-
 struct RegistrationOptions<'a> {
     details: RunnerDetails,
     runtime: &'a Executor,
     target: Option<&'a ContainerTarget>,
     verbose: &'a Verbosity,
 }
-
-fn resolve_operation(
-    runner: Option<&RunnerDetails>,
-    runtime: &Option<Executor>,
+fn build_container_runner_args(
+    name: &str,
+    image: &str,
+    gpu_enabled: bool,
+    config_host_dir: &str,
+    socket: &str,
     target: Option<&ContainerTarget>,
-) -> Result<(Executor, Option<ContainerTarget>), Report> {
-    let selected_runtime = runtime
-        .clone()
-        .or_else(|| runner.map(|value| value.executor.clone()))
-        .unwrap_or(Executor::Docker);
-    let selected_target = target.cloned().or_else(|| {
-        runner
-            .and_then(|value| value.target.as_ref())
-            .map(|value| ContainerTarget::Ssh(value.host.clone()))
-    });
-    let configured = runner.map(core::slice::from_ref);
-    selected_runtime
-        .validate_runner_target(configured, selected_target.as_ref())
-        .map(|()| (selected_runtime, selected_target))
+) -> Vec<OsString> {
+    let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
+    let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
+    args![
+        "run",
+        "--detach",
+        ("--name", name),
+        ("--restart", "always"),
+        ..gpu_args,
+        ("-v", format!("{config_source}:/etc/gitlab-runner")),
+        ("-v", format!("{socket}:{DOCKER_SOCKET}")),
+        image,
+    ]
 }
-#[allow(clippy::too_many_arguments)]
-pub async fn run(
-    config: &Option<PathBuf>,
-    description: &Option<String>,
-    name: &Option<String>,
-    _server: &Option<String>,
-    repo: &Option<String>,
-    group: &Option<u64>,
-    project: &Option<u64>,
-    tags: &[String],
-    untagged: &bool,
-    runtime: &Option<Executor>,
-    target: Option<&ContainerTarget>,
-    verbose: &Verbosity,
-) -> Result<(), Report> {
-    let configured = match ApplicationConfiguration::resolve(config) {
-        | Some(path) => ApplicationConfiguration::read(path).map(|value| value.runners.filter(|values| !values.is_empty())),
-        | None => Ok(None),
+/// Build the `exec <name> gitlab-runner register ...` argument list for
+/// Docker/Podman container-based executors.
+fn build_register_args(name: &str, url: &str, description: &str, token: &Secret, log_level: &str, gpu_template: &Option<String>) -> Vec<OsString> {
+    let gpu_args = match gpu_template {
+        | Some(template) => args!["--template-config", template],
+        | None => args![],
     };
-    let build_target = |runner: Option<&RunnerDetails>| {
-        let desired_description_result = runner
-            .and_then(|value| value.description.clone())
-            .or_else(|| description.clone())
-            .ok_or_else(|| eyre!("GitLab runner description is required to detect existing runners"));
-        let desired_tags = runner
-            .and_then(|value| value.tags.clone())
-            .or_else(|| (!tags.is_empty()).then(|| tags.to_owned()));
-        let desired_run_untagged = *untagged || runner.map(|value| value.run_untagged).unwrap_or(false);
-        let maybe_runner_type = match runner {
-            | Some(value) => Ok(value.runner_type.clone()),
-            | None => match (group, project) {
-                | (Some(_), None) => Ok(RunnerType::Group),
-                | (None, Some(_)) => Ok(RunnerType::Project),
-                | _ => Err(eyre!("Provide exactly one of --group or --project (or use --config with GitLab runners)")),
-            },
-        };
-        let maybe_identifier = runner
-            .and_then(|value| value.code_repository.id())
-            .map(Ok)
-            .unwrap_or_else(|| match (group, project) {
-                | (Some(value), None) | (None, Some(value)) => Ok(value.to_string()),
-                | _ => Err(eyre!(
-                    "Missing GitLab runner target identifier. Provide --group/--project or repository.id in config"
-                )),
-            });
-        match (desired_description_result, maybe_runner_type, maybe_identifier) {
-            | (Ok(value), Ok(runner_type), Ok(identifier)) => {
-                let repository = runner.map(|entry| entry.code_repository.clone()).unwrap_or_else(|| Repository::GitLab {
-                    id: identifier.parse::<u64>().ok(),
-                    location: Box::new(Location::Simple("https://gitlab.com".to_string())),
-                });
-                let domain = repo
-                    .clone()
-                    .or_else(|| runner.and_then(|value| value.host.clone()))
-                    .or_else(|| repository.domain())
-                    .ok_or_else(|| eyre!("Failed to resolve runner domain from repository"));
-                match domain {
-                    | Ok(domain) => Ok((value, runner_type, identifier, desired_run_untagged, desired_tags, repository, domain)),
-                    | Err(why) => Err(why),
-                }
-            }
-            | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
-        }
-    };
-    let response = match configured {
-        | Err(why) => Err(why),
-        | Ok(Some(runner_details)) => {
-            let operations = runner_details
-                .into_iter()
-                .map(|runner| resolve_operation(Some(&runner), runtime, target).map(|(runtime, target)| (runner, runtime, target)))
-                .collect::<Result<Vec<RunnerOperation>, Report>>();
-            match operations {
-                | Err(why) => Err(why),
-                | Ok(operations) => {
-                    let runners = join_all(operations.into_iter().map(|(runner, selected_runtime, selected_target)| {
-                        let build_result = build_target(Some(&runner));
-                        async move {
-                            let base_name = runner.name.clone().unwrap_or_else(|| DEFAULT_RUNNER_NAME.to_string());
-                            match build_result {
-                                | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
-                                    let details = RunnerDetails::at(repository)
-                                        .description(desired_description)
-                                        .docker_image(runner.docker_image.clone())
-                                        .executor(runner.executor.clone())
-                                        .runner_type(&runner_type.to_string())
-                                        .gpu_enabled(runner.gpu_enabled)
-                                        .maybe_tags(desired_tags)
-                                        .run_untagged(desired_run_untagged)
-                                        .maybe_host(Some(domain))
-                                        .maybe_target(runner.target.clone())
-                                        .build();
-                                    match create_runner(&details).await {
-                                        | Ok(response) => {
-                                            let RunnerCreationResponse { identifier, token, .. } = response;
-                                            let container_name = format!("{base_name}-{identifier}");
-                                            let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                                            register_runner(RegistrationOptions {
-                                                details,
-                                                runtime: &selected_runtime,
-                                                target: selected_target.as_ref(),
-                                                verbose,
-                                            })
-                                            .await
-                                            .map(|_| ())
-                                            .map_err(|why| format!("{base_name} — {why}"))
-                                        }
-                                        | Err(why) => Err(format!("{base_name} — {why}")),
-                                    }
-                                }
-                                | Err(why) => Err(format!("{base_name} — {why}")),
-                            }
-                        }
-                    }))
-                    .await;
-                    let (successful, failed): BooleanOutcome = runners.into_iter().partition(|result| result.is_ok());
-                    let created = successful.len();
-                    let failures = failed.into_iter().filter_map(|result| result.err()).collect::<Vec<String>>();
-                    if failures.is_empty() {
-                        Ok(())
-                    } else {
-                        let attempted = created.saturating_add(failures.len());
-                        let failed = failures.len();
-                        let message = format!("Failed to create {failed} of {attempted} configured runners:\n{}", failures.join("\n"));
-                        Err(eyre!(message))
-                    }
-                }
-            }
-        }
-        | Ok(None) => match resolve_operation(None, runtime, target) {
-            | Err(why) => Err(why),
-            | Ok((selected_runtime, selected_target)) => match build_target(None) {
-                | Err(why) => Err(why),
-                | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
-                    let base_name = name
-                        .clone()
-                        .or_else(|| Some(desired_description.clone()))
-                        .unwrap_or_else(|| "gitlab-runner".to_string());
-                    let details = RunnerDetails::at(repository)
-                        .description(desired_description)
-                        .runner_type(&runner_type.to_string())
-                        .gpu_enabled(false)
-                        .maybe_tags(desired_tags)
-                        .run_untagged(desired_run_untagged)
-                        .maybe_host(Some(domain))
-                        .build();
-                    match create_runner(&details).await {
-                        | Ok(response) => {
-                            let RunnerCreationResponse { identifier, token, .. } = response;
-                            let container_name = format!("{base_name}-{identifier}");
-                            let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                            register_runner(RegistrationOptions {
-                                details,
-                                runtime: &selected_runtime,
-                                target: selected_target.as_ref(),
-                                verbose,
-                            })
-                            .await
-                        }
-                        | Err(why) => Err(why),
-                    }
-                }
-            },
-        },
-    };
-    if let Err(why) = response {
-        error!("=> {} Create GitLab runner — {why}", Label::fail());
-        Err(why)
-    } else {
-        Ok(())
-    }
+    args![
+        "exec",
+        name,
+        "gitlab-runner",
+        ("--log-level", log_level),
+        "register",
+        "--non-interactive",
+        ("--url", url),
+        ("--description", description),
+        ("--token", ExposeSecret::expose_secret(token).to_string()),
+        ("--executor", "docker"),
+        ("--docker-image", "docker"),
+        ("--docker-volumes", format!("{DOCKER_SOCKET}:{DOCKER_SOCKET}")),
+        ..gpu_args
+    ]
 }
 async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse, Report> {
     let maybe_description = match &details.description {
@@ -489,50 +342,195 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
     }
     result
 }
-fn build_container_runner_args(
-    name: &str,
-    image: &str,
-    gpu_enabled: bool,
-    config_host_dir: &str,
-    socket: &str,
+fn resolve_operation(
+    runner: Option<&RunnerDetails>,
+    runtime: &Option<Executor>,
     target: Option<&ContainerTarget>,
-) -> Vec<OsString> {
-    let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
-    let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
-    args![
-        "run",
-        "--detach",
-        ("--name", name),
-        ("--restart", "always"),
-        ..gpu_args,
-        ("-v", format!("{config_source}:/etc/gitlab-runner")),
-        ("-v", format!("{socket}:{DOCKER_SOCKET}")),
-        image,
-    ]
+) -> Result<(Executor, Option<ContainerTarget>), Report> {
+    let selected_runtime = runtime
+        .clone()
+        .or_else(|| runner.map(|value| value.executor.clone()))
+        .unwrap_or(Executor::Docker);
+    let selected_target = target.cloned().or_else(|| {
+        runner
+            .and_then(|value| value.target.as_ref())
+            .map(|value| ContainerTarget::Ssh(value.host.clone()))
+    });
+    let configured = runner.map(core::slice::from_ref);
+    selected_runtime
+        .validate_runner_target(configured, selected_target.as_ref())
+        .map(|()| (selected_runtime, selected_target))
 }
-/// Build the `exec <name> gitlab-runner register ...` argument list for
-/// Docker/Podman container-based executors.
-fn build_register_args(name: &str, url: &str, description: &str, token: &Secret, log_level: &str, gpu_template: &Option<String>) -> Vec<OsString> {
-    let gpu_args = match gpu_template {
-        | Some(template) => args!["--template-config", template],
-        | None => args![],
+#[allow(clippy::too_many_arguments)]
+pub async fn run(
+    config: &Option<PathBuf>,
+    description: &Option<String>,
+    name: &Option<String>,
+    _server: &Option<String>,
+    repo: &Option<String>,
+    group: &Option<u64>,
+    project: &Option<u64>,
+    tags: &[String],
+    untagged: &bool,
+    runtime: &Option<Executor>,
+    target: Option<&ContainerTarget>,
+    verbose: &Verbosity,
+) -> Result<(), Report> {
+    let configured = match ApplicationConfiguration::resolve(config) {
+        | Some(path) => ApplicationConfiguration::read(path).map(|value| value.runners.filter(|values| !values.is_empty())),
+        | None => Ok(None),
     };
-    args![
-        "exec",
-        name,
-        "gitlab-runner",
-        ("--log-level", log_level),
-        "register",
-        "--non-interactive",
-        ("--url", url),
-        ("--description", description),
-        ("--token", ExposeSecret::expose_secret(token).to_string()),
-        ("--executor", "docker"),
-        ("--docker-image", "docker"),
-        ("--docker-volumes", format!("{DOCKER_SOCKET}:{DOCKER_SOCKET}")),
-        ..gpu_args
-    ]
+    let build_target = |runner: Option<&RunnerDetails>| {
+        let desired_description_result = runner
+            .and_then(|value| value.description.clone())
+            .or_else(|| description.clone())
+            .ok_or_else(|| eyre!("GitLab runner description is required to detect existing runners"));
+        let desired_tags = runner
+            .and_then(|value| value.tags.clone())
+            .or_else(|| (!tags.is_empty()).then(|| tags.to_owned()));
+        let desired_run_untagged = *untagged || runner.map(|value| value.run_untagged).unwrap_or(false);
+        let maybe_runner_type = match runner {
+            | Some(value) => Ok(value.runner_type.clone()),
+            | None => match (group, project) {
+                | (Some(_), None) => Ok(RunnerType::Group),
+                | (None, Some(_)) => Ok(RunnerType::Project),
+                | _ => Err(eyre!("Provide exactly one of --group or --project (or use --config with GitLab runners)")),
+            },
+        };
+        let maybe_identifier = runner
+            .and_then(|value| value.code_repository.id())
+            .map(Ok)
+            .unwrap_or_else(|| match (group, project) {
+                | (Some(value), None) | (None, Some(value)) => Ok(value.to_string()),
+                | _ => Err(eyre!(
+                    "Missing GitLab runner target identifier. Provide --group/--project or repository.id in config"
+                )),
+            });
+        match (desired_description_result, maybe_runner_type, maybe_identifier) {
+            | (Ok(value), Ok(runner_type), Ok(identifier)) => {
+                let repository = runner.map(|entry| entry.code_repository.clone()).unwrap_or_else(|| Repository::GitLab {
+                    id: identifier.parse::<u64>().ok(),
+                    location: Box::new(Location::Simple("https://gitlab.com".to_string())),
+                });
+                let domain = repo
+                    .clone()
+                    .or_else(|| runner.and_then(|value| value.host.clone()))
+                    .or_else(|| repository.domain())
+                    .ok_or_else(|| eyre!("Failed to resolve runner domain from repository"));
+                match domain {
+                    | Ok(domain) => Ok((value, runner_type, identifier, desired_run_untagged, desired_tags, repository, domain)),
+                    | Err(why) => Err(why),
+                }
+            }
+            | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
+        }
+    };
+    let response = match configured {
+        | Err(why) => Err(why),
+        | Ok(Some(runner_details)) => {
+            let operations = runner_details
+                .into_iter()
+                .map(|runner| resolve_operation(Some(&runner), runtime, target).map(|(runtime, target)| (runner, runtime, target)))
+                .collect::<Result<Vec<RunnerOperation>, Report>>();
+            match operations {
+                | Err(why) => Err(why),
+                | Ok(operations) => {
+                    let runners = join_all(operations.into_iter().map(|(runner, selected_runtime, selected_target)| {
+                        let build_result = build_target(Some(&runner));
+                        async move {
+                            let base_name = runner.name.clone().unwrap_or_else(|| DEFAULT_RUNNER_NAME.to_string());
+                            match build_result {
+                                | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
+                                    let details = RunnerDetails::at(repository)
+                                        .description(desired_description)
+                                        .docker_image(runner.docker_image.clone())
+                                        .executor(runner.executor.clone())
+                                        .runner_type(&runner_type.to_string())
+                                        .gpu_enabled(runner.gpu_enabled)
+                                        .maybe_tags(desired_tags)
+                                        .run_untagged(desired_run_untagged)
+                                        .maybe_host(Some(domain))
+                                        .maybe_target(runner.target.clone())
+                                        .build();
+                                    match create_runner(&details).await {
+                                        | Ok(response) => {
+                                            let RunnerCreationResponse { identifier, token, .. } = response;
+                                            let container_name = format!("{base_name}-{identifier}");
+                                            let details = details.with_name(container_name).with_id(identifier).with_token(token);
+                                            register_runner(RegistrationOptions {
+                                                details,
+                                                runtime: &selected_runtime,
+                                                target: selected_target.as_ref(),
+                                                verbose,
+                                            })
+                                            .await
+                                            .map(|_| ())
+                                            .map_err(|why| format!("{base_name} — {why}"))
+                                        }
+                                        | Err(why) => Err(format!("{base_name} — {why}")),
+                                    }
+                                }
+                                | Err(why) => Err(format!("{base_name} — {why}")),
+                            }
+                        }
+                    }))
+                    .await;
+                    let (successful, failed): BooleanOutcome = runners.into_iter().partition(|result| result.is_ok());
+                    let created = successful.len();
+                    let failures = failed.into_iter().filter_map(|result| result.err()).collect::<Vec<String>>();
+                    if failures.is_empty() {
+                        Ok(())
+                    } else {
+                        let attempted = created.saturating_add(failures.len());
+                        let failed = failures.len();
+                        let message = format!("Failed to create {failed} of {attempted} configured runners:\n{}", failures.join("\n"));
+                        Err(eyre!(message))
+                    }
+                }
+            }
+        }
+        | Ok(None) => match resolve_operation(None, runtime, target) {
+            | Err(why) => Err(why),
+            | Ok((selected_runtime, selected_target)) => match build_target(None) {
+                | Err(why) => Err(why),
+                | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
+                    let base_name = name
+                        .clone()
+                        .or_else(|| Some(desired_description.clone()))
+                        .unwrap_or_else(|| "gitlab-runner".to_string());
+                    let details = RunnerDetails::at(repository)
+                        .description(desired_description)
+                        .runner_type(&runner_type.to_string())
+                        .gpu_enabled(false)
+                        .maybe_tags(desired_tags)
+                        .run_untagged(desired_run_untagged)
+                        .maybe_host(Some(domain))
+                        .build();
+                    match create_runner(&details).await {
+                        | Ok(response) => {
+                            let RunnerCreationResponse { identifier, token, .. } = response;
+                            let container_name = format!("{base_name}-{identifier}");
+                            let details = details.with_name(container_name).with_id(identifier).with_token(token);
+                            register_runner(RegistrationOptions {
+                                details,
+                                runtime: &selected_runtime,
+                                target: selected_target.as_ref(),
+                                verbose,
+                            })
+                            .await
+                        }
+                        | Err(why) => Err(why),
+                    }
+                }
+            },
+        },
+    };
+    if let Err(why) = response {
+        error!("=> {} Create GitLab runner — {why}", Label::fail());
+        Err(why)
+    } else {
+        Ok(())
+    }
 }
-
 #[cfg(test)]
 mod tests;
