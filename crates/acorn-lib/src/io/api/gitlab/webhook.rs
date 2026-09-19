@@ -217,6 +217,8 @@ impl webhooks::Delivery<HookPayload> {
                     Some(format!("work-item-check:{}:{iid}:{note_id}", actor.project_id))
                 } else if human_authored && merge_request && workflow_requested(body).is_some() {
                     Some(format!("repository-process:{}:{iid}:{note_id}", actor.project_id))
+                } else if human_authored && merge_request && graduation_requested(body).is_some() {
+                    Some(format!("logbook-graduate:{}:{iid}:{note_id}", actor.project_id))
                 } else {
                     None
                 }
@@ -311,8 +313,8 @@ impl webhooks::Delivery<HookPayload> {
                 noteable_iid: Some(iid),
                 noteable_type,
                 ..
-            } if noteable_type.eq_ignore_ascii_case("mergerequest") => match workflow_requested(&body) {
-                | Some(workflow) => {
+            } if noteable_type.eq_ignore_ascii_case("mergerequest") => match (workflow_requested(&body), graduation_requested(&body)) {
+                | (Some(workflow), _) => {
                     let options = config.options.clone().with_internal_identifier(iid.to_string());
                     match super::project_member(&options, actor.user_id).await.and_then(|member| {
                         match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
@@ -331,7 +333,29 @@ impl webhooks::Delivery<HookPayload> {
                         | Err(why) => Err(why),
                     }
                 }
-                | None => Ok(()),
+                | (None, Some(accepted_ids)) => {
+                    let options = config.options.clone().with_internal_identifier(iid.to_string());
+                    match super::project_member(&options, actor.user_id).await.and_then(|member| {
+                        match member.identifier == actor.user_id && member.access_level >= DEVELOPER_ACCESS_LEVEL {
+                            | true => Ok(()),
+                            | false => Err(eyre!("GitLab logbook graduation commands require Developer access")),
+                        }
+                    }) {
+                        | Ok(()) => match &config.powerautomate {
+                            | Some(provider) => {
+                                let paths = provider.config().projects.iter().map(|project| project.path.clone()).collect::<Vec<_>>();
+                                options
+                                    .graduate_logbook(&config.operation_queue, &paths, &accepted_ids)
+                                    .await
+                                    .inspect(|result| info!("Processed GitLab logbook graduation operation: {result:?}"))
+                                    .map(|_| ())
+                            }
+                            | None => Err(eyre!("PowerAutomate project mappings are not configured")),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | (None, None) => Ok(()),
             },
             | _ => {
                 info!("Ignoring unsupported GitLab webhook operation {}", self.delivery_id);
@@ -594,6 +618,21 @@ impl WebhookError {
 pub(super) fn check_requested(content: &str) -> bool {
     let command = format!("/{APPLICATION} check");
     content.lines().any(|line| line.trim() == command)
+}
+fn graduation_requested(content: &str) -> Option<Vec<String>> {
+    let command = format!("/{APPLICATION}");
+    content.lines().find_map(|line| {
+        let mut words = line.split_whitespace();
+        match (words.next(), words.next()) {
+            | (Some(application), Some("graduate")) if application == command => {
+                let mut identifiers = words.map(str::to_string).collect::<Vec<_>>();
+                identifiers.sort();
+                identifiers.dedup();
+                Some(identifiers)
+            }
+            | _ => None,
+        }
+    })
 }
 /// Authenticate and normalize an inbound GitLab webhook request into an HTTP status
 pub(super) async fn receive(Extension(config): Extension<Arc<WebhookConfig>>, request: Request) -> Result<StatusCode, (StatusCode, String)> {

@@ -43,6 +43,7 @@
   - [Human acceptance test plan](./cli-reference/acceptance-test-plan.md)
 - [🧰 Local inference and tools](./inference/README.md)
   - [Needle sidecar](./inference/needle.md)
+- [PowerAutomate logbook reporting](./automation/powerautomate-reporting.md)
 - [Packages](./packages/README.md)
   - [Rust schemas](./packages/acorn-schema.md)
   - [Rust core library](./packages/acorn-lib.md)

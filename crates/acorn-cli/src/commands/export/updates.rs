@@ -49,10 +49,16 @@ impl LogbookUpdatesExport for LogbookUpdates {
                 )
             })
             .collect::<String>();
+        let period = self.through.as_ref().map_or_else(
+            || format!("Since {}", escape(self.since.as_str())),
+            |through| match self.since.as_str() {
+                | "full-history" => format!("Through {} (exclusive)", escape(through.as_str())),
+                | since => format!("From {} through {} (exclusive)", escape(since), escape(through.as_str())),
+            },
+        );
         format!(
-            "<!doctype html><html><head><meta charset=\"utf-8\"><style>@page{{size:letter;margin:0.75in}}body{{font-family:Arial,sans-serif}}article{{break-inside:avoid}}h1,h2{{color:#1f4e79}}</style></head><body><h1>{} updates</h1><p>Since {}</p>{}</body></html>",
+            "<!doctype html><html><head><meta charset=\"utf-8\"><style>@page{{size:letter;margin:0.75in}}body{{font-family:Arial,sans-serif}}article{{break-inside:avoid}}h1,h2{{color:#1f4e79}}</style></head><body><h1>{} updates</h1><p>{period}</p>{}</body></html>",
             escape(self.title.as_str()),
-            escape(self.since.as_str()),
             match entries.is_empty() {
                 | true => "<p><em>No updates in this period.</em></p>".to_string(),
                 | false => entries,
@@ -155,4 +161,19 @@ fn render(path: &Path, since: &str) -> ApiResult<LogbookUpdates> {
     ResearchActivity::read(path.to_path_buf())
         .map_err(|why| eyre!("Read research activity data for updates — {why}"))
         .and_then(|activity| activity.updates_since(since).map_err(|why| eyre!(why)))
+}
+#[cfg(feature = "pdf")]
+pub(crate) async fn write_pdf(updates: &LogbookUpdates, output_path: &Path, offline: bool, chrome_path: Option<&Path>) -> ApiResult<()> {
+    match pdf::initialize_page(offline, chrome_path).await {
+        | Ok(session) => {
+            let result = pdf::render_html_to_pdf(session.page(), &updates.to_html(), output_path).await;
+            session.close().await;
+            result
+        }
+        | Err(why) => Err(why),
+    }
+}
+#[cfg(not(feature = "pdf"))]
+pub(crate) async fn write_pdf(_updates: &LogbookUpdates, _output_path: &Path, _offline: bool, _chrome_path: Option<&Path>) -> ApiResult<()> {
+    Err(eyre!("PDF export requires the 'pdf' feature. Rebuild with --features pdf"))
 }

@@ -9,6 +9,7 @@ use acorn_core::validation::ValidationError;
 use bon::Builder;
 use core::cmp::Reverse;
 use core::fmt;
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
@@ -72,6 +73,8 @@ pub enum LogbookEntryOrigin {
 pub enum LogbookError {
     /// A timestamp was not a complete RFC 3339 instant with an offset.
     InvalidTimestamp(String),
+    /// A reporting window did not have an exclusive upper bound after its lower bound.
+    InvalidWindow(String),
     /// An accepted entry identifier did not identify a graduation candidate.
     UnknownGraduationIdentifier(String),
 }
@@ -208,8 +211,23 @@ pub struct LogbookUpdates {
     pub subtitle: Option<String>,
     /// Inclusive RFC 3339 lower bound used for selection.
     pub since: String,
+    /// Exclusive RFC 3339 upper bound used for selection, when bounded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub through: Option<String>,
     /// Entries at or after `since`, ordered newest first.
     pub entries: Vec<LogbookEntry>,
+}
+/// Immutable half-open reporting interval used for automated artifacts.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Validate)]
+#[validate(schema(function = "ReportingWindow::is_valid", skip_on_field_errors = false))]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ReportingWindow {
+    /// Inclusive RFC 3339 lower bound, or `None` for full history.
+    #[validate(timestamp)]
+    pub left: Option<String>,
+    /// Exclusive RFC 3339 upper bound.
+    #[validate(timestamp)]
+    pub right: String,
 }
 impl From<&ResearchActivity> for GraduationCandidates {
     fn from(activity: &ResearchActivity) -> Self {
@@ -246,7 +264,40 @@ impl From<ResearchActivity> for GraduationCandidates {
         Self::from(&activity)
     }
 }
+impl GraduationCandidates {
+    /// Render the deterministic merge-request note for the current candidates.
+    pub fn render_note(&self) -> String {
+        let candidates = self
+            .0
+            .iter()
+            .map(|candidate| format!("- `{}` → `{:?}`: {}", candidate.entry_identifier, candidate.target, candidate.value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let candidates = match candidates.is_empty() {
+            | true => "_No graduation candidates._".to_string(),
+            | false => candidates,
+        };
+        format!(
+            "<!-- acorn:logbook-intake -->\n## ACORN logbook intake\n\n### Graduation candidates\n{candidates}\n\nUse `/acorn graduate <entry-id>...` to accept selected candidates."
+        )
+    }
+}
 impl Logbook {
+    /// Select entries in a validated half-open reporting window, newest first.
+    pub fn entries_within(&self, window: &ReportingWindow) -> Result<Vec<LogbookEntry>, LogbookError> {
+        window.left_instant().and_then(|left| {
+            window.right_instant().and_then(|right| {
+                self.entries_all().map(|entries| {
+                    entries
+                        .into_iter()
+                        .filter(|entry| {
+                            rules::parse_timestamp(&entry.timestamp).is_ok_and(|instant| left.is_none_or(|left| instant >= left) && instant < right)
+                        })
+                        .collect()
+                })
+            })
+        })
+    }
     /// Select entries at or after an inclusive RFC 3339 instant, newest first.
     pub fn entries(&self, since: &str) -> Result<Vec<LogbookEntry>, LogbookError> {
         rules::parse_timestamp(since)
@@ -413,6 +464,7 @@ impl fmt::Display for LogbookError {
         match self {
             | Self::UnknownGraduationIdentifier(identifier) => write!(formatter, "No graduation candidate has identifier '{identifier}'"),
             | Self::InvalidTimestamp(value) => write!(formatter, "Invalid RFC 3339 timestamp with explicit offset: {value}"),
+            | Self::InvalidWindow(value) => write!(formatter, "Invalid reporting window: {value}"),
         }
     }
 }
@@ -471,15 +523,55 @@ impl MarkdownSupport for LogbookUpdates {
     fn to_markdown(&self) -> String {
         let subtitle = self.subtitle.as_ref().map(|value| format!("\n_{value}_\n")).unwrap_or_default();
         let entries = self.entries.iter().map(MarkdownSupport::to_markdown).collect::<Vec<_>>().join("\n\n");
+        let period = self.through.as_ref().map_or_else(
+            || format!("Since `{}`", self.since),
+            |through| match self.since.as_str() {
+                | "full-history" => format!("Through `{through}` (exclusive)"),
+                | since => format!("From `{since}` through `{through}` (exclusive)"),
+            },
+        );
         format!(
-            "# {} updates\n{subtitle}\nSince `{}`\n\n{}\n",
+            "# {} updates\n{subtitle}\n{period}\n\n{}\n",
             self.title,
-            self.since,
             match entries.is_empty() {
                 | true => "_No updates in this period._".to_string(),
                 | false => entries,
             }
         )
+    }
+}
+impl ReportingWindow {
+    /// Construct a reporting window whose upper bound is exclusive.
+    pub fn new(from: Option<&str>, through: &str) -> Result<Self, LogbookError> {
+        let window = Self {
+            left: from.map(str::to_string),
+            right: through.to_string(),
+        };
+        window
+            .validate()
+            .map_err(|why| LogbookError::InvalidWindow(why.to_string()))
+            .map(|()| window)
+    }
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        let mut report = ValidationReport::new();
+        let left = self.left.as_deref().map(rules::parse_timestamp).transpose();
+        let right = rules::parse_timestamp(&self.right);
+        if matches!((left, right), (Ok(Some(left)), Ok(right)) if left >= right) {
+            report.add(
+                "right",
+                ValidationError::new("reporting_window").with_message("The exclusive right bound must be after the inclusive left bound"),
+            );
+        }
+        report.finish()
+    }
+    fn left_instant(&self) -> Result<Option<Timestamp>, LogbookError> {
+        self.left
+            .as_deref()
+            .map(|value| rules::parse_timestamp(value).map_err(|_| LogbookError::InvalidTimestamp(value.to_string())))
+            .transpose()
+    }
+    fn right_instant(&self) -> Result<Timestamp, LogbookError> {
+        rules::parse_timestamp(&self.right).map_err(|_| LogbookError::InvalidTimestamp(self.right.clone()))
     }
 }
 impl ResearchActivity {
@@ -565,7 +657,27 @@ impl ResearchActivity {
                 title: self.title.clone(),
                 subtitle: self.subtitle.clone(),
                 since: since.to_string(),
+                through: None,
                 entries,
+            })
+    }
+    /// Select entries in a half-open reporting interval and order them newest first.
+    pub fn updates_within(&self, window: &ReportingWindow) -> Result<LogbookUpdates, LogbookError> {
+        window
+            .validate()
+            .map_err(|why| LogbookError::InvalidWindow(why.to_string()))
+            .and_then(|()| {
+                self.logbook
+                    .as_ref()
+                    .map_or(Ok(Vec::new()), |logbook| logbook.entries_within(window))
+                    .map(|entries| LogbookUpdates {
+                        identifier: self.meta.identifier.clone(),
+                        title: self.title.clone(),
+                        subtitle: self.subtitle.clone(),
+                        since: window.left.clone().unwrap_or_else(|| "full-history".to_string()),
+                        through: Some(window.right.clone()),
+                        entries,
+                    })
             })
     }
 }

@@ -33,12 +33,15 @@ use std::path::Path;
 use std::path::PathBuf;
 use tracing::warn;
 
+/// Pure logbook-entry repository proposal workflow.
+pub mod logbook;
 /// Runtime registry for named repository workflows.
 pub mod registry;
 /// Transport-neutral repository workflow data contracts.
 pub mod repository;
 mod transaction;
 
+pub use logbook::LogbookProposal;
 pub use registry::RepositoryWorkflowRegistry;
 pub use repository::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, WorkflowAction, WorkflowFileReport};
 

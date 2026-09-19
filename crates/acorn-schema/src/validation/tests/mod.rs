@@ -163,6 +163,8 @@ struct NewRules {
     timestamps: Vec<String>,
     #[validate(each(nonempty))]
     labels: Vec<String>,
+    #[validate(uuid)]
+    uuid: String,
 }
 #[derive(Serialize, Validate)]
 struct OptionalRules<'a> {
@@ -704,6 +706,14 @@ fn test_or_passes_any_alternative_and_reports_one_structured_failure() {
     );
 }
 #[test]
+fn test_parse_timestamp_returns_the_validated_instant() {
+    assert_eq!(
+        super::rules::parse_timestamp("2026-08-29T12:30:00-04:00").map(|timestamp| timestamp.to_string()),
+        Ok("2026-08-29T16:30:00Z".to_string())
+    );
+    assert!(super::rules::parse_timestamp("2026-08-29").is_err());
+}
+#[test]
 fn test_pid_rules_delegate_to_canonical_validation() {
     assert!(DoiModel {
         doi: "https://doi.org/10.1000/182".to_string()
@@ -777,6 +787,7 @@ fn test_timestamp_and_nonempty_cover_direct_optional_and_each_values() {
         optional: None,
         timestamps: vec!["2026-08-29T16:30:00Z".to_string()],
         labels: vec!["ACORN".to_string(), "\u{2003}research".to_string()],
+        uuid: "123e4567-e89b-12d3-a456-426614174000".to_string(),
     };
     assert!(valid.validate().is_ok());
     let report = NewRules {
@@ -785,17 +796,18 @@ fn test_timestamp_and_nonempty_cover_direct_optional_and_each_values() {
         optional: Some(" \u{2003}\n".to_string()),
         timestamps: vec!["2026-08-29T16:30:00Z".to_string(), "2026-08-29T12:30:00".to_string()],
         labels: vec!["valid".to_string(), "\t".to_string()],
+        uuid: "not-a-uuid".to_string(),
     }
     .validate()
     .expect_err("invalid timestamps and whitespace-only text should fail");
     let issues = report.iter().collect::<Vec<_>>();
     assert_eq!(
         issues.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>(),
-        ["timestamp", "optional_timestamp", "optional", "timestamps[1]", "labels[1]"]
+        ["timestamp", "optional_timestamp", "optional", "timestamps[1]", "labels[1]", "uuid"]
     );
     assert_eq!(
         issues.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
-        ["timestamp", "timestamp", "text", "timestamp", "nonempty"]
+        ["timestamp", "timestamp", "text", "timestamp", "nonempty", "uuid"]
     );
     assert_eq!(
         issues
@@ -804,14 +816,6 @@ fn test_timestamp_and_nonempty_cover_direct_optional_and_each_values() {
             .and_then(|issue| issue.error.message.as_deref()),
         Some("text is required")
     );
-}
-#[test]
-fn test_parse_timestamp_returns_the_validated_instant() {
-    assert_eq!(
-        super::rules::parse_timestamp("2026-08-29T12:30:00-04:00").map(|timestamp| timestamp.to_string()),
-        Ok("2026-08-29T16:30:00Z".to_string())
-    );
-    assert!(super::rules::parse_timestamp("2026-08-29").is_err());
 }
 #[test]
 fn test_timestamp_requires_a_complete_valid_instant_with_an_explicit_offset() {

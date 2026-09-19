@@ -11,10 +11,6 @@ Dependency order does not by itself prove that plans are safe to run concurrentl
 ## Highest-priority RPC and automation path
 
 ```text
-PowerApps logbook intake and sponsor reporting
-
-             then
-
 Protobuf/gRPC transport
           |
           v
@@ -24,7 +20,7 @@ ACP inference and verified fixes
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed scheduling order. PowerApps reporting consumes the completed JSON-RPC operation registry, webhook runtime, GitLab repository automation, canonical RAD persistence, logbook graduation, and updates PDF foundations; it does not make gRPC a functional dependency. After its MVP exit gate releases the shared integration locks, tonic/prost adds a sibling binary transport, ACP maps official SDK sessions to the same services, and the RMCP client adds outbound MCP interoperability without replacing either protocol.
+This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. Tonic/prost next adds a sibling binary transport, ACP maps official SDK sessions to the same services, and the RMCP client adds outbound MCP interoperability without replacing either protocol.
 
 ## Critical portability path
 
@@ -95,7 +91,7 @@ isolate std-only modules   host abstraction traits
 - The implemented `io::api::json_rpc` runtime establishes typed service registration and direct JSON-RPC 2.0 request/notification dispatch.
 - The implemented `io::api::webhooks` runtime consumes the operation registry and provides durable operations and callbacks, shared outcome timestamps, readiness, and graceful draining.
 - GitLab repository automation consumes both implemented foundations and proves registered flat-file workflows against exact repository revisions with deployment-owned policy and durable effect reconciliation.
-- [PowerApps logbook intake and sponsor reporting](features/powerapps-gitlab-logbook-reporting.md) reuses those foundations for signed form intake, rolling bucket merge requests, reviewer-controlled graduation, bounded monthly PDF reports, immutable GitLab packages, and signed PowerAutomate callbacks. All PowerAutomate protocol code remains isolated to `io::api::powerautomate`.
+- The implemented [PowerAutomate reporting workflow](../docs/src/automation/powerautomate-reporting.md) reuses those foundations for shared-secret form intake, rolling bucket merge requests, reviewer-controlled graduation, bounded monthly PDF reports, immutable GitLab packages, and SAS-authenticated callbacks. Its [deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds generic ACORN secret generation without reclaiming the shared API transport lock. All PowerAutomate protocol code remains isolated to `io::api::powerautomate`.
 - [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md) follows the stable operation contract and adds tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
@@ -119,8 +115,8 @@ isolate std-only modules   host abstraction traits
 
 ### Database-backed artifacts
 
-- [PowerApps logbook intake and sponsor reporting](features/powerapps-gitlab-logbook-reporting.md) uses merged bucket files for its MVP and establishes bounded reporting-window and artifact-manifest contracts.
-- [Database-backed artifact generation](features/database-backed-artifact-generation.md) consumes the implemented canonical database contract and later reuses those reporting contracts; it is not an MVP prerequisite for PowerApps reporting.
+- The implemented [PowerAutomate reporting workflow](../docs/src/automation/powerautomate-reporting.md) uses merged bucket files and establishes bounded reporting-window and artifact-manifest contracts.
+- [Database-backed artifact generation](features/database-backed-artifact-generation.md) consumes the implemented canonical database contract and later reuses those reporting contracts.
 
 ## Scheduling conflicts and shared files
 

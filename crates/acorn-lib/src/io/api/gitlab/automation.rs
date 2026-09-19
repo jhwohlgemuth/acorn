@@ -1,17 +1,22 @@
 //! Typed GitLab repository publication for registered workflows
 use super::effects::Effect;
 use super::{
-    merge_request, merge_request_diffs, repository_file, DeploymentConfig, ErrorResponse, Fallback, MergeRequestDetails, Options, WorkflowEffect,
+    merge_request, merge_request_diffs, project_details, repository_file, DeploymentConfig, ErrorResponse, Fallback, MergeRequestDetails, Options,
+    WorkflowEffect,
 };
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::api::{self, require_non_empty_secret, Configuration, EmptyField, Endpoint, Params, RemoteResource};
 use crate::io::http::HttpResponseError;
-use crate::io::workflow::{FileChange, FileChangeKind, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, RepositoryWorkflowRegistry};
+use crate::io::workflow::{
+    FileChange, FileChangeKind, LogbookProposal, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, RepositoryWorkflowRegistry,
+};
 use crate::io::{ApiResult, SafePath};
 use crate::util::constants::app::APPLICATION;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_schema::research_activity::{GraduationCandidates, LogbookEntry, ResearchActivity};
+use bon::Builder;
 use color_eyre::eyre::eyre;
 use data_encoding::HEXLOWER;
 use futures::stream::{self, StreamExt, TryStreamExt};
@@ -49,7 +54,8 @@ struct BranchRequest<'a> {
     reference: &'a str,
 }
 /// Minimal GitLab commit response.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Builder, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[builder(start_fn = init, on(String, into))]
 pub struct Commit {
     /// Commit SHA.
     pub id: String,
@@ -70,6 +76,22 @@ struct CommitRequest<'a> {
     actions: Vec<CommitAction<'a>>,
     branch: &'a str,
     commit_message: &'a str,
+}
+/// Result of listing or applying explicit logbook graduation candidates.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct GraduationResult {
+    /// Candidates remaining after the command.
+    pub candidates: GraduationCandidates,
+    /// Publication details when selected candidates changed the branch.
+    pub publication: Option<PublishResult>,
+}
+/// Result of publishing one logbook entry to a rolling review merge request.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct LogbookPublishResult {
+    /// Current deterministic graduation candidates.
+    pub candidates: GraduationCandidates,
+    /// Rolling branch and merge-request publication details.
+    pub publication: PublishResult,
 }
 /// Minimal GitLab merge-request response used by automation.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -100,6 +122,31 @@ pub struct PublishResult {
     pub commit: Commit,
     /// Draft merge request created or reused for review.
     pub merge_request: MergeRequest,
+}
+impl GraduationResult {
+    /// Render the deterministic merge-request note for a graduation result.
+    pub fn render_note(&self, accepted_ids: &[String]) -> String {
+        let accepted = match accepted_ids.is_empty() {
+            | true => "_No candidates selected; repository content was not changed._".to_string(),
+            | false => accepted_ids
+                .iter()
+                .map(|identifier| format!("- `{identifier}`"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        };
+        let remaining = self
+            .candidates
+            .0
+            .iter()
+            .map(|candidate| format!("- `{}` → `{:?}`: {}", candidate.entry_identifier, candidate.target, candidate.value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let remaining = match remaining.is_empty() {
+            | true => "_No graduation candidates remain._".to_string(),
+            | false => remaining,
+        };
+        format!("<!-- acorn:logbook-graduation -->\n## ACORN logbook graduation\n\n### Accepted\n{accepted}\n\n### Remaining candidates\n{remaining}")
+    }
 }
 impl MergeRequestDetails {
     /// Process supported flat files at this merge-request head and publish a draft correction merge request.
@@ -186,22 +233,15 @@ impl MergeRequestDetails {
                                                                     Err(eyre!("GitLab merge request did not report a publication target branch"))
                                                                 }
                                                                 | false => {
-                                                                    let publication_options = options.clone().with_identifier(destination);
+                                                                    let publication_options =
+                                                                        options.clone().with_identifier(destination).with_workflow(workflow);
                                                                     match effects {
                                                                         | Some(effects) => {
                                                                             change_set
-                                                                                .publish_reconciled(
-                                                                                    workflow,
-                                                                                    target_branch,
-                                                                                    &publication_options,
-                                                                                    effects,
-                                                                                    None,
-                                                                                )
+                                                                                .publish_reconciled(target_branch, &publication_options, effects)
                                                                                 .await
                                                                         }
-                                                                        | None => {
-                                                                            change_set.publish(workflow, target_branch, &publication_options).await
-                                                                        }
+                                                                        | None => change_set.publish(target_branch, &publication_options).await,
                                                                     }
                                                                     .map(
                                                                         |publication| AutomationResult {
@@ -273,6 +313,196 @@ impl Options {
                 .into_iter()
                 .find(|merge_request| merge_request.source_branch == source_branch)
         })
+    }
+    /// List or apply selected logbook graduation candidates on the current merge-request branch.
+    pub async fn graduate_logbook(&self, effects: &OperationQueue, paths: &[String], accepted_ids: &[String]) -> ApiResult<GraduationResult> {
+        match self.graduation_context(paths).await {
+            | Ok((details, path, activity)) => {
+                let result = match accepted_ids.is_empty() {
+                    | true => Ok(GraduationResult {
+                        candidates: GraduationCandidates::from(activity),
+                        publication: None,
+                    }),
+                    | false => {
+                        let prepared = activity
+                            .graduate(accepted_ids)
+                            .map_err(|why| eyre!(why))
+                            .and_then(|graduated| {
+                                let candidates = GraduationCandidates::from(&graduated);
+                                serde_json::to_string_pretty(&graduated)
+                                    .map_err(|why| eyre!("Failed to serialize graduated research activity — {why}"))
+                                    .map(|content| RepositoryChangeSet {
+                                        base_revision: details.sha.clone(),
+                                        files: vec![FileChange {
+                                            content: format!("{content}\n"),
+                                            kind: FileChangeKind::Update,
+                                            path,
+                                        }],
+                                        reports: Vec::new(),
+                                    })
+                                    .map(|changes| (candidates, changes))
+                            })
+                            .and_then(|(candidates, changes)| {
+                                match (details.source_branch.trim().is_empty(), details.target_branch.trim().is_empty()) {
+                                    | (true, _) => Err(eyre!("GitLab merge request did not report a source branch")),
+                                    | (_, true) => Err(eyre!("GitLab merge request did not report a target branch")),
+                                    | _ => Ok((candidates, changes)),
+                                }
+                            });
+                        match prepared {
+                            | Ok((candidates, changes)) => {
+                                let publish_options = self.clone().with_branch(details.source_branch.clone()).with_workflow("logbook-graduate");
+                                changes
+                                    .publish_reconciled_strict(&details.target_branch, &publish_options, effects)
+                                    .await
+                                    .map(|publication| GraduationResult {
+                                        candidates,
+                                        publication: Some(publication),
+                                    })
+                            }
+                            | Err(why) => Err(why),
+                        }
+                    }
+                };
+                match result {
+                    | Ok(result) => {
+                        let note = result.render_note(accepted_ids);
+                        let note_options = self.clone().with_internal_identifier(details.iid.to_string());
+                        let project = self.identifier().unwrap_or("unknown");
+                        let merge_request = details.iid.to_string();
+                        let key = Effect::content_key(["gitlab", project, "merge-request", merge_request.as_str(), "graduation-note"], &note);
+                        Effect::new(key, "gitlab-note", Some(effects))
+                            .merge_request_note(&note_options, "<!-- acorn:logbook-graduation -->", &note)
+                            .await
+                            .map(|_| result)
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    async fn graduation_context(&self, paths: &[String]) -> ApiResult<(MergeRequestDetails, String, ResearchActivity)> {
+        match merge_request(self).await {
+            | Ok(details) => match merge_request_diffs(self).await {
+                | Ok(diffs) => {
+                    let found = diffs
+                        .into_iter()
+                        .map(|diff| diff.new_path)
+                        .find(|path| paths.contains(path))
+                        .ok_or_else(|| eyre!("Merge request does not change a configured automated-intake project path"));
+                    match found {
+                        | Ok(path) => match repository_file(&self.clone().with_path(&path).with_sha(&details.sha)).await {
+                            | Ok(file) => file
+                                .decoded_content()
+                                .and_then(|content| {
+                                    String::from_utf8(content).map_err(|why| eyre!("GitLab repository file '{path}' is not UTF-8 — {why}"))
+                                })
+                                .and_then(|content| {
+                                    serde_json::from_str::<ResearchActivity>(&content)
+                                        .map_err(|why| eyre!("Failed to parse research activity for graduation — {why}"))
+                                })
+                                .map(|activity| (details, path, activity)),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
+    }
+    /// Publish one logbook entry to a stable rolling branch and draft merge request.
+    pub async fn publish_logbook_entry(&self, entry: LogbookEntry, effects: &OperationQueue, path: &str) -> ApiResult<LogbookPublishResult> {
+        match self.branch() {
+            | Ok(branch) => self.publish_logbook_entry_on(entry, effects, path, branch).await,
+            | Err(why) => Err(why),
+        }
+    }
+    async fn publish_logbook_entry_on(
+        &self,
+        entry: LogbookEntry,
+        effects: &OperationQueue,
+        path: &str,
+        branch: &str,
+    ) -> ApiResult<LogbookPublishResult> {
+        match self.logbook_context(branch, path).await {
+            | Ok((target_branch, source_revision, content)) => {
+                let proposal = LogbookProposal {
+                    base_revision: source_revision.clone(),
+                    content: content.clone(),
+                    entry,
+                    path: path.to_string(),
+                };
+                let planned = RepositoryChangeSet::try_from(proposal).and_then(|changes| {
+                    let activity_content = changes.files.first().map_or(content.as_str(), |change| change.content.as_str());
+                    serde_json::from_str::<ResearchActivity>(activity_content)
+                        .map_err(|why| eyre!("Failed to parse proposed research activity — {why}"))
+                        .map(GraduationCandidates::from)
+                        .map(|candidates| (changes, candidates))
+                });
+                match planned {
+                    | Ok((changes, candidates)) => {
+                        let publication = match changes.files.is_empty() {
+                            | true => match self.find_open_merge_request(branch).await {
+                                | Ok(Some(merge_request)) => Ok(PublishResult {
+                                    branch: branch.to_string(),
+                                    commit: Commit::init().id(source_revision).build(),
+                                    merge_request,
+                                }),
+                                | Ok(None) => Err(eyre!("Identical logbook entry has no open rolling merge request")),
+                                | Err(why) => Err(why),
+                            },
+                            | false => changes.publish_reconciled_strict(&target_branch, self, effects).await,
+                        };
+                        match publication {
+                            | Ok(publication) => {
+                                let note = candidates.render_note();
+                                let note_options = self.clone().with_internal_identifier(publication.merge_request.iid.to_string());
+                                let project = self.identifier().unwrap_or("unknown");
+                                let merge_request = publication.merge_request.iid.to_string();
+                                let key = Effect::content_key(["gitlab", project, "merge-request", merge_request.as_str(), "logbook-note"], &note);
+                                Effect::new(key, "gitlab-note", Some(effects))
+                                    .merge_request_note(&note_options, "<!-- acorn:logbook-intake -->", &note)
+                                    .await
+                                    .map(|_| LogbookPublishResult { candidates, publication })
+                            }
+                            | Err(why) => Err(why),
+                        }
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | Err(why) => Err(why),
+        }
+    }
+    async fn logbook_context(&self, branch: &str, path: &str) -> ApiResult<(String, String, String)> {
+        match project_details(self).await {
+            | Ok(project) => match project.default_branch.ok_or_else(|| eyre!("GitLab project has no default branch")) {
+                | Ok(target_branch) => {
+                    let source_revision = match self.find_branch(branch).await {
+                        | Ok(branch) => Ok(branch.commit.id),
+                        | Err(why) if is_not_found(&why) => self.branch_head(&target_branch).await,
+                        | Err(why) => Err(why),
+                    };
+                    match source_revision {
+                        | Ok(source_revision) => match repository_file(&self.clone().with_path(path).with_sha(&source_revision)).await {
+                            | Ok(file) => file
+                                .decoded_content()
+                                .and_then(|content| {
+                                    String::from_utf8(content).map_err(|why| eyre!("GitLab repository file '{path}' is not UTF-8 — {why}"))
+                                })
+                                .map(|content| (target_branch, source_revision, content)),
+                            | Err(why) => Err(why),
+                        },
+                        | Err(why) => Err(why),
+                    }
+                }
+                | Err(why) => Err(why),
+            },
+            | Err(why) => Err(why),
+        }
     }
     async fn invoke<T: DeserializeOwned>(&self, action: &str, custom: Vec<api::Param>) -> ApiResult<T> {
         let path = format!("gitlab::api::{action}");
@@ -350,31 +580,31 @@ impl RepositoryChangeSet {
         }
     }
     /// Publish this deterministic change set to a bot branch and draft merge request.
-    pub async fn publish(&self, workflow: &str, target_branch: &str, options: &Options) -> ApiResult<PublishResult> {
-        self.publish_with(workflow, target_branch, options, None, None).await
+    pub async fn publish(&self, target_branch: &str, options: &Options) -> ApiResult<PublishResult> {
+        self.publish_with(target_branch, options, None, None).await
     }
-    pub(crate) async fn publish_reconciled(
-        &self,
-        workflow: &str,
-        target_branch: &str,
-        options: &Options,
-        effects: &OperationQueue,
-        branch: Option<&str>,
-    ) -> ApiResult<PublishResult> {
-        self.publish_with(workflow, target_branch, options, Some(effects), branch).await
+    pub(crate) async fn publish_reconciled(&self, target_branch: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
+        self.publish_with(target_branch, options, Some(effects), None).await
+    }
+    async fn publish_reconciled_strict(&self, target_branch: &str, options: &Options, effects: &OperationQueue) -> ApiResult<PublishResult> {
+        self.publish_with(target_branch, options, Some(effects), Some(&self.base_revision)).await
     }
     async fn publish_with(
         &self,
-        workflow: &str,
         target_branch: &str,
         options: &Options,
         effects: Option<&OperationQueue>,
-        branch: Option<&str>,
+        expected_branch_head: Option<&str>,
     ) -> ApiResult<PublishResult> {
-        match self.files.is_empty() {
-            | true => Err(eyre!("Repository workflow produced no file changes")),
-            | false => {
-                let branch_name = branch.map(str::to_string).unwrap_or_else(|| self.branch_name(workflow));
+        match (self.files.is_empty(), options.workflow()) {
+            | (true, _) => Err(eyre!("Repository workflow produced no file changes")),
+            | (_, Err(why)) => Err(why),
+            | (false, Ok(workflow)) => {
+                let branch_name = options
+                    .branch
+                    .as_deref()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| self.branch_name(workflow));
                 let project = options.identifier().unwrap_or("unknown");
                 let branch_effect = Effect::new(["gitlab", project, "branch", &branch_name], "gitlab-branch", effects);
                 match branch_effect.begin() {
@@ -384,6 +614,11 @@ impl RepositoryChangeSet {
                             | None => options.create_branch(&branch_name, &self.base_revision).await,
                         };
                         match branch {
+                            | Ok(branch) if expected_branch_head.is_some_and(|expected| expected != branch.commit.id) => Err(eyre!(
+                                "GitLab rolling branch head changed from {} to {} before publication",
+                                expected_branch_head.unwrap_or_default(),
+                                branch.commit.id
+                            )),
                             | Ok(branch) => match branch_effect.succeed(&branch) {
                                 | Ok(()) => {
                                     let reconciled = match effects {
@@ -393,14 +628,10 @@ impl RepositoryChangeSet {
                                     match reconciled {
                                         | Ok(changes) => {
                                             let commit = match changes.files.is_empty() {
-                                                | true => Ok(Commit {
-                                                    id: branch.commit.id,
-                                                    web_url: None,
-                                                }),
-                                                | false if effects.is_none() && branch.commit.id != self.base_revision => Ok(Commit {
-                                                    id: branch.commit.id,
-                                                    web_url: None,
-                                                }),
+                                                | true => Ok(Commit::init().id(branch.commit.id).build()),
+                                                | false if effects.is_none() && branch.commit.id != self.base_revision => {
+                                                    Ok(Commit::init().id(branch.commit.id).build())
+                                                }
                                                 | false => {
                                                     let message = format!("Apply {} workflow {workflow}", APPLICATION.to_ascii_uppercase());
                                                     let request = changes.commit_request(&branch_name, &message);

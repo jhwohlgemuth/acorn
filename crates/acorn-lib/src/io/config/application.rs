@@ -5,6 +5,8 @@
 use crate::exec::manifest::ScriptManifestSource;
 #[cfg(feature = "agentic")]
 use crate::io::api::gitlab::DeploymentConfig;
+#[cfg(feature = "agentic")]
+use crate::io::api::powerautomate::PowerAutomateConfig;
 use crate::io::api::Endpoint;
 use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
 use crate::io::sync::ConfigExt;
@@ -99,6 +101,11 @@ pub struct ApplicationConfiguration {
     /// List of models to download — bare IDs/paths or detailed download entries
     #[eserde(compat)]
     pub models: Option<Vec<ModelEntry>>,
+    /// Deployment-owned PowerAutomate form intake and callback configuration.
+    #[cfg(feature = "agentic")]
+    #[eserde(compat)]
+    #[serde(rename = "powerAutomate")]
+    pub power_automate: Option<PowerAutomateConfig>,
     /// Named OCI registry profiles referenced by model entries.
     #[eserde(compat)]
     pub registries: Option<HashMap<String, RegistryProfile>>,
@@ -495,6 +502,12 @@ impl Validate for ApplicationConfiguration {
     fn validate(&self) -> Result<(), ValidationReport> {
         let entries = self.scripts.as_deref().unwrap_or_default();
         let mut report = ValidationReport::new();
+        #[cfg(feature = "agentic")]
+        if let Some(power_automate) = &self.power_automate {
+            if let Err(errors) = power_automate.validate() {
+                report.append_prefixed("powerAutomate", errors);
+            }
+        }
         entries.iter().enumerate().for_each(|(index, entry)| {
             if let Err(errors) = entry.validate() {
                 report.append_prefixed(&format!("scripts[{index}]"), errors);

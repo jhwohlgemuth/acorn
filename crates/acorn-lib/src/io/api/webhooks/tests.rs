@@ -78,6 +78,7 @@ impl HttpService for RecordingService {
         }
     }
 }
+
 #[test]
 fn test_callback_headers_make_diagnostic_secrecy_explicit() {
     let public = CallbackHeader::public("x-event-kind", "created").unwrap();
@@ -155,6 +156,34 @@ fn test_effect_results_are_durable_typed_and_kind_safe() {
         .contains("already assigned"));
 }
 #[tokio::test]
+async fn test_outbound_callback_failures_are_recorded_for_retry() {
+    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callback-retry-{}.db", nanoid::nanoid!())));
+    queue
+        .enqueue_callback("callback-retry", "audit", &serde_json::json!({"event": "complete"}))
+        .unwrap();
+    let worker = store::CallbackWorker::new(
+        queue.clone(),
+        RecordingService {
+            error: true,
+            ..RecordingService::default()
+        },
+        FakeCallbackResolver,
+        jiff::SignedDuration::from_mins(5),
+    );
+    assert!(worker
+        .run_once()
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("Webhook callback transport failed"));
+    assert_eq!(
+        queue.callback_state("callback-retry").unwrap(),
+        Some(store::OperationState::RetryableFailure)
+    );
+    assert_eq!(queue.callback_attempts("callback-retry").unwrap(), 1);
+    assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
+}
+#[tokio::test]
 async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durably() {
     let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callbacks-{}.db", nanoid::nanoid!())));
     assert!(queue
@@ -193,34 +222,6 @@ async fn test_outbound_callbacks_are_persisted_deduplicated_and_attempted_durabl
                 })
         })
         .unwrap();
-}
-#[tokio::test]
-async fn test_outbound_callback_failures_are_recorded_for_retry() {
-    let queue = store::OperationQueue::from(temp_dir().join(format!("acorn-webhook-callback-retry-{}.db", nanoid::nanoid!())));
-    queue
-        .enqueue_callback("callback-retry", "audit", &serde_json::json!({"event": "complete"}))
-        .unwrap();
-    let worker = store::CallbackWorker::new(
-        queue.clone(),
-        RecordingService {
-            error: true,
-            ..RecordingService::default()
-        },
-        FakeCallbackResolver,
-        jiff::SignedDuration::from_mins(5),
-    );
-    assert!(worker
-        .run_once()
-        .await
-        .unwrap_err()
-        .to_string()
-        .contains("Webhook callback transport failed"));
-    assert_eq!(
-        queue.callback_state("callback-retry").unwrap(),
-        Some(store::OperationState::RetryableFailure)
-    );
-    assert_eq!(queue.callback_attempts("callback-retry").unwrap(), 1);
-    assert!(queue.runtime_timestamps().unwrap().last_error_at.is_some());
 }
 #[tokio::test]
 async fn test_provider_pipeline_is_durable_sorted_and_dispatchable() {
@@ -438,6 +439,32 @@ fn test_standard_webhooks_rejects_stale_and_future_timestamps() {
             .unwrap_err();
         assert_eq!(error.kind(), ErrorKind::Unauthorized);
     }
+}
+#[tokio::test]
+async fn test_standard_webhooks_signer_authenticates_exact_body_bytes() {
+    let secret = format!("whsec_{}", BASE64.encode(b"signing-key"));
+    let signer = StandardWebhooksSigner::new(secret.clone()).unwrap();
+    let service = RecordingService::default();
+    let target = CallbackTarget::new("https://example.test/callback").unwrap();
+    let now = Timestamp::from_second(1_700_000_000).unwrap();
+    let body = br#"{"event":"created","order":[2,1]}"#;
+    dispatch_signed(&service, &target, body, &[], &signer, "callback-1", now).await.unwrap();
+    let request = service.request.lock().unwrap();
+    let request = request.as_ref().unwrap();
+    assert_eq!(request.body.as_deref(), Some(body.as_slice()));
+    assert_eq!(request.json_body, None);
+    let verifier = StandardWebhooksVerifier::new(secret, 300).unwrap();
+    let verified = verifier
+        .verify(
+            InboundRequest {
+                headers: &request.headers,
+                raw_body: request.body.as_deref().unwrap(),
+            },
+            now,
+        )
+        .unwrap();
+    assert_eq!(verified.delivery_id, "callback-1");
+    assert_eq!(verified.raw_body, body);
 }
 #[test]
 fn test_standard_webhooks_verifies_raw_bytes_and_rotated_signatures() {

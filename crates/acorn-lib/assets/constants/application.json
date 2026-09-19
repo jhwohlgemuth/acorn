@@ -196,6 +196,21 @@
           "template": "{{ base }}/projects/{{ identifier }}/merge_requests/{{ internal_identifier }}{{ query }}"
         },
         {
+          "name": "package-file",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/packages/generic/{{ package }}/{{ version }}/{{ file }}"
+        },
+        {
+          "name": "package-file::upload",
+          "method": "put",
+          "template": "{{ base }}/projects/{{ identifier }}/packages/generic/{{ package }}/{{ version }}/{{ file }}"
+        },
+        {
+          "name": "packages",
+          "method": "get",
+          "template": "{{ base }}/projects/{{ identifier }}/packages{{ query }}"
+        },
+        {
           "name": "projects",
           "method": "get",
           "template": "{{ base }}/projects/{{ identifier }}{{ query }}"

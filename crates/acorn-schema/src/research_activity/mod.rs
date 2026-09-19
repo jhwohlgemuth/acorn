@@ -55,7 +55,7 @@ pub use common::{
 };
 pub use logbook::{
     GraduationCandidate, GraduationCandidates, GraduationTarget, Logbook, LogbookCategory, LogbookDiscovery, LogbookEntry, LogbookEntryOrigin,
-    LogbookError, LogbookEventType, LogbookState, LogbookUpdates,
+    LogbookError, LogbookEventType, LogbookState, LogbookUpdates, ReportingWindow,
 };
 use markdown::Document;
 pub use output::ResearchOutput;

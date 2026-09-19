@@ -92,6 +92,23 @@ async fn test_http_get_retries_anonymously_when_configured_credentials_are_rejec
     assert_eq!(requests.load(Ordering::SeqCst), 2);
     server.stop().await.unwrap();
 }
+#[test]
+fn test_http_response_success_accepts_2xx_and_reports_other_statuses() {
+    let response = HttpResponse {
+        body: Vec::new(),
+        headers: HeaderMap::new(),
+        status_code: StatusCode::NO_CONTENT.as_u16(),
+    };
+    assert_eq!(response.success("read resource").expect("successful response").status_code, 204);
+    let error = HttpResponse {
+        body: Vec::new(),
+        headers: HeaderMap::new(),
+        status_code: StatusCode::BAD_GATEWAY.as_u16(),
+    }
+    .success("read resource")
+    .expect_err("failed response");
+    assert_eq!(error.to_string(), "Failed to read resource — HTTP 502");
+}
 #[tokio::test]
 async fn test_restricted_request_refuses_redirects() {
     let destination_calls = Arc::new(AtomicUsize::new(0));

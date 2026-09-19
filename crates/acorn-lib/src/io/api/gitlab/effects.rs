@@ -93,10 +93,10 @@ impl<'a> Effect<'a> {
     pub(crate) fn content_key<I, S>(parts: I, content: &str) -> Vec<String>
     where
         I: IntoIterator<Item = S>,
-        S: Into<String>,
+        S: AsRef<str>,
     {
         let fingerprint = HEXLOWER.encode(digest(&SHA256, content.as_bytes()).as_ref());
-        parts.into_iter().map(Into::into).chain(once(fingerprint)).collect()
+        parts.into_iter().map(|part| part.as_ref().to_string()).chain(once(fingerprint)).collect()
     }
     pub(crate) async fn merge_request_note(&self, options: &Options, marker: &str, body: &str) -> ApiResult<Note> {
         match self.result() {

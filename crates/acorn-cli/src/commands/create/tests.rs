@@ -1,8 +1,10 @@
 use super::mcp::run;
+use super::secret::deliver;
 use crate::cli::arguments;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::Platform;
 use acorn_schema::modelkit::kitfile::Kitfile;
+use core::cell::RefCell;
 use std::fs::{read_to_string, write};
 
 #[test]
@@ -51,4 +53,14 @@ fn test_create_mcp_upserts_kitfile_idempotently() {
     let server = parsed.mcp_servers.first().expect("ACORN MCP server");
     assert_eq!(server.path, "bundles/acorn.mcpb");
     assert!(server.layer.digest.is_none());
+}
+#[test]
+fn test_deliver_copies_without_printing_the_secret() {
+    let copied = RefCell::new(String::new());
+    let result = deliver("generated-secret".to_string(), true, |value| {
+        copied.replace(value);
+        Ok(())
+    });
+    assert!(result.is_ok());
+    assert_eq!(copied.into_inner(), "generated-secret");
 }

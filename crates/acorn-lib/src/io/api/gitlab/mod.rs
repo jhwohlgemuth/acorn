@@ -12,6 +12,7 @@ use crate::io::database::{Database, Operations};
 use crate::io::{with_progress, ApiResult, ProgressType};
 use crate::util::constants::app::{GITLAB_CREDENTIAL_VARIABLE_PAIRS, GITLAB_PRIVATE_TOKEN_HEADER};
 use crate::util::Label;
+use crate::With;
 use acorn_core::prelude::HashMap;
 use acorn_core::util::{Searchable, SemanticVersion};
 use acorn_schema::validation::{is_iso_date_or_rfc3339_timestamp, Validate};
@@ -39,6 +40,8 @@ mod effects;
 #[cfg(all(feature = "agentic", feature = "analysis"))]
 pub mod intake;
 #[cfg(feature = "agentic")]
+pub mod package;
+#[cfg(feature = "agentic")]
 pub mod policy;
 #[cfg(all(feature = "agentic", feature = "analysis"))]
 pub mod review;
@@ -46,6 +49,8 @@ pub mod service;
 #[cfg(feature = "agentic")]
 pub mod webhook;
 
+#[cfg(feature = "agentic")]
+pub use package::{Package, PackageLifecycle, PackageOptions, ReportManifest, ReportStatus};
 #[cfg(feature = "agentic")]
 pub use policy::{DeploymentConfig, WorkflowEffect, WorkflowOutputMode, WorkflowOutputs, WorkflowPolicy};
 pub use service::*;
@@ -665,44 +670,67 @@ pub struct NoteMetadata {
     pub commands_changes: serde_json::Value,
 }
 /// Options for GitLab API requests
-#[derive(Builder, Clone, Redact)]
+#[derive(Builder, Clone, Redact, With)]
 #[builder(start_fn = with_token, on(String, into), on(api::Secret, into))]
 pub struct Options {
     /// Authentication token
     #[builder(start_fn)]
     #[redact]
+    #[with(skip)]
     pub token: api::Secret,
     /// HTTP header used to send the authentication token.
     #[builder(default = GITLAB_PRIVATE_TOKEN_HEADER)]
+    #[with(skip)]
     pub token_header: &'static str,
     /// Request body payload
+    #[with(skip)]
     pub body: Option<String>,
+    /// Stable source branch used by repository automation.
+    #[with(public, some)]
+    pub branch: Option<String>,
     /// Commit-status description
+    #[with(skip)]
     pub description: Option<String>,
     /// GitLab domain (defaults to gitlab.com)
     #[builder(default = String::from("gitlab.com"))]
+    #[with(skip)]
     pub domain: String,
     #[cfg(feature = "agentic")]
     /// Durable operation queue used to reconcile webhook effects.
+    #[with(skip)]
     pub effects: Option<OperationQueue>,
     /// Project or group identifier
+    #[with(skip)]
     pub identifier: Option<String>,
     /// Repository path used for tree requests
+    #[with(skip)]
     pub path: Option<String>,
+    /// Stable automated-artifact project identifier.
+    #[with(public, some)]
+    pub project_id: Option<String>,
     /// Page number to retrieve
     #[builder(default = 1)]
+    #[with(skip)]
     pub page: u32,
     /// Internal resource identifier (e.g., merge request IID)
+    #[with(skip)]
     pub internal_identifier: Option<String>,
     /// Numeric merge request internal identifier
+    #[with(skip)]
     pub merge_request_iid: Option<u64>,
     /// Exact commit SHA used by head-specific operations
+    #[with(skip)]
     pub sha: Option<String>,
+    /// Registered repository workflow name.
+    #[with(public, some)]
+    pub workflow: Option<String>,
     /// GitLab runner metadata necessary for creation
     #[builder(default = RunnerMetadata::default())]
+    #[with(skip)]
     pub runner_metadata: RunnerMetadata,
     /// Custom API parameters to include in every request
     #[builder(default = vec![])]
+    #[with(skip)]
     pub custom_params: Vec<Param>,
 }
 /// Language metadata details from GitLab languages YAML file
@@ -1302,12 +1330,15 @@ impl Configuration for Options {
             sha: var("CI_COMMIT_SHA").ok(),
             domain: var("CI_SERVER_HOST").unwrap_or_else(|_| "gitlab.com".to_string()),
             body: None,
+            branch: None,
             description: None,
             #[cfg(feature = "agentic")]
             effects: None,
             path: None,
+            project_id: None,
             page: 1,
             merge_request_iid: None,
+            workflow: None,
             runner_metadata: RunnerMetadata::default(),
             custom_params: vec![],
         }
@@ -1370,6 +1401,13 @@ impl Options {
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| eyre!("GitLab request body is required"))
     }
+    /// Return the configured source branch.
+    pub fn branch(&self) -> ApiResult<&str> {
+        self.branch
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab source branch is required"))
+    }
     /// Return the configured commit-status description.
     pub fn description(&self) -> ApiResult<&str> {
         self.description
@@ -1400,6 +1438,13 @@ impl Options {
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| eyre!("GitLab repository path is required"))
     }
+    /// Return the configured automated-artifact project identifier.
+    pub fn project_id(&self) -> ApiResult<&str> {
+        self.project_id
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("Automated-artifact project identifier is required"))
+    }
     /// Return the configured exact commit SHA.
     pub fn sha(&self) -> ApiResult<&str> {
         self.sha
@@ -1410,6 +1455,13 @@ impl Options {
     /// Return the HTTP header used to send the authentication token.
     pub fn token_header(&self) -> &str {
         self.token_header
+    }
+    /// Return the configured repository workflow name.
+    pub fn workflow(&self) -> ApiResult<&str> {
+        self.workflow
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| eyre!("GitLab repository workflow is required"))
     }
     /// Return a copy of options with a commit-status description set.
     pub fn with_description(self, value: impl Into<String>) -> Self {

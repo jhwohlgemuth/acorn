@@ -1,3 +1,6 @@
+include:
+  - local: /templates/gitlab/reporting.gitlab-ci.yml
+
 variables:
   BINARY_NAME: acorn
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_JOB_ID/$CI_PROJECT_PATH

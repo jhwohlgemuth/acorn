@@ -110,6 +110,38 @@ fn user() -> UserMetadata {
     }
 }
 
+#[test]
+fn test_bot_authored_completion_events_do_not_create_operations() {
+    let merge = WebhookDelivery {
+        delivery_id: "bot-merge".to_string(),
+        event: HookPayload::MergeRequest {
+            actor: HookActor::new(30, 99, "acorn-bot", true),
+            iid: 7,
+            head_sha: Some("abc123".to_string()),
+            action: MergeRequestAction::Merge,
+            title: "Citation".to_string(),
+            description: String::new(),
+        },
+    };
+    let note = WebhookDelivery {
+        delivery_id: "bot-note".to_string(),
+        event: HookPayload::Note {
+            actor: HookActor::new(30, 99, "acorn-bot", true),
+            body: "/acorn process repository-quality".to_string(),
+            confidential: false,
+            internal: false,
+            note_id: 10,
+            noteable_id: Some(20),
+            noteable_iid: Some(7),
+            noteable_type: "MergeRequest".to_string(),
+            system: false,
+        },
+    };
+    assert!(merge.key().is_none());
+    assert!(note.key().is_none());
+    assert!(merge.operation().unwrap().is_none());
+    assert!(note.operation().unwrap().is_none());
+}
 #[tokio::test]
 async fn test_default_worker_dispatches_merge_request_analysis() {
     let requests = Arc::new(AtomicUsize::new(0));
@@ -157,50 +189,6 @@ async fn test_default_worker_dispatches_merge_request_analysis() {
     assert!(Server::new(config).process_next().await.unwrap());
     assert_eq!(requests.load(Ordering::SeqCst), 1);
     assert_eq!(queue.state(&format!("gitlab:{operation_key}")).unwrap(), Some(OperationState::Succeeded));
-    server.stop().await.unwrap();
-}
-#[tokio::test]
-async fn test_default_worker_rejects_disallowed_review_effects_before_requests() {
-    let requests = Arc::new(AtomicUsize::new(0));
-    let router = Router::new()
-        .fallback(|State(requests): State<Arc<AtomicUsize>>| async move {
-            requests.fetch_add(1, Ordering::SeqCst);
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
-        })
-        .with_state(Arc::clone(&requests));
-    let server = TestServer::start(router).await.unwrap();
-    let queue = operation_queue();
-    let delivery = WebhookDelivery {
-        delivery_id: "delivery-policy".to_string(),
-        event: HookPayload::MergeRequest {
-            actor: HookActor::new(30, 4, "scientist", false),
-            iid: 7,
-            head_sha: Some("abc123".to_string()),
-            action: MergeRequestAction::Open,
-            title: "Policy".to_string(),
-            description: String::new(),
-        },
-    };
-    let operation_key = delivery.key().unwrap();
-    queue
-        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
-        .unwrap();
-    let deployment = DeploymentConfig::from_yaml(
-        "workflows:\n  repository-quality:\n    paths: ['**/*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n",
-    )
-    .unwrap();
-    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
-    let config = Config::new(options, "127.0.0.1:0".parse().unwrap())
-        .with_operation_queue(queue.clone())
-        .with_deployment(deployment)
-        .unwrap();
-    let error = Server::new(config).process_next().await.unwrap_err().to_string();
-    assert!(error.contains("Operation 'acorn.webhooks.gitlab.merge-request' failed"));
-    assert_eq!(requests.load(Ordering::SeqCst), 0);
-    assert_eq!(
-        queue.state(&format!("gitlab:{operation_key}")).unwrap(),
-        Some(OperationState::RetryableFailure)
-    );
     server.stop().await.unwrap();
 }
 #[tokio::test]
@@ -278,6 +266,50 @@ async fn test_default_worker_dispatches_work_item_intake() {
     assert_eq!(written.lock().unwrap().len(), 1);
     server.stop().await.unwrap();
 }
+#[tokio::test]
+async fn test_default_worker_rejects_disallowed_review_effects_before_requests() {
+    let requests = Arc::new(AtomicUsize::new(0));
+    let router = Router::new()
+        .fallback(|State(requests): State<Arc<AtomicUsize>>| async move {
+            requests.fetch_add(1, Ordering::SeqCst);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        })
+        .with_state(Arc::clone(&requests));
+    let server = TestServer::start(router).await.unwrap();
+    let queue = operation_queue();
+    let delivery = WebhookDelivery {
+        delivery_id: "delivery-policy".to_string(),
+        event: HookPayload::MergeRequest {
+            actor: HookActor::new(30, 4, "scientist", false),
+            iid: 7,
+            head_sha: Some("abc123".to_string()),
+            action: MergeRequestAction::Open,
+            title: "Policy".to_string(),
+            description: String::new(),
+        },
+    };
+    let operation_key = delivery.key().unwrap();
+    queue
+        .enqueue_spec(&delivery.delivery_id, &delivery.operation().unwrap().unwrap())
+        .unwrap();
+    let deployment = DeploymentConfig::from_yaml(
+        "workflows:\n  repository-quality:\n    paths: ['**/*.json']\n    formats: [json]\n    actions: [validate]\n    outputs: {mode: source-and-artifacts}\n    effects: [note]\n",
+    )
+    .unwrap();
+    let options = Options::with_token("outbound").domain(&server.base_url).identifier("30").build();
+    let config = Config::new(options, "127.0.0.1:0".parse().unwrap())
+        .with_operation_queue(queue.clone())
+        .with_deployment(deployment)
+        .unwrap();
+    let error = Server::new(config).process_next().await.unwrap_err().to_string();
+    assert!(error.contains("Operation 'acorn.webhooks.gitlab.merge-request' failed"));
+    assert_eq!(requests.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        queue.state(&format!("gitlab:{operation_key}")).unwrap(),
+        Some(OperationState::RetryableFailure)
+    );
+    server.stop().await.unwrap();
+}
 #[test]
 fn test_deserializes_event_with_null_target_ids() {
     let event = serde_json::json!({
@@ -345,6 +377,29 @@ fn test_extracts_merge_request_iid_from_note_event() {
     assert_eq!(extracted.merge_request_iid, 42);
 }
 #[test]
+fn test_graduation_command_selects_durable_merge_request_operation() {
+    let delivery = WebhookDelivery {
+        delivery_id: "graduation-command".to_string(),
+        event: HookPayload::Note {
+            actor: HookActor::new(30, 2, "bob", false),
+            body: "/acorn graduate form-b form-a form-a".to_string(),
+            confidential: false,
+            internal: false,
+            note_id: 11,
+            noteable_id: Some(20),
+            noteable_iid: Some(3),
+            noteable_type: "MergeRequest".to_string(),
+            system: false,
+        },
+    };
+    assert_eq!(delivery.key().as_deref(), Some("logbook-graduate:30:3:11"));
+    let operation = delivery.operation().unwrap().unwrap();
+    assert_eq!(
+        operation.notification.method,
+        crate::io::api::json_rpc::MethodName::from(["webhooks", "gitlab", "note"])
+    );
+}
+#[test]
 fn test_ignores_merge_request_note_without_iid() {
     let mut event = event("2026-07-06T00:00:01Z", "MergeRequest");
     if let Some(note) = event.note.as_mut() {
@@ -389,38 +444,6 @@ fn test_merge_request_actions_share_head_specific_operation_key() {
             Some("mr-check:30:7:abc123".to_string()),
         ]
     );
-}
-#[test]
-fn test_bot_authored_completion_events_do_not_create_operations() {
-    let merge = WebhookDelivery {
-        delivery_id: "bot-merge".to_string(),
-        event: HookPayload::MergeRequest {
-            actor: HookActor::new(30, 99, "acorn-bot", true),
-            iid: 7,
-            head_sha: Some("abc123".to_string()),
-            action: MergeRequestAction::Merge,
-            title: "Citation".to_string(),
-            description: String::new(),
-        },
-    };
-    let note = WebhookDelivery {
-        delivery_id: "bot-note".to_string(),
-        event: HookPayload::Note {
-            actor: HookActor::new(30, 99, "acorn-bot", true),
-            body: "/acorn process repository-quality".to_string(),
-            confidential: false,
-            internal: false,
-            note_id: 10,
-            noteable_id: Some(20),
-            noteable_iid: Some(7),
-            noteable_type: "MergeRequest".to_string(),
-            system: false,
-        },
-    };
-    assert!(merge.key().is_none());
-    assert!(note.key().is_none());
-    assert!(merge.operation().unwrap().is_none());
-    assert!(note.operation().unwrap().is_none());
 }
 #[test]
 fn test_merge_request_process_command_selects_named_workflow() {

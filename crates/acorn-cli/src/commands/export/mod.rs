@@ -32,7 +32,7 @@ use tracing::{debug, info};
 #[cfg(feature = "pdf")]
 mod pdf;
 mod powerpoint;
-mod updates;
+pub(crate) mod updates;
 trait ExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a>;
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {

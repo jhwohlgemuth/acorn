@@ -32,6 +32,7 @@ pub mod gather;
 pub mod import;
 pub mod infer;
 pub mod link;
+pub mod report;
 pub mod serve;
 pub mod skill;
 pub mod swhid;
@@ -209,6 +210,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 )
                 .await
             }),
+            | Some(CreateCommands::Secret { clipboard }) => create::secret::run(*clipboard),
             | None => Err(eyre::eyre!("No subcommand provided for 'create'")),
         },
         | Some(Commands::Doctor(arguments)) => {
@@ -541,6 +543,12 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 import::run(arguments, &config.database_path, threads, offline, config.no_local_database).await
             }),
         },
+        | Some(Commands::Report(arguments)) => with_runtime(async {
+            match initialize_database(config).await {
+                | Ok(()) => report::run(arguments, offline).await,
+                | Err(why) => Err(why),
+            }
+        }),
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {
                 let bind = args.common.bind_address();

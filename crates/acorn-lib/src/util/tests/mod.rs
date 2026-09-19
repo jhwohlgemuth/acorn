@@ -206,6 +206,16 @@ fn test_generate_guid() {
     let id = generate_guid();
     assert_eq!(id.len(), 10);
 }
+#[test]
+fn test_generate_secret() {
+    let first = generate_secret().expect("first secret");
+    let second = generate_secret().expect("second secret");
+    assert_eq!(first.len(), 64);
+    assert!(first
+        .chars()
+        .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character)));
+    assert_ne!(first, second);
+}
 #[ignore]
 #[test]
 fn test_git_branch() {

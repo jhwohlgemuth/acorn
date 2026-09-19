@@ -130,6 +130,14 @@ fn test_cli() {
     ])
     .is_ok());
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--group", "12345", "--repo", "code.ornl.gov"]).is_ok());
+    assert!(Arguments::try_parse_from(["acorn", "create", "secret"]).is_ok());
+    let secret = Arguments::try_parse_from(["acorn", "create", "secret", "--clipboard"]).expect("parse secret clipboard option");
+    match secret.command {
+        | Some(Commands::Create {
+            command: Some(CreateCommands::Secret { clipboard }),
+        }) => assert!(clipboard),
+        | other => panic!("unexpected command: {other:?}"),
+    }
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "export", "./", "--format", "pdf", "--ignore", "png", "--filter", "json"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "format", "./", "--filter", "json"]).is_ok());
@@ -807,6 +815,31 @@ fn test_no_color_flags_for_dry_run_diffs() {
 fn test_paste_rejects_watch_mode() {
     let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--paste"]).expect("parse before watch validation");
     assert!(crate::commands::validate_watch_arguments(&arguments).is_err());
+}
+#[test]
+fn test_report_command_requires_fixed_bounds_and_accepts_project_selection() {
+    assert!(Arguments::try_parse_from(["acorn", "report", "--commit", "abc123"]).is_err());
+    let parsed = Arguments::try_parse_from([
+        "acorn",
+        "report",
+        "--commit",
+        "abc123",
+        "--through",
+        "2026-10-01T00:00:00Z",
+        "--project",
+        "pilot,other",
+        "--dry-run",
+    ])
+    .expect("report arguments");
+    match parsed.command {
+        | Some(Commands::Report(arguments)) => {
+            assert_eq!(arguments.commit.as_deref(), Some("abc123"));
+            assert_eq!(arguments.projects, ["pilot", "other"]);
+            assert_eq!(arguments.through, "2026-10-01T00:00:00Z");
+            assert!(arguments.dry_run);
+        }
+        | _ => panic!("expected report command"),
+    }
 }
 #[test]
 fn test_resolve_paths_applies_filter_to_relative_local_paths() {

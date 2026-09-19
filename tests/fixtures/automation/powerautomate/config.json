@@ -1,0 +1,18 @@
+{
+  "powerAutomate": {
+    "callback_destination": "pilot-flow",
+    "variables": {
+      "callback_url": "POWER_AUTOMATE_CALLBACK_URL",
+      "inbound_secret": "POWER_AUTOMATE_INBOUND_SECRET"
+    },
+    "gitlab_project": "42",
+    "package": "automated-artifacts",
+    "projects": [
+      {
+        "members": ["scientist@example.org"],
+        "path": "pilot/index.json",
+        "project_id": "pilot"
+      }
+    ]
+}
+}

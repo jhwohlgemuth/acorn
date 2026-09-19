@@ -7,6 +7,7 @@ impact: medium
 package: [acorn-lib, acorn-cli]
 tags: [feature, api, rpc, protobuf, grpc, tonic]
 status: planned
+priority: next
 ---
 
 # Project code boundaries
@@ -17,7 +18,7 @@ status: planned
 
 # Dependencies
 
-Requires the implemented typed operation registry in `io::api::json_rpc`. gRPC is a sibling transport over the operation registry, not a binary JSON-RPC encoding. It is optional for the webhook, GitLab, PowerAutomate, ACP, and MCP plans. Schedule its shared module, manifest, and CLI integration only after the [PowerApps reporting](../../features/powerapps-gitlab-logbook-reporting.md) MVP releases those locks.
+Requires the implemented typed operation registry in `io::api::json_rpc`. gRPC is a sibling transport over the operation registry, not a binary JSON-RPC encoding. It is optional for the webhook, GitLab, PowerAutomate, ACP, and MCP plans. The implemented [PowerAutomate reporting workflow](../../../docs/src/automation/powerautomate-reporting.md) has released its shared module, manifest, and CLI integration locks.
 
 # Goal
 
@@ -81,7 +82,6 @@ service AcornRpc {
 
 | Plan or lane | Conflict | Resolution |
 |---|---|---|
-| PowerApps reporting | `io/api/mod.rs`, webhook operation registration, bot/CLI composition, manifests, and generated help | PowerApps lands first; rebase gRPC after its MVP without changing the isolated `io::api::powerautomate` wire contract. |
 | Workspace graph | Manifests, lockfile, and new `build.rs` | One dependency owner; add and audit one feature slice. |
 | Agentic server | Tonic may select Axum, Tower, Tokio, and TLS versions also used by MCP/ACP | Disable defaults, select only required features, and inspect duplicate trees. |
 | CLI composition | `serve grpc` and generated help | Land through the CLI owner after the library server/client pass. |

@@ -18,8 +18,8 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 static CONNECTION_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
 const WEBHOOK_EFFECT_MIGRATION: &str = include_str!("../../../../assets/migrations/0013_create_webhook_effects.sql");
+const WEBHOOK_MIGRATION: &str = include_str!("../../../../assets/migrations/0012_create_webhook_runtime.sql");
 /// Provider-neutral name for the durable webhook operation queue.
 pub type WebhookStore = OperationQueue;
 trait ConnectionExt {
@@ -143,6 +143,110 @@ pub struct QueueCounts {
 pub(crate) struct RuntimeTimestamps {
     pub(crate) last_error_at: Option<Timestamp>,
     pub(crate) last_success_at: Option<Timestamp>,
+}
+impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
+    /// Construct a durable outbound callback worker.
+    pub fn new(queue: OperationQueue, service: S, resolver: R, stale_after: SignedDuration) -> Self {
+        Self {
+            queue,
+            resolver,
+            runtime: WebhookRuntime::default(),
+            service,
+            stale_after,
+        }
+    }
+    /// Claim and attempt one callback, returning whether work was available.
+    pub async fn run_once(&self) -> ApiResult<bool> {
+        match self.runtime.initialize(&self.queue, self.stale_after) {
+            | Err(why) => Err(why),
+            | Ok(()) => match self.runtime.claim(|| self.queue.claim_callback(self.stale_after)) {
+                | Ok(Some((callback, _claim))) => {
+                    let result = match self.resolver.resolve(&callback.destination) {
+                        | Ok(destination) => {
+                            let (target, headers, signer) = destination.parts();
+                            match signer {
+                                | Some(signer) => {
+                                    let raw_body = callback.payload_json.as_bytes();
+                                    let dispatch = webhooks::dispatch_signed(
+                                        &self.service,
+                                        target,
+                                        raw_body,
+                                        headers,
+                                        signer,
+                                        &callback.callback_key,
+                                        Timestamp::now(),
+                                    );
+                                    dispatch.await.map(|result| result.status_code).map_err(|why| why.to_string())
+                                }
+                                | None => match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
+                                    | Ok(payload) => webhooks::dispatch(&self.service, target, &payload, headers)
+                                        .await
+                                        .map(|result| result.status_code)
+                                        .map_err(|why| why.to_string()),
+                                    | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
+                                },
+                            }
+                        }
+                        | Err(why) => Err(why.to_string()),
+                    };
+                    match result {
+                        | Ok(status) => match self.queue.succeed_callback(callback, status) {
+                            | Ok(()) => self.runtime.refresh(&self.queue).map(|()| true),
+                            | Err(why) => {
+                                self.runtime.mark_unavailable();
+                                Err(why)
+                            }
+                        },
+                        | Err(why) => match self.queue.fail_callback(callback, &why) {
+                            | Ok(_) => self.runtime.refresh(&self.queue).and_then(|()| Err(eyre!(why))),
+                            | Err(settlement_error) => {
+                                self.runtime.mark_unavailable();
+                                Err(settlement_error)
+                            }
+                        },
+                    }
+                }
+                | Ok(None) => Ok(false),
+                | Err(why) => Err(why),
+            },
+        }
+    }
+    /// Use a shared runtime for readiness and drain coordination.
+    pub fn with_runtime(self, runtime: WebhookRuntime) -> Self {
+        Self { runtime, ..self }
+    }
+}
+impl ClaimedCallback {
+    /// Stable callback idempotency key.
+    pub fn callback_key(&self) -> &str {
+        &self.callback_key
+    }
+    /// One-based delivery attempt number.
+    pub fn attempts(&self) -> u32 {
+        self.attempts
+    }
+}
+impl ClaimedOperation {
+    /// Return the canonical idempotency key.
+    pub fn operation_key(&self) -> &str {
+        &self.operation_key
+    }
+    /// Return the delivery that first created the operation.
+    pub fn delivery_id(&self) -> &str {
+        &self.delivery_id
+    }
+    /// Return the normalized event JSON.
+    pub fn event_json(&self) -> &str {
+        &self.event_json
+    }
+    /// Decode the persisted JSON-RPC notification.
+    pub fn notification(&self) -> ApiResult<Notification> {
+        serde_json::from_str(&self.event_json).map_err(|why| eyre!("Failed to decode webhook operation notification — {why}"))
+    }
+    /// Return the one-based attempt number.
+    pub fn attempts(&self) -> u32 {
+        self.attempts
+    }
 }
 impl ConnectionExt for Connection {
     fn begin_effect(&self, key: &str, kind: &str) -> ApiResult<()> {
@@ -292,95 +396,6 @@ impl ConnectionExt for Connection {
             | true => Ok(()),
             | false => Err(eyre!("Webhook effect `{effect_key}` could not be completed")),
         })
-    }
-}
-impl<S: HttpService, R: CallbackResolver> CallbackWorker<S, R> {
-    /// Construct a durable outbound callback worker.
-    pub fn new(queue: OperationQueue, service: S, resolver: R, stale_after: SignedDuration) -> Self {
-        Self {
-            queue,
-            resolver,
-            runtime: WebhookRuntime::default(),
-            service,
-            stale_after,
-        }
-    }
-    /// Claim and attempt one callback, returning whether work was available.
-    pub async fn run_once(&self) -> ApiResult<bool> {
-        match self.runtime.initialize(&self.queue, self.stale_after) {
-            | Err(why) => Err(why),
-            | Ok(()) => match self.runtime.claim(|| self.queue.claim_callback(self.stale_after)) {
-                | Ok(Some((callback, _claim))) => {
-                    let result = match serde_json::from_str::<serde_json::Value>(&callback.payload_json) {
-                        | Ok(payload) => match self.resolver.resolve(&callback.destination) {
-                            | Ok(destination) => {
-                                let (target, headers) = destination.parts();
-                                webhooks::dispatch(&self.service, target, &payload, headers)
-                                    .await
-                                    .map(|result| result.status_code)
-                                    .map_err(|why| why.to_string())
-                            }
-                            | Err(why) => Err(why.to_string()),
-                        },
-                        | Err(why) => Err(format!("Failed to decode durable callback payload — {why}")),
-                    };
-                    match result {
-                        | Ok(status) => match self.queue.succeed_callback(callback, status) {
-                            | Ok(()) => self.runtime.refresh(&self.queue).map(|()| true),
-                            | Err(why) => {
-                                self.runtime.mark_unavailable();
-                                Err(why)
-                            }
-                        },
-                        | Err(why) => match self.queue.fail_callback(callback, &why) {
-                            | Ok(_) => self.runtime.refresh(&self.queue).and_then(|()| Err(eyre!(why))),
-                            | Err(settlement_error) => {
-                                self.runtime.mark_unavailable();
-                                Err(settlement_error)
-                            }
-                        },
-                    }
-                }
-                | Ok(None) => Ok(false),
-                | Err(why) => Err(why),
-            },
-        }
-    }
-    /// Use a shared runtime for readiness and drain coordination.
-    pub fn with_runtime(self, runtime: WebhookRuntime) -> Self {
-        Self { runtime, ..self }
-    }
-}
-impl ClaimedCallback {
-    /// Stable callback idempotency key.
-    pub fn callback_key(&self) -> &str {
-        &self.callback_key
-    }
-    /// One-based delivery attempt number.
-    pub fn attempts(&self) -> u32 {
-        self.attempts
-    }
-}
-impl ClaimedOperation {
-    /// Return the canonical idempotency key.
-    pub fn operation_key(&self) -> &str {
-        &self.operation_key
-    }
-    /// Return the delivery that first created the operation.
-    pub fn delivery_id(&self) -> &str {
-        &self.delivery_id
-    }
-    /// Return the normalized event JSON.
-    pub fn event_json(&self) -> &str {
-        &self.event_json
-    }
-    /// Decode the persisted JSON-RPC notification.
-    pub fn notification(&self) -> ApiResult<Notification> {
-        serde_json::from_str(&self.event_json).map_err(|why| eyre!("Failed to decode webhook operation notification — {why}"))
-    }
-    /// Return the one-based attempt number.
-    pub fn attempts(&self) -> u32 {
-        self.attempts
     }
 }
 impl From<PathBuf> for OperationQueue {

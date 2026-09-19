@@ -70,6 +70,9 @@ pub enum Commands {
     ///
     ///     $> acorn create runner --group 12345
     ///
+    ///     Generate a secret and copy it to the system clipboard
+    ///     $> acorn create secret --clipboard
+    ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Create {
         #[command(subcommand)]
@@ -197,6 +200,12 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Link(Box<arguments::Link>),
+    /// Generate bounded artifacts and publish immutable GitLab packages
+    ///
+    ///     $> acorn report --through 2026-10-01T00:00:00Z --commit "$CI_COMMIT_SHA"
+    ///
+    #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
+    Report(Box<arguments::Report>),
     /// Calculate or verify a Software Hash Identifier (SWHID)
     ///
     ///     Hash a local file or directory
@@ -284,6 +293,12 @@ pub enum CreateCommands {
     Runner(Box<arguments::Runner>),
     /// Bot server container
     Bot(Box<arguments::bot::Create>),
+    /// Cryptographically secure 256-bit secret
+    Secret {
+        /// Copy the generated value to the system clipboard instead of standard output
+        #[arg(long)]
+        clipboard: bool,
+    },
 }
 #[derive(Clone, Debug, Subcommand)]
 #[command(long_about = None)]

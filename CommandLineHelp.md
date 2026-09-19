@@ -10,6 +10,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli create mcp`↴](#acorn-cli-create-mcp)
 * [`acorn-cli create runner`↴](#acorn-cli-create-runner)
 * [`acorn-cli create bot`↴](#acorn-cli-create-bot)
+* [`acorn-cli create secret`↴](#acorn-cli-create-secret)
 * [`acorn-cli doctor`↴](#acorn-cli-doctor)
 * [`acorn-cli download`↴](#acorn-cli-download)
 * [`acorn-cli download model`↴](#acorn-cli-download-model)
@@ -22,6 +23,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli import model`↴](#acorn-cli-import-model)
 * [`acorn-cli import spec`↴](#acorn-cli-import-spec)
 * [`acorn-cli link`↴](#acorn-cli-link)
+* [`acorn-cli report`↴](#acorn-cli-report)
 * [`acorn-cli swhid`↴](#acorn-cli-swhid)
 * [`acorn-cli skill`↴](#acorn-cli-skill)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
@@ -71,6 +73,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `gather` — Gather persistent identifiers from documents, URLs, or text
 * `import` — Import external metadata into ACORN
 * `link` — Add linked data context to research activity data
+* `report` — Generate bounded artifacts and publish immutable GitLab packages
 * `swhid` — Calculate or verify a Software Hash Identifier (SWHID)
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
 * `serve` — Start a server (bot, MCP, etc.)
@@ -223,6 +226,9 @@ Create research resources like GitLab runners, MCP servers, etc.
 
     $> acorn create runner --group 12345
 
+    Generate a secret and copy it to the system clipboard
+    $> acorn create secret --clipboard
+
 **Usage:** `acorn-cli create [COMMAND]`
 
 ###### **Subcommands:**
@@ -230,6 +236,7 @@ Create research resources like GitLab runners, MCP servers, etc.
 * `mcp` — Model context provider (MCP) server
 * `runner` — GitLab runner
 * `bot` — Bot server container
+* `secret` — Cryptographically secure 256-bit secret
 
 
 
@@ -329,6 +336,18 @@ Bot server container
 * `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli create secret`
+
+Cryptographically secure 256-bit secret
+
+**Usage:** `acorn-cli create secret [OPTIONS]`
+
+###### **Options:**
+
+* `--clipboard` — Copy the generated value to the system clipboard instead of standard output
 
 
 
@@ -985,6 +1004,36 @@ Add linked data context to research activity data
 
 
 
+## `acorn-cli report`
+
+Generate bounded artifacts and publish immutable GitLab packages
+
+    $> acorn report --through 2026-10-01T00:00:00Z --commit "$CI_COMMIT_SHA"
+
+**Usage:** `acorn-cli report [OPTIONS] --through <TIMESTAMP>`
+
+###### **Options:**
+
+* `-c`, `--config <PATH>` — Application configuration containing PowerAutomate project mappings
+* `--commit <SHA>` — Exact merged default-branch commit used as report input
+* `--from <TIMESTAMP>` — Explicit inclusive lower bound for local or recovery runs
+* `--through <TIMESTAMP>` — Fixed exclusive reporting upper bound shared by every project
+* `--root <PATH>` — Repository checkout root containing configured project paths
+
+  Default value: `.`
+* `-o`, `--output <PATH>` — Directory for generated reports and failure diagnostics
+
+  Default value: `.acorn/reports`
+* `--project <ID>` — Restrict reporting to selected configured project identifiers
+* `--pipeline-id <ID>` — GitLab pipeline identifier recorded in the manifest
+* `--job-id <ID>` — GitLab job identifier recorded in the manifest
+* `--chrome-path <PATH>` — Path to Chromium executable used for PDF rendering
+* `--dry-run` [alias: `what-if`] — Generate local artifacts and manifests without GitLab publication or callbacks
+* `-v`, `--verbose` — Increase logging verbosity
+* `-q`, `--quiet` — Decrease logging verbosity
+
+
+
 ## `acorn-cli swhid`
 
 Calculate or verify a Software Hash Identifier (SWHID)
@@ -1221,10 +1270,8 @@ Execute constrained Rhai extensions
 
 ABI version: `// @acorn-exec-v0.2.0`
 
-The evaluation context contains `hook`, `path`, `index`, `input`, and
-`proposed`. Scripts return a map containing a `findings` array.
-Source is limited to 512 KiB; evaluation is bounded and does not permit
-dynamic evaluation or imports.
+The evaluation context contains `hook`, `path`, `index`, `input`, and `proposed`. Scripts return a map containing a `findings` array.
+Source is limited to 512 KiB; evaluation is bounded and does not permit dynamic evaluation or imports.
 
 **Usage:** `acorn-cli exec [COMMAND]`
 

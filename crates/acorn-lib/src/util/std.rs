@@ -5,7 +5,9 @@ pub use super::terminal::{
 };
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::is_uri_or_path_portable;
+use data_encoding::HEXLOWER;
 use nanoid::nanoid;
+use rand::{rngs::OsRng, RngCore};
 use std::path::Path;
 
 /// Generate a random ten-character ACORN identifier
@@ -15,6 +17,11 @@ pub fn generate_guid() -> String {
         'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'w', 'x', 'y', 'z', '3', '4', '6', '7', '8', '9',
     ];
     nanoid!(10, &alphabet)
+}
+/// Generate a 256-bit secret from the operating system random-number generator
+pub fn generate_secret() -> Result<String, rand::Error> {
+    let mut bytes = [0u8; 32];
+    OsRng.try_fill_bytes(&mut bytes).map(|()| HEXLOWER.encode(&bytes))
 }
 /// Build a predicate that matches paths with one of the allowed file extensions
 pub fn is_filetype<I, S, P>(extensions: I) -> impl Fn(&P) -> bool

@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md) and crosswalk loss contract. Follow the MVP of [PowerApps logbook intake and sponsor reporting](../../features/powerapps-gitlab-logbook-reporting.md); that workflow uses the existing classification and contributor targets first, then consumes the additional deterministic graduation targets defined here.
+Preserve the implemented [standards field matrix](../../assets/standards-field-matrix.md) and crosswalk loss contract. The implemented [PowerAutomate reporting workflow](../../../docs/src/automation/powerautomate-reporting.md) uses the existing classification and contributor targets first, then consumes the additional deterministic graduation targets defined here.
 
 # Goal
 

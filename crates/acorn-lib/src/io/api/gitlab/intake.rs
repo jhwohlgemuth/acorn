@@ -452,12 +452,13 @@ impl Report {
                             | Ok(changes) => {
                                 let workflow = format!("citation-work-item-{}", self.iid);
                                 let branch = format!("{APPLICATION}/{workflow}");
-                                match options.effects() {
+                                let publication_options = options.clone().with_branch(branch).with_workflow(workflow);
+                                match publication_options.effects() {
                                     | Some(effects) => changes
-                                        .publish_reconciled(&workflow, &target_branch, options, effects, Some(&branch))
+                                        .publish_reconciled(&target_branch, &publication_options, effects)
                                         .await
                                         .map(|_| ()),
-                                    | None => changes.publish(&workflow, &target_branch, options).await.map(|_| ()),
+                                    | None => changes.publish(&target_branch, &publication_options).await.map(|_| ()),
                                 }
                             }
                             | Err(why) => Err(why),
@@ -494,67 +495,6 @@ impl WorkItem {
             .filter(|content| !content.trim().is_empty())
             .collect::<Vec<_>>()
             .join("\n\n")
-    }
-}
-pub(crate) async fn complete_citation_merge(options: &Options) -> ApiResult<bool> {
-    let context = options.merge_request_iid().and_then(|iid| {
-        options
-            .effects()
-            .map(|effects| (iid, effects))
-            .ok_or_else(|| eyre!("GitLab effects queue is required"))
-    });
-    match context {
-        | Ok((merge_request_iid, effects)) => {
-            let merge_options = options.clone().with_internal_identifier(merge_request_iid.to_string());
-            match merge_request(&merge_options).await {
-                | Ok(details) => {
-                    let source_iid = details
-                        .source_branch
-                        .strip_prefix(&format!("{APPLICATION}/citation-work-item-"))
-                        .and_then(|value| value.parse::<u64>().ok());
-                    match source_iid.filter(|iid| details.description.contains(&format!("Workflow: `citation-work-item-{iid}`"))) {
-                        | Some(source_iid) => match current_user(options).await {
-                            | Ok(bot) if details.author.as_ref().is_some_and(|author| author.identifier == bot.identifier) => {
-                                let project = options.identifier().unwrap_or("unknown");
-                                let item_options = options.clone().with_internal_identifier(source_iid.to_string());
-                                let label = format!("{APPLICATION}::collected");
-                                let source_iid = source_iid.to_string();
-                                let effect = Effect::new(
-                                    ["gitlab", project, "work-item", &source_iid, "label", &label],
-                                    "gitlab-label",
-                                    Some(effects),
-                                );
-                                let label = effect.work_item_label(&item_options, &label).await;
-                                match label {
-                                    | Ok(_) => {
-                                        let marker = format!("<!-- {APPLICATION}:citation-collected:{merge_request_iid} -->");
-                                        let body = format!(
-                                            "{marker}\nCitation metadata was collected in [merge request !{merge_request_iid}]({}).",
-                                            details.web_url
-                                        );
-                                        let merge_request_iid = merge_request_iid.to_string();
-                                        Effect::new(
-                                            ["gitlab", project, "work-item", &source_iid, "completion", &merge_request_iid],
-                                            "gitlab-completion-comment",
-                                            Some(effects),
-                                        )
-                                        .completion_comment(&item_options, &marker, &body)
-                                        .await
-                                        .map(|_| true)
-                                    }
-                                    | Err(why) => Err(why),
-                                }
-                            }
-                            | Ok(_) => Ok(false),
-                            | Err(why) => Err(why),
-                        },
-                        | None => Ok(false),
-                    }
-                }
-                | Err(why) => Err(why),
-            }
-        }
-        | Err(why) => Err(why),
     }
 }
 fn cff_contact(values: &[Agent]) -> Option<Candidate> {
@@ -616,6 +556,67 @@ pub(crate) async fn classify_content(content: &str, options: &Options) -> Vec<Ar
             candidate.classify(enrichment_error)
         })
         .collect()
+}
+pub(crate) async fn complete_citation_merge(options: &Options) -> ApiResult<bool> {
+    let context = options.merge_request_iid().and_then(|iid| {
+        options
+            .effects()
+            .map(|effects| (iid, effects))
+            .ok_or_else(|| eyre!("GitLab effects queue is required"))
+    });
+    match context {
+        | Ok((merge_request_iid, effects)) => {
+            let merge_options = options.clone().with_internal_identifier(merge_request_iid.to_string());
+            match merge_request(&merge_options).await {
+                | Ok(details) => {
+                    let source_iid = details
+                        .source_branch
+                        .strip_prefix(&format!("{APPLICATION}/citation-work-item-"))
+                        .and_then(|value| value.parse::<u64>().ok());
+                    match source_iid.filter(|iid| details.description.contains(&format!("Workflow: `citation-work-item-{iid}`"))) {
+                        | Some(source_iid) => match current_user(options).await {
+                            | Ok(bot) if details.author.as_ref().is_some_and(|author| author.identifier == bot.identifier) => {
+                                let project = options.identifier().unwrap_or("unknown");
+                                let item_options = options.clone().with_internal_identifier(source_iid.to_string());
+                                let label = format!("{APPLICATION}::collected");
+                                let source_iid = source_iid.to_string();
+                                let effect = Effect::new(
+                                    ["gitlab", project, "work-item", &source_iid, "label", &label],
+                                    "gitlab-label",
+                                    Some(effects),
+                                );
+                                let label = effect.work_item_label(&item_options, &label).await;
+                                match label {
+                                    | Ok(_) => {
+                                        let marker = format!("<!-- {APPLICATION}:citation-collected:{merge_request_iid} -->");
+                                        let body = format!(
+                                            "{marker}\nCitation metadata was collected in [merge request !{merge_request_iid}]({}).",
+                                            details.web_url
+                                        );
+                                        let merge_request_iid = merge_request_iid.to_string();
+                                        Effect::new(
+                                            ["gitlab", project, "work-item", &source_iid, "completion", &merge_request_iid],
+                                            "gitlab-completion-comment",
+                                            Some(effects),
+                                        )
+                                        .completion_comment(&item_options, &marker, &body)
+                                        .await
+                                        .map(|_| true)
+                                    }
+                                    | Err(why) => Err(why),
+                                }
+                            }
+                            | Ok(_) => Ok(false),
+                            | Err(why) => Err(why),
+                        },
+                        | None => Ok(false),
+                    }
+                }
+                | Err(why) => Err(why),
+            }
+        }
+        | Err(why) => Err(why),
+    }
 }
 fn eligible_note(note: &Note, command_note_id: u64, bot_user_id: u64) -> Option<&str> {
     match note {

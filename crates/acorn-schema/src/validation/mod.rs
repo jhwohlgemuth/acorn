@@ -215,11 +215,6 @@ pub mod rules {
     use jiff::tz::TimeZone;
     use jiff::{civil::Date, fmt::temporal::Pieces, Timestamp};
 
-    fn identifier(value: bool, code: &'static str) -> Result<(), ValidationError> {
-        value
-            .then_some(())
-            .ok_or_else(|| ValidationError::new(code).with_message(format!("Provide valid {code} value")))
-    }
     /// Validate an ARK identifier with ACORN's canonical parser.
     pub fn ark(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_ark(), "ARK")
@@ -228,47 +223,13 @@ pub mod rules {
     pub fn arxiv(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_arxiv(), "arXiv")
     }
-    /// Validate a DOI with ACORN's canonical parser.
-    pub fn doi(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_doi(), "DOI")
-    }
-    /// Validate a Handle identifier with ACORN's canonical parser.
-    pub fn handle(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_handle(), "Handle")
-    }
-    /// Validate an ISBN with ACORN's canonical parser.
-    pub fn isbn(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_isbn(), "ISBN")
-    }
-    /// Validate an ISNI with ACORN's canonical parser.
-    pub fn isni(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_isni(), "ISNI")
-    }
-    /// Validate an ORCID with ACORN's canonical parser.
-    pub fn orcid(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_orcid(), "ORCiD")
-    }
-    /// Validate a patent identifier with ACORN's canonical parser.
-    pub fn patent(value: &str) -> Result<(), ValidationError> {
-        Patent::is_valid(value)
+    /// Validate camelCase text.
+    pub fn camelcase(value: &str) -> Result<(), ValidationError> {
+        let valid = value.to_case(Case::Camel);
+        valid
+            .eq(value)
             .then_some(())
-            .ok_or_else(|| ValidationError::new("patent").with_message("Provide valid patent identifier"))
-    }
-    /// Validate a RAiD identifier with ACORN's canonical parser.
-    pub fn raid(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_raid(), "RAiD")
-    }
-    /// Validate a ROR identifier with ACORN's canonical parser.
-    pub fn ror(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_ror(), "ROR")
-    }
-    /// Validate an RRID with ACORN's canonical parser.
-    pub fn rrid(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_rrid(), "RRID")
-    }
-    /// Validate an SWHID with ACORN's canonical parser.
-    pub fn swhid(value: &str) -> Result<(), ValidationError> {
-        identifier(value.is_swhid(), "SWHID")
+            .ok_or_else(|| ValidationError::new("camelcase").with_message(format!("Provide ID in camelCase format (e.g., {valid})")))
     }
     /// Validate a commit hash containing 7-64 hexadecimal characters.
     pub fn commit(value: &str) -> Result<(), ValidationError> {
@@ -282,65 +243,6 @@ pub mod rules {
         (value.len() == 2 && Constant::country_codes(CodeFormat::Alpha2).contains(&value.to_lowercase()))
             .then_some(())
             .ok_or_else(|| ValidationError::new("country").with_message("Provide valid ISO 3166-1 alpha-2 country code"))
-    }
-    /// Validate kebab-case text.
-    pub fn kebabcase(value: &str) -> Result<(), ValidationError> {
-        let valid = value.to_case(Case::Kebab);
-        valid
-            .eq(value)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("kebabcase").with_message(format!("Provide ID in kebab-case format (e.g., {valid})")))
-    }
-    /// Validate camelCase text.
-    pub fn camelcase(value: &str) -> Result<(), ValidationError> {
-        let valid = value.to_case(Case::Camel);
-        valid
-            .eq(value)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("camelcase").with_message(format!("Provide ID in camelCase format (e.g., {valid})")))
-    }
-    /// Validate a latitude from -90 through 90.
-    pub fn latitude(value: impl ToString) -> Result<(), ValidationError> {
-        value
-            .to_string()
-            .parse::<f64>()
-            .ok()
-            .filter(|value| (-90.0..=90.0).contains(value))
-            .map(|_| ())
-            .ok_or_else(|| ValidationError::new("latitude").with_message("Provide valid latitude (-90 to 90)"))
-    }
-    /// Validate a longitude from -180 through 180.
-    pub fn longitude(value: impl ToString) -> Result<(), ValidationError> {
-        value
-            .to_string()
-            .parse::<f64>()
-            .ok()
-            .filter(|value| (-180.0..=180.0).contains(value))
-            .map(|_| ())
-            .ok_or_else(|| ValidationError::new("longitude").with_message("Provide valid longitude (-180 to 180)"))
-    }
-    /// Validate a phone number while rejecting known placeholder values.
-    pub fn phone(value: &str) -> Result<(), ValidationError> {
-        match (RE_PHONE.is_match(value).unwrap_or(false), RE_FAKE_PHONE.is_match(value).unwrap_or(false)) {
-            | (true, false) => Ok(()),
-            | (_, true) => Err(ValidationError::new("phone").with_message("Provide real phone number, not a placeholder")),
-            | _ => Err(ValidationError::new("phone").with_message("Provide valid phone number")),
-        }
-    }
-    /// Validate a two-letter US state or Canadian province abbreviation.
-    pub fn state(value: impl ToString) -> Result<(), ValidationError> {
-        let value = value.to_string();
-        (value.len() == 2 && value.chars().all(|character| character.is_ascii_alphabetic()))
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("state").with_message("Provide valid US state or Canadian province abbreviation (e.g., CA, NY, ON)"))
-    }
-    /// Validate snake_case text.
-    pub fn snake_case(value: &str) -> Result<(), ValidationError> {
-        let valid = value.to_case(Case::Snake);
-        valid
-            .eq(value)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("snake_case").with_message(format!("Provide ID in snake_case format (e.g., {valid})")))
     }
     /// Validate an ACORN-supported ISO 8601 calendar date
     /// ### Examples
@@ -374,61 +276,9 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("date").with_message("Provide valid ISO 8601 date (e.g., YYYY-MM-DD)"))
     }
-    /// Parse a complete RFC 3339 timestamp with an explicit UTC offset.
-    pub fn parse_timestamp(value: &str) -> Result<Timestamp, ValidationError> {
-        let bytes = value.as_bytes();
-        let numeric_offset = bytes.len().checked_sub(6).and_then(|start| bytes.get(start..)).is_some_and(|offset| {
-            offset.len() == 6
-                && matches!(offset.first(), Some(b'+' | b'-'))
-                && offset
-                    .iter()
-                    .skip(1)
-                    .enumerate()
-                    .all(|(index, byte)| if index == 2 { *byte == b':' } else { byte.is_ascii_digit() })
-        });
-        Pieces::parse(value)
-            .ok()
-            .filter(|parts| parts.time().is_some() && parts.time_zone_annotation().is_none() && (value.ends_with('Z') || numeric_offset))
-            .ok_or_else(|| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
-            .and_then(|_| {
-                value
-                    .parse::<Timestamp>()
-                    .map_err(|_| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
-            })
-    }
-    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset
-    /// ### Examples
-    /// ```
-    /// use acorn_schema::validation::rules;
-    ///
-    /// assert!(rules::timestamp("2026-08-29T12:30:00Z").is_ok());
-    /// assert!(rules::timestamp("2026-08-29").is_err());
-    /// ```
-    pub fn timestamp(value: impl ToString) -> Result<(), ValidationError> {
-        parse_timestamp(&value.to_string()).map(|_| ())
-    }
-    /// Validate a ten-digit Unix epoch timestamp.
-    pub fn unix_epoch(value: impl Borrow<usize>) -> Result<(), ValidationError> {
-        RE_UNIX_EPOCH
-            .is_match(&value.borrow().to_string())
-            .is_ok_and(core::convert::identity)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("epoch").with_message("Provide valid Unix epoch timestamp"))
-    }
-    /// Validate text containing at least one non-whitespace Unicode scalar
-    /// ### Examples
-    /// ```
-    /// use acorn_schema::validation::rules;
-    ///
-    /// assert!(rules::nonempty(" ACORN ").is_ok());
-    /// assert!(rules::nonempty("\u{2003}\n").is_err());
-    /// ```
-    pub fn nonempty(value: &str) -> Result<(), ValidationError> {
-        value
-            .chars()
-            .any(|character| !character.is_whitespace())
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("nonempty").with_message("Provide text containing a non-whitespace character"))
+    /// Validate a DOI with ACORN's canonical parser.
+    pub fn doi(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_doi(), "DOI")
     }
     /// Validate an email address using the established ACORN-compatible shape
     /// ### Examples
@@ -466,6 +316,190 @@ pub mod rules {
         });
         valid.then_some(()).ok_or_else(|| ValidationError::new("email"))
     }
+    /// Validate a Handle identifier with ACORN's canonical parser.
+    pub fn handle(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_handle(), "Handle")
+    }
+    fn identifier(value: bool, code: &'static str) -> Result<(), ValidationError> {
+        value
+            .then_some(())
+            .ok_or_else(|| ValidationError::new(code).with_message(format!("Provide valid {code} value")))
+    }
+    /// Validate an IPv4 address
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::ipv4("192.168.1.1").is_ok());
+    /// assert!(rules::ipv4("256.1.1.1").is_err());
+    /// ```
+    pub fn ipv4(value: &str) -> Result<(), ValidationError> {
+        value
+            .parse::<Ipv4Addr>()
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("ipv4").with_message("Provide valid IPv4 address"))
+    }
+    /// Validate an IPv6 address
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::ipv6("2001:db8::1").is_ok());
+    /// assert!(rules::ipv6("192.168.1.1").is_err());
+    /// ```
+    pub fn ipv6(value: &str) -> Result<(), ValidationError> {
+        value
+            .parse::<Ipv6Addr>()
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("ipv6").with_message("Provide valid IPv6 address"))
+    }
+    /// Validate an ISBN with ACORN's canonical parser.
+    pub fn isbn(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_isbn(), "ISBN")
+    }
+    /// Validate an ISNI with ACORN's canonical parser.
+    pub fn isni(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_isni(), "ISNI")
+    }
+    /// Validate serialized JSON.
+    pub fn json(value: impl AsRef<str>) -> Result<(), ValidationError> {
+        serde_json::from_str::<serde_json::Value>(value.as_ref())
+            .map(|_| ())
+            .map_err(|_| ValidationError::new("json").with_message("Provide valid JSON"))
+    }
+    /// Validate kebab-case text.
+    pub fn kebabcase(value: &str) -> Result<(), ValidationError> {
+        let valid = value.to_case(Case::Kebab);
+        valid
+            .eq(value)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("kebabcase").with_message(format!("Provide ID in kebab-case format (e.g., {valid})")))
+    }
+    /// Validate a latitude from -90 through 90.
+    pub fn latitude(value: impl ToString) -> Result<(), ValidationError> {
+        value
+            .to_string()
+            .parse::<f64>()
+            .ok()
+            .filter(|value| (-90.0..=90.0).contains(value))
+            .map(|_| ())
+            .ok_or_else(|| ValidationError::new("latitude").with_message("Provide valid latitude (-90 to 90)"))
+    }
+    /// Validate a longitude from -180 through 180.
+    pub fn longitude(value: impl ToString) -> Result<(), ValidationError> {
+        value
+            .to_string()
+            .parse::<f64>()
+            .ok()
+            .filter(|value| (-180.0..=180.0).contains(value))
+            .map(|_| ())
+            .ok_or_else(|| ValidationError::new("longitude").with_message("Provide valid longitude (-180 to 180)"))
+    }
+    /// Validate text containing at least one non-whitespace Unicode scalar
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::nonempty(" ACORN ").is_ok());
+    /// assert!(rules::nonempty("\u{2003}\n").is_err());
+    /// ```
+    pub fn nonempty(value: &str) -> Result<(), ValidationError> {
+        value
+            .chars()
+            .any(|character| !character.is_whitespace())
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("nonempty").with_message("Provide text containing a non-whitespace character"))
+    }
+    /// Validate an ORCID with ACORN's canonical parser.
+    pub fn orcid(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_orcid(), "ORCiD")
+    }
+    /// Parse a complete RFC 3339 timestamp with an explicit UTC offset.
+    pub fn parse_timestamp(value: &str) -> Result<Timestamp, ValidationError> {
+        let bytes = value.as_bytes();
+        let numeric_offset = bytes.len().checked_sub(6).and_then(|start| bytes.get(start..)).is_some_and(|offset| {
+            offset.len() == 6
+                && matches!(offset.first(), Some(b'+' | b'-'))
+                && offset
+                    .iter()
+                    .skip(1)
+                    .enumerate()
+                    .all(|(index, byte)| if index == 2 { *byte == b':' } else { byte.is_ascii_digit() })
+        });
+        Pieces::parse(value)
+            .ok()
+            .filter(|parts| parts.time().is_some() && parts.time_zone_annotation().is_none() && (value.ends_with('Z') || numeric_offset))
+            .ok_or_else(|| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
+            .and_then(|_| {
+                value
+                    .parse::<Timestamp>()
+                    .map_err(|_| ValidationError::new("timestamp").with_message("Provide a complete RFC 3339 timestamp with an explicit UTC offset"))
+            })
+    }
+    /// Validate a patent identifier with ACORN's canonical parser.
+    pub fn patent(value: &str) -> Result<(), ValidationError> {
+        Patent::is_valid(value)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("patent").with_message("Provide valid patent identifier"))
+    }
+    /// Validate a phone number while rejecting known placeholder values.
+    pub fn phone(value: &str) -> Result<(), ValidationError> {
+        match (RE_PHONE.is_match(value).unwrap_or(false), RE_FAKE_PHONE.is_match(value).unwrap_or(false)) {
+            | (true, false) => Ok(()),
+            | (_, true) => Err(ValidationError::new("phone").with_message("Provide real phone number, not a placeholder")),
+            | _ => Err(ValidationError::new("phone").with_message("Provide valid phone number")),
+        }
+    }
+    /// Validate a RAiD identifier with ACORN's canonical parser.
+    pub fn raid(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_raid(), "RAiD")
+    }
+    /// Validate a ROR identifier with ACORN's canonical parser.
+    pub fn ror(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_ror(), "ROR")
+    }
+    /// Validate an RRID with ACORN's canonical parser.
+    pub fn rrid(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_rrid(), "RRID")
+    }
+    /// Validate snake_case text.
+    pub fn snake_case(value: &str) -> Result<(), ValidationError> {
+        let valid = value.to_case(Case::Snake);
+        valid
+            .eq(value)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("snake_case").with_message(format!("Provide ID in snake_case format (e.g., {valid})")))
+    }
+    /// Validate a two-letter US state or Canadian province abbreviation.
+    pub fn state(value: impl ToString) -> Result<(), ValidationError> {
+        let value = value.to_string();
+        (value.len() == 2 && value.chars().all(|character| character.is_ascii_alphabetic()))
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("state").with_message("Provide valid US state or Canadian province abbreviation (e.g., CA, NY, ON)"))
+    }
+    /// Validate an SWHID with ACORN's canonical parser.
+    pub fn swhid(value: &str) -> Result<(), ValidationError> {
+        identifier(value.is_swhid(), "SWHID")
+    }
+    /// Validate a complete RFC 3339 timestamp with an explicit UTC offset
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::validation::rules;
+    ///
+    /// assert!(rules::timestamp("2026-08-29T12:30:00Z").is_ok());
+    /// assert!(rules::timestamp("2026-08-29").is_err());
+    /// ```
+    pub fn timestamp(value: impl ToString) -> Result<(), ValidationError> {
+        parse_timestamp(&value.to_string()).map(|_| ())
+    }
+    /// Validate a ten-digit Unix epoch timestamp.
+    pub fn unix_epoch(value: impl Borrow<usize>) -> Result<(), ValidationError> {
+        RE_UNIX_EPOCH
+            .is_match(&value.borrow().to_string())
+            .is_ok_and(core::convert::identity)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("epoch").with_message("Provide valid Unix epoch timestamp"))
+    }
     /// Validate an absolute HTTP(S) URI with a non-empty authority.
     /// ### Examples
     /// ```
@@ -499,6 +533,18 @@ pub mod rules {
             .map(|_| ())
             .ok_or_else(|| ValidationError::new("url"))
     }
+    /// Validate a hyphenated UUID value.
+    pub fn uuid(value: &str) -> Result<(), ValidationError> {
+        let bytes = value.as_bytes();
+        (bytes.len() == 36
+            && [8, 13, 18, 23].into_iter().all(|index| bytes.get(index) == Some(&b'-'))
+            && bytes
+                .iter()
+                .enumerate()
+                .all(|(index, byte)| [8, 13, 18, 23].contains(&index) || byte.is_ascii_hexdigit()))
+        .then_some(())
+        .ok_or_else(|| ValidationError::new("uuid").with_message("Provide a valid hyphenated UUID"))
+    }
     /// Validate ACORN's exact abbreviated semantic-version syntax
     /// ### Examples
     /// ```
@@ -511,40 +557,6 @@ pub mod rules {
         SemanticVersion::parse_exact(value)
             .map(|_| ())
             .map_err(|_| ValidationError::new("version").with_message("Provide valid semantic version"))
-    }
-    /// Validate an IPv4 address
-    /// ### Examples
-    /// ```
-    /// use acorn_schema::validation::rules;
-    ///
-    /// assert!(rules::ipv4("192.168.1.1").is_ok());
-    /// assert!(rules::ipv4("256.1.1.1").is_err());
-    /// ```
-    pub fn ipv4(value: &str) -> Result<(), ValidationError> {
-        value
-            .parse::<Ipv4Addr>()
-            .map(|_| ())
-            .map_err(|_| ValidationError::new("ipv4").with_message("Provide valid IPv4 address"))
-    }
-    /// Validate an IPv6 address
-    /// ### Examples
-    /// ```
-    /// use acorn_schema::validation::rules;
-    ///
-    /// assert!(rules::ipv6("2001:db8::1").is_ok());
-    /// assert!(rules::ipv6("192.168.1.1").is_err());
-    /// ```
-    pub fn ipv6(value: &str) -> Result<(), ValidationError> {
-        value
-            .parse::<Ipv6Addr>()
-            .map(|_| ())
-            .map_err(|_| ValidationError::new("ipv6").with_message("Provide valid IPv6 address"))
-    }
-    /// Validate serialized JSON.
-    pub fn json(value: impl AsRef<str>) -> Result<(), ValidationError> {
-        serde_json::from_str::<serde_json::Value>(value.as_ref())
-            .map(|_| ())
-            .map_err(|_| ValidationError::new("json").with_message("Provide valid JSON"))
     }
     /// Validate a four-digit year that is not in the future when a clock is available
     /// ### Examples
@@ -623,19 +635,6 @@ pub struct ValidationIssue {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ValidationReport(Vec<ValidationIssue>);
-impl<C> Each for &C
-where
-    C: Each + ?Sized,
-{
-    type Item = C::Item;
-    type Iter<'a>
-        = C::Iter<'a>
-    where
-        Self: 'a;
-    fn each_iter(&self) -> Self::Iter<'_> {
-        (*self).each_iter()
-    }
-}
 impl<T, const N: usize> Each for [T; N] {
     type Item = T;
     type Iter<'a>
@@ -681,6 +680,19 @@ impl<K, V> Each for BTreeMap<K, V> {
         V: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.values()
+    }
+}
+impl<C> Each for &C
+where
+    C: Each + ?Sized,
+{
+    type Item = C::Item;
+    type Iter<'a>
+        = C::Iter<'a>
+    where
+        Self: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        (*self).each_iter()
     }
 }
 impl Validate for Checksum {
@@ -848,14 +860,6 @@ impl ValidationReport {
         }
     }
 }
-impl<T: Validate> Validate for Vec<T> {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        validate_sequence(self.iter())
-    }
-    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
-        validate_sequence_async(self.iter())
-    }
-}
 impl<T> Each for Vec<T> {
     type Item = T;
     type Iter<'a>
@@ -864,6 +868,14 @@ impl<T> Each for Vec<T> {
         T: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.iter()
+    }
+}
+impl<T: Validate> Validate for Vec<T> {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        validate_sequence(self.iter())
+    }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        validate_sequence_async(self.iter())
     }
 }
 /// Append all indexed failures produced by an `each` rule.

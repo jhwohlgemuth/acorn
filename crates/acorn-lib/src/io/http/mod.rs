@@ -71,6 +71,8 @@ pub struct HttpRequest {
     /// Whether HTTP redirects may be followed.
     #[builder(default = true)]
     pub follow_redirects: bool,
+    /// Optional exact request body bytes.
+    pub body: Option<Vec<u8>>,
     /// Request headers
     #[builder(default)]
     pub headers: HeaderMap,
@@ -136,6 +138,7 @@ impl fmt::Debug for HttpRequest {
             .debug_struct("HttpRequest")
             .field("allow_anonymous_fallback", &self.allow_anonymous_fallback)
             .field("follow_redirects", &self.follow_redirects)
+            .field("body_length", &self.body.as_ref().map(Vec::len))
             .field("headers", &self.headers)
             .field("json_body", &self.json_body)
             .field("max_response_bytes", &self.max_response_bytes)
@@ -159,6 +162,11 @@ impl fmt::Display for HttpRequestBuilder {
     }
 }
 impl HttpRequestBuilder {
+    /// Add exact request body bytes.
+    pub fn body(mut self, value: impl Into<Vec<u8>>) -> Self {
+        self.request.body = Some(value.into());
+        self
+    }
     /// Add a single header to the request, ignoring invalid names or values.
     pub fn header(mut self, name: &str, value: &str) -> Self {
         self.request.headers.extend(header(name, value));
@@ -191,6 +199,13 @@ impl HttpRequestBuilder {
     }
 }
 impl HttpResponse {
+    /// Return this response when its status is successful.
+    pub fn success(self, action: &str) -> ApiResult<Self> {
+        match (200..=299).contains(&self.status_code) {
+            | true => Ok(self),
+            | false => Err(eyre!("Failed to {action} — HTTP {}", self.status_code)),
+        }
+    }
     /// Read response body as bytes.
     pub async fn bytes(self) -> ApiResult<Vec<u8>> {
         Ok(self.body)
@@ -444,6 +459,7 @@ pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> Head
 }
 async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
     let HttpRequest {
+        body,
         headers,
         json_body,
         max_response_bytes,
@@ -453,9 +469,10 @@ async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiRes
         ..
     } = request;
     let builder = client.request(method.into(), url).header(USER_AGENT, ACORN_USER_AGENT).headers(headers);
-    let builder = match json_body {
-        | Some(value) => builder.json(&value),
-        | None => builder,
+    let builder = match (body, json_body) {
+        | (Some(value), _) => builder.body(value),
+        | (None, Some(value)) => builder.json(&value),
+        | (None, None) => builder,
     };
     match builder.send().await {
         | Ok(mut response) => {

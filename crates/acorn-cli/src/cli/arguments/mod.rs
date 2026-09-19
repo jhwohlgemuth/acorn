@@ -1047,6 +1047,46 @@ pub(crate) struct RemoteTarget {
     #[arg(long, value_name = "NAME", conflicts_with = "host", help_heading = "OPTIONS")]
     pub(crate) context: Option<String>,
 }
+/// Arguments for scheduled artifact creation and publication.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct Report {
+    /// Application configuration containing PowerAutomate project mappings.
+    #[arg(short, long, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) config: Option<PathBuf>,
+    /// Exact merged default-branch commit used as report input.
+    #[arg(long, env = "CI_COMMIT_SHA", value_name = "SHA", help_heading = "OPTIONS")]
+    pub(crate) commit: Option<String>,
+    /// Explicit inclusive lower bound for local or recovery runs.
+    #[arg(long, value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+    pub(crate) from: Option<String>,
+    /// Fixed exclusive reporting upper bound shared by every project.
+    #[arg(long, env = "ACORN_REPORT_THROUGH", value_name = "TIMESTAMP", help_heading = "OPTIONS")]
+    pub(crate) through: String,
+    /// Repository checkout root containing configured project paths.
+    #[arg(long, default_value = ".", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) root: PathBuf,
+    /// Directory for generated reports and failure diagnostics.
+    #[arg(short, long, default_value = ".acorn/reports", value_name = "PATH", value_hint = ValueHint::DirPath, help_heading = "OPTIONS")]
+    pub(crate) output: PathBuf,
+    /// Restrict reporting to selected configured project identifiers.
+    #[arg(long = "project", value_name = "ID", value_delimiter = ',', help_heading = "OPTIONS")]
+    pub(crate) projects: Vec<String>,
+    /// GitLab pipeline identifier recorded in the manifest.
+    #[arg(long, env = "CI_PIPELINE_ID", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) pipeline_id: Option<String>,
+    /// GitLab job identifier recorded in the manifest.
+    #[arg(long, env = "CI_JOB_ID", value_name = "ID", help_heading = "OPTIONS")]
+    pub(crate) job_id: Option<String>,
+    /// Path to Chromium executable used for PDF rendering.
+    #[arg(long, env = CHROME_PATH, value_name = "PATH", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
+    pub(crate) chrome_path: Option<PathBuf>,
+    /// Generate local artifacts and manifests without GitLab publication or callbacks.
+    #[arg(long = "dry-run", visible_alias = "what-if", help_heading = "FLAGS")]
+    pub(crate) dry_run: bool,
+    #[command(flatten)]
+    pub(crate) verbose: Verbosity,
+}
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
 pub(crate) struct Runner {
@@ -1250,16 +1290,6 @@ pub(crate) struct Sync {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-impl From<&GatherOutputFormat> for analyzer::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Console,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
-        }
-    }
-}
 impl From<SwhidKind> for CalculationKind {
     fn from(value: SwhidKind) -> Self {
         match value {
@@ -1317,6 +1347,16 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
+        }
+    }
+}
+impl From<&GatherOutputFormat> for analyzer::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Console,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

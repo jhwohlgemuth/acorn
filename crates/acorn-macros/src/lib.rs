@@ -36,6 +36,11 @@ enum ValidationRule {
     Optional(Box<ValidationRule>),
     Or(Vec<ValidationRule>, RuleOptions),
 }
+#[derive(Clone, Copy)]
+enum WithFieldVisibility {
+    Private,
+    Public,
+}
 #[derive(Clone, Default)]
 struct LengthOptions {
     min: Option<Expr>,
@@ -69,11 +74,6 @@ struct SchemaRule {
 }
 struct WithConfig {
     prefix: String,
-}
-#[derive(Clone, Copy)]
-enum WithFieldVisibility {
-    Private,
-    Public,
 }
 struct WithFieldConfig {
     some: bool,
@@ -718,23 +718,6 @@ fn expand_with_enum_field(
         })
     })
 }
-fn expand_with_parameter(ty: &Type, parameter: &syn::Ident, some: bool) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
-    match some {
-        | true => type_argument(ty, "Option")
-            .ok_or_else(|| syn::Error::new_spanned(ty, "some requires an Option<T> field"))
-            .map(|inner| match inner {
-                | Type::Reference(_) => (quote! { #inner }, quote! { ::core::option::Option::Some(#parameter) }),
-                | _ => (
-                    quote! { impl ::core::convert::Into<#inner> },
-                    quote! { ::core::option::Option::Some(::core::convert::Into::into(#parameter)) },
-                ),
-            }),
-        | false => Ok((
-            quote! { impl ::core::convert::Into<#ty> },
-            quote! { ::core::convert::Into::into(#parameter) },
-        )),
-    }
-}
 fn expand_with_named(
     fields: &Punctuated<syn::Field, Token![,]>,
     config: &WithConfig,
@@ -775,6 +758,23 @@ fn expand_with_named(
             }))
         })
         .collect()
+}
+fn expand_with_parameter(ty: &Type, parameter: &syn::Ident, some: bool) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+    match some {
+        | true => type_argument(ty, "Option")
+            .ok_or_else(|| syn::Error::new_spanned(ty, "some requires an Option<T> field"))
+            .map(|inner| match inner {
+                | Type::Reference(_) => (quote! { #inner }, quote! { ::core::option::Option::Some(#parameter) }),
+                | _ => (
+                    quote! { impl ::core::convert::Into<#inner> },
+                    quote! { ::core::option::Option::Some(::core::convert::Into::into(#parameter)) },
+                ),
+            }),
+        | false => Ok((
+            quote! { impl ::core::convert::Into<#ty> },
+            quote! { ::core::convert::Into::into(#parameter) },
+        )),
+    }
 }
 fn expand_with_unnamed(
     fields: &Punctuated<syn::Field, Token![,]>,
@@ -1397,6 +1397,7 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             "state",
             "uri",
             "unix_epoch",
+            "uuid",
         ];
         match path.get_ident() {
             | Some(ident) if supported_pid.iter().any(|rule| ident == rule) => Ok(ValidationRule::Pid(ident.clone(), parse_rule_options(meta)?)),

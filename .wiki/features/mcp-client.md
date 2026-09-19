@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This is fourth and final among the remaining plans in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows [ACP inference](opencode-acp-inference.md), but neither protocol depends on the other's wire types.
+This is third and final among the remaining plans in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order). It consumes the implemented operation registry in `io::api::json_rpc` and follows [ACP inference](opencode-acp-inference.md), but neither protocol depends on the other's wire types.
 
 # Goal
 
@@ -63,7 +63,6 @@ The configuration key, server, tool, effects, timeout, and output bound are all 
 
 | Plan or lane | Conflict | Resolution |
 |---|---|---|
-| PowerApps reporting | Operation registration, manifests, bot/report CLI roots, and shared callback/webhook dependencies overlap. | PowerApps lands first; MCP remains an outbound RMCP client and does not become the PowerAutomate transport or callback mechanism. |
 | ACP inference | `io/mcp`, agent configuration, features, and CLI roots | One agent-tools owner; ACP retains the official ACP SDK and MCP retains `rmcp`. |
 | JSON-RPC | Shared handlers and error concepts | Share operation policy below transports, not protocol messages. |
 | Dependency defaults | Tokio/process/HTTP/TLS feature growth | Add an independent non-default capability and inspect feature trees. |

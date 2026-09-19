@@ -4,7 +4,7 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
-use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
+use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpRequest, HttpResponse, HttpResponseError, HttpService};
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -22,7 +22,7 @@ use core::iter::once;
 use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
-use http::header::{HeaderName, HeaderValue};
+use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::HeaderMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -59,6 +59,8 @@ pub mod openalex;
 pub mod openapi;
 pub mod orcid;
 pub mod osti;
+#[cfg(feature = "agentic")]
+pub mod powerautomate;
 pub mod raid;
 pub mod ror;
 pub mod spdx;
@@ -573,6 +575,50 @@ impl Endpoint {
             .find_by_name(name)
             .map(|resource| render(&resource.template, &context))
             .ok_or_else(|| eyre!("Resource '{name}' not found"))
+    }
+    /// Execute a configured resource through an injected HTTP service with an optional raw body.
+    pub(crate) async fn execute_resource(
+        &self,
+        service: &impl HttpService,
+        name: &str,
+        data: Option<Vec<Param>>,
+        body: Option<Vec<u8>>,
+        content_type: Option<&str>,
+        max_response_bytes: usize,
+    ) -> ApiResult<HttpResponse> {
+        let context = self.context_with::<EmptyField, EmptyField>(data.clone());
+        let request = match self.resources.find_by_name(name) {
+            | Some(Resource { method, template, .. }) => {
+                let headers = data.unwrap_or_default().into_headers();
+                let headers = match content_type {
+                    | Some(content_type) => HeaderValue::from_str(content_type)
+                        .map_err(|why| eyre!("Invalid API content type — {why}"))
+                        .map(|value| {
+                            let mut headers = headers;
+                            headers.insert(CONTENT_TYPE, value);
+                            headers
+                        }),
+                    | None => Ok(headers),
+                };
+                headers.map(|headers| {
+                    HttpRequest::init()
+                        .allow_anonymous_fallback(false)
+                        .maybe_body(body)
+                        .follow_redirects(false)
+                        .headers(headers)
+                        .max_response_bytes(max_response_bytes)
+                        .method(method)
+                        .sensitive_url(false)
+                        .url(render(&template, &context))
+                        .build()
+                })
+            }
+            | None => Err(eyre!("Resource '{name}' not found")),
+        };
+        match request {
+            | Ok(request) => service.execute(request).await,
+            | Err(why) => Err(why),
+        }
     }
     fn split_domain(value: &str) -> (String, Option<Scheme>, Option<u16>) {
         Uri::parse(value)

@@ -3,11 +3,11 @@
 ## In progress
 
 - [ModelKit and ModelPack OCI interoperability](oci-model-artifact-downloads.md) - Consume native ModelKits and standards-conformant ModelPacks through a normalized, safely materializing OCI plan while preserving GGUF inference policy.
+- [Power Apps logbook intake and artifact reporting](powerapps-gitlab-logbook-reporting.md) - Complete deployment validation for direct authenticated intake, ACORN-generated secrets, reviewed logbook changes, and bounded artifact notifications.
 - [Unified import and download with BagIt archives](unified-import-download-bagit.md) - Finish the shared bucket transfer pipeline and add inferred ZIP, TAR, TAR.GZ, and 7z BagIt import and export.
 
 ## Planned
 
-- [PowerApps logbook intake and sponsor reporting](powerapps-gitlab-logbook-reporting.md) - Turn signed PowerAutomate forms into reviewed bucket logbook changes and monthly sponsor PDFs delivered through GitLab and PowerAutomate.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Register inference services while preserving official ACP transport, then stage prompt hydration, structured suggestions, and verified deterministic remediation.

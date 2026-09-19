@@ -99,6 +99,7 @@ pub mod config;
 pub mod database;
 pub mod document;
 pub mod download;
+mod email;
 pub mod enrichment;
 pub mod fingerprint;
 mod gguf;
@@ -118,6 +119,8 @@ pub mod swhid;
 pub mod sync;
 mod temporary;
 pub mod workflow;
+
+pub use email::EmailAddress;
 
 lazy_static! {
     static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
@@ -409,6 +412,82 @@ pub struct GitlabMergeRequestDiffResponse {
 pub struct Remote(Location);
 /// Struct for adding ToStringList functionality
 pub struct StringList<'a>(pub &'a Vec<PathBuf>);
+impl ContainerTarget {
+    /// Construct from optional host/context args.
+    pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
+        match (host, context) {
+            | (Some(remote), None) => Some(Self::Ssh(remote)),
+            | (None, Some(name)) if !name.trim().is_empty() && !name.chars().any(char::is_whitespace) => {
+                Some(Self::Context(Location::from(name.as_str())))
+            }
+            | (None, Some(_)) | (None, None) | (Some(_), Some(_)) => None,
+        }
+    }
+    /// Return the canonical location represented by this target, if any.
+    pub fn location(&self) -> Option<&Location> {
+        match self {
+            | Self::Local => None,
+            | Self::Ssh(remote) => Some(remote.location()),
+            | Self::Context(location) => Some(location),
+        }
+    }
+    /// Validate that the runtime supports this target kind.
+    pub fn validate_runtime(&self, runtime: &Executor) -> ApiResult<()> {
+        match (self, runtime.is_docker() || matches!(runtime, Executor::Podman)) {
+            | (Self::Ssh(endpoint), false) => Err(eyre!("Remote target '{endpoint}' requires the docker or podman runtime, not {runtime}")),
+            | (Self::Context(name), false) => Err(eyre!("Context target '{name}' requires the docker or podman runtime, not {runtime}")),
+            | _ => Ok(()),
+        }
+    }
+    /// Prepend runtime-specific host/context flags to a command.
+    pub fn to_runtime_args(&self, runtime: &Executor, command: Vec<OsString>) -> Vec<OsString> {
+        match (self, runtime) {
+            | (Self::Ssh(remote), Executor::Docker | Executor::Podman) => args!["--host", remote.as_str(), ..command],
+            | (Self::Context(location), Executor::Docker) => args!["--context", <&str>::from(location), ..command],
+            | (Self::Context(location), Executor::Podman) => args!["--connection", <&str>::from(location), ..command],
+            | _ => command,
+        }
+    }
+    /// Copy a GPU runner template into a container at this target.
+    pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
+        let destination = format!("{name}:{GITLAB_RUNNER_GPU_TEMPLATE_PATH}");
+        let copy = self.to_runtime_args(runtime, args!["cp", template, destination]);
+        match cmd!(runtime, copy) {
+            | Ok(output) if output.status.success() => Ok(()),
+            | Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
+            }
+            | Err(why) => Err(eyre!("Failed to execute container cp for {self} — {why}")),
+        }
+    }
+    /// Create an optional GPU template for a local or remote container target.
+    pub fn create_gpu_template(config_host_dir: &str, target: Option<&Self>) -> io::Result<Option<PathBuf>> {
+        let is_remote = target.is_some_and(|target| target.is_ssh() || target.is_context());
+        let parent = if is_remote { temp_dir() } else { PathBuf::from(config_host_dir) };
+        let filename = if is_remote {
+            format!("acorn-gpu-{}.template.toml", nanoid!())
+        } else {
+            "gpu.template.toml".to_string()
+        };
+        let template = parent.join(filename);
+        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
+        match create_dir_all(parent).and_then(|_| write(&template, content)) {
+            | Ok(()) => Ok(Some(template)),
+            | Err(why) if is_remote => Err(why),
+            | Err(_) => Ok(None),
+        }
+    }
+}
+impl fmt::Display for ContainerTarget {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            | Self::Local => formatter.write_str("local"),
+            | Self::Ssh(remote) => write!(formatter, "{remote}"),
+            | Self::Context(location) => write!(formatter, "{location}"),
+        }
+    }
+}
 impl From<CstValue<'_>> for CstInputValue {
     fn from(value: CstValue<'_>) -> Self {
         match value.0 {
@@ -542,11 +621,6 @@ impl From<&str> for Executor {
         }
     }
 }
-impl FileExtension for &str {
-    fn extension(&self) -> String {
-        self.to_ascii_lowercase()
-    }
-}
 impl FileExtension for MimeType {
     fn extension(&self) -> String {
         self.clone().file_type()
@@ -571,12 +645,45 @@ impl FromPath for MimeType {
         MimeType::from(value.as_ref().display().to_string())
     }
 }
+impl From<Executor> for std::ffi::OsString {
+    fn from(value: Executor) -> Self {
+        Self::from(value.to_string())
+    }
+}
+impl PathConversion for &Path {
+    fn cross_platform_display(&self) -> String {
+        <Path as PathConversion>::cross_platform_display(*self)
+    }
+}
 impl PathConversion for Path {
     fn cross_platform_display(&self) -> String {
         let value = self.display().to_string();
         #[cfg(windows)]
         let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
         value
+    }
+}
+impl PathExt for &Path {
+    fn is_open_file(&self, file: &File) -> bool {
+        <Path as PathExt>::is_open_file(self, file)
+    }
+    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
+        <Path as PathExt>::to_gguf_parts(self)
+    }
+    fn is_gguf(&self) -> bool {
+        <Path as PathExt>::is_gguf(self)
+    }
+    fn is_auxiliary_gguf(&self) -> bool {
+        <Path as PathExt>::is_auxiliary_gguf(self)
+    }
+    fn is_symlink(&self) -> bool {
+        <Path as PathExt>::is_symlink(self)
+    }
+    fn is_windows(&self) -> bool {
+        <Path as PathExt>::is_windows(self)
+    }
+    fn same_as(&self, other: &Path) -> bool {
+        <Path as PathExt>::same_as(self, other)
     }
 }
 impl PathExt for Path {
@@ -640,34 +747,6 @@ impl PathExt for Path {
 impl PathConversion for PathBuf {
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(self)
-    }
-}
-impl PathConversion for &Path {
-    fn cross_platform_display(&self) -> String {
-        <Path as PathConversion>::cross_platform_display(*self)
-    }
-}
-impl PathExt for &Path {
-    fn is_open_file(&self, file: &File) -> bool {
-        <Path as PathExt>::is_open_file(self, file)
-    }
-    fn to_gguf_parts(&self) -> Option<(String, u64, u64)> {
-        <Path as PathExt>::to_gguf_parts(self)
-    }
-    fn is_gguf(&self) -> bool {
-        <Path as PathExt>::is_gguf(self)
-    }
-    fn is_auxiliary_gguf(&self) -> bool {
-        <Path as PathExt>::is_auxiliary_gguf(self)
-    }
-    fn is_symlink(&self) -> bool {
-        <Path as PathExt>::is_symlink(self)
-    }
-    fn is_windows(&self) -> bool {
-        <Path as PathExt>::is_windows(self)
-    }
-    fn same_as(&self, other: &Path) -> bool {
-        <Path as PathExt>::same_as(self, other)
     }
 }
 impl Platform {
@@ -755,82 +834,6 @@ impl Remote {
         &self.0
     }
 }
-impl ContainerTarget {
-    /// Construct from optional host/context args.
-    pub fn from_args(host: Option<Remote>, context: Option<String>) -> Option<Self> {
-        match (host, context) {
-            | (Some(remote), None) => Some(Self::Ssh(remote)),
-            | (None, Some(name)) if !name.trim().is_empty() && !name.chars().any(char::is_whitespace) => {
-                Some(Self::Context(Location::from(name.as_str())))
-            }
-            | (None, Some(_)) | (None, None) | (Some(_), Some(_)) => None,
-        }
-    }
-    /// Return the canonical location represented by this target, if any.
-    pub fn location(&self) -> Option<&Location> {
-        match self {
-            | Self::Local => None,
-            | Self::Ssh(remote) => Some(remote.location()),
-            | Self::Context(location) => Some(location),
-        }
-    }
-    /// Validate that the runtime supports this target kind.
-    pub fn validate_runtime(&self, runtime: &Executor) -> ApiResult<()> {
-        match (self, runtime.is_docker() || matches!(runtime, Executor::Podman)) {
-            | (Self::Ssh(endpoint), false) => Err(eyre!("Remote target '{endpoint}' requires the docker or podman runtime, not {runtime}")),
-            | (Self::Context(name), false) => Err(eyre!("Context target '{name}' requires the docker or podman runtime, not {runtime}")),
-            | _ => Ok(()),
-        }
-    }
-    /// Prepend runtime-specific host/context flags to a command.
-    pub fn to_runtime_args(&self, runtime: &Executor, command: Vec<OsString>) -> Vec<OsString> {
-        match (self, runtime) {
-            | (Self::Ssh(remote), Executor::Docker | Executor::Podman) => args!["--host", remote.as_str(), ..command],
-            | (Self::Context(location), Executor::Docker) => args!["--context", <&str>::from(location), ..command],
-            | (Self::Context(location), Executor::Podman) => args!["--connection", <&str>::from(location), ..command],
-            | _ => command,
-        }
-    }
-    /// Copy a GPU runner template into a container at this target.
-    pub fn copy_gpu_template(&self, runtime: &Executor, name: &str, template: &Path) -> Result<(), Report> {
-        let destination = format!("{name}:{GITLAB_RUNNER_GPU_TEMPLATE_PATH}");
-        let copy = self.to_runtime_args(runtime, args!["cp", template, destination]);
-        match cmd!(runtime, copy) {
-            | Ok(output) if output.status.success() => Ok(()),
-            | Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                Err(eyre!("Failed to copy GitLab runner GPU template to {self} — {stderr}"))
-            }
-            | Err(why) => Err(eyre!("Failed to execute container cp for {self} — {why}")),
-        }
-    }
-    /// Create an optional GPU template for a local or remote container target.
-    pub fn create_gpu_template(config_host_dir: &str, target: Option<&Self>) -> io::Result<Option<PathBuf>> {
-        let is_remote = target.is_some_and(|target| target.is_ssh() || target.is_context());
-        let parent = if is_remote { temp_dir() } else { PathBuf::from(config_host_dir) };
-        let filename = if is_remote {
-            format!("acorn-gpu-{}.template.toml", nanoid!())
-        } else {
-            "gpu.template.toml".to_string()
-        };
-        let template = parent.join(filename);
-        let content = "[[runners]]\n  [runners.docker]\n    gpus = \"all\"\n";
-        match create_dir_all(parent).and_then(|_| write(&template, content)) {
-            | Ok(()) => Ok(Some(template)),
-            | Err(why) if is_remote => Err(why),
-            | Err(_) => Ok(None),
-        }
-    }
-}
-impl fmt::Display for ContainerTarget {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            | Self::Local => formatter.write_str("local"),
-            | Self::Ssh(remote) => write!(formatter, "{remote}"),
-            | Self::Context(location) => write!(formatter, "{location}"),
-        }
-    }
-}
 impl FromCommand for SemanticVersion {
     /// Returns a `SemanticVersion` value based on the output of the executable's value for common version flags or subcommands
     /// ### Example
@@ -856,9 +859,9 @@ impl FromCommand for SemanticVersion {
         })?
     }
 }
-impl From<Executor> for std::ffi::OsString {
-    fn from(value: Executor) -> Self {
-        Self::from(value.to_string())
+impl FileExtension for &str {
+    fn extension(&self) -> String {
+        self.to_ascii_lowercase()
     }
 }
 impl FileExtension for String {

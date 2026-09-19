@@ -991,6 +991,30 @@ fn test_logbook_updates_filter_by_instant_and_sort_newest_first() {
     assert!(activity.updates_since("2026-09-01").is_err());
 }
 #[test]
+fn test_logbook_updates_use_half_open_reporting_window() {
+    let activity = ResearchActivity {
+        logbook: Some(
+            Logbook::init()
+                .entries(vec![
+                    logbook_entry("at-lower", "2026-03-08T01:00:00-05:00"),
+                    logbook_entry("inside", "2026-03-08T03:30:00-04:00"),
+                    logbook_entry("at-upper", "2026-04-01T00:00:00Z"),
+                ])
+                .build(),
+        ),
+        ..ResearchActivity::default()
+    };
+    let window = ReportingWindow::new(Some("2026-03-08T06:00:00Z"), "2026-04-01T00:00:00Z").expect("valid window");
+    let updates = activity.updates_within(&window).expect("bounded updates");
+    assert_eq!(
+        updates.entries.iter().map(|entry| entry.identifier.as_str()).collect::<Vec<_>>(),
+        ["inside", "at-lower"]
+    );
+    assert_eq!(updates.through.as_deref(), Some("2026-04-01T00:00:00Z"));
+    assert!(ReportingWindow::new(Some("2026-04-01T00:00:00Z"), "2026-04-01T00:00:00Z").is_err());
+    assert!(ReportingWindow::new(Some("2026-04-02T00:00:00Z"), "2026-04-01T00:00:00Z").is_err());
+}
+#[test]
 fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
     let discovered = LogbookEntry::init()
         .identifier("discovered")

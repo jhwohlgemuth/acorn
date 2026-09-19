@@ -4,14 +4,15 @@ use crate::io::api::json_rpc::Notification;
 use crate::io::http::{HeaderMapExt, HttpMethod, HttpRequest, HttpResponseTooLarge, HttpService};
 use crate::io::ApiResult;
 use crate::util::constants::app::MAX_CALLBACK_RESPONSE_BYTES;
+use crate::With;
 use acorn_core::prelude::{Box, String, Vec};
 use acorn_core::util::constant_time_eq;
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;
-use core::{fmt, future::Future, pin::Pin, time::Duration};
+use core::{fmt, future::Future, iter::once, pin::Pin, time::Duration};
 use data_encoding::BASE64;
 use http::header::{HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use http::HeaderMap;
+use http::{HeaderMap, StatusCode};
 use jiff::{SignedDuration, Timestamp};
 use ring::hmac;
 use secrecy::ExposeSecret;
@@ -19,8 +20,11 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tokio::time::Instant;
 
+mod event;
 /// Durable provider-neutral webhook operation storage.
 pub mod store;
+
+pub use event::ArtifactEvent;
 
 /// Awaitable result produced by a durable webhook operation.
 pub type Operation = Pin<Box<dyn Future<Output = ApiResult<()>> + Send>>;
@@ -69,8 +73,13 @@ pub(crate) struct ActiveClaim {
     runtime: WebhookRuntime,
 }
 /// Callback destination resolved at attempt time so credentials are never persisted with an intent.
+#[derive(With)]
 pub struct CallbackDestination {
+    #[with(skip)]
     headers: Vec<CallbackHeader>,
+    #[with(public, some)]
+    signer: Option<StandardWebhooksSigner>,
+    #[with(skip)]
     target: CallbackTarget,
 }
 /// Callback header with an explicit public-or-secret diagnostic classification.
@@ -140,6 +149,11 @@ struct RuntimeState {
     last_error_at: Option<Timestamp>,
     last_success_at: Option<Timestamp>,
 }
+/// Standard Webhooks HMAC-SHA256 signer for exact outbound body bytes.
+#[derive(Clone)]
+pub struct StandardWebhooksSigner {
+    key: hmac::Key,
+}
 /// Standard Webhooks HMAC-SHA256 verifier.
 #[derive(Clone)]
 pub struct StandardWebhooksVerifier {
@@ -190,10 +204,14 @@ impl Drop for ActiveClaim {
 impl CallbackDestination {
     /// Construct a resolved callback destination.
     pub fn new(target: CallbackTarget, headers: Vec<CallbackHeader>) -> Self {
-        Self { headers, target }
+        Self {
+            headers,
+            signer: None,
+            target,
+        }
     }
-    pub(super) fn parts(&self) -> (&CallbackTarget, &[CallbackHeader]) {
-        (&self.target, &self.headers)
+    pub(super) fn parts(&self) -> (&CallbackTarget, &[CallbackHeader], Option<&StandardWebhooksSigner>) {
+        (&self.target, &self.headers, self.signer.as_ref())
     }
 }
 impl CallbackHeader {
@@ -389,6 +407,35 @@ impl RuntimeState {
         }
     }
 }
+impl fmt::Debug for StandardWebhooksSigner {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("StandardWebhooksSigner").field("key", &"[REDACTED]").finish()
+    }
+}
+impl StandardWebhooksSigner {
+    /// Construct a signer from a `whsec_` Standard Webhooks secret.
+    pub fn new(signing_secret: impl Into<api::Secret>) -> Result<Self, WebhookError> {
+        standard_webhooks_key(signing_secret.into()).map(|key| Self { key })
+    }
+    /// Create Standard Webhooks headers for exact serialized body bytes.
+    pub fn headers(&self, delivery_id: &str, timestamp: Timestamp, raw_body: &[u8]) -> Result<Vec<CallbackHeader>, WebhookError> {
+        match delivery_id.trim().is_empty() {
+            | true => Err(WebhookError::new(ErrorKind::BadRequest, "Webhook delivery identifier is required")),
+            | false => {
+                let seconds = timestamp.as_second().to_string();
+                let prefix = format!("{delivery_id}.{seconds}.");
+                let message = [prefix.as_bytes(), raw_body].concat();
+                let signature = BASE64.encode(hmac::sign(&self.key, &message).as_ref());
+                let headers = [
+                    CallbackHeader::public("webhook-id", delivery_id),
+                    CallbackHeader::public("webhook-timestamp", &seconds),
+                    CallbackHeader::secret("webhook-signature", &format!("v1,{signature}")),
+                ];
+                headers.into_iter().collect()
+            }
+        }
+    }
+}
 impl fmt::Debug for StandardWebhooksVerifier {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -401,27 +448,97 @@ impl fmt::Debug for StandardWebhooksVerifier {
 impl StandardWebhooksVerifier {
     /// Construct a verifier from a `whsec_` Standard Webhooks secret.
     pub fn new(signing_secret: impl Into<api::Secret>, tolerance_seconds: u64) -> Result<Self, WebhookError> {
-        let signing_secret = signing_secret.into();
-        let signing_secret = ExposeSecret::expose_secret(&signing_secret);
-        signing_secret
-            .strip_prefix("whsec_")
-            .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret"))
-            .and_then(|encoded| {
-                BASE64
-                    .decode(encoded.as_bytes())
-                    .map_err(|_| WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret"))
-            })
-            .and_then(|key| match key.is_empty() {
-                | true => Err(WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret")),
-                | false => Ok(Self {
-                    key: hmac::Key::new(hmac::HMAC_SHA256, &key),
-                    tolerance_seconds,
-                }),
-            })
+        standard_webhooks_key(signing_secret.into()).map(|key| Self { key, tolerance_seconds })
     }
     /// Construct from a string secret (convenience for tests).
     pub fn from_string(signing_secret: &str, tolerance_seconds: u64) -> Result<Self, WebhookError> {
         Self::new(api::Secret::from(signing_secret.to_string()), tolerance_seconds)
+    }
+}
+impl Verifier for StandardWebhooksVerifier {
+    fn verify<'a>(&self, request: InboundRequest<'a>, now: Timestamp) -> Result<VerifiedRequest<'a>, WebhookError> {
+        request
+            .headers
+            .first(&["webhook-id"])
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook-id header"))
+            .and_then(|delivery_id| {
+                request
+                    .headers
+                    .first(&["webhook-timestamp"])
+                    .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook-timestamp header"))
+                    .map(|timestamp| (delivery_id, timestamp))
+            })
+            .and_then(|(delivery_id, timestamp)| {
+                timestamp
+                    .parse::<i64>()
+                    .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid webhook-timestamp header"))
+                    .map(|unix_seconds| (delivery_id, timestamp, unix_seconds))
+            })
+            .and_then(
+                |(delivery_id, timestamp, unix_seconds)| match now.as_second().abs_diff(unix_seconds) > self.tolerance_seconds {
+                    | true => Err(WebhookError::new(
+                        ErrorKind::Unauthorized,
+                        "Webhook timestamp is outside the allowed window",
+                    )),
+                    | false => request
+                        .headers
+                        .first(&["webhook-signature"])
+                        .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Missing webhook-signature header"))
+                        .and_then(|signatures| {
+                            let prefix = format!("{delivery_id}.{timestamp}.");
+                            let message = [prefix.as_bytes(), request.raw_body].concat();
+                            match signatures.split_whitespace().any(|part| {
+                                part.strip_prefix("v1,").is_some_and(|signature| {
+                                    BASE64
+                                        .decode(signature.as_bytes())
+                                        .is_ok_and(|tag| hmac::verify(&self.key, &message, &tag).is_ok())
+                                })
+                            }) {
+                                | true => Ok(VerifiedRequest {
+                                    delivery_id,
+                                    raw_body: request.raw_body,
+                                }),
+                                | false => Err(WebhookError::new(ErrorKind::Unauthorized, "Webhook signature verification failed")),
+                            }
+                        }),
+                },
+            )
+    }
+}
+impl core::error::Error for WebhookError {}
+impl fmt::Display for WebhookError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.status_code {
+            | Some(status) => write!(formatter, "{} (HTTP {status})", self.message),
+            | None => formatter.write_str(self.message),
+        }
+    }
+}
+impl WebhookError {
+    pub(crate) fn new(kind: ErrorKind, message: &'static str) -> Self {
+        Self {
+            kind,
+            message,
+            status_code: None,
+        }
+    }
+    /// Return the stable error category.
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
+    }
+    /// Convert the error into a stable HTTP response tuple.
+    pub(crate) fn response(self) -> (StatusCode, String) {
+        let status = match self.kind() {
+            | ErrorKind::BadRequest | ErrorKind::InvalidTarget => StatusCode::BAD_REQUEST,
+            | ErrorKind::Unauthorized => StatusCode::UNAUTHORIZED,
+            | ErrorKind::Downstream | ErrorKind::ResponseTooLarge | ErrorKind::Transport => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        (status, self.to_string())
+    }
+    /// Return the downstream HTTP status, when one was received.
+    pub fn status_code(&self) -> Option<u16> {
+        self.status_code
     }
 }
 impl Default for WebhookRuntime {
@@ -530,83 +647,6 @@ impl WebhookRuntime {
             .map(|mut state| *state = operation(*state))
     }
 }
-impl Verifier for StandardWebhooksVerifier {
-    fn verify<'a>(&self, request: InboundRequest<'a>, now: Timestamp) -> Result<VerifiedRequest<'a>, WebhookError> {
-        request
-            .headers
-            .first(&["webhook-id"])
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook-id header"))
-            .and_then(|delivery_id| {
-                request
-                    .headers
-                    .first(&["webhook-timestamp"])
-                    .ok_or_else(|| WebhookError::new(ErrorKind::BadRequest, "Missing webhook-timestamp header"))
-                    .map(|timestamp| (delivery_id, timestamp))
-            })
-            .and_then(|(delivery_id, timestamp)| {
-                timestamp
-                    .parse::<i64>()
-                    .map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Invalid webhook-timestamp header"))
-                    .map(|unix_seconds| (delivery_id, timestamp, unix_seconds))
-            })
-            .and_then(
-                |(delivery_id, timestamp, unix_seconds)| match now.as_second().abs_diff(unix_seconds) > self.tolerance_seconds {
-                    | true => Err(WebhookError::new(
-                        ErrorKind::Unauthorized,
-                        "Webhook timestamp is outside the allowed window",
-                    )),
-                    | false => request
-                        .headers
-                        .first(&["webhook-signature"])
-                        .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Missing webhook-signature header"))
-                        .and_then(|signatures| {
-                            let prefix = format!("{delivery_id}.{timestamp}.");
-                            let message = [prefix.as_bytes(), request.raw_body].concat();
-                            match signatures.split_whitespace().any(|part| {
-                                part.strip_prefix("v1,").is_some_and(|signature| {
-                                    BASE64
-                                        .decode(signature.as_bytes())
-                                        .is_ok_and(|tag| hmac::verify(&self.key, &message, &tag).is_ok())
-                                })
-                            }) {
-                                | true => Ok(VerifiedRequest {
-                                    delivery_id,
-                                    raw_body: request.raw_body,
-                                }),
-                                | false => Err(WebhookError::new(ErrorKind::Unauthorized, "Webhook signature verification failed")),
-                            }
-                        }),
-                },
-            )
-    }
-}
-impl core::error::Error for WebhookError {}
-impl fmt::Display for WebhookError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.status_code {
-            | Some(status) => write!(formatter, "{} (HTTP {status})", self.message),
-            | None => formatter.write_str(self.message),
-        }
-    }
-}
-impl WebhookError {
-    fn new(kind: ErrorKind, message: &'static str) -> Self {
-        Self {
-            kind,
-            message,
-            status_code: None,
-        }
-    }
-    /// Return the stable error category.
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
-    }
-    /// Return the downstream HTTP status, when one was received.
-    pub fn status_code(&self) -> Option<u16> {
-        self.status_code
-    }
-}
 /// Serialize and dispatch one authenticated HTTPS callback without retries or anonymous fallback.
 pub async fn dispatch<T: Serialize + ?Sized>(
     service: &impl HttpService,
@@ -616,7 +656,7 @@ pub async fn dispatch<T: Serialize + ?Sized>(
 ) -> Result<DispatchResult, WebhookError> {
     match serde_json::to_value(event).map_err(|_| WebhookError::new(ErrorKind::BadRequest, "Failed to encode callback payload")) {
         | Ok(json_body) => {
-            let headers = core::iter::once((CONTENT_TYPE, HeaderValue::from_static("application/json")))
+            let headers = once((CONTENT_TYPE, HeaderValue::from_static("application/json")))
                 .chain(callback_headers.iter().map(|header| (header.name.clone(), header.value.clone())))
                 .collect();
             let request = HttpRequest::init()
@@ -624,6 +664,53 @@ pub async fn dispatch<T: Serialize + ?Sized>(
                 .follow_redirects(false)
                 .headers(headers)
                 .json_body(json_body)
+                .max_response_bytes(MAX_CALLBACK_RESPONSE_BYTES)
+                .method(HttpMethod::Post)
+                .sensitive_url(true)
+                .url(target.as_str())
+                .build();
+            service
+                .execute(request)
+                .await
+                .map_err(|why| match why.downcast_ref::<HttpResponseTooLarge>().is_some() {
+                    | true => WebhookError::new(ErrorKind::ResponseTooLarge, "Webhook callback response exceeded its size limit"),
+                    | false => WebhookError::new(ErrorKind::Transport, "Webhook callback transport failed"),
+                })
+                .and_then(|response| match response.status_code {
+                    | 200..=299 => Ok(DispatchResult {
+                        status_code: response.status_code,
+                    }),
+                    | status_code => Err(WebhookError {
+                        kind: ErrorKind::Downstream,
+                        message: "Webhook callback was rejected",
+                        status_code: Some(status_code),
+                    }),
+                })
+        }
+        | Err(why) => Err(why),
+    }
+}
+/// Dispatch exact serialized JSON bytes with Standard Webhooks authentication.
+pub async fn dispatch_signed(
+    service: &impl HttpService,
+    target: &CallbackTarget,
+    raw_body: &[u8],
+    callback_headers: &[CallbackHeader],
+    signer: &StandardWebhooksSigner,
+    delivery_id: &str,
+    timestamp: Timestamp,
+) -> Result<DispatchResult, WebhookError> {
+    match signer.headers(delivery_id, timestamp, raw_body) {
+        | Ok(signature_headers) => {
+            let headers = once((CONTENT_TYPE, HeaderValue::from_static("application/json")))
+                .chain(callback_headers.iter().map(|header| (header.name.clone(), header.value.clone())))
+                .chain(signature_headers.into_iter().map(|header| (header.name, header.value)))
+                .collect();
+            let request = HttpRequest::init()
+                .allow_anonymous_fallback(false)
+                .body(raw_body.to_vec())
+                .follow_redirects(false)
+                .headers(headers)
                 .max_response_bytes(MAX_CALLBACK_RESPONSE_BYTES)
                 .method(HttpMethod::Post)
                 .sensitive_url(true)
@@ -658,6 +745,20 @@ pub fn prepare<P: WebhookProvider>(provider: &P, request: InboundRequest<'_>, no
             PreparedDelivery { delivery, operations }
         })
     })
+}
+fn standard_webhooks_key(signing_secret: api::Secret) -> Result<hmac::Key, WebhookError> {
+    ExposeSecret::expose_secret(&signing_secret)
+        .strip_prefix("whsec_")
+        .ok_or_else(|| WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret"))
+        .and_then(|encoded| {
+            BASE64
+                .decode(encoded.as_bytes())
+                .map_err(|_| WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret"))
+        })
+        .and_then(|key| match key.is_empty() {
+            | true => Err(WebhookError::new(ErrorKind::Unauthorized, "Invalid webhook signing secret")),
+            | false => Ok(hmac::Key::new(hmac::HMAC_SHA256, &key)),
+        })
 }
 
 #[cfg(test)]

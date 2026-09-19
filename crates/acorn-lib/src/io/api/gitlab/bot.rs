@@ -46,13 +46,15 @@
 //! ```
 use super::webhook::{self, WebhookConfig};
 pub use super::webhook::{HookActor, HookPayload, MergeRequestAction, WebhookDelivery, WebhookOperation, WebhookOperationHandler};
-use super::{events, DeploymentConfig, EventDetails, EventsResponse, Options, WebhookOptions};
+use super::{events, DeploymentConfig, EventDetails, EventsResponse, Options, Package, PackageLifecycle, PackageOptions, WebhookOptions};
 #[cfg(feature = "analysis")]
 use crate::analyzer::host::context::AnalysisContext;
 use crate::io::api::json_rpc::{InvocationContext, InvocationOrigin, MethodName, OperationDefinition, OperationEffects, OperationRegistry};
-use crate::io::api::webhooks::store::{OperationQueue, OperationWorker};
-use crate::io::api::webhooks::{WebhookRuntime, WebhookRuntimeState};
+use crate::io::api::powerautomate::{FormSubmission, PowerAutomateCallbackResolver, PowerAutomateConfig, PowerAutomateProvider};
+use crate::io::api::webhooks::store::{CallbackWorker, OperationQueue, OperationWorker};
+use crate::io::api::webhooks::{ArtifactEvent, WebhookRuntime, WebhookRuntimeState};
 use crate::io::api::{self, Configuration};
+use crate::io::http::ReqwestHttpService;
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::app::WEBHOOK_STALE_CLAIM_AFTER;
@@ -140,6 +142,8 @@ pub struct Config {
     pub(super) operation_queue: OperationQueue,
     /// Handler invoked by workers for claimed webhook operations
     pub(super) operation_handler: Option<WebhookOperationHandler>,
+    /// Optional signed PowerAutomate form provider.
+    pub(super) powerautomate: Option<PowerAutomateProvider>,
     /// Options applied to merge request analysis
     #[cfg(feature = "analysis")]
     pub(super) analysis_options: AnalysisContext,
@@ -266,7 +270,7 @@ impl Config {
             network_read: true,
             ..OperationEffects::default()
         };
-        [
+        let registry = [
             MethodName::from(["webhooks", "gitlab", "merge-request"]),
             MethodName::from(["webhooks", "gitlab", "note"]),
         ]
@@ -284,7 +288,87 @@ impl Config {
                     }
                 })
             })
-        })
+        });
+        match (registry, self.powerautomate.clone()) {
+            | (Ok(registry), Some(provider)) => {
+                let definition = OperationDefinition::new::<Value, Value>(MethodName::from(["webhooks", "powerautomate", "form"]), effects);
+                match definition {
+                    | Ok(definition) => {
+                        let options = self.options.clone().with_identifier(provider.config().gitlab_project.clone());
+                        let queue = self.operation_queue.clone();
+                        registry.register(definition, move |params: Value, _| {
+                            let options = options.clone();
+                            let provider = provider.clone();
+                            let queue = queue.clone();
+                            async move {
+                                match serde_json::from_value::<FormSubmission>(params) {
+                                    | Ok(submission) => {
+                                        let latest = match Package::new(
+                                            options.clone(),
+                                            PackageOptions::new(&provider.config().package, &submission.project_id),
+                                        ) {
+                                            | Ok(package) => package.download().await,
+                                            | Err(why) => Err(why),
+                                        };
+                                        let prepared = match latest {
+                                            | Ok(latest) => {
+                                                let cutoff = latest.as_ref().map(|manifest| manifest.through.as_str());
+                                                let project = provider.config().project(&submission.project_id).cloned();
+                                                let entry = submission.entry_after(provider.config(), cutoff);
+                                                let branch = submission.intake_branch();
+                                                match (project, entry, branch) {
+                                                    | (Ok(project), Ok(entry), Ok(branch)) => Ok((project, entry, branch)),
+                                                    | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
+                                                }
+                                            }
+                                            | Err(why) => Err(why),
+                                        };
+                                        match prepared {
+                                            | Ok((project, entry, branch)) => options
+                                                .clone()
+                                                .with_branch(branch)
+                                                .with_workflow("logbook-intake")
+                                                .publish_logbook_entry(entry, &queue, &project.path)
+                                                .await
+                                                .and_then(|result| {
+                                                    let merge_request_url = result.publication.merge_request.web_url.clone();
+                                                    let created = ArtifactEvent::MergeRequestCreated {
+                                                        merge_request_url: merge_request_url.clone(),
+                                                        project_id: submission.project_id.clone(),
+                                                    }
+                                                    .enqueue(
+                                                        &queue,
+                                                        &provider.config().callback_destination,
+                                                        &submission.submission_id,
+                                                    );
+                                                    let review = match result.candidates.0.is_empty() {
+                                                        | true => Ok(false),
+                                                        | false => ArtifactEvent::ReviewNeeded {
+                                                            merge_request_url,
+                                                            project_id: submission.project_id.clone(),
+                                                        }
+                                                        .enqueue(
+                                                            &queue,
+                                                            &provider.config().callback_destination,
+                                                            &format!("{}:review", submission.submission_id),
+                                                        ),
+                                                    };
+                                                    created.and(review).map(|_| Value::Null)
+                                                }),
+                                            | Err(why) => Err(why),
+                                        }
+                                    }
+                                    | Err(why) => Err(eyre!("Failed to decode normalized PowerAutomate form operation — {why}")),
+                                }
+                            }
+                        })
+                    }
+                    | Err(why) => Err(why),
+                }
+            }
+            | (Ok(registry), None) => Ok(registry),
+            | (Err(why), _) => Err(why),
+        }
     }
     /// Return a copy of the configuration with an initial `after` timestamp.
     ///
@@ -425,6 +509,13 @@ impl Config {
             ..self
         }
     }
+    /// Return a copy configured for signed PowerAutomate form intake and callbacks.
+    pub fn with_powerautomate(self, config: PowerAutomateConfig) -> ApiResult<Self> {
+        PowerAutomateProvider::from_config(config).map(|powerautomate| Self {
+            powerautomate: Some(powerautomate),
+            ..self
+        })
+    }
     /// Return a copy with explicit merge request analysis options
     #[cfg(feature = "analysis")]
     pub fn with_analysis_options(self, analysis_options: AnalysisContext) -> Self {
@@ -465,6 +556,7 @@ impl From<DeploymentConfig> for Config {
             project_id: None,
             operation_queue: default_operation_queue(),
             operation_handler: None,
+            powerautomate: None,
             #[cfg(feature = "analysis")]
             analysis_options: AnalysisContext::default(),
         }
@@ -557,7 +649,7 @@ impl Server {
                 .runtime(runtime.clone())
                 .build(),
         );
-        Router::new()
+        let router = Router::new()
             .route("/health", get(Self::health))
             .route("/ready", get(Self::ready))
             .route("/state", get(Self::state_handler))
@@ -566,7 +658,11 @@ impl Server {
                 bot: Arc::clone(state),
                 webhook: runtime.clone(),
             })
-            .layer(Extension(webhook_config))
+            .layer(Extension(webhook_config));
+        match &config.powerautomate {
+            | Some(provider) => router.merge(provider.clone().router(config.operation_queue.clone(), runtime.clone())),
+            | None => router,
+        }
     }
     /// Run the HTTP server and background GitLab polling task.
     ///
@@ -720,6 +816,29 @@ impl Server {
                     error!("=> {} Failed to record GitLab bot worker error — {lock_error}", Label::fail());
                 }
             }
+            if let Err(why) = self.process_callback_next().await {
+                error!("=> {} PowerAutomate callback worker — {why}", Label::fail());
+                if let Err(lock_error) = self.record_error(why.to_string()) {
+                    error!("=> {} Failed to record callback worker error — {lock_error}", Label::fail());
+                }
+            }
+        }
+    }
+    async fn process_callback_next(&self) -> ApiResult<bool> {
+        let Server { config, .. } = self;
+        match &config.powerautomate {
+            | Some(provider) => {
+                CallbackWorker::new(
+                    config.operation_queue.clone(),
+                    ReqwestHttpService::default(),
+                    PowerAutomateCallbackResolver::new(provider.config().clone()),
+                    WEBHOOK_STALE_CLAIM_AFTER,
+                )
+                .with_runtime(self.runtime.clone())
+                .run_once()
+                .await
+            }
+            | None => Ok(false),
         }
     }
     /// Claim and process one durable webhook operation

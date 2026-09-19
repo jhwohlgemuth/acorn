@@ -27,7 +27,7 @@ Let users create the same supported artifacts from ACORN's maintained research a
 
 # Dependencies
 
-The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan follows the MVP of [PowerApps logbook intake and sponsor reporting](powerapps-gitlab-logbook-reporting.md) for the shared bounded reporting-window and artifact-manifest contracts; it is not a prerequisite for that bucket-file workflow. Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
+The implemented canonical database contract supplies typed lookup, revision identity, restore semantics, and migration compatibility. This plan reuses the bounded reporting-window and artifact-manifest contracts from the implemented [PowerAutomate reporting workflow](../../docs/src/automation/powerautomate-reporting.md). Standards-specific artifacts also follow the implemented [standards field matrix](../assets/standards-field-matrix.md) and crosswalk loss contract. Renderer hardening remains owned by the existing export/OOXML plans.
 
 # Recommendation
 
@@ -48,6 +48,6 @@ The implemented canonical database contract supplies typed lookup, revision iden
 - Every existing supported renderer can consume a typed activity resolved from the database without a parallel implementation.
 - Users can select current state or one immutable revision by portable ID through CLI and MCP contracts.
 - Generated artifacts include a reproducibility manifest and stable input digest.
-- Database-backed logbook reports use the same bounded-window and manifest semantics as bucket-file sponsor reports.
+- Database-backed logbook reports use the same bounded-window and manifest semantics as automated bucket-file artifacts.
 - Historical revision exports remain byte-stable where the target format is deterministic and semantically stable otherwise.
 - File-backed behavior remains compatible and all full-workspace and renderer validation passes.

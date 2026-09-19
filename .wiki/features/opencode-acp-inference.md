@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-This is third among the remaining plans in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order), after PowerApps reporting and gRPC. It is downstream of the implemented `io::api::json_rpc` operation runtime, portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. The shared registry owns callable ACORN operations; the official ACP SDK continues to own ACP framing, sessions, capability negotiation, streaming, and permissions. See the [plan dependency network](../plan-network.md).
+This is second among the remaining plans in the [highest-priority RPC and automation lane](../parallel-execution.md#highest-priority-lane-execution-order), after gRPC. It is downstream of the implemented `io::api::json_rpc` operation runtime, portable schema/error ownership, host traits, analyzer result stabilization, the API roadmap, and CLI parse/execution separation. The shared registry owns callable ACORN operations; the official ACP SDK continues to own ACP framing, sessions, capability negotiation, streaming, and permissions. See the [plan dependency network](../plan-network.md).
 
 # Goal
 
@@ -755,7 +755,6 @@ The final command spelling should be checked against the CLI vocabulary before i
 
 | Plan or lane | Conflict | Resolution |
 |---|---|---|
-| PowerApps reporting | Operation registration, GitLab/webhook composition, CLI roots, manifests, and CI integration overlap. | PowerApps lands first; ACP reuses shared operation policy afterward and does not absorb PowerAutomate payloads, signatures, callbacks, or delivery state. |
 | JSON-RPC runtime | Both use JSON-RPC concepts and callable handler contracts. | Reuse the registered service handlers, but let the official ACP SDK own ACP envelopes, initialization, sessions, streaming, permissions, cancellation, and protocol errors. |
 | Protobuf/gRPC | Both can expose inference operations. | Treat gRPC as an optional sibling adapter and compare typed results; never wrap ACP messages in protobuf or protobuf messages in ACP. |
 | MCP server/client | Agent configuration, Tokio/process features, CLI roots, and tool policy overlap. | Keep RMCP as MCP's wire implementation and serialize manifests/module indexes through the priority lane. No automatic tool re-export between protocols. |

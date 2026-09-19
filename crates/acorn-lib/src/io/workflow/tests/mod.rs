@@ -12,6 +12,8 @@ use core::time::Duration;
 use std::fs;
 use tempfile::tempdir;
 
+mod logbook;
+
 struct CffEnrichment;
 struct OutputEnrichment;
 #[derive(Default)]
@@ -56,11 +58,6 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         })
     }
 }
-impl TrackingEnrichment {
-    fn maximum(&self) -> usize {
-        self.maximum.load(Ordering::SeqCst)
-    }
-}
 #[async_trait]
 impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
     type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
@@ -84,6 +81,11 @@ impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
         })
     }
 }
+impl TrackingEnrichment {
+    fn maximum(&self) -> usize {
+        self.maximum.load(Ordering::SeqCst)
+    }
+}
 fn options(common: CommonRuntime, extension: WorkflowExtension) -> Options {
     Options::init().common(common).extension(extension).build()
 }
@@ -96,6 +98,7 @@ fn source_file() -> (tempfile::TempDir, Location) {
     let source = Location::from(&path.display().to_string());
     (temporary, source)
 }
+
 #[cfg(feature = "analysis")]
 #[test]
 fn test_change_preserves_check_for_future_fix_resolution() {
