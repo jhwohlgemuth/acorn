@@ -283,7 +283,6 @@ GitLab runner
 
    The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
 * `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
-* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 

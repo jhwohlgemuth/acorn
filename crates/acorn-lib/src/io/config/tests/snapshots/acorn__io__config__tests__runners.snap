@@ -31,6 +31,17 @@ Some(
             ),
             run_untagged: false,
             host: None,
+            target: Some(
+                RunnerTarget {
+                    host: Remote(
+                        Detailed {
+                            scheme: Unsupported,
+                            uri: "ssh://oklahoma",
+                            revision: None,
+                        },
+                    ),
+                },
+            ),
             docker_image: "gitlab/gitlab-runner:latest",
             identifier: None,
             token: None,
@@ -54,6 +65,7 @@ Some(
             tags: None,
             run_untagged: true,
             host: None,
+            target: None,
             docker_image: "gitlab/gitlab-runner:latest",
             identifier: None,
             token: None,

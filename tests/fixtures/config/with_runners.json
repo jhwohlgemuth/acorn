@@ -23,6 +23,9 @@
                     "uri": "https://code.ornl.gov/research-enablement/acorn"
                 }
             },
+            "target": {
+                "host": "oklahoma"
+            },
             "tags": ["bucket", "gpu"]
         },
         {

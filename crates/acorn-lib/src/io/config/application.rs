@@ -55,14 +55,19 @@ use tracing::{error, info};
 ///     ],
 ///     "runners": [
 ///         {
-///             "name": "ACORN Runner B",
+///             "name": "oklahoma-runner",
+///             "description": "Oklahoma Docker Runner",
 ///             "repository": {
 ///                 "provider": "gitlab",
 ///                 "id": 24758,
 ///                 "uri": "https://code.ornl.gov/research-enablement"
 ///             },
 ///             "type": "group",
-///             "runUntagged": true
+///             "executor": "docker",
+///             "runUntagged": true,
+///             "target": {
+///                 "host": "oklahoma"
+///             }
 ///         }
 ///     ]
 /// }

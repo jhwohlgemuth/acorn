@@ -636,6 +636,39 @@ fn test_resolve_returns_explicit_existing_path() {
     let _ = remove_dir_all(directory);
 }
 #[test]
+fn test_runner_target_accepts_string_or_object() {
+    let alias = serde_json::from_str::<RunnerTarget>(r#""oklahoma""#).unwrap();
+    let object = serde_json::from_str::<RunnerTarget>(r#"{"host": "oklahoma"}"#).unwrap();
+    assert_eq!(alias, object);
+    assert_eq!(alias.host.as_str(), "ssh://oklahoma");
+    assert_eq!(serde_json::to_value(alias).unwrap(), serde_json::json!({"host": "ssh://oklahoma"}));
+}
+#[test]
+fn test_runner_target_rejects_invalid_or_unknown_values() {
+    let invalid_host = r#"{
+        "runners": [{
+            "repository": {"provider": "gitlab", "id": 42, "location": "https://gitlab.com/example/project"},
+            "type": "project",
+            "target": {"host": "http://builder"}
+        }]
+    }"#;
+    let unknown_target = r#"{
+        "runners": [{
+            "repository": {"provider": "gitlab", "id": 42, "location": "https://gitlab.com/example/project"},
+            "type": "project",
+            "target": {"host": "builder", "context": "prod"}
+        }]
+    }"#;
+    assert!(serde_json::from_str::<ApplicationConfiguration>(invalid_host)
+        .unwrap_err()
+        .to_string()
+        .contains("invalid remote"));
+    assert!(serde_json::from_str::<ApplicationConfiguration>(unknown_target)
+        .unwrap_err()
+        .to_string()
+        .contains("unknown field"));
+}
+#[test]
 fn test_runners() {
     let path = fixtures_dir().join("config").join("with_runners.json");
     let config = ApplicationConfiguration::read_json(path).unwrap();

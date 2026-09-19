@@ -205,7 +205,6 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                     &args.untagged,
                     &args.runtime,
                     target.as_ref(),
-                    args.detach.detach,
                     &args.verbose,
                 )
                 .await

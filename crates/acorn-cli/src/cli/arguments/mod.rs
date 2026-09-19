@@ -1130,8 +1130,6 @@ pub(crate) struct Runner {
     #[command(flatten)]
     pub(crate) target: RemoteTarget,
     #[command(flatten)]
-    pub(crate) detach: DetachArgs,
-    #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
 /// Arguments for `acorn serve mcp`.

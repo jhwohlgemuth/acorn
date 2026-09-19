@@ -10,7 +10,7 @@ use crate::io::api;
 use crate::io::database::schema::ModelRow;
 use crate::io::database::{resolve_database_path, Row};
 use crate::io::sync;
-use crate::io::{ApiResult, Executor};
+use crate::io::{ApiResult, Executor, Remote};
 use crate::util::constants::app::IGNORE;
 use crate::util::Label;
 use acorn_core::prelude::HashSet;
@@ -28,6 +28,7 @@ use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
+use serde::de::{Error as _, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::path::PathBuf;
@@ -303,6 +304,8 @@ pub struct RunnerDetails {
     pub run_untagged: bool,
     /// Optional GitLab host/domain override (for self-managed instances)
     pub host: Option<String>,
+    /// Container host used to run this runner
+    pub target: Option<RunnerTarget>,
     /// Default Docker image for the runner itself
     #[builder(default = String::from("gitlab/gitlab-runner:latest"))]
     #[serde(default = "default_docker_image")]
@@ -314,6 +317,55 @@ pub struct RunnerDetails {
     #[serde(skip, default)]
     #[redact]
     pub token: Option<api::Secret>,
+}
+/// Container execution target for a configured CI/CD runner.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RunnerTarget {
+    /// SSH URI or alias of the remote container host
+    pub host: Remote,
+}
+struct RunnerTargetVisitor;
+impl<'de> Deserialize<'de> for RunnerTarget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(RunnerTargetVisitor)
+    }
+}
+impl<'de> Visitor<'de> for RunnerTargetVisitor {
+    type Value = RunnerTarget;
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("an SSH alias, SSH URI, or object containing a host field")
+    }
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let key = map.next_key::<String>()?.ok_or_else(|| A::Error::missing_field("host"))?;
+        if key != "host" {
+            Err(A::Error::unknown_field(&key, &["host"]))
+        } else {
+            let host = map.next_value::<Remote>()?;
+            match map.next_key::<String>()? {
+                | None => Ok(RunnerTarget { host }),
+                | Some(key) if key == "host" => Err(A::Error::duplicate_field("host")),
+                | Some(key) => Err(A::Error::unknown_field(&key, &["host"])),
+            }
+        }
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        value.parse().map(|host| RunnerTarget { host }).map_err(E::custom)
+    }
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(&value)
+    }
 }
 impl FilterSet {
     /// Compile the bucket options' ignore and filter regex patterns into a filter set.

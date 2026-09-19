@@ -28,15 +28,17 @@ Preflight, rollback, and fake-runner work confined to `commands/create/` can run
 Harden bot and GitLab runner creation on an SSH-accessible Docker host with side-effect-free preflight, ownership-aware cleanup, per-runner rollback, and live validation without changing the user's active Docker context:
 
 ```text
-acorn create bot <PROJECT_ID> --remote ssh://some-domain
-acorn create runner --group <GROUP_ID> --description <NAME> --remote ssh://user@some-domain
+acorn create bot <PROJECT_ID> --host ssh://some-domain
+acorn create runner --group <GROUP_ID> --description <NAME> --host ssh://user@some-domain
 ```
 
-Bot creation already runs detached. The remote option selects the Docker daemon; it does not change container lifecycle behavior.
+Bot and runner container creation run detached. The host option selects the Docker daemon; it does not change container lifecycle behavior.
 
 # Current evidence
 
 - Remote bot and runner creation already target Docker through per-command `--host` arguments without changing Docker context or process-wide environment.
+- Configured runners can declare `target.host`; `acorn create runner` discovers the configuration, resolves every target/runtime pair before GitLab API activity, and lets an explicit CLI host or context override configured targets.
+- Runner container creation is always detached, so config-only creation can continue to the registration step without a compatibility `--detach` flag.
 - The runner workflow can acquire a GitLab runner, remote container, configuration volume, and temporary GPU template without a single ownership record or compensating rollback boundary.
 - No disposable SSH Docker endpoint is available in the development environment, so remote daemon behavior and cleanup guarantees still lack live validation.
 
@@ -45,7 +47,6 @@ Bot creation already runs detached. The remote option selects the Docker daemon;
 Harden the workflow before live validation:
 
 1. Add a side-effect-free preflight phase before the GitLab create-runner request:
-   - Validate runtime and configured runner compatibility.
    - Verify that the local Docker client exists.
    - Verify SSH connectivity, remote Docker socket access, and daemon responsiveness with the selected `--host` endpoint.
    - Check required GPU capability when GPU execution is requested.
@@ -82,6 +83,13 @@ Then perform a manual smoke test against a disposable SSH-accessible Docker host
 2. A failure after GitLab runner creation triggers per-runner rollback of resources created by that attempt; batch rollback does not affect successful or unrelated runners.
 3. The original operation failure remains primary when rollback or cleanup also fails, and the error reports every resource that may require manual cleanup.
 4. Automatic cleanup never removes a pre-existing container or volume, and never removes a user-supplied bot state volume.
+5. A runner with `target.host` can be created through configuration discovery with only `acorn create runner`; invalid SSH targets and incompatible executors fail before GitLab API activity, while CLI targets override configured targets.
+
+# Validation
+
+- Configuration tests cover string and object target forms, SSH alias normalization, invalid targets, unknown target keys, serialization, and runner snapshots.
+- Runner command tests cover configured-target selection, CLI override precedence, runtime compatibility, detached container creation, remote volumes, and remote registration.
+- Verified with `cargo clippy -p acorn-lib -p acorn-cli --all-targets --no-deps -- -D warnings`; focused configuration, snapshot, CLI target, and runner tests pass. A full `make test` rerun stopped after 746 passes on the unrelated missing OpenAPI import snapshot baseline on 2026-09-19; the previous full run passed 1,796 tests with 14 skipped.
 
 # Related plans
 

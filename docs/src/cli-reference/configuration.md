@@ -32,19 +32,37 @@ ACORN can be configured using JSON, JSONC (JSON with Comments), or YAML format f
     ],
     "runners": [
         {
-            "name": "ACORN Research Runner",
+            "name": "oklahoma-runner",
+            "description": "Oklahoma Docker Runner",
             "repository": {
                 "provider": "gitlab",
                 "id": 24758,
                 "uri": "https://code.ornl.gov/research-enablement"
             },
             "type": "group",
-            "tags": ["acorn", "research"],
-            "runUntagged": false
+            "executor": "docker",
+            "gpuEnabled": false,
+            "tags": ["docker", "oklahoma"],
+            "runUntagged": false,
+            "host": "code.ornl.gov",
+            "target": {
+                "host": "oklahoma"
+            },
+            "dockerImage": "gitlab/gitlab-runner:latest"
         }
     ]
 }
 ```
+
+The runner example includes every user-configurable runner field. The top-level runner `host` is the GitLab domain override, while `target.host` is an SSH URI or alias for the machine running Docker. The shorter `"target": "oklahoma"` form is equivalent to `"target": {"host": "oklahoma"}`. Bare aliases use the local SSH client configuration and are normalized to `ssh://oklahoma`. Omit `target` to run the container locally.
+
+Set `GITLAB_TOKEN`, `PRIVATE_TOKEN`, or `CI_JOB_TOKEN`, then create every configured runner with:
+
+```sh
+acorn create runner
+```
+
+Runner containers always start detached. Command-line `--host` or `--context` overrides `target.host` for every runner in that invocation.
 
 `.acorn.jsonc` file
 ```jsonc

@@ -16,15 +16,34 @@ use std::fs::remove_file;
 use std::path::PathBuf;
 use tracing::{debug, error, info};
 type BooleanOutcome = (Vec<Result<(), String>>, Vec<Result<(), String>>);
+type RunnerOperation = (RunnerDetails, Executor, Option<ContainerTarget>);
 
 struct RegistrationOptions<'a> {
     details: RunnerDetails,
-    detach: bool,
-    runtime: &'a Option<Executor>,
+    runtime: &'a Executor,
     target: Option<&'a ContainerTarget>,
     verbose: &'a Verbosity,
 }
 
+fn resolve_operation(
+    runner: Option<&RunnerDetails>,
+    runtime: &Option<Executor>,
+    target: Option<&ContainerTarget>,
+) -> Result<(Executor, Option<ContainerTarget>), Report> {
+    let selected_runtime = runtime
+        .clone()
+        .or_else(|| runner.map(|value| value.executor.clone()))
+        .unwrap_or(Executor::Docker);
+    let selected_target = target.cloned().or_else(|| {
+        runner
+            .and_then(|value| value.target.as_ref())
+            .map(|value| ContainerTarget::Ssh(value.host.clone()))
+    });
+    let configured = runner.map(core::slice::from_ref);
+    selected_runtime
+        .validate_runner_target(configured, selected_target.as_ref())
+        .map(|()| (selected_runtime, selected_target))
+}
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     config: &Option<PathBuf>,
@@ -38,13 +57,12 @@ pub async fn run(
     untagged: &bool,
     runtime: &Option<Executor>,
     target: Option<&ContainerTarget>,
-    detach: bool,
     verbose: &Verbosity,
 ) -> Result<(), Report> {
-    let from_config = ApplicationConfiguration::resolve(config)
-        .and_then(|path| ApplicationConfiguration::read(path).ok())
-        .and_then(|value| value.runners)
-        .filter(|values| !values.is_empty());
+    let configured = match ApplicationConfiguration::resolve(config) {
+        | Some(path) => ApplicationConfiguration::read(path).map(|value| value.runners.filter(|values| !values.is_empty())),
+        | None => Ok(None),
+    };
     let build_target = |runner: Option<&RunnerDetails>| {
         let desired_description_result = runner
             .and_then(|value| value.description.clone())
@@ -77,12 +95,11 @@ pub async fn run(
                     id: identifier.parse::<u64>().ok(),
                     location: Box::new(Location::Simple("https://gitlab.com".to_string())),
                 });
-                let domain = match repo {
-                    | Some(value) => Ok(value.clone()),
-                    | None => repository
-                        .domain()
-                        .ok_or_else(|| eyre!("Failed to resolve runner domain from repository")),
-                };
+                let domain = repo
+                    .clone()
+                    .or_else(|| runner.and_then(|value| value.host.clone()))
+                    .or_else(|| repository.domain())
+                    .ok_or_else(|| eyre!("Failed to resolve runner domain from repository"));
                 match domain {
                     | Ok(domain) => Ok((value, runner_type, identifier, desired_run_untagged, desired_tags, repository, domain)),
                     | Err(why) => Err(why),
@@ -91,63 +108,74 @@ pub async fn run(
             | (Err(why), _, _) | (_, Err(why), _) | (_, _, Err(why)) => Err(why),
         }
     };
-    let selected = runtime.as_ref().unwrap_or(&Executor::Docker);
-    let remote_validation = selected.validate_runner_target(from_config.as_deref(), target);
-    let response = match remote_validation {
+    let response = match configured {
         | Err(why) => Err(why),
-        | Ok(()) => match from_config {
-            | Some(runner_details) => {
-                let runners = join_all(runner_details.into_iter().map(|runner| {
-                    let build_result = build_target(Some(&runner));
-                    async move {
-                        let base_name = runner.name.clone().unwrap_or_else(|| DEFAULT_RUNNER_NAME.to_string());
-                        match build_result {
-                            | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
-                                let details = RunnerDetails::at(repository)
-                                    .description(desired_description)
-                                    .runner_type(&runner_type.to_string())
-                                    .gpu_enabled(runner.gpu_enabled)
-                                    .maybe_tags(desired_tags)
-                                    .run_untagged(desired_run_untagged)
-                                    .maybe_host(Some(domain))
-                                    .build();
-                                match create_runner(&details).await {
-                                    | Ok(response) => {
-                                        let RunnerCreationResponse { identifier, token, .. } = response;
-                                        let container_name = format!("{base_name}-{identifier}");
-                                        let details = details.with_name(container_name).with_id(identifier).with_token(token);
-                                        register_runner(RegistrationOptions {
-                                            details,
-                                            detach,
-                                            runtime,
-                                            target,
-                                            verbose,
-                                        })
-                                        .await
-                                        .map(|_| ())
-                                        .map_err(|why| format!("{base_name} — {why}"))
+        | Ok(Some(runner_details)) => {
+            let operations = runner_details
+                .into_iter()
+                .map(|runner| resolve_operation(Some(&runner), runtime, target).map(|(runtime, target)| (runner, runtime, target)))
+                .collect::<Result<Vec<RunnerOperation>, Report>>();
+            match operations {
+                | Err(why) => Err(why),
+                | Ok(operations) => {
+                    let runners = join_all(operations.into_iter().map(|(runner, selected_runtime, selected_target)| {
+                        let build_result = build_target(Some(&runner));
+                        async move {
+                            let base_name = runner.name.clone().unwrap_or_else(|| DEFAULT_RUNNER_NAME.to_string());
+                            match build_result {
+                                | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
+                                    let details = RunnerDetails::at(repository)
+                                        .description(desired_description)
+                                        .docker_image(runner.docker_image.clone())
+                                        .executor(runner.executor.clone())
+                                        .runner_type(&runner_type.to_string())
+                                        .gpu_enabled(runner.gpu_enabled)
+                                        .maybe_tags(desired_tags)
+                                        .run_untagged(desired_run_untagged)
+                                        .maybe_host(Some(domain))
+                                        .maybe_target(runner.target.clone())
+                                        .build();
+                                    match create_runner(&details).await {
+                                        | Ok(response) => {
+                                            let RunnerCreationResponse { identifier, token, .. } = response;
+                                            let container_name = format!("{base_name}-{identifier}");
+                                            let details = details.with_name(container_name).with_id(identifier).with_token(token);
+                                            register_runner(RegistrationOptions {
+                                                details,
+                                                runtime: &selected_runtime,
+                                                target: selected_target.as_ref(),
+                                                verbose,
+                                            })
+                                            .await
+                                            .map(|_| ())
+                                            .map_err(|why| format!("{base_name} — {why}"))
+                                        }
+                                        | Err(why) => Err(format!("{base_name} — {why}")),
                                     }
-                                    | Err(why) => Err(format!("{base_name} — {why}")),
                                 }
+                                | Err(why) => Err(format!("{base_name} — {why}")),
                             }
-                            | Err(why) => Err(format!("{base_name} — {why}")),
                         }
+                    }))
+                    .await;
+                    let (successful, failed): BooleanOutcome = runners.into_iter().partition(|result| result.is_ok());
+                    let created = successful.len();
+                    let failures = failed.into_iter().filter_map(|result| result.err()).collect::<Vec<String>>();
+                    if failures.is_empty() {
+                        Ok(())
+                    } else {
+                        let attempted = created.saturating_add(failures.len());
+                        let failed = failures.len();
+                        let message = format!("Failed to create {failed} of {attempted} configured runners:\n{}", failures.join("\n"));
+                        Err(eyre!(message))
                     }
-                }))
-                .await;
-                let (successful, failed): BooleanOutcome = runners.into_iter().partition(|result| result.is_ok());
-                let created = successful.len();
-                let failures = failed.into_iter().filter_map(|result| result.err()).collect::<Vec<String>>();
-                if failures.is_empty() {
-                    Ok(())
-                } else {
-                    let attempted = created.saturating_add(failures.len());
-                    let failed = failures.len();
-                    let message = format!("Failed to create {failed} of {attempted} configured runners:\n{}", failures.join("\n"));
-                    Err(eyre!(message))
                 }
             }
-            | None => match build_target(None) {
+        }
+        | Ok(None) => match resolve_operation(None, runtime, target) {
+            | Err(why) => Err(why),
+            | Ok((selected_runtime, selected_target)) => match build_target(None) {
+                | Err(why) => Err(why),
                 | Ok((desired_description, runner_type, _identifier, desired_run_untagged, desired_tags, repository, domain)) => {
                     let base_name = name
                         .clone()
@@ -168,9 +196,8 @@ pub async fn run(
                             let details = details.with_name(container_name).with_id(identifier).with_token(token);
                             register_runner(RegistrationOptions {
                                 details,
-                                detach,
-                                runtime,
-                                target,
+                                runtime: &selected_runtime,
+                                target: selected_target.as_ref(),
                                 verbose,
                             })
                             .await
@@ -178,7 +205,6 @@ pub async fn run(
                         | Err(why) => Err(why),
                     }
                 }
-                | Err(why) => Err(why),
             },
         },
     };
@@ -247,7 +273,6 @@ async fn create_runner(details: &RunnerDetails) -> Result<RunnerCreationResponse
 async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report> {
     let RegistrationOptions {
         details,
-        detach,
         runtime,
         target,
         verbose,
@@ -266,11 +291,7 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
     let gitlab_url = host.as_deref().unwrap_or("gitlab.com");
     let url = format!("https://{gitlab_url}/");
     let name = &name.unwrap_or_else(|| "gitlab-runner".to_string());
-    let binary = runtime
-        .as_ref()
-        .and_then(|r| r.command())
-        .or_else(|| executor.command())
-        .unwrap_or("gitlab-runner");
+    let binary = runtime.command().or_else(|| executor.command()).unwrap_or("gitlab-runner");
     let description = format!("GitLab Runner [{identifier}]");
     let log_level = if verbose.is_silent() { "panic" } else { "debug" };
     let config_host_dir = Executor::default_gitlab_runner_config_directory();
@@ -285,17 +306,16 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
             | Some(token) => match executor {
                 | Executor::Docker => match target.map(|_| DOCKER_SOCKET.to_string()).or_else(|| executor.socket()) {
                     | Some(socket) => {
-                        let create_container = build_docker_runner_args(name, &docker_image, gpu_enabled, config_host_dir, &socket, target, detach);
-                        let selected_runtime = runtime.as_ref().unwrap_or(&Executor::Docker);
+                        let create_container = build_container_runner_args(name, &docker_image, gpu_enabled, config_host_dir, &socket, target);
                         let create_arguments = match target {
-                            | Some(target) => target.to_runtime_args(selected_runtime, create_container),
+                            | Some(target) => target.to_runtime_args(runtime, create_container),
                             | None => create_container,
                         };
                         match cmd!(binary, create_arguments) {
                             | Ok(output) => {
                                 if output.status.success() {
                                     let copy = match (target, maybe_template.as_deref()) {
-                                        | (Some(target), Some(template)) => target.copy_gpu_template(selected_runtime, name, template),
+                                        | (Some(target), Some(template)) => target.copy_gpu_template(runtime, name, template),
                                         | _ => Ok(()),
                                     };
                                     match copy {
@@ -307,7 +327,7 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
                                             });
                                             let command = build_register_args(name, &url, &description, &token, log_level, &template);
                                             let register = match target {
-                                                | Some(t) => t.to_runtime_args(selected_runtime, command),
+                                                | Some(t) => t.to_runtime_args(runtime, command),
                                                 | None => command,
                                             };
                                             match cmd!(binary, register) {
@@ -339,22 +359,9 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
                     let socket = target.map(|_| DOCKER_SOCKET.to_string()).or_else(|| executor.socket());
                     match socket {
                         | Some(socket) => {
-                            let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
-                            let detach_args = if detach { args!["--detach"] } else { args![] };
-                            let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
-                            let create_container = args![
-                                "run",
-                                ..detach_args,
-                                ("--name", name),
-                                ("--restart", "always"),
-                                ..gpu_args,
-                                ("-v", format!("{config_source}:/etc/gitlab-runner")),
-                                ("-v", format!("{socket}:{DOCKER_SOCKET}")),
-                                &docker_image,
-                            ];
-                            let selected_runtime = runtime.as_ref().unwrap_or(&Executor::Docker);
+                            let create_container = build_container_runner_args(name, &docker_image, gpu_enabled, config_host_dir, &socket, target);
                             let create_arguments = match target {
-                                | Some(target) => target.to_runtime_args(selected_runtime, create_container),
+                                | Some(target) => target.to_runtime_args(runtime, create_container),
                                 | None => create_container,
                             };
                             match cmd!(binary, create_arguments) {
@@ -363,7 +370,7 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
                                         let template = maybe_template.as_ref().map(to_absolute_string);
                                         let register = build_register_args(name, &url, &description, &token, log_level, &template);
                                         let register_arguments = match target {
-                                            | Some(target) => target.to_runtime_args(selected_runtime, register),
+                                            | Some(target) => target.to_runtime_args(runtime, register),
                                             | None => register,
                                         };
                                         match cmd!(binary, register_arguments) {
@@ -482,21 +489,19 @@ async fn register_runner(options: RegistrationOptions<'_>) -> Result<(), Report>
     }
     result
 }
-fn build_docker_runner_args(
+fn build_container_runner_args(
     name: &str,
     image: &str,
     gpu_enabled: bool,
     config_host_dir: &str,
     socket: &str,
     target: Option<&ContainerTarget>,
-    detach: bool,
 ) -> Vec<OsString> {
     let gpu_args = if gpu_enabled { args!["--gpus", "all"] } else { args![] };
     let config_source = target.map_or_else(|| config_host_dir.to_string(), |_| format!("{name}-config"));
-    let detach_args = if detach { args!["--detach"] } else { args![] };
     args![
         "run",
-        ..detach_args,
+        "--detach",
         ("--name", name),
         ("--restart", "always"),
         ..gpu_args,

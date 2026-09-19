@@ -819,9 +819,25 @@ impl core::str::FromStr for Remote {
         })
     }
 }
+impl<'de> Deserialize<'de> for Remote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
+    }
+}
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+impl Serialize for Remote {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
     }
 }
 impl Remote {

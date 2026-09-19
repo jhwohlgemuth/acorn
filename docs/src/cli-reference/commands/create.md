@@ -9,10 +9,10 @@ Runner, bot, and MCP Bundle creation are available:
 
 ```sh
 # Register and start a GitLab runner from ACORN configuration
-acorn create runner --config ./.acorn.json
+acorn create runner
 
 # Create a runner directly for a GitLab group
-acorn create runner --group 12345 --name research-runner
+acorn create runner --group 12345 --description "Research runner" --name research-runner
 
 # Create a detached bot container for a GitLab project
 acorn create bot 12345 --detach
@@ -24,7 +24,7 @@ acorn create mcp
 acorn create mcp --binary ./acorn --platform linux --kitfile ./Kitfile
 ```
 
-Runner creation supports Docker, Podman, and Apptainer selection with `--runtime`. A remote Docker daemon can be selected with `--remote`; volumes and published ports then belong to the remote host.
+Runner creation supports Docker, Podman, and Apptainer selection with `--runtime`. Runner containers always start detached. A remote Docker daemon can be selected with `--host` or configured per runner with `target.host`; volumes then belong to the remote host. See the [full runner configuration](../configuration.md#flat-file) for a config-only example.
 
 Run `acorn create <resource> --help` for the exact authentication, runtime, and network options.
 
