@@ -78,12 +78,17 @@ prepare-environment:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - Cargo.toml
+        - .gitlab-ci.yml
         - Cargo.lock
+        - Cargo.toml
+        - Dockerfile.rust
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
         - crates/acorn-core/Cargo.toml
         - crates/acorn-lib/Cargo.toml
         - crates/acorn-schema/Cargo.toml
         - crates/acorn-wasm/Cargo.toml
+        - scripts/install-zigbuild.sh
   script:
     - echo "PKG_VERSION=$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["]/, "", $2); printf("%s",$2) }' Cargo.toml)" >> variables.env
     - echo "PKG_REGISTRY_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic" >> variables.env
@@ -282,15 +287,27 @@ build-release:
   needs:
     - job: test
   script:
+    - command -v xz >/dev/null || (apt-get update && apt-get install --no-install-recommends --yes xz-utils)
+    - command -v cargo-zigbuild >/dev/null && command -v zig >/dev/null || sh scripts/install-zigbuild.sh "${XDG_CACHE_HOME}/zigbuild"
+    - export PATH="${XDG_CACHE_HOME}/zigbuild/bin:${PATH}"
     - cargo --version
+    - cargo zigbuild --version
     - rustc --version
-    - make build
+    - zig version
+    - MUSL_BUILD="cargo zigbuild" make build
   rules:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - .gitlab-ci.yml
+        - Cargo.lock
         - Cargo.toml
+        - Dockerfile.rust
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-lib/Cargo.toml
+        - scripts/install-zigbuild.sh
   artifacts:
     paths:
       - bin/
@@ -317,7 +334,14 @@ validate-mcpb:
       when: never
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - .gitlab-ci.yml
+        - Cargo.lock
         - Cargo.toml
+        - Dockerfile.rust
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-lib/Cargo.toml
+        - scripts/install-zigbuild.sh
   artifacts:
     paths:
       - bin/

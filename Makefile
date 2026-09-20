@@ -58,7 +58,7 @@ ifeq ($(OS),Windows_NT)
 else
 	@$(CLEAN_BIN_CMD)
 	@mkdir -p ./bin
-	@cargo build --release --package acorn-cli --target $(DEFAULT_TARGET)
+	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_TARGET)
 	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn ./bin/acorn-v$(VERSION)
 	@cargo build --release --package acorn-cli --target $(DEFAULT_WINDOWS_TARGET)
 	@mv $(ARTIFACT_TARGET_DIR)/$(DEFAULT_WINDOWS_TARGET)/release/acorn.exe ./bin/acorn-v$(VERSION).exe
@@ -312,6 +312,7 @@ ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
 REGISTRY = savannah.ornl.gov/research-enablement
 DEFAULT_TARGET = `awk -F ' = ' '$$1 ~ /default-target/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml | tr . _`
 DEFAULT_WINDOWS_TARGET = x86_64-pc-windows-gnu
+MUSL_BUILD ?= cargo build
 ARTIFACT_TARGET_DIR = $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),target)
 DEV_DEPENDENCIES = \
 	cargo-audit \

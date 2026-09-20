@@ -16,10 +16,12 @@ ARG BUF_VERSION
 #
 # %environment
 #
-ENV PATH="/root/.cargo/bin:${PATH}"
+ENV MUSL_BUILD="cargo zigbuild"
+ENV PATH="/opt/zigbuild/bin:/root/.cargo/bin:${PATH}"
 #
 # %post
 #
+COPY scripts/install-zigbuild.sh /usr/local/bin/install-zigbuild
 RUN apt-get update && apt-get install --no-install-recommends --yes \
         ca-certificates \
         clang \
@@ -32,8 +34,10 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         musl-tools \
         pkg-config \
         shellcheck \
+        xz-utils \
     && apt-get install --no-install-recommends --yes \
         npm \
+    && sh /usr/local/bin/install-zigbuild /opt/zigbuild \
     && npx playwright install-deps \
     && curl -fkL -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz \
     && mkdir -p /opt/microsoft/powershell/7 \
