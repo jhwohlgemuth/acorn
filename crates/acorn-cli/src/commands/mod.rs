@@ -567,6 +567,25 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 )
                 .await
             }),
+            | Some(ServeCommands::Grpc(arguments)) if arguments.allow_mutation && config.no_local_database => {
+                Err(eyre::eyre!("--allow-mutation requires local database persistence"))
+            }
+            | Some(ServeCommands::Grpc(arguments)) => with_runtime(async {
+                if arguments.allow_mutation {
+                    initialize_database(config).await?;
+                }
+                let target = ContainerTarget::from_args(arguments.target.host.clone(), arguments.target.context.clone());
+                serve::grpc::run(
+                    arguments.bind,
+                    arguments.allow_mutation,
+                    offline,
+                    arguments.detach.detach,
+                    target.as_ref(),
+                    &arguments.runtime,
+                    serve::grpc::TlsPaths::new(arguments.tls_cert.as_deref(), arguments.tls_key.as_deref()),
+                )
+                .await
+            }),
             | Some(ServeCommands::Mcp(arguments)) if arguments.allow_mutation && config.no_local_database => {
                 Err(eyre::eyre!("--allow-mutation requires local database persistence"))
             }

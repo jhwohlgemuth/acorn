@@ -11,16 +11,13 @@ Dependency order does not by itself prove that plans are safe to run concurrentl
 ## Highest-priority RPC and automation path
 
 ```text
-Protobuf/gRPC transport
-          |
-          v
 ACP inference and verified fixes
           |
           v
 MCP client
 ```
 
-This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. Tonic/prost next adds a sibling binary transport, ACP maps official SDK sessions to the same services, and the RMCP client adds outbound MCP interoperability without replacing either protocol.
+This is one serialized delivery lane in the displayed scheduling order. The implemented PowerAutomate workflow has released the shared API integration locks. Its [secret-generation amendment](features/powerapps-gitlab-logbook-reporting.md) is limited to the existing utility, create-command, generated-help, and documentation boundaries while deployment validation remains open. The implemented tonic/prost adapter provides the sibling binary transport; ACP next maps official SDK sessions to the same services, and the RMCP client then adds outbound MCP interoperability without replacing either protocol.
 
 ## Critical portability path
 
@@ -92,7 +89,7 @@ isolate std-only modules   host abstraction traits
 - The implemented `io::api::webhooks` runtime consumes the operation registry and provides durable operations and callbacks, shared outcome timestamps, readiness, and graceful draining.
 - GitLab repository automation consumes both implemented foundations and proves registered flat-file workflows against exact repository revisions with deployment-owned policy and durable effect reconciliation.
 - The implemented [PowerAutomate reporting workflow](../docs/src/automation/powerautomate-reporting.md) reuses those foundations for shared-secret form intake, rolling bucket merge requests, reviewer-controlled graduation, bounded monthly PDF reports, immutable GitLab packages, and SAS-authenticated callbacks. Its [deployment amendment](features/powerapps-gitlab-logbook-reporting.md) adds generic ACORN secret generation without reclaiming the shared API transport lock. All PowerAutomate protocol code remains isolated to `io::api::powerautomate`.
-- [Protobuf/gRPC transport](refactors/api/protobuf-grpc-transport.md) follows the stable operation contract and adds tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
+- The implemented Protobuf/gRPC transport follows the stable operation contract and supplies tonic/prost server and client adapters without encoding protobuf inside JSON-RPC.
 - [ACP inference and verified fixes](features/opencode-acp-inference.md) registers inference services while leaving ACP wire ownership with the official SDK; ACP request/session IDs remain distinct from shared operation IDs.
 - [MCP client](features/mcp-client.md) follows the stable registry and ACP service contract, using RMCP for outbound MCP sessions rather than translating MCP envelopes into JSON-RPC or gRPC.
 
@@ -124,7 +121,7 @@ isolate std-only modules   host abstraction traits
 |---|---|---|
 | `crates/acorn-schema/src/` | Metadata alignment, dPID, ZON, CKAN/DCAT, SciCrunch resource entity | Schema flattening, the portable RRID baseline, the ModelKit/Kitfile contract, and OCP infrastructure have landed in ACORN. Preserve singular schema ownership and the codec/adapter boundary; feature plans must not reintroduce host access. Plans share `lib.rs`, enum/module roots, validation, standards adapters, and fixtures as integration locks. dPID's general activity identifier and RO-Crate crosswalk serialize with metadata alignment. |
 | `crates/acorn-lib/src/analyzer/` | [dPID](features/dpid-research-object-support.md), ACP fixes, metadata standards | Preserve the stable check/result, recovery, traversal, and link-evidence contracts before moving service and host implementations. dPID resolution integration takes the discovery leaf lock for its landing slice. |
-| `crates/acorn-lib/src/io/api/` | PowerAutomate, JSON-RPC, implemented webhook runtime, GitLab, gRPC, API roadmap children, dPID, OCI, inference | The highest-priority lane first owns the isolated `powerautomate` provider, GitLab/package integration, shared operation/callback seams, and module root. After its MVP, gRPC owns the transport root. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. |
+| `crates/acorn-lib/src/io/api/` | PowerAutomate, JSON-RPC, implemented webhook runtime, GitLab, implemented gRPC, API roadmap children, dPID, OCI, inference | The implemented gRPC adapter owns its transport root and shares the stable operation contract. Provider leaves may develop separately only when they do not touch `io/api/mod.rs`, shared errors, operation registration, or transport configuration. |
 | `crates/acorn-schema/src/agent/` and `crates/acorn-lib/src/io/{acp,mcp}/` | ACP inference, MCP client, database-backed artifacts, OCI model interoperability, service extraction | Preserve the implemented RMCP server/runtime-policy contracts. ACP uses the official SDK; MCP uses RMCP; both may adapt to shared services but neither owns the JSON-RPC codec. Serialize agent schema, module indexes, manifests, CLI roots, and feature changes. |
 | `crates/acorn-lib/src/io/http/mod.rs` | API invocation, transfer/download hardening | Preserve request-level redirect, response-bound, redaction, and anonymous-fallback controls; serialize further service-injection changes. |
 | `crates/acorn-lib/src/io/config/` | PowerAutomate project routing, API endpoint/environment, dPID identity persistence, OCI models, BagIt/import | PowerAutomate claims `application.rs` only for its typed deployment configuration and test snapshots. `bucket.rs` owns bucket orchestration and token-backed repository access, `transfer.rs` owns transfer primitives, and `mod.rs` is the shared model/registry and re-export integration root. Claim leaf files exactly and serialize `mod.rs` or shared snapshot changes. |
@@ -135,7 +132,7 @@ isolate std-only modules   host abstraction traits
 
 ## Scheduling projection
 
-- Complete the highest-priority RPC and automation lane before scheduling lower-priority work that needs its module, database, manifest, or CLI locks. Its four remaining plans serialize in the numbered order even where later adapter scaffolding could technically begin earlier.
+- Complete the highest-priority RPC and automation lane before scheduling lower-priority work that needs its module, database, manifest, or CLI locks. The Power Automate deployment amendment remains isolated; ACP and MCP serialize in the numbered order even where later adapter scaffolding could technically begin earlier.
 - Critical-path coordination plans are not implementation jobs. Schedule a named contract-stabilization or extraction plan rather than assigning the entire roadmap to an agent.
 - Independent leaf modules can fan out after their shared contract lands. Module roots, manifests, CLI parsing, generated help, Makefile, and CI remain single-writer integration points.
 - The analyzer extraction decision is deferred: preserve the CI-enforced in-tree boundary while analyzer, API, export, and service contracts stabilize, then reconsider extraction only when a concrete alternate consumer exists.

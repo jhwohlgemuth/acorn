@@ -1,3 +1,4 @@
+use crate::assets::{Image, DRAFT_PLACEHOLDER_ASSET};
 use acorn::io::ApiResult;
 use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
 use acorn::util::Label;
@@ -15,7 +16,6 @@ use percy_dom::prelude::{html, IterableNodes, VirtualNode};
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
-pub(crate) const DRAFT_PLACEHOLDER_ASSET: &str = "draft-placeholder-1920x1280.png";
 pub trait Convert {
     fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode>;
 }
@@ -54,9 +54,6 @@ struct HtmlFooter {
 struct HtmlHead<'a> {
     pub stylesheet: &'a str,
 }
-#[derive(Embed)]
-#[folder = "assets/images/"]
-struct Image;
 #[derive(Embed)]
 #[folder = "assets/styles/"]
 struct Style;
@@ -280,11 +277,6 @@ impl TargetLabel {
             | _ => TargetLabel::default(),
         }
     }
-}
-pub(crate) fn draft_placeholder_bytes() -> ApiResult<Vec<u8>> {
-    Image::get(DRAFT_PLACEHOLDER_ASSET)
-        .map(|file| file.data.into_owned())
-        .ok_or_else(|| eyre!("Missing embedded image asset: {DRAFT_PLACEHOLDER_ASSET}"))
 }
 fn generate_font_faces() -> ApiResult<String> {
     DataUri::from_asset("aptos.ttf")

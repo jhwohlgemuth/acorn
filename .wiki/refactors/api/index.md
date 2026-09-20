@@ -2,7 +2,6 @@
 
 ## Recommended order
 
-- [Protobuf/gRPC transport](protobuf-grpc-transport.md) - Expose the shared operation registry through generated tonic/prost server and client adapters.
 - [API client roadmap](roadmap.md) - Coordinate the shared contract and extraction sequence.
 - [Hugging Face request readiness](huggingface-request-readiness.md) - Enforce repository and download inputs through operation-specific request types.
 - [Endpoint resolution](endpoint-resolution.md) - Centralize template and domain resolution.

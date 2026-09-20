@@ -62,9 +62,12 @@ MCP and ACP are optional extensions. MCP defines what context and capabilities a
 
 | Optional extension | Initial ACORN role | Purpose |
 | --- | --- | --- |
-| MCP | Server, planned | Let external agents discover and call deterministic ACORN resources and tools. |
+| Protobuf/gRPC | Server and client library, available | Expose the shared operation registry through a versioned binary contract and establish reusable transport, policy, deadline, and cancellation boundaries for protocol integrations. |
+| MCP | Server, available | Let external agents discover and call deterministic ACORN resources and tools. An outbound client remains planned. |
 | ACP | Client, planned | Let ACORN invoke and supervise interchangeable agents, beginning with OpenCode. |
 | OpenAI-compatible API | Client, available | Let ACORN applications call a model server through supported OpenAI-style HTTP endpoints and JSON formats without requiring a full agent. |
+
+The [Protobuf/gRPC transport](../packages/grpc.md) is an implementation stepping stone for ACP and MCP integrations. It proves that protocol adapters can share registered operations, validation, effect metadata, authentication context, offline and mutation policy, and bounded operation errors. Its transport adapter also establishes deadline and cancellation handling. ACP sessions and MCP tool semantics remain native to their respective protocols rather than being encoded as gRPC calls.
 
 See [Intelligence in Depth layers](agentic-layers.md) for the six layers, examples, and current implementation status.
 

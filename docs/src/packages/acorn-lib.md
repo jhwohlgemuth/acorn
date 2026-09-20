@@ -31,6 +31,14 @@ Applications that need system diagnostics or PowerPoint support can enable those
 cargo add acorn-lib --features doctor,powerpoint
 ```
 
+Service applications can enable the versioned Protobuf/gRPC client and server modules with the `grpc` feature:
+
+```sh
+cargo add acorn-lib --features grpc
+```
+
+See [Protobuf and gRPC](grpc.md) for the transport contract, client example, security policy, and its role in the ACP and MCP architecture.
+
 Native applications that only need ACORN's analysis host can omit the full default feature set:
 
 ```sh

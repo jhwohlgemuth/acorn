@@ -352,6 +352,8 @@ pub enum ImportCommands {
 pub enum ServeCommands {
     /// Webhook/API bot server that polls GitLab for merge request note events
     Bot(Box<arguments::bot::Serve>),
+    /// Authenticated Protobuf/gRPC server
+    Grpc(arguments::ServeGrpc),
     /// Model context protocol (MCP) server
     Mcp(arguments::ServeMcp),
     /// Authenticated JSON-RPC HTTP server

@@ -1,4 +1,5 @@
 ARG RUST_VERSION=1.96.0
+ARG BUF_VERSION=1.73.0
 ARG NIGHTLY_TOOLCHAIN=nightly-2026-08-01
 ARG DOCKER_HUB_REGISTRY=docker.io/library
 FROM ${DOCKER_HUB_REGISTRY}/rust:${RUST_VERSION}-slim
@@ -11,6 +12,7 @@ LABEL author="Jason Wohlgemuth"
 # %arguments
 #
 ARG DEBIAN_FRONTEND=noninteractive
+ARG BUF_VERSION
 #
 # %environment
 #
@@ -39,6 +41,9 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     && chmod +x /opt/microsoft/powershell/7/pwsh \
     && ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh \
     && rm -f /tmp/powershell.tar.gz \
+    && curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf \
+    && chmod +x /usr/local/bin/buf \
+    && buf --version \
     && rustup toolchain install stable --profile minimal \
         --component clippy \
         --component rust-analyzer \

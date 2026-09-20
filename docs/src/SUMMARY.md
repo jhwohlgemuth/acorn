@@ -47,6 +47,7 @@
 - [Packages](./packages/README.md)
   - [Rust schemas](./packages/acorn-schema.md)
   - [Rust core library](./packages/acorn-lib.md)
+  - [Protobuf and gRPC](./packages/grpc.md)
   - [Rhai exec](./packages/exec.md)
   - [🐍 External Python bindings](./packages/acorn-py.md)
   - [WebAssembly development](./packages/acorn-web.md)

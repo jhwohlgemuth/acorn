@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package acorn.rpc.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+// A string or signed-integer operation request identifier.
+message RequestId {
+  // The identifier value.
+  oneof value {
+    // A signed-integer identifier.
+    int64 number = 1;
+    // A string identifier.
+    string text = 2;
+  }
+}
+
+// One operation invocation request.
+message InvokeRequest {
+  // Correlation identifier returned with the response.
+  RequestId id = 1;
+  // Fully-qualified registered ACORN operation name.
+  string method = 2;
+  // Operation parameters represented as a JSON-compatible value.
+  google.protobuf.Value params = 3;
+}
+
+// One fire-and-forget operation notification.
+message NotifyRequest {
+  // Fully-qualified registered ACORN operation name.
+  string method = 1;
+  // Operation parameters represented as a JSON-compatible value.
+  google.protobuf.Value params = 2;
+}
+
+// A public operation failure using the shared RPC error contract.
+message RpcError {
+  // Stable JSON-RPC or ACORN error code.
+  int32 code = 1;
+  // Stable public error message.
+  string message = 2;
+  // Optional bounded public diagnostic data.
+  google.protobuf.Value data = 3;
+}
+
+// One operation response.
+message InvokeResponse {
+  // Correlation identifier copied from the request.
+  RequestId id = 1;
+  // Successful result or shared operation error.
+  oneof outcome {
+    // Successful JSON-compatible result.
+    google.protobuf.Value result = 2;
+    // Shared operation failure.
+    RpcError error = 3;
+  }
+}
+
+// An ordered group of operation requests.
+message BatchRequest {
+  // Requests to invoke.
+  repeated InvokeRequest requests = 1;
+}
+
+// An ordered group of operation responses.
+message BatchResponse {
+  // Responses in request order.
+  repeated InvokeResponse responses = 1;
+}
+
+// Binary transport for the shared ACORN operation registry.
+service AcornRpc {
+  // Invoke one registered operation.
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+  // Dispatch one notification without returning an operation result.
+  rpc Notify(NotifyRequest) returns (google.protobuf.Empty);
+  // Invoke an ordered batch of registered operations.
+  rpc Batch(BatchRequest) returns (BatchResponse);
+}

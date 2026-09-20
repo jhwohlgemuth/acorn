@@ -99,8 +99,10 @@ check: check-portable check-host
 check-host:
 	@cargo check -p acorn-lib
 	@cargo check -p acorn-lib --no-default-features --features analysis
+	@cargo check -p acorn-lib --no-default-features --features grpc
 	@cargo check -p acorn-lib --features std,analysis
 	@cargo check -p acorn-cli
+	@cargo check -p acorn-cli --features grpc
 
 check-portable:
 	@cargo check -p acorn-core
@@ -139,9 +141,13 @@ doc:
 doctest:
 	@cargo test --doc
 
-lint: shellcheck sqlcheck
+lint: protolint shellcheck sqlcheck
 	@cargo fmt --all
 	@cargo clippy --fix --allow-dirty --workspace --no-deps --all-features --all-targets -- -D warnings
+
+protolint:
+	@command -v buf >/dev/null 2>&1 || (echo "buf not found; install it from https://buf.build/docs/cli/installation/" >&2; exit 1)
+	@buf lint
 
 shellcheck:
 	@if command -v shellcheck >/dev/null 2>&1; then \

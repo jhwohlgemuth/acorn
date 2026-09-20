@@ -2,7 +2,7 @@
 
 <blockquote class="blockquote-tag acorn-nutshell">
 <p class="blockquote-tag-title acorn-nutshell-title">In a nutshell</p>
-<p>Run an ACORN bot, local stdio MCP service, or authenticated JSON-RPC endpoint with <code>acorn serve</code>.</p>
+<p>Run an ACORN bot, local stdio MCP service, or authenticated JSON-RPC or gRPC endpoint with <code>acorn serve</code>.</p>
 </blockquote>
 
 Start a bot for a GitLab project:
@@ -68,5 +68,37 @@ curl --fail-with-body http://127.0.0.1:8001/rpc \
 ```
 
 Use global `--offline` to deny open-world operations. `serve rpc --allow-mutation` enables registered mutations such as durable operation replay and requires local database persistence.
+
+The optional Protobuf/gRPC transport exposes the same operation registry through the versioned `acorn.rpc.v1.AcornRpc` service. Build the CLI with the non-default capability and use a dedicated bearer token:
+
+```sh
+cargo build --release --package acorn-cli --features grpc
+export ACORN_GRPC_TOKEN='replace-with-a-different-secret'
+./target/release/acorn serve grpc --bind 127.0.0.1:50051
+```
+
+Call the version operation with `grpcurl` and the committed Protobuf contract:
+
+```sh
+grpcurl -plaintext \
+  -H 'authorization: Bearer replace-with-a-different-secret' \
+  -import-path crates/acorn-lib/proto \
+  -proto acorn/rpc/v1/rpc.proto \
+  -d '{"id":{"text":"version-1"},"method":"acorn.version","params":{}}' \
+  127.0.0.1:50051 \
+  acorn.rpc.v1.AcornRpc/Invoke
+```
+
+Loopback development may use plaintext HTTP/2. A non-loopback bind requires a PEM certificate chain and private key:
+
+```sh
+export ACORN_GRPC_TOKEN='replace-with-a-different-secret'
+./target/release/acorn serve grpc \
+  --bind 0.0.0.0:50051 \
+  --tls-cert /etc/acorn/tls/server.pem \
+  --tls-key /etc/acorn/tls/server.key
+```
+
+Clients send `authorization: Bearer …` metadata. Remote clients require TLS and are rejected under global offline policy; message limits and deadlines apply on both sides. Operation failures remain structured `RpcError` outcomes, while authentication, malformed transport requests, limits, deadlines, and connection failures use gRPC status codes. The committed contract is at `crates/acorn-lib/proto/acorn/rpc/v1/rpc.proto`; generated Rust remains in Cargo's build output and is not committed. See [Protobuf and gRPC](../../packages/grpc.md) for batch and notification examples, the Rust client API, and the relationship to ACP and MCP.
 
 <p class="acorn-next"><strong>Next stop:</strong>&nbsp;Diagnose the service host with <a href="doctor.md">Doctor</a>.</p>

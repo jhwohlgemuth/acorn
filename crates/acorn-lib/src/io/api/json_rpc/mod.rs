@@ -39,6 +39,8 @@ type OperationHandler = Arc<dyn Fn(Value, InvocationContext) -> OperationFuture 
 pub enum InvocationOrigin {
     /// Direct in-process invocation.
     Direct,
+    /// Protobuf/gRPC invocation.
+    Grpc,
     /// JSON-RPC HTTP invocation.
     JsonRpc,
     /// Normalized webhook invocation.

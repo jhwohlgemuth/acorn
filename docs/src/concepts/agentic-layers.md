@@ -44,6 +44,8 @@ An agent harness orchestrates models, skills, tools, workflows, context, memory,
 
 A planned ACORN harness could launch OpenCode through ACP, send a hydrated prompt, stream progress, mediate tool permissions, validate the returned suggestion, and request human approval before applying a change.
 
+ACORN's [Protobuf/gRPC transport](../packages/grpc.md) provides part of the foundation for that work. Its shared operation registry, policy context, authentication, deadlines, and cancellation behavior can support more protocol adapters. ACP will still use ACP sessions, streaming, and permission messages, while MCP keeps its own tool discovery and invocation semantics.
+
 ## Applying the principles
 
 | # | IID layer | Local-first and file-over-app application |
@@ -64,7 +66,7 @@ A planned ACORN harness could launch OpenCode through ACP, send a hydrated promp
 | 3 | Workflow composition and iteration | Not implemented | ACORN does not provide a general model workflow executor with explicit control flow, exit criteria, evolving state, progress checks, and resource budgets. File watching and service polling are operational loops, not IID model workflows. |
 | 4 | Skills, context, and capabilities | Implemented | [`acorn skill`](../cli-reference/commands/skill.md) distributes task-oriented instructions. [`acorn serve mcp`](../cli-reference/commands/serve.md), MCPB packaging, and opt-in client synchronization expose the canonical policy-filtered tool registry. |
 | 5 | Connected memory | Building blocks available | ACORN's local database persists research candidates, activity history, model metadata, and provenance-bearing records. ACORN does not manage conversational memory, cross-session agent recall, or memory selection and retention policies. |
-| 6 | Agent harness and interoperability | Partially implemented | ACORN manages local model metadata and weights, [synchronizes model configuration](../cli-reference/model-workflows.md) into OpenCode, VS Code, Goose, and llama-swap, distributes its agent skill, and runs a GitLab bot service. It models harness and benchmark metadata but does not implement an ACP client or a unified agent runtime. |
+| 6 | Agent harness and interoperability | Partially implemented | ACORN manages local model metadata and weights, [synchronizes model configuration](../cli-reference/model-workflows.md) into OpenCode, VS Code, Goose, and llama-swap, distributes its agent skill, runs a GitLab bot service, and provides a versioned gRPC boundary over its shared operation registry. It models harness and benchmark metadata but does not implement an ACP client or a unified agent runtime. |
 
 ACORN can develop each layer independently. Prompt evaluation can precede workflow execution, deterministic operations can become tools before broader agency is granted, and memory provenance can be defined before agent state is retained.
 

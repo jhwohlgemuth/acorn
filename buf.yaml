@@ -1,0 +1,12 @@
+version: v2
+modules:
+  - path: crates/acorn-lib/proto
+lint:
+  use:
+    - STANDARD
+  disallow_comment_ignores: true
+  rpc_allow_google_protobuf_empty_responses: true
+  service_suffix: Rpc
+breaking:
+  use:
+    - FILE

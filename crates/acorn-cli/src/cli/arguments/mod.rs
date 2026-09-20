@@ -1,7 +1,7 @@
 use self::osti::{DoeLab, OrganizationRole as OstiOrganizationRole, SearchView as OstiSearchView};
 use super::parse::{
-    parse_check_category, parse_check_format, parse_enrichment_provider, parse_exec_format, parse_executor, parse_mcpb_platform, parse_readability,
-    parse_ssh_remote, parse_standard, parse_watch_duration,
+    parse_check_category, parse_check_format, parse_enrichment_provider, parse_exec_format, parse_exec_hook, parse_executor, parse_mcpb_platform,
+    parse_readability, parse_ssh_remote, parse_standard, parse_watch_duration,
 };
 use super::DownloadCommands;
 use acorn::analyzer::host::discovery::CitationFormat;
@@ -611,7 +611,7 @@ pub(crate) struct ExecHookCheck {
     #[arg(long, value_name = "MANIFEST", help_heading = "OPTIONS")]
     pub(crate) manifest: String,
     /// Workflow hook to evaluate.
-    #[arg(long, value_name = "HOOK", help_heading = "OPTIONS")]
+    #[arg(long, value_name = "HOOK", value_parser = parse_exec_hook, help_heading = "OPTIONS")]
     pub(crate) hook: Hook,
     /// Input file to evaluate against.
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath, help_heading = "OPTIONS")]
@@ -1146,6 +1146,30 @@ pub(crate) struct ServeMcp {
     /// Container runtime for detached execution
     #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
     pub(crate) runtime: Option<Executor>,
+}
+/// Arguments for `acorn serve grpc`.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ServeGrpc {
+    /// Enable registered mutating operations
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) allow_mutation: bool,
+    /// Address for the authenticated gRPC endpoint
+    #[arg(long, default_value = "127.0.0.1:50051", value_name = "ADDRESS", help_heading = "OPTIONS")]
+    pub(crate) bind: SocketAddr,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
+    #[command(flatten)]
+    pub(crate) detach: DetachArgs,
+    /// Container runtime for detached execution
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
+    /// PEM-encoded TLS certificate chain
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, requires = "tls_key", help_heading = "OPTIONS")]
+    pub(crate) tls_cert: Option<PathBuf>,
+    /// PEM-encoded TLS private key
+    #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, requires = "tls_cert", help_heading = "OPTIONS")]
+    pub(crate) tls_key: Option<PathBuf>,
 }
 /// Arguments for `acorn serve rpc`.
 #[derive(Clone, Debug, Args)]

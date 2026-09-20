@@ -18,6 +18,8 @@ pub const DATABASE_PATH: &str = "ACORN_DATABASE_PATH";
 pub const GITLAB_CONTAINER_ENV: [&str; 3] = ["GITLAB_TOKEN", "GITLAB_WEBHOOK_TOKEN", "GITLAB_WEBHOOK_SIGNING_TOKEN"];
 /// Environment variable names used to resolve GitLab API tokens.
 pub const GITLAB_TOKEN_VARIABLE_NAMES: [&str; 3] = ["GITLAB_TOKEN", "PRIVATE_TOKEN", "CI_JOB_TOKEN"];
+/// Environment variable containing the bearer token for the gRPC endpoint.
+pub const GRPC_TOKEN: &str = "ACORN_GRPC_TOKEN";
 /// Environment variable used to set the maximum HTTP retry count for outbound requests.
 pub const HTTP_MAX_RETRIES: &str = "ACORN_HTTP_MAX_RETRIES";
 /// Environment variable used to set the maximum time a streaming download may idle without new bytes, in seconds.

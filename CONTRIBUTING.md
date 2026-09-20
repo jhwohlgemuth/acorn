@@ -27,6 +27,7 @@ If you would like to generously provide a pull request to correct a verified iss
   ```shell
   cargo install cargo-nextest cargo-tarpaulin cargo-audit cargo-auditable sqruff
   ```
+- Install the [Buf CLI](https://buf.build/docs/cli/installation/) before running `make lint` (`brew install bufbuild/buf/buf` on macOS or `scoop install buf` on Windows).
 
 ### Development Tasks
 | Purpose                                  | Command            |

@@ -3,6 +3,7 @@ include:
 
 variables:
   BINARY_NAME: acorn
+  BUF_VERSION: "1.73.0"
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_JOB_ID/$CI_PROJECT_PATH
   GIT_CLEAN_FLAGS: -ffdx
   CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
@@ -109,6 +110,7 @@ test:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
+    - command -v buf >/dev/null || (curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf)
     - make test-ci
     - make check-host
     - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-schema

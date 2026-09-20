@@ -71,6 +71,8 @@ pdf-inspector = { workspace = true, optional = true }
 percy-dom = {version = "0.10.0", features = ["macro"], default-features = false, optional = true }
 petgraph = { version = "0.8.3", features = ["stable_graph"], default-features = false }
 polars = { version = "0.53.0", features = ["lazy", "fmt_no_tty", "csv"], default-features = false, optional = true }
+prost = { workspace = true, optional = true }
+prost-types = { workspace = true, optional = true }
 quick-xml = { workspace = true, features = ["serialize"] }
 rayon = { workspace = true, optional = true }
 rmcp = { workspace = true, optional = true }
@@ -104,6 +106,8 @@ sysinfo = { version = "0.38.2", features = ["network", "system"], default-featur
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["io-std", "io-util", "net", "rt", "signal", "time"], optional = true }
+tonic = { workspace = true, optional = true }
+tonic-prost = { workspace = true, optional = true }
 tracing = { workspace = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
 triomphe = { workspace = true }
@@ -115,6 +119,10 @@ zip = { version = "8.5.1", features = ["deflate"], default-features = false, opt
 zstd = { version = "0.13.3", default-features = false, optional = true }
 rhai = { workspace = true, optional = true }
 validator = { workspace = true }
+
+[build-dependencies]
+protoc-bin-vendored = { workspace = true, optional = true }
+tonic-prost-build = { workspace = true, optional = true }
 
 [dev-dependencies]
 axum = { workspace = true, features = ["http1", "json", "tokio"] }
@@ -176,6 +184,15 @@ chart = ["dep:resvg"]
 default = ["std"]
 doctor = ["std-core", "dep:sysinfo"]
 duckdb = ["std-core", "dep:duckdb"]
+grpc = [
+  "dep:prost",
+  "dep:prost-types",
+  "dep:protoc-bin-vendored",
+  "dep:tonic",
+  "dep:tonic-prost",
+  "dep:tonic-prost-build",
+  "std",
+]
 powerpoint = ["std-core"]
 needle = ["agentic", "cmd"]
 exec = ["std", "acorn-core/exec", "dep:cap-std", "dep:rhai"]

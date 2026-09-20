@@ -2,8 +2,8 @@
 //!
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
+use crate::assets::draft_placeholder_bytes;
 use crate::cli::CommandOptions;
-use crate::template::draft_placeholder_bytes;
 use acorn::io::powerpoint::ooxml::{
     add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
     validate_xml_well_formed, Relationship, Relationships,

@@ -17,7 +17,7 @@ status: in-progress
 
 # Dependencies
 
-This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication, JSON-RPC, webhook lifecycle, and GitLab repository automation contracts are complete. The highest-priority [Protobuf/gRPC](protobuf-grpc-transport.md) plan extends those primitives under its dedicated lane; it does not turn this coordination roadmap into an implementation job. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
+This roadmap is a boundary input to [crate extraction](../crate-boundary-architecture.md). Shared authentication, JSON-RPC, Protobuf/gRPC, webhook lifecycle, and GitLab repository automation contracts are complete. The remaining general API order is endpoint/request migration -> invoke/parse -> environment/health -> errors/DTOs, followed by provider-specific refinements. See the [plan dependency network](../../plan-network.md).
 
 # Parallel execution
 
@@ -59,4 +59,3 @@ Shared mechanics live at the API root, provider modules retain only provider-spe
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [Protobuf/gRPC transport](protobuf-grpc-transport.md)

@@ -3,6 +3,7 @@
 //! that existed solely to derive `ValueEnum`.
 use acorn::analyzer::readability::ReadabilityType;
 use acorn::analyzer::{self, Standard};
+use acorn::io::config::application::Hook;
 use acorn::io::ApiResult;
 #[cfg(feature = "exec")]
 use acorn::io::{jsonc_parse_value, FromPath};
@@ -85,6 +86,12 @@ pub(crate) fn parse_exec_format(value: &str) -> Result<MimeType, String> {
         | "markdown" | "md" => Ok(MimeType::Markdown),
         | _ => Err("expected `json` or `markdown`".to_string()),
     }
+}
+/// Parse an executable workflow hook.
+pub(crate) fn parse_exec_hook(value: &str) -> Result<Hook, String> {
+    value
+        .parse::<Hook>()
+        .map_err(|_| format!("unknown workflow hook '{value}' — expected one of: check, enrich, format, link, validate"))
 }
 /// Parse a CLI executor name into an `Executor` variant.
 pub(crate) fn parse_executor(s: &str) -> Result<Executor, String> {

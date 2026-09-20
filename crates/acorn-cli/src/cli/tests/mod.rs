@@ -502,6 +502,37 @@ fn test_download_strict_argument() {
     }
 }
 #[test]
+fn test_exec_hook_argument() {
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "exec",
+        "hook",
+        "check",
+        "policy.rhai",
+        "--manifest",
+        "policy.json",
+        "--hook",
+        "validate",
+        "--input",
+        "activity.json",
+    ])
+    .is_ok());
+    assert!(Arguments::try_parse_from([
+        "acorn",
+        "exec",
+        "hook",
+        "check",
+        "policy.rhai",
+        "--manifest",
+        "policy.json",
+        "--hook",
+        "unknown",
+        "--input",
+        "activity.json",
+    ])
+    .is_err());
+}
+#[test]
 fn test_export_aspect_chart_visibility_arguments() {
     let parsed = Arguments::try_parse_from([
         "acorn",
@@ -895,6 +926,30 @@ fn test_resolve_paths_discovers_rad_markdown_and_ignores_readme() {
     let resolved = block_on(resolve_paths(&Some(root), &CommandOptions::init().build())).unwrap();
     assert!(resolved.contains(&rad));
     assert!(!resolved.contains(&readme));
+}
+#[test]
+fn test_grpc_server_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "serve",
+        "grpc",
+        "--bind",
+        "127.0.0.1:50052",
+        "--tls-cert",
+        "server.pem",
+        "--tls-key",
+        "server.key",
+    ])
+    .expect("parse gRPC server");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Serve {
+            command: Some(ServeCommands::Grpc(arguments))
+        }) if arguments.bind.to_string() == "127.0.0.1:50052"
+            && arguments.tls_cert.as_deref() == Some(Path::new("server.pem"))
+            && arguments.tls_key.as_deref() == Some(Path::new("server.key"))
+            && !arguments.allow_mutation
+    ));
 }
 #[test]
 fn test_rpc_server_arguments() {

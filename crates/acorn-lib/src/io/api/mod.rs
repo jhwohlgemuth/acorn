@@ -45,6 +45,8 @@ pub mod citeas;
 pub mod geonames;
 pub mod github;
 pub mod gitlab;
+#[cfg(feature = "grpc")]
+pub mod grpc;
 pub mod handle;
 pub mod harbor;
 pub mod huggingface;

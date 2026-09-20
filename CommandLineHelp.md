@@ -28,6 +28,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli skill`↴](#acorn-cli-skill)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
 * [`acorn-cli serve bot`↴](#acorn-cli-serve-bot)
+* [`acorn-cli serve grpc`↴](#acorn-cli-serve-grpc)
 * [`acorn-cli serve mcp`↴](#acorn-cli-serve-mcp)
 * [`acorn-cli serve rpc`↴](#acorn-cli-serve-rpc)
 * [`acorn-cli sync`↴](#acorn-cli-sync)
@@ -1109,6 +1110,7 @@ Start a server (bot, MCP, etc.)
 ###### **Subcommands:**
 
 * `bot` — Webhook/API bot server that polls GitLab for merge request note events
+* `grpc` — Authenticated Protobuf/gRPC server
 * `mcp` — Model context protocol (MCP) server
 * `rpc` — Authenticated JSON-RPC HTTP server
 
@@ -1153,6 +1155,29 @@ Webhook/API bot server that polls GitLab for merge request note events
 
    The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
 * `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+
+
+
+## `acorn-cli serve grpc`
+
+Authenticated Protobuf/gRPC server
+
+**Usage:** `acorn-cli serve grpc [OPTIONS]`
+
+###### **Options:**
+
+* `--allow-mutation` — Enable registered mutating operations
+* `--bind <ADDRESS>` — Address for the authenticated gRPC endpoint
+
+  Default value: `127.0.0.1:50051`
+* `--host <URI|ALIAS>` — SSH URI or alias of the remote host (e.g. ssh://user@host, my-alias).
+
+   The local client and SSH configuration are used. Published ports and volumes belong to the remote host.
+* `--context <NAME>` — Docker context / Podman connection name (from `docker context ls` / `podman system connection ls`)
+* `-d`, `--detach` — Run as detached container/service instead of foreground/in-process
+* `-R`, `--runtime <RUNTIME>` — Container runtime for detached execution
+* `--tls-cert <PATH>` — PEM-encoded TLS certificate chain
+* `--tls-key <PATH>` — PEM-encoded TLS private key
 
 
 

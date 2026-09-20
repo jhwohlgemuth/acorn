@@ -81,6 +81,9 @@ nanoid = { version = "0.5.0", default-features = false }
 notify = { version = "8.2.0" }
 notify-debouncer-mini = { version = "0.7.0" }
 owo-colors = { version = "4.3.0", features = ["alloc"], default-features = true }
+prost = { version = "=0.14.4", features = ["derive", "std"], default-features = false }
+prost-types = { version = "=0.14.4", default-features = false }
+protoc-bin-vendored = { version = "=3.2.0", default-features = false }
 quick-xml = { version = "0.39.1", default-features = false }
 rayon = { version = "1.12.0", default-features = false }
 rmcp = { version = "1.5.0", features = ["server", "transport-io"], default-features = false }
@@ -96,6 +99,16 @@ sophia = { version = "0.9.0", default-features = false }
 strum = { version = "0.28.0", features = ["derive"], default-features = false }
 swhid = { version = "0.2.2", default-features = false }
 tokio = { version = "1.48.0", default-features = false }
+tonic = { version = "=0.14.6", features = [
+  "channel",
+  "codegen",
+  "router",
+  "server",
+  "tls-native-roots",
+  "tls-ring",
+], default-features = false }
+tonic-prost = { version = "=0.14.6", default-features = false }
+tonic-prost-build = { version = "=0.14.6", features = ["transport"], default-features = false }
 serde_repr = { version = "0.1", default-features = false }
 serde_norway = { version = "0.9.42", default-features = false }
 rhai = { version = "1.22.0", default-features = false, features = ["serde"] }

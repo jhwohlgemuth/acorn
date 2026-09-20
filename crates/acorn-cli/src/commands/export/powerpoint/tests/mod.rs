@@ -6,7 +6,7 @@
     clippy::arithmetic_side_effects
 )]
 use super::{add_aspect_chart, add_slide, copy_image, prepare_destination};
-use crate::template::draft_placeholder_bytes;
+use crate::assets::draft_placeholder_bytes;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::{read_file, write_file};
 use acorn_schema::research_activity::ResearchActivity;

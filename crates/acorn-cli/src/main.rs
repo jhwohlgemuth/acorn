@@ -17,6 +17,7 @@ use tracing_subscriber::layer::SubscriberExt as __tracing_subscriber_SubscriberE
 use tracing_subscriber::util::SubscriberInitExt as _;
 use tracing_subscriber::EnvFilter;
 
+mod assets;
 mod cli;
 mod commands;
 mod io;

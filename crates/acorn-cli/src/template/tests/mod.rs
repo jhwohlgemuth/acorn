@@ -1,4 +1,5 @@
-use super::{draft_placeholder_bytes, Convert, DataUri, Style, DRAFT_PLACEHOLDER_ASSET};
+use super::{Convert, DataUri, Style};
+use crate::assets::{draft_placeholder_bytes, DRAFT_PLACEHOLDER_ASSET};
 use acorn_schema::research_activity::ResearchActivity;
 
 #[test]
