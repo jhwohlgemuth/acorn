@@ -65,6 +65,5 @@ Prioritize the portability critical path first, then reliability, security, and 
 - [Crate boundary architecture](crate-boundary-architecture.md)
 - [Core refactors](core/)
 - [Portability](portability/)
-- [Analyzer refactors](analyzer/)
 - [API refactors](api/)
 - [Plan dependency network](../plan-network.md)

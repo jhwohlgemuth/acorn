@@ -195,5 +195,4 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 - [WASM feature path](portability/wasm-feature-path.md)
 - [no-std and WASM CI](portability/no-std-wasm-ci.md)
 - [Shared export context](core/export-context.md)
-- [Analyzer refactors](analyzer/)
 - [API client roadmap](api/roadmap.md)

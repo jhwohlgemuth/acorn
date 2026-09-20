@@ -6,7 +6,7 @@ use acorn::io::extract;
 use acorn_core::util::MimeType;
 use serde_json::{json, Value};
 #[cfg(unix)]
-use std::fs::{metadata, set_permissions};
+use std::fs::{metadata, set_permissions, write};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -16,6 +16,7 @@ use std::process::{Command, Stdio};
 fn assert_stdio_session(binary: &Path) {
     let mut child = Command::new(binary)
         .args(["--no-local-database", "serve", "mcp"])
+        .env("ACORN_TEST_BINARY", env!("CARGO_BIN_EXE_acorn"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -60,17 +61,13 @@ fn assert_stdio_session(binary: &Path) {
 fn test_created_bundle_runs_stdio_mcp_session() {
     let root = tempfile::tempdir().expect("temporary directory");
     let bundle = root.path().join("acorn.mcpb");
+    let launcher = root.path().join("acorn");
+    write(&launcher, b"#!/bin/sh\nexec \"$ACORN_TEST_BINARY\" \"$@\"\n").expect("write MCP test launcher");
     let platform = if cfg!(target_os = "macos") { "darwin" } else { "linux" };
     let status = Command::new(env!("CARGO_BIN_EXE_acorn"))
-        .args([
-            "create",
-            "mcp",
-            "--binary",
-            env!("CARGO_BIN_EXE_acorn"),
-            "--platform",
-            platform,
-            "--output",
-        ])
+        .args(["create", "mcp", "--binary"])
+        .arg(&launcher)
+        .args(["--platform", platform, "--output"])
         .arg(&bundle)
         .status()
         .expect("create MCP Bundle");
