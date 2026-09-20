@@ -84,7 +84,7 @@ The configuration key, server, tool, effects, timeout, and output bound are all 
 
 # Next plan
 
-This plan completes the highest-priority RPC and automation lane. After its acceptance criteria pass, return to the wiki's next scheduled work with [analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md).
+This plan completes the highest-priority RPC and automation lane. After its acceptance criteria pass, return to the current schedule in the [plan dependency network](../plan-network.md).
 
 # Citations
 

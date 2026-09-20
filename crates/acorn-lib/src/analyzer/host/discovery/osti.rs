@@ -1,8 +1,10 @@
 //! OSTI-backed remote discovery search support.
 use super::{
-    candidate_repositories, candidate_urls, link_check, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteResolution, RemoteSearchRequest,
+    candidate_repositories, candidate_urls, Candidate, RemoteEntity, RemoteMatch, RemoteProvider, RemoteResolution, RemoteSearchRequest,
     RemoteSearchResponse,
 };
+use crate::analyzer::host::runtime::LinkEvidence;
+use crate::analyzer::CheckBatch;
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::osti::SearchResults;
 use crate::io::api::{gitlab, orcid, osti, Configuration};
@@ -201,9 +203,10 @@ impl RemoteSearchResponse {
             .iter()
             .flat_map(|value| candidate_urls(value.url.as_deref(), &value.websites))
             .collect::<Vec<_>>();
-        let resolution_checks = join_all(links.into_iter().map(|url| link_check(Some(url), Some("remote.url".to_string()))))
-            .await
-            .into();
+        let evidence = links
+            .into_iter()
+            .map(|url| LinkEvidence::pending(Some(url.to_string()), Some("remote.url".to_string()), None));
+        let resolution_checks = CheckBatch::evaluate_link_evidence(evidence, true).await;
         Self {
             matches,
             resolution_checks,

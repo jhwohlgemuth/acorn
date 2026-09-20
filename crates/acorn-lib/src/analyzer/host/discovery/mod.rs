@@ -1,9 +1,10 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
 use super::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
 use super::render::{Render, RenderContext};
-use super::runtime::link_check;
-use super::service::{analyze_paths, Analysis, SchemaCheck};
-use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard};
+use super::runtime::{LinkEvidence, LinkOutcome};
+use super::service::analyze_paths;
+use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard};
+use crate::check_err;
 use crate::io::api::citeas::ToCitations;
 use crate::io::api::{self, Configuration};
 use crate::io::database::schema::{IdentifierRow, Table};
@@ -14,7 +15,6 @@ use crate::util::{values_as_table, Label, StringConversion};
 use crate::LocationExt;
 #[cfg(feature = "agentic")]
 use crate::RepositoryExt;
-use crate::{check, check_err};
 use acorn_core::options::{CommonRuntime, RuntimeOptions};
 use acorn_core::util::merge_unique;
 use acorn_core::{Location, Repository};
@@ -22,7 +22,6 @@ use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
 use acorn_schema::pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID};
 use acorn_schema::{ControlledVocabulary, Keyword};
 use alloc::collections::{BTreeMap, BTreeSet};
-use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
 use core::{fmt, iter::once, str::FromStr};
@@ -33,7 +32,7 @@ use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::env::temp_dir;
 use std::io::{self, IsTerminal};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use strum::{IntoEnumIterator, VariantNames};
 use tracing::warn;
 
@@ -221,15 +220,6 @@ pub struct ArtifactCandidate {
     #[serde(default)]
     pub contact: Option<Candidate>,
 }
-/// Output controls used when finalizing a gather report.
-#[derive(Clone, Copy, Debug)]
-pub struct GatherOutputPolicy<'a> {
-    format: Option<OutputFormat>,
-    output: Option<&'a PathBuf>,
-    quiet: bool,
-    terse: bool,
-    verbosity: Option<u8>,
-}
 /// Discovery-specific gather fields composed with shared runtime options.
 #[derive(Clone, Debug, Default)]
 pub struct DiscoveryExtension {
@@ -263,6 +253,15 @@ pub struct DiscoveryExtension {
     pub verbosity: Option<u8>,
     /// Optional remote metadata search.
     pub remote: Option<RemoteSearchRequest>,
+}
+/// Output controls used when finalizing a gather report.
+#[derive(Clone, Copy, Debug)]
+pub struct GatherOutputPolicy<'a> {
+    format: Option<OutputFormat>,
+    output: Option<&'a PathBuf>,
+    quiet: bool,
+    terse: bool,
+    verbosity: Option<u8>,
 }
 /// Gather failure after report processing.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -426,6 +425,11 @@ pub(crate) struct Summary {
     #[builder(default)]
     #[serde(default, skip_serializing_if = "PersistenceCounts::is_empty")]
     candidates: PersistenceCounts,
+}
+impl<'a> From<&'a Records> for &'a [SourceDocument] {
+    fn from(discoveries: &'a Records) -> Self {
+        discoveries.1.as_slice()
+    }
 }
 impl DeserializeMetadata for api::citeas::Citations {}
 impl DeserializeMetadata for api::handle::Record {}
@@ -847,6 +851,22 @@ impl FromStr for CitationFormat {
             .ok_or_else(|| value.to_string())
     }
 }
+impl DiscoveryExtension {
+    /// Return whether path or literal text input was supplied.
+    pub fn has_input(&self) -> bool {
+        !(self.input.is_empty() && self.text.is_empty())
+    }
+    /// Return local filesystem roots observed by gather watch mode.
+    pub fn roots(&self) -> Vec<PathBuf> {
+        let default = (!self.has_input() && self.remote.is_none()).then_some(".");
+        self.input
+            .iter()
+            .map(String::as_str)
+            .chain(default)
+            .filter_map(|value| Location::from(value).local_path())
+            .collect()
+    }
+}
 impl GatherOutputPolicy<'_> {
     fn format(self) -> OutputFormat {
         self.format
@@ -885,37 +905,20 @@ impl From<CandidateAction> for LifecycleState {
 }
 impl LifecycleState {
     fn check(self, locator: String, context: Option<String>, uri: Option<String>) -> Check {
+        self.evidence(locator, context, uri).into()
+    }
+    fn evidence(self, locator: String, diagnostic: Option<String>, source_uri: Option<String>) -> LinkEvidence {
         let (success, severity) = match self {
             | Self::Failed => (false, CheckSeverity::Error),
             | Self::Conflict | Self::Unsupported => (true, CheckSeverity::Warning),
             | _ => (true, CheckSeverity::Info),
         };
-        check!(
-            CheckCategory::Link,
-            success,
-            severity: severity,
-            message: self.to_string(),
-            locator: locator,
-            maybe_context: context,
-            maybe_uri: uri,
+        LinkEvidence::observed(
+            locator,
+            diagnostic,
+            source_uri,
+            LinkOutcome::lifecycle(success, severity, self.to_string()),
         )
-        .with_kind(CheckKind::Lifecycle)
-    }
-}
-impl DiscoveryExtension {
-    /// Return whether path or literal text input was supplied.
-    pub fn has_input(&self) -> bool {
-        !(self.input.is_empty() && self.text.is_empty())
-    }
-    /// Return local filesystem roots observed by gather watch mode.
-    pub fn roots(&self) -> Vec<PathBuf> {
-        let default = (!self.has_input() && self.remote.is_none()).then_some(".");
-        self.input
-            .iter()
-            .map(String::as_str)
-            .chain(default)
-            .filter_map(|value| Location::from(value).local_path())
-            .collect()
     }
 }
 impl core::error::Error for OutputFailure {}
@@ -1109,15 +1112,6 @@ impl Record {
         }
     }
 }
-#[async_trait]
-impl Analysis for Records {
-    fn standard() -> Standard {
-        Standard::Text
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        path.to_path_buf()
-    }
-}
 impl From<&[SourceDocument]> for Records {
     fn from(sources: &[SourceDocument]) -> Self {
         Self::from(sources.to_vec())
@@ -1152,7 +1146,7 @@ impl Records {
             .unique()
             .collect()
     }
-    fn link_checks(&self) -> CheckBatch {
+    fn link_evidence(&self) -> Vec<LinkEvidence> {
         self.0
             .iter()
             .flat_map(|record| match record {
@@ -1163,16 +1157,18 @@ impl Records {
                     source,
                     ..
                 } => {
-                    let found = LifecycleState::Found.check(identifier.clone(), None, Some(source.clone()));
+                    let found = LifecycleState::Found.evidence(identifier.clone(), None, Some(source.clone()));
                     let outcome = match resolution_status {
                         | ResolutionStatus::NotRequested => None,
-                        | ResolutionStatus::Resolved => Some(LifecycleState::Resolved.check(identifier.clone(), None, Some(source.clone()))),
-                        | ResolutionStatus::Unsupported => Some(LifecycleState::Unsupported.check(identifier.clone(), None, Some(source.clone()))),
-                        | ResolutionStatus::Failed => Some(LifecycleState::Failed.check(identifier.clone(), metadata.clone(), Some(source.clone()))),
+                        | ResolutionStatus::Resolved => Some(LifecycleState::Resolved.evidence(identifier.clone(), None, Some(source.clone()))),
+                        | ResolutionStatus::Unsupported => Some(LifecycleState::Unsupported.evidence(identifier.clone(), None, Some(source.clone()))),
+                        | ResolutionStatus::Failed => {
+                            Some(LifecycleState::Failed.evidence(identifier.clone(), metadata.clone(), Some(source.clone())))
+                        }
                     };
-                    once(found).chain(outcome).collect()
+                    once(found).chain(outcome).collect::<Vec<_>>()
                 }
-                | Record::Check { .. } => CheckBatch::empty(),
+                | Record::Check { .. } => Vec::new(),
             })
             .collect()
     }
@@ -1221,7 +1217,10 @@ impl Records {
             .execution(execution)
             .report(report_options)
             .build();
-        let report = analyze_paths(&paths, &options).await.with_checks(self.link_checks(), &options);
+        let report = analyze_paths(&paths, &options)
+            .await
+            .with_link_evidence(self.link_evidence(), &options)
+            .await;
         (write_checks.chain(report.checks()).collect(), paths)
     }
     /// Convert project-like discoveries into exact-identity artifact candidates.
@@ -1344,16 +1343,6 @@ impl Records {
         Self(join_all(self.0.into_iter().map(|record| record.resolve(&isni_outcomes))).await, self.1)
     }
 }
-impl SchemaCheck for Records {}
-#[async_trait]
-impl Analysis for RemoteMatch {
-    fn standard() -> Standard {
-        Standard::Text
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        path.to_path_buf()
-    }
-}
 impl RemoteMatch {
     fn normalized_pid(&self) -> Option<Identifier> {
         self.pid.as_deref().and_then(|identifier| Identifier::new(identifier).normalized())
@@ -1374,21 +1363,20 @@ impl RemoteMatch {
             .and_then(|metadata| resolved_pid_output(&identifier, kind, metadata, citation_format).ok())
             .unwrap_or(identifier)
     }
-    fn link_checks(&self) -> CheckBatch {
+    fn link_evidence(&self) -> Vec<LinkEvidence> {
         let identifier = self.normalized_identifier();
-        let found = LifecycleState::Found.check(identifier.clone(), Some(self.title.clone()), self.url.clone());
+        let found = LifecycleState::Found.evidence(identifier.clone(), Some(self.title.clone()), self.url.clone());
         let outcome = self.resolution.as_ref().and_then(|resolution| match resolution.status {
             | ResolutionStatus::Resolved => {
-                Some(LifecycleState::Resolved.check(identifier.clone(), Some(resolution.provider.clone()), self.url.clone()))
+                Some(LifecycleState::Resolved.evidence(identifier.clone(), Some(resolution.provider.clone()), self.url.clone()))
             }
-            | ResolutionStatus::Failed => Some(LifecycleState::Failed.check(identifier.clone(), resolution.error.clone(), self.url.clone())),
+            | ResolutionStatus::Failed => Some(LifecycleState::Failed.evidence(identifier.clone(), resolution.error.clone(), self.url.clone())),
             | ResolutionStatus::NotRequested => None,
-            | ResolutionStatus::Unsupported => Some(LifecycleState::Unsupported.check(identifier.clone(), None, self.url.clone())),
+            | ResolutionStatus::Unsupported => Some(LifecycleState::Unsupported.evidence(identifier.clone(), None, self.url.clone())),
         });
         once(found).chain(outcome).collect()
     }
 }
-impl SchemaCheck for RemoteMatch {}
 impl fmt::Display for RemoteProvider {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -1492,7 +1480,7 @@ impl RemoteSearchRequest {
                             .then_some(response.resolution_checks.iter().cloned())
                             .into_iter()
                             .flatten()
-                            .chain(response.matches.iter().flat_map(RemoteMatch::link_checks))
+                            .chain(response.matches.iter().flat_map(RemoteMatch::link_evidence).map(Check::from))
                     })
                     .collect::<Vec<_>>();
                 let candidates = match no_local_database {
@@ -1805,16 +1793,6 @@ impl TryFrom<ArtifactCandidate> for ResearchActivityCandidate {
         }
     }
 }
-impl ResolutionOutcome<String> {
-    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
-        let status = self.status();
-        let metadata = match self {
-            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
-            | Self::NotRequested | Self::Unsupported => None,
-        };
-        (metadata, status)
-    }
-}
 impl<T> From<ApiResult<T>> for ResolutionOutcome<String>
 where
     T: Serialize,
@@ -1829,6 +1807,16 @@ where
         }
     }
 }
+impl ResolutionOutcome<String> {
+    fn into_parts(self) -> (Option<String>, ResolutionStatus) {
+        let status = self.status();
+        let metadata = match self {
+            | Self::Resolved(metadata) | Self::Failed(metadata) => Some(metadata),
+            | Self::NotRequested | Self::Unsupported => None,
+        };
+        (metadata, status)
+    }
+}
 impl<T> ResolutionOutcome<T> {
     /// Return the serializable status represented by this outcome.
     pub const fn status(&self) -> ResolutionStatus {
@@ -1838,11 +1826,6 @@ impl<T> ResolutionOutcome<T> {
             | Self::Resolved(_) => ResolutionStatus::Resolved,
             | Self::Failed(_) => ResolutionStatus::Failed,
         }
-    }
-}
-impl<'a> From<&'a Records> for &'a [SourceDocument] {
-    fn from(discoveries: &'a Records) -> Self {
-        discoveries.1.as_slice()
     }
 }
 impl DeserializeMetadata for Vec<pid::raid::Metadata> {}

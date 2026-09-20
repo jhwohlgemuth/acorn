@@ -3,10 +3,10 @@
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
 use super::context::{AnalysisContext, ExecutionOptions};
-use super::service::{check_fair_for, check_prose_for, check_readability_for, Analysis, SchemaCheck};
+use super::service::{check_fair_for, check_prose_for, check_quality_for, check_readability_for, Analysis, SchemaCheck};
 use super::vale::{self, Vale, ValeConfig};
-use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
-use crate::analyzer::error::{DocumentTarget, ErrorKind, ValidatorIssues};
+use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, Standard, ValidationReportExt};
+use crate::analyzer::error::ErrorKind;
 use crate::analyzer::fair::FairEvidence;
 use crate::analyzer::model::{ValeOutput, ValeOutputItem};
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -29,7 +29,6 @@ use crate::{check, check_err, check_ok};
 use acorn_core::prelude::{Arc, HashMap};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::util::SemanticVersion;
-use acorn_core::validation::ValidationError;
 use acorn_core::{Location, Repository};
 use acorn_schema::modelkit::kitfile::Kitfile;
 use acorn_schema::pid::raid;
@@ -39,7 +38,7 @@ use acorn_schema::standard::cff::{self, Cff, IdentifierType, Reference};
 use acorn_schema::standard::text::{Document, Text};
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 use acorn_schema::util::assets::Constant as SchemaConstant;
-use acorn_schema::validation::{Validate, ValidationReport};
+use acorn_schema::validation::Validate;
 use acorn_schema::{Organization, ProgrammingLanguage, Website};
 use async_trait::async_trait;
 #[cfg(feature = "analysis")]
@@ -48,7 +47,7 @@ use color_eyre::eyre::eyre;
 use color_eyre::owo_colors::OwoColorize;
 use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
-use futures::future::{BoxFuture, FutureExt};
+use futures::future::{join_all, BoxFuture, FutureExt};
 use ini::Ini;
 use is_executable::IsExecutable;
 use lychee_lib::{CacheStatus, Response, Status};
@@ -136,6 +135,22 @@ impl_schema_check!(
     ResearchActivity
 );
 pub(super) struct KitfileStandard;
+#[derive(Clone, Debug)]
+pub(crate) struct LinkEvidence {
+    diagnostic: Option<String>,
+    locator: Option<String>,
+    outcome: Option<LinkOutcome>,
+    source_uri: Option<String>,
+    target: Option<String>,
+}
+#[derive(Clone, Debug)]
+pub(crate) struct LinkOutcome {
+    kind: CheckKind,
+    message: String,
+    severity: CheckSeverity,
+    status_code: Option<String>,
+    success: bool,
+}
 pub(super) struct ModelKitStandard;
 #[cfg(feature = "analysis")]
 #[async_trait]
@@ -147,20 +162,13 @@ impl Analysis for Cff {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -254,7 +262,7 @@ impl Analysis for Cff {
                         let futures: Vec<_> = root_futures.into_iter().chain(identifier_futures).chain(reference_futures).collect();
                         Self::collect_checks(futures, &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
                 }
             }
         });
@@ -262,6 +270,42 @@ impl Analysis for Cff {
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+impl From<LinkEvidence> for Check {
+    fn from(value: LinkEvidence) -> Self {
+        let LinkEvidence {
+            diagnostic,
+            locator,
+            outcome,
+            source_uri,
+            ..
+        } = value;
+        let outcome = outcome.unwrap_or_else(|| LinkOutcome::failure("Missing URL"));
+        Self::init()
+            .category(CheckCategory::Link)
+            .success(outcome.success)
+            .severity(outcome.severity)
+            .message(outcome.message)
+            .kind(outcome.kind)
+            .maybe_context(diagnostic)
+            .maybe_locator(locator)
+            .maybe_status_code(outcome.status_code)
+            .maybe_uri(source_uri)
+            .build()
+    }
+}
+impl CheckBatch {
+    /// Evaluate normalized link evidence while respecting reachability policy.
+    pub(crate) async fn evaluate_link_evidence(values: impl IntoIterator<Item = LinkEvidence>, reachability_enabled: bool) -> Self {
+        let futures = values
+            .into_iter()
+            .filter_map(|value| match (value.outcome.is_some(), reachability_enabled) {
+                | (true, _) => Some(async move { Check::from(value) }.boxed()),
+                | (false, true) => Some(value.evaluate().boxed()),
+                | (false, false) => None,
+            });
+        join_all(futures).await.into_iter().collect()
     }
 }
 #[cfg(feature = "analysis")]
@@ -277,20 +321,13 @@ impl Analysis for datacite::Record {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -328,7 +365,7 @@ impl Analysis for datacite::Record {
                         });
                         Self::collect_checks(root_futures.chain(rights_futures).chain(related_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
                 }
             }
         });
@@ -351,20 +388,13 @@ impl Analysis for dcat::Dataset {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -402,7 +432,7 @@ impl Analysis for dcat::Dataset {
                             });
                         Self::collect_checks(root_futures.chain(distribution_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
                 }
             }
         });
@@ -439,11 +469,7 @@ impl Analysis for Document {
                         )
                     })
                     .collect(),
-                | Err(why) => vec![check_err!(
-                    CheckCategory::Quality,
-                    context: why.to_string(),
-                    uri: path.file_name_with_parent()
-                )],
+                | Err(why) => CheckCategory::Quality.failure_checks(why, Some(path.file_name_with_parent())).into_vec(),
             })
             .collect::<Vec<_>>()
             .into()
@@ -452,7 +478,7 @@ impl Analysis for Document {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| async move {
             match Self::read(path) {
                 | Ok(document) => {
@@ -465,7 +491,7 @@ impl Analysis for Document {
                     )
                     .await
                 }
-                | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
             }
         });
         Self::flatten_checks(futures).await
@@ -487,14 +513,7 @@ impl Analysis for huwise::Dataset {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
@@ -516,20 +535,13 @@ impl Analysis for invenio::Record {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -583,7 +595,7 @@ impl Analysis for invenio::Record {
                         });
                         Self::collect_checks(pid_futures.chain(related_futures).chain(rights_futures).collect::<Vec<_>>(), &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
                 }
             }
         });
@@ -606,6 +618,67 @@ impl Analysis for KitfileStandard {
 impl SchemaCheck for KitfileStandard {
     fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
         Some(check_schema_path(path.clone(), Kitfile::read_yaml(path.to_path_buf())).boxed())
+    }
+}
+impl LinkEvidence {
+    pub(crate) fn observed(target: impl Into<String>, diagnostic: Option<String>, source_uri: Option<String>, outcome: LinkOutcome) -> Self {
+        let target = target.into();
+        Self {
+            diagnostic,
+            locator: Some(target.clone()),
+            outcome: Some(outcome),
+            source_uri,
+            target: Some(target),
+        }
+    }
+    pub(crate) fn pending(target: Option<String>, locator: Option<String>, source_uri: Option<String>) -> Self {
+        Self {
+            diagnostic: None,
+            locator,
+            outcome: None,
+            source_uri,
+            target,
+        }
+    }
+    async fn evaluate(self) -> Check {
+        match self.target.as_deref() {
+            | Some(target) => {
+                let outcome = match lychee_lib::check(target).await {
+                    | Ok(response) => convert_lychee_response(response),
+                    | Err(_) => LinkOutcome::failure("Unreachable"),
+                };
+                Self {
+                    diagnostic: Some(target.to_string()),
+                    outcome: Some(outcome),
+                    ..self
+                }
+                .into()
+            }
+            | None => self.into(),
+        }
+    }
+}
+impl LinkOutcome {
+    pub(crate) fn lifecycle(success: bool, severity: CheckSeverity, message: impl Into<String>) -> Self {
+        Self {
+            kind: CheckKind::Lifecycle,
+            message: message.into(),
+            severity,
+            status_code: None,
+            success,
+        }
+    }
+    fn standard(success: bool, severity: CheckSeverity, message: impl Into<String>, status_code: Option<String>) -> Self {
+        Self {
+            kind: CheckKind::Standard,
+            message: message.into(),
+            severity,
+            status_code,
+            success,
+        }
+    }
+    fn failure(message: impl Into<String>) -> Self {
+        Self::standard(false, CheckSeverity::Error, message, None)
     }
 }
 #[cfg(feature = "analysis")]
@@ -633,14 +706,7 @@ impl Analysis for raid::Metadata {
         check_fair_for::<Self>(paths, "RAiD metadata 1.6")
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path.to_path_buf()) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -694,7 +760,7 @@ impl Analysis for ResearchActivity {
                             message: "Add structured meta.outputs entries to assess FAIR support"
                         )],
                     },
-                    | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+                    | Err(why) => CheckCategory::Fair.failure_checks(why, Some(uri)).into_vec(),
                 }
             })
             .collect::<Vec<_>>()
@@ -704,20 +770,13 @@ impl Analysis for ResearchActivity {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
     }
     #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_websites(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         let futures = paths.iter().map(|path| {
             let path = path.clone();
             async move {
@@ -748,7 +807,7 @@ impl Analysis for ResearchActivity {
                         let links: Vec<_> = [].into_iter().chain(dois).chain(websites).chain(contact).collect();
                         Self::collect_checks(links, &path).await
                     }
-                    | Err(why) => vec![check_err!(CheckCategory::Link, context: why.to_string()).with_uri(Some(path.file_name_with_parent()))].into(),
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
                 }
             }
         });
@@ -771,14 +830,7 @@ impl Analysis for Text {
         check_prose_for::<Self>(paths, options).await
     }
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        paths
-            .par_iter()
-            .map(|path| match Self::read(path) {
-                | Ok(_) => check_ok!(CheckCategory::Quality),
-                | Err(why) => check_err!(CheckCategory::Quality, context: why.to_string()),
-            })
-            .collect::<Vec<_>>()
-            .into()
+        check_quality_for::<Self>(paths)
     }
     async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         check_readability_for::<Self>(paths, options)
@@ -913,29 +965,28 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                     | None => cmd!(binary_path, args),
                 };
                 match result {
-                    | Ok(output) if output.status.success() => {
-                        let parsed = ValeOutput::parse(&output.stdout(), path.clone());
-                        if parsed.is_empty() {
+                    | Ok(output) if output.status.success() => match ValeOutput::try_parse(&output.stdout(), path.clone()) {
+                        | Ok(parsed) if parsed.is_empty() => {
                             info!("=> {} {} has {}", Label::pass(), uri.underline(), "no prose issues".green());
                             CheckBatch::single(check_ok!(CheckCategory::Prose, uri: uri))
-                        } else {
-                            parsed
-                                .into_iter()
-                                .map(|item| {
-                                    let ValeOutputItem { message, severity, .. } = item.clone();
-                                    check!(
-                                        CheckCategory::Prose,
-                                        false,
-                                        severity: severity.into(),
-                                        uri: uri.clone(),
-                                        message: message,
-                                        errors: ErrorKind::Vale(vec![item.clone()]),
-                                        data: content.clone(),
-                                    )
-                                })
-                                .collect()
                         }
-                    }
+                        | Ok(parsed) => parsed
+                            .into_iter()
+                            .map(|item| {
+                                let ValeOutputItem { message, severity, .. } = item.clone();
+                                check!(
+                                    CheckCategory::Prose,
+                                    false,
+                                    severity: severity.into(),
+                                    uri: uri.clone(),
+                                    message: message,
+                                    errors: ErrorKind::Vale(vec![item.clone()]),
+                                    data: content.clone(),
+                                )
+                            })
+                            .collect(),
+                        | Err(why) => CheckCategory::Prose.failure_checks(why, Some(uri)),
+                    },
                     | Ok(output) => {
                         let why = output.stderr();
                         let message = if why.is_empty() {
@@ -1291,23 +1342,6 @@ impl ValeConfig {
         conf
     }
 }
-async fn vale_package_url(is_offline: bool) -> String {
-    match is_offline {
-        | true => DEFAULT_VALE_PACKAGE_URL.to_string(),
-        | false => {
-            let package_repository = Repository::gitlab()
-                .location(Location::Simple(VALE_PACKAGE_REPOSITORY_URL.to_string()))
-                .call();
-            match package_repository.latest_release().await {
-                | Some(release) => {
-                    let tag = release.tag_name;
-                    format!("{VALE_PACKAGE_REPOSITORY_URL}/-/archive/{tag}/vale-package-{tag}.zip")
-                }
-                | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
-            }
-        }
-    }
-}
 async fn check_schema_path<T, E>(path: PathBuf, document: Result<T, E>) -> CheckBatch
 where
     T: Validate + Send,
@@ -1320,118 +1354,55 @@ where
             .into_iter()
             .map(|issue| issue.with_uri(uri.clone()))
             .collect(),
-        | Err(why) => why
-            .to_string()
-            .lines()
-            .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(uri.clone()))
-            .collect(),
+        | Err(why) => CheckBatch::schema_parse_failure_checks(why, uri),
     }
 }
 pub(crate) async fn collect_validation_checks<T>(value: &T) -> CheckBatch
 where
     T: Validate,
 {
-    value
-        .validate_async()
-        .await
-        .err()
-        .into_iter()
-        .flat_map(|report| {
-            ValidatorIssues::from(report).into_iter().map(|issue| {
-                let errors = ValidationReport::from_error(
-                    "",
-                    ValidationError {
-                        code: issue.code.to_string(),
-                        message: Some(issue.message.clone()),
-                        params: issue.params.clone().into_iter().collect(),
-                    },
-                );
-                let prefix = issue.path.clone().unwrap_or_else(|| issue.locator());
-                check_err!(
-                    CheckCategory::Schema,
-                    locator: issue.locator(),
-                    context: prefix,
-                    message: issue.message,
-                    errors: ErrorKind::Validator(errors)
-                )
-            })
-        })
-        .collect()
+    match value.validate_async().await {
+        | Ok(()) => CheckBatch::empty(),
+        | Err(report) => report.checks(None),
+    }
 }
-/// Convert Lychee response to [`Check`]
-pub(crate) fn convert_lychee_response(value: Response) -> Check {
+/// Convert a Lychee response to a normalized link outcome.
+pub(crate) fn convert_lychee_response(value: Response) -> LinkOutcome {
     let body = value.body().to_string();
     let url = value.source().to_string();
     debug!(url, "=> {} Response: {:#?}", Label::using(), body.dimmed().cyan());
     let status_code = value.status().code().map(|c| c.to_string()).unwrap_or_default();
     match value.status() {
-        | Status::Ok(_) | Status::Redirected(_, _) => check!(
-            CheckCategory::Link,
-            true,
-            severity: CheckSeverity::Info,
-            status_code: status_code.clone(),
-            message: "Has no HTTP errors"
-        ),
+        | Status::Ok(_) | Status::Redirected(_, _) => {
+            LinkOutcome::standard(true, CheckSeverity::Info, "Has no HTTP errors", Some(status_code.clone()))
+        }
         | Status::Cached(status) => match status {
-            | CacheStatus::Ok(_) => check!(
-                CheckCategory::Link,
+            | CacheStatus::Ok(_) => LinkOutcome::standard(true, CheckSeverity::Info, "Has no HTTP errors", Some(status_code.clone())),
+            | CacheStatus::Error(Some(_)) => LinkOutcome::standard(false, CheckSeverity::Error, "Has cached HTTP errors", Some(status_code.clone())),
+            | CacheStatus::Unsupported => {
+                LinkOutcome::standard(false, CheckSeverity::Warning, "Unsupported cached response", Some(status_code.clone()))
+            }
+            | _ => LinkOutcome::standard(
                 true,
-                severity: CheckSeverity::Info,
-                status_code: status_code.clone(),
-                message: "Has no HTTP errors"
-            ),
-            | CacheStatus::Error(Some(_)) => check_err!(
-                CheckCategory::Link,
-                status_code: status_code.clone(),
-                message: "Has cached HTTP errors"
-            ),
-            | CacheStatus::Unsupported => check!(
-                CheckCategory::Link,
-                false,
-                severity: CheckSeverity::Warning,
-                status_code: status_code.clone(),
-                message: "Unsupported cached response"
-            ),
-            | _ => check!(
-                CheckCategory::Link,
-                true,
-                severity: CheckSeverity::Suggestion,
-                status_code: status_code.clone(),
-                message: "Ignored or otherwise successful (cached response)"
+                CheckSeverity::Suggestion,
+                "Ignored or otherwise successful (cached response)",
+                Some(status_code.clone()),
             ),
         },
-        | Status::Error(_) => check_err!(
-            CheckCategory::Link,
-            status_code: status_code.clone(),
-            message: "Has HTTP errors"
-        ),
-        | Status::Unsupported(why) => check!(
-            CheckCategory::Link,
+        | Status::Error(_) => LinkOutcome::standard(false, CheckSeverity::Error, "Has HTTP errors", Some(status_code.clone())),
+        | Status::Unsupported(why) => LinkOutcome::standard(
             false,
-            severity: CheckSeverity::Warning,
-            status_code: status_code.clone(),
-            message: format!("Unsupported HTTP response — {why}")
+            CheckSeverity::Warning,
+            format!("Unsupported HTTP response — {why}"),
+            Some(status_code.clone()),
         ),
-        | Status::UnknownStatusCode(_) => check!(
-            CheckCategory::Link,
-            false,
-            severity: CheckSeverity::Warning,
-            status_code: status_code.clone(),
-            message: "Unknown HTTP response"
-        ),
-        | Status::Timeout(_) => check!(
-            CheckCategory::Link,
-            false,
-            severity: CheckSeverity::Warning,
-            status_code: status_code.clone(),
-            message: "HTTP timeout"
-        ),
-        | _ => check!(
-            CheckCategory::Link,
+        | Status::UnknownStatusCode(_) => LinkOutcome::standard(false, CheckSeverity::Warning, "Unknown HTTP response", Some(status_code.clone())),
+        | Status::Timeout(_) => LinkOutcome::standard(false, CheckSeverity::Warning, "HTTP timeout", Some(status_code.clone())),
+        | _ => LinkOutcome::standard(
             true,
-            severity: CheckSeverity::Suggestion,
-            status_code: status_code.clone(),
-            message: "Ignored or otherwise successful"
+            CheckSeverity::Suggestion,
+            "Ignored or otherwise successful",
+            Some(status_code.clone()),
         ),
     }
 }
@@ -1440,20 +1411,8 @@ pub fn link_check<'a, T>(uri: Option<T>, locator: Option<String>) -> BoxFuture<'
 where
     T: Into<String> + Send + 'a,
 {
-    async move {
-        match uri {
-            | Some(value) => {
-                let context = value.into();
-                let result = lychee_lib::check(context.as_str()).await;
-                match result {
-                    | Ok(response) => convert_lychee_response(response).with_context(context).with_locator(locator),
-                    | Err(_) => check_err!(CheckCategory::Link, context: context, message: "Unreachable").with_locator(locator),
-                }
-            }
-            | None => check_err!(CheckCategory::Link, message: "Missing URL").with_locator(locator),
-        }
-    }
-    .boxed()
+    let target = uri.map(Into::into);
+    LinkEvidence::pending(target, locator, None).evaluate().boxed()
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///
@@ -1473,6 +1432,23 @@ pub fn pretty_print<I: IntoIterator<Item = usize>>(text: &str, syntax: Programmi
     }
     #[allow(clippy::unwrap_used)]
     printer.print().unwrap();
+}
+async fn vale_package_url(is_offline: bool) -> String {
+    match is_offline {
+        | true => DEFAULT_VALE_PACKAGE_URL.to_string(),
+        | false => {
+            let package_repository = Repository::gitlab()
+                .location(Location::Simple(VALE_PACKAGE_REPOSITORY_URL.to_string()))
+                .call();
+            match package_repository.latest_release().await {
+                | Some(release) => {
+                    let tag = release.tag_name;
+                    format!("{VALE_PACKAGE_REPOSITORY_URL}/-/archive/{tag}/vale-package-{tag}.zip")
+                }
+                | None => DEFAULT_VALE_PACKAGE_URL.to_string(),
+            }
+        }
+    }
 }
 #[cfg(test)]
 mod tests;

@@ -61,6 +61,7 @@ struct CheckSummary {
     link: usize,
     prose: usize,
     quality: usize,
+    fair: usize,
     readability: usize,
     crosswalk: usize,
 }
@@ -72,6 +73,7 @@ impl CheckSummary {
             link: self.link + other.link,
             prose: self.prose + other.prose,
             quality: self.quality + other.quality,
+            fair: self.fair + other.fair,
             readability: self.readability + other.readability,
             crosswalk: self.crosswalk + other.crosswalk,
         }
@@ -79,7 +81,7 @@ impl CheckSummary {
 }
 ```
 
-`CheckSummary::zero()` (`crates/acorn-lib/src/analyzer/check.rs:313`) is the identity and `combine` (`check.rs:326`) is associative with `counts()`/`rows()` for rendering (`check.rs:337,348`). Laws are tested in `crates/acorn-lib/src/analyzer/tests/mod.rs:94,107,123`. Partial reports can therefore be summarized independently and reduced to one value:
+`CheckSummary::zero()` is the identity, `combine` is associative, and `counts()` exposes ordered domain data without prescribing a presentation. Laws are tested in `crates/acorn-lib/src/analyzer/tests/mod.rs`. Partial reports can therefore be summarized independently and reduced to one value:
 
 ```rust,ignore
 let total = reports
@@ -88,7 +90,7 @@ let total = reports
     .fold(CheckSummary::zero(), CheckSummary::combine);
 ```
 
-The CLI renders `total` as a table while WebAssembly serializes it for JavaScript. The domain value defines what the counts mean; each interface owns how they look. The remaining `analyzer-composition` slice moves any lingering table-string scanning off the domain and onto the hosts. This monoid does not merge with the separate discovery summary, which counts different things.
+The CLI renders `total` as a table while WebAssembly serializes it for JavaScript. The domain value defines what the counts mean; each interface owns its labels and layout. This monoid does not merge with the separate discovery summary, which counts different things.
 
 ## Independent Checks, Dependent Steps
 
@@ -110,7 +112,7 @@ bytes → deserialize → validate value → resolve identifiers
 
 Identifier resolution cannot consume a value that failed to deserialize. Hiding that dependency behind collect-all machinery would make the control flow less accurate. ACORN keeps prerequisite chains in ordinary `Result` control flow and reserves applicative-style accumulation for genuinely independent work.
 
-Schema validation already follows this distinction via ordered `ValidationReport` accumulation independent branches, with whole-value and async rules skipped after prerequisite field errors. The same distinction is being applied across analyzer orchestration in the consolidated [analyzer composition plan](https://code.ornl.gov/research-enablement/acorn/-/blob/main/.wiki/refactors/analyzer/analyzer-composition.md): the service currently collects every category through explicit sequential loops (`host/service/mod.rs:30` `Analysis::check`, `154` `analyze<T>`, `177` `analyze_paths`), and the plan makes independence (`schema | link | prose | quality | readability | crosswalk` on the same input) and ordering (stable report order) explicit in a shared traversal/fold. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the underlying collection contract.
+Schema validation follows this distinction via ordered `ValidationReport` accumulation of independent branches, with whole-value and async rules skipped after prerequisite field errors. Analyzer orchestration likewise traverses selected categories in declared order through shared `Analysis::check` and `analyze<T>` collection. Each category can retain its own failures, while parse, validation, and resolution prerequisites remain ordinary `Result` chains. CLI `--exit-on-first-error` remains an outer reporting policy rather than changing the collection contract.
 
 ## Context Through Composition
 
@@ -153,8 +155,9 @@ The practical test is simple: does an operation have an identity, an associative
 | --- | --- | --- | --- |
 | Ordered `CheckBatch` combination | Implemented | Flatten partial analyzer results without losing order. | `check.rs:279` `empty` / `289` `combine`; `tests/mod.rs:21,26,36` |
 | Ordered `ValidationReport` accumulation | Implemented | Report independent schema failures together while preserving dependent skips. | `acorn_schema::validation::ValidationReport` + `acorn_core::validation` derive |
-| Additive analyzer summary | Implemented | Calculate once and render consistently across interfaces. | `check.rs:313` `CheckSummary::zero` / `326` `combine` / `337` `counts` / `348` `rows`; `tests/mod.rs:94,107,123,57` |
-| Applicative vs dependent orchestration | In progress | Make collect-all (`schema \| link \| prose \| quality \| readability \| crosswalk`) vs prerequisite chains (`bytes → deserialize → validate → resolve`) explicit. | Consolidated in `.wiki/refactors/analyzer/analyzer-composition.md` slices 3-4; current `host/service/mod.rs:30,154,177` loops pending fold |
+| Additive analyzer summary | Implemented | Calculate once and let each interface render its own representation. | `check.rs` `CheckSummary::zero` / `combine` / `counts`; CLI and WASM host formatters; analyzer law tests |
+| Applicative vs dependent orchestration | Implemented | Collect independent categories while preserving prerequisite chains (`bytes → deserialize → validate → resolve`). | `host/service/mod.rs` `Analysis::check`, `analyze<T>`, and `analyze_paths`; focused collect-all tests |
+| Unified link evidence and evaluation | Implemented | Preserve completed resolution outcomes under offline policy while gating new URL reachability. | `host/runtime/mod.rs` `LinkEvidence` / `evaluate_link_evidence`; `host/service/mod.rs` composition entry point |
 | Vale configuration endomorphisms | Implemented | Separate deterministic normalization from host effects. | `host/vale.rs:89` `normalize` pipeline; `tests/mod.rs:787,854` |
 
-These patterns give ACORN a stable way to accumulate context without losing its source, category, or order. The remaining orchestration and link work is tracked as a single consolidated plan: [analyzer composition and traversal](https://code.ornl.gov/research-enablement/acorn/-/blob/main/.wiki/refactors/analyzer/analyzer-composition.md). Composition explains how the branches fit together; the next question is [...But Is It Agentic?](agentic.md).
+These patterns give ACORN a stable way to accumulate context without losing its source, category, or order. Composition explains how the branches fit together; the next question is [...But Is It Agentic?](agentic.md).

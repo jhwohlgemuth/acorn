@@ -4,7 +4,7 @@ title: "Split ACORN along layered crate boundaries"
 description: "Decompose acorn-lib into portable domain crates, capability adapters, and application services with explicit ownership."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd, acorn-cmd-macros]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 ---
@@ -78,7 +78,8 @@ crates/
 ├── acorn-host       (planned)
 ├── acorn-wasm
 ├── acorn-service    (planned)
-└── acorn-cmd        (planned)
+├── acorn-cmd        (planned)
+└── acorn-cmd-macros (planned)
 ```
 
 Workspace-wide support projects that are not published ACORN product crates, including `xtask` and `fuzz`, remain top-level directories. Tests, documentation, notebooks, scripts, and fixtures also remain rooted outside `crates/` and must be addressed through explicit workspace-relative paths.
@@ -95,6 +96,7 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
 | `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
 | `acorn-cmd` | Command construction and execution helpers plus the public command macro surface | General-purpose ACORN utilities |
+| `acorn-cmd-macros` | Compile-time parsing and expansion for command literals | Runtime execution, schemas, validation, or unrelated derives |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Portable domains, schemas, or re-exports that conceal another crate's ownership |
 
 Individual schemas, providers, commands, doctor checks, and generic utility collections do not become separate crates. They remain modules within the package that owns their policy.

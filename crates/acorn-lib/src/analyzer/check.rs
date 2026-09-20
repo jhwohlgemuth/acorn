@@ -1,15 +1,21 @@
 //! Check result types and helpers for analyzer output
 use super::error::ErrorKind;
+#[cfg(any(feature = "analysis", feature = "std"))]
+use super::error::{DocumentTarget, ValidatorIssues};
 #[cfg(feature = "analysis")]
 use super::fair::FairState;
 use super::fair::{FairDetails, FairIndicatorId};
 use super::model::ValeOutputItemSeverity;
 use super::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use super::readability::ReadabilityType;
+#[cfg(any(feature = "analysis", feature = "std"))]
+use crate::check_err;
 use crate::{check, check_ok};
 use acorn_core::prelude::{format, vec, Box, String, ToString, Vec};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::util::MimeType;
+#[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_core::validation::ValidationError as PortableValidationError;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::pid::raid;
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -23,10 +29,11 @@ use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 #[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_schema::validation::ValidationReport;
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::OneOrMany;
 use alloc::borrow::Cow;
 use bon::Builder;
-use convert_case::{Case, Casing};
 use core::str::FromStr;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
@@ -42,6 +49,10 @@ pub type ConversionWarnings = Vec<ConversionWarning>;
 pub trait IntoChecks {
     /// Convert to an ordered batch of checks.
     fn to_checks(&self, uri: Option<String>) -> CheckBatch;
+}
+#[cfg(any(feature = "analysis", feature = "std"))]
+pub(crate) trait ValidationReportExt {
+    fn checks(self, uri: Option<String>) -> CheckBatch;
 }
 /// Various check categories available for validating research activity data
 #[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
@@ -246,11 +257,14 @@ pub struct Findings {
     #[cfg_attr(feature = "exec", validate(nested))]
     values: Vec<Finding>,
 }
-impl Check {
-    #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
-    pub(crate) fn with_kind(self, kind: CheckKind) -> Self {
-        Self { kind, ..self }
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
+}
+impl Check {
     /// Returns whether this check represents a failure (not successful and severity warrants failure)
     pub fn is_failure(&self) -> bool {
         !self.success && self.severity.is_failure()
@@ -370,6 +384,15 @@ impl CheckBatch {
     pub fn single(check: Check) -> Self {
         Self(vec![check])
     }
+    /// Convert schema parse diagnostics into checks.
+    #[cfg(any(feature = "analysis", feature = "std"))]
+    pub(crate) fn schema_parse_failure_checks(diagnostic: impl ToString, uri: Option<String>) -> Self {
+        diagnostic
+            .to_string()
+            .lines()
+            .map(|line| check_err!(CheckCategory::Schema, context: line.to_string()).with_uri(uri.clone()))
+            .collect()
+    }
     /// Combine two batches while preserving their left-to-right order.
     pub fn combine(self, other: Self) -> Self {
         Self(self.0.into_iter().chain(other.0).collect())
@@ -410,13 +433,6 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
 impl IntoIterator for CheckBatch {
     type Item = Check;
     type IntoIter = alloc::vec::IntoIter<Check>;
@@ -425,9 +441,26 @@ impl IntoIterator for CheckBatch {
     }
 }
 impl CheckCategory {
+    /// Convert a category-specific diagnostic into one failed check.
+    #[cfg(any(feature = "analysis", feature = "std"))]
+    pub(crate) fn failure_checks(self, diagnostic: impl ToString, uri: Option<String>) -> CheckBatch {
+        CheckBatch::single(check_err!(self, context: diagnostic.to_string()).with_uri(uri))
+    }
     /// Returns `true` if this category appears in the given list of category items
     pub fn is_in(&self, items: &[String]) -> bool {
         items.iter().any(|value| Self::from(value.as_str()) == *self)
+    }
+    /// Return the user-facing category label.
+    pub const fn label(&self) -> &'static str {
+        match self {
+            | Self::Crosswalk => "Crosswalk",
+            | Self::Fair => "Fair",
+            | Self::Link => "Link",
+            | Self::Prose => "Prose",
+            | Self::Quality => "Quality",
+            | Self::Readability => "Readability",
+            | Self::Schema => "Schema",
+        }
     }
     #[cfg_attr(not(feature = "analysis"), allow(dead_code))]
     pub(super) fn message(&self) -> &'static str {
@@ -547,8 +580,8 @@ impl CheckSummary {
     /// Convert category counts to presentation rows.
     pub fn rows(&self) -> Vec<Vec<String>> {
         self.counts()
-            .iter()
-            .map(|(category, count)| vec![format!("{} items found", category.to_string().to_case(Case::Title)), count.to_string()])
+            .into_iter()
+            .map(|(category, count)| vec![format!("{} items found", category.label()), count.to_string()])
             .collect()
     }
 }
@@ -842,6 +875,33 @@ impl From<&CheckSeverity> for u8 {
             | CheckSeverity::Suggestion => 2,
             | CheckSeverity::Info => 3,
         }
+    }
+}
+#[cfg(any(feature = "analysis", feature = "std"))]
+impl ValidationReportExt for ValidationReport {
+    fn checks(self, uri: Option<String>) -> CheckBatch {
+        ValidatorIssues::from(self)
+            .into_iter()
+            .map(|issue| {
+                let errors = ValidationReport::from_error(
+                    "",
+                    PortableValidationError {
+                        code: issue.code.to_string(),
+                        message: Some(issue.message.clone()),
+                        params: issue.params.clone().into_iter().collect(),
+                    },
+                );
+                let prefix = issue.path.clone().unwrap_or_else(|| issue.locator());
+                check_err!(
+                    CheckCategory::Schema,
+                    locator: issue.locator(),
+                    context: prefix,
+                    message: issue.message,
+                    errors: ErrorKind::Validator(errors)
+                )
+                .with_uri(uri.clone())
+            })
+            .collect()
     }
 }
 impl From<CheckBatch> for Vec<Check> {

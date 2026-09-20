@@ -2,7 +2,7 @@
 use super::*;
 use crate::analyzer::fair::FairIndicatorId;
 use crate::analyzer::host::context::{AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension};
-use crate::{check_err, check_ok};
+use crate::check_ok;
 use acorn_core::options::CommonRuntime;
 use std::fs::{create_dir_all, write};
 use tempfile::tempdir;
@@ -112,23 +112,13 @@ async fn test_analyze_paths_preserves_standard_and_path_group_order() {
         ]
     );
 }
-#[test]
-fn test_analyze_report_with_checks_groups_in_category_order_and_omits_empty_groups() {
+#[tokio::test]
+async fn test_analyze_report_with_link_evidence_adds_only_link_results() {
     let options = AnalysisContext::default();
-    let report = AnalysisReport {
-        batches: Vec::new(),
-        documents: DocumentIndexes::new(),
-        skipped_categories: Vec::new(),
-    }
-    .with_checks(
-        vec![
-            check_ok!(CheckCategory::Prose, message: "prose"),
-            check_err!(CheckCategory::Schema, message: "schema"),
-            check_ok!(CheckCategory::Prose, message: "second prose"),
-        ]
-        .into(),
-        &options,
-    );
+    let report = analyze_paths(&[], &options)
+        .await
+        .with_link_evidence(vec![LinkEvidence::pending(None, Some("website".to_string()), None)], &options)
+        .await;
     assert_eq!(report.batches.len(), 1);
     assert_eq!(report.batches[0].standard, Standard::ResearchActivityData);
     assert!(report.batches[0].paths.is_empty());
@@ -138,17 +128,9 @@ fn test_analyze_report_with_checks_groups_in_category_order_and_omits_empty_grou
             .iter()
             .map(|value| value.category.clone())
             .collect::<Vec<_>>(),
-        [CheckCategory::Schema, CheckCategory::Prose]
+        [CheckCategory::Link]
     );
-    assert_eq!(report.batches[0].categories[1].checks.len(), 2);
-    assert_eq!(
-        report.batches[0].categories[1]
-            .checks
-            .iter()
-            .map(|check| check.message.as_str())
-            .collect::<Vec<_>>(),
-        ["prose", "second prose"]
-    );
+    assert_eq!(report.batches[0].categories[0].checks.as_slice()[0].message, "Missing URL");
 }
 #[test]
 fn test_classify_paths_applies_explicit_standard_to_every_path() {
@@ -298,6 +280,23 @@ async fn test_kitfile_and_modelkit_use_schema_check_flow() {
     }
 }
 #[test]
+fn test_skipped_categories_do_not_hide_link_outcomes_for_network_policy() {
+    for execution in [
+        ExecutionOptions::init()
+            .common(CommonRuntime {
+                offline: true,
+                ..Default::default()
+            })
+            .build(),
+        ExecutionOptions::init()
+            .extension(ExecutionExtension::init().disable_website_checks(true).build())
+            .build(),
+    ] {
+        let options = AnalysisContext::init().execution(execution).build();
+        assert!(skipped_categories(&options).is_empty());
+    }
+}
+#[test]
 fn test_skipped_categories_include_explicit_and_implicit_values_once() {
     let options = AnalysisContext::init()
         .analysis(AnalysisOptions::init().skip(vec!["schema".to_string(), "link".to_string()]).build())
@@ -311,21 +310,4 @@ fn test_skipped_categories_include_explicit_and_implicit_values_once() {
         )
         .build();
     assert_eq!(skipped_categories(&options), [CheckCategory::Schema, CheckCategory::Link]);
-}
-#[test]
-fn test_skipped_categories_include_link_for_each_network_policy() {
-    for execution in [
-        ExecutionOptions::init()
-            .common(CommonRuntime {
-                offline: true,
-                ..Default::default()
-            })
-            .build(),
-        ExecutionOptions::init()
-            .extension(ExecutionExtension::init().disable_website_checks(true).build())
-            .build(),
-    ] {
-        let options = AnalysisContext::init().execution(execution).build();
-        assert_eq!(skipped_categories(&options), [CheckCategory::Link]);
-    }
 }

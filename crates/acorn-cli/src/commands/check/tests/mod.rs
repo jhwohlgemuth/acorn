@@ -39,31 +39,7 @@ use std::path::PathBuf;
 use tempfile::tempdir;
 
 const OFFLINE: bool = true;
-#[test]
-fn summary_rows_preserve_cli_labels_and_order() {
-    let rows = CheckSummary {
-        fair: 7,
-        schema: 1,
-        link: 2,
-        prose: 3,
-        quality: 4,
-        readability: 5,
-        crosswalk: 6,
-    }
-    .rows();
-    assert_eq!(
-        rows,
-        vec![
-            vec!["Schema items found", "1"],
-            vec!["Link items found", "2"],
-            vec!["Prose items found", "3"],
-            vec!["Quality items found", "4"],
-            vec!["Fair items found", "7"],
-            vec!["Readability items found", "5"],
-            vec!["Crosswalk items found", "6"],
-        ]
-    );
-}
+const SKIP_PROSE: &[CheckCategory] = &[CheckCategory::Prose];
 async fn assert_schema_issue_count<T>(path: &str, expected: usize) -> Result<()>
 where
     T: Analysis + Send,
@@ -83,7 +59,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        SKIP_PROSE,
         &true,
         &false,
         &false,
@@ -125,44 +101,6 @@ fn test_check_accepts_piped_text() {
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert!(String::from_utf8_lossy(&output.stdout).contains("stdin.txt"));
 }
-#[cfg(feature = "exec")]
-#[test]
-fn test_configured_validate_hook_follows_schema_selection() {
-    let temporary = tempdir().expect("temporary project");
-    create_dir(temporary.path().join(".acorn")).expect("script directory");
-    write(
-        temporary.path().join(".acorn/validate.rhai"),
-        "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"validate-gate\", severity: \"error\", message: context.hook}]} }",
-    )
-    .expect("script");
-    let config = temporary.path().join(".acorn.json");
-    write(&config, r#"{"scripts":[{"path":"validate","hooks":["validate"]}]}"#).expect("configuration");
-    let input = fixture_path("data/valid_project/index.json");
-    let base = [
-        "--offline",
-        "--no-local-database",
-        "check",
-        input.to_str().expect("fixture path"),
-        "--config",
-        config.to_str().expect("config path"),
-        "--skip",
-    ];
-    let enabled = Command::cargo_bin("acorn")
-        .expect("resolve acorn binary")
-        .args(base.into_iter().chain(["prose,link,quality,readability,fair,crosswalk"]))
-        .output()
-        .expect("run configured validate hook");
-    assert!(enabled.status.success(), "{}", String::from_utf8_lossy(&enabled.stderr));
-    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",error,schema,"));
-    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",validate,"));
-    let skipped = Command::cargo_bin("acorn")
-        .expect("resolve acorn binary")
-        .args(base.into_iter().chain(["prose,link,schema,quality,readability,fair,crosswalk"]))
-        .output()
-        .expect("run check with schema skipped");
-    assert!(skipped.status.success(), "{}", String::from_utf8_lossy(&skipped.stderr));
-    assert!(!String::from_utf8_lossy(&skipped.stdout).contains(",validate,"));
-}
 #[tokio::test]
 async fn test_check_datacite_standard() -> Result<()> {
     run_standard_check("schema/datacite.json", Standard::Datacite).await
@@ -185,7 +123,7 @@ async fn test_check_invalid_project_with_no_fail() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        SKIP_PROSE,
         &true,
         &false,
         &false,
@@ -294,7 +232,7 @@ async fn test_check_terse_mode() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        SKIP_PROSE,
         &true,
         &false,
         &false,
@@ -328,7 +266,7 @@ async fn test_check_valid_highlight() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        SKIP_PROSE,
         &true,
         &false,
         &false,
@@ -362,7 +300,7 @@ async fn test_check_valid_project() -> Result<()> {
         &None,
         &[],
         &[],
-        &[],
+        SKIP_PROSE,
         &true,
         &false,
         &false,
@@ -398,7 +336,7 @@ async fn test_check_with_different_readability_metrics() -> Result<()> {
             &None,
             &[],
             &[],
-            &[],
+            SKIP_PROSE,
             &true,
             &false,
             &false,
@@ -457,6 +395,44 @@ async fn test_check_with_skip_categories() -> Result<()> {
     assert!(result.is_ok(), "Check with skip categories should succeed");
     Ok(())
 }
+#[cfg(feature = "exec")]
+#[test]
+fn test_configured_validate_hook_follows_schema_selection() {
+    let temporary = tempdir().expect("temporary project");
+    create_dir(temporary.path().join(".acorn")).expect("script directory");
+    write(
+        temporary.path().join(".acorn/validate.rhai"),
+        "// @acorn-exec-v0.2.0\nfn evaluate(context) { #{findings: [#{rule_id: \"validate-gate\", severity: \"error\", message: context.hook}]} }",
+    )
+    .expect("script");
+    let config = temporary.path().join(".acorn.json");
+    write(&config, r#"{"scripts":[{"path":"validate","hooks":["validate"]}]}"#).expect("configuration");
+    let input = fixture_path("data/valid_project/index.json");
+    let base = [
+        "--offline",
+        "--no-local-database",
+        "check",
+        input.to_str().expect("fixture path"),
+        "--config",
+        config.to_str().expect("config path"),
+        "--skip",
+    ];
+    let enabled = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args(base.into_iter().chain(["prose,link,quality,readability,fair,crosswalk"]))
+        .output()
+        .expect("run configured validate hook");
+    assert!(enabled.status.success(), "{}", String::from_utf8_lossy(&enabled.stderr));
+    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",error,schema,"));
+    assert!(String::from_utf8_lossy(&enabled.stdout).contains(",validate,"));
+    let skipped = Command::cargo_bin("acorn")
+        .expect("resolve acorn binary")
+        .args(base.into_iter().chain(["prose,link,schema,quality,readability,fair,crosswalk"]))
+        .output()
+        .expect("run check with schema skipped");
+    assert!(skipped.status.success(), "{}", String::from_utf8_lossy(&skipped.stderr));
+    assert!(!String::from_utf8_lossy(&skipped.stdout).contains(",validate,"));
+}
 #[tokio::test]
 async fn test_datacite_invalid_fixture_has_two_schema_errors() -> Result<()> {
     assert_schema_issue_count::<datacite::Record>("schema/datacite-invalid-2-errors.json", 2).await
@@ -479,6 +455,31 @@ fn test_location_resolve_file_type_detects_extensionless_pdf_content() {
     assert_eq!(
         acorn_core::Location::from("https://example.org/download").resolve_file_type(&content),
         MimeType::Pdf
+    );
+}
+#[test]
+fn test_summary_rows_preserve_cli_labels_and_order() {
+    let summary = CheckSummary {
+        fair: 7,
+        schema: 1,
+        link: 2,
+        prose: 3,
+        quality: 4,
+        readability: 5,
+        crosswalk: 6,
+    };
+    let rows = summary.rows();
+    assert_eq!(
+        rows,
+        vec![
+            vec!["Schema items found", "1"],
+            vec!["Link items found", "2"],
+            vec!["Prose items found", "3"],
+            vec!["Quality items found", "4"],
+            vec!["Fair items found", "7"],
+            vec!["Readability items found", "5"],
+            vec!["Crosswalk items found", "6"],
+        ]
     );
 }
 #[test]

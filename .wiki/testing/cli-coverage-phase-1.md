@@ -29,7 +29,7 @@ Finish the remaining high-priority CLI coverage rather than recreating the super
 
 # Dependencies
 
-The link tests may use injection seams produced by [analyzer composition and traversal](../refactors/analyzer/analyzer-composition.md), but deterministic offline parsing, missing-path, dry-run, and output tests can proceed independently.
+The link tests may use the implemented shared link-evidence and evaluation seams, but deterministic offline parsing, missing-path, dry-run, and output tests can proceed independently.
 
 # Work
 

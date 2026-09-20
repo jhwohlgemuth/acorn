@@ -159,7 +159,6 @@ export interface ValidationResult {
   value: unknown | null;
 }
 "#;
-
 #[wasm_bindgen]
 extern "C" {
     /// JavaScript readability result returned by [`check_readability`].
@@ -255,7 +254,7 @@ fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<
         let checks = check_readability_for_text(text, metric, uri);
         ReadabilityResult {
             checks: checks.iter().map(ReadabilityCheck::from).collect(),
-            summary: CheckSummary::from(&checks).rows(),
+            summary: summary_rows(&CheckSummary::from(&checks)),
         }
     })
 }
@@ -281,6 +280,24 @@ fn parse_metric(metric: &str) -> Result<ReadabilityType, String> {
 }
 fn serialize<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value).map_err(|why| JsValue::from_str(&why.to_string()))
+}
+fn summary_rows(summary: &CheckSummary) -> Vec<Vec<String>> {
+    summary
+        .counts()
+        .into_iter()
+        .map(|(category, count)| {
+            let label = match category {
+                | acorn::analyzer::CheckCategory::Crosswalk => "Crosswalk",
+                | acorn::analyzer::CheckCategory::Fair => "Fair",
+                | acorn::analyzer::CheckCategory::Link => "Link",
+                | acorn::analyzer::CheckCategory::Prose => "Prose",
+                | acorn::analyzer::CheckCategory::Quality => "Quality",
+                | acorn::analyzer::CheckCategory::Readability => "Readability",
+                | acorn::analyzer::CheckCategory::Schema => "Schema",
+            };
+            vec![format!("{label} items found"), count.to_string()]
+        })
+        .collect()
 }
 fn validate_json(json: &str) -> ValidationResult {
     match eserde::json::from_str::<ResearchActivity>(json) {

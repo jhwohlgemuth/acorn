@@ -167,5 +167,4 @@ All law tests are deterministic, bounded, offline, and report the smallest faili
 
 - [Standards field matrix](../assets/standards-field-matrix.md)
 - [CLI test coverage phase 1](cli-coverage-phase-1.md)
-- [Analyzer composition](../refactors/analyzer/analyzer-composition.md)
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)

@@ -8,13 +8,15 @@
 use crate::analyzer::check::Standard;
 use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
 use crate::analyzer::host::context::{ExecutionExtension, ExecutionOptions};
-use crate::analyzer::host::runtime::{check_schema_path, collect_validation_checks, vale_package_url, StaticAnalyzer, StaticAnalyzerConfig};
+use crate::analyzer::host::runtime::{
+    check_schema_path, collect_validation_checks, vale_package_url, LinkEvidence, LinkOutcome, StaticAnalyzer, StaticAnalyzerConfig,
+};
 use crate::analyzer::host::service::Analysis;
 use crate::analyzer::host::tabular::checks_to_dataframe;
 use crate::analyzer::host::vale::{
     preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity,
 };
-use crate::analyzer::{Check, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
+use crate::analyzer::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
 use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
 use crate::io::make_executable;
 use crate::test::utils::unique_path;
@@ -314,6 +316,32 @@ fn test_conversion_warnings_use_into_checks_trait() {
     assert_eq!(checks.as_slice()[0].issue_count(), 1);
     assert_eq!(checks.as_slice()[0].uri.as_deref(), Some("record.json"));
     assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("attributes.publisher"));
+}
+#[tokio::test]
+async fn test_link_evidence_policy_suppresses_pending_and_retains_observed_outcomes() {
+    let pending = LinkEvidence::pending(
+        Some("https://example.invalid".to_string()),
+        Some("url".to_string()),
+        Some("input.json".to_string()),
+    );
+    let observed = LinkEvidence::observed(
+        "10.1234/example",
+        Some("provider failure".to_string()),
+        Some("input.json".to_string()),
+        LinkOutcome::lifecycle(false, CheckSeverity::Error, "failed"),
+    );
+    let checks = CheckBatch::evaluate_link_evidence([pending, observed], false).await;
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks.as_slice()[0].message, "failed");
+    assert_eq!(checks.as_slice()[0].context.as_deref(), Some("provider failure"));
+}
+#[tokio::test]
+async fn test_link_evidence_reports_missing_url_without_network() {
+    let evidence = LinkEvidence::pending(None, Some("url".to_string()), Some("input.json".to_string()));
+    let checks = CheckBatch::evaluate_link_evidence([evidence], true).await;
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks.as_slice()[0].message, "Missing URL");
+    assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("url"));
 }
 #[test]
 fn test_parse_vale_output() {
@@ -1062,6 +1090,11 @@ fn test_vale_output_severity_colored() {
     assert!(!warning.colored().is_empty());
     assert!(!error.colored().is_empty());
     assert!(!suggestion.colored().is_empty());
+}
+#[test]
+fn test_vale_output_try_parse_reports_malformed_json() {
+    let result = ValeOutput::try_parse("{invalid", PathBuf::from("test-file"));
+    assert!(result.is_err());
 }
 #[test]
 fn test_vale_package_source_transformation_is_idempotent() {

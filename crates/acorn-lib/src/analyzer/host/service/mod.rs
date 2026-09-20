@@ -3,7 +3,7 @@ use super::render::{DocumentIndexes, RenderContext};
 use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
 use crate::analyzer::fair::{FairDetails, FairEvidence, FairProfile, FairState};
 use crate::analyzer::host::context::{AnalysisContext, ReportOptions};
-use crate::analyzer::host::runtime::{KitfileStandard, ModelKitStandard, StaticAnalyzer};
+use crate::analyzer::host::runtime::{KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer};
 use crate::analyzer::host::vale::Vale;
 use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
 use crate::io::document::{DocumentIndex, MarkdownParser, SourceDocument};
@@ -31,7 +31,10 @@ pub trait Analysis: SchemaCheck {
     /// Run analysis for a given category.
     async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
         match category {
-            | CheckCategory::Link => Self::check_websites(paths, options).await,
+            | CheckCategory::Link => match options {
+                | Some(options) if options.execution.common.offline || options.execution.extension.disable_website_checks => CheckBatch::empty(),
+                | _ => Self::check_links(paths, options).await,
+            },
             | CheckCategory::Fair => Self::check_fair(paths, options).await,
             | CheckCategory::Prose => Self::check_prose(paths, options).await,
             | CheckCategory::Quality => Self::check_quality(paths, options).await,
@@ -73,8 +76,8 @@ pub trait Analysis: SchemaCheck {
         let futures = paths.par_iter().filter_map(<Self as SchemaCheck>::check_schema_path).collect::<Vec<_>>();
         join_all(futures).await.into_iter().collect()
     }
-    /// Check whether URL links are valid and readable.
-    async fn check_websites(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+    /// Evaluate links extracted from the supplied paths.
+    async fn check_links(_paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         CheckBatch::empty()
     }
     /// Return the output path used for Vale analysis artifacts.
@@ -151,7 +154,9 @@ impl AnalysisReport {
     pub fn render_context<'a>(&'a self, options: &'a ReportOptions) -> RenderContext<'a> {
         RenderContext::with_documents(options, &self.documents)
     }
-    pub(crate) fn with_checks(self, checks: CheckBatch, options: &AnalysisContext) -> Self {
+    pub(crate) async fn with_link_evidence(self, evidence: Vec<LinkEvidence>, options: &AnalysisContext) -> Self {
+        let reachability_enabled = !(options.execution.common.offline || options.execution.extension.disable_website_checks);
+        let checks = CheckBatch::evaluate_link_evidence(evidence, reachability_enabled).await;
         let categories = CheckCategory::iter()
             .filter_map(|category| {
                 let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<CheckBatch>();
@@ -294,9 +299,9 @@ where
                         .into_iter()
                         .map(|finding| Check::from(finding).with_uri(Some(uri.clone())))
                         .collect(),
-                    | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+                    | Err(why) => CheckCategory::Fair.failure_checks(why, Some(uri)).into_vec(),
                 },
-                | Err(why) => vec![check_err!(CheckCategory::Fair, context: why.to_string(), uri: uri)],
+                | Err(why) => CheckCategory::Fair.failure_checks(why, Some(uri)).into_vec(),
             }
         })
         .collect::<Vec<_>>()
@@ -345,7 +350,7 @@ where
                                         .map(|check| check.with_uri(uri.clone()))
                                         .collect()
                                 }
-                                | Err(why) => CheckBatch::single(check_err!(CheckCategory::Prose, context: why.to_string()).with_uri(uri)),
+                                | Err(why) => CheckCategory::Prose.failure_checks(why, uri),
                             }
                         }
                     });
@@ -362,6 +367,20 @@ where
             CheckBatch::single(check_err!(CheckCategory::Prose, message: why.to_string()))
         }
     }
+}
+pub(crate) fn check_quality_for<T>(paths: &[PathBuf]) -> CheckBatch
+where
+    T: InputOutput,
+{
+    paths
+        .par_iter()
+        .map(|path| match T::read(path) {
+            | Ok(_) => CheckBatch::single(check_ok!(CheckCategory::Quality)),
+            | Err(why) => CheckCategory::Quality.failure_checks(why, None),
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .collect()
 }
 pub(crate) fn check_readability_for<T>(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch
 where
@@ -410,7 +429,7 @@ where
                     )]
                 }
             }
-            | Err(why) => vec![check_err!(CheckCategory::Readability, context: why.to_string())],
+            | Err(why) => CheckCategory::Readability.failure_checks(why, None).into_vec(),
         })
         .collect::<Vec<Check>>()
         .into()
@@ -512,7 +531,6 @@ fn skipped_categories(options: &AnalysisContext) -> Vec<CheckCategory> {
         .skip
         .iter()
         .map(CheckCategory::from)
-        .chain((options.execution.common.offline || options.execution.extension.disable_website_checks).then_some(CheckCategory::Link))
         .fold(Vec::new(), |mut categories, category| {
             if !categories.contains(&category) {
                 categories.push(category);

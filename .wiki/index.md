@@ -23,7 +23,7 @@ The dedicated RPC and automation lane is the highest-priority initiative. The JS
 2. [ACP inference and verified fixes](features/opencode-acp-inference.md)
 3. [MCP client](features/mcp-client.md)
 
-After this lane, continue [analyzer composition and traversal](refactors/analyzer/analyzer-composition.md), dependency-feature narrowing, and consumer-proven [WASM browser services](refactors/portability/wasm-feature-path.md). These may supply reviewed prerequisites, but they do not displace the lane's priority or authorize overlapping writers.
+After this lane, continue dependency-feature narrowing and consumer-proven [WASM browser services](refactors/portability/wasm-feature-path.md). These may supply reviewed prerequisites, but they do not displace the lane's priority or authorize overlapping writers.
 
 The [crate boundary architecture](refactors/crate-boundary-architecture.md), [portability roadmap](refactors/portability/roadmap.md), and [refactor initiative](refactors/initiative.md) are coordination records, not schedulable implementation jobs.
 

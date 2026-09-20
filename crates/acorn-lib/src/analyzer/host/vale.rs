@@ -81,19 +81,19 @@ impl From<&ValeOutputItemSeverity> for ReportKind<'_> {
         }
     }
 }
-impl Default for ValeConfig {
-    fn default() -> Self {
-        let config = ValeConfig::init().build().normalize();
-        trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
-        config
-    }
-}
 impl Vale {
     /// Return the platform-standard directory for ACORN-managed Vale artifacts.
     pub fn managed_directory(&self) -> ApiResult<PathBuf> {
         ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
             .map(|directories| directories.cache_dir().join(self.command()))
             .ok_or_else(|| eyre!("Failed to determine the ACORN cache directory for Vale"))
+    }
+}
+impl Default for ValeConfig {
+    fn default() -> Self {
+        let config = ValeConfig::init().build().normalize();
+        trace!("=> {} Default - {:#?}", Label::using(), config.dimmed().cyan());
+        config
     }
 }
 impl ValeConfig {
@@ -170,18 +170,20 @@ impl ValeConfig {
 impl ValeOutput {
     /// Parse Vale output
     pub fn parse(output: &str, path: PathBuf) -> Vec<ValeOutputItem> {
+        match Self::try_parse(output, path) {
+            | Ok(items) => items,
+            | Err(why) => {
+                error!("=> {} Parse Vale output - {why}", Label::fail());
+                vec![]
+            }
+        }
+    }
+    pub(crate) fn try_parse(output: &str, path: PathBuf) -> serde_json::Result<Vec<ValeOutputItem>> {
         let processed = preprocess_vale_output(path, output);
         if processed != "{}" {
-            let parsed: serde_json::Result<ValeOutput> = serde_json::from_str(&processed);
-            match parsed {
-                | Ok(ValeOutput { items }) => items,
-                | Err(why) => {
-                    error!("=> {} Parse Vale output - {why}", Label::fail());
-                    vec![]
-                }
-            }
+            serde_json::from_str::<ValeOutput>(&processed).map(|ValeOutput { items }| items)
         } else {
-            vec![]
+            Ok(vec![])
         }
     }
 }
