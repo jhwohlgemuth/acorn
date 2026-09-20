@@ -321,6 +321,8 @@ validate-mcpb:
   inherit:
     variables: true
   needs:
+    - job: prepare-environment
+      artifacts: true
     - job: build-release
       artifacts: true
   script:
