@@ -9,7 +9,8 @@
                 "location": "https://code.ornl.gov/research-enablement",
                 "provider": "gitlab"
             },
-            "tags": ["cpu", "gpu", "dante"],
+            "runUntagged": true,
+            "tags": ["cpu", "gpu", "dante", "arm64"],
             "target": "dante",
             "type": "group"
         },
@@ -22,7 +23,8 @@
                 "location": "https://code.ornl.gov/research-enablement",
                 "provider": "gitlab"
             },
-            "tags": ["cpu", "kronk"],
+            "runUntagged": true,
+            "tags": ["cpu", "kronk", "amd64"],
             "target": "kronk",
             "type": "group"
         },
@@ -35,7 +37,8 @@
                 "location": "https://code.ornl.gov/research-enablement",
                 "provider": "gitlab"
             },
-            "tags": ["cpu", "oklahoma"],
+            "runUntagged": true,
+            "tags": ["cpu", "oklahoma", "amd64"],
             "target": "oklahoma",
             "type": "group"
         },
@@ -48,7 +51,8 @@
                 "location": "https://code.ornl.gov/research-enablement",
                 "provider": "gitlab"
             },
-            "tags": ["cpu", "gpu", "vergil"],
+            "runUntagged": true,
+            "tags": ["cpu", "gpu", "vergil", "arm64"],
             "target": "vergil",
             "type": "group"
         }
