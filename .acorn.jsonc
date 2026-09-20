@@ -14,6 +14,19 @@
             "type": "group"
         },
         {
+            "description": "RE Runner (kronk)",
+            "gpuEnabled": false,
+            "name": "acorn-runner",
+            "repository": {
+                "id": 24758,
+                "location": "https://code.ornl.gov/research-enablement",
+                "provider": "gitlab"
+            },
+            "tags": ["cpu", "kronk"],
+            "target": "kronk",
+            "type": "group"
+        },
+        {
             "description": "RE Runner (oklahoma)",
             "gpuEnabled": false,
             "name": "acorn-runner",

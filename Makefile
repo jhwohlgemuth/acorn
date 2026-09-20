@@ -284,15 +284,18 @@ bucket-push-ghcr:
 
 rust-clean:
 	@docker rmi -f $(REGISTRY)/acorn/rust:$(VERSION)
+	@docker rmi -f $(RUST_IMAGE_AMD64)
+	@docker rmi -f $(RUST_IMAGE_ARM64)
 	@docker rmi -f $(REGISTRY)/acorn/rust:latest
 
 rust-image:
-	@docker build --no-cache --platform $(PLATFORM) --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(REGISTRY)/acorn/rust:$(VERSION) -f Dockerfile.rust .
-	@docker tag $(REGISTRY)/acorn/rust:$(VERSION) $(REGISTRY)/acorn/rust:latest
+	@docker build --no-cache --platform linux/amd64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_AMD64) -f Dockerfile.rust .
+	@docker build --no-cache --platform linux/arm64 --build-arg DOCKER_HUB_REGISTRY=$(DOCKER_HUB_REGISTRY) --build-arg RUST_VERSION=$(RUST_VERSION) -t $(RUST_IMAGE_ARM64) -f Dockerfile.rust .
 
 rust-push:
-	@docker push $(REGISTRY)/acorn/rust:$(VERSION)
-	@docker push $(REGISTRY)/acorn/rust:latest
+	@docker push $(RUST_IMAGE_AMD64)
+	@docker push $(RUST_IMAGE_ARM64)
+	@docker buildx imagetools create --tag $(REGISTRY)/acorn/rust:$(VERSION) --tag $(REGISTRY)/acorn/rust:latest $(RUST_IMAGE_AMD64) $(RUST_IMAGE_ARM64)
 #
 # Variables
 #
@@ -303,10 +306,11 @@ else
 CLEAN_BIN_CMD = rm -rf ./bin
 WRITE_SHA256 = if command -v sha256sum >/dev/null 2>&1; then sha256sum "$(1)" > "$(1).sha256"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$(1)" > "$(1).sha256"; else echo "A SHA-256 utility (sha256sum or shasum) is required" >&2; exit 1; fi
 endif
-# PLATFORM = linux/amd64,linux/arm64
 PLATFORM = linux/amd64
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 RUST_VERSION = `awk -F ' = ' '$$1 ~ /rust-version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
+RUST_IMAGE_AMD64 = $(REGISTRY)/acorn/rust:$(VERSION)-amd64
+RUST_IMAGE_ARM64 = $(REGISTRY)/acorn/rust:$(VERSION)-arm64
 DOCKER_HUB_REGISTRY = mirror.gcr.io/library
 ORNL_HUB_PROXY = regproxy.ornl.gov/hub_proxy
 REGISTRY = savannah.ornl.gov/research-enablement

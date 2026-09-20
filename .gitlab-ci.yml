@@ -291,7 +291,7 @@ build-release:
     - command -v cargo-zigbuild >/dev/null && command -v zig >/dev/null || sh scripts/install-zigbuild.sh "${XDG_CACHE_HOME}/zigbuild"
     - export PATH="${XDG_CACHE_HOME}/zigbuild/bin:${PATH}"
     - cargo --version
-    - cargo zigbuild --version
+    - cargo-zigbuild --version
     - rustc --version
     - zig version
     - MUSL_BUILD="cargo zigbuild" make build

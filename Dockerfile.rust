@@ -13,6 +13,7 @@ LABEL author="Jason Wohlgemuth"
 #
 ARG DEBIAN_FRONTEND=noninteractive
 ARG BUF_VERSION
+ARG TARGETARCH
 #
 # %environment
 #
@@ -22,7 +23,12 @@ ENV PATH="/opt/zigbuild/bin:/root/.cargo/bin:${PATH}"
 # %post
 #
 COPY scripts/install-zigbuild.sh /usr/local/bin/install-zigbuild
-RUN apt-get update && apt-get install --no-install-recommends --yes \
+RUN case "${TARGETARCH}" in \
+        amd64) powershell_arch=x64 ;; \
+        arm64) powershell_arch=arm64 ;; \
+        *) echo "Unsupported PowerShell architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && apt-get update && apt-get install --no-install-recommends --yes \
         ca-certificates \
         clang \
         curl \
@@ -39,7 +45,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
         npm \
     && sh /usr/local/bin/install-zigbuild /opt/zigbuild \
     && npx playwright install-deps \
-    && curl -fkL -o /tmp/powershell.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz \
+    && curl -fkL -o /tmp/powershell.tar.gz "https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-${powershell_arch}.tar.gz" \
     && mkdir -p /opt/microsoft/powershell/7 \
     && tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 \
     && chmod +x /opt/microsoft/powershell/7/pwsh \
