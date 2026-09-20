@@ -1,0 +1,43 @@
+{
+    "runners": [
+        {
+            "description": "RE Runner (dante)",
+            "gpuEnabled": true,
+            "name": "acorn-runner",
+            "repository": {
+                "id": 24758,
+                "location": "https://code.ornl.gov/research-enablement",
+                "provider": "gitlab"
+            },
+            "tags": ["cpu", "gpu", "dante"],
+            "target": "dante",
+            "type": "group"
+        },
+        {
+            "description": "RE Runner (oklahoma)",
+            "gpuEnabled": false,
+            "name": "acorn-runner",
+            "repository": {
+                "id": 24758,
+                "location": "https://code.ornl.gov/research-enablement",
+                "provider": "gitlab"
+            },
+            "tags": ["cpu", "oklahoma"],
+            "target": "oklahoma",
+            "type": "group"
+        },
+        {
+            "description": "RE Runner (vergil)",
+            "gpuEnabled": true,
+            "name": "acorn-runner",
+            "repository": {
+                "id": 24758,
+                "location": "https://code.ornl.gov/research-enablement",
+                "provider": "gitlab"
+            },
+            "tags": ["cpu", "gpu", "vergil"],
+            "target": "vergil",
+            "type": "group"
+        }
+    ]
+}
