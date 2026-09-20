@@ -454,7 +454,7 @@ publish-homebrew-formula:
     - VERSION="${CI_COMMIT_TAG#v}"
     - TAP_BRANCH="${HOMEBREW_TAP_BRANCH:-main}"
     - git clone --depth 1 --branch "${TAP_BRANCH}" "${HOMEBREW_TAP_REPO_URL}" tap
-    - ./scripts/homebrew/generate-formula.sh "${VERSION}" "tap/${HOMEBREW_TAP_FORMULA_PATH}"
+    - bash scripts/homebrew/generate-formula.sh "${VERSION}" "tap/${HOMEBREW_TAP_FORMULA_PATH}"
     - cd tap
     - if ! git status --porcelain | grep -q .; then echo "No Homebrew formula changes detected"; exit 0; fi
     - git config user.name "${USER}"
