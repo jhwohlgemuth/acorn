@@ -1008,6 +1008,7 @@ fn test_sync_vscode_and_goose_arguments() {
 }
 #[test]
 fn test_tools_export_and_needle_custom_location_arguments() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|why| why.into_inner());
     let serve = Arguments::try_parse_from(["acorn", "serve", "mcp"]).expect("parse MCP server");
     assert!(matches!(
         serve.command,
