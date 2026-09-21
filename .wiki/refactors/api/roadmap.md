@@ -32,7 +32,7 @@ Expand the common API surface for health, authentication, endpoint rendering, re
 1. Finish endpoint resolution and required/optional request-parameter migration.
 2. Introduce invocation and parse helpers with explicit fallback behavior.
 3. Normalize environment bootstrap and health checks.
-4. Add response, validation, generation, and capability layers only where they reduce current duplication.
+4. Add response and validation layers only where they reduce current duplication; generated modules or runtime capability metadata require a separate consumer-backed plan.
 
 # Evidence
 

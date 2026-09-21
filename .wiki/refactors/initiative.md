@@ -34,7 +34,7 @@ Included work covers `acorn-cli` command flow and export behavior, `acorn-lib` I
 
 # Dependencies
 
-The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating plan. With `acorn-schema` extracted, its immediate path is in-tree analyzer isolation and an alloc-only compile gate. `acorn-analysis` extraction and generic host traits remain deferred until that boundary is real. Reliability work may proceed in parallel only when it does not rename the same modules.
+The [crate boundary architecture](crate-boundary-architecture.md) is the coordinating plan. `acorn-schema`, `acorn-cmd`, the initial `acorn-host` boundary, and the alloc-only analyzer gate are implemented. The immediate path is stabilizing API, store, export, and service contracts; further extraction or host ports require a concrete consumer. Reliability work may proceed in parallel only when it does not rename the same modules.
 
 # Parallel execution
 

@@ -22,6 +22,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 - The `analyzer` feature compiles the check/error/readability model kernel with `alloc`; the `analysis` feature adds native execution and rendering under `analyzer::host`.
 - The native `analysis` feature compiles without the full `std` umbrella and excludes Axum/RMCP server capabilities, DuckDB, doctor, chart, and shell-lint dependencies.
 - `acorn-schema` now singularly owns schema models, validation, crosswalks, codecs, vocabulary assets, geonames, and prompt templates. First-party consumers import it directly; `acorn-lib` retains only host adapters and host assets.
+- `acorn-cmd` owns command specifications, discovery, bounded execution, and command macros. `acorn-host` owns the first extracted native filesystem, configuration, HTTP, download, source, and terminal capabilities, with direct downstream-import checks.
 - The analyzer model/calculation kernel now compiles independently on native and `wasm32-unknown-unknown` targets. Extraction remains a separate decision rather than an automatic consequence.
 - `make check-portable` and the dedicated optional `test-portability` CI job check the current capability matrix and reject host-only dependencies from analyzer-only native and WASM graphs when invoked manually or by the Saturday weekly schedule.
 - `acorn-wasm` now owns minimal JavaScript bindings for supplied-value Research Activity validation and readability analysis; artifact generation and JavaScript-facing tests are part of the portability gate.
@@ -34,7 +35,7 @@ Give extracted portable crates only the core, alloc, and std capabilities they i
 
 # Dependencies
 
-This roadmap is governed by the [crate boundary architecture](../crate-boundary-architecture.md) and detailed in the [plan dependency network](../../plan-network.md). Dependency classification and in-tree std isolation run first. Generic host traits and `acorn-analysis` extraction are deferred until the portable boundary is independently green and real alternate consumers exist.
+This roadmap is governed by the [crate boundary architecture](../crate-boundary-architecture.md) and detailed in the [plan dependency network](../../plan-network.md). Dependency classification and in-tree std isolation run first. `acorn-analysis`, browser adapters, and new host ports remain unscheduled until a concrete alternate consumer proves a narrow boundary; each then requires a new atomic concept.
 
 # Parallel execution
 
@@ -43,7 +44,7 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 # Implementation order
 
 1. Stabilize API, store, export, and service contracts before extracting their packages one boundary at a time.
-2. Extend the minimal `acorn-wasm` package with target-specific browser services only after concrete workflows prove narrow ports; add native implementations in `acorn-host` and CI gates for every supported adapter.
+2. Keep the minimal `acorn-wasm` package focused on its current supplied-value workflows. Schedule a browser adapter only after a concrete workflow proves a narrow port and names both native and browser implementations.
 
 # Dependency boundaries
 
@@ -56,12 +57,9 @@ This roadmap coordinates work and does not own a concurrent implementation branc
 
 # Validation
 
-Check the default, no-default, alloc, analyzer, analysis, std, and WASM target configurations independently. Verified 2026-09-13 with the standalone native analysis build and 756-test library suite, the 1,682-test workspace suite, analyzer-only native and WASM checks, `acorn-wasm` compilation, dependency deny policy, and default/all-feature library checks. The complete `wasm-pack` artifact gate requires the package tool installed by CI.
+Check the default, no-default, alloc, analyzer, analysis, std, and WASM target configurations independently. `make check-portable`, `scripts/check-portable-dependencies.sh`, the optional/scheduled `test-portability` job, and the `wasm-pack` JavaScript test path are the implemented repository contract. Extend that contract in the same change that adds a supported adapter or extracted package.
 
 # Related plans
 
 - [Crate boundary architecture](../crate-boundary-architecture.md)
-- [Host abstraction traits](host-abstraction-traits.md)
-- [WASM feature path](wasm-feature-path.md)
-- [no-std and WASM CI](no-std-wasm-ci.md)
 - [Plan dependency network](../../plan-network.md)

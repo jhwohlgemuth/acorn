@@ -4,15 +4,15 @@ title: "CKAN package to DCAT crosswalk"
 description: "Turn the paired CKAN and DCAT fixtures into a tested CKAN-to-DCAT v3 crosswalk while separating CKAN publishing from metadata normalization."
 difficulty: high
 impact: high
-package: [acorn-lib, acorn-cli]
+package: [acorn-schema, acorn-lib, acorn-cli]
 tags: [ckan, dcat, dcat-us, crosswalk, metadata, fixtures]
 status: planned
 ---
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/standard/{dcat,crosswalk}/`, `src/analyzer/check.rs`, `crates/acorn-cli/src/{cli/parse.rs,commands/export/mod.rs}`, and schema/crosswalk tests.
-- **Create:** CKAN source types and meaningful fixtures under `tests/fixtures/schema/{ckan,dcat}/`; target `acorn-schema` after extraction.
+- **Update:** `crates/acorn-schema/src/standard/{dcat,crosswalk}/`, `crates/acorn-lib/src/analyzer/check.rs`, `crates/acorn-cli/src/{cli/parse.rs,commands/export/mod.rs}`, and schema/crosswalk tests.
+- **Create:** CKAN source types in `acorn-schema` and meaningful fixtures under `tests/fixtures/schema/{ckan,dcat}/`.
 - **Delete:** lossy placeholder fixture assertions and any duplicate CKAN conversion route after the direct crosswalk is authoritative.
 
 # Dependencies

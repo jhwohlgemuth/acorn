@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-DTO conventions feed error envelopes, invoke/parse wrappers, OpenAPI generation, and the provider capability matrix.
+DTO conventions feed error envelopes and invoke/parse wrappers. Add broader generated or runtime capability metadata only when a concrete consumer requires it.
 
 # Recommendation
 

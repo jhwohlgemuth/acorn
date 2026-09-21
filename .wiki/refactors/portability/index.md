@@ -7,10 +7,9 @@
 ## In Progress
 
 - [Dependency feature defaults](dependency-feature-defaults.md) - Narrow host capability graphs one independently compiling boundary at a time.
-- [no-std and WASM CI](no-std-wasm-ci.md) - Enforce current portable graphs and expand the gate as packages appear.
 
 ## Planned
 
-- [WASM browser services](wasm-feature-path.md) - Extend the minimal in-memory package with concrete browser adapters after service ports are proven.
-- [Host abstraction traits](host-abstraction-traits.md) - Abstract files, HTTP, time, entropy, and processes.
 - [macOS compact-unwind size](macos-compact-unwind-size.md) - Reduce Darwin debug and test unwind metadata without suppressing linker diagnostics.
+
+The implemented portability gate covers minimal, alloc, analyzer-only native and WASM, native analysis, and the current `acorn-wasm` package. Add a new atomic plan only when a concrete browser workflow or alternate host implementation proves a narrow adapter contract.

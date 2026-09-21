@@ -11,20 +11,20 @@ status: planned
 
 # Goal
 
-Finish the remaining high-priority CLI coverage rather than recreating the superseded root-test layout. The workspace now has substantial inline command coverage, crate-local integration tests in `crates/acorn-cli/tests/`, and 27 `Command::cargo_bin` call sites. The link command remains the only mature user-facing command with no focused tests.
+Finish the remaining high-priority CLI coverage rather than recreating the superseded root-test layout. The workspace now has substantial inline command coverage, crate-local integration tests in `crates/acorn-cli/tests/`, and 41 `cargo_bin` call sites. The link command has one configured-gate binary test but no direct success, dry-run, parsing, or multi-file coverage.
 
 # Current evidence
 
-- `crates/acorn-cli/src/commands/link/mod.rs` has no `#[test]` or `#[tokio::test]` coverage.
-- `crates/acorn-cli/tests/check.rs` contains six active binary tests and `crates/acorn-cli/tests/help.rs` contains two.
-- Download and gather suites also exercise the binary; command-local totals have grown to 103 download, 18 gather, 17 check, 17 export, 17 import, 11 sync, 9 doctor, 8 create, and 6 format tests.
+- `crates/acorn-cli/src/commands/link/tests.rs` has one compiled-binary test proving that a configured failing link hook prevents source and JSON-LD writes.
+- `crates/acorn-cli/tests/check.rs` contains seven tests; `help.rs` and `mcp.rs` contain two each, and `create.rs` contains one.
+- Command-local totals are 106 download, 25 check, 24 export, 24 gather, 17 import, 15 create, 12 format, 12 sync, and 9 doctor tests.
 - The former planned root files `tests/check.rs`, `tests/export.rs`, `tests/format.rs`, and `tests/doctor.rs` are not the current crate layout and must not be recreated.
 - Four ignored export tests require external visual/platform tooling; this phase does not relabel those as ordinary regressions.
 
 # Project code boundaries
 
 - **Update:** `crates/acorn-cli/src/commands/link/mod.rs`, `crates/acorn-cli/tests/{check,help}.rs`, shared test support under `crates/acorn-cli/src/test/`, and existing workspace fixtures.
-- **Create:** `crates/acorn-cli/src/commands/link/tests/mod.rs` if the command follows the adjacent module convention; add a crate-local integration file only for behavior that requires the compiled binary.
+- **Create:** additional focused files only if `crates/acorn-cli/src/commands/link/tests.rs` becomes too large; add a crate-local integration file only for behavior that requires a separate compiled-binary boundary.
 - **Delete:** no current tests. Do not recreate or delete tests through a root `tests/` directory.
 
 # Dependencies
@@ -33,7 +33,7 @@ The link tests may use the implemented shared link-evidence and evaluation seams
 
 # Work
 
-1. Add link-command unit/integration coverage for valid JSON and YAML inputs, dry-run output, missing paths, invalid structured data, ignore filtering, deterministic multi-file behavior, and output naming.
+1. Extend link-command coverage for valid JSON and YAML inputs, dry-run output, missing paths, invalid structured data, ignore filtering, deterministic multi-file behavior, and output naming while preserving the existing configured-gate case.
 2. Audit current binary tests for the highest-value uncovered error boundaries: missing input, invalid structured input, and exit-status/message stability for check, export, format, and link.
 3. Reuse existing fixtures and crate-local test helpers. Add only the smallest malformed/valid fixtures not already present.
 4. Keep network access disabled unless a test is explicitly ignored with a concrete external dependency.

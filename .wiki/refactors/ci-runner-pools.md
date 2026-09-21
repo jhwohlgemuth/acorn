@@ -6,7 +6,7 @@ difficulty: medium
 impact: high
 package: [workspace]
 tags: [ci, gitlab, runners, reliability, isolation, reporting]
-status: planned
+status: in-progress
 ---
 
 # Project code boundaries
@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Portable feature jobs from [no-std/WASM CI](portability/no-std-wasm-ci.md) use the Rust pool once available. The reporting pool follows the implemented PowerAutomate runner contract.
+The implemented portability job uses the Rust pool once available. The reporting pool follows the implemented PowerAutomate runner contract.
 
 # Goal
 
@@ -26,9 +26,10 @@ Run Rust and fuzz tests concurrently where their dependencies allow without lett
 # Current evidence
 
 - GitLab Runner 18.5 encountered a stale `/builds/0/research-enablement/acorn/.git/index.lock` while checking out a test job.
-- The `test` and `fuzz-smoke` jobs select the generic `cpu` tag and can be scheduled on the same runner infrastructure.
-- The repository sets `GIT_CLONE_PATH` from `CI_CONCURRENT_ID` and preserves `target/` across fetches, so runner-manager instances that share build storage must have correctly isolated concurrency slots.
-- As an immediate mitigation, both jobs use the `tests` resource group and remove a stale checkout lock in `pre_get_sources_script`. This prevents them from overlapping but lengthens pipelines.
+- Runner configuration now records explicit tags and `run_untagged` policy, and the create-runner path sends those values to GitLab. The checked-in ACORN configuration identifies independent `arm64` and `amd64` workers.
+- CI test, documentation, portability, and fuzz jobs currently select `arm64`, but they still share the `tests` resource group and therefore cannot demonstrate the intended Rust/fuzz concurrency.
+- The repository sets `GIT_CLONE_PATH` with both `CI_CONCURRENT_ID` and `CI_JOB_ID`, and the affected jobs remove stale checkout locks in `pre_get_sources_script`.
+- No checked-in job uses the planned `rust-tests` or `artifact-creation` tag, and repository evidence cannot prove that runner-manager tokens, configuration volumes, or build volumes are isolated.
 - GitLab documents that shared build directories with concurrency greater than one can cause multiple jobs to use the same directory, and places responsibility for isolation on runner administrators.[^1]
 - GitLab warns that cloned runner authentication tokens let cloned runner managers pick up the same jobs.[^2]
 
@@ -43,7 +44,7 @@ Create a project-scoped pool for project `16689`:
 
 Register every worker independently. Do not copy another worker's authentication token or `config.toml`. Give each runner-manager container a unique name, a dedicated `/etc/gitlab-runner` configuration volume, and a dedicated persistent `/builds` volume. Configure the pool-specific build volume in the Docker executor's `volumes` list so its job containers use that storage. Keep `limit = 1` for each worker; scale a pool by adding another independently registered worker with its own configuration and build volumes.
 
-After the pool is online, require `cpu` and `rust-tests` on `test` and `fuzz-smoke`. Confirm that no generic runner has the specialized tag. Remove the shared `tests` resource group only after routing and storage isolation are verified, restoring parallel execution. Retain the stale-lock pre-source cleanup as recovery for interrupted checkouts.
+After the pool is online, require an architecture tag plus `rust-tests` on Rust and fuzz jobs. Confirm that no generic runner has the specialized tag. Remove the shared `tests` resource group only after routing and storage isolation are verified, restoring parallel execution. Retain the stale-lock pre-source cleanup as recovery for interrupted checkouts.
 
 Register the reporting worker independently with isolated configuration/build volumes. Protect the `artifact-creation` tag and restrict its package token plus inbound/outbound webhook secrets to protected scheduled default-branch jobs. Do not expose those credentials to merge-request pipelines. Retain report manifests and failed-render diagnostics under the workflow's explicit retention policy.
 

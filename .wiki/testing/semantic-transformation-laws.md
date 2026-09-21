@@ -28,9 +28,9 @@ The useful result is not a `Category` or `Functor` trait. It is evidence that tw
 - `crates/acorn-lib/src/io/adapter/mod.rs` implements `InputOutput::format_with` for `ResearchActivity` and creates linked content through `ResearchActivity::with_context`.
 - `crates/acorn-lib/src/io/workflow/mod.rs` formats before optional enrichment, formats again after enrichment, and creates the linked artifact through `linked_content`.
 - `crates/acorn-cli/src/commands/link/mod.rs` follows a separate path: it formats, calls `serialize_as` using the source MIME type, and writes the result with a `.jsonld` extension. It does not currently call the shared `linked_content` projection used by workflow orchestration.
-- `crates/acorn-schema/src/schema/research_activity/mod.rs` already distinguishes canonical RAD from its derived JSON-LD context through `LinkedData::with_context`.
-- `crates/acorn-schema/src/schema/standard/crosswalk/` already provides `Crosswalk`, `FieldMapping`, `Fields`, `ConversionWarning`, and property tests for selected reversible mappings.
-- `crates/acorn-schema/src/schema/research_activity/output.rs` and `crates/acorn-lib/src/io/database/candidate.rs` implement different, intentional merge policies. Neither merge should be assumed commutative.
+- `crates/acorn-schema/src/research_activity/mod.rs` already distinguishes canonical RAD from its derived JSON-LD context through `LinkedData::with_context`.
+- `crates/acorn-schema/src/standard/crosswalk/` already provides `Crosswalk`, `FieldMapping`, `Fields`, `ConversionWarning`, and property tests for selected reversible mappings.
+- `crates/acorn-schema/src/research_activity/output.rs` and `crates/acorn-lib/src/io/database/candidate.rs` implement different, intentional merge policies. Neither merge should be assumed commutative.
 - `proptest` is already a dev dependency of `acorn-schema` and `acorn-lib`; this plan adds no property-testing dependency.
 
 # Design decisions
@@ -72,7 +72,7 @@ Start with crate-private or test-only projection helpers colocated with the law 
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/schema/research_activity/tests/`, `crates/acorn-schema/src/schema/standard/crosswalk/tests/`, `crates/acorn-lib/src/io/adapter/tests/`, `crates/acorn-lib/src/io/workflow/` tests, `crates/acorn-lib/src/io/database/` tests, and the focused link tests owned by `crates/acorn-cli/src/commands/link/`.
+- **Update:** `crates/acorn-schema/src/research_activity/tests/`, `crates/acorn-schema/src/standard/crosswalk/` tests, `crates/acorn-lib/src/io/adapter/tests/`, `crates/acorn-lib/src/io/workflow/` tests, `crates/acorn-lib/src/io/database/` tests, and the focused link tests owned by `crates/acorn-cli/src/commands/link/`.
 - **Create:** dedicated `laws.rs` test modules under the existing research-activity, crosswalk, adapter, and workflow test directories when splitting the existing modules improves ownership; add a dedicated semantic-transform fixture directory under `tests/fixtures/data/` only for cases not expressible with current fixtures.
 - **Delete:** None. Remove duplicated command-local transformation code only if the commuting-path test first proves it differs from the shared workflow projection and the focused implementation slice explicitly owns that repair.
 

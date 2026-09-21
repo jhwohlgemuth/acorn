@@ -16,5 +16,3 @@
 - [OpenAPI endpoint validation](openapi-endpoint-validation.md) - Detect template drift.
 - [RAiD API refinement](raid-api-refinement.md) - Convert the removed CLI prototype into validated service-point and record workflows.
 - [Response DTOs](response-dtos.md) - Type stable response subfields.
-- [OpenAPI module code generation](openapi-module-codegen.md) - Generate baseline modules and DTOs.
-- [Provider capability matrix](provider-capability-matrix.md) - Describe supported provider behaviors.

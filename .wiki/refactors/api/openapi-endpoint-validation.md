@@ -17,7 +17,7 @@ status: planned
 
 # Dependencies
 
-Follow [endpoint resolution](endpoint-resolution.md); precedes optional [module code generation](openapi-module-codegen.md).
+Follow [endpoint resolution](endpoint-resolution.md). Generation is outside this plan; add a separate concept only after an extracted API layout and a concrete generated-output consumer exist.
 
 # Recommendation
 

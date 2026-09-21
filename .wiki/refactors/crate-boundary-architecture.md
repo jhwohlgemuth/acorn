@@ -15,13 +15,13 @@ Replace the current all-purpose `acorn-lib` package with a directed set of crate
 
 # Current priority
 
-This plan is coordination-only. `acorn-schema` extraction is complete with direct first-party imports and no `acorn-lib` schema facade. The in-tree analyzer kernel now compiles independently under `alloc` and is CI-enforced; `acorn-analysis` and generic host traits are deferred until a concrete alternate consumer proves their need.
+This plan is coordination-only. `acorn-schema`, `acorn-cmd`, and the initial `acorn-host` capabilities are extracted with direct first-party imports. The in-tree analyzer kernel compiles independently under `alloc` and is CI-enforced; `acorn-analysis` and any new host port remain deferred until a concrete alternate consumer proves the boundary and justifies an atomic plan.
 
 # Current evidence
 
-- `acorn-lib` currently exposes analyzer, I/O, schema, utility, and doctor modules from one package.
+- `acorn-lib` now exposes analyzer, I/O, host utility, and doctor modules; schema implementation has moved to `acorn-schema`, command construction/execution to `acorn-cmd`, and initial filesystem, configuration, HTTP, download, source, and terminal capabilities to `acorn-host`.
 - `crates/acorn-core` now owns portable errors, location/repository values, MIME/checksum/version values, and core/alloc utility implementations. First-party consumers import them directly from `acorn-core`; `acorn-lib` retains only host extensions and host utilities.
-- Module dependencies are cyclic: schemas use I/O and utility services, I/O uses schemas and analyzers, and analyzers use I/O, schemas, and utilities.
+- Remaining coupling is concentrated inside `acorn-lib`: analyzer host execution, provider APIs, persistence, export, and workflows still share I/O and utility boundaries.
 - Schema string/byte codecs remain with schema types, while their path/file `InputOutput` implementations and migration machinery live in the std-only `io::adapter` module.
 - The portable foundation is extracted: `AcornError` and `AcornResult` are independent of host reporting, and core/alloc utilities are imported from their owning crate without legacy facade paths.
 - Minimal and alloc builds no longer resolve `color-eyre`, `console`, `owo-colors`, `rust-embed`, or `similar`; immutable validation reference data is compiled directly without the generic embedded-asset runtime.
@@ -30,7 +30,7 @@ This plan is coordination-only. `acorn-schema` extraction is complete with direc
 - Utility implementations now have explicit core, alloc, and std ownership; `acorn-lib` no longer exposes `util::core`, `util::portable`, or flat core-utility re-exports.
 - ACORN owns one alloc-compatible validation engine and derive; schema validation no longer resolves `validator` or `validator_derive`, generated validation uses core/alloc paths, and deterministic flat reports preserve nested and indexed paths.
 - OpenCode path I/O, model-weight persistence, RAD Markdown document indexing, and contextual RAD formatting now live in host adapter modules. Schema license and programming-language validation no longer reads process environment or databases.
-- Remaining schema host couplings are concentrated in agent source resolution, templates/CST path state, presentation side effects, and other feature-dependent transformations.
+- Remaining schema-boundary cleanup is concentrated in agent prompt asset hydration and other feature-dependent transformations; path/file adapters and OpenCode CST preservation already remain outside `acorn-schema`.
 - Analyzer Vale output DTOs are separated from Vale runtime configuration, but path analysis, rendering, discovery, and `analysis -> std` remain host-coupled.
 - `analyzer` combines check models and readability transformations with HTTP, filesystem, database, document conversion, and process execution.
 - `io` combines provider APIs, databases, document rendering, downloads, configuration, source handling, synchronization, and application workflows.
@@ -109,7 +109,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 
 - **Satisfied prerequisite:** the [portability roadmap](portability/roadmap.md) now proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
 - **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
-- **Downstream:** [host traits](portability/host-abstraction-traits.md), [WASM](portability/wasm-feature-path.md), and [portable CI](portability/no-std-wasm-ci.md) expand as packages appear.
+- **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
 # Parallel execution
@@ -132,9 +132,9 @@ This architecture plan is coordination-only except when a named migration phase 
 
 # Current migration sequence
 
-## 1. Prove analysis isolation in-tree; use the extracted command boundary
+## 1. Preserve the completed portable, command, and initial host foundations
 
-Within `acorn-lib`, separate checks, scoring, summaries, readability, and validation folds from path traversal, Vale execution, HTTP link checking, document loading, rendering, database discovery, and filesystem handling. Require the model/calculation subset to compile under an alloc-only feature before scheduling `acorn-analysis`. Keep host code concrete during this phase; introduce no generic host trait family. Command consumers depend on the implemented `acorn-cmd` boundary directly.
+Keep the alloc-only analyzer gate, direct `acorn-schema` imports, `acorn-cmd` command boundary, and initial `acorn-host` capabilities green while later contracts stabilize. Do not extract `acorn-analysis` or add a generic host trait family without a demonstrated alternate consumer.
 
 ## 2. Stabilize protocol and export boundaries
 
@@ -188,8 +188,5 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 
 - [Refactor initiative](initiative.md)
 - [Portability roadmap](portability/roadmap.md)
-- [Host abstraction traits](portability/host-abstraction-traits.md)
-- [WASM feature path](portability/wasm-feature-path.md)
-- [no-std and WASM CI](portability/no-std-wasm-ci.md)
 - [Shared export context](core/export-context.md)
 - [API client roadmap](api/roadmap.md)

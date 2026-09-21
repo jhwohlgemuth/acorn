@@ -11,6 +11,6 @@
 - [CLI startup separation](cli-startup-separation.md) - Reduce `main` to orchestration.
 - [Shared interpolation primitives](interpolation-primitives.md) - Unify string and list placeholder behavior.
 - [OOXML slide-list fuzzing](ooxml-fuzzing.md) - Exercise PowerPoint XML transforms against malformed and adversarial input.
-- [Research activity lifecycle, credit, license, and award fields](research-activity-lifecycle-credit-fields.md) - Add typed schema targets for provider enrichment that does not belong in notes.
+- [Structured research-activity enrichment](research-activity-enrichment-integration.md) - Map provider and logbook evidence into the existing typed activity fields with deterministic merge behavior.
 - [CLI parse and execution models](cli-parse-execution-models.md) - Separate clap parsing from execution options.
 - [CLI error boundary](cli-error-boundary.md) - Map internal errors to exit codes in one place.

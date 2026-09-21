@@ -4,7 +4,7 @@ title: "Tighten dependency feature defaults"
 description: "Move std-dependent dependency features into explicit crate capability wiring."
 difficulty: medium
 impact: high
-package: [acorn-lib, workspace]
+package: [workspace, acorn-lib, acorn-cmd, acorn-host]
 tags: [refactor, dependencies, no-std]
 status: in-progress
 priority: next
@@ -18,12 +18,14 @@ Verified 2026-09-01 against `cargo tree -p acorn-lib --no-default-features` (com
 
 Verified 2026-09-13: `analysis` is now an independently compiling native capability over the existing `analyzer` kernel. It explicitly selects the archive, CLI utility, command, database, network, progress, template, and Unicode capabilities used by analyzer host execution and rendering without selecting the full `std` umbrella. Provider HTTP headers use the `http` crate directly; Axum-backed JSON-RPC, webhook, GitLab automation, and bot modules remain gated by `agentic`. The analysis dependency gate rejects Axum, RMCP, DuckDB, system diagnostics, charts, and shell linting.
 
+Verified from the current workspace: command construction/execution is owned by `acorn-cmd`, while `acorn-host` owns feature-gated filesystem, configuration, HTTP, download, source, and terminal capabilities. `tests/downstream-host` and `scripts/check-host-dependencies.sh` enforce direct downstream use without pulling the remaining `acorn-lib` host graph.
+
 Remaining broad wiring is unresolved rather than a compatibility contract: `agentic`, `cmd`, and `shell-lint` still require independently meaningful host cuts, and the `std` feature still selects unrelated host capabilities. Do not add compatibility mappings or extract a crate merely to hide this feature coupling.
 
 # Project code boundaries
 
 - **Update:** workspace `Cargo.toml`, `crates/acorn-lib/Cargo.toml`, every new extracted-crate manifest, and `Makefile` commands that encode supported feature combinations.
-- **Create:** per-crate feature tables in manifests introduced by the [crate boundary architecture](../crate-boundary-architecture.md); dependency-deny checks in CI under [no-std and WASM CI](no-std-wasm-ci.md).
+- **Create:** per-crate feature tables in manifests introduced by the [crate boundary architecture](../crate-boundary-architecture.md); extend the implemented dependency-deny checks when a supported capability graph changes.
 - **Delete:** unconditional portable-crate dependencies that have no portable call site; broad feature wiring once an independently compiling in-tree capability boundary proves the narrower set.
 
 # Dependencies

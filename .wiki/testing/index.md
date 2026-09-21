@@ -21,21 +21,21 @@ Criterion results from every semantic version tag and relevant default-branch pi
 
 | Command | Tests | Coverage | Priority |
 |---------|-------|----------|----------|
-| download | 103 | Excellent | — |
-| check | 17 inline + 6 integration | Good | — |
+| download | 106 | Excellent | — |
+| check | 25 command + 7 integration | Good | — |
 | doctor | 9 | Good | — |
-| export | 17 | Good | — |
-| sync | 11 | Good | — |
-| format | 6 | Moderate | — |
+| export | 24 | Good | — |
+| sync | 12 | Good | — |
+| format | 12 | Moderate | — |
 | import | 17 | Good | — |
-| link | 0 | None | Phase 1 |
-| create | 8 | Moderate | — |
+| link | 1 configured-gate binary test | Low | Phase 1 |
+| create | 15 command + 1 integration | Moderate | — |
 | serve | 0 | None | Phase 2 |
-| gather | 18 | Good | — |
+| gather | 24 | Good | — |
 | swhid | 0 | None | Phase 2 |
 | skill | 0 | None | Phase 3 |
 | tui | 0 | None | Phase 3 |
-| Binary (`assert_cmd`) | 27 `cargo_bin` call sites | Moderate | Phase 1 gaps only |
+| Binary (`assert_cmd`) | 41 `cargo_bin` call sites | Moderate | Phase 1 gaps only |
 
 # Testing conventions
 

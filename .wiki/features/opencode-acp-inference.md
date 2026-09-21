@@ -11,7 +11,7 @@ status: planned
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-lib/src/schema/agent/`, `src/io/api/openai.rs`, `src/io/mcp/`, `src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, assets, and focused tests.
+- **Update:** `crates/acorn-schema/src/agent/`, `crates/acorn-lib/src/io/{api/openai,mcp}/`, `crates/acorn-lib/src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, prompt assets, and focused tests.
 - **Create:** the prompt, inference-port, ACP transport, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
 - **Delete:** no current integration; remove the `doctor --fix` not-implemented path only when the shared planner is functional.
 
@@ -41,11 +41,11 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 
 - `crates/acorn-lib/src/io/mod.rs` already gates agent integrations behind the `agentic` feature. `io::mcp` is an implemented RMCP server with a typed `ToolRegistry`, stdio serving, runtime policy, and CLI integration; there is no ACP module or MCP client yet.
 - The existing `agentic` feature is enabled by default and currently selects the Axum/RMCP/Tower server stack. Adding an ACP client SDK to that feature would make an unrelated native process dependency part of default library builds unless ACP receives a separate capability feature.
-- `schema::agent::PromptTemplate` embeds six `.prompt` assets and renders them with Tera through `PromptTemplateConfiguration`.
-- `schema::agent` currently imports I/O, database, terminal, embedded-asset, Tera, and other host-facing code. Extending that mixed module with inference services would conflict with the in-progress crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
+- `acorn_schema::agent::PromptTemplate` embeds six `.prompt` assets from `crates/acorn-schema/assets/prompts/` and renders them with Tera through `PromptTemplateConfiguration`.
+- `acorn_schema::agent` still combines portable configuration with embedded-asset and Tera hydration. Extending that module with inference services would conflict with the crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
 - Current prompt tests prove that known asset names can be loaded and that rendering returns the same success state for enum, string, and owned-string selectors. They do not assert that concrete input values appear in the rendered output or that unresolved variables are rejected.
-- The prompt assets mix nested `config.*`, kebab-case keys, and underscore variable names. Their frontmatter also contains fields and shapes not represented by the current `schema::agent::FrontMatter`, so ACP execution must not assume the current frontmatter type can parse every embedded asset.
-- `schema::agent::opencode::Config` already models OpenCode agents, models, permissions, commands, and configuration discovery. `io::sync::opencode` already owns configuration mutation and should remain the only writer.
+- The prompt assets mix nested `config.*`, kebab-case keys, and underscore variable names. Their frontmatter also contains fields and shapes not represented by the current `acorn_schema::agent::FrontMatter`, so ACP execution must not assume the current frontmatter type can parse every embedded asset.
+- `acorn_schema::agent::opencode::Config` already models OpenCode agents, models, permissions, commands, and configuration discovery. `io::sync::opencode` already owns configuration mutation and should remain the only writer.
 - `analyzer::Check` already records category, severity, URI, locator, context, message, and check-specific errors. `AnalysisReport` retains checks by standard, batch, and category, but there is no parallel `Fix` model or fix report.
 - `Check` is not currently a serialization contract and contains private, renderer-specific payloads. Inference should receive a normalized check reference DTO rather than serializing the internal check object or its entire source file.
 - `io::api::openai` already supports OpenAI-compatible `/responses` and `/chat/completions` endpoints, configurable domains, optional bearer tokens, and local llama-swap routers. Its baseline response type is raw `serde_json::Value`, so fix generation needs typed request/response mapping and capability-aware structured output.
@@ -99,11 +99,11 @@ This feature must consume the following plans as governing constraints instead o
 | Related plan | Relationship and ordering |
 |---|---|
 | [Crate boundary architecture](../refactors/crate-boundary-architecture.md) | Governs ownership. Portable agent configuration stays in the schema boundary; prompt/inference/fix orchestration moves toward `acorn-service`; ACP, process execution, doctor probes, and fix executors move toward `acorn-host`; OpenAI protocol DTOs move toward `acorn-api`; `acorn-lib` eventually re-exports compatibility paths only. Boundary preparation is a prerequisite, but full crate extraction is not. |
-| [Portability roadmap](../refactors/portability/roadmap.md) and [host abstraction traits](../refactors/portability/host-abstraction-traits.md) | Define the split between pure hydration/planning and native process, filesystem, HTTP, clock, and package-manager adapters. New ports should match these plans rather than introduce a second host abstraction family. |
+| [Portability roadmap](../refactors/portability/roadmap.md) and [crate boundary architecture](../refactors/crate-boundary-architecture.md) | Define the split between pure hydration/planning and native process, filesystem, HTTP, clock, and package-manager adapters. Introduce a narrow port only when the ACP workflow proves its consumer and native implementation. |
 | [Dependency feature defaults](../refactors/portability/dependency-feature-defaults.md) and [portability roadmap](../refactors/portability/roadmap.md) | Require explicit imports and optional native dependencies. ACP receives a separate non-default `acp` capability; minimal, alloc, and WASM graphs must remain unchanged. |
 | Safe paths | The landed `acorn::io::SafePath` owns lexical validation and destination containment. Document fix targets should use it directly rather than creating a competing path type. |
 | Implemented analyzer composition and ordered check batch | Are not blockers. Fix suggestion code consumes `AnalysisReport` through one normalization adapter and should use the implemented analysis context split without changing check construction solely for inference. |
-| [API client roadmap](../refactors/api/roadmap.md), [response DTOs](../refactors/api/response-dtos.md), [environment bootstrap](../refactors/api/environment-bootstrap.md), and [provider capability matrix](../refactors/api/provider-capability-matrix.md) | Govern endpoint/authentication/error/capability mechanics. The OpenAI adapter may add its narrow typed payloads first, but must not duplicate shared environment precedence, endpoint resolution, health, or provider-capability machinery. |
+| [API client roadmap](../refactors/api/roadmap.md), [response DTOs](../refactors/api/response-dtos.md), and [environment bootstrap](../refactors/api/environment-bootstrap.md) | Govern endpoint, authentication, error, and response mechanics. The OpenAI adapter may add its narrow typed payloads first, but must not duplicate shared environment precedence, endpoint resolution, or health behavior. |
 | Implemented `io::api::json_rpc` runtime | Owns registered ACORN operation names, typed handler dispatch, shared error classification, and direct HTTP JSON-RPC. Register `acorn.inference.run`, `acorn.inference.readiness`, and `acorn.fixes.suggest`; keep fix application private unless a separately authorized operation is accepted. ACP maps session requests into these services but does not replace ACP envelopes with the common JSON-RPC codec. |
 | Implemented Protobuf/gRPC transport | May expose the same registered inference operations after their contracts stabilize. Protobuf is a sibling transport, not an ACP payload or JSON-RPC encoding. |
 | Implemented webhook runtime and GitLab repository automation | May invoke suggestion-only inference through the registry under explicit policy. Webhook authorization cannot grant ACP tool permissions or fix-application authority. |
@@ -157,9 +157,9 @@ crates/acorn-cli/src/
 
 The first implementation need not create every leaf file. In particular, `agent/mod.rs`, `fix/mod.rs`, `io/acp/mod.rs`, and the existing `io/api/openai.rs` can hold the initial vertical slice. Split provider, planner, or adapter files only when a second implementation would otherwise mix unrelated responsibilities.
 
-The in-tree `agent` and `fix` roots are service boundaries intended to move to `acorn-service`. `io::acp`, process-backed doctor probes, and concrete fix executors are native adapters intended to move to `acorn-host`. OpenAI wire DTOs remain with `io::api::openai` until they move to `acorn-api`; the implementation of the service-owned inference port then belongs in the native composition layer. `schema::agent` retains only portable configuration, selectors, and metadata in the target architecture.
+The in-tree `agent` and `fix` roots are service boundaries intended to move to `acorn-service`. `io::acp`, process-backed doctor probes, and concrete fix executors are native adapters intended to move to `acorn-host`. OpenAI wire DTOs remain with `io::api::openai` until they move to `acorn-api`; the implementation of the service-owned inference port then belongs in the native composition layer. `acorn_schema::agent` retains only portable configuration, selectors, and metadata in the target architecture.
 
-Keep `schema::agent::PromptTemplate` limited to its schema-owned representation during boundary preparation; do not make it the long-term owner of RustEmbed/Tera hydration. Move asset loading and hydration behind `agent::prompt`, migrate callers directly, and remove the displaced render path at the ownership cutover. This reuses the existing prompt assets without adding service behavior to the schema module.
+Keep `acorn_schema::agent::PromptTemplate` limited to its schema-owned representation during boundary preparation; do not make it the long-term owner of RustEmbed/Tera hydration. Move asset loading and hydration behind `agent::prompt`, migrate callers directly, and remove the displaced render path at the ownership cutover. This reuses the existing prompt assets without adding service behavior to the schema module.
 
 Wire the portable and native boundaries explicitly at their existing roots:
 
@@ -229,7 +229,7 @@ pub struct SuggestFixesData {
 
 ## Representative inference port
 
-Keep prompt selectors and configuration in `schema::agent`, then place inference DTOs and the consumer-owned port in the in-tree `agent` service boundary:
+Keep prompt selectors and configuration in `acorn_schema::agent`, then place inference DTOs and the consumer-owned port in the in-tree `agent` service boundary:
 
 ```rust
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -584,8 +584,8 @@ where
 
 The smallest useful implementation should touch approximately these files:
 
-1. `crates/acorn-lib/src/schema/agent/mod.rs`: normalize prompt selectors/configuration and reduce new dependencies; add `crates/acorn-lib/src/agent/mod.rs` for hydration, inference DTOs, and the consumer-owned backend port while preserving the legacy render path.
-2. `crates/acorn-lib/assets/prompts/suggest-fixes.prompt` or the actual existing prompt asset directory: add the versioned fix request/output contract and register `PromptFileAsset::SuggestFixes`.
+1. `crates/acorn-schema/src/agent/mod.rs`: normalize prompt selectors/configuration and reduce host-facing dependencies; add `crates/acorn-lib/src/agent/mod.rs` for hydration, inference DTOs, and the consumer-owned backend port while preserving the legacy render path.
+2. `crates/acorn-schema/assets/prompts/suggest-fixes.prompt`: add the versioned fix request/output contract and register `PromptFileAsset::SuggestFixes`.
 3. `crates/acorn-lib/src/fix/mod.rs`: add references, proposals, report grouping, validation, and deterministic-provider interfaces.
 4. `crates/acorn-lib/src/lib.rs`: export the service and fix boundaries without pulling native process support into minimal builds.
 5. `crates/acorn-lib/src/io/acp/mod.rs` plus `installation.rs` and `opencode.rs` if warranted: add the process descriptor, preflight, client, permission policy, and ACP result mapping.
@@ -595,9 +595,9 @@ The smallest useful implementation should touch approximately these files:
 
 Do not add CLI apply behavior in this slice. Once suggestions are stable, adapt one deterministic document fix, then structure doctor findings and add one fake package recipe end to end before supporting real installation recipes.
 
-## Prompt preparation using schema::agent
+## Prompt preparation using acorn_schema::agent
 
-Add a transport-independent prompt document boundary instead of teaching the ACP adapter about Tera or embedded assets. Reuse `schema::agent` prompt selectors, configuration, and normalized metadata, but put new asset hydration in the in-tree `agent::prompt` service boundary so schema ownership moves in the direction required by the crate-boundary plan.
+Add a transport-independent prompt document boundary instead of teaching the ACP adapter about Tera or embedded assets. Reuse `acorn_schema::agent` prompt selectors, configuration, and normalized metadata, but put new asset hydration in the in-tree `agent::prompt` service boundary so schema ownership moves in the direction required by the crate-boundary plan.
 
 1. Introduce a serializable render context that clearly separates prompt configuration from caller data.
 2. Add a hydrator that loads a `PromptFileAsset`, renders it in strict mode, splits frontmatter from the body, and returns a typed `HydratedPrompt` containing the body plus normalized metadata needed by inference.
@@ -767,7 +767,7 @@ The final command spelling should be checked against the CLI vocabulary before i
 ## 0. Align ownership, features, and upstream contracts
 
 - Record the transitional in-tree module and future crate owner for each new public type or adapter using the ownership table in this plan.
-- Add no implementation to `schema::agent` until the prompt selector/configuration surface is separated from its current I/O, database, rendering, and terminal imports sufficiently for the new code to depend in the intended direction.
+- Add no service implementation to `acorn_schema::agent`; first separate prompt selectors/configuration from embedded-asset and Tera hydration so new code depends in the intended direction.
 - Select and pin a reviewed official ACP Rust SDK release, inspect its enabled dependency features and license, and base the adapter on its client example without exposing SDK types publicly.
 - Define a separate non-default `acp` feature and confirm that the default library, minimal, alloc, and WASM dependency graphs do not select it.
 - Confirm the existing API endpoint and environment helpers that the OpenAI adapter will reuse; record any dependency on the API roadmap instead of fixing unrelated API behavior in this feature.
@@ -777,7 +777,7 @@ Exit gate: ownership and feature tests show no new schema-to-host dependency, `a
 
 ## 1. Normalize and verify prompt hydration
 
-- Keep selectors/configuration under `schema::agent`; add render context and hydrated prompt types under the in-tree agent service boundary.
+- Keep selectors/configuration under `acorn_schema::agent`; add render context and hydrated prompt types under the in-tree agent service boundary.
 - Reconcile asset variables and frontmatter with the schema contract.
 - Preserve the existing render entry point with regression coverage without introducing a schema-to-service dependency.
 - Add value-level and failure-path tests for every embedded prompt.
@@ -875,7 +875,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 7. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
 8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake package managers and isolated `PATH` values; never install software on the test host.
 9. Add CLI parsing, command, and doctor tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, invalid data, timeout, model/agent selection, and clean stdout.
-10. Run focused tests for `schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
+10. Run focused tests for `acorn_schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
 11. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
 12. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
 13. Regenerate CLI help and build documentation when the CLI surface lands.
@@ -897,7 +897,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 - Registered inference and suggestion operations return equivalent typed results through direct, JSON-RPC, optional gRPC, and ACP adapters without replacing official ACP wire types or collapsing transport-specific cancellation and session semantics.
 - Public ACP execution code is rooted at `acorn::io::acp` and native process dependencies are feature-gated.
 - Shared ACP prompt, request, event, result, permission, installation, process-lifecycle, and session code contains no OpenCode-specific branching; OpenCode supplies a thin launch configuration.
-- Prompt selection, configuration, and normalized metadata reuse `schema::agent`; the in-tree agent service hydrates the existing embedded prompt assets without making ACP or HTTP adapters aware of Tera.
+- Prompt selection, configuration, and normalized metadata reuse `acorn_schema::agent`; the in-tree agent service hydrates the existing embedded prompt assets without making ACP or HTTP adapters aware of Tera.
 - Callers can hydrate every built-in prompt with concrete serializable data, and missing required data fails before OpenCode is launched.
 - Callers can check OpenCode readiness without opening a session, and every inference call verifies that a usable `opencode` executable is installed before attempting ACP startup.
 - Missing or unusable OpenCode installations produce an actionable typed error; dry-run prompt hydration remains available without OpenCode.
@@ -935,7 +935,6 @@ After this plan's acceptance criteria pass, continue with the [MCP client](mcp-c
 
 - [Crate boundary architecture](../refactors/crate-boundary-architecture.md)
 - [Portability roadmap](../refactors/portability/roadmap.md)
-- [Host abstraction traits](../refactors/portability/host-abstraction-traits.md)
 - [API client roadmap](../refactors/api/roadmap.md)
 - [MCP client](mcp-client.md)
 - [CLI parse and execution models](../refactors/core/cli-parse-execution-models.md)
