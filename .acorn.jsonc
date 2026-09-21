@@ -10,7 +10,7 @@
                 "provider": "gitlab"
             },
             "runUntagged": true,
-            "tags": ["cpu", "gpu", "dante", "arm64"],
+            "tags": ["arm64", "dante", "gpu"],
             "target": "dante",
             "type": "group"
         },
@@ -24,7 +24,7 @@
                 "provider": "gitlab"
             },
             "runUntagged": true,
-            "tags": ["cpu", "kronk", "amd64"],
+            "tags": ["amd64", "kronk"],
             "target": "kronk",
             "type": "group"
         },
@@ -38,7 +38,7 @@
                 "provider": "gitlab"
             },
             "runUntagged": true,
-            "tags": ["cpu", "oklahoma", "amd64"],
+            "tags": ["amd64", "oklahoma"],
             "target": "oklahoma",
             "type": "group"
         },
@@ -52,7 +52,7 @@
                 "provider": "gitlab"
             },
             "runUntagged": true,
-            "tags": ["cpu", "gpu", "vergil", "arm64"],
+            "tags": ["arm64", "gpu", "vergil"],
             "target": "vergil",
             "type": "group"
         }

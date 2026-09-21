@@ -36,7 +36,10 @@ isolate std-only modules   host abstraction traits
                      |
           +----------+----------+
           v                     v
-    acorn-host       acorn-wasm browser services
+ downstream host support   acorn-wasm browser services
+          |
+          v
+    acorn-host
           \                     /
            +---------+---------+
                      v
@@ -60,7 +63,7 @@ isolate std-only modules   host abstraction traits
 | `acorn-api` | `io/api/` protocol, JSON-RPC, gRPC, webhook verification, endpoint, request, response, and auth logic | API roadmap and operation-registry contracts | `acorn-service`, `acorn-host`, provider features |
 | `acorn-store` | `io/database/`, provider-neutral webhook delivery, operation, effect, and callback state | API DTO/error boundaries | GitLab workflows, service extraction |
 | `acorn-export` | PowerPoint/OOXML and template transforms that return bytes | Export context; interpolation; OOXML hardening | Native/browser renderer adapters |
-| `acorn-host` | Native files, HTTP, processes, downloads, document conversion, doctor | Host traits plus extracted domains | CLI/TUI direct composition |
+| `acorn-host` | Native files, HTTP, processes, downloads, document conversion, doctor | Dependency defaults, `acorn-cmd`, downstream host support, and extracted domains | CLI/TUI direct composition |
 | `acorn-wasm` | Minimal bindings are complete; browser HTTP/storage adapters remain | Concrete browser workflow and narrow consumer-owned ports | Browser service composition |
 | `acorn-service` | Discovery, analysis, GitLab bot, MCP/server orchestration | Analysis/API/store/export boundaries | Thin interface composition roots |
 | `acorn-cmd-macros` | `cmd_sh_words!`, command-word parsing, and parser tests in `acorn-macros` | Frozen command grammar; command extraction plan | Focused compile-time command expansion |
@@ -74,6 +77,7 @@ isolate std-only modules   host abstraction traits
 - [Dependency feature defaults](refactors/portability/dependency-feature-defaults.md) precedes every extraction because each new manifest needs an explicit capability set.
 - The [portability roadmap](refactors/portability/roadmap.md) records the completed in-tree analyzer boundary after `acorn-schema` extraction.
 - [Host abstraction traits](refactors/portability/host-abstraction-traits.md) is explicitly deferred until an independently compiling kernel and concrete alternate consumers prove each seam.
+- [Downstream host support](refactors/portability/downstream-host-support.md) consumes dependency-default cleanup and `acorn-cmd`, uses Xylem as an external acceptance consumer, and schedules concrete `acorn-host` capability slices without activating the deferred trait design.
 - [Crate boundary architecture](refactors/crate-boundary-architecture.md) coordinates the analyzer, API, export, command, and portability boundaries; schedule the named extraction plan rather than the umbrella.
 - Minimal `acorn-wasm` bindings consume the existing portable schema and analyzer boundaries directly. [WASM browser services](refactors/portability/wasm-feature-path.md) require a concrete workflow and proven consumer-owned ports; [no-std and WASM CI](refactors/portability/no-std-wasm-ci.md) expands with each supported adapter.
 

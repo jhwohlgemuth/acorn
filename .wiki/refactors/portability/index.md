@@ -11,6 +11,7 @@
 
 ## Planned
 
+- [Downstream host support](downstream-host-support.md) - Extract narrow `acorn-host` capabilities proven by Xylem without enabling `acorn-lib` or analysis.
 - [WASM browser services](wasm-feature-path.md) - Extend the minimal in-memory package with concrete browser adapters after service ports are proven.
 - [Host abstraction traits](host-abstraction-traits.md) - Abstract files, HTTP, time, entropy, and processes.
 - [macOS compact-unwind size](macos-compact-unwind-size.md) - Reduce Darwin debug and test unwind metadata without suppressing linker diagnostics.

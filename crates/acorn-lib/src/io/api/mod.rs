@@ -4,7 +4,9 @@
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
 use crate::io::config::ApplicationConfiguration;
 use crate::io::database::{schema::Table, Database};
-use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpRequest, HttpResponse, HttpResponseError, HttpService};
+use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
+#[cfg(feature = "agentic")]
+use crate::io::http::{HttpRequest, HttpService};
 use crate::io::ApiResult;
 use crate::param;
 use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
@@ -22,7 +24,9 @@ use core::iter::once;
 use core::{fmt, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
-use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
+#[cfg(feature = "agentic")]
+use http::header::CONTENT_TYPE;
+use http::header::{HeaderName, HeaderValue};
 use http::HeaderMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -579,6 +583,7 @@ impl Endpoint {
             .ok_or_else(|| eyre!("Resource '{name}' not found"))
     }
     /// Execute a configured resource through an injected HTTP service with an optional raw body.
+    #[cfg(feature = "agentic")]
     pub(crate) async fn execute_resource(
         &self,
         service: &impl HttpService,

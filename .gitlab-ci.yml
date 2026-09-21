@@ -51,7 +51,7 @@ modelpack-drift:
   stage: test
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
+    - arm64
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CHECK_MODELPACK_DRIFT == "true"
@@ -62,7 +62,7 @@ modelkit-upstream:
   stage: test
   image: golang@sha256:564e366a28ad1d70f460a2b97d1d299a562f08707eb0ecb24b659e5bd6c108e1
   tags:
-    - cpu
+    - amd64
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CHECK_MODELPACK_DRIFT == "true"
@@ -73,7 +73,7 @@ prepare-environment:
   stage: prepare
   image: ubuntu@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
   tags:
-    - cpu
+    - amd64
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -103,7 +103,7 @@ test:
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   resource_group: tests
   tags:
-    - cpu
+    - arm64
   hooks:
     pre_get_sources_script:
       - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
@@ -127,7 +127,7 @@ test-portability:
   when: manual
   resource_group: tests
   tags:
-    - cpu
+    - arm64
   hooks:
     pre_get_sources_script:
       - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
@@ -157,7 +157,7 @@ test-docs:
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   resource_group: tests
   tags:
-    - cpu
+    - arm64
   hooks:
     pre_get_sources_script:
       - rm -f "${CI_PROJECT_DIR}/.git/index.lock" "${CI_PROJECT_DIR}/.git/shallow.lock"
@@ -192,7 +192,7 @@ fuzz-smoke:
   when: manual
   resource_group: tests
   tags:
-    - cpu
+    - arm64
   timeout: 12 minutes
   hooks:
     pre_get_sources_script:
@@ -232,7 +232,7 @@ benchmark:
   stage: performance
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
+    - arm64
   inherit:
     variables: true
   allow_failure: true
@@ -280,7 +280,7 @@ build-release:
   stage: build
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
+    - arm64
   inherit:
     variables: true
   timeout: 45 minutes
@@ -316,8 +316,7 @@ validate-mcpb:
   stage: build
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
-    - oklahoma
+    - amd64
   inherit:
     variables: true
   needs:
@@ -353,7 +352,7 @@ publish-release:
   stage: release
   image: registry.gitlab.com/gitlab-org/cli@sha256:a1bc1b35decb0ceededbb22bb9a8c07eddc1279ab6e9342b32bc42e20333aa7a
   tags:
-    - cpu
+    - amd64
   inherit:
     variables: true
   interruptible: false
@@ -394,7 +393,7 @@ upload-binaries:
   stage: release
   image: curlimages/curl@sha256:b375ea94488a70540f48df7a7029bcce50e650915816e6497774db9451b4f877
   tags:
-    - cpu
+    - amd64
   inherit:
     variables: true
   interruptible: false
@@ -420,7 +419,7 @@ publish-crates:
   stage: release
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
+    - arm64
   inherit:
     variables: true
   interruptible: false
@@ -435,7 +434,7 @@ publish-homebrew-formula:
   stage: release
   image: alpine@sha256:79ff19e9084a00eece421b2523fb93e22d730e2c0e525905de047e848e56d95f
   tags:
-    - cpu
+    - amd64
   inherit:
     variables: true
   interruptible: false
@@ -467,7 +466,7 @@ publish-book:
   stage: docs
   image: savannah.ornl.gov/research-enablement/acorn/rust:latest
   tags:
-    - cpu
+    - arm64
   inherit:
     variables: true
   interruptible: false
