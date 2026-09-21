@@ -5,14 +5,13 @@
 use crate::util::constants::app::{
     MAX_ALLOWED_ARI, MAX_ALLOWED_CLI, MAX_ALLOWED_FKGL, MAX_ALLOWED_FRES, MAX_ALLOWED_GFI, MAX_ALLOWED_LIX, MAX_ALLOWED_SMOG,
 };
-use crate::util::Label;
 use acorn_core::prelude::{HashMap, String, ToString, Vec};
+use acorn_host::terminal::Label;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
-use tracing::warn;
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 pub mod constants;
 pub mod score;

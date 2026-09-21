@@ -6,64 +6,77 @@
     clippy::unwrap_used
 )]
 use super::{create_progress_bar_with_renderer, finish_progress_bar, retry, ProgressType};
-use crate::io::adapter::KitfileExt;
-use crate::io::api::{TreeEntry, TreeEntryType};
-use crate::io::bagit::{Bag, BagInfo, Save};
-use crate::io::document::{SourceDocument, SourceDocuments};
-use crate::io::enrichment::Enrich;
-use crate::io::http::policy::{http_timeout_layer, retry_delay};
-use crate::io::http::{should_retry, HttpMethod};
-use crate::io::oci::{
-    modelpack_layer_type, Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport,
-    OciTransportOptions, OrasTransport,
-};
-use crate::io::{
-    archive, create_rsa_keypair, current_date, env_var_is_truthy, extract, file_checksum, files_all, files_from_git_branch, files_from_git_commit,
-    files_from_gitlab_merge_request, filter_git_command_result, filter_ignored, first_env_var, image_paths, jsonc_parse_value, read_file,
-    read_file_snapshot, read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, uri_to_path, walk,
-    write_file_bytes, write_rsa_keypair, zip_entries, ContainerTarget, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote, SafePath,
-    SafePathError, Source, SourceAction, TextOrigin,
-};
-use crate::util::constants::env::NO_LOCAL_DATABASE;
-use crate::util::constants::oci::{
-    ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, MODELPACK_DOC_RAW, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR,
-    MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
-};
 #[cfg(unix)]
 use crate::util::constants::oci::{
     KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP, KITOPS_MODELKIT_MODEL_PART_GZIP, MODELPACK_CONFIG,
     MODELPACK_MANIFEST, OCI_IMAGE_INDEX,
 };
-use crate::util::StringConversion;
-use crate::{args, LocationExt, RepositoryExt};
-use acorn_core::util::{MimeType, SemanticVersion};
-use acorn_core::{Location, Repository, Scheme};
+use crate::{
+    io::{
+        adapter::KitfileExt,
+        api::{TreeEntry, TreeEntryType},
+        archive,
+        bagit::{Bag, BagInfo, Save},
+        create_rsa_keypair, current_date,
+        document::{SourceDocument, SourceDocuments},
+        enrichment::Enrich,
+        env_var_is_truthy, extract, files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request,
+        filter_git_command_result, filter_ignored, first_env_var,
+        http::{
+            policy::{http_timeout_layer, retry_delay},
+            should_retry, HttpMethod,
+        },
+        image_paths, jsonc_parse_value,
+        oci::{
+            modelpack_layer_type, Descriptor, Manifest, OciExtraction, OciFile, OciFiles, OciLayer, OciReference, OciReferenceValue, OciTransport,
+            OciTransportOptions, OrasTransport,
+        },
+        read_file, read_file_snapshot, read_large_file, remove_fields, replace_file, select_source, slice_path, unique_file_extensions, walk,
+        write_file_bytes, write_rsa_keypair, zip_entries, ContainerTarget, Executor, Fingerprint, InputSource, PathConversion, PathExt, Remote,
+        Source, SourceAction, TextOrigin,
+    },
+    util::{
+        constants::{
+            env::NO_LOCAL_DATABASE,
+            oci::{
+                ACORN_MODEL_LAYER, MINIMUM_ORAS_VERSION, MODELPACK_DOC_RAW, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR,
+                MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP,
+            },
+        },
+        StringConversion,
+    },
+    LocationExt, RepositoryExt,
+};
+use acorn_cmd::args;
+use acorn_core::{
+    util::{MimeType, SemanticVersion},
+    Location, Repository, Scheme,
+};
+use acorn_host::fs::{file_checksum, file_uri_to_path, FsError, SafePath};
 #[cfg(unix)]
 use acorn_schema::agent::Quantization;
-use acorn_schema::enrichment::Provider;
 #[cfg(unix)]
 use acorn_schema::modelkit;
-use acorn_schema::oci::ModelLayerRole;
-use acorn_schema::validation::Validate;
-use axum::http::header::RETRY_AFTER;
-use axum::http::{HeaderMap, HeaderValue};
+use acorn_schema::{enrichment::Provider, oci::ModelLayerRole, validation::Validate};
+use axum::http::{header::RETRY_AFTER, HeaderMap, HeaderValue};
 use color_eyre::Report;
 use core::cell::Cell;
 use fluent_uri::Uri as UriParse;
 use indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget, ProgressStyle, TermLike};
 use jiff::{SignedDuration, Timestamp};
 use rsa::traits::PublicKeyParts;
-use std::env::temp_dir;
-use std::ffi::OsString;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File};
 #[cfg(unix)]
 use std::fs::{metadata, read, set_permissions, Permissions};
-use std::io::{self, Cursor, Read};
 #[cfg(unix)]
 use std::os::unix::fs::{symlink, PermissionsExt};
-use std::path::MAIN_SEPARATOR;
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    env::temp_dir,
+    ffi::OsString,
+    fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File},
+    io::{self, Cursor, Read},
+    path::{Path, PathBuf, MAIN_SEPARATOR},
+    time::{SystemTime, UNIX_EPOCH},
+};
 use strum::IntoEnumIterator;
 use zip::ZipArchive;
 mod enrichment;
@@ -269,7 +282,7 @@ fn test_checksum() {
         assert_eq!(calculated.checksum_value, expected);
     }
     let result = file_checksum(PathBuf::from("/path/does/not/exist.txt"), None);
-    assert!(result.is_none());
+    assert!(result.is_err());
 }
 #[test]
 fn test_create_rsa_keypair_returns_keys() {
@@ -1601,10 +1614,7 @@ fn test_safe_path_rejects_non_directory_component() {
     let directory = tempfile::tempdir().expect("create temporary directory");
     write(directory.path().join("nested"), b"file").expect("write blocking component");
     let path = SafePath::new("nested/file.json").expect("validate relative path");
-    assert!(matches!(
-        path.materialize_under(directory.path()),
-        Err(SafePathError::UnsafeDestination(_))
-    ));
+    assert!(matches!(path.materialize_under(directory.path()), Err(FsError::UnsafeDestination(_))));
 }
 #[cfg(unix)]
 #[test]
@@ -1613,10 +1623,7 @@ fn test_safe_path_rejects_symlink_component() {
     let outside = tempfile::tempdir().expect("create outside directory");
     symlink(outside.path(), directory.path().join("nested")).expect("create symlink component");
     let path = SafePath::new("nested/file.json").expect("validate relative path");
-    assert!(matches!(
-        path.materialize_under(directory.path()),
-        Err(SafePathError::UnsafeDestination(_))
-    ));
+    assert!(matches!(path.materialize_under(directory.path()), Err(FsError::UnsafeDestination(_))));
 }
 #[test]
 fn test_shared_http_timeout_layer_constructs() {
@@ -1867,16 +1874,28 @@ fn test_unique_file_extensions() {
 #[test]
 fn test_uri_to_path() {
     let plain = PathBuf::from("some/relative/path");
-    assert_eq!(uri_to_path(plain.clone()), plain);
+    assert_eq!(file_uri_to_path(&plain).expect("plain path"), plain);
     #[cfg(not(windows))]
-    assert_eq!(uri_to_path(PathBuf::from("file:///absolute/path")), PathBuf::from("/absolute/path"));
+    assert_eq!(
+        file_uri_to_path("file:///absolute/path").expect("file URI"),
+        PathBuf::from("/absolute/path")
+    );
     #[cfg(windows)]
-    assert_eq!(uri_to_path(PathBuf::from("file:///C:/absolute/path")), PathBuf::from("C:/absolute/path"));
+    assert_eq!(
+        file_uri_to_path("file:///C:/absolute/path").expect("file URI"),
+        PathBuf::from("C:/absolute/path")
+    );
 }
 #[test]
 fn test_uri_to_path_normalizes_file_sources() {
-    assert_eq!(uri_to_path("file:./models/qwen.gguf"), PathBuf::from("./models/qwen.gguf"));
-    assert_eq!(uri_to_path("./models/qwen.gguf"), PathBuf::from("./models/qwen.gguf"));
+    assert_eq!(
+        file_uri_to_path("file:./models/qwen.gguf").expect("file URI"),
+        PathBuf::from("./models/qwen.gguf")
+    );
+    assert_eq!(
+        file_uri_to_path("./models/qwen.gguf").expect("plain path"),
+        PathBuf::from("./models/qwen.gguf")
+    );
     let path = temp_dir().join("acorn-local-source-to-path.gguf");
     let localhost = if cfg!(windows) {
         format!("file://localhost/{}", path.to_string_lossy().replace('\\', "/"))
@@ -1888,8 +1907,8 @@ fn test_uri_to_path_normalizes_file_sources() {
     } else {
         format!("file://{}", path.to_string_lossy())
     };
-    assert_eq!(uri_to_path(&localhost), path);
-    assert_eq!(uri_to_path(&file_uri), path);
+    assert_eq!(file_uri_to_path(&localhost).expect("localhost file URI"), path);
+    assert_eq!(file_uri_to_path(&file_uri).expect("file URI"), path);
 }
 #[test]
 fn test_walk_returns_portable_relative_file_paths() {

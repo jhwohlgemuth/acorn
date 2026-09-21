@@ -1,19 +1,28 @@
 use crate::cli::{WatchMode, WatchOptions};
-use acorn::io::{directory_roots, Fingerprint};
-use acorn::util::{constants::app::WATCH_DEBOUNCE_INTERVAL, Label};
+use acorn::{
+    io::{directory_roots, Fingerprint},
+    util::constants::app::WATCH_DEBOUNCE_INTERVAL,
+};
 use acorn_core::prelude::Vec;
+use acorn_host::terminal::Label;
 use color_eyre::eyre::{eyre, Report, Result};
 use core::future::{pending, Future};
-use crossterm::event::{Event as TerminalEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::{
+    event::{Event as TerminalEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
 use futures::StreamExt;
 use notify::{PollWatcher, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_mini::{new_debouncer_opt, Config, DebounceEventResult, Debouncer};
 use owo_colors::OwoColorize;
-use std::io::{stdin, IsTerminal};
-use std::path::PathBuf;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
-use tokio::time::sleep;
+use std::{
+    io::{stdin, IsTerminal},
+    path::PathBuf,
+};
+use tokio::{
+    sync::mpsc::{unbounded_channel, UnboundedReceiver},
+    time::sleep,
+};
 
 pub(crate) async fn run<T, Prepare, PrepareFuture, Execute, ExecuteFuture>(
     command: &str,
@@ -273,8 +282,10 @@ fn watch<T: Watcher>(watcher: &mut Debouncer<T>, roots: &[PathBuf]) -> Result<()
 mod tests {
     use super::*;
     use jiff::SignedDuration;
-    use std::env::temp_dir;
-    use std::fs::{create_dir_all, remove_dir_all, write};
+    use std::{
+        env::temp_dir,
+        fs::{create_dir_all, remove_dir_all, write},
+    };
     use tokio::time::timeout;
 
     #[test]

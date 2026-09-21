@@ -7,13 +7,11 @@
 //! Git calculations require SHA-1 repositories;
 //! SHA-256 (`extensions.objectFormat = sha256`) is rejected with an actionable diagnostic.
 use crate::error::ApiResult;
-use crate::{args, cmd};
-use acorn_schema::pid::swhid::ObjectType;
-use acorn_schema::pid::SWHID;
+use acorn_cmd::{args, cmd};
+use acorn_schema::pid::{swhid::ObjectType, SWHID};
 use color_eyre::eyre::{eyre, WrapErr};
 use core::str::FromStr;
-use std::fs::read;
-use std::path::Path;
+use std::{fs::read, path::Path};
 
 /// Object source used for SWHID calculation
 /// ### Note

@@ -3,26 +3,37 @@ pub mod plan;
 
 use self::plan::{resolve_plans, DownloadOptions, ModelDownloadError, ModelDownloadPlan, ModelDownloadPlans};
 use super::log_activity;
-use crate::cli::arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat};
-use crate::cli::{CommandOptions, Void};
-use acorn::io::config::{ApplicationConfiguration, ModelEntry};
-use acorn::io::download::{DownloadItem, DownloadItems};
-use acorn::io::{first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, SafePath, Source, SourceAction};
-use acorn::util::constants::app::DEFAULT_MODELS_DIRECTORY;
-use acorn::util::constants::env::MODEL_WHITELIST;
-use acorn::util::{Label, StringConversion};
-use acorn_core::prelude::{HashSet, String, Vec};
-use acorn_core::util::{merge, regex_join, suffix};
-use acorn_core::Location;
-use acorn_schema::agent::{ModelDetails, ModelList, ModelSelectors};
-use acorn_schema::OneOrMany;
+use crate::cli::{
+    arguments::{DownloadModel, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat},
+    CommandOptions, Void,
+};
+use acorn::{
+    io::{
+        config::{ApplicationConfiguration, ModelEntry},
+        download::{DownloadItem, DownloadItems},
+        first_env_var, home_directory, sync, ApiResult, ModelSelectorsExt, Source, SourceAction,
+    },
+    util::{
+        constants::{app::DEFAULT_MODELS_DIRECTORY, env::MODEL_WHITELIST},
+        StringConversion,
+    },
+};
+use acorn_core::{
+    prelude::{HashSet, String, Vec},
+    util::{merge, regex_join, suffix},
+    Location,
+};
+use acorn_host::{fs::SafePath, terminal::Label};
+use acorn_schema::{
+    agent::{ModelDetails, ModelList, ModelSelectors},
+    OneOrMany,
+};
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use std::fs::create_dir_all;
-use std::path::PathBuf;
+use std::{fs::create_dir_all, path::PathBuf};
 use tracing::{error, info};
 
 /// Download model weights with optional persisted-metadata constraints.

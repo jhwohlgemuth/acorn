@@ -3,24 +3,28 @@
 //! Provides programmtic access to the [Vale prose analyzer](https://vale.sh/) - an open-source, command-line tool that brings your editorial style guide to life.
 //!
 use super::runtime::StaticAnalyzer;
-use crate::analyzer::error::DocumentTarget;
 pub use crate::analyzer::model::{ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity};
-use crate::io::document::DocumentQuery;
-use crate::io::ApiResult;
-use crate::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER};
-use crate::util::constants::vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES};
-use crate::util::{is_uri_or_path, Label};
-use crate::With;
+use crate::{
+    analyzer::error::DocumentTarget,
+    io::{document::DocumentQuery, ApiResult},
+    util::{
+        constants::{
+            app::{APPLICATION, ORGANIZATION, QUALIFIER},
+            vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES},
+        },
+        is_uri_or_path,
+    },
+    With,
+};
 use acorn_core::util::{SemanticVersion, StringExt};
+use acorn_host::terminal::Label;
 use ariadne::{Color, ReportKind};
 use bon::Builder;
-use color_eyre::eyre::eyre;
-use color_eyre::owo_colors::OwoColorize;
+use color_eyre::{eyre::eyre, owo_colors::OwoColorize};
 use derive_more::Display;
 use directories::ProjectDirs;
 use itertools::Itertools;
-use std::env::consts;
-use std::path::PathBuf;
+use std::{env::consts, path::PathBuf};
 use tracing::{error, trace};
 
 /// Vale installation details

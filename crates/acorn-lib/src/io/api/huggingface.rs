@@ -1,25 +1,36 @@
 //! Hugging Face Hub API helpers.
 use super::{Endpoint, IntoHeaders, Params, RemoteResource, TreeEntry};
-use crate::io::api::{self, Param, RepositoryFileMetadata};
-use crate::io::config::FilterSet;
-use crate::io::download::{DownloadItem, DownloadItems};
-use crate::io::http::HttpResponseError;
-use crate::io::sync::Shard;
-use crate::io::{first_env_var, http, ApiResult, Source};
-use crate::param;
-use crate::util::constants::app::{
-    DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT, DEFAULT_HUGGINGFACE_SEARCH_TERM,
+use crate::{
+    io::{
+        api::{self, Param, RepositoryFileMetadata},
+        config::FilterSet,
+        download::{DownloadItem, DownloadItems},
+        first_env_var, http,
+        http::HttpResponseError,
+        sync::Shard,
+        ApiResult, Source,
+    },
+    param,
+    util::constants::{
+        app::{
+            DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT, DEFAULT_HUGGINGFACE_MODEL_REVISION, DEFAULT_HUGGINGFACE_SEARCH_LIMIT,
+            DEFAULT_HUGGINGFACE_SEARCH_TERM,
+        },
+        env::HUGGINGFACE_TOKEN_VARIABLE_NAMES,
+    },
 };
-use crate::util::constants::env::HUGGINGFACE_TOKEN_VARIABLE_NAMES;
-use crate::util::Label;
 use ::http::HeaderMap;
-use acorn_core::prelude::HashMap;
-use acorn_core::util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric};
-use acorn_core::{Location, Repository};
-use acorn_schema::agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES};
-use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
-use alloc::boxed::Box;
-use alloc::collections::BTreeSet;
+use acorn_core::{
+    prelude::HashMap,
+    util::{glob_matches, regex_to_glob, strip_suffixes, to_ascii_alphanumeric},
+    Location, Repository,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    agent::{ModelDetails, ModelSelector, Quantization, Weight, Weights, FALLBACK_MODEL_SUFFIXES},
+    util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN,
+};
+use alloc::{boxed::Box, collections::BTreeSet};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};

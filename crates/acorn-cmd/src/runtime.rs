@@ -1,22 +1,22 @@
-//! Internal helpers for the `cmd!` macro.
-//!
-//! These are `#[doc(hidden)]` and not part of the public API.
-#[cfg(feature = "shell-lint")]
-use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
-use crate::util::Label;
-use core::iter::once;
+//! Command runtime and process specifications
+use core::{iter::once, time::Duration};
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, Diagnostic, LinterSettings, Severity as LintSeverity, ShellDialect};
 #[cfg(feature = "shell-lint")]
 use shuck_parser::parser::Parser;
-#[cfg(feature = "shell-lint")]
-use std::env;
-use std::ffi::{OsStr, OsString};
-use std::io::{self, Write};
-use std::path::Path;
-use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::{
+    env,
+    ffi::{OsStr, OsString},
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
+    process::{Child, Command, ExitStatus, Output, Stdio},
+    thread,
+    time::Instant,
+};
 use tracing::warn;
 
+#[cfg(feature = "shell-lint")]
+const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
 #[cfg(feature = "shell-lint")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum Severity {
@@ -113,18 +113,98 @@ impl Linter {
         }
     }
 }
+/// Immutable specification for one native command invocation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandSpec {
+    args: Vec<OsString>,
+    current_dir: Option<PathBuf>,
+    envs: Vec<(OsString, OsString)>,
+    program: OsString,
+}
+impl CommandSpec {
+    /// Create a command specification for `program`.
+    pub fn new(program: impl Into<OsString>) -> Self {
+        Self {
+            args: Vec::new(),
+            current_dir: None,
+            envs: Vec::new(),
+            program: program.into(),
+        }
+    }
+    /// Append one command argument.
+    pub fn arg(mut self, argument: impl Into<OsString>) -> Self {
+        self.args.push(argument.into());
+        self
+    }
+    /// Append command arguments in iterator order.
+    pub fn args<I, S>(mut self, arguments: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<OsString>,
+    {
+        self.args.extend(arguments.into_iter().map(Into::into));
+        self
+    }
+    /// Return whether the configured program can be discovered on this host.
+    pub fn available(&self) -> bool {
+        find_executable(&self.program).is_some()
+    }
+    /// Run the command and return an error for a non-success exit status.
+    pub fn checked_output(&self) -> io::Result<Output> {
+        checked(self.output())
+    }
+    /// Run the command within `timeout` and return an error for a non-success exit status.
+    pub fn checked_output_with_timeout(&self, timeout: Duration) -> io::Result<Output> {
+        checked(self.output_with_timeout(timeout))
+    }
+    /// Set the child process working directory.
+    pub fn current_dir(mut self, path: impl Into<PathBuf>) -> Self {
+        self.current_dir = Some(path.into());
+        self
+    }
+    /// Set one child environment override.
+    pub fn env(mut self, key: impl Into<OsString>, value: impl Into<OsString>) -> Self {
+        self.envs.push((key.into(), value.into()));
+        self
+    }
+    /// Run the command and capture standard output and error.
+    pub fn output(&self) -> io::Result<Output> {
+        self.command().output()
+    }
+    /// Run the command within `timeout` and capture standard output and error.
+    pub fn output_with_timeout(&self, timeout: Duration) -> io::Result<Output> {
+        let mut command = self.command();
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        command.spawn().and_then(|child| wait_with_output(child, timeout))
+    }
+    /// Spawn the configured command.
+    pub fn spawn(&self) -> io::Result<Child> {
+        self.command().spawn()
+    }
+    fn command(&self) -> Command {
+        let mut command = Command::new(&self.program);
+        command.args(&self.args).envs(self.envs.iter().map(|(key, value)| (key, value)));
+        if let Some(path) = &self.current_dir {
+            command.current_dir(path);
+        }
+        command
+    }
+}
 /// Parse a command string using shell-aware word splitting (handles quoted arguments).
 #[doc(hidden)]
 pub fn parse_sh(cmd: &str) -> io::Result<(String, Vec<String>)> {
-    let parts = shell_words::split(cmd).map_err(|e| io::Error::other(format!("cmd!(sh ...): failed to parse command string: {e}")))?;
-    let mut parts = parts.into_iter();
-    match parts.next() {
-        | Some(binary) => {
-            let args: Vec<String> = parts.collect();
-            Ok((binary, args))
-        }
-        | None => Err(io::Error::other("cmd!(sh ...): empty command string")),
-    }
+    shell_words::split(cmd)
+        .map_err(|e| io::Error::other(format!("cmd!(sh ...): failed to parse command string: {e}")))
+        .and_then(|parts| {
+            let mut parts = parts.into_iter();
+            match parts.next() {
+                | Some(binary) => {
+                    let args: Vec<String> = parts.collect();
+                    Ok((binary, args))
+                }
+                | None => Err(io::Error::other("cmd!(sh ...): empty command string")),
+            }
+        })
 }
 /// Run a command, capture output, with optional working directory.
 #[doc(hidden)]
@@ -294,7 +374,7 @@ fn escape(value: &str) -> String {
 fn log_command(binary: &str, args: &[OsString], dir: Option<&Path>) {
     let rendered = once(escape(binary)).chain(redact_args(args)).collect::<Vec<_>>().join(" ");
     let cwd = dir.map(|path| path.display().to_string()).unwrap_or_else(|| "<current>".to_string());
-    warn!(cwd, "=> {} {rendered}", Label::run());
+    warn!(cwd, "=>  RUN ▶ {rendered}");
 }
 fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) {
     let args = shell_args
@@ -305,7 +385,7 @@ fn log_shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Optio
     log_command(shell, &args, dir);
 }
 /// Remove registry authorization details from diagnostic text.
-pub(crate) fn redact(value: &str) -> String {
+pub fn redact(value: &str) -> String {
     value
         .lines()
         .map(|line| match line.to_ascii_lowercase().contains("authorization") {
@@ -315,7 +395,8 @@ pub(crate) fn redact(value: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
-pub(crate) fn redact_args(args: &[OsString]) -> Vec<String> {
+/// Render command arguments while replacing values of common secret flags.
+pub fn redact_args(args: &[OsString]) -> Vec<String> {
     let sensitive_flags = ["--api-key", "--api-token", "--password", "--registration-token", "--secret", "--token"];
     args.iter()
         .scan(false, |redact_next, arg| {
@@ -336,8 +417,99 @@ pub(crate) fn redact_args(args: &[OsString]) -> Vec<String> {
         })
         .collect::<Vec<_>>()
 }
+/// Find an executable by explicit path or by searching the process `PATH`.
+pub fn find_executable(program: impl AsRef<OsStr>) -> Option<PathBuf> {
+    let program = PathBuf::from(program.as_ref());
+    match program.components().count() > 1 {
+        | true => is_executable(&program).then_some(program),
+        | false => env::var_os("PATH")
+            .into_iter()
+            .flat_map(|paths| env::split_paths(&paths).collect::<Vec<_>>())
+            .flat_map(|directory| executable_candidates(&directory, &program))
+            .find(|candidate| is_executable(candidate)),
+    }
+}
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+
+    path.metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+#[cfg(not(unix))]
+fn is_executable(path: &Path) -> bool {
+    path.is_file()
+}
+fn checked(result: io::Result<Output>) -> io::Result<Output> {
+    result.and_then(|output| match output.status.success() {
+        | true => Ok(output),
+        | false => {
+            let detail = redact(String::from_utf8_lossy(&output.stderr).trim());
+            let message = match detail.is_empty() {
+                | true => format!("command exited with status {}", output.status),
+                | false => format!("command exited with status {} — {detail}", output.status),
+            };
+            Err(io::Error::other(message))
+        }
+    })
+}
+#[cfg(not(windows))]
+fn executable_candidates(directory: &Path, program: &Path) -> Vec<PathBuf> {
+    vec![directory.join(program)]
+}
+#[cfg(windows)]
+fn executable_candidates(directory: &Path, program: &Path) -> Vec<PathBuf> {
+    match program.extension().is_some() {
+        | true => vec![directory.join(program)],
+        | false => env::var_os("PATHEXT")
+            .and_then(|value| value.into_string().ok())
+            .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".to_string())
+            .split(';')
+            .filter(|extension| !extension.is_empty())
+            .map(|extension| directory.join(program).with_extension(extension.trim_start_matches('.')))
+            .collect(),
+    }
+}
+fn read_pipe(pipe: Option<impl Read>) -> io::Result<Vec<u8>> {
+    pipe.map_or_else(
+        || Ok(Vec::new()),
+        |mut pipe| {
+            let mut bytes = Vec::new();
+            pipe.read_to_end(&mut bytes).map(|_| bytes)
+        },
+    )
+}
 fn shell_command(shell: &str, shell_args: &[&str], command: &str, dir: Option<&Path>) -> Command {
     let mut cmd = command_with_args(shell, shell_args, dir);
     cmd.arg(command);
     cmd
+}
+fn wait_with_output(mut child: Child, timeout: Duration) -> io::Result<Output> {
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let stdout_reader = thread::spawn(move || read_pipe(stdout));
+    let stderr_reader = thread::spawn(move || read_pipe(stderr));
+    let started = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            | Ok(Some(status)) => break Ok(status),
+            | Ok(None) if started.elapsed() < timeout => thread::sleep(Duration::from_millis(10)),
+            | Ok(None) => {
+                let timeout_error = io::Error::new(io::ErrorKind::TimedOut, format!("command timed out after {timeout:?}"));
+                break child.kill().and_then(|()| child.wait()).and(Err(timeout_error));
+            }
+            | Err(why) => break Err(why),
+        }
+    };
+    status.and_then(|status| {
+        let stdout = join_pipe(stdout_reader);
+        let stderr = join_pipe(stderr_reader);
+        stdout.and_then(|stdout| stderr.map(|stderr| Output { status, stdout, stderr }))
+    })
+}
+fn join_pipe(reader: thread::JoinHandle<io::Result<Vec<u8>>>) -> io::Result<Vec<u8>> {
+    reader
+        .join()
+        .map_err(|_| io::Error::other("command output reader panicked"))
+        .and_then(|result| result)
 }

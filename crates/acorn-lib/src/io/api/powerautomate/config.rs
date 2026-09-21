@@ -1,7 +1,10 @@
 //! Deployment-owned PowerAutomate routing configuration.
-use crate::io::{ApiResult, EmailAddress, SafePath};
-use acorn_core::prelude::{HashSet, String, Vec};
-use acorn_core::validation::ValidationError;
+use crate::io::{ApiResult, EmailAddress};
+use acorn_core::{
+    prelude::{HashSet, String, Vec},
+    validation::ValidationError,
+};
+use acorn_host::fs::SafePath;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;

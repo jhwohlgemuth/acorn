@@ -1,10 +1,11 @@
 //! Utilities that require operating-system or runtime services
-pub use super::cmd::*;
 pub use super::terminal::{
     print_changes, print_changes_with_color, print_values_as_table, text_diff_changes, text_diff_changes_with_color, values_as_table,
 };
-use acorn_core::prelude::{String, Vec};
-use acorn_core::util::is_uri_or_path_portable;
+use acorn_core::{
+    prelude::{String, Vec},
+    util::is_uri_or_path_portable,
+};
 use data_encoding::HEXLOWER;
 use nanoid::nanoid;
 use rand::{rngs::OsRng, RngCore};

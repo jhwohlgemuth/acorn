@@ -1,21 +1,26 @@
 //! Per-invocation host capability broker for Rhai hooks.
 use super::manifest::{FilesystemCapability, NetworkCapability, ScriptAuthorization};
-use crate::io::workflow::WorkflowAction;
-use crate::io::{ApiResult, SafePath};
+use crate::io::{workflow::WorkflowAction, ApiResult};
 use acorn_core::prelude::{String, Vec};
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::sync::Arc;
+use acorn_host::fs::SafePath;
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 use bon::Builder;
-use cap_std::ambient_authority;
-use cap_std::fs::Dir;
+use cap_std::{ambient_authority, fs::Dir};
 use color_eyre::eyre::eyre;
-use core::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use core::time::Duration;
+use core::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    time::Duration,
+};
 use rhai::{Dynamic, Engine, EvalAltResult, Position};
-use std::io::{ErrorKind, Read};
-use std::net::ToSocketAddrs;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::{
+    io::{ErrorKind, Read},
+    net::ToSocketAddrs,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 struct CapabilityInner {
     limits: super::manifest::ResourceLimits,

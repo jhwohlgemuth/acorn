@@ -1,24 +1,37 @@
-use crate::app::{App, GatherDiscovery, GatherMode, GatherState};
-use crate::{Screen, TuiOptions};
-use acorn::analyzer::host::discovery::{RemoteProvider, RemoteSearchRequest};
-use acorn::analyzer::{Check, CheckCategory};
-use acorn::check_err;
-use acorn::io::database::schema::{IdentifierRow, Table};
-use acorn::io::database::{Database, Operations};
-use acorn::io::document::SourceDocument;
-use acorn::io::{files_all, uri_to_path};
-use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use acorn_schema::pid::{Identifier, PID};
+use crate::{
+    app::{App, GatherDiscovery, GatherMode, GatherState},
+    Screen, TuiOptions,
+};
+use acorn::{
+    analyzer::{
+        host::discovery::{RemoteProvider, RemoteSearchRequest},
+        Check, CheckCategory,
+    },
+    check_err,
+    io::{
+        database::{
+            schema::{IdentifierRow, Table},
+            Database, Operations,
+        },
+        document::SourceDocument,
+        files_all,
+    },
+};
+use acorn_host::fs::file_uri_to_path;
+use acorn_schema::{
+    discovery::{RemoteEntity, RemoteOrganizationRole},
+    pid::{Identifier, PID},
+};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use jiff::Timestamp;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
-use ratatui::Frame;
-use std::path::PathBuf;
-use std::sync::mpsc;
-use std::thread;
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    Frame,
+};
+use std::{path::PathBuf, sync::mpsc, thread};
 
 #[derive(Clone, Debug)]
 struct GatherOutput {
@@ -130,7 +143,10 @@ fn input_values(input: &str) -> Vec<String> {
     }
 }
 fn is_explicit_input(input: &str) -> bool {
-    uri_to_path(input).exists() || input.starts_with("http://") || input.starts_with("https://") || !Identifier::find_all(input).is_empty()
+    file_uri_to_path(input).is_ok_and(|path| path.exists())
+        || input.starts_with("http://")
+        || input.starts_with("https://")
+        || !Identifier::find_all(input).is_empty()
 }
 fn load_input(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
     input_values(input).iter().flat_map(|value| load_value(value, offline)).collect()
@@ -146,7 +162,7 @@ fn load_remote(input: &str) -> core::result::Result<SourceDocument, Box<Check>> 
         .and_then(|bytes| SourceDocument::from_bytes(&bytes, input).map_err(|why| Box::new(failure(&why.to_string(), input))))
 }
 fn load_value(input: &str, offline: bool) -> Vec<core::result::Result<SourceDocument, Box<Check>>> {
-    let path = uri_to_path(input);
+    let path = file_uri_to_path(input).unwrap_or_else(|_| PathBuf::from(input));
     let remote = input.starts_with("http://") || input.starts_with("https://");
     let persistent = Identifier::find_all(input).into_iter().any(|identifier| identifier.kind != PID::URL);
     match (input.is_empty(), path.exists(), remote, persistent, offline) {
@@ -517,12 +533,9 @@ fn text_source(input: &str, format: &str) -> SourceDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use acorn::io::database::Row;
-    use acorn::io::standard_project_folder;
-    use ratatui::backend::TestBackend;
-    use ratatui::Terminal;
-    use std::env::temp_dir;
-    use std::fs::remove_file;
+    use acorn::io::{database::Row, standard_project_folder};
+    use ratatui::{backend::TestBackend, Terminal};
+    use std::{env::temp_dir, fs::remove_file};
     #[test]
     fn test_gather_discovers_identifiers_from_text() {
         let output = gather("doi:10.1234/example https://ror.org/01qz5mb56", &disabled_database());

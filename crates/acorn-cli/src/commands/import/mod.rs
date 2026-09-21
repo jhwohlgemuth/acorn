@@ -1,13 +1,22 @@
 pub mod model;
 pub mod spec;
 
-use crate::cli::arguments::{ArchiveType, Import};
-use crate::commands::download::{log_activity, print_result};
-use acorn::io::config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions};
-use acorn::io::{uri_to_path, InputOutput, TemporaryDirectory};
-use acorn::util::StringConversion;
-use acorn_core::options::{CommonRuntime, RuntimeOptions};
-use acorn_core::util::MimeType;
+use crate::{
+    cli::arguments::{ArchiveType, Import},
+    commands::download::{log_activity, print_result},
+};
+use acorn::{
+    io::{
+        config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions},
+        InputOutput,
+    },
+    util::StringConversion,
+};
+use acorn_core::{
+    options::{CommonRuntime, RuntimeOptions},
+    util::MimeType,
+};
+use acorn_host::fs::{file_uri_to_path, TemporaryDirectory};
 use color_eyre::eyre::{eyre, Report, Result};
 use futures::{future, stream, StreamExt, TryStreamExt};
 use std::path::PathBuf;
@@ -109,7 +118,7 @@ impl InputSource {
         match self {
             | Self::Bucket(bucket) => bucket.import(options, None).await,
             | Self::Uri(source) => {
-                let path = uri_to_path(&source);
+                let path = file_uri_to_path(&source).unwrap_or_else(|_| PathBuf::from(&source));
                 let forced = format.map(MimeType::from);
                 let inferred = MimeType::from(source.as_str());
                 match (path.is_dir(), path.is_file(), forced.clone(), inferred) {
@@ -123,7 +132,7 @@ impl InputSource {
                                 | Ok((bucket, provenance)) => bucket.import(options, Some(&provenance)).await,
                                 | Err(why) => Err(why),
                             },
-                            | Err(why) => Err(why),
+                            | Err(why) => Err(why.into()),
                         }
                     }
                     | (_, _, _, _) if source.contains("://") => Bucket::from(source.as_str()).import(options, Some(source.as_str())).await,

@@ -1,16 +1,22 @@
 //! Native terminal rendering for analyzer results.
-use crate::analyzer::check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard};
-use crate::analyzer::error::{DocumentTarget, ErrorKind, ValidatorIssues};
-use crate::analyzer::host::context::ReportOptions;
-use crate::analyzer::model::ValeOutputItem;
-use crate::io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan};
-use crate::util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX;
-use crate::util::Label;
+use crate::{
+    analyzer::{
+        check::{Check, CheckCategory, CheckKind, CheckSeverity, OutputFormat, Standard},
+        error::{DocumentTarget, ErrorKind, ValidatorIssues},
+        host::context::ReportOptions,
+        model::ValeOutputItem,
+    },
+    io::document::{DocumentIndex, DocumentMatch, DocumentPath, DocumentPosition, DocumentQuery, DocumentSpan},
+    util::constants::MAX_LENGTH_REPORT_SPAN_PREFIX,
+};
 use acorn_core::prelude::{Arc, HashMap};
-use acorn_schema::modelkit::kitfile;
-use acorn_schema::pid::raid::Metadata;
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::{cff, datacite, dcat, huwise, invenio, text};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    modelkit::kitfile,
+    pid::raid::Metadata,
+    research_activity::ResearchActivity,
+    standard::{cff, datacite, dcat, huwise, invenio, text},
+};
 use ariadne::{Color, Config, IndexType, Report, ReportKind, Source};
 use bon::Builder;
 use color_eyre::owo_colors::OwoColorize;

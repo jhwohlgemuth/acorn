@@ -1,5 +1,5 @@
 use crate::io::swhid::{calculate, verify, CalculationKind};
-use crate::{args, cmd};
+use acorn_cmd::{args, cmd};
 use acorn_schema::pid::SWHID;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -70,8 +70,7 @@ fn test_calculate_directory_is_deterministic() {
 #[test]
 #[cfg(unix)]
 fn test_calculate_directory_non_utf8_name_where_supported() {
-    use std::ffi::OsString;
-    use std::os::unix::ffi::OsStringExt;
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
     let directory = tempfile::tempdir().expect("temporary directory should be created");
     let root = directory.path().join("project");
     std::fs::create_dir(&root).expect("directory should be created");

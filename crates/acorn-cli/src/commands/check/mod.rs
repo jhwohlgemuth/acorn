@@ -1,37 +1,54 @@
-use crate::cli::{resolve_paths, CommandOptions, WatchOptions};
-use crate::commands::preflight;
-use crate::commands::watch::{self, Prepared};
-use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::analyzer::host::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
-use acorn::analyzer::host::render::{Render, RenderContext};
-use acorn::analyzer::host::runtime::StaticAnalyzer;
-use acorn::analyzer::host::service::{analyze_paths, AnalysisReport};
-use acorn::analyzer::host::tabular::checks_to_csv;
-use acorn::analyzer::host::vale::{Vale, ValeConfig};
-use acorn::analyzer::readability::ReadabilityType;
-use acorn::analyzer::{Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard};
+use crate::{
+    cli::{resolve_paths, CommandOptions, WatchOptions},
+    commands::{
+        preflight,
+        watch::{self, Prepared},
+    },
+    io::{is_stdout_piped, read_stdin, write_stdout},
+};
 #[cfg(feature = "exec")]
 use acorn::exec::config::ExecutionOrigin;
-use acorn::io::config::application::{ApplicationConfiguration, Hook};
 #[cfg(feature = "exec")]
 use acorn::io::workflow::{Workflow, WorkflowAction};
-use acorn::io::{read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin};
-use acorn::util::constants::env::READABILITY_METRIC;
-use acorn::util::{print_values_as_table, Label};
-use acorn::LocationExt;
-use acorn::{fail, skip};
-use acorn_core::options::CommonRuntime;
-use acorn_core::util::{regex_join, suffix, MimeType};
-use acorn_core::Location;
+use acorn::{
+    analyzer::{
+        host::{
+            context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
+            render::{Render, RenderContext},
+            runtime::StaticAnalyzer,
+            service::{analyze_paths, AnalysisReport},
+            tabular::checks_to_csv,
+            vale::{Vale, ValeConfig},
+        },
+        readability::ReadabilityType,
+        Check, CheckBatch, CheckCategory, CheckSummary, FairProfile, OutputFormat, Standard,
+    },
+    fail,
+    io::{
+        config::application::{ApplicationConfiguration, Hook},
+        read_clipboard, select_source, standard_project_folder, Fingerprint, InputSource, Source, TextOrigin,
+    },
+    skip,
+    util::{constants::env::READABILITY_METRIC, print_values_as_table},
+    LocationExt,
+};
+use acorn_core::{
+    options::CommonRuntime,
+    util::{regex_join, suffix, MimeType},
+    Location,
+};
+use acorn_host::terminal::Label;
 #[cfg(feature = "exec")]
 use acorn_schema::research_activity::ResearchActivity;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use dotenvy::dotenv;
 use jiff::SignedDuration;
-use std::env::temp_dir;
-use std::fs::{create_dir_all, remove_dir_all, remove_file, write};
-use std::path::{Path, PathBuf};
+use std::{
+    env::temp_dir,
+    fs::{create_dir_all, remove_dir_all, remove_file, write},
+    path::{Path, PathBuf},
+};
 use tracing::{debug, error};
 
 trait PrepareLocation {

@@ -12,13 +12,13 @@ use acorn::exec::manifest::{ScriptManifest, ScriptManifestSource};
 #[cfg(feature = "exec")]
 use acorn::io::config::application::Hook;
 #[cfg(feature = "exec")]
-use acorn::io::read_file;
-#[cfg(feature = "exec")]
 use acorn::io::workflow::WorkflowAction;
 #[cfg(feature = "exec")]
-use acorn::util::Label;
-#[cfg(feature = "exec")]
 use acorn_core::util::MimeType;
+#[cfg(feature = "exec")]
+use acorn_host::fs::read_text;
+#[cfg(feature = "exec")]
+use acorn_host::terminal::Label;
 use color_eyre::eyre::{eyre, Report, Result};
 use std::path::Path;
 
@@ -27,7 +27,7 @@ use std::path::Path;
 pub async fn run_check(script: &Path, input: &Path) -> Result<(), Report> {
     Resolved::direct(script)
         .and_then(|resolved| {
-            read_file(input)
+            read_text(input)
                 .map_err(|why| eyre!("Failed to read input `{}` — {why}", input.display()))
                 .map(|input_text| (resolved, input_text))
         })
@@ -106,7 +106,7 @@ pub fn run_hook_check(script: &Path, manifest: &str, hook: Hook, input: &Path, o
             match authorizations.as_slice() {
                 | [authorization] => {
                     resolved.entry.id = Some(authorization.id.clone());
-                    read_file(input)
+                    read_text(input)
                         .map_err(|why| eyre!("Failed to read input `{}` — {why}", input.display()))
                         .and_then(|content| parse_hook_input(input, &content))
                         .and_then(|document| {

@@ -1,13 +1,23 @@
-use crate::cli::CommandOptions;
-use crate::commands::preflight;
-use acorn::io::config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions, Buckets, TransferPolicy};
-use acorn::io::database::schema::{ActivityRow, Table};
-use acorn::io::database::{Database, Operations};
-use acorn::io::{print_with_border, sidecar, slice_path, InputOutput};
-use acorn::util::constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT};
-use acorn::util::{Label, StringConversion};
-use acorn_core::options::{CommonRuntime, RuntimeOptions};
-use acorn_core::util::suffix;
+use crate::{cli::CommandOptions, commands::preflight};
+use acorn::{
+    io::{
+        config::{ApplicationConfiguration, Bucket, BucketExtension, BucketOptions, Buckets, TransferPolicy},
+        database::{
+            schema::{ActivityRow, Table},
+            Database, Operations,
+        },
+        print_with_border, sidecar, slice_path, InputOutput,
+    },
+    util::{
+        constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT},
+        StringConversion,
+    },
+};
+use acorn_core::{
+    options::{CommonRuntime, RuntimeOptions},
+    util::suffix,
+};
+use acorn_host::terminal::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result};
 use jiff::Timestamp;

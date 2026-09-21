@@ -1,20 +1,26 @@
 //! HTTP client utilities for ACORN IO operations
 use super::ApiResult;
 use crate::util::constants::app::ACORN_USER_AGENT;
-use crate::util::Label;
+use acorn_host::{
+    http::{build_native_client, HttpPolicy as HostHttpPolicy},
+    terminal::Label,
+};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::{borrow::Borrow, fmt};
-use http::header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, RANGE, USER_AGENT};
-use http::HeaderMap;
+use http::{
+    header::{HeaderName, HeaderValue, ACCEPT_RANGES, AUTHORIZATION, RANGE, USER_AGENT},
+    HeaderMap,
+};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
-use reqwest::redirect::Policy;
 use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::path::Path;
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+    path::Path,
+};
 use tokio::time::{sleep, timeout};
 use tower::{service_fn, ServiceExt};
 use tracing::{debug, warn};
@@ -256,12 +262,7 @@ impl From<HttpMethod> for reqwest::Method {
 }
 impl Default for ReqwestHttpService {
     fn default() -> Self {
-        let policy = policy::shared_http_policy();
-        let client = reqwest::Client::builder()
-            .timeout(policy.timeout.unsigned_abs())
-            .connect_timeout(policy.connect_timeout.unsigned_abs())
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+        let client = build_native_client(host_http_policy(), true).unwrap_or_else(|_| reqwest::Client::new());
         Self { client }
     }
 }
@@ -279,21 +280,12 @@ impl HttpService for ReqwestHttpService {
 }
 impl ReqwestHttpService {
     fn loopback() -> ApiResult<Self> {
-        let policy = policy::shared_http_policy();
-        reqwest::Client::builder()
-            .timeout(policy.timeout.unsigned_abs())
-            .connect_timeout(policy.connect_timeout.unsigned_abs())
-            .redirect(Policy::none())
-            .build()
+        build_native_client(host_http_policy(), false)
             .map(|client| Self { client })
             .map_err(|why| eyre!("Failed to construct loopback HTTP client — {why}"))
     }
     fn streaming() -> Self {
-        let policy = policy::shared_http_policy();
-        let client = reqwest::Client::builder()
-            .connect_timeout(policy.connect_timeout.unsigned_abs())
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+        let client = build_native_client(host_http_policy().without_timeout(), true).unwrap_or_else(|_| reqwest::Client::new());
         Self { client }
     }
 }
@@ -515,13 +507,14 @@ pub fn loopback_post(url: impl Into<String>) -> ApiResult<HttpRequestBuilder> {
     })
 }
 fn no_redirect_client() -> ApiResult<reqwest::Client> {
+    build_native_client(host_http_policy(), false).map_err(|_| eyre!("Failed to construct restricted HTTP client"))
+}
+fn host_http_policy() -> HostHttpPolicy {
     let policy = policy::shared_http_policy();
-    reqwest::Client::builder()
-        .timeout(policy.timeout.unsigned_abs())
-        .connect_timeout(policy.connect_timeout.unsigned_abs())
-        .redirect(Policy::none())
-        .build()
-        .map_err(|_| eyre!("Failed to construct restricted HTTP client"))
+    HostHttpPolicy::new()
+        .with_connect_timeout(policy.connect_timeout.unsigned_abs())
+        .with_timeout(policy.timeout.unsigned_abs())
+        .with_user_agent(ACORN_USER_AGENT)
 }
 /// Utility method to employ best practices when making async HTTP PATCH requests.
 pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {

@@ -1,9 +1,13 @@
 use crate::cli::{arguments, Void};
-use acorn::io::adapter::KitfileExt;
-use acorn::io::mcp::bundle::{BundleOptions, BundlePlan, BundleReport};
-use acorn::io::mcp::ToolRegistry;
-use acorn::io::{InputOutput, Platform};
-use acorn::util::Label;
+use acorn::io::{
+    adapter::KitfileExt,
+    mcp::{
+        bundle::{BundleOptions, BundlePlan, BundleReport},
+        ToolRegistry,
+    },
+    InputOutput, Platform,
+};
+use acorn_host::terminal::Label;
 use acorn_schema::modelkit::kitfile::Kitfile;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;

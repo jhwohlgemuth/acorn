@@ -46,6 +46,8 @@
 - [PowerAutomate logbook reporting](./automation/powerautomate-reporting.md)
 - [Packages](./packages/README.md)
   - [Rust schemas](./packages/acorn-schema.md)
+  - [Native commands](./packages/acorn-cmd.md)
+  - [Native host adapters](./packages/acorn-host.md)
   - [Rust core library](./packages/acorn-lib.md)
   - [Protobuf and gRPC](./packages/grpc.md)
   - [Rhai exec](./packages/exec.md)

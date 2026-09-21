@@ -35,7 +35,7 @@ Some(
                 RunnerTarget {
                     host: Remote(
                         Detailed {
-                            scheme: Unsupported,
+                            scheme: SSH,
                             uri: "ssh://oklahoma",
                             revision: None,
                         },

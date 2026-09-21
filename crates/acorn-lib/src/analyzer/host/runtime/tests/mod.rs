@@ -5,36 +5,44 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-use crate::analyzer::check::Standard;
-use crate::analyzer::error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues};
-use crate::analyzer::host::context::{ExecutionExtension, ExecutionOptions};
-use crate::analyzer::host::runtime::{
-    check_schema_path, collect_validation_checks, vale_package_url, LinkEvidence, LinkOutcome, StaticAnalyzer, StaticAnalyzerConfig,
+use crate::{
+    analyzer::{
+        check::Standard,
+        error::{DocumentTarget, ErrorCode, ErrorKind, ValidatorIssue, ValidatorIssues},
+        host::{
+            context::{ExecutionExtension, ExecutionOptions},
+            runtime::{
+                check_schema_path, collect_validation_checks, vale_package_url, LinkEvidence, LinkOutcome, StaticAnalyzer, StaticAnalyzerConfig,
+            },
+            service::Analysis,
+            tabular::checks_to_dataframe,
+            vale::{preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity},
+        },
+        Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks,
+    },
+    check, check_ok,
+    io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument},
+    test::utils::unique_path,
 };
-use crate::analyzer::host::service::Analysis;
-use crate::analyzer::host::tabular::checks_to_dataframe;
-use crate::analyzer::host::vale::{
-    preprocess_vale_output, Vale, ValeConfig, ValeOutput, ValeOutputItem, ValeOutputItemAction, ValeOutputItemSeverity,
+use acorn_core::{
+    options::CommonRuntime,
+    prelude::{Arc, HashMap},
+    validation::ValidationError,
 };
-use crate::analyzer::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, IntoChecks};
-use crate::io::document::{DocumentIndex, DocumentMatch, DocumentQuery, SourceDocument};
-use crate::io::make_executable;
-use crate::test::utils::unique_path;
-use crate::{check, check_ok};
-use acorn_core::options::CommonRuntime;
-use acorn_core::prelude::{Arc, HashMap};
-use acorn_core::validation::ValidationError;
-use acorn_schema::standard::cff::Cff;
-use acorn_schema::standard::crosswalk::ConversionWarning;
-use acorn_schema::validation::{Validate, ValidationReport};
-use acorn_schema::OneOrMany;
-use ariadne::Color;
-use ariadne::ReportKind;
+use acorn_host::fs::make_executable;
+use acorn_schema::{
+    standard::{cff::Cff, crosswalk::ConversionWarning},
+    validation::{Validate, ValidationReport},
+    OneOrMany,
+};
+use ariadne::{Color, ReportKind};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
 use serde_json::Value;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write};
-use std::path::PathBuf;
+use std::{
+    fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write},
+    path::PathBuf,
+};
 
 static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Validate)]
@@ -946,7 +954,7 @@ async fn test_vale_custom_directory_is_read_only() {
     let binary = root.join(if cfg!(windows) { "vale.exe" } else { "vale" });
     let config_path = root.join(".vale.ini");
     write(&binary, []).unwrap();
-    assert!(make_executable(&binary));
+    assert!(make_executable(&binary).is_ok());
     write(&config_path, "StylesPath=styles").unwrap();
     let vale = Vale::resolve(ValeConfig::default().with_directory(root.clone()), false, false)
         .await

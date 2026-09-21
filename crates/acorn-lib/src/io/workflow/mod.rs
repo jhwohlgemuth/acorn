@@ -12,14 +12,19 @@ use crate::exec::config::ExecutionOrigin;
 use crate::exec::hooks::{HookAuditRecord, HookOptions};
 #[cfg(feature = "exec")]
 use crate::io::config::application::ApplicationConfiguration;
-use crate::io::enrichment::Enrich;
-use crate::io::{read_file, ApiResult, FromPath, InputOutput};
-use crate::util::{print_changes_with_color, Label, StringConversion};
-use crate::{fail, LocationExt, With};
-use acorn_core::options::{CommonRuntime, RuntimeOptions};
-use acorn_core::prelude::{Box, String, Vec};
-use acorn_core::util::MimeType;
-use acorn_core::Location;
+use crate::{
+    fail,
+    io::{enrichment::Enrich, read_file, ApiResult, FromPath, InputOutput},
+    util::{print_changes_with_color, StringConversion},
+    LocationExt, With,
+};
+use acorn_core::{
+    options::{CommonRuntime, RuntimeOptions},
+    prelude::{Box, String, Vec},
+    util::MimeType,
+    Location,
+};
+use acorn_host::terminal::Label;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;

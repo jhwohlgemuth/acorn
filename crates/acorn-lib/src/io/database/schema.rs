@@ -1,15 +1,22 @@
 //! Database schema model
 //!
-use super::backend::{self, BackendRow, BackendRowExt, Connection, Params};
-use super::{Database, Row, SelectQuery, TableSchemaProvider};
-use crate::io::api::{self, DatabasePersistence};
-use crate::io::database::macros::{build_query, define_required_fn};
-use crate::io::{create_progress_bar, finish_progress_bar, ApiResult, ProgressType};
-use crate::util::{print_values_as_table, Label};
+use super::{
+    backend::{self, BackendRow, BackendRowExt, Connection, Params},
+    Database, Row, SelectQuery, TableSchemaProvider,
+};
+use crate::{
+    io::{
+        api::{self, DatabasePersistence},
+        create_progress_bar,
+        database::macros::{build_query, define_required_fn},
+        finish_progress_bar, ApiResult, ProgressType,
+    },
+    util::print_values_as_table,
+};
 use acorn_core::util::to_rfc3339;
+use acorn_host::terminal::Label;
 use acorn_macros::DatabaseRow;
-use acorn_schema::agent::Weights;
-use acorn_schema::validation::Validate;
+use acorn_schema::{agent::Weights, validation::Validate};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;

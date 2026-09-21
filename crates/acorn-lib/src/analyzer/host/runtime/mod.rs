@@ -2,13 +2,11 @@
 //!
 //! This is where we keep functions and interfaces necessary to execute ACORN's automated editorial style guide as well as content readability analyzer.
 //!
-use super::context::{AnalysisContext, ExecutionOptions};
-use super::service::{check_fair_for, check_prose_for, check_quality_for, check_readability_for, Analysis, SchemaCheck};
-use super::vale::{self, Vale, ValeConfig};
-use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, Standard, ValidationReportExt};
-use crate::analyzer::error::ErrorKind;
-use crate::analyzer::fair::FairEvidence;
-use crate::analyzer::model::{ValeOutput, ValeOutputItem};
+use super::{
+    context::{AnalysisContext, ExecutionOptions},
+    service::{check_fair_for, check_prose_for, check_quality_for, check_readability_for, Analysis, SchemaCheck},
+    vale::{self, Vale, ValeConfig},
+};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::document::SourceDocument;
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -16,35 +14,51 @@ use crate::io::http::get;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use crate::io::InputOutput;
 #[cfg(any(feature = "analysis", feature = "std"))]
-use crate::io::{command_exists, download_binary, extract, file_checksum, make_executable, standard_project_folder, ApiResult};
-use crate::util::constants::app::{APPLICATION, ONLINE_SYNC_ATTEMPTS};
-use crate::util::constants::vale::{
-    CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION,
+use crate::io::{download_binary, extract, standard_project_folder, ApiResult};
+use crate::{
+    analyzer::{
+        check::{Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, Standard, ValidationReportExt},
+        error::ErrorKind,
+        fair::FairEvidence,
+        model::{ValeOutput, ValeOutputItem},
+    },
+    check, check_err, check_ok, skip,
+    util::{
+        constants::{
+            app::{APPLICATION, ONLINE_SYNC_ATTEMPTS},
+            vale::{CUSTOM_VALE_PACKAGE_NAME, DEFAULT_VALE_PACKAGE_URL, VALE_PACKAGE_REPOSITORY_URL, VALE_RELEASES_URL, VALE_VERSION},
+        },
+        Constant, StringConversion,
+    },
+    RepositoryExt,
 };
-use crate::util::process::CommandOutput;
-use crate::util::{Constant, Label, StringConversion};
-use crate::RepositoryExt;
-use crate::{args, cmd, skip};
-use crate::{check, check_err, check_ok};
-use acorn_core::prelude::{Arc, HashMap};
-use acorn_core::util::assets::EmbeddedAssets;
-use acorn_core::util::SemanticVersion;
-use acorn_core::{Location, Repository};
-use acorn_schema::modelkit::kitfile::Kitfile;
-use acorn_schema::pid::raid;
-use acorn_schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID};
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::cff::{self, Cff, IdentifierType, Reference};
-use acorn_schema::standard::text::{Document, Text};
-use acorn_schema::standard::{datacite, dcat, huwise, invenio};
-use acorn_schema::util::assets::Constant as SchemaConstant;
-use acorn_schema::validation::Validate;
-use acorn_schema::{Organization, ProgrammingLanguage, Website};
+use acorn_cmd::{args, cmd, command_exists, CommandOutput};
+use acorn_core::{
+    prelude::{Arc, HashMap},
+    util::{assets::EmbeddedAssets, SemanticVersion},
+    Location, Repository,
+};
+use acorn_host::{
+    fs::{file_checksum, make_executable},
+    terminal::Label,
+};
+use acorn_schema::{
+    modelkit::kitfile::Kitfile,
+    pid::{raid, Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID},
+    research_activity::ResearchActivity,
+    standard::{
+        cff::{self, Cff, IdentifierType, Reference},
+        datacite, dcat, huwise, invenio,
+        text::{Document, Text},
+    },
+    util::assets::Constant as SchemaConstant,
+    validation::Validate,
+    Organization, ProgrammingLanguage, Website,
+};
 use async_trait::async_trait;
 #[cfg(feature = "analysis")]
 use bat::PrettyPrinter;
-use color_eyre::eyre::eyre;
-use color_eyre::owo_colors::OwoColorize;
+use color_eyre::{eyre::eyre, owo_colors::OwoColorize};
 use convert_case::{Case, Casing};
 use flate2::read::GzDecoder;
 use futures::future::{join_all, BoxFuture, FutureExt};
@@ -52,8 +66,10 @@ use ini::Ini;
 use is_executable::IsExecutable;
 use lychee_lib::{CacheStatus, Response, Status};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::fs::{create_dir_all, remove_file, write, File};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{create_dir_all, remove_file, write, File},
+    path::{Path, PathBuf},
+};
 use tar::Archive;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use tokio::time::sleep;
@@ -1029,16 +1045,16 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         } else {
                             match self.clone().download_checksums().await {
                                 | Ok(checksums) => match checksums.get(&platform) {
-                                    | Some(expected) => match file_checksum(archive.clone(), None) {
-                                        | Some(calculated) if expected == &calculated.checksum_value => {
+                                    | Some(expected) => match file_checksum(&archive, None) {
+                                        | Ok(calculated) if expected == &calculated.checksum_value => {
                                             info!(checksum = expected, "=> {} Checksum verification", Label::pass());
                                             Ok(())
                                         }
-                                        | Some(calculated) => Err(eyre!(
+                                        | Ok(calculated) => Err(eyre!(
                                             "Vale checksum mismatch: expected {expected}, calculated {}",
                                             calculated.checksum_value
                                         )),
-                                        | None => Err(eyre!("Failed to calculate the Vale archive checksum")),
+                                        | Err(why) => Err(eyre!("Failed to calculate the Vale archive checksum — {why}")),
                                     },
                                     | None => Err(eyre!("Vale checksums do not include {platform}")),
                                 },
@@ -1047,10 +1063,9 @@ impl StaticAnalyzer<ValeConfig> for Vale {
                         };
                         let result = match verification {
                             | Ok(()) => match self.clone().extract(archive.clone(), Some(destination)) {
-                                | Ok(binary) => match make_executable(&binary) {
-                                    | true => Ok(Vale::init().version(release).binary(binary).config(config).build()),
-                                    | false => Err(eyre!("Downloaded Vale binary is not executable: {}", binary.display())),
-                                },
+                                | Ok(binary) => make_executable(&binary)
+                                    .map(|()| Vale::init().version(release).binary(binary).config(config).build())
+                                    .map_err(|why| eyre!("Downloaded Vale binary is not executable — {why}")),
                                 | Err(why) => Err(why),
                             },
                             | Err(why) => Err(why),

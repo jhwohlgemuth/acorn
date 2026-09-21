@@ -1,25 +1,39 @@
 //! Structured native file-analysis service
 use super::render::{DocumentIndexes, RenderContext};
-use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard};
-use crate::analyzer::fair::{FairDetails, FairEvidence, FairProfile, FairState};
-use crate::analyzer::host::context::{AnalysisContext, ReportOptions};
-use crate::analyzer::host::runtime::{KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer};
-use crate::analyzer::host::vale::Vale;
-use crate::analyzer::readability::score::{ReadabilityScore, ReadabilitySeverity};
-use crate::io::document::{DocumentIndex, MarkdownParser, SourceDocument};
-use crate::io::{read_file, InputOutput};
-use crate::util::{Label, StringConversion};
-use crate::{check, check_err, check_ok};
-use acorn_core::prelude::{Arc, HashMap, Path, PathBuf};
-use acorn_core::util::{MimeType, ToProse};
-use acorn_schema::pid::{raid, DOI};
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::cff::Cff;
-use acorn_schema::standard::text::{Document, Text};
-use acorn_schema::standard::{datacite, dcat, huwise, invenio};
+use crate::{
+    analyzer::{
+        check::{Check, CheckBatch, CheckCategory, CheckSeverity, Standard},
+        fair::{FairDetails, FairEvidence, FairProfile, FairState},
+        host::{
+            context::{AnalysisContext, ReportOptions},
+            runtime::{KitfileStandard, LinkEvidence, ModelKitStandard, StaticAnalyzer},
+            vale::Vale,
+        },
+        readability::score::{ReadabilityScore, ReadabilitySeverity},
+    },
+    check, check_err, check_ok,
+    io::{
+        document::{DocumentIndex, MarkdownParser, SourceDocument},
+        read_file, InputOutput,
+    },
+    util::StringConversion,
+};
+use acorn_core::{
+    prelude::{Arc, HashMap, Path, PathBuf},
+    util::{MimeType, ToProse},
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    pid::{raid, DOI},
+    research_activity::ResearchActivity,
+    standard::{
+        cff::Cff,
+        datacite, dcat, huwise, invenio,
+        text::{Document, Text},
+    },
+};
 use async_trait::async_trait;
-use core::future::Future;
-use core::iter::once;
+use core::{future::Future, iter::once};
 use futures::future::{join_all, BoxFuture};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use strum::IntoEnumIterator;

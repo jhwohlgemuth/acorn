@@ -37,7 +37,8 @@ validator = { workspace = true }
 default = ["std"]
 core = []
 alloc = ["core", "serde/alloc", "jiff/alloc"]
-std = ["alloc", "jiff/std", "dep:anydoc", "dep:infer", "dep:ring"]
+digest = ["alloc", "dep:ring"]
+std = ["alloc", "digest", "jiff/std", "dep:anydoc", "dep:infer"]
 exec = ["std", "dep:rhai"]
 
 [lints]

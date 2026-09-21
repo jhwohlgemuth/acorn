@@ -118,7 +118,7 @@ test:
     - command -v buf >/dev/null || (curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf)
     - make test-ci
     - make check-host
-    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-schema
+    - cargo package --no-verify --allow-dirty -p acorn-macros -p acorn-core -p acorn-cmd -p acorn-host -p acorn-schema
 
 test-portability:
   stage: extended-test
@@ -143,10 +143,13 @@ test-portability:
         - Cargo.toml
         - Makefile
         - crates/acorn-core/**/*
+        - crates/acorn-cmd/**/*
+        - crates/acorn-host/**/*
         - crates/acorn-lib/**/*
         - crates/acorn-schema/**/*
         - crates/acorn-wasm/**/*
         - scripts/check-portable-dependencies.sh
+        - tests/downstream-host/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
     - command -v wasm-pack >/dev/null || cargo install --locked wasm-pack@0.15.0

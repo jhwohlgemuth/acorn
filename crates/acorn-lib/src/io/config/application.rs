@@ -7,24 +7,38 @@ use crate::exec::manifest::ScriptManifestSource;
 use crate::io::api::gitlab::DeploymentConfig;
 #[cfg(feature = "agentic")]
 use crate::io::api::powerautomate::PowerAutomateConfig;
-use crate::io::api::Endpoint;
-use crate::io::config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails};
-use crate::io::sync::ConfigExt;
-use crate::io::{parse_jsonc_cst, read_file, sync, write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput};
-use crate::util::constants::app::{APPLICATION, DEFAULT_CONFIG_FILENAMES};
-use crate::util::{text_diff_changes_with_color, Label};
-use acorn_core::prelude::{HashMap, HashSet};
-use acorn_core::util::{detect_json, MimeType};
-use acorn_core::validation::ValidationError;
-use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
-use acorn_schema::OneOrMany;
+use crate::{
+    io::{
+        api::Endpoint,
+        config::{Bucket, ModelEntry, RegistryProfile, RunnerDetails},
+        parse_jsonc_cst, read_file, sync,
+        sync::ConfigExt,
+        write_file, ApiResult, CstRootNode, CstValue, FromPath, InputOutput,
+    },
+    util::{
+        constants::app::{APPLICATION, DEFAULT_CONFIG_FILENAMES},
+        text_diff_changes_with_color,
+    },
+};
+use acorn_core::{
+    prelude::{HashMap, HashSet},
+    util::{detect_json, MimeType},
+    validation::ValidationError,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    validation::{is_identifier, Validate, ValidationReport},
+    OneOrMany,
+};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::env;
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 use strum::{Display, EnumIs, EnumString};
 use tracing::{error, info};
 
@@ -418,7 +432,7 @@ impl InputOutput for ApplicationConfiguration {
     }
     /// Read configuration (e.g., `.acorn.json`) using Serde and [`ApplicationConfiguration`] struct
     fn read_json(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
+        let content = match read_file(&path) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
                 error!(
@@ -444,7 +458,7 @@ impl InputOutput for ApplicationConfiguration {
     ///
     /// Supports comments (`//` and `/* */`) and trailing commas.
     fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
+        let content = match read_file(&path) {
             | Ok(value) if !value.is_empty() => value,
             | Ok(_) | Err(_) => {
                 error!(
@@ -459,7 +473,7 @@ impl InputOutput for ApplicationConfiguration {
     }
     /// Read configuration (e.g., `.acorn.yml`) using Serde and [`ApplicationConfiguration`] struct
     fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        let content = match read_file(path.clone()) {
+        let content = match read_file(&path) {
             | Ok(value) => value,
             | Err(_) => {
                 error!(

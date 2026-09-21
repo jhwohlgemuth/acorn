@@ -1,9 +1,11 @@
 //! Schema migration support.
-use crate::analyzer::Standard;
-use crate::error::ApiResult;
-use crate::io::{jsonc_parse_value, read_file, FromPath};
-use crate::util::Label;
+use crate::{
+    analyzer::Standard,
+    error::ApiResult,
+    io::{jsonc_parse_value, read_file, FromPath},
+};
 use acorn_core::util::MimeType;
+use acorn_host::terminal::Label;
 use acorn_schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;

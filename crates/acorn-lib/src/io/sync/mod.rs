@@ -3,27 +3,32 @@
 //! Provides types for the `acorn sync` command, which resolves ACORN model
 //! entries to downloaded GGUF files and merges the corresponding models into
 //! llama-swap, OpenCode, VS Code, and Goose configuration.
-use crate::io::oci::OciReference;
-use crate::io::{
-    command_exists,
-    config::{FilterSet, ModelEntry},
-    files_all, home_directory, write_file, ApiResult, PathConversion, Source,
+use crate::{
+    io::{
+        config::{FilterSet, ModelEntry},
+        files_all, home_directory,
+        oci::OciReference,
+        write_file, ApiResult, PathConversion, Source,
+    },
+    util::{constants::app::DEFAULT_MODELS_DIRECTORY, text_diff_changes_with_color},
 };
-use crate::util::constants::app::DEFAULT_MODELS_DIRECTORY;
-use crate::util::{text_diff_changes_with_color, Label};
+use acorn_cmd::command_exists;
 use acorn_core::options::SyncConfig;
-use acorn_schema::agent::ModelDetails;
-use acorn_schema::validation::Validate;
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::String;
-use alloc::vec::Vec;
+use acorn_host::terminal::Label;
+use acorn_schema::{agent::ModelDetails, validation::Validate};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    vec::Vec,
+};
 use bon::Builder;
 use color_eyre::eyre::eyre;
-use core::fmt;
-use core::ops::ControlFlow;
+use core::{fmt, ops::ControlFlow};
 use owo_colors::OwoColorize;
-use std::fs::{canonicalize, create_dir_all, remove_file, rename};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{canonicalize, create_dir_all, remove_file, rename},
+    path::{Path, PathBuf},
+};
 use tracing::info;
 pub mod goose;
 pub mod llama_swap;

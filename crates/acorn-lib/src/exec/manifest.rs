@@ -1,23 +1,32 @@
-//! Deployment policy for capability-brokered Rhai hooks.
-use crate::io::{jsonc_parse_value, read_file, read_file_snapshot, ApiResult, FromPath, SafePath};
-use crate::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER};
-use acorn_core::prelude::{String, Vec};
-use acorn_core::util::constants::app::{
-    MAX_EXEC_CAPABILITY_CALLS, MAX_EXEC_NETWORK_REQUESTS, MAX_EXEC_OPERATIONS, MAX_EXEC_STRING_SIZE, MAX_EXEC_TOTAL_BYTES,
-    MAX_EXEC_WALL_TIME_MILLISECONDS, SUPPORTED_EXEC_VERSION,
+//! Deployment policy for capability-brokered Rhai hooks
+use crate::{
+    io::{jsonc_parse_value, read_file, read_file_snapshot, ApiResult, FromPath},
+    util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER},
 };
-use acorn_core::util::MimeType;
-use acorn_core::validation::ValidationError;
+use acorn_core::{
+    prelude::{String, Vec},
+    util::{
+        constants::app::{
+            MAX_EXEC_CAPABILITY_CALLS, MAX_EXEC_NETWORK_REQUESTS, MAX_EXEC_OPERATIONS, MAX_EXEC_STRING_SIZE, MAX_EXEC_TOTAL_BYTES,
+            MAX_EXEC_WALL_TIME_MILLISECONDS, SUPPORTED_EXEC_VERSION,
+        },
+        MimeType,
+    },
+    validation::ValidationError,
+};
+use acorn_host::fs::SafePath;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
 use alloc::collections::BTreeMap;
 use color_eyre::eyre::{eyre, Report};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::fs::Metadata;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    fs::Metadata,
+    path::{Path, PathBuf},
+};
 
 /// Current executable-hook manifest schema version.
 pub const SCRIPT_MANIFEST_VERSION: &str = "1.0.0";

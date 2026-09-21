@@ -1,6 +1,6 @@
 use crate::cli::Void;
 use acorn::util::constants::app::{APPLICATION, ORGANIZATION, QUALIFIER, SKILL_CLIPBOARD_PROMPT, SKILL_FILENAME, SKILL_PATH};
-use acorn::util::Label;
+use acorn_host::terminal::Label;
 use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use directories::ProjectDirs;

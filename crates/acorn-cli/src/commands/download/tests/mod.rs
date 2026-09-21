@@ -9,39 +9,58 @@
     clippy::arithmetic_side_effects
 )]
 extern crate alloc;
-use crate::cli::arguments::{DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget};
-use crate::test::server::{
-    spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
-    spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server, spawn_retry_resume_server,
-    spawn_sidecar_server,
+use crate::{
+    cli::arguments::{DownloadModel, Import, ModelResolutionArgs, ModelSourceArgs, ModelSyncArgs, OutputFormat, SyncTarget},
+    test::{
+        server::{
+            spawn_basic_model_config_server, spawn_huggingface_model_info_server, spawn_huggingface_model_search_server,
+            spawn_huggingface_model_unavailable_server, spawn_ignored_range_server, spawn_no_range_server, spawn_range_server,
+            spawn_retry_resume_server, spawn_sidecar_server,
+        },
+        util::{fixture_path, has_any_file, temp_test_dir, TestCleanup},
+    },
 };
-use crate::test::util::{fixture_path, has_any_file, temp_test_dir, TestCleanup};
-use acorn::io::api::huggingface::{
-    Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles,
+use acorn::{
+    io::{
+        api::huggingface::{
+            Downloaded, FileSelectionPolicy, HuggingFaceError, HuggingFaceRepository, HuggingFaceRepositoryFile, HuggingFaceRepositoryFiles,
+        },
+        config::{ApplicationConfiguration, AuthenticationRequirement, ModelEntry},
+        database::{
+            schema::{ActivityRow, Table},
+            Database, Row,
+        },
+        download::{DownloadItem, DownloadItems, DownloadTask},
+        InputOutput, SourceAction,
+    },
+    util::constants::env::{HUGGINGFACE_TOKEN_VARIABLE_NAMES, MODEL_WHITELIST},
 };
-use acorn::io::database::schema::{ActivityRow, Table};
-use acorn::io::database::{Database, Row};
-use acorn::io::download::{DownloadItem, DownloadItems, DownloadTask};
-use acorn::io::{config::ApplicationConfiguration, config::AuthenticationRequirement, config::ModelEntry, InputOutput, SourceAction};
-use acorn::util::constants::env::{HUGGINGFACE_TOKEN_VARIABLE_NAMES, MODEL_WHITELIST};
-use acorn_core::prelude::HashSet;
-use acorn_core::util::{merge, MarkdownSupport};
-use acorn_schema::agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights};
-use acorn_schema::hardware::memory::Memory;
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::OneOrMany;
+use acorn_core::{
+    prelude::HashSet,
+    util::{merge, MarkdownSupport},
+};
+use acorn_schema::{
+    agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights},
+    hardware::memory::Memory,
+    research_activity::ResearchActivity,
+    OneOrMany,
+};
 use alloc::sync::Arc;
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
-use core::sync::atomic::{AtomicUsize, Ordering};
-use core::time::Duration;
-use std::fs::{create_dir_all, read_to_string, write};
-use std::io::{Read, Write};
-use std::net::TcpListener;
-use std::path::PathBuf;
-use std::sync::Mutex;
-use std::thread;
+use core::{
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
+};
+use std::{
+    fs::{create_dir_all, read_to_string, write},
+    io::{Read, Write},
+    net::TcpListener,
+    path::PathBuf,
+    sync::Mutex,
+    thread,
+};
 use temp_env::{with_var, with_vars};
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -2094,7 +2113,7 @@ async fn test_download_task_succeeds_with_real_sha256_sidecar_validation() {
         | Ok(()) => {}
         | Err(why) => panic!("write sidecar seed file failed: {why}"),
     }
-    let digest = acorn::io::file_checksum(sidecar_file.clone(), None)
+    let digest = acorn_host::fs::file_checksum(&sidecar_file, None)
         .expect("checksum should be computed")
         .checksum_value;
     let sidecar_content = format!("{digest}  model.gguf\n");

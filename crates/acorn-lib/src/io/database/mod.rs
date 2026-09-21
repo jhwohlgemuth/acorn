@@ -3,12 +3,15 @@
 //! This module provides database connection helpers guarded by a process-global
 //! mutex so concurrent operations do not race while still respecting per-handle
 //! database paths.
-use crate::io::api::DatabasePersistence;
-use crate::io::ApiResult;
-use crate::util::constants::app::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ORGANIZATION, QUALIFIER};
-use crate::util::constants::env::{CACHE_TTL, DATABASE_PATH};
-use crate::util::Label;
+use crate::{
+    io::{api::DatabasePersistence, ApiResult},
+    util::constants::{
+        app::{APPLICATION, DEFAULT_CACHE_TTL_SECONDS, ORGANIZATION, QUALIFIER},
+        env::{CACHE_TTL, DATABASE_PATH},
+    },
+};
 use acorn_core::util::to_rfc3339;
+use acorn_host::terminal::Label;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use backend::{params, BackendRow, Connection, Params};
@@ -16,10 +19,12 @@ use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 use directories::ProjectDirs;
 use jiff::{SignedDuration, Timestamp};
-use std::env;
-use std::fs::create_dir_all;
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::{
+    env,
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
+};
 use tracing::{debug, info};
 
 pub mod backend;

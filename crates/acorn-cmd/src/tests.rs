@@ -1,13 +1,11 @@
-use crate::args;
-use crate::cmd;
-use crate::io::command_exists;
-use crate::test::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin};
 #[cfg(feature = "shell-lint")]
-use crate::util::cmd::Severity as CmdSeverity;
-use crate::util::cmd::{redact, redact_args};
-#[cfg(feature = "shell-lint")]
-use crate::util::constants::env::SHELL_LINT_MIN_SEVERITY;
-use crate::util::process::CommandOutput;
+use crate::runtime::Severity as CmdSeverity;
+use crate::{
+    command_exists,
+    runtime::{redact, redact_args},
+    tests::utils::{echo_args, echo_bin, exit_args, exit_bin, pwsh_is_healthy, sh_echo, stderr_args, stderr_bin},
+    CommandOutput, CommandSpec,
+};
 #[cfg(feature = "shell-lint")]
 use shuck_linter::{lint, AnalysisRequest, LinterSettings, Severity as LintSeverity, ShellDialect};
 #[cfg(feature = "shell-lint")]
@@ -16,6 +14,70 @@ use std::ffi::OsString;
 #[cfg(feature = "shell-lint")]
 use temp_env::with_vars;
 
+#[cfg(feature = "shell-lint")]
+const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
+mod utils {
+    use crate::CommandOutput;
+
+    pub(crate) fn echo_args(message: &str) -> Vec<String> {
+        match cfg!(unix) {
+            | true => vec![message.to_string()],
+            | false => vec!["/c".into(), "echo".into(), message.into()],
+        }
+    }
+    pub(crate) fn echo_bin() -> &'static str {
+        match cfg!(unix) {
+            | true => "echo",
+            | false => "cmd",
+        }
+    }
+    pub(crate) fn exit_args(code: i32) -> Vec<String> {
+        match cfg!(unix) {
+            | true => vec!["-c".into(), format!("exit {code}")],
+            | false => vec!["/c".into(), format!("exit /b {code}")],
+        }
+    }
+    pub(crate) fn exit_bin() -> &'static str {
+        match cfg!(unix) {
+            | true => "sh",
+            | false => "cmd",
+        }
+    }
+    pub(crate) fn pwsh_is_healthy() -> bool {
+        match crate::command_exists("pwsh") {
+            | false => false,
+            | true => match cmd!(pwsh "Write-Output 'shell-pwsh-health'") {
+                | Ok(output) => {
+                    let stdout = output.stdout();
+                    let stderr = output.stderr();
+                    output.status.success()
+                        && stdout.contains("shell-pwsh-health")
+                        && !stdout.contains("Unhandled exception")
+                        && !stderr.contains("Unhandled exception")
+                }
+                | Err(_) => false,
+            },
+        }
+    }
+    pub(crate) fn sh_echo(message: &str) -> String {
+        match cfg!(unix) {
+            | true => format!("echo {message}"),
+            | false => format!("cmd /c echo {message}"),
+        }
+    }
+    pub(crate) fn stderr_args(message: &str) -> Vec<String> {
+        match cfg!(unix) {
+            | true => vec!["-c".into(), format!("echo {message} >&2")],
+            | false => vec!["/c".into(), format!("echo {message} 1>&2")],
+        }
+    }
+    pub(crate) fn stderr_bin() -> &'static str {
+        match cfg!(unix) {
+            | true => "sh",
+            | false => "cmd",
+        }
+    }
+}
 #[test]
 fn test_redact() {
     let cases: &[(&[&str], &str)] = &[
@@ -510,5 +572,20 @@ mod cmd_macro {
         assert!(status.success());
         let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
         assert!(!status.success());
+    }
+    #[test]
+    fn test_command_spec_checked_output_rejects_failure() {
+        let result = CommandSpec::new(exit_bin()).args(exit_args(42)).checked_output();
+        assert!(result.is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn test_command_spec_timeout_is_bounded() {
+        let started = std::time::Instant::now();
+        let result = CommandSpec::new("sh")
+            .args(["-c", "(sleep 2; echo late) & wait"])
+            .output_with_timeout(core::time::Duration::from_millis(50));
+        assert_eq!(result.expect_err("command should time out").kind(), std::io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < core::time::Duration::from_secs(1));
     }
 }

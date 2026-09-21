@@ -4,10 +4,9 @@
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
 use crate::io::{read_file, write_file};
-use crate::util::Label;
 use acorn_core::util::StringInterpolation;
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::{Notes, Other};
+use acorn_host::terminal::Label;
+use acorn_schema::{research_activity::ResearchActivity, Notes, Other};
 use fancy_regex::Regex;
 use quick_xml::escape::escape;
 use std::path::PathBuf;
@@ -107,7 +106,7 @@ fn escape_xml_text(value: &str) -> String {
 }
 /// Interpolate research activity data into PowerPoint template
 pub fn interpolate_values(path: PathBuf, data: &ResearchActivity) {
-    let updated = match read_file(path.clone()) {
+    let updated = match read_file(&path) {
         | Ok(content) => {
             let caption = data.meta.clone().first_image_caption();
             let achievement = data

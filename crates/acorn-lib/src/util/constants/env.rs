@@ -72,7 +72,5 @@ pub const ROR_SERVER_HOST: &str = "ROR_SERVER_HOST";
 pub const RPC_TOKEN: &str = "ACORN_RPC_TOKEN";
 /// Environment variable used to set the Hugging Face fallback search limit.
 pub const SEARCH_LIMIT: &str = "ACORN_SEARCH_LIMIT";
-/// Environment variable used to set minimum shell-lint severity.
-pub const SHELL_LINT_MIN_SEVERITY: &str = "ACORN_SHELL_LINT_MIN_SEVERITY";
 /// Environment variable used to select the terminal user-interface theme.
 pub const TUI_THEME: &str = "ACORN_TUI_THEME";

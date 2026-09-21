@@ -1,13 +1,16 @@
 use crate::cli::arguments::bot::EventSource;
-use acorn::io::api::gitlab::WebhookOptions;
-use acorn::io::{ContainerTarget, Executor};
-use acorn::util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV};
-use acorn::util::Label;
-use acorn::{args, cmd};
+use acorn::{
+    io::{api::gitlab::WebhookOptions, ContainerTarget, Executor},
+    util::constants::env::{CI_SERVER_HOST, GITLAB_CONTAINER_ENV},
+};
+use acorn_cmd::{args, cmd};
+use acorn_host::terminal::Label;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report, Result};
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 use tracing::{error, info};
 
 #[allow(clippy::too_many_arguments)]

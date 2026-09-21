@@ -7,23 +7,25 @@
 )]
 use ::std::env::temp_dir;
 
-use crate::io::api::{IntoBody, ParamStyle};
-use crate::io::{
-    command_exists, file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, ArchiveCandidate,
-    ArchiveExtraction, FromCommand, FromPath,
+use crate::{
+    io::{
+        api::{IntoBody, ParamStyle},
+        file_name_with_parent, git_branch_name, git_default_branch_name, parent, read_file, to_absolute_string, ArchiveCandidate, ArchiveExtraction,
+        FromCommand, FromPath,
+    },
+    param,
+    util::*,
 };
-use crate::param;
-use crate::util::*;
-use ::std::ffi::OsStr;
-use ::std::path::{Path, PathBuf};
-use acorn_core::util::assets::EmbeddedAssets;
-use acorn_core::util::*;
+use ::std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
+use acorn_cmd::command_exists;
+use acorn_core::util::{assets::EmbeddedAssets, *};
 use proptest::prelude::*;
 #[cfg(test)]
 use similar_asserts::assert_eq;
 
-#[cfg(feature = "cmd")]
-mod cmd;
 mod macros;
 const FIXTURES: &str = "../../tests/fixtures";
 
@@ -604,10 +606,10 @@ fn test_test_command() {
     let nonexistent = "does-not-exist".to_string();
     assert!(!command_exists(nonexistent));
     if cfg!(target_os = "windows") {
-        assert!(command_exists("cmd".to_string()));
+        assert!(command_exists("cmd"));
     } else {
         assert!(command_exists("ls"));
-        assert!(command_exists("cargo".to_string()));
+        assert!(command_exists("cargo"));
     }
 }
 #[test]

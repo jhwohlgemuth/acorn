@@ -1,17 +1,19 @@
 use crate::assets::{Image, DRAFT_PLACEHOLDER_ASSET};
-use acorn::io::ApiResult;
-use acorn::util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER};
-use acorn::util::Label;
+use acorn::{
+    io::ApiResult,
+    util::constants::app::{BASE_URL, COLOR_PRIMARY, COLOR_TRANSPARENT, DISCLAIMER},
+};
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::ContactPoint;
+use acorn_host::terminal::Label;
+use acorn_schema::{research_activity::ResearchActivity, ContactPoint};
 use color_eyre::eyre::eyre;
 use core::str::from_utf8;
 use data_encoding::BASE64;
 use derive_more::Display;
-use fast_qr::convert::image::ImageBuilder;
-use fast_qr::convert::{Builder, Shape};
-use fast_qr::qr::QRBuilder;
+use fast_qr::{
+    convert::{image::ImageBuilder, Builder, Shape},
+    qr::QRBuilder,
+};
 use percy_dom::prelude::{html, IterableNodes, VirtualNode};
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;

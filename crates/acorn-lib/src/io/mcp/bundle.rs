@@ -1,16 +1,21 @@
 //! Deterministic MCP Bundle planning, creation, and inspection.
 use super::{ToolCallContext, ToolRegistry};
-use crate::error::ApiResult;
-use crate::io::{file_checksum, CommandTemplate, DeterministicZipEntry, Platform, SafePath};
-use crate::util::constants::app::{APPLICATION, MCPB_MANIFEST_VERSION, MCPB_SPEC_REVISION, ORGANIZATION, QUALIFIER};
+use crate::{
+    error::ApiResult,
+    io::{CommandTemplate, DeterministicZipEntry, Platform},
+    util::constants::app::{APPLICATION, MCPB_MANIFEST_VERSION, MCPB_SPEC_REVISION, ORGANIZATION, QUALIFIER},
+};
 use acorn_core::prelude::{String, Vec};
+use acorn_host::fs::{file_checksum, SafePath};
 use alloc::collections::{BTreeMap, BTreeSet};
 use color_eyre::eyre::{eyre, Report};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use std::fs::{remove_file, rename, File};
-use std::io::{ErrorKind, Read};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{remove_file, rename, File},
+    io::{ErrorKind, Read},
+    path::{Path, PathBuf},
+};
 use zip::ZipArchive;
 
 #[derive(Debug)]
@@ -300,7 +305,7 @@ impl TryFrom<BundlePlan> for BundleReport {
                         .and_then(|metadata| {
                             file_checksum(&plan.output, None)
                                 .map(|value| value.to_string().to_ascii_lowercase())
-                                .ok_or_else(|| eyre!("Failed to checksum MCPB output"))
+                                .map_err(Into::<color_eyre::Report>::into)
                                 .map(|sha256| Self {
                                     output: plan.output,
                                     manifest: plan.manifest,

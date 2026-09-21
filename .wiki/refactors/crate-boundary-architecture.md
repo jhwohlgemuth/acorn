@@ -4,7 +4,7 @@ title: "Split ACORN along layered crate boundaries"
 description: "Decompose acorn-lib into portable domain crates, capability adapters, and application services with explicit ownership."
 difficulty: high
 impact: critical
-package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd, acorn-cmd-macros]
+package: [workspace, acorn-lib, acorn-core, acorn-schema, acorn-analysis, acorn-api, acorn-store, acorn-export, acorn-host, acorn-wasm, acorn-service, acorn-cmd]
 tags: [refactor, architecture, crate-extraction, portability, dependencies]
 status: in-progress
 ---
@@ -75,11 +75,10 @@ crates/
 ├── acorn-api        (planned)
 ├── acorn-store      (planned)
 ├── acorn-export     (planned)
-├── acorn-host       (planned)
+├── acorn-host
 ├── acorn-wasm
 ├── acorn-service    (planned)
-├── acorn-cmd        (planned)
-└── acorn-cmd-macros (planned)
+└── acorn-cmd
 ```
 
 Workspace-wide support projects that are not published ACORN product crates, including `xtask` and `fuzz`, remain top-level directories. Tests, documentation, notebooks, scripts, and fixtures also remain rooted outside `crates/` and must be addressed through explicit workspace-relative paths.
@@ -95,8 +94,7 @@ Workspace-wide support projects that are not published ACORN product crates, inc
 | `acorn-host` | Native filesystem and source handling, native HTTP transport, document conversion, process execution, downloads, synchronization, doctor checks, and concrete analysis/export adapters | Browser adapters, domain policy, or multi-service orchestration |
 | `acorn-wasm` | `wasm-bindgen` integration, JS-facing DTO conversion, and future browser adapters and composition | Native filesystem/process assumptions or portable domain policy |
 | `acorn-service` | Artifact discovery, analysis use cases, GitLab bot/webhook/intake flows, MCP/server workflows, and orchestration over injected port traits | Concrete host, browser, provider transport, or database implementations |
-| `acorn-cmd` | Command construction and execution helpers plus the public command macro surface | General-purpose ACORN utilities |
-| `acorn-cmd-macros` | Compile-time parsing and expansion for command literals | Runtime execution, schemas, validation, or unrelated derives |
+| `acorn-cmd` | Command construction and execution helpers plus the public command macro surface; command-word parsing is isolated inside `acorn-macros` | General-purpose ACORN utilities |
 | `acorn-lib` | Host implementations awaiting extraction and ACORN-specific host extensions | Portable domains, schemas, or re-exports that conceal another crate's ownership |
 
 Individual schemas, providers, commands, doctor checks, and generic utility collections do not become separate crates. They remain modules within the package that owns their policy.
@@ -110,7 +108,7 @@ Individual schemas, providers, commands, doctor checks, and generic utility coll
 # Plan dependencies
 
 - **Satisfied prerequisite:** the [portability roadmap](portability/roadmap.md) now proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; [acorn-cmd extraction](acorn-cmd-extraction.md) prepares `acorn-cmd`.
+- **Boundary inputs:** analyzer plans first prove an in-tree portable kernel; the [API roadmap](api/roadmap.md) prepares `acorn-api`; export context/interpolation/OOXML plans prepare `acorn-export`; the `acorn-cmd` and initial `acorn-host` boundaries are implemented.
 - **Downstream:** [host traits](portability/host-abstraction-traits.md), [WASM](portability/wasm-feature-path.md), and [portable CI](portability/no-std-wasm-ci.md) expand as packages appear.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).
 
@@ -134,9 +132,9 @@ This architecture plan is coordination-only except when a named migration phase 
 
 # Current migration sequence
 
-## 1. Prove analysis isolation in-tree; extract acorn-cmd independently
+## 1. Prove analysis isolation in-tree; use the extracted command boundary
 
-Within `acorn-lib`, separate checks, scoring, summaries, readability, and validation folds from path traversal, Vale execution, HTTP link checking, document loading, rendering, database discovery, and filesystem handling. Require the model/calculation subset to compile under an alloc-only feature before scheduling `acorn-analysis`. Keep host code concrete during this phase; introduce no generic host trait family. Extract `acorn-cmd` independently after its command contracts stabilize.
+Within `acorn-lib`, separate checks, scoring, summaries, readability, and validation folds from path traversal, Vale execution, HTTP link checking, document loading, rendering, database discovery, and filesystem handling. Require the model/calculation subset to compile under an alloc-only feature before scheduling `acorn-analysis`. Keep host code concrete during this phase; introduce no generic host trait family. Command consumers depend on the implemented `acorn-cmd` boundary directly.
 
 ## 2. Stabilize protocol and export boundaries
 
@@ -144,7 +142,7 @@ Keep endpoint, authentication, request, response, and provider protocol mechanic
 
 ## 3. Extract adapters
 
-Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move native operations and concrete native port implementations into `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
+Extract provider protocol logic into `acorn-api`, persistence into `acorn-store`, and renderers into `acorn-export`. Move remaining native operations and concrete native port implementations into the existing feature-gated `acorn-host`. Extend the minimal `acorn-wasm` bindings with target-specific browser adapters only as service ports stabilize. Split one capability at a time and keep every intermediate workspace state buildable.
 
 ## 4. Extract application services
 
@@ -189,7 +187,6 @@ Migrate first-party interfaces to direct dependencies, then remove extracted imp
 # Related plans
 
 - [Refactor initiative](initiative.md)
-- [Extract acorn-cmd](acorn-cmd-extraction.md)
 - [Portability roadmap](portability/roadmap.md)
 - [Host abstraction traits](portability/host-abstraction-traits.md)
 - [WASM feature path](portability/wasm-feature-path.md)

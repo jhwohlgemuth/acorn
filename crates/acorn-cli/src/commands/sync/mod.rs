@@ -1,12 +1,13 @@
 use crate::cli::{arguments, Void};
-use acorn::io::config::{ApplicationConfiguration, ModelEntry};
-use acorn::io::sync::{self, Config, ConfigExt};
-use acorn::io::ModelSelectorsExt;
-use acorn::util::Label;
+use acorn::io::{
+    config::{ApplicationConfiguration, ModelEntry},
+    sync::{self, Config, ConfigExt},
+    ModelSelectorsExt,
+};
+use acorn_host::terminal::Label;
 use acorn_schema::agent::ModelSelectors;
 use color_eyre::eyre::eyre;
-use std::env::current_exe;
-use std::path::PathBuf;
+use std::{env::current_exe, path::PathBuf};
 use tracing::info;
 
 impl From<&arguments::Sync> for sync::goose::Config {

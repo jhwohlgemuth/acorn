@@ -6,19 +6,21 @@
 pub mod application;
 pub mod bucket;
 pub mod transfer;
-use crate::io::api;
-use crate::io::database::schema::ModelRow;
-use crate::io::database::{resolve_database_path, Row};
-use crate::io::sync;
-use crate::io::{ApiResult, Executor, Remote};
-use crate::util::constants::app::IGNORE;
-use crate::util::Label;
-use acorn_core::prelude::HashSet;
-use acorn_core::validation::ValidationError;
-use acorn_core::{Location, Repository};
-use acorn_schema::agent::{ModelDetails, Quantization};
-use acorn_schema::hardware::memory::Memory;
-use acorn_schema::validation::{Validate, ValidationReport};
+use crate::{
+    io::{
+        api,
+        database::{resolve_database_path, schema::ModelRow, Row},
+        sync, ApiResult, Executor, Remote,
+    },
+    util::constants::app::IGNORE,
+};
+use acorn_core::{prelude::HashSet, validation::ValidationError, Location, Repository};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    agent::{ModelDetails, Quantization},
+    hardware::memory::Memory,
+    validation::{Validate, ValidationReport},
+};
 pub use application::{ApplicationConfiguration, WhitelistLookup};
 use bon::Builder;
 pub use bucket::{Bucket, BucketExtension, BucketOptions, Buckets};
@@ -28,8 +30,10 @@ use derive_more::Display;
 use fancy_regex::Regex;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use serde::de::{Error as _, MapAccess, Visitor};
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{Error as _, MapAccess, Visitor},
+    Deserialize, Serialize,
+};
 use serde_with::skip_serializing_none;
 use std::path::PathBuf;
 use strum::EnumIs;

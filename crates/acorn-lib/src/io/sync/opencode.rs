@@ -4,21 +4,28 @@
 //! a custom provider entry that points to the local llama-swap instance.
 //! Each model is registered as a keyed entry in the provider's model map.
 use super::{McpSync, Options, RenderedOutput, SyncTarget};
-use crate::io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion};
-use crate::util::constants::app::{APPLICATION, DEFAULT_OPENCODE_CONFIG_PATH};
+use crate::{
+    io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion},
+    util::constants::app::{APPLICATION, DEFAULT_OPENCODE_CONFIG_PATH},
+};
 use acorn_core::options::{SyncInner, TargetConfig};
-use acorn_schema::agent::opencode::{self, McpConfig, McpLocalConfig};
-use acorn_schema::validation::Validate;
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::String;
-use alloc::string::ToString;
+use acorn_schema::{
+    agent::opencode::{self, McpConfig, McpLocalConfig},
+    validation::Validate,
+};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::{String, ToString},
+};
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-use std::env::current_dir;
-use std::path::{Path, PathBuf};
+use std::{
+    env::current_dir,
+    path::{Path, PathBuf},
+};
 
 /// Configuration for synchronizing models into OpenCode.
 pub type Config = TargetConfig<Inner>;

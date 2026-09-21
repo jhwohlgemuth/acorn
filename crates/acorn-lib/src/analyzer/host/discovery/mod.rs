@@ -1,26 +1,38 @@
 //! Artifact discovery, resolution, persistence, and grouping helpers.
-use super::context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions};
-use super::render::{Render, RenderContext};
-use super::runtime::{LinkEvidence, LinkOutcome};
-use super::service::analyze_paths;
-use crate::analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard};
-use crate::check_err;
-use crate::io::api::citeas::ToCitations;
-use crate::io::api::{self, Configuration};
-use crate::io::database::schema::{IdentifierRow, Table};
-use crate::io::database::{CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate};
-use crate::io::document::SourceDocument;
-use crate::io::{standard_project_folder, write_file, ApiResult};
-use crate::util::{values_as_table, Label, StringConversion};
-use crate::LocationExt;
+use super::{
+    context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
+    render::{Render, RenderContext},
+    runtime::{LinkEvidence, LinkOutcome},
+    service::analyze_paths,
+};
 #[cfg(feature = "agentic")]
 use crate::RepositoryExt;
-use acorn_core::options::{CommonRuntime, RuntimeOptions};
-use acorn_core::util::merge_unique;
-use acorn_core::{Location, Repository};
-use acorn_schema::discovery::{RemoteEntity, RemoteOrganizationRole};
-use acorn_schema::pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID};
-use acorn_schema::{ControlledVocabulary, Keyword};
+use crate::{
+    analyzer::check::{Check, CheckBatch, CheckCategory, CheckSeverity, OutputFormat, Standard},
+    check_err,
+    io::{
+        api::{self, citeas::ToCitations, Configuration},
+        database::{
+            schema::{IdentifierRow, Table},
+            CandidateAction, CandidatePersistence, Database, Operations, Provenance, ResearchActivityCandidate,
+        },
+        document::SourceDocument,
+        standard_project_folder, write_file, ApiResult,
+    },
+    util::{values_as_table, StringConversion},
+    LocationExt,
+};
+use acorn_core::{
+    options::{CommonRuntime, RuntimeOptions},
+    util::merge_unique,
+    Location, Repository,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    discovery::{RemoteEntity, RemoteOrganizationRole},
+    pid::{self, Arxiv, Handle, Identifier, PersistentIdentifierParse, DOI, PID, SWHID},
+    ControlledVocabulary, Keyword,
+};
 use alloc::collections::{BTreeMap, BTreeSet};
 use bon::Builder;
 use color_eyre::eyre::Report as EyreReport;
@@ -30,9 +42,11 @@ use itertools::Itertools;
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use std::env::temp_dir;
-use std::io::{self, IsTerminal};
-use std::path::PathBuf;
+use std::{
+    env::temp_dir,
+    io::{self, IsTerminal},
+    path::PathBuf,
+};
 use strum::{IntoEnumIterator, VariantNames};
 use tracing::warn;
 

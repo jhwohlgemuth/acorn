@@ -1,9 +1,8 @@
 //! SWHID calculation command.
 
-use crate::cli::arguments;
-use crate::cli::Void;
+use crate::cli::{arguments, Void};
 use acorn::io::swhid::calculate;
-use acorn::util::Label;
+use acorn_host::terminal::Label;
 use acorn_schema::pid::SWHID;
 use color_eyre::eyre::eyre;
 use core::str::FromStr;

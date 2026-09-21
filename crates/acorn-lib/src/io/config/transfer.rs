@@ -1,22 +1,28 @@
 //! Transfer primitives for bucket synchronization
 //!
 //! Contains `TransferManifest`, `TransferItem`, `TransferPolicy` and associated helpers.
-use crate::io::adapter::migrate::Migration;
-use crate::io::config::bucket::{BucketExtension, BucketOptions};
-use crate::io::database::schema::Table;
-use crate::io::database::{Database, Provenance, ResearchActivityCandidate};
-use crate::io::{read_file, with_progress, ApiResult, FromPath, InputOutput, ProgressType};
-use crate::util::constants::app::SUPPORTED_RAD_FILETYPES;
-use crate::util::{is_filetype, Label};
-use acorn_core::options::{CommonRuntime, RuntimeOptions};
-use acorn_core::prelude::HashMap;
-use acorn_core::util::{suffix, MimeType};
-use acorn_core::Repository;
-use acorn_schema::pid::{Identifier, PID};
-use acorn_schema::research_activity::ResearchActivity;
+use crate::{
+    io::{
+        adapter::migrate::Migration,
+        config::bucket::{BucketExtension, BucketOptions},
+        database::{schema::Table, Database, Provenance, ResearchActivityCandidate},
+        read_file, with_progress, ApiResult, FromPath, InputOutput, ProgressType,
+    },
+    util::{constants::app::SUPPORTED_RAD_FILETYPES, is_filetype},
+};
+use acorn_core::{
+    options::{CommonRuntime, RuntimeOptions},
+    prelude::HashMap,
+    util::{suffix, MimeType},
+    Repository,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    pid::{Identifier, PID},
+    research_activity::ResearchActivity,
+};
 use color_eyre::eyre::{eyre, Report};
-use core::future::Future;
-use core::iter::once;
+use core::{future::Future, iter::once};
 use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use std::path::{Component, Path, PathBuf};

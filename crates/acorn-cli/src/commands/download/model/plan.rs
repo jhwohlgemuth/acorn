@@ -1,28 +1,40 @@
 //! Model download planning, resolution, and metadata filtering.
 use super::{download_remote_model, materialize_local_model};
 use crate::cli::CommandOptions;
-use acorn::io::api::harbor::{self, Artifact as HarborArtifact, Options as HarborOptions};
-use acorn::io::api::huggingface::{
-    self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, HuggingFaceWeightsExt, ModelDetailsExt, ModelInfoExtension,
-    RepositoryResolution,
+use acorn::{
+    io::{
+        api::{
+            harbor::{self, Artifact as HarborArtifact, Options as HarborOptions},
+            huggingface::{
+                self, CandidateSelection, Downloaded, HuggingFaceError, HuggingFaceRepository, HuggingFaceWeightsExt, ModelDetailsExt,
+                ModelInfoExtension, RepositoryResolution,
+            },
+            models_dev,
+        },
+        config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions, RegistryKind, RegistryProfile},
+        database::{schema::ModelRow, Row},
+        first_env_var,
+        oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport},
+        ApiResult, Source, SourceAction,
+    },
+    util::{
+        constants::{app::DEFAULT_HUGGINGFACE_MODEL_REVISION, oci::OCI_PREFIX},
+        StringConversion,
+    },
 };
-use acorn::io::api::models_dev;
-use acorn::io::config::{AuthenticationRequirement, FilterSet, ModelEntry, ModelEntryOptions, RegistryKind, RegistryProfile};
-use acorn::io::database::schema::ModelRow;
-use acorn::io::database::Row;
-use acorn::io::oci::{OciFile, OciReference, OciReferenceValue, OciResolution, OciTransport, OciTransportOptions, OrasTransport};
-use acorn::io::{first_env_var, ApiResult, Source, SourceAction};
-use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MODEL_REVISION;
-use acorn::util::constants::oci::OCI_PREFIX;
-use acorn::util::{Label, StringConversion};
-use acorn_core::prelude::{HashMap, HashSet, String, Vec};
-use acorn_core::util::{merge, MimeType};
-use acorn_core::{Location, Repository};
-use acorn_schema::agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, Weight, WeightGroups, Weights};
-use acorn_schema::hardware::memory::Memory;
-use acorn_schema::oci::{self, ModelExtraction, ModelFile, ModelLayer, ModelLayerRole};
-use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
-use acorn_schema::OneOrMany;
+use acorn_core::{
+    prelude::{HashMap, HashSet, String, Vec},
+    util::{merge, MimeType},
+    Location, Repository,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    agent::{ModelDetails, ModelSelector, ModelSelectors, Quantization, Weight, WeightGroups, Weights},
+    hardware::memory::Memory,
+    oci::{self, ModelExtraction, ModelFile, ModelLayer, ModelLayerRole},
+    util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN,
+    OneOrMany,
+};
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
 use core::fmt;
@@ -31,10 +43,12 @@ use futures::{future::join_all, stream, StreamExt};
 use is_terminal::IsTerminal;
 use itertools::Itertools;
 use owo_colors::OwoColorize;
-use std::fs::create_dir_all;
 #[cfg(feature = "tui")]
 use std::io;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+};
 use tracing::{error, info, warn};
 
 #[derive(Clone, Debug)]

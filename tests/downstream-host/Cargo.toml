@@ -1,0 +1,10 @@
+[package]
+name = "acorn-downstream-host-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+acorn-core = { path = "../../crates/acorn-core", default-features = false, features = ["alloc"] }
+acorn-host = { path = "../../crates/acorn-host", default-features = false, features = ["config", "download", "fs", "http", "source", "terminal"] }
+renamed-command = { package = "acorn-cmd", path = "../../crates/acorn-cmd", default-features = false }

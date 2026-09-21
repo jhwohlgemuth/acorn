@@ -1,32 +1,46 @@
-use crate::cli::arguments::{ArchiveType, FileFormat, Target};
-use crate::cli::parse::infer_standard_from_content;
-use crate::cli::{resolve_paths, CommandOptions};
-use crate::commands::preflight;
-use acorn::analyzer::{Check, CheckCategory, CheckSummary, IntoChecks, Standard};
-use acorn::io::bagit::{Bag, BagInfo, Save};
+use crate::{
+    cli::{
+        arguments::{ArchiveType, FileFormat, Target},
+        parse::infer_standard_from_content,
+        resolve_paths, CommandOptions,
+    },
+    commands::preflight,
+};
 #[cfg(feature = "chart")]
 use acorn::io::chart::ChartOptions;
-use acorn::io::current_date;
-use acorn::io::sidecar;
-use acorn::io::{create_progress_bar, finish_progress_bar, folder_size, read_file, with_progress, write_file, FromPath, InputOutput, ProgressType};
-use acorn::io::{ApiFuture, ApiResult};
-use acorn::util::{print_values_as_table, Label, StringConversion};
-use acorn::{fail, skip};
+use acorn::{
+    analyzer::{Check, CheckCategory, CheckSummary, IntoChecks, Standard},
+    fail,
+    io::{
+        bagit::{Bag, BagInfo, Save},
+        create_progress_bar, current_date, finish_progress_bar, folder_size, sidecar, with_progress, write_file, ApiFuture, ApiResult, FromPath,
+        InputOutput, ProgressType,
+    },
+    skip,
+    util::{print_values_as_table, StringConversion},
+};
 #[cfg(not(feature = "chart"))]
 use acorn_core::prelude::HashMap;
-use acorn_core::prelude::{Arc, HashSet};
-use acorn_core::util::{format_bytes, regex_join, suffix, MimeType};
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::crosswalk::{Conversion, CrosswalkError};
+use acorn_core::{
+    prelude::{Arc, HashSet},
+    util::{format_bytes, regex_join, suffix, MimeType},
+};
+use acorn_host::{fs::read_text, terminal::Label};
+use acorn_schema::{
+    research_activity::ResearchActivity,
+    standard::crosswalk::{Conversion, CrosswalkError},
+};
 use bon::Builder;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use nanoid::nanoid;
 use owo_colors::OwoColorize;
-use std::fs::{create_dir_all, remove_dir_all, remove_file, rename};
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::{
+    fs::{create_dir_all, remove_dir_all, remove_file, rename},
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use tracing::{debug, info};
 
 #[cfg(feature = "pdf")]
@@ -334,7 +348,7 @@ fn crosswalk_item(
     format: &FileFormat,
     skip_crosswalk: bool,
 ) -> Result<Conversion<String>, CrosswalkError> {
-    read_file(item.to_path_buf())
+    read_text(item)
         .map_err(|error| CrosswalkError::ParseFailed(error.to_string()))
         .and_then(|content| {
             let mime = MimeType::from_path(item);

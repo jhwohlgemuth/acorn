@@ -1,6 +1,7 @@
 //! Managed subprocess sidecars
-use crate::io::{make_executable, read_file, verify_checksum, write_file, ApiResult, InputOutput};
+use crate::io::{read_file, verify_checksum, write_file, ApiResult, InputOutput};
 use acorn_core::prelude::{canonicalize, Component, Path, PathBuf, String};
+use acorn_host::fs::make_executable;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
 use serde::{Deserialize, Serialize};
@@ -80,9 +81,10 @@ impl ModelKitManifest {
         match (self.schema_version, has_revision, matches_platform) {
             | (1, true, true) => resolve_relative(root, &self.runner, sidecar)
                 .and_then(|runner| verify_checksum(&runner, &self.runner_sha256, None).map(|()| runner))
-                .and_then(|runner| match make_executable(&runner) {
-                    | true => Ok(runner),
-                    | false => Err(eyre!("{sidecar} ModelKit runner is not executable — {}", runner.display())),
+                .and_then(|runner| {
+                    make_executable(&runner)
+                        .map(|()| runner)
+                        .map_err(|why| eyre!("{sidecar} ModelKit runner is not executable — {why}"))
                 })
                 .and_then(|runner| {
                     self.tools

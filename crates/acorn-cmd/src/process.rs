@@ -1,5 +1,4 @@
 //! Process output utilities
-use acorn_core::prelude::{format, String, ToString};
 use std::process::Output;
 
 /// Extension trait for extracting strings from process output

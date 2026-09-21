@@ -1,28 +1,33 @@
 //! Open Container Initiative (OCI) model artifact references, manifests, and ORAS-backed transport
-use crate::args;
-use crate::io::adapter::KitfileExt;
-use crate::io::api;
-use crate::io::config::RegistryProfile;
-use crate::io::gguf;
-use crate::io::{extract, file_checksum, move_file, retry, walk, ApiResult, FromCommand, PathExt, SafePath};
-use crate::util::cmd::{redact, run_output, run_output_with_stdin};
-use crate::util::constants::oci::{
-    ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP,
-    KITOPS_MODELKIT_MODEL_PART_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CODE_RAW, MODELPACK_CODE_TAR, MODELPACK_CODE_TAR_GZIP, MODELPACK_CODE_TAR_ZSTD,
-    MODELPACK_CONFIG, MODELPACK_DATASET_RAW, MODELPACK_DATASET_TAR, MODELPACK_DATASET_TAR_GZIP, MODELPACK_DATASET_TAR_ZSTD, MODELPACK_DOC_RAW,
-    MODELPACK_DOC_TAR, MODELPACK_DOC_TAR_GZIP, MODELPACK_DOC_TAR_ZSTD, MODELPACK_MANIFEST, MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR,
-    MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD, MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP,
-    MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_INDEX, OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX,
-    ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS,
+use crate::{
+    io::{adapter::KitfileExt, api, config::RegistryProfile, extract, gguf, move_file, retry, walk, ApiResult, FromCommand, PathExt},
+    util::constants::oci::{
+        ACORN_MODEL_LAYER, DOCKER_IMAGE_CONFIG, DOCKER_MANIFEST_LIST, KITOPS_MODELKIT_CONFIG, KITOPS_MODELKIT_MCPB_RAW, KITOPS_MODELKIT_MODEL_GZIP,
+        KITOPS_MODELKIT_MODEL_PART_GZIP, MINIMUM_ORAS_VERSION, MODELPACK_CODE_RAW, MODELPACK_CODE_TAR, MODELPACK_CODE_TAR_GZIP,
+        MODELPACK_CODE_TAR_ZSTD, MODELPACK_CONFIG, MODELPACK_DATASET_RAW, MODELPACK_DATASET_TAR, MODELPACK_DATASET_TAR_GZIP,
+        MODELPACK_DATASET_TAR_ZSTD, MODELPACK_DOC_RAW, MODELPACK_DOC_TAR, MODELPACK_DOC_TAR_GZIP, MODELPACK_DOC_TAR_ZSTD, MODELPACK_MANIFEST,
+        MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
+        MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD, OCI_IMAGE_CONFIG, OCI_IMAGE_INDEX,
+        OCI_IMAGE_MANIFEST, OCI_LAYER, OCI_LAYER_GZIP, OCI_PREFIX, ORAS_EXECUTABLE_BUSY_RETRY_DELAYS_MILLISECONDS,
+    },
 };
-use acorn_core::prelude::{HashMap, HashSet, String, ToString, Vec};
-use acorn_core::util::{MimeType, SemanticVersion};
-use acorn_core::validation::ValidationError;
-use acorn_core::Location;
-use acorn_schema::agent::Quantization;
-use acorn_schema::modelkit::kitfile::Kitfile;
-use acorn_schema::oci::{ModelArtifactKind, ModelInventoryStatus, ModelLayerRole, ModelPackConfig, ModelPackFileMetadata};
-use acorn_schema::validation::{rules, IntoValidationReport, Validate, ValidationReport};
+use acorn_cmd::{
+    args,
+    runtime::{redact, run_output, run_output_with_stdin},
+};
+use acorn_core::{
+    prelude::{HashMap, HashSet, String, ToString, Vec},
+    util::{MimeType, SemanticVersion},
+    validation::ValidationError,
+    Location,
+};
+use acorn_host::fs::{file_checksum, SafePath};
+use acorn_schema::{
+    agent::Quantization,
+    modelkit::kitfile::Kitfile,
+    oci::{ModelArtifactKind, ModelInventoryStatus, ModelLayerRole, ModelPackConfig, ModelPackFileMetadata},
+    validation::{rules, IntoValidationReport, Validate, ValidationReport},
+};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -30,11 +35,13 @@ use data_encoding::HEXLOWER;
 use ring::digest::{digest, SHA256};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::ffi::OsString;
-use std::fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, rename};
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    ffi::OsString,
+    fs::{self, create_dir, create_dir_all, remove_dir_all, remove_file, rename},
+    io::ErrorKind,
+    path::{Path, PathBuf},
+};
 
 /// Narrow content-transfer boundary for OCI artifact planning and pulling.
 pub trait OciTransport {
@@ -554,9 +561,11 @@ impl OciLayer {
                 let expected = self.digest.strip_prefix("sha256:").unwrap_or_default();
                 file_checksum(path, None)
                     .map(|checksum| checksum.to_string())
-                    .filter(|actual| actual == expected)
-                    .map(|_| ())
-                    .ok_or_else(|| eyre!("OCI blob {} digest mismatch", self.digest))
+                    .map_err(Into::<color_eyre::Report>::into)
+                    .and_then(|actual| match actual == expected {
+                        | true => Ok(()),
+                        | false => Err(eyre!("OCI blob {} digest mismatch", self.digest)),
+                    })
             })
             .map(|()| self)
     }

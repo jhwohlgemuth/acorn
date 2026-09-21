@@ -1,19 +1,23 @@
 //! File download utilities
-use crate::io::api::huggingface;
-use crate::io::{apply_progress_style, create_progress_bar, file_checksum, finish_progress_bar, http, slice_path, ApiResult, ProgressType, SafePath};
-use crate::util::constants::{app::DISPLAY_PATH_CHARACTER_COUNT, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES};
-use crate::util::Label;
+use crate::{
+    io::{api::huggingface, apply_progress_style, create_progress_bar, finish_progress_bar, http, slice_path, ApiResult, ProgressType},
+    util::constants::{app::DISPLAY_PATH_CHARACTER_COUNT, env::HUGGINGFACE_TOKEN_VARIABLE_NAMES},
+};
 use ::http::HeaderMap;
 use acorn_core::prelude::Vec;
+use acorn_host::{
+    fs::{file_checksum, SafePath},
+    terminal::Label,
+};
 use acorn_schema::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use fluent_uri::Uri;
-use futures::future::join_all;
-use futures::{stream, StreamExt};
-use std::fs::rename;
-use std::fs::{create_dir_all, remove_file};
-use std::path::{Path, PathBuf};
+use futures::{future::join_all, stream, StreamExt};
+use std::{
+    fs::{create_dir_all, remove_file, rename},
+    path::{Path, PathBuf},
+};
 use tracing::info;
 
 /// A single downloadable file with URL, path, expected size, and optional SHA-256 checksum.
@@ -147,14 +151,17 @@ impl DownloadItem {
     /// Verifies the SHA-256 checksum of the downloaded file.
     pub fn verify_checksum(&self, path: &Path, skip_verify_checksum: bool) -> ApiResult<()> {
         match (skip_verify_checksum, self.sha.as_ref()) {
-            | (false, Some(expected)) => match file_checksum(path.to_path_buf(), None) {
-                | Some(actual) if actual.checksum_value.eq_ignore_ascii_case(expected) => Ok(()),
-                | Some(actual) => Err(eyre!(
+            | (false, Some(expected)) => match file_checksum(path, None) {
+                | Ok(actual) if actual.checksum_value.eq_ignore_ascii_case(expected) => Ok(()),
+                | Ok(actual) => Err(eyre!(
                     "Model download is incomplete (checksum mismatch for {} (expected {expected}, got {}))",
                     self.path,
                     actual.checksum_value
                 )),
-                | None => Err(eyre!("Model download is incomplete (failed to compute SHA-256 for {})", self.path)),
+                | Err(why) => Err(eyre!(
+                    "Model download is incomplete (failed to compute SHA-256 for {}) — {why}",
+                    self.path
+                )),
             },
             | _ => Ok(()),
         }

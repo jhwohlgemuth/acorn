@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/acorn-cli", "crates/acorn-core", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-tui", "crates/acorn-wasm", "xtask"]
+members = ["crates/acorn-cli", "crates/acorn-cmd", "crates/acorn-core", "crates/acorn-host", "crates/acorn-lib", "crates/acorn-macros", "crates/acorn-schema", "crates/acorn-tui", "crates/acorn-wasm", "tests/downstream-host", "xtask"]
 resolver = "2"
 
 [workspace.package]
@@ -99,6 +99,7 @@ sophia = { version = "0.9.0", default-features = false }
 strum = { version = "0.28.0", features = ["derive"], default-features = false }
 swhid = { version = "0.2.2", default-features = false }
 tokio = { version = "1.48.0", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
 tonic = { version = "=0.14.6", features = [
   "channel",
   "codegen",

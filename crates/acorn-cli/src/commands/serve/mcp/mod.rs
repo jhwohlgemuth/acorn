@@ -1,7 +1,5 @@
-use acorn::io::mcp;
-use acorn::io::{ContainerTarget, Executor};
-use acorn::util::cmd::command_string;
-use acorn::{args, cmd};
+use acorn::io::{mcp, ContainerTarget, Executor};
+use acorn_cmd::{args, cmd, runtime::command_string};
 use color_eyre::eyre::{eyre, Report, Result};
 use std::path::PathBuf;
 

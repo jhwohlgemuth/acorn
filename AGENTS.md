@@ -21,7 +21,7 @@ When assigned a task:
    - Update ARCHITECTURE.md if major structural change
 
 3. **Does it involve CLI output?**
-   - YES → Use `Label::*()` methods from `crates/acorn-lib/src/util/mod.rs` for consistent coloring
+   - YES → Use `Label::*()` methods from `crates/acorn-host/src/terminal.rs` for consistent coloring
    - Use `owo_colors` for additional styling
    - Test with `-vvv` or `-vvvv` verbose flags
 
@@ -205,7 +205,7 @@ Before submitting changes, verify:
 - [ ] No intra-doc link errors (workspace forbids `broken-intra-doc-links`)
 - [ ] Serde: Used `#[serde(deny_unknown_fields)]` for new public structs where appropriate
 - [ ] Validation: Added appropriate `#[validate(...)]` attributes from `validator` crate
-- [ ] CLI output: Uses `Label::*()` from `acorn::util` for consistent styling
+- [ ] CLI output: Uses `Label::*()` from `acorn_host::terminal` for consistent styling
 - [ ] No new clippy warnings: `cargo clippy --workspace --no-deps --all-targets`
 - [ ] Coverage not decreased: `make cover` (if applicable)
 
@@ -263,16 +263,23 @@ fn read_json(path: PathBuf) -> ApiResult<MySchema> {
 ## Project Structure
 
 ### Workspace Crates
-The project uses Cargo workspaces with three main crates:
+The project uses a Cargo workspace with focused crates:
 - **acorn-cli**: CLI application with commands (check, export, format, link, download, doctor)
-- **acorn-lib**: Core library with schemas, validation, analysis, and utilities
+- **acorn-cmd**: Command specification, discovery, execution, and command macros
+- **acorn-core**: Portable core types and URI handling
+- **acorn-host**: Opt-in host services for files, configuration, HTTP, downloads, sources, and terminal output
+- **acorn-lib**: Higher-level validation, analysis, and application services
+- **acorn-macros**: Procedural macros, including command parsing
+- **acorn-schema**: Research activity and related schemas
+- **acorn-tui**: Terminal user interface
+- **acorn-wasm**: Browser-facing WebAssembly package
 
 ### Current Version
 The current version is defined in `[workspace.package].version` in `Cargo.toml`.
 
 ### Feature Flags
 The library uses feature flags for optional functionality:
-- `default = ["analysis", "std"]`
+- `default = ["std"]`
 - `std`: Standard library support (includes reqwest, lychee-lib, tokio, which, duct)
 - `analysis`: Text analysis and readability metrics (includes bat)
 - `doctor`: System diagnostics
@@ -343,7 +350,7 @@ Use `tracing` for structured logging:
 
 ```rust
 use tracing::{debug, info, warn, error, instrument};
-use acorn::util::Label;
+use acorn_host::terminal::Label;
 use owo_colors::OwoColorize;
 
 #[instrument(skip(large_data))]

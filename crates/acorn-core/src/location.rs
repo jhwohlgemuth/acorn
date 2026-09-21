@@ -1,9 +1,10 @@
 //! Portable location and repository values.
-use crate::prelude::alloc::{format, Box, String, ToString, Vec};
-use crate::validation::digest;
+use crate::{
+    prelude::alloc::{format, Box, String, ToString, Vec},
+    validation::digest,
+};
 use bon::bon;
-use core::convert::Infallible;
-use core::str::FromStr;
+use core::{convert::Infallible, str::FromStr};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
 use serde::{Deserialize, Serialize};
@@ -87,6 +88,9 @@ pub enum Scheme {
     /// Local file or folder.
     #[display("file")]
     File,
+    /// Secure Shell endpoint.
+    #[display("ssh")]
+    SSH,
     /// Unsupported scheme.
     Unsupported,
 }
@@ -438,6 +442,7 @@ impl From<&str> for Scheme {
             | "https" => Self::HTTPS,
             | "http" => Self::HTTP,
             | "file" => Self::File,
+            | "ssh" => Self::SSH,
             | _ => Self::Unsupported,
         }
     }
@@ -476,6 +481,40 @@ mod tests {
             Location::from("https://[2001:db8::1]:5000").registry().as_deref(),
             Some("[2001:db8::1]:5000")
         );
+    }
+    #[test]
+    fn test_location_preserves_ssh_uri_components_and_serialization() {
+        let value = "ssh://git@example.org:2222/group/project.git";
+        let location = Location::from(value);
+        assert_eq!(location.scheme(), Scheme::SSH);
+        assert_eq!(location.uri().as_deref(), Some(value));
+        assert_eq!(location.host().as_deref(), Some("example.org"));
+        assert_eq!(location.port(), Some(2222));
+        assert_eq!(location.path().as_deref(), Some("/group/project.git"));
+        let serialized = serde_json::to_string(&location).expect("location serializes");
+        let round_trip: Location = serde_json::from_str(&serialized).expect("location deserializes");
+        assert_eq!(round_trip, location);
+    }
+    #[test]
+    fn test_location_round_trips_supported_uri_schemes() {
+        [
+            ("file:///tmp/acorn.json", "file:/tmp/acorn.json", Scheme::File),
+            ("http://user@example.org:8080/data", "http://user@example.org:8080/data", Scheme::HTTP),
+            ("https://user@example.org:8443/data", "https://user@example.org:8443/data", Scheme::HTTPS),
+            (
+                "ssh://git@example.org:2222/group/project.git",
+                "ssh://git@example.org:2222/group/project.git",
+                Scheme::SSH,
+            ),
+        ]
+        .into_iter()
+        .for_each(|(value, canonical, scheme)| {
+            let location = Location::from(value);
+            assert_eq!(location.scheme(), scheme);
+            assert_eq!(location.uri().as_deref(), Some(canonical));
+        });
+        assert_eq!(serde_json::to_string(&Scheme::SSH).expect("serialize SSH scheme"), "\"ssh\"");
+        assert_eq!(serde_json::from_str::<Scheme>("\"ssh\"").expect("deserialize SSH scheme"), Scheme::SSH);
     }
     #[test]
     fn test_repository_classification_requires_provider_domain() {

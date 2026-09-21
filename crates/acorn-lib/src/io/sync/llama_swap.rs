@@ -6,26 +6,30 @@
 //!
 //! See <https://github.com/mostlygeek/llama-swap/blob/main/docs/configuration.md>
 use super::{Options, RenderedOutput, SyncTarget};
-use crate::args;
-use crate::io::{home_directory, read_file, ApiResult};
-use crate::util::cmd::command_string;
-use crate::util::constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH;
-use crate::util::StringConversion;
-use crate::util::ToStrings;
-use acorn_core::options::{SyncInner, TargetConfig};
-use acorn_core::validation::ValidationError;
-use acorn_schema::agent::ModelDetails;
-use acorn_schema::validation::{Validate, ValidationReport};
-use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::String;
-use alloc::vec::Vec;
+use crate::{
+    io::{home_directory, read_file, ApiResult},
+    util::{constants::app::DEFAULT_LLAMA_SWAP_CONFIG_PATH, StringConversion, ToStrings},
+};
+use acorn_cmd::{args, runtime::command_string};
+use acorn_core::{
+    options::{SyncInner, TargetConfig},
+    validation::ValidationError,
+};
+use acorn_schema::{
+    agent::ModelDetails,
+    validation::{Validate, ValidationReport},
+};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    vec::Vec,
+};
 use color_eyre::eyre::eyre;
 use core::{fmt, iter::once};
 use serde::{Deserialize, Serialize};
 use serde_norway::{Mapping, Number, Value};
 use serde_with::skip_serializing_none;
-use std::ffi::OsString;
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 /// Root llama-swap synchronization configuration.
 pub type Config = TargetConfig<Inner>;

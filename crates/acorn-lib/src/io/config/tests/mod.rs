@@ -6,23 +6,25 @@
     clippy::unwrap_used
 )]
 use super::*;
-use crate::io::api::{Authenticator, Credential};
-use crate::io::config::transfer::{
-    count_image_files, count_json_files, has_image_extension, operations_complete_message, DownloadOptions, TransferItem,
+use crate::{
+    io::{
+        api::{Authenticator, Credential},
+        config::transfer::{count_image_files, count_json_files, has_image_extension, operations_complete_message, DownloadOptions, TransferItem},
+        read_file, InputOutput,
+    },
+    util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS},
 };
-use crate::io::{read_file, InputOutput};
-use crate::util::constants::app::{DEFAULT_CONFIG_FILENAMES, GITLAB_CREDENTIAL_VARIABLE_PAIRS};
-use acorn_core::options::CommonRuntime;
-use acorn_core::{Location, Repository};
-use color_eyre::eyre::eyre;
-use color_eyre::Report;
+use acorn_core::{options::CommonRuntime, Location, Repository};
+use color_eyre::{eyre::eyre, Report};
 use fancy_regex::Regex;
 use secrecy::ExposeSecret;
-use std::fs::{create_dir_all, read_to_string, remove_dir_all, write};
 #[cfg(unix)]
 use std::os::unix::fs::symlink;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::{
+    fs::{create_dir_all, read_to_string, remove_dir_all, write},
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 const ENDPOINTS: &str = r#"{
     "endpoints": [
         {

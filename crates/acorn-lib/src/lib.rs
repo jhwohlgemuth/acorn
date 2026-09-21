@@ -7,10 +7,6 @@
 #[cfg(any(feature = "std", feature = "analyzer"))]
 extern crate alloc;
 
-#[doc(hidden)]
-#[cfg(feature = "cmd")]
-pub use acorn_macros::cmd_sh_words;
-
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
 #[cfg(feature = "doctor")]
@@ -35,11 +31,11 @@ use acorn_core::util::MimeType;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_core::{Location, Release, Repository, Scheme};
 #[cfg(any(feature = "analysis", feature = "std"))]
+use acorn_host::fs::file_uri_to_path;
+#[cfg(feature = "analysis")]
+use acorn_host::http::{HttpClient, HttpPolicy};
+#[cfg(any(feature = "analysis", feature = "std"))]
 use acorn_schema::ControlledVocabulary;
-#[cfg(feature = "analysis")]
-use analyzer::host::runtime::link_check;
-#[cfg(feature = "analysis")]
-use analyzer::Check;
 #[cfg(any(feature = "analysis", feature = "std"))]
 use std::path::PathBuf;
 #[cfg(any(feature = "analysis", feature = "std"))]
@@ -74,7 +70,8 @@ pub trait RepositoryExt {
 #[cfg(any(feature = "analysis", feature = "std"))]
 impl LocationExt for Location {
     fn uri_as_path(&self) -> PathBuf {
-        io::uri_to_path(self.uri().unwrap_or_default())
+        let value = self.uri().unwrap_or_default();
+        file_uri_to_path(&value).unwrap_or_else(|_| PathBuf::from(value))
     }
     fn local_path(&self) -> Option<PathBuf> {
         let path = self.uri_as_path();
@@ -94,12 +91,12 @@ impl LocationExt for Location {
             warn!("HTTP is supported but only advised in local development scenarios");
         }
         match scheme {
-            | Scheme::HTTPS | Scheme::HTTP => match uri {
-                | Some(uri) => matches!(link_check(Some(uri), None).await, Check { success: true, .. }),
-                | None => false,
+            | Scheme::HTTPS | Scheme::HTTP => match (uri, HttpClient::new(HttpPolicy::new())) {
+                | (Some(uri), Ok(client)) => client.probe(&uri).await.is_ok(),
+                | _ => false,
             },
             | Scheme::File => uri.is_some_and(|_| PathBuf::from(self.path().unwrap_or_default()).exists()),
-            | Scheme::Unsupported => false,
+            | Scheme::SSH | Scheme::Unsupported => false,
         }
     }
 }

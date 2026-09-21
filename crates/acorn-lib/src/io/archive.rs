@@ -1,22 +1,22 @@
 //! Archive creation and extraction utilities.
-use crate::io::{files_all, standard_project_folder, ApiResult, SafePath};
-use crate::util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES};
-use acorn_core::prelude::Component;
-use acorn_core::util::MimeType;
+use crate::{
+    io::{files_all, standard_project_folder, ApiResult},
+    util::constants::app::{ARCHIVE_INFERENCE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_ARCHIVE_EXPANDED_BYTES},
+};
+use acorn_core::{prelude::Component, util::MimeType};
+use acorn_host::fs::SafePath;
 use alloc::collections::BTreeSet;
 use color_eyre::{eyre::eyre, Report};
-use core::fmt;
-use core::iter::once;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
+use core::{fmt, iter::once};
+use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use sevenz_rust2::{ArchiveEntry, ArchiveReader, ArchiveWriter, Password};
-use std::fs::{create_dir_all, remove_file, File, OpenOptions};
-use std::io::{self, Cursor, ErrorKind, Read, Write};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{create_dir_all, remove_file, File, OpenOptions},
+    io::{self, Cursor, ErrorKind, Read, Write},
+    path::{Path, PathBuf},
+};
 use tar::{Archive as TarArchive, Builder as TarBuilder};
-use zip::write::SimpleFileOptions;
-use zip::{ZipArchive, ZipWriter};
+use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 use zstd::stream::read::Decoder as ZstdDecoder;
 
 /// Archive creation operations implemented by archive candidates

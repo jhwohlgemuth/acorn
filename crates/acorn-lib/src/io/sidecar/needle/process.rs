@@ -1,14 +1,14 @@
 //! Needle subprocess lifecycle
 use super::super::ResolvedAssets;
-use crate::io::api::localhost::available_port;
-use crate::io::ApiResult;
-use crate::{args, cmd};
+use crate::io::{api::localhost::available_port, ApiResult};
+use acorn_cmd::{args, cmd};
 use acorn_core::prelude::{Path, PathBuf, String};
 use color_eyre::eyre::eyre;
-use std::fs::remove_dir_all;
-use std::process::Child;
-use tokio::net::TcpStream;
-use tokio::time::{sleep, Duration};
+use std::{fs::remove_dir_all, process::Child};
+use tokio::{
+    net::TcpStream,
+    time::{sleep, Duration},
+};
 
 /// Running Needle child process.
 #[derive(Debug)]

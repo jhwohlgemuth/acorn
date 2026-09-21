@@ -1,25 +1,28 @@
 //! PDF export helpers
 //!
 //! This module renders Research Activity data to HTML and uses Chromium to generate a PDF output file.
-use crate::cli::CommandOptions;
-use crate::io::chromium_cache_dir;
-use crate::template::Convert;
-use acorn::io::chart::ChartOptions;
-use acorn::io::{ApiResult, InputOutput, SafePath};
-use acorn::util::constants::app::CHROME_VERSION;
-use acorn::util::{Label, StringConversion};
+use crate::{cli::CommandOptions, io::chromium_cache_dir, template::Convert};
+use acorn::{
+    io::{chart::ChartOptions, ApiResult, InputOutput},
+    util::{constants::app::CHROME_VERSION, StringConversion},
+};
+use acorn_host::{fs::SafePath, terminal::Label};
 use acorn_schema::research_activity::ResearchActivity;
-use chromiumoxide::browser::{Browser, BrowserConfig};
-use chromiumoxide::cdp::browser_protocol::page::PrintToPdfParams;
-use chromiumoxide::fetcher::{BrowserFetcher, BrowserFetcherOptions, BrowserKind, Version};
-use chromiumoxide::Page;
+use chromiumoxide::{
+    browser::{Browser, BrowserConfig},
+    cdp::browser_protocol::page::PrintToPdfParams,
+    fetcher::{BrowserFetcher, BrowserFetcherOptions, BrowserKind, Version},
+    Page,
+};
 use color_eyre::eyre::eyre;
 use futures::StreamExt;
 use nanoid::nanoid;
-use std::env::{consts, temp_dir};
-use std::fs::{canonicalize, create_dir_all, remove_dir_all, remove_file, OpenOptions};
-use std::io::ErrorKind;
-use std::path::{absolute, Path, PathBuf};
+use std::{
+    env::{consts, temp_dir},
+    fs::{canonicalize, create_dir_all, remove_dir_all, remove_file, OpenOptions},
+    io::ErrorKind,
+    path::{absolute, Path, PathBuf},
+};
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
 

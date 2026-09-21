@@ -1,19 +1,22 @@
-use acorn::io::api::gitlab::{self, RunnerCreationResponse};
-use acorn::io::api::{Configuration, Secret};
-use acorn::io::command_exists;
-use acorn::io::config::{ApplicationConfiguration, RunnerDetails, RunnerType};
-use acorn::io::{to_absolute_string, ContainerTarget, Executor, InputOutput};
-use acorn::util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH};
-use acorn::util::Label;
-use acorn::{args, cmd};
+use acorn::{
+    io::{
+        api::{
+            gitlab::{self, RunnerCreationResponse},
+            Configuration, Secret,
+        },
+        config::{ApplicationConfiguration, RunnerDetails, RunnerType},
+        to_absolute_string, ContainerTarget, Executor, InputOutput,
+    },
+    util::constants::app::{DEFAULT_RUNNER_NAME, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH},
+};
+use acorn_cmd::{args, cmd, command_exists};
 use acorn_core::{Location, Repository};
+use acorn_host::terminal::Label;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::{eyre, Report, Result, WrapErr};
 use futures::future::join_all;
 use secrecy::ExposeSecret;
-use std::ffi::OsString;
-use std::fs::remove_file;
-use std::path::PathBuf;
+use std::{ffi::OsString, fs::remove_file, path::PathBuf};
 use tracing::{debug, error, info};
 
 type BooleanOutcome = (Vec<Result<(), String>>, Vec<Result<(), String>>);

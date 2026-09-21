@@ -1,21 +1,24 @@
 //! # 🌱 ACORN CLI
-use acorn::analyzer::host::discovery;
-use acorn::io::{env_var_is_truthy, progress_renderer};
-use acorn::util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE};
-use acorn::util::Label;
+use acorn::{
+    analyzer::host::discovery,
+    io::{env_var_is_truthy, progress_renderer},
+    util::constants::env::{CACHE_TTL, NO_LOCAL_DATABASE},
+};
+use acorn_host::terminal::Label;
 use clap::Parser;
 use color_eyre::eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
-use std::env;
-use std::process::exit;
+use std::{env, process::exit};
 use tracing::debug;
 use tracing_indicatif::writer::{IndicatifWriter, Stderr};
 use tracing_log::AsTrace;
-use tracing_subscriber::fmt::{self};
-use tracing_subscriber::layer::SubscriberExt as __tracing_subscriber_SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt as _;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{
+    fmt::{self},
+    layer::SubscriberExt as __tracing_subscriber_SubscriberExt,
+    util::SubscriberInitExt as _,
+    EnvFilter,
+};
 
 mod assets;
 mod cli;

@@ -5,7 +5,7 @@
 [<img alt="Downloads" src="https://img.shields.io/crates/dr/acorn-lib?style=for-the-badge" height="20">](https://docs.rs/acorn-lib)
 [<img alt="Dependency Status" src="https://deps.rs/crate/acorn-lib/latest/status.svg?style=for-the-badge" height="20">](https://deps.rs/crate/acorn-lib/latest)
 
-The ACORN CLI application uses `acorn-lib` for host capabilities such as filesystem and network I/O, analysis services, persistence, and artifact generation. Portable [schemas](../concepts/acorn.md), validation, and [persistent identifiers](../concepts/persistent-identifiers.md) are owned by the separate `acorn-schema` crate.
+The ACORN CLI application uses `acorn-lib` for analysis services, persistence, provider APIs, and artifact generation. Dependency-light command execution and native filesystem, HTTP, download, source, configuration, and terminal primitives are owned by [`acorn-cmd`](acorn-cmd.md) and [`acorn-host`](acorn-host.md). Portable [schemas](../concepts/acorn.md), validation, and [persistent identifiers](../concepts/persistent-identifiers.md) are owned by `acorn-schema`.
 
 ## AI and agent APIs
 
@@ -47,7 +47,7 @@ cargo add acorn-lib --no-default-features --features analysis
 
 This feature includes the analyzer's filesystem, network, document, database, and rendering adapters. It excludes the agentic server and MCP stack, system diagnostics, PowerPoint support, and shell linting. The lower-level `analyzer` feature remains the portable, allocation-only analysis kernel.
 
-For the portable data model without host services, use [`acorn-schema`](acorn-schema.md).
+For the portable data model without host services, use [`acorn-schema`](acorn-schema.md). For a small native integration that does not need analysis, use [`acorn-cmd`](acorn-cmd.md) and selected [`acorn-host`](acorn-host.md) features directly; `acorn-lib` does not re-export their APIs.
 
 ## Immutable updates
 

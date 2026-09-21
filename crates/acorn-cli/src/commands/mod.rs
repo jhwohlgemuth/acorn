@@ -1,19 +1,20 @@
-use crate::cli::arguments::OutputFormat;
-use crate::cli::{
-    arguments, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands, ExecManifestCommands,
-    ImportCommands, ServeCommands, Void, WatchOptions,
+use crate::{
+    cli::{
+        arguments, arguments::OutputFormat, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ExecCommands, ExecHookCommands,
+        ExecManifestCommands, ImportCommands, ServeCommands, Void, WatchOptions,
+    },
+    io::{is_stdout_piped, read_stdin, write_stdout},
 };
-use crate::io::{is_stdout_piped, read_stdin, write_stdout};
-use acorn::analyzer::host::discovery;
-use acorn::analyzer::OutputFormat as GatherOutputFormat;
-use acorn::fail;
-use acorn::io::ContainerTarget;
-use acorn::util::Label;
+use acorn::{
+    analyzer::{host::discovery, OutputFormat as GatherOutputFormat},
+    fail,
+    io::ContainerTarget,
+};
 use acorn_core::options::CommonRuntime;
+use acorn_host::terminal::Label;
 use acorn_schema::discovery::RemoteOrganizationRole;
 use clap_verbosity_flag::VerbosityFilter;
-use color_eyre::eyre;
-use color_eyre::eyre::eyre;
+use color_eyre::{eyre, eyre::eyre};
 use core::future::Future;
 pub use db::{initialize_database, initialize_database_with_policy, DatabaseConfig};
 use download::model::Whitelist;

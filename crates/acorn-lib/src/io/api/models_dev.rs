@@ -1,18 +1,21 @@
 //! Module for downloading model and provider data from models.dev
 //!
 //! See <https://models.dev> for more information.
-use crate::io::api::{ApiResult, DatabasePersistence, RemoteResource, INCLUDED_ENDPOINTS};
-use crate::io::database::schema::{ModelRow, ProviderRow, Table};
-use crate::io::database::{Database, Operations};
-use crate::io::{with_progress, ProgressType};
-use crate::util::Label;
+use crate::io::{
+    api::{ApiResult, DatabasePersistence, RemoteResource, INCLUDED_ENDPOINTS},
+    database::{
+        schema::{ModelRow, ProviderRow, Table},
+        Database, Operations,
+    },
+    with_progress, ProgressType,
+};
 use acorn_core::util::Searchable;
+use acorn_host::terminal::Label;
 use acorn_schema::agent::{ModelDetails, ProviderDetails};
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Report};
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
 /// Process-global cache of the models.dev catalog to avoid redundant downloads
 static CATALOG_CACHE: OnceLock<CatalogResponse> = OnceLock::new();

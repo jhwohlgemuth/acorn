@@ -2,24 +2,36 @@
 //!
 //! This module generates PPTX output by copying slide templates, updating
 //! OOXML relationships, and interpolating Research Activity data.
-use crate::assets::draft_placeholder_bytes;
-use crate::cli::CommandOptions;
-use acorn::io::powerpoint::ooxml::{
-    add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
-    validate_xml_well_formed, Relationship, Relationships,
+use crate::{assets::draft_placeholder_bytes, cli::CommandOptions};
+use acorn::{
+    io::{
+        archive,
+        powerpoint::{
+            interpolate_values,
+            ooxml::{
+                add_slide_to_presentation_xml, ensure_png_content_type, replace_aspect_placeholders_with_picture, update_relationship_target,
+                validate_xml_well_formed, Relationship, Relationships,
+            },
+            read_xml_rel,
+        },
+        write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput,
+    },
+    util::StringConversion,
 };
-use acorn::io::powerpoint::{interpolate_values, read_xml_rel};
-use acorn::io::{archive, read_file, write_file, ApiResult, ArchiveCandidate, ArchiveExtraction, InputOutput, SafePath};
-use acorn::util::{Label, StringConversion};
-use acorn_core::prelude::Arc;
-use acorn_core::util::MimeType;
+use acorn_core::{prelude::Arc, util::MimeType};
+use acorn_host::{
+    fs::{read_text, SafePath},
+    terminal::Label,
+};
 use acorn_schema::research_activity::ResearchActivity;
 use color_eyre::eyre::eyre;
 use itertools::izip;
 use nanoid::nanoid;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use std::fs::{copy, create_dir_all, write};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{copy, create_dir_all, write},
+    path::{Path, PathBuf},
+};
 use tracing::error;
 
 const IMAGE_RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
@@ -32,7 +44,7 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
         .map_err(Into::<color_eyre::Report>::into)
         .and_then(|path| path.materialize_under(destination).map_err(Into::into))
         .and_then(|media_path| {
-            read_file(&slide_path)
+            read_text(&slide_path)
                 .map_err(|why| eyre!("Failed to read PowerPoint slide at {} — {why}", slide_path.to_absolute_path()))
                 .and_then(|slide_xml| {
                     read_xml_rel(relationships_path.clone())
@@ -71,7 +83,7 @@ fn add_aspect_chart(index: usize, data: &ResearchActivity, chart: &[u8], destina
                                         .map_err(|why| eyre!("Failed to write ASPECT chart picture at {} — {why}", slide_path.to_absolute_path()))
                                 })
                                 .and_then(|_| {
-                                    read_file(&content_types_path).map_err(|why| {
+                                    read_text(&content_types_path).map_err(|why| {
                                         eyre!(
                                             "Failed to read PowerPoint content types at {} — {why}",
                                             content_types_path.to_absolute_path()
@@ -121,7 +133,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
     ];
     izip!(slide_paths(1, reference_extract_path), new_slide_paths, relationship_replacements)
         .map(|(first_slide_path, new_slide_path, replacement)| {
-            read_file(&first_slide_path)
+            read_text(&first_slide_path)
                 .map_err(|why| eyre!("Failed to read PowerPoint part at {} — {why}", first_slide_path.to_absolute_path()))
                 .and_then(|content| match replacement {
                     | Some((current_target, target)) => update_relationship_target(&content, current_target, &target),
@@ -172,7 +184,7 @@ fn add_slide(slide_number: usize, reference_extract_path: &Path) -> ApiResult<()
         })
         .and_then(|new_slide_revision_identifier| {
             let presentation_xml_path = reference_extract_path.join("ppt/presentation.xml");
-            read_file(&presentation_xml_path)
+            read_text(&presentation_xml_path)
                 .map_err(|why| {
                     eyre!(
                         "Failed to read PowerPoint presentation XML at {} — {why}",
@@ -234,7 +246,7 @@ fn copy_image(index: usize, data: &ResearchActivity, source: &Path, destination:
                 .map_err(Into::<color_eyre::Report>::into)
                 .and_then(|path| path.materialize_under(destination).map_err(Into::into))
                 .and_then(|to| {
-                    read_file(xml_rels_path.clone())
+                    read_text(xml_rels_path.clone())
                         .map_err(|why| eyre!("Failed to read slide relationship XML — {why}"))
                         .and_then(|content| update_relationship_target(&content, &target, &format!("../media/{name}.{extension}")))
                         .and_then(|updated| {
@@ -406,7 +418,7 @@ fn validate_ooxml_files(reference_extract_path: &Path, count: usize) -> ApiResul
     });
     let invalid = presentation_targets
         .chain(slide_targets)
-        .find(|path| read_file(path).map(|content| !validate_xml_well_formed(&content)).unwrap_or(true));
+        .find(|path| read_text(path).map(|content| !validate_xml_well_formed(&content)).unwrap_or(true));
     match invalid {
         | Some(path) => Err(eyre!(
             "Malformed OOXML content detected before archive write at {}",

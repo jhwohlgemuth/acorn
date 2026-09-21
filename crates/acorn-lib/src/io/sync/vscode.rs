@@ -1,23 +1,28 @@
 //! VS Code custom endpoint synchronization configuration types
 use super::{McpSync, Options, RenderedOutput, SyncTarget};
-use crate::io::api;
-use crate::io::{read_file, ApiResult};
-use crate::util::constants::app::{APPLICATION, DEFAULT_VSCODE_CONFIG_PATH};
-use crate::util::StringConversion;
+use crate::{
+    io::{api, read_file, ApiResult},
+    util::{
+        constants::app::{APPLICATION, DEFAULT_VSCODE_CONFIG_PATH},
+        StringConversion,
+    },
+};
 use acorn_core::options::{SyncInner, TargetConfig};
-use acorn_schema::agent::ModelDetails;
-use acorn_schema::validation::Validate;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+use acorn_schema::{agent::ModelDetails, validation::Validate};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use color_eyre::eyre::eyre;
 use directories::BaseDirs;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::skip_serializing_none;
-use std::env::current_dir;
-use std::path::Path;
-use std::path::PathBuf;
+use std::{
+    env::current_dir,
+    path::{Path, PathBuf},
+};
 use veil::Redact;
 
 /// Configuration for synchronizing models into VS Code.

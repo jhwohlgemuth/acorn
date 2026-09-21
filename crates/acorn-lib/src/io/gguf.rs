@@ -1,20 +1,31 @@
 //! GGUF model selection and binary validation
-use crate::io::config::FilterSet;
-use crate::io::oci::{OciExtraction, OciFile, OciFiles, OciLayer, OciResolution};
-use crate::io::{ApiResult, PathExt, SafePath};
-use crate::util::constants::oci::{
-    MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
-    MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
+use crate::{
+    io::{
+        config::FilterSet,
+        oci::{OciExtraction, OciFile, OciFiles, OciLayer, OciResolution},
+        ApiResult, PathExt,
+    },
+    util::constants::oci::{
+        MODELPACK_WEIGHT_CONFIG_RAW, MODELPACK_WEIGHT_CONFIG_TAR, MODELPACK_WEIGHT_CONFIG_TAR_GZIP, MODELPACK_WEIGHT_CONFIG_TAR_ZSTD,
+        MODELPACK_WEIGHT_RAW, MODELPACK_WEIGHT_TAR, MODELPACK_WEIGHT_TAR_GZIP, MODELPACK_WEIGHT_TAR_ZSTD,
+    },
 };
-use acorn_core::prelude::{HashSet, String, ToString, Vec};
-use acorn_core::validation::ValidationError;
-use acorn_schema::agent::Quantization;
-use acorn_schema::oci::ModelLayerRole;
-use acorn_schema::validation::{IntoValidationReport, ValidationReport};
+use acorn_core::{
+    prelude::{HashSet, String, ToString, Vec},
+    validation::ValidationError,
+};
+use acorn_host::fs::SafePath;
+use acorn_schema::{
+    agent::Quantization,
+    oci::ModelLayerRole,
+    validation::{IntoValidationReport, ValidationReport},
+};
 use color_eyre::eyre::eyre;
-use std::fs::{self, remove_file, File};
-use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{self, remove_file, File},
+    io::{BufReader, Read},
+    path::{Path, PathBuf},
+};
 
 pub(super) const MIME_TYPE: &str = "application/gguf";
 #[derive(Clone, Debug)]

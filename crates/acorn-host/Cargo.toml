@@ -1,0 +1,44 @@
+[package]
+edition = "2021"
+name = "acorn-host"
+version.workspace = true
+description = "Narrow native host adapters for ACORN consumers"
+authors.workspace = true
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+acorn-cmd = { version = "0.2.0", path = "../acorn-cmd", default-features = false, optional = true }
+acorn-core = { version = "0.2.0", path = "../acorn-core", default-features = false, features = ["alloc"] }
+data-encoding = { workspace = true, optional = true }
+futures = { workspace = true, features = ["std"], optional = true }
+nanoid = { workspace = true, optional = true }
+owo-colors = { workspace = true, optional = true }
+reqwest = { version = "0.13.2", features = ["rustls", "stream"], default-features = false, optional = true }
+ring = { version = "0.17.14", default-features = false, optional = true }
+serde = { workspace = true, features = ["std"], optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
+serde_norway = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "time"], optional = true }
+url = { version = "2.5.7", optional = true }
+
+[features]
+default = []
+config = ["dep:serde", "dep:serde_json", "dep:serde_norway"]
+download = ["fs", "http", "dep:futures", "dep:tokio"]
+fs = ["acorn-core/digest", "dep:data-encoding", "dep:nanoid", "dep:ring", "dep:url"]
+http = ["dep:futures", "dep:reqwest", "dep:url"]
+source = ["fs", "http", "dep:acorn-cmd", "dep:tokio"]
+terminal = ["dep:owo-colors"]
+
+[dev-dependencies]
+axum = { workspace = true, features = ["http1", "tokio"] }
+serde = { workspace = true, features = ["derive", "std"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+
+[lints]
+workspace = true

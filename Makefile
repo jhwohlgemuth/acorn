@@ -97,6 +97,16 @@ changelog-release:
 check: check-portable check-host
 
 check-host:
+	@cargo check -p acorn-cmd --no-default-features
+	@cargo check -p acorn-cmd --features shell-lint
+	@cargo check -p acorn-host --no-default-features --features fs
+	@cargo check -p acorn-host --no-default-features --features config
+	@cargo check -p acorn-host --no-default-features --features http
+	@cargo check -p acorn-host --no-default-features --features download
+	@cargo check -p acorn-host --no-default-features --features source
+	@cargo check -p acorn-host --no-default-features --features terminal
+	@cargo check --manifest-path tests/downstream-host/Cargo.toml
+	@bash scripts/check-host-dependencies.sh
 	@cargo check -p acorn-lib
 	@cargo check -p acorn-lib --no-default-features --features analysis
 	@cargo check -p acorn-lib --no-default-features --features grpc

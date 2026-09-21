@@ -1,32 +1,40 @@
-use crate::cli::{resolve_paths, CommandOptions};
-use crate::commands::preflight;
-use acorn::analyzer::Standard;
+use crate::{
+    cli::{resolve_paths, CommandOptions},
+    commands::preflight,
+};
 #[cfg(feature = "exec")]
 use acorn::exec::config::ExecutionOrigin;
-use acorn::fail;
-use acorn::io::config::application::{ApplicationConfiguration, Hook};
-use acorn::io::enrichment::{EnrichmentMetadata, Pipeline};
 #[cfg(feature = "exec")]
 use acorn::io::workflow::WorkflowAction;
-use acorn::io::workflow::{self, Workflow, WorkflowExtension};
-use acorn::io::{slice_path, FromPath, InputOutput};
-use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
-use acorn::util::{print_changes_with_color, Label, StringConversion};
-use acorn_core::options::CommonRuntime;
-use acorn_core::util::MimeType;
-use acorn_core::Location;
-use acorn_schema::enrichment::Provider;
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::standard::cff::Cff;
-use acorn_schema::standard::{datacite, invenio};
-use acorn_schema::validation::Validate;
+use acorn::{
+    analyzer::Standard,
+    fail,
+    io::{
+        config::application::{ApplicationConfiguration, Hook},
+        enrichment::{EnrichmentMetadata, Pipeline},
+        slice_path,
+        workflow::{self, Workflow, WorkflowExtension},
+        FromPath, InputOutput,
+    },
+    util::{constants::app::DISPLAY_PATH_CHARACTER_COUNT, print_changes_with_color, StringConversion},
+};
+use acorn_core::{options::CommonRuntime, util::MimeType, Location};
+use acorn_host::terminal::Label;
+use acorn_schema::{
+    enrichment::Provider,
+    research_activity::ResearchActivity,
+    standard::{cff::Cff, datacite, invenio},
+    validation::Validate,
+};
 use clap_verbosity_flag::{log::Level, Verbosity};
 use color_eyre::eyre::{eyre, Report, Result};
 use owo_colors::OwoColorize;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{de::DeserializeOwned, Serialize};
-use std::fs::write;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::write,
+    path::{Path, PathBuf},
+};
 use strum::IntoEnumIterator;
 use tracing::info;
 

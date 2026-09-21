@@ -1,11 +1,13 @@
 //! Document conversion utilities.
-use crate::io::cache::Cache;
-use crate::io::http::get;
-use crate::io::{read_file, uri_to_path, ApiResult};
-use crate::util::constants::app::{DOCUMENT_CACHE_LIMIT, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES};
-use crate::util::StringConversion;
-use acorn_core::util::MimeType;
-use acorn_core::{Location, Scheme};
+use crate::{
+    io::{cache::Cache, http::get, read_file, ApiResult},
+    util::{
+        constants::app::{DOCUMENT_CACHE_LIMIT, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES},
+        StringConversion,
+    },
+};
+use acorn_core::{util::MimeType, Location, Scheme};
+use acorn_host::fs::file_uri_to_path;
 use acorn_schema::pid::{Identifier, PID};
 use anydoc::Format;
 use bon::Builder;
@@ -15,9 +17,11 @@ use derive_more::Display;
 use jiff::Timestamp;
 use pdf_inspector::{extract_pages_markdown_mem, PdfError};
 use serde::{Deserialize, Serialize};
-use std::fs::{self, read};
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::{
+    fs::{self, read},
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 mod index;
 mod matching;
@@ -227,7 +231,8 @@ impl SourceDocument {
                 .await
                 .map(|response| response.body)
                 .and_then(|bytes| Self::from_bytes(&bytes, &source)),
-            | (false, Scheme::File | Scheme::Unsupported, _) => Self::from_path(uri_to_path(&source)),
+            | (false, Scheme::File | Scheme::Unsupported, _) => file_uri_to_path(&source).map_err(Into::into).and_then(Self::from_path),
+            | (false, Scheme::SSH, _) => Err(eyre!("SSH document sources are not supported: {source}")),
         }
     }
     /// Convert document bytes to Markdown when supported, otherwise decode them as UTF-8.

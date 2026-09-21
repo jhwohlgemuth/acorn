@@ -20,15 +20,20 @@
 //! ```
 //!
 pub use crate::error::ApiResult;
-use crate::util::constants::app::{APPLICATION, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH, LARGE_FILE_THRESHOLD_BYTES, ORGANIZATION, QUALIFIER};
-use crate::util::process::CommandOutput;
-use crate::util::{generate_guid, Label, StringConversion, ToStrings};
-use crate::{args, cmd};
-use acorn_core::prelude::HashSet;
-#[cfg(windows)]
-use acorn_core::util::file_extension;
-use acorn_core::util::{case_insensitive_glob, suffix, Checksum, ChecksumAlgorithm, MimeType, SemanticVersion};
-use acorn_core::Location;
+use crate::util::{
+    constants::app::{APPLICATION, DOCKER_SOCKET, GITLAB_RUNNER_GPU_TEMPLATE_PATH, ORGANIZATION, QUALIFIER},
+    generate_guid, StringConversion, ToStrings,
+};
+use acorn_cmd::{args, cmd, command_exists, CommandOutput};
+use acorn_core::{
+    prelude::HashSet,
+    util::{case_insensitive_glob, suffix, MimeType, SemanticVersion},
+    Location,
+};
+use acorn_host::{
+    fs::{file_checksum, file_uri_to_path, read_text},
+    terminal::Label,
+};
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
@@ -37,20 +42,17 @@ pub use bytes::Bytes;
 use color_eyre::eyre::{eyre, Report};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use console::{measure_text_width, strip_ansi_codes};
-use core::fmt;
-use core::iter::once;
-use core::pin::Pin;
-use core::time::Duration;
-use data_encoding::HEXUPPER;
+use core::{fmt, iter::once, pin::Pin, time::Duration};
 use directories::{BaseDirs, ProjectDirs};
 use fancy_regex::Regex;
 pub use fingerprint::Fingerprint;
 use fluent_uri::Uri;
-use futures::stream::{self, StreamExt};
-use futures::Future;
+use futures::{
+    stream::{self, StreamExt},
+    Future,
+};
 use glob::glob;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use is_executable::IsExecutable;
 use jiff::Timestamp;
 pub use jsonc_parser::cst::CstRootNode;
 use jsonc_parser::{cst::CstInputValue, parse_to_serde_value, ParseOptions};
@@ -58,33 +60,31 @@ use lazy_static::lazy_static;
 pub use model::ModelSelectorsExt;
 use nanoid::nanoid;
 use rand::rngs::OsRng;
-use ring::digest::{Context, SHA256};
-use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey};
-use rsa::{RsaPrivateKey, RsaPublicKey};
-pub use safe_path::{SafePath, SafePathError};
+use rsa::{
+    pkcs8::{EncodePrivateKey, EncodePublicKey},
+    RsaPrivateKey, RsaPublicKey,
+};
 use schemars::JsonSchema;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 pub use source::{read_clipboard, select_source, InputSource, Source, SourceAction, TextOrigin};
-use std::env::{consts, current_dir, temp_dir, var, var_os};
-use std::ffi::OsString;
-use std::fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions};
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use std::fs::{set_permissions, Permissions};
-use std::io::{self, BufReader, Cursor, Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::symlink as platform_symlink;
 #[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
-use std::path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR};
-use std::thread;
+use std::{
+    env::{consts, current_dir, temp_dir, var, var_os},
+    ffi::OsString,
+    fs::{self, canonicalize, create_dir_all, write, File, Metadata, OpenOptions},
+    io::{self, BufReader, Cursor, Read, Write},
+    path::{absolute, Component, Path, PathBuf, MAIN_SEPARATOR},
+    thread,
+};
 use strum::EnumIs;
-pub use temporary::TemporaryDirectory;
 use tokio::runtime::{Builder, Runtime};
-use tracing::{debug, error, info, trace, warn};
-use which::which;
+use tracing::{debug, error, info, warn};
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub mod adapter;
 pub mod api;
@@ -110,17 +110,20 @@ pub mod model;
 pub mod oci;
 #[cfg(feature = "powerpoint")]
 pub mod powerpoint;
-mod safe_path;
 #[cfg(feature = "needle")]
 pub mod sidecar;
 pub mod source;
 #[cfg(feature = "swhid-compute")]
 pub mod swhid;
 pub mod sync;
-mod temporary;
 pub mod workflow;
 
 pub use email::EmailAddress;
+
+/// Read UTF-8 text and convert the host-owned filesystem error at this crate's boundary.
+pub(crate) fn read_file(path: impl AsRef<Path>) -> ApiResult<String> {
+    read_text(path).map_err(Into::into)
+}
 
 lazy_static! {
     static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
@@ -917,40 +920,6 @@ pub fn async_runtime() -> Runtime {
     #[allow(clippy::unwrap_used)]
     Builder::new_current_thread().enable_all().build().unwrap()
 }
-/// Checks if a given command exists in current terminal context.
-///
-/// # Arguments
-///
-/// * `name` - A string slice or `String` containing the name of the command to be checked.
-///
-/// # Return
-///
-/// A boolean indicating whether the command exists or not.
-pub fn command_exists<S>(name: S) -> bool
-where
-    S: Into<String>,
-{
-    let command = name.into();
-    match which(&command) {
-        | Ok(value) => {
-            let path = value.clone().to_absolute_path();
-            match value.try_exists() {
-                | Ok(true) => {
-                    debug!(path, "=> {} Command", Label::found());
-                    true
-                }
-                | _ => {
-                    debug!(path, "=> {} Command", Label::not_found());
-                    false
-                }
-            }
-        }
-        | Err(_) => {
-            warn!("=> {} Command {}", Label::not_found(), command);
-            false
-        }
-    }
-}
 /// Creates a new progress bar with the specified count and progress type
 pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> ProgressBar {
     create_progress_bar_with_renderer(count, progress_type, &PROGRESS_RENDERER)
@@ -1066,61 +1035,6 @@ pub fn env_var_is_truthy(name: impl AsRef<str>) -> Option<bool> {
         .ok()
         .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
 }
-/// Get SHA256 hash of a file
-///
-/// See <https://rust-lang-nursery.github.io/rust-cookbook/cryptography/hashing.html>
-///
-/// ### Example
-/// ```ignore
-/// use ring::digest::SHA512;
-/// use acorn::io::file_checksum;
-///
-/// let checksum = file_checksum("path/to/file", Some(&SHA512));
-/// assert!(checksum.is_some());
-/// ```
-pub fn file_checksum<P>(path: P, algorithm: Option<&'static ring::digest::Algorithm>) -> Option<Checksum>
-where
-    P: Into<PathBuf>,
-{
-    let value = path.into();
-    let digest_algorithm = algorithm.unwrap_or(&SHA256);
-    let checksum_algorithm = ChecksumAlgorithm::from(digest_algorithm);
-    match File::open(value.clone()) {
-        | Ok(file) => {
-            let mut buffer = [0; 1024];
-            let mut context = Context::new(digest_algorithm);
-            let mut reader = BufReader::new(file);
-            loop {
-                let count = match reader.read(&mut buffer) {
-                    | Ok(c) => c,
-                    | Err(err) => {
-                        error!(
-                            error = err.to_string(),
-                            path = value.to_absolute_path(),
-                            "=> {} Read file checksum",
-                            Label::fail()
-                        );
-                        return None;
-                    }
-                };
-                if count == 0 {
-                    break;
-                }
-                context.update(buffer.get(..count).unwrap_or(&[]));
-            }
-            let digest = context.finish();
-            let result = HEXUPPER.encode(digest.as_ref());
-            Some(Checksum {
-                algorithm: checksum_algorithm,
-                checksum_value: result.to_lowercase(),
-            })
-        }
-        | Err(err) => {
-            error!(error = err.to_string(), path = value.to_absolute_path(), "=> {} Read file", Label::fail());
-            None
-        }
-    }
-}
 /// Returns a string containing the file name with its parent directory.
 ///
 /// If the `PathBuf` is a directory, only the file name is returned.
@@ -1157,7 +1071,7 @@ pub fn files_all<T: FileExtension>(path: PathBuf, extensions: Option<Vec<T>>) ->
 ///
 /// Direct children have depth 1. A depth of 0 returns no descendants. A single-file input is returned regardless of depth.
 pub fn files_all_with_max_depth<T: FileExtension>(path: PathBuf, extensions: Option<Vec<T>>, max_depth: Option<usize>) -> Vec<PathBuf> {
-    let path = uri_to_path(path);
+    let path = file_uri_to_path(&path).unwrap_or(path);
     let extensions = extensions.map(|values| values.into_iter().map(|value| value.extension()).collect::<Vec<_>>());
     fn paths_to_vec(paths: glob::Paths) -> Vec<PathBuf> {
         paths.collect::<Vec<_>>().into_iter().filter_map(|x| x.ok()).collect::<Vec<_>>()
@@ -1222,7 +1136,7 @@ pub fn files_all_with_max_depth<T: FileExtension>(path: PathBuf, extensions: Opt
 /// * `value` - A string slice representing the name of the Git branch to check.
 /// * `extensions` - An `Option` containing values implementing [`FileExtension`], including [`MimeType`] variants and string-like values.
 pub fn files_from_git_branch<T: FileExtension>(value: &str, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
-    if command_exists("git".to_owned()) {
+    if command_exists("git") {
         let default_branch = match git_default_branch_name() {
             | Some(value) => value,
             | None => "main".to_string(),
@@ -1256,7 +1170,7 @@ pub fn files_from_git_branch<T: FileExtension>(value: &str, extensions: Option<V
 /// * `value` - A string slice representing the Git commit hash to check.
 /// * `extensions` - An `Option` containing values convertible to extension strings, including [`MimeType`] variants.
 pub fn files_from_git_commit<T: FileExtension>(value: &str, extensions: Option<Vec<T>>) -> Vec<PathBuf> {
-    if command_exists("git".to_owned()) {
+    if command_exists("git") {
         let args = vec!["diff-tree", "--no-commit-id", "--name-only", "-r", value];
         let result = cmd!("git", args);
         debug!("=> {} Git command response - {result:?}", Label::using());
@@ -1448,7 +1362,7 @@ pub fn folder_size<P: Into<PathBuf>>(path: P) -> u64 {
 /// the current Git branch. If the command is successful, the branch name is extracted and returned
 /// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
 pub fn git_branch_name() -> Option<String> {
-    if command_exists("git".to_owned()) {
+    if command_exists("git") {
         let args = vec!["symbolic-ref", "--short", "HEAD"];
         match cmd!("git", args) {
             | Ok(output) if output.status.success() => output.stdout().split("/").last().map(|x| x.to_string()),
@@ -1464,7 +1378,7 @@ pub fn git_branch_name() -> Option<String> {
 /// the default Git branch name. If the command is successful, the branch name is extracted and returned
 /// as a `String`. If the command fails or if `git` is not available, the function returns `None`.
 pub fn git_default_branch_name() -> Option<String> {
-    if command_exists("git".to_owned()) {
+    if command_exists("git") {
         let args = vec!["symbolic-ref", "refs/remotes/origin/HEAD", "--short"];
         match cmd!("git", args) {
             | Ok(output) if output.status.success() => output.stdout().split("/").last().map(|x| x.to_string()),
@@ -1523,68 +1437,13 @@ pub fn jsonc_parse_value(content: &str) -> ApiResult<serde_json::Value> {
     };
     parse_to_serde_value(content, &options).map_err(|why| eyre!("JSONC parse error — {why}"))
 }
-/// Makes the given file executable.
-///
-/// # Parameters
-///
-/// * `path` - A `PathBuf` containing the path to the file to be made executable.
-///
-/// # Return
-///
-/// A boolean indicating whether the file is executable after calling this function.
-#[cfg(any(unix, target_os = "wasi", target_os = "redox"))]
-pub fn make_executable<P>(path: P) -> bool
-where
-    P: Into<PathBuf> + Clone,
-{
-    let path = path.into();
-    let create_with_mode = OpenOptions::new().write(true).create_new(true).mode(0o755).open(path.as_path());
-    match create_with_mode {
-        | Ok(_) => path.is_executable(),
-        | Err(why) => {
-            if why.kind() == io::ErrorKind::AlreadyExists {
-                match set_permissions(path.as_path(), Permissions::from_mode(0o755)) {
-                    | Ok(()) => path.is_executable(),
-                    | Err(why) => {
-                        debug!(path = path.to_absolute_path(), "=> {} Set permissions — {why}", Label::fail());
-                        false
-                    }
-                }
-            } else {
-                debug!(path = path.to_absolute_path(), "=> {} Create executable file — {why}", Label::fail());
-                false
-            }
-        }
-    }
-}
-/// Makes the given file executable.
-///
-/// # Parameters
-///
-/// * `path` - A `PathBuf` containing the path to the file to be made executable.
-///
-/// # Return
-///
-/// A boolean indicating whether the file is executable after calling this function.
-#[cfg(windows)]
-pub fn make_executable<P>(path: P) -> bool
-where
-    P: Into<PathBuf> + Clone,
-{
-    let binary = match file_extension(path.clone().into().to_absolute_path()) {
-        | None => path.into().with_extension("exe"),
-        | _ => path.into(),
-    };
-    debug!("=> {} {binary:#?}", Label::using());
-    binary.is_executable()
-}
 /// Move a file without replacing different content already present at the target.
 pub(crate) fn move_file(source: impl AsRef<Path>, target: impl AsRef<Path>) -> ApiResult<()> {
     let source = source.as_ref();
     let target = target.as_ref();
     match target.exists() {
         | true => match (file_checksum(source, None), file_checksum(target, None)) {
-            | (Some(left), Some(right)) if left.checksum_value == right.checksum_value => fs::remove_file(source).map_err(Into::into),
+            | (Ok(left), Ok(right)) if left.checksum_value == right.checksum_value => fs::remove_file(source).map_err(Into::into),
             | _ => Err(eyre!("Target file already exists with different content: {}", target.display())),
         },
         | false => target
@@ -1683,60 +1542,6 @@ pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
 /// Returns the shared progress renderer used by ACORN I/O operations.
 pub fn progress_renderer() -> MultiProgress {
     PROGRESS_RENDERER.clone()
-}
-/// Reads the given file and returns its contents as a string.
-///
-/// This function is thread-safe and can be used with rayon's parallel iterators.
-///
-/// # Parameters
-///
-/// * `path` - A `PathBuf` or string slice containing the path to the file to be read.
-///
-/// # Return
-///
-/// A `Result` containing the contents of the file as a string if the file is readable, or an
-/// `std::io::Error` otherwise.
-///
-/// # Example with rayon
-///
-/// ```ignore
-/// use rayon::prelude::*;
-///
-/// let paths = vec![PathBuf::from("file1.txt"), PathBuf::from("file2.txt")];
-/// let contents: Vec<_> = paths
-///     .par_iter()
-///     .filter_map(|path| read_file(path).ok())
-///     .collect();
-/// ```
-pub fn read_file<P>(path: P) -> ApiResult<String>
-where
-    P: Into<PathBuf> + Clone + Send,
-{
-    let path_buf = path.into();
-    let filename = path_buf.file_name().unwrap_or_default().to_string_lossy().to_string();
-    let is_large_file = match path_buf.metadata() {
-        | Ok(metadata) => metadata.len() >= LARGE_FILE_THRESHOLD_BYTES,
-        | Err(_) => false,
-    };
-    if is_large_file {
-        trace!(filename, "=> {} Read file with large-file strategy", Label::using());
-        read_large_file(path_buf)
-    } else {
-        match File::open(&path_buf) {
-            | Ok(file) => {
-                let mut reader = BufReader::new(file);
-                let mut content = String::new();
-                match reader.read_to_string(&mut content) {
-                    | Ok(_) => Ok(content),
-                    | Err(why) => Err(eyre!("Failed to read file content — {why}")),
-                }
-            }
-            | Err(why) => {
-                error!(filename, "=> {} Read file", Label::fail());
-                Err(eyre!("Failed to read file — {why}"))
-            }
-        }
-    }
 }
 /// Read one bounded UTF-8 snapshot from a regular, non-symlink file.
 ///
@@ -1980,35 +1785,6 @@ pub fn unique_file_extensions(paths: &[PathBuf]) -> Vec<String> {
     extensions.sort_unstable();
     extensions
 }
-/// Converts `file:` source values to a [`PathBuf`].
-/// ### Note
-/// Supports shorthand paths like `file:./data.json`, URI forms like `file:///tmp/data.json` or `file://localhost/tmp/data.json`, and leaves non-file paths unchanged.
-pub fn uri_to_path<P>(value: P) -> PathBuf
-where
-    P: Into<PathBuf>,
-{
-    let path: PathBuf = value.into();
-    let s = path.to_string_lossy().into_owned();
-    match s.as_str() {
-        | source if source.starts_with("file://localhost/") => {
-            let stripped = source.trim_start_matches("file://localhost/");
-            uri_to_path(PathBuf::from(format!("file:///{stripped}")))
-        }
-        | source if source.starts_with("file://") => {
-            let stripped = source.trim_start_matches("file://");
-            #[cfg(windows)]
-            let normalized = match stripped.get(1..3) {
-                | Some(drive) if drive.contains(':') => &stripped[1..],
-                | _ => stripped,
-            };
-            #[cfg(not(windows))]
-            let normalized = stripped;
-            PathBuf::from(normalized)
-        }
-        | source if source.starts_with("file:") => PathBuf::from(source.trim_start_matches("file:")),
-        | _ => path,
-    }
-}
 /// Returns `Ok(())` if `unix_seconds` is within `window_secs` of the current UTC time.
 ///
 /// # Errors
@@ -2032,8 +1808,8 @@ where
 {
     let path = path.into();
     let expected = expected.to_string();
-    file_checksum(path.clone(), algorithm)
-        .ok_or_else(|| eyre!("Failed to calculate file checksum — {}", path.display()))
+    file_checksum(&path, algorithm)
+        .map_err(Into::<color_eyre::Report>::into)
         .and_then(|actual| match actual.checksum_value.eq_ignore_ascii_case(&expected) {
             | true => Ok(()),
             | false => Err(eyre!(

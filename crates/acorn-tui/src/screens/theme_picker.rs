@@ -1,16 +1,22 @@
-use crate::app::App;
-use crate::event::{to_internal_event, Event};
-use crate::theme::Theme;
-use crate::widgets::detail::render_detail;
-use crate::widgets::list::{list_item, render_list};
-use crate::Screen;
-use acorn::util::Label;
+use crate::{
+    app::App,
+    event::{to_internal_event, Event},
+    theme::Theme,
+    widgets::{
+        detail::render_detail,
+        list::{list_item, render_list},
+    },
+    Screen,
+};
+use acorn_host::terminal::Label;
 use crossterm::event;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout};
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
+use ratatui::{
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::Style,
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph},
+    Frame,
+};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -100,8 +106,7 @@ pub fn handle_event(app: &mut App, event: event::Event) {
 #[cfg(test)]
 mod tests {
     use super::handle_event;
-    use crate::app::App;
-    use crate::Screen;
+    use crate::{app::App, Screen};
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
     #[test]

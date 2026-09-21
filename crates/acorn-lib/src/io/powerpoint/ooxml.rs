@@ -3,15 +3,18 @@
 //! Data structures for modeling [`OOXML`].
 //!
 //! [`OOXML`]: https://en.wikipedia.org/wiki/Office_Open_XML
-use crate::io::{read_file, ApiResult};
-use crate::util::{Label, StringConversion};
+use crate::{
+    io::{read_file, ApiResult},
+    util::StringConversion,
+};
+use acorn_host::terminal::Label;
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
-use core::fmt;
-use core::iter::once;
-use core::str::from_utf8;
-use quick_xml::events::{BytesStart, Event};
-use quick_xml::{Reader, Writer};
+use core::{fmt, iter::once, str::from_utf8};
+use quick_xml::{
+    events::{BytesStart, Event},
+    Reader, Writer,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use std::path::PathBuf;
@@ -860,7 +863,7 @@ pub fn prettify_xml(xml: &str) -> String {
 }
 /// Read OOXML relationships XML file.
 pub fn read_xml_rel(path: PathBuf) -> Option<Relationships> {
-    match read_file(path.clone()) {
+    match read_file(&path) {
         | Ok(content) => {
             let parsed = quick_xml::de::from_str::<Relationships>(&content);
             debug!("=> {} Relationships = {:#?}", Label::using(), parsed);

@@ -1,19 +1,30 @@
-use crate::cli::WatchOptions;
-use crate::commands::watch::{self, Prepared};
-use crate::io::{is_stdin_piped, read_stdin};
-use acorn::analyzer::host::discovery::{finalize_report, DiscoveryExtension, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report};
-use acorn::analyzer::{CheckBatch, CheckCategory, OutputFormat};
-use acorn::check_err;
-use acorn::io::config::FilterSet;
-use acorn::io::document::{SourceDocument, SourceDocuments};
-use acorn::io::enrichment::Enrich;
-use acorn::io::{files_all_with_max_depth, files_from_gitlab_merge_request, remove_fields, uri_to_path, ApiResult, Fingerprint, PathExt};
+use crate::{
+    cli::WatchOptions,
+    commands::watch::{self, Prepared},
+    io::{is_stdin_piped, read_stdin},
+};
+use acorn::{
+    analyzer::{
+        host::discovery::{finalize_report, DiscoveryExtension, GatherOutputPolicy, Options, Records, RemoteSearchResponse, Report},
+        CheckBatch, CheckCategory, OutputFormat,
+    },
+    check_err,
+    io::{
+        config::FilterSet,
+        document::{SourceDocument, SourceDocuments},
+        enrichment::Enrich,
+        files_all_with_max_depth, files_from_gitlab_merge_request, remove_fields, ApiResult, Fingerprint, PathExt,
+    },
+};
 use acorn_core::Location;
+use acorn_host::fs::file_uri_to_path;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use futures::future::join_all;
-use std::fs::remove_file;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::remove_file,
+    path::{Path, PathBuf},
+};
 
 trait Process {
     async fn process(self, load_checks: CheckBatch, failures: Vec<String>, options: &Options, resolved: Option<Records>) -> ApiResult<()>;
@@ -79,7 +90,7 @@ fn expand(inputs: &[String], filters: &FilterSet, max_depth: Option<usize>) -> V
     inputs
         .iter()
         .flat_map(|value| {
-            let path = uri_to_path(value);
+            let path = file_uri_to_path(value).unwrap_or_else(|_| PathBuf::from(value));
             match path.exists() {
                 | true => files_all_with_max_depth(path, None::<Vec<String>>, max_depth)
                     .into_iter()

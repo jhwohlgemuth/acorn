@@ -1,17 +1,18 @@
 //! Goose CLI YAML synchronization configuration types
 use super::{McpSync, Options, RenderedOutput, SyncTarget};
-use crate::args;
 #[cfg(not(target_os = "windows"))]
 use crate::io::home_directory;
-use crate::io::{read_file, ApiResult};
-use crate::util::constants::app::APPLICATION;
 #[cfg(not(target_os = "windows"))]
 use crate::util::constants::app::DEFAULT_GOOSE_CONFIG_PATH;
 #[cfg(target_os = "windows")]
 use crate::util::constants::app::DEFAULT_GOOSE_WINDOWS_CONFIG_PATH;
+use crate::{
+    io::{read_file, ApiResult},
+    util::constants::app::APPLICATION,
+};
+use acorn_cmd::args;
 use acorn_core::options::{SyncInner, TargetConfig};
-use acorn_schema::agent::ModelDetails;
-use acorn_schema::validation::Validate;
+use acorn_schema::{agent::ModelDetails, validation::Validate};
 use alloc::string::{String, ToString};
 use color_eyre::eyre::eyre;
 #[cfg(target_os = "windows")]

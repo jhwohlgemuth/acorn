@@ -1,14 +1,17 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
-use crate::io::{http, symlink, uri_to_path, ApiResult, SafePath};
-use crate::util::Label;
-use acorn_core::prelude::String;
-use acorn_core::util::MimeType;
-use acorn_core::{Location, Repository, Scheme};
+use crate::io::{http, symlink, ApiResult};
+use acorn_core::{prelude::String, util::MimeType, Location, Repository, Scheme};
+use acorn_host::{
+    fs::{file_uri_to_path, SafePath},
+    terminal::Label,
+};
 use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use core::fmt;
-use std::fs::{copy, read};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{copy, read},
+    path::{Path, PathBuf},
+};
 use strum::EnumIs;
 use tracing::error;
 
@@ -98,7 +101,7 @@ impl Source {
         let location: Location = source.parse().expect("Location::from_str is infallible");
         match location {
             | Location::Detailed { scheme: Scheme::File, .. } => {
-                let path = uri_to_path(source);
+                let path = file_uri_to_path(source).unwrap_or_else(|_| PathBuf::from(source));
                 Self::Local {
                     name: None,
                     path,
@@ -113,7 +116,8 @@ impl Source {
                 identifier: source.to_string(),
             },
             | Location::Detailed {
-                scheme: Scheme::Unsupported, ..
+                scheme: Scheme::SSH | Scheme::Unsupported,
+                ..
             } => Self::Unsupported(source.to_string()),
             | Location::Simple(_) => Self::Local {
                 name: None,
@@ -200,7 +204,7 @@ impl From<&str> for Source {
         let trimmed = selector.trim();
         let location = Location::from(trimmed);
         if location.is_local() {
-            let path = uri_to_path(trimmed);
+            let path = file_uri_to_path(trimmed).unwrap_or_else(|_| PathBuf::from(trimmed));
             Self::Local {
                 name: None,
                 path,
@@ -221,11 +225,11 @@ impl From<Location> for Source {
         match scheme {
             | Scheme::File => Self::Local {
                 name: None,
-                path: uri_to_path(&uri),
+                path: file_uri_to_path(&uri).unwrap_or_else(|_| PathBuf::from(&uri)),
                 action: None,
             },
             | Scheme::HTTPS | Scheme::HTTP => Self::Remote { name: None, identifier: uri },
-            | Scheme::Unsupported => Self::Unsupported(uri),
+            | Scheme::SSH | Scheme::Unsupported => Self::Unsupported(uri),
         }
     }
 }

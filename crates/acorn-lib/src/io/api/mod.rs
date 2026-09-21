@@ -2,32 +2,40 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
-use crate::io::config::ApplicationConfiguration;
-use crate::io::database::{schema::Table, Database};
-use crate::io::http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError};
 #[cfg(feature = "agentic")]
 use crate::io::http::{HttpRequest, HttpService};
-use crate::io::ApiResult;
-use crate::param;
-use crate::util::constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE};
-use crate::util::{Constant, Label};
-use acorn_core::options::{ApiExtension, ApiOptions as CoreApiOptions};
-use acorn_core::util::assets::EmbeddedAssets;
-use acorn_core::util::{detect_json, detect_xml, Searchable};
-use acorn_core::{Location, Repository, Scheme};
-use acorn_schema::agent::AuthenticationScheme;
-use acorn_schema::validation::Validate;
+use crate::{
+    io::{
+        config::ApplicationConfiguration,
+        database::{schema::Table, Database},
+        http::{delete, get, patch, post, put, HttpMethod, HttpResponse, HttpResponseError},
+        ApiResult,
+    },
+    param,
+    util::{
+        constants::{URL_ENCODED_CARAT, URL_ENCODED_SPACE},
+        Constant,
+    },
+};
+use acorn_core::{
+    options::{ApiExtension, ApiOptions as CoreApiOptions},
+    util::{assets::EmbeddedAssets, detect_json, detect_xml, Searchable},
+    Location, Repository, Scheme,
+};
+use acorn_host::terminal::Label;
+use acorn_schema::{agent::AuthenticationScheme, validation::Validate};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::{self, eyre};
-use core::iter::once;
-use core::{fmt, marker::PhantomData};
+use core::{fmt, iter::once, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
 #[cfg(feature = "agentic")]
 use http::header::CONTENT_TYPE;
-use http::header::{HeaderName, HeaderValue};
-use http::HeaderMap;
+use http::{
+    header::{HeaderName, HeaderValue},
+    HeaderMap,
+};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use owo_colors::OwoColorize;

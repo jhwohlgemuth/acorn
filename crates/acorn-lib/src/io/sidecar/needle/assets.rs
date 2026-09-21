@@ -1,19 +1,28 @@
 //! Needle runner and ModelKit asset acquisition
 use super::super::{ModelKitManifest, ResolvedAssets};
-use crate::io::api::huggingface;
-use crate::io::download::{DownloadItem, DownloadItems};
-use crate::io::oci::{OciReference, OciTransportOptions, OrasTransport};
-use crate::io::{make_executable, read_file, verify_checksum, ApiResult, Fingerprint, InputOutput, SafePath, Source};
-use crate::util::constants::app::{APPLICATION, NEEDLE_REPOSITORY, NEEDLE_REVISION, ORGANIZATION, QUALIFIER};
-use crate::util::constants::oci::MODELKIT_MANIFEST;
+use crate::{
+    io::{
+        api::huggingface,
+        download::{DownloadItem, DownloadItems},
+        oci::{OciReference, OciTransportOptions, OrasTransport},
+        read_file, verify_checksum, ApiResult, Fingerprint, InputOutput, Source,
+    },
+    util::constants::{
+        app::{APPLICATION, NEEDLE_REPOSITORY, NEEDLE_REVISION, ORGANIZATION, QUALIFIER},
+        oci::MODELKIT_MANIFEST,
+    },
+};
 use acorn_core::prelude::String;
+use acorn_host::fs::{make_executable, SafePath};
 use acorn_schema::agent::tools::NeedleToolDefinition;
 use color_eyre::eyre::eyre;
 use core::iter::once;
 use directories::ProjectDirs;
-use std::env::consts::{ARCH, OS};
-use std::fs::{canonicalize, create_dir_all, remove_file};
-use std::path::PathBuf;
+use std::{
+    env::consts::{ARCH, OS},
+    fs::{canonicalize, create_dir_all, remove_file},
+    path::PathBuf,
+};
 
 /// One pinned official standalone runner
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -153,10 +162,9 @@ impl ResolvedAssets {
             .and_then(|manifest| EngineAsset::current().and_then(|asset| manifest.resolve(&root, asset.platform, "Needle")))
     }
     fn validate_official(self, asset: EngineAsset) -> ApiResult<Self> {
-        verify_checksum(&self.runner, asset.sha256, None).and_then(|()| match make_executable(&self.runner) {
-            | true => Ok(self),
-            | false => Err(eyre!("Needle runner is not executable")),
-        })
+        verify_checksum(&self.runner, asset.sha256, None)
+            .and_then(|()| make_executable(&self.runner).map_err(Into::into))
+            .map(|()| self)
     }
     /// Require a custom ModelKit to carry the exact active tool catalog
     pub fn validate_tools(self, expected: &[NeedleToolDefinition]) -> ApiResult<Self> {

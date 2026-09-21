@@ -2,11 +2,11 @@
 use acorn::io::api::{grpc, Secret};
 use acorn::io::{ContainerTarget, Executor};
 #[cfg(feature = "grpc")]
-use acorn::util::cmd::command_string;
-#[cfg(feature = "grpc")]
 use acorn::util::constants::env::GRPC_TOKEN;
 #[cfg(feature = "grpc")]
-use acorn::{args, cmd};
+use acorn_cmd::runtime::command_string;
+#[cfg(feature = "grpc")]
+use acorn_cmd::{args, cmd};
 use color_eyre::eyre::{eyre, Report, Result};
 use core::net::SocketAddr;
 #[cfg(feature = "grpc")]

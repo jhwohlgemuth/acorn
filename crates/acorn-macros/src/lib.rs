@@ -1,4 +1,4 @@
-//! Procedural macros for ACORN database utilities
+//! Procedural macros for ACORN
 use proc_macro::TokenStream;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
@@ -7,12 +7,9 @@ use syn::{
     PathArguments, Token, Type,
 };
 
-#[derive(Debug)]
-enum CmdWord {
-    Literal(String),
-    Var(String),
-    Splat(String),
-}
+mod command;
+
+use command::expand_cmd_sh_words;
 #[derive(Clone)]
 enum ValidationRule {
     Required(RuleOptions),
@@ -232,33 +229,6 @@ fn error_tokens(
     let code = options.code.as_ref().map(|value| quote! { #value }).unwrap_or_else(|| quote! { #code });
     let message = options.message.as_ref().map(|value| quote! { #value }).unwrap_or(default_message);
     quote! { ::acorn_core::validation::ValidationError::new(#code).with_message((#message)) }
-}
-fn expand_cmd_sh_words(input: &LitStr) -> syn::Result<proc_macro2::TokenStream> {
-    let words = parse_cmd_words(&input.value()).map_err(|message| syn::Error::new(input.span(), message))?;
-    let parts = words.into_iter().map(|word| match word {
-        | CmdWord::Literal(value) => quote! {
-            ::std::iter::once(::std::ffi::OsString::from(#value)).collect::<::std::vec::Vec<::std::ffi::OsString>>()
-        },
-        | CmdWord::Var(name) => {
-            let ident = syn::Ident::new(&name, input.span());
-            quote! {
-                ::std::iter::once(
-                    ::std::convert::AsRef::<::std::ffi::OsStr>::as_ref(&#ident).to_os_string()
-                ).collect::<::std::vec::Vec<::std::ffi::OsString>>()
-            }
-        }
-        | CmdWord::Splat(name) => {
-            let ident = syn::Ident::new(&name, input.span());
-            quote! {
-                (&#ident).into_iter().map(|__x| {
-                    ::std::convert::AsRef::<::std::ffi::OsStr>::as_ref(&__x).to_os_string()
-                }).collect::<::std::vec::Vec<::std::ffi::OsString>>()
-            }
-        }
-    });
-    Ok(quote! {
-        [#(#parts),*].concat()
-    })
 }
 fn expand_database_row(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let _name = &input.ident;
@@ -991,10 +961,6 @@ fn is_collection(ty: &Type) -> bool {
         | _ => ["Vec", "OneOrMany", "BTreeMap"].iter().any(|name| type_argument(ty, name).is_some()),
     }
 }
-fn is_ident(value: &str) -> bool {
-    let mut chars = value.chars();
-    chars.next().is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
-}
 fn is_option_bool(ty: &syn::Type) -> bool {
     match ty {
         | syn::Type::Path(type_path) => type_path
@@ -1107,9 +1073,6 @@ fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
         | _ => Ok(Vec::new()),
     }
 }
-fn next_is_word_boundary(chars: &[char], index: usize) -> bool {
-    chars.get(index).is_none_or(|ch| ch.is_whitespace())
-}
 fn normalize_async_tokens(tokens: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     tokens
         .into_iter()
@@ -1149,84 +1112,6 @@ fn override_error(expression: proc_macro2::TokenStream, options: &RuleOptions) -
             __error
         })
     })
-}
-fn parse_cmd_words(command: &str) -> Result<Vec<CmdWord>, String> {
-    let chars = command.chars().collect::<Vec<_>>();
-    let mut words = Vec::new();
-    let mut current = String::new();
-    let mut index = 0;
-    while index < chars.len() {
-        match chars[index] {
-            | ch if ch.is_whitespace() => {
-                push_literal(&mut words, &mut current);
-                index += 1;
-            }
-            | '\'' => {
-                index += 1;
-                while index < chars.len() && chars[index] != '\'' {
-                    current.push(chars[index]);
-                    index += 1;
-                }
-                if index == chars.len() {
-                    return Err("cmd!(sh ...): unterminated single quote".to_string());
-                }
-                index += 1;
-            }
-            | '"' => {
-                index += 1;
-                while index < chars.len() && chars[index] != '"' {
-                    if chars[index] == '{' && read_interpolation(&chars, index).is_some() {
-                        return Err("cmd!(...): interpolation must occupy an unquoted shell word".to_string());
-                    }
-                    if chars[index] == '\\' {
-                        index += 1;
-                        if index == chars.len() {
-                            return Err("cmd!(...): trailing escape in double quote".to_string());
-                        }
-                    }
-                    current.push(chars[index]);
-                    index += 1;
-                }
-                if index == chars.len() {
-                    return Err("cmd!(...): unterminated double quote".to_string());
-                }
-                index += 1;
-            }
-            | '\\' => {
-                index += 1;
-                if index == chars.len() {
-                    return Err("cmd!(...): trailing escape".to_string());
-                }
-                current.push(chars[index]);
-                index += 1;
-            }
-            | '{' => match read_interpolation(&chars, index) {
-                | Some((name, false, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
-                    words.push(CmdWord::Var(name));
-                    index = next;
-                }
-                | Some((name, true, next)) if current.is_empty() && next_is_word_boundary(&chars, next) => {
-                    words.push(CmdWord::Splat(name));
-                    index = next;
-                }
-                | Some(_) => return Err("cmd!(...): interpolation must occupy a full shell word".to_string()),
-                | None => {
-                    current.push(chars[index]);
-                    index += 1;
-                }
-            },
-            | ch => {
-                current.push(ch);
-                index += 1;
-            }
-        }
-    }
-    push_literal(&mut words, &mut current);
-    if words.is_empty() {
-        Err("cmd!(...): empty command string".to_string())
-    } else {
-        Ok(words)
-    }
 }
 fn parse_length_options(meta: &Meta) -> syn::Result<LengthOptions> {
     let nested = nested_meta(meta)?;
@@ -1462,26 +1347,6 @@ fn parse_validate_meta(attribute: &syn::Attribute) -> Vec<Meta> {
             )))]
         })
 }
-fn push_literal(words: &mut Vec<CmdWord>, current: &mut String) {
-    if !current.is_empty() {
-        words.push(CmdWord::Literal(core::mem::take(current)));
-    }
-}
-fn read_interpolation(chars: &[char], start: usize) -> Option<(String, bool, usize)> {
-    let close = chars
-        .iter()
-        .enumerate()
-        .skip(start + 1)
-        .find_map(|(index, ch)| (*ch == '}').then_some(index))?;
-    let content = chars[start + 1..close].iter().collect::<String>();
-    if let Some(name) = content.strip_suffix("...") {
-        is_ident(name).then(|| (name.to_string(), true, close + 1))
-    } else if is_ident(&content) {
-        Some((content, false, close + 1))
-    } else {
-        None
-    }
-}
 fn scalar_expression(
     acorn: &proc_macro2::TokenStream,
     rule: &ValidationRule,
@@ -1633,6 +1498,7 @@ mod tests {
         clippy::arithmetic_side_effects
     )]
     use super::*;
+    use crate::command::{parse_cmd_words, CmdWord};
     use syn::{parse_quote, DeriveInput, Type};
 
     #[test]

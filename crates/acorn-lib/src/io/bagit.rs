@@ -4,18 +4,25 @@
 //! This module provides utilities to create, verify, and work with BagIt packages containing research
 //! activity data, metadata, and supporting documentation.
 //!
-use crate::io::{archive, file_checksum, files_all, read_file, write_file, ApiResult, SafePath, StringConversion};
-use crate::util::Label;
-use acorn_core::prelude::HashSet;
-use acorn_core::util::{ChecksumAlgorithm, MimeType};
+use crate::io::{archive, files_all, read_file, write_file, ApiResult, StringConversion};
+use acorn_core::{
+    prelude::HashSet,
+    util::{ChecksumAlgorithm, MimeType},
+};
+use acorn_host::{
+    fs::{file_checksum, SafePath},
+    terminal::Label,
+};
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::fs::{copy, create_dir_all};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{copy, create_dir_all},
+    path::{Path, PathBuf},
+};
 use tracing::{error, warn};
 
 const LINE_ENDING: &str = if cfg!(windows) { "\r\n" } else { "\n" };
@@ -212,10 +219,10 @@ impl Save for Bag {
                                 .fold(String::new(), |acc, x| {
                                     let to = payload_directory.join(&x);
                                     match file_checksum(to.clone(), Some(checksum_algorithm)) {
-                                        | Some(checksum) => {
+                                        | Ok(checksum) => {
                                             format!("{acc}{checksum} data/{}{LINE_ENDING}", x.as_path().display())
                                         }
-                                        | None => {
+                                        | Err(_) => {
                                             warn!(payload = to.to_absolute_path(), "=> {} Calculate checksum", Label::fail());
                                             acc
                                         }
@@ -357,12 +364,8 @@ fn verify_manifest(base: &Path, name: &str, algorithm: ChecksumAlgorithm) -> Api
                 relative
                     .materialize_under(base)
                     .map_err(Into::<color_eyre::Report>::into)
-                    .map(|path| file_checksum(path, Some(digest)))
-                    .and_then(|checksum| {
-                        checksum
-                            .map(|checksum| checksum.checksum_value.to_ascii_lowercase())
-                            .ok_or_else(|| eyre!("Failed to checksum BagIt payload: {}", relative.as_path().display()))
-                    })
+                    .and_then(|path| file_checksum(path, Some(digest)).map_err(Into::<color_eyre::Report>::into))
+                    .map(|checksum| checksum.checksum_value.to_ascii_lowercase())
                     .and_then(|calculated| match calculated == expected.to_ascii_lowercase() {
                         | true => Ok(()),
                         | false => Err(eyre!("Checksum mismatch in payload file = {}", relative.as_path().display())),

@@ -6,14 +6,18 @@
     clippy::arithmetic_side_effects
 )]
 use super::{add_aspect_chart, add_slide, copy_image, prepare_destination};
-use crate::assets::draft_placeholder_bytes;
-use crate::test::util::{temp_test_dir, TestCleanup};
-use acorn::io::{read_file, write_file};
-use acorn_schema::research_activity::ResearchActivity;
-use acorn_schema::{ImageObject, MediaObject};
-use std::env::temp_dir;
-use std::fs::{create_dir_all, read};
-use std::path::Path;
+use crate::{
+    assets::draft_placeholder_bytes,
+    test::util::{temp_test_dir, TestCleanup},
+};
+use acorn::io::write_file;
+use acorn_host::fs::read_text;
+use acorn_schema::{research_activity::ResearchActivity, ImageObject, MediaObject};
+use std::{
+    env::temp_dir,
+    fs::{create_dir_all, read},
+    path::Path,
+};
 
 fn setup_image_relationship(root: &Path) {
     let relationships = "http://schemas.openxmlformats.org/package/2006/relationships";
@@ -74,9 +78,9 @@ fn test_add_aspect_chart_packages_image_and_picture() {
     create_dir_all(root.join("ppt/media")).unwrap();
     let data = ResearchActivity::default();
     add_aspect_chart(1, &data, b"chart-png", &root).unwrap();
-    let relationships = read_file(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
-    let slide = read_file(root.join("ppt/slides/slide1.xml")).unwrap();
-    let content_types = read_file(root.join("[Content_Types].xml")).unwrap();
+    let relationships = read_text(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
+    let slide = read_text(root.join("ppt/slides/slide1.xml")).unwrap();
+    let content_types = read_text(root.join("[Content_Types].xml")).unwrap();
     let media = read(root.join(format!("ppt/media/{}-aspect.png", data.meta.identifier))).unwrap();
     assert!(relationships.contains("relationships/image"));
     assert!(relationships.contains("-aspect.png"));
@@ -90,10 +94,10 @@ fn test_add_slide_copies_parts_and_updates_relationships() {
     let _cleanup = TestCleanup::new(root.clone());
     setup_slide_fixture(&root);
     add_slide(2, &root).unwrap();
-    let slide_relationships = read_file(root.join("ppt/slides/_rels/slide2.xml.rels")).unwrap();
-    let notes_relationships = read_file(root.join("ppt/notesSlides/_rels/notesSlide2.xml.rels")).unwrap();
-    let presentation_relationships = read_file(root.join("ppt/_rels/presentation.xml.rels")).unwrap();
-    let presentation = read_file(root.join("ppt/presentation.xml")).unwrap();
+    let slide_relationships = read_text(root.join("ppt/slides/_rels/slide2.xml.rels")).unwrap();
+    let notes_relationships = read_text(root.join("ppt/notesSlides/_rels/notesSlide2.xml.rels")).unwrap();
+    let presentation_relationships = read_text(root.join("ppt/_rels/presentation.xml.rels")).unwrap();
+    let presentation = read_text(root.join("ppt/presentation.xml")).unwrap();
     assert!(slide_relationships.contains("../notesSlides/notesSlide2.xml"));
     assert!(notes_relationships.contains("../slides/slide2.xml"));
     assert!(presentation_relationships.contains("slides/slide2.xml"));
@@ -135,7 +139,7 @@ fn test_copy_image_uses_draft_placeholder_when_media_is_absent() {
     let media = read(root.join(format!("ppt/media/{}.png", data.meta.identifier))).unwrap();
     assert_eq!(written, media.len() as u64);
     assert_eq!(media, draft_placeholder_bytes().expect("embedded placeholder"));
-    let relationships = read_file(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
+    let relationships = read_text(root.join("ppt/slides/_rels/slide1.xml.rels")).unwrap();
     assert!(relationships.contains(&format!("../media/{}.png", data.meta.identifier)));
 }
 #[test]

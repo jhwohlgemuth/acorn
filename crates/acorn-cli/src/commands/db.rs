@@ -1,15 +1,18 @@
 #![allow(clippy::std_instead_of_alloc)]
 use crate::io::chromium_cache_dir;
-use acorn::io::database::{backend, resolve_database_path, schema::Table, Database, Operations};
-use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH};
-use acorn::util::Label;
+use acorn::{
+    io::database::{backend, resolve_database_path, schema::Table, Database, Operations},
+    util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH},
+};
 use acorn_core::prelude::Arc;
+use acorn_host::terminal::Label;
 use color_eyre::eyre::Report;
-use futures::future::ready;
-use futures::TryFutureExt;
-use std::env;
-use std::fs::remove_dir_all;
-use std::path::{Path, PathBuf};
+use futures::{future::ready, TryFutureExt};
+use std::{
+    env,
+    fs::remove_dir_all,
+    path::{Path, PathBuf},
+};
 use tracing::{debug, info, warn};
 
 #[derive(Clone)]

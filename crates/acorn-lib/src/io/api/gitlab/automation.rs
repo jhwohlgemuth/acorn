@@ -1,20 +1,24 @@
 //! Typed GitLab repository publication for registered workflows
-use super::effects::Effect;
 use super::{
-    merge_request, merge_request_diffs, project_details, repository_file, DeploymentConfig, ErrorResponse, Fallback, MergeRequestDetails, Options,
-    WorkflowEffect,
+    effects::Effect, merge_request, merge_request_diffs, project_details, repository_file, DeploymentConfig, ErrorResponse, Fallback,
+    MergeRequestDetails, Options, WorkflowEffect,
 };
-use crate::io::api::webhooks::store::OperationQueue;
-use crate::io::api::{self, require_non_empty_secret, Configuration, EmptyField, Endpoint, Params, RemoteResource};
-use crate::io::http::HttpResponseError;
-use crate::io::workflow::{
-    FileChange, FileChangeKind, LogbookProposal, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, RepositoryWorkflowRegistry,
+use crate::{
+    io::{
+        api::{self, require_non_empty_secret, webhooks::store::OperationQueue, Configuration, EmptyField, Endpoint, Params, RemoteResource},
+        http::HttpResponseError,
+        workflow::{
+            FileChange, FileChangeKind, LogbookProposal, RepositoryChangeSet, RepositoryFileInput, RepositoryInput, RepositoryWorkflowRegistry,
+        },
+        ApiResult,
+    },
+    util::constants::{app::APPLICATION, env::GITLAB_TOKEN_VARIABLE_NAMES},
 };
-use crate::io::{ApiResult, SafePath};
-use crate::util::constants::app::APPLICATION;
-use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
-use acorn_core::prelude::{String, Vec};
-use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_core::{
+    prelude::{String, Vec},
+    util::{MarkdownSupport, MimeType},
+};
+use acorn_host::fs::SafePath;
 use acorn_schema::research_activity::{GraduationCandidates, LogbookEntry, ResearchActivity};
 use bon::Builder;
 use color_eyre::eyre::eyre;
@@ -22,8 +26,7 @@ use data_encoding::HEXLOWER;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use ring::digest::{digest, SHA256};
 use secrecy::ExposeSecret;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// Result of processing and optionally publishing a merge-request repository snapshot.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

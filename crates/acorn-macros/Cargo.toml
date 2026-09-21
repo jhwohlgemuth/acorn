@@ -4,7 +4,7 @@ version.workspace = true
 edition = "2021"
 license.workspace = true
 authors.workspace = true
-description = "Procedural macros for ACORN database utilities"
+description = "Procedural macros for ACORN"
 documentation.workspace = true
 
 [lib]

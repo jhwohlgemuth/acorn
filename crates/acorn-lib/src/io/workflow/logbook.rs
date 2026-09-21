@@ -1,10 +1,15 @@
 //! Pure repository proposals for normalized logbook form entries.
 use super::{FileChange, FileChangeKind, RepositoryChangeSet, WorkflowFileReport};
-use crate::io::{ApiResult, SafePath};
-use acorn_core::prelude::{String, Vec};
-use acorn_core::util::MimeType;
-use acorn_schema::research_activity::{Logbook, LogbookEntry, ResearchActivity};
-use acorn_schema::validation::Validate;
+use crate::io::ApiResult;
+use acorn_core::{
+    prelude::{String, Vec},
+    util::MimeType,
+};
+use acorn_host::fs::SafePath;
+use acorn_schema::{
+    research_activity::{Logbook, LogbookEntry, ResearchActivity},
+    validation::Validate,
+};
 use color_eyre::eyre::eyre;
 
 /// Immutable input for one logbook repository proposal.

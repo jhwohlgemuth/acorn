@@ -1,18 +1,26 @@
 //! Bucket transfer and local copy logic
-use crate::io::api::{github, gitlab, Authenticator, Configuration, Credential, Endpoint, Params};
-use crate::io::bagit::Bag;
-use crate::io::config::transfer::{transfer_bucket_files, DownloadOptions, TransferItem, TransferManifest, TransferPolicy};
-use crate::io::config::{filter_paths, FilterSet};
-use crate::io::download::{DownloadItem, DownloadTask};
-use crate::io::http::{self, download_with_progress};
-use crate::io::{files_all, uri_to_path, write_file_bytes, ApiResult, ArchiveCandidate, TemporaryDirectory};
-use crate::util::constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS;
-use crate::util::{Label, StringConversion};
-use crate::LocationExt;
-use acorn_core::options::RuntimeOptions;
-use acorn_core::prelude::Arc;
-use acorn_core::util::MimeType;
-use acorn_core::{Location, Repository, Scheme};
+use crate::{
+    io::{
+        api::{github, gitlab, Authenticator, Configuration, Credential, Endpoint, Params},
+        bagit::Bag,
+        config::{
+            filter_paths,
+            transfer::{transfer_bucket_files, DownloadOptions, TransferItem, TransferManifest, TransferPolicy},
+            FilterSet,
+        },
+        download::{DownloadItem, DownloadTask},
+        files_all,
+        http::{self, download_with_progress},
+        write_file_bytes, ApiResult, ArchiveCandidate,
+    },
+    util::{constants::app::GITLAB_CREDENTIAL_VARIABLE_PAIRS, StringConversion},
+    LocationExt,
+};
+use acorn_core::{options::RuntimeOptions, prelude::Arc, util::MimeType, Location, Repository, Scheme};
+use acorn_host::{
+    fs::{file_uri_to_path, TemporaryDirectory},
+    terminal::Label,
+};
 use bon::Builder;
 use color_eyre::eyre::{eyre, Report};
 use core::future::Future;
@@ -20,11 +28,13 @@ use futures::{future, stream, StreamExt, TryStreamExt};
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use std::fs::{create_dir_all, read, remove_dir_all, remove_file, write};
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
-use std::process::exit;
-use std::sync::Mutex;
+use std::{
+    fs::{create_dir_all, read, remove_dir_all, remove_file, write},
+    io::ErrorKind,
+    path::{Path, PathBuf},
+    process::exit,
+    sync::Mutex,
+};
 use tracing::{error, warn};
 
 /// Options for bucket transfers.
@@ -72,7 +82,7 @@ pub struct Buckets(pub Vec<Bucket>);
 impl Bucket {
     /// Resolves and validates a BagIt archive as a local payload bucket.
     pub async fn archive(source: &str, format: Option<MimeType>, temporary: &TemporaryDirectory, offline: bool) -> ApiResult<(Self, String)> {
-        let local = uri_to_path(source);
+        let local = file_uri_to_path(source).unwrap_or_else(|_| PathBuf::from(source));
         let archive_path = match local.is_file() {
             | true => Ok(local),
             | false if offline => Err(eyre!("Offline mode cannot import remote archive: {source}")),

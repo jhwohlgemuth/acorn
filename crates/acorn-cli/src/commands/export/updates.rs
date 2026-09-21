@@ -2,15 +2,20 @@
 #[cfg(feature = "pdf")]
 use super::pdf;
 use super::ExportRequest;
-use crate::cli::arguments::{FileFormat, Target};
-use crate::cli::resolve_paths;
-use acorn::io::{zip_entries, ApiResult, InputOutput, SafePath};
+use crate::cli::{
+    arguments::{FileFormat, Target},
+    resolve_paths,
+};
+use acorn::io::{zip_entries, ApiResult, InputOutput};
 use acorn_core::util::MarkdownSupport;
+use acorn_host::fs::SafePath;
 use acorn_schema::research_activity::{LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
 use quick_xml::escape::escape;
-use std::fs::{create_dir_all, write};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::{create_dir_all, write},
+    path::{Path, PathBuf},
+};
 
 trait LogbookUpdatesExport {
     fn artifact_path(&self, output: &Path, extension: &str) -> ApiResult<PathBuf>;
