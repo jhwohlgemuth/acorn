@@ -3,6 +3,7 @@ use acorn_host::{
     download::DownloadExpectation,
     fs::{file_checksum, file_uri_to_path, FsError, SafePath, TempDir},
     http::{AllowedAuthorities, HttpClient, HttpError, HttpPolicy},
+    source::SourcePolicy,
     terminal::Label,
 };
 use renamed_command::{args, cmd, CommandSpec};
@@ -24,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 fn compose_async_apis(client: &HttpClient) {
     let location = Location::from("https://example.org/data.json");
-    let _source = acorn_host::source::read_text(client, &location);
+    let _source = acorn_host::source::read_text(client, &location, SourcePolicy::new());
     let _download = acorn_host::download::download_to(
         client,
         "https://example.org/archive.tar",

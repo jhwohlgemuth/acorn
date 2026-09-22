@@ -10,9 +10,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
+use strum::EnumIs;
 
 /// Type of date recorded for a research activity.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, EnumIs, Eq, JsonSchema, PartialEq, Serialize)]
 pub enum ActivityDateType {
     /// Date on which the activity began.
     StartDate,

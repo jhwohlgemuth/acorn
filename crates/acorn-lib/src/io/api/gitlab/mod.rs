@@ -1732,7 +1732,7 @@ impl From<RunnerDetails> for RunnerMetadata {
             platform: None,
             projects: None,
             revision: None,
-            shared: matches!(runner_type, RunnerType::Instance),
+            shared: runner_type.is_instance(),
             runner_type,
             run_untagged: false,
             status: None,

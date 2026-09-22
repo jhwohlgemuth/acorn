@@ -207,7 +207,7 @@ pub enum Diagnostic {
     Software,
 }
 /// Target export file formats available when exporting research activity data
-#[derive(Clone, Debug, Default, Display, ValueEnum)]
+#[derive(Clone, Debug, Default, Display, EnumIs, ValueEnum)]
 pub enum FileFormat {
     #[default]
     #[display("PDF")]

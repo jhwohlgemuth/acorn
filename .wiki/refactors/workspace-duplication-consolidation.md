@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Consolidate duplicated workspace behavior"
-description: "Remove the production and test duplication found after the acorn-schema extraction without rebuilding compatibility facades."
+description: "Give repeated production and test behavior one explicit owner without rebuilding compatibility facades."
 difficulty: high
 impact: high
 package: [acorn-core, acorn-schema, acorn-lib, acorn-cli, acorn-tui]
@@ -11,63 +11,79 @@ status: planned
 
 # Goal
 
-Give each shared behavior one owner and make callers depend on that owner directly. Preserve provider-, format-, and interface-specific policy where the apparent similarity is intentional.
+Give each shared behavior one owner and make callers depend on that owner directly. Preserve provider-, format-, persistence-, and interface-specific policy where the apparent similarity is intentional.
 
 # Current evidence
 
 - The same strict JSONC `ParseOptions` literal appears in `acorn-core::util::detect_json`, `acorn-lib::io::jsonc_parse_value`, and `acorn-lib::io::parse_jsonc_cst`.
-- Handle and SWHID repeat generic `PersistentIdentifierParse` methods and identical percent-encoding validation. Their candidate punctuation rules differ and must remain explicit.
-- Download dry-run, download completion, and import completion independently assemble equivalent synchronization options before calling `sync_and_update`.
-- Collection validation is already consolidated: `OneOrMany<T>`, vectors, and arrays delegate to the shared sequence helpers in `acorn-schema::validation`.
-- TUI screens construct repeated bordered control bars even though `widgets/status_bar.rs` provides a shared renderer that is not used by those screens.
-- ROR, ORCID, and CiteAs repeat the same endpoint status invocation. CLI download and import tests repeat a tracing buffer writer, and CLI/library tests repeat workspace fixture-path resolution.
-- Exact-file and asset hashing found no duplicate non-empty files. Schema source and assets are singularly owned after extraction; this plan does not recreate a schema or core facade in `acorn-lib`.
+- Handle, RRID, and SWHID repeat identical `PersistentIdentifierParse::{format,from_string,is_valid}` implementations. Handle and SWHID also repeat percent-encoding validation, while their discovery punctuation and identifier rules differ.
+- Download dry-run, download completion, and import completion independently assemble equivalent target flags and synchronization options before calling `sync_and_update`.
+- The TUI gather screen reimplements input classification, local and remote loading, identifier discovery, persistence, and offline rejection already available through `SourceDocument::load`, `Records`, and `Records::persist`. It also performs blocking HTTP through its own `reqwest` dependency.
+- Check, doctor, gather, GGUF-picker, and theme-picker screens construct repeated bordered control bars even though `widgets/status_bar.rs` provides an unused shared renderer that currently accepts only single-character keys and fixed colors.
+- RPC, gRPC, and MCP serve commands repeat runtime validation, unsupported-context errors, detached-SSH guidance, foreground SSH invocation, and subprocess failure handling.
+- Capability-free and capability-authorized Rhai hook paths repeat the conversion of findings into categorized, document-indexed, source-qualified checks.
+- CLI download, import, and format tests repeat the same tracing buffer writer. Fixture-root helpers are intentionally crate-local because sharing them would require a public or cross-crate test-support API.
+- Production source and embedded assets have no identical non-empty copies. Identical tracked files are confined to intentional BagIt fixture payloads, fuzz seeds, equivalent snapshots, and other test data that must remain independently addressable.
+- Collection validation is already consolidated through `acorn-schema::validation`. Provider health calls are owned by [API health-check helpers](api/health-check-helpers.md); active source-reader and terminal-label consolidation remains under the [portability roadmap](portability/roadmap.md).
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/pid/{handle,swhid}/mod.rs`; `crates/acorn-core/src/util/alloc.rs`; `crates/acorn-lib/src/io/sync/` and provider API modules; `crates/acorn-cli/src/commands/{download,import}/`; `crates/acorn-tui/src/screens/` and `widgets/status_bar.rs`; adjacent focused tests.
-- **Create:** dedicated shared test helpers only when at least two existing test modules consume them.
-- **Delete:** screen-local status-bar renderers after the widget accepts their required theme and key-label representation.
+- **Update:** `crates/acorn-core/src/util/alloc.rs`; `crates/acorn-schema/src/pid/{mod,handle,rrid,swhid}/`; `crates/acorn-lib/src/{io/mod.rs,exec/}`; `crates/acorn-cli/src/{commands/download,commands/import,commands/sync,commands/serve,test/}`; `crates/acorn-tui/{Cargo.toml,src/screens/,src/widgets/status_bar.rs}`; adjacent focused tests.
+- **Create:** crate-private helpers inside the owning modules only when at least two current consumers migrate in the same slice.
+- **Delete:** repeated JSONC option literals, redundant PID method bodies and percent validators, TUI-local gather loading/persistence code, screen-local control-bar renderers, repeated serve dispatch branches, repeated Rhai check projection, repeated CLI tracing writers, and the TUI `reqwest` dependency when unused.
 
 # Dependencies and ordering
 
-1. Make core own the JSONC parsing policy before extracting further host adapters.
-2. PID and collection-validation changes serialize with other schema-lane work touching the same modules.
-3. TUI, provider status, and test-helper slices may proceed independently when their exact write sets avoid shared module indexes.
+1. Land the JSONC owner after the active `acorn-core::util::alloc` portability work and before that host boundary moves again.
+2. Serialize PID defaults and percent validation with dPID, Creusot, Miri, and other work touching `acorn-schema::pid`.
+3. Migrate TUI gather after the deterministic source-reader cutover so it consumes the final shared offline and HTTP policy. Coordinate discovery changes with gather scraping.
+4. Serialize remote serve dispatch with the highest-priority RPC/MCP lane and CLI composition; do not change CLI syntax or generated help in this slice.
+5. Keep API health/status consolidation in its existing API plan. TUI status bars, Rhai projection, model synchronization, and CLI test utilities may proceed independently when their exact files do not overlap another lane.
 
-This plan follows the ownership rules in [crate boundary architecture](crate-boundary-architecture.md). It must not add re-export modules to preserve displaced paths.
+This plan follows the ownership rules in [crate boundary architecture](crate-boundary-architecture.md). It must not add compatibility re-exports or a cross-crate test-support API.
 
 # Recommendation
 
 ## Portable parsing and validation
 
-Expose one core JSONC options constructor and use it for detection, value parsing, and CST parsing. Give `PersistentIdentifierParse` default implementations where `FromStr`, `Default`, and `Display` bounds permit; share percent-encoding validation while passing identifier-specific trimming policy explicitly. Preserve the implemented shared sequence validation rather than reopening it in this plan.
+Expose `acorn_core::util::strict_jsonc_options() -> jsonc_parser::ParseOptions` and use it for JSON detection, value parsing, and CST parsing. Add bounded default implementations for `PersistentIdentifierParse::{format,from_string,is_valid}` while leaving `find_all` required. Move percent-encoding syntax validation to one crate-private PID helper used by Handle and SWHID; keep their trimming, representation, and validation policies local.
 
-## Host and interface repetition
+## Services and interfaces
 
-Extract a CLI-local synchronization helper that converts resolved model identifiers and target flags into `sync::Options`. Keep each adapter's codec and upsert policy local. Route screen controls through the TUI status-bar widget. Add a shared endpoint status invocation helper and narrowly scoped test utilities.
+Add one CLI-local model-target options helper for download and import synchronization without changing the richer standalone sync command. Make TUI gather call the shared document/discovery/persistence APIs in a background worker rather than blocking the event loop. Extend the shared status-bar widget to accept the active theme and string key labels such as `Esc`, `Ctrl+A`, and `Up/Down`, then migrate all five screens.
+
+Add one CLI serve helper that returns whether a validated request was handled remotely or should continue to the protocol-specific local server. Keep token, TLS, database, and local service startup in their protocol modules. Add one crate-private Rhai helper that projects findings into checks with the existing category, `document_index * 100 + finding_index`, and URI semantics.
+
+## Test support and intentional repetition
+
+Move the tracing writer and a result-preserving `capture_logs` helper into CLI test utilities and migrate download, import, and format tests. Retain fixture-root helpers within each crate and retain intentional fixture, fuzz, and snapshot copies. Keep synchronization codecs/upsert rules, runtime versus persisted OCI models, and interface-specific rendering separate.
 
 # Validation
 
-1. Add parity tests before consolidating each behavior, including JSONC comments/trailing commas and invalid percent escapes.
-2. Run focused package tests for every slice.
-3. Run `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, and `make check-wasm` for portable changes.
-4. Run `make lint` and `make test` after each integration slice.
-5. Repeat the exact-file, asset-hash, and normalized source-block scan; document intentional remaining matches.
+1. Add JSONC parity tests for comments, trailing commas, loose names, missing commas, single quotes, hexadecimal numbers, and unary-plus numbers.
+2. Run Handle, RRID, and SWHID contract tests, including malformed percent escapes and type-specific discovery punctuation.
+3. Test synchronization parity for target selection, force, dry-run, and model-directory overrides.
+4. Test TUI local, PID, document, persistence-disabled, and offline-remote gathering plus themed multi-character control bars and compact rendering.
+5. Test local, SSH, context, detached, validation-failure, spawn-failure, and nonzero-exit serve behavior for RPC, gRPC, and MCP.
+6. Prove capability-free and authorized Rhai hooks produce identical check category, index, and URI metadata, and retain all log-capture assertions.
+7. Run focused package tests, `cargo check -p acorn-schema --no-default-features`, the supported alloc/std checks, `make check-wasm`, `make lint`, and `make test`.
+8. Repeat tracked-file hashing and normalized production-source scanning; classify intentional fixture, fuzz, and snapshot matches.
 
 # Acceptance criteria
 
-- All JSONC entry points obtain parser policy from one core owner.
-- Handle and SWHID share generic parsing and percent-encoding behavior without merging their distinct identifier rules.
-- Model synchronization option assembly has one CLI owner; adapter-specific codecs remain explicit.
-- TUI screens use the shared status-bar widget.
-- Provider status calls and repeated test harness utilities have one appropriate local owner.
-- No consolidation introduces a public compatibility re-export or moves host constants out of `acorn-lib`.
+- JSONC entry points obtain parsing policy from one core owner without changing accepted syntax.
+- Handle, RRID, and SWHID use the shared generic parse methods; Handle and SWHID share percent validation without merging identifier-specific rules.
+- Model synchronization option assembly has one CLI owner while adapter codecs and the standalone sync command retain their policy.
+- TUI gather uses shared loading, discovery, persistence, HTTP, and offline behavior and no longer needs direct `reqwest`.
+- All five TUI screens use one theme-aware status-bar widget with string key labels.
+- RPC, gRPC, and MCP share remote dispatch while retaining protocol-specific local startup and diagnostics.
+- Rhai execution paths share one finding-to-check projection, and CLI log-capture tests share one crate-local harness.
+- API health, deterministic source/terminal work, intentional test-data copies, fixture-root helpers, OCI boundary types, and format-specific adapters remain with their established owners.
 - Focused tests, the portable feature matrix, `make lint`, and `make test` pass.
 
 # Related plans
 
-- [Crate boundary architecture](crate-boundary-architecture.md)
-- [Portability roadmap](portability/roadmap.md)
 - [API health-check helpers](api/health-check-helpers.md)
 - [CLI parse and execution models](core/cli-parse-execution-models.md)
+- [Crate boundary architecture](crate-boundary-architecture.md)
+- [Portability roadmap](portability/roadmap.md)

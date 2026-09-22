@@ -257,7 +257,7 @@ pub enum PID {
     URL,
 }
 /// DOI or arXiv publication identifier type.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, EnumIs)]
 pub enum PublicationIdentifierType {
     /// Digital Object Identifier
     Doi(DOI),

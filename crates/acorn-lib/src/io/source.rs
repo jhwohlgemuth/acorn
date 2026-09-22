@@ -1,15 +1,17 @@
 //! Source readers for local paths, file URIs, and remote HTTP(S) URLs.
-use crate::io::{http, symlink, ApiResult};
+use crate::io::{symlink, ApiResult};
 use acorn_core::{prelude::String, util::MimeType, Location, Repository, Scheme};
 use acorn_host::{
     fs::{file_uri_to_path, SafePath},
+    http::{HttpClient, HttpPolicy},
+    source::{self, SourcePolicy},
     terminal::Label,
 };
 use arboard::Clipboard;
 use color_eyre::eyre::eyre;
 use core::fmt;
 use std::{
-    fs::{copy, read},
+    fs::copy,
     path::{Path, PathBuf},
 };
 use strum::EnumIs;
@@ -46,7 +48,7 @@ pub enum Source {
         /// Optional action to use when materializing the source
         action: Option<SourceAction>,
     },
-    /// Remote HTTP(S) URL
+    /// Remote source selector or URL.
     Remote {
         /// Optional display name for the source
         name: Option<String>,
@@ -83,25 +85,41 @@ impl Source {
     ///
     /// Returns an error if URL access is requested while `offline` is enabled.
     pub async fn read(source: &str, offline: bool) -> ApiResult<String> {
-        Self::read_bytes(source, offline)
-            .await
-            .and_then(|bytes| String::from_utf8(bytes).map_err(|why| eyre!("Failed to decode source as UTF-8 — {why}")))
+        match Self::read_context(source, offline) {
+            | Ok((client, location, policy)) => source::read_text(&client, &location, policy)
+                .await
+                .map_err(|why| eyre!("Failed to read source — {why}")),
+            | Err(why) => Err(why),
+        }
     }
     /// Reads source bytes from a URL, file URI, or local file path.
     ///
     /// HTTP(S) sources are rejected when `offline` is enabled.
     pub async fn read_bytes(source: &str, offline: bool) -> ApiResult<Vec<u8>> {
-        Source::read_parsed_bytes(Self::parse(source), offline).await
+        match Self::read_context(source, offline) {
+            | Ok((client, location, policy)) => source::read_bytes(&client, &location, policy)
+                .await
+                .map_err(|why| eyre!("Failed to read source — {why}")),
+            | Err(why) => Err(why),
+        }
     }
     /// Parses a user-provided source string into a source location.
     /// ### Note
     /// Delegates URI scheme detection to [`Location::from_str`].
     pub fn parse(source: &str) -> Self {
-        // Infallible — Location::from_str always succeeds (Err = Infallible)
-        let location: Location = source.parse().expect("Location::from_str is infallible");
+        Self::from_location(Location::from(source), false)
+    }
+    fn read_context(source: &str, offline: bool) -> ApiResult<(HttpClient, Location, SourcePolicy)> {
+        HttpClient::new(HttpPolicy::new())
+            .map(|client| (client, Location::from(source), SourcePolicy::new().with_offline(offline)))
+            .map_err(|why| eyre!("Failed to initialize source reader — {why}"))
+    }
+    fn from_location(location: Location, simple_as_remote: bool) -> Self {
         match location {
-            | Location::Detailed { scheme: Scheme::File, .. } => {
-                let path = file_uri_to_path(source).unwrap_or_else(|_| PathBuf::from(source));
+            | Location::Detailed {
+                scheme: Scheme::File, uri, ..
+            } => {
+                let path = file_uri_to_path(&uri).unwrap_or_else(|_| PathBuf::from(&uri));
                 Self::Local {
                     name: None,
                     path,
@@ -110,19 +128,30 @@ impl Source {
             }
             | Location::Detailed {
                 scheme: Scheme::HTTPS | Scheme::HTTP,
+                uri,
                 ..
-            } => Self::Remote {
-                name: None,
-                identifier: source.to_string(),
-            },
+            } => Self::Remote { name: None, identifier: uri },
             | Location::Detailed {
                 scheme: Scheme::SSH | Scheme::Unsupported,
+                uri,
                 ..
-            } => Self::Unsupported(source.to_string()),
-            | Location::Simple(_) => Self::Local {
-                name: None,
-                path: PathBuf::from(source),
-                action: None,
+            } if simple_as_remote => Self::Remote { name: None, identifier: uri },
+            | Location::Detailed {
+                scheme: Scheme::SSH | Scheme::Unsupported,
+                uri,
+                ..
+            } => Self::Unsupported(uri),
+            | Location::Simple(value) => match Location::from(value.as_str()) {
+                | parsed @ Location::Detailed { .. } => Self::from_location(parsed, simple_as_remote),
+                | Location::Simple(_) if simple_as_remote && !Location::from(value.as_str()).is_local() => Self::Remote {
+                    name: Some(value.clone()),
+                    identifier: value,
+                },
+                | Location::Simple(_) => Self::Local {
+                    name: None,
+                    path: PathBuf::from(value),
+                    action: None,
+                },
             },
         }
     }
@@ -159,19 +188,6 @@ impl Source {
             | Source::Unsupported(value) => Source::Unsupported(value),
         }
     }
-    async fn read_parsed_bytes(source: Source, offline: bool) -> ApiResult<Vec<u8>> {
-        match source {
-            | Source::Local { path, .. } => read(path).map_err(|why| eyre!("Failed to read source — {why}")),
-            | Source::Remote { identifier, .. } => Source::read_remote_bytes(&identifier, offline).await,
-            | Source::Unsupported(scheme) => Err(eyre!("Unsupported source URI scheme '{scheme}'")),
-        }
-    }
-    async fn read_remote_bytes(url: &str, offline: bool) -> ApiResult<Vec<u8>> {
-        match offline {
-            | true => Err(eyre!("Cannot read remote source while offline")),
-            | false => http::response_body_bytes(http::get(url).send().await, "Failed to download source").await,
-        }
-    }
 }
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -201,36 +217,12 @@ impl From<&Repository> for Source {
 }
 impl From<&str> for Source {
     fn from(selector: &str) -> Self {
-        let trimmed = selector.trim();
-        let location = Location::from(trimmed);
-        if location.is_local() {
-            let path = file_uri_to_path(trimmed).unwrap_or_else(|_| PathBuf::from(trimmed));
-            Self::Local {
-                name: None,
-                path,
-                action: None,
-            }
-        } else {
-            Self::Remote {
-                name: Some(trimmed.to_string()),
-                identifier: trimmed.to_string(),
-            }
-        }
+        Self::from_location(Location::from(selector.trim()), true)
     }
 }
 impl From<Location> for Source {
     fn from(location: Location) -> Self {
-        let scheme = location.scheme();
-        let uri = location.uri().unwrap_or_default();
-        match scheme {
-            | Scheme::File => Self::Local {
-                name: None,
-                path: file_uri_to_path(&uri).unwrap_or_else(|_| PathBuf::from(&uri)),
-                action: None,
-            },
-            | Scheme::HTTPS | Scheme::HTTP => Self::Remote { name: None, identifier: uri },
-            | Scheme::SSH | Scheme::Unsupported => Self::Unsupported(uri),
-        }
+        Self::from_location(location, false)
     }
 }
 impl SourceAction {

@@ -123,6 +123,8 @@ check-portable:
 	@cargo check -p acorn-schema --no-default-features --features core
 	@cargo check -p acorn-schema --no-default-features --features alloc
 	@cargo check -p acorn-schema --no-default-features
+	@cargo test -p acorn-schema --test portable_semantics
+	@cargo test -p acorn-schema --no-default-features --features alloc --test portable_semantics
 	@cargo check -p acorn-lib --no-default-features --features core
 	@cargo check -p acorn-lib --no-default-features --features alloc
 	@cargo check -p acorn-lib --no-default-features --features analyzer

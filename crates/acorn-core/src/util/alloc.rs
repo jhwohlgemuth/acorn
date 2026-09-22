@@ -13,20 +13,13 @@
 //! assert_eq!(version.major, 1);
 //! ```
 //!
-#[cfg(any(feature = "exec", feature = "std"))]
+#[cfg(feature = "std")]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
-#[cfg(feature = "exec")]
-use super::constants::app::{
-    MAX_EXEC_ARRAY_SIZE, MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTIONS, MAX_EXEC_FUNCTION_DEPTH, MAX_EXEC_INTERNED_STRINGS, MAX_EXEC_MAP_SIZE,
-    MAX_EXEC_MODULES, MAX_EXEC_OPERATIONS, MAX_EXEC_PROBE_CACHE_ENTRIES, MAX_EXEC_STRING_SIZE, MAX_EXEC_VARIABLES,
-};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
 use ::alloc::collections::BTreeSet;
 use aho_corasick::AhoCorasick;
-#[cfg(feature = "exec")]
-use alloc::collections::VecDeque;
 use bon::Builder;
 use core::fmt;
 use core::iter::{once, successors};
@@ -45,8 +38,6 @@ use serde_json::Value;
 use std::fs::canonicalize;
 #[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
-#[cfg(feature = "exec")]
-use std::sync::{Mutex, OnceLock};
 use strum::EnumIs;
 use urlencoding::encode;
 
@@ -745,12 +736,7 @@ impl MimeType {
                     | _ => None,
                 })
             })
-            .or_else(|| {
-                let candidate = is_rhai_source(bytes).then_some(Self::Rhai);
-                #[cfg(feature = "exec")]
-                let candidate = candidate.filter(|_| from_utf8(bytes).is_ok_and(rhai_probe_compiles));
-                candidate
-            })
+            .or_else(|| is_rhai_source(bytes).then_some(Self::Rhai))
     }
     /// Return whether this file type is accepted as OCI model content.
     pub fn is_model_resource(&self) -> bool {
@@ -1433,41 +1419,6 @@ pub fn regex_to_glob(pattern: impl AsRef<str>) -> Option<String> {
         None
     }
 }
-#[cfg(feature = "exec")]
-fn rhai_probe_compiles(source: &str) -> bool {
-    static CACHE: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
-    let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
-    match cache.lock().is_ok_and(|entries| entries.iter().any(|entry| entry == source)) {
-        | true => true,
-        | false => {
-            let mut engine = rhai::Engine::new_raw();
-            engine.disable_symbol("eval");
-            engine.set_max_array_size(MAX_EXEC_ARRAY_SIZE);
-            engine.set_max_call_levels(MAX_EXEC_FUNCTION_DEPTH);
-            engine.set_max_expr_depths(MAX_EXEC_EXPR_DEPTH, MAX_EXEC_FUNCTION_DEPTH);
-            engine.set_max_functions(MAX_EXEC_FUNCTIONS);
-            engine.set_max_map_size(MAX_EXEC_MAP_SIZE);
-            engine.set_max_modules(MAX_EXEC_MODULES);
-            engine.set_max_operations(MAX_EXEC_OPERATIONS);
-            engine.set_max_string_size(MAX_EXEC_STRING_SIZE);
-            engine.set_max_strings_interned(MAX_EXEC_INTERNED_STRINGS);
-            engine.set_max_variables(MAX_EXEC_VARIABLES);
-            let is_valid = engine.compile(source).is_ok_and(|ast| {
-                let entry_points = ast.iter_functions().filter(|function| function.name == "evaluate").collect::<Vec<_>>();
-                matches!(entry_points.as_slice(), [entry_point] if entry_point.params.len() == 1)
-            });
-            if is_valid {
-                let _ = cache.lock().map(|mut entries| {
-                    if entries.len() == MAX_EXEC_PROBE_CACHE_ENTRIES {
-                        entries.pop_front();
-                    }
-                    entries.push_back(source.to_string());
-                });
-            }
-            is_valid
-        }
-    }
-}
 /// Returns "s" if the given value is not 1, otherwise returns an empty string.
 /// ### Example
 /// ```rust
@@ -1642,17 +1593,10 @@ mod tests {
     use crate::prelude::alloc::{String, ToString};
     use crate::util::constants::app::EXEC_HEADER_PREFIX;
 
-    #[cfg(all(feature = "std", not(feature = "exec")))]
     #[test]
-    fn test_mime_type_infers_rhai_candidate_without_exec_compiler() {
+    fn test_mime_type_infers_rhai_from_abi_header() {
         let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
         assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
-    }
-    #[cfg(feature = "exec")]
-    #[test]
-    fn test_mime_type_rejects_rhai_candidate_that_does_not_compile() {
-        let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
-        assert_eq!(MimeType::infer(source), None);
     }
     #[test]
     fn test_semantic_version_extracts_prefixed_version() {

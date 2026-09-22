@@ -1,20 +1,17 @@
 //! Shared ACORN schema types.
 //!
 //! These types are re-exported from the crate root.
-use crate::{research_activity, standard, vocabulary};
-use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
-use alloc::collections::BTreeSet;
-
-#[cfg(feature = "std")]
+use crate::graph::{node_from_label, node_name, node_parent};
+use crate::namespaces::{bibo, foaf, schema_org};
 use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
-#[cfg(feature = "std")]
 use crate::validation::format_phone_number;
 use crate::validation::{has_image_extension, Each, Validate, ValidationReport};
+use crate::{research_activity, standard, vocabulary};
+use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType};
+use alloc::collections::BTreeSet;
 use bon::Builder;
-#[cfg(feature = "std")]
-use convert_case::{Case, Casing};
 use core::hash::Hash;
 use core::iter::{once, FromIterator};
 use core::num::NonZeroU64;
@@ -35,11 +32,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_trim::{option_string_trim, string_trim};
 use serde_with::skip_serializing_none;
-#[cfg(feature = "std")]
-use tracing::{debug, error, trace};
-
-use crate::graph::{node_from_label, node_name, node_parent};
-use crate::namespaces::{bibo, foaf, schema_org};
 
 /// ## Keywords
 /// > Core concepts related to the associated research activity
@@ -568,7 +560,6 @@ pub struct Website {
 }
 impl ContactPoint {
     /// Fix, resolve, and augment contact point data
-    #[cfg(feature = "std")]
     pub fn format(self) -> Self {
         let ContactPoint {
             affiliation,
@@ -591,10 +582,7 @@ impl ContactPoint {
         let updated_affiliation = match affiliation {
             | Some(ref affiliation) => match resolve_from_organization_json(affiliation.to_string()) {
                 | Some(resolved) => Some(resolved),
-                | None => {
-                    error!(affiliation, "Affiliation not found");
-                    Some(DEFAULT_AFFILIATION.to_string())
-                }
+                | None => Some(DEFAULT_AFFILIATION.to_string()),
             },
             | None => match Organization::load().into_iter().next() {
                 | Some(ornl) => match ornl.member(&updated_organization) {
@@ -602,23 +590,14 @@ impl ContactPoint {
                         | Some(Organization { name, .. }) => Some(name),
                         | None => Some(DEFAULT_AFFILIATION.to_string()),
                     },
-                    | None => {
-                        error!("Nearest directorate not found");
-                        Some(DEFAULT_AFFILIATION.to_string())
-                    }
+                    | None => Some(DEFAULT_AFFILIATION.to_string()),
                 },
-                | None => {
-                    error!("Organization hierarchy not found");
-                    Some(DEFAULT_AFFILIATION.to_string())
-                }
+                | None => Some(DEFAULT_AFFILIATION.to_string()),
             },
         };
         let updated_telephone = match format_phone_number(&telephone) {
             | Ok(value) => value,
-            | Err(_) => {
-                error!(value = telephone, "Invalid phone number");
-                telephone.to_string()
-            }
+            | Err(_) => telephone.to_string(),
         };
         Self::init()
             .maybe_affiliation(updated_affiliation)
@@ -633,11 +612,6 @@ impl ContactPoint {
             .telephone(updated_telephone)
             .url(url)
             .build()
-    }
-    #[cfg(not(feature = "std"))]
-    /// Fix, resolve, and augment contact point data
-    pub fn format(self) -> Self {
-        self
     }
 }
 impl Default for ContactPoint {
@@ -1092,63 +1066,97 @@ where
     })
 }
 #[cfg(feature = "std")]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I, name: String) -> Option<String> {
-    fn match_list<I: IntoIterator<Item = String> + Clone>(value: String, values: I) -> Vec<(String, u32)> {
-        let pattern = Pattern::parse(&value, CaseMatching::Ignore, Normalization::Smart);
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I) -> Option<String> {
+    fn match_list<I: IntoIterator<Item = String>>(value: &str, values: I) -> Vec<(String, u32)> {
+        let pattern = Pattern::parse(value, CaseMatching::Ignore, Normalization::Smart);
         let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
-        pattern.match_list(values.clone(), &mut matcher)
+        pattern.match_list(values, &mut matcher)
     }
-    fn print_resolution(output: Option<String>, value: String, name: String) {
-        let label = name.to_case(Case::Title);
-        match output {
-            | Some(resolved) => {
-                if resolved.eq(&value.to_string()) {
-                    trace!("{label} = \"{value}\"");
-                } else {
-                    debug!(input = value.clone(), resolved, "Resolved {label}");
+    let sanitized = value.normalize();
+    data.into_iter()
+        .filter_map(|values| {
+            values.first().cloned().and_then(|canonical| {
+                let matched = match_list(&sanitized, values.into_iter().take(4));
+                match (canonical == value, matched.into_iter().map(|(_, score)| score).max()) {
+                    | (true, Some(_)) => Some((canonical, 10_000)),
+                    | (false, Some(score)) if score > 0 => Some((canonical, score)),
+                    | _ => None,
                 }
-            }
-            | None => {
-                debug!(value = value.clone(), "{label} not found");
-            }
-        };
-    }
-    let output = data
-        .into_iter()
-        .flat_map(|values| {
-            let sanitized = value.normalize();
-            let matched = match_list(sanitized, values.clone().into_iter().take(4));
-            trace!("{} => {:?}", value.clone(), matched.clone());
-            if matched.clone().is_empty() {
-                None
-            } else {
-                match values.first() {
-                    | Some(x) => {
-                        if value.eq(x) {
-                            Some((x.into(), 10000))
-                        } else {
-                            let score = matched.into_iter().map(|(_, score)| score).max();
-                            match score {
-                                | Some(value) if value > 0 => Some((x.to_string(), value)),
-                                | Some(_) | None => None,
-                            }
-                        }
-                    }
-                    | None => None,
-                }
-            }
+            })
         })
         .max_by_key(|(_, score)| *score)
-        .map(|(x, _)| x.to_string());
-    print_resolution(output.clone(), value, name);
-    output
+        .map(|(canonical, _)| canonical)
 }
 #[cfg(not(feature = "std"))]
-#[allow(dead_code)]
-pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, _data: I, _name: String) -> Option<String> {
-    Some(value)
+pub(crate) fn resolve_from_list_of_lists<I: IntoIterator<Item = Vec<String>>>(value: String, data: I) -> Option<String> {
+    fn normalize(value: &str) -> String {
+        value.normalize().split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+    }
+    fn is_subsequence(query: &str, candidate: &str) -> bool {
+        query
+            .chars()
+            .try_fold(candidate.chars(), |mut remaining, character| {
+                remaining.find(|candidate| *candidate == character).map(|_| remaining)
+            })
+            .is_some()
+    }
+    fn acronym(value: &str) -> String {
+        value
+            .split_whitespace()
+            .filter(|token| !matches!(*token, "a" | "an" | "and" | "of" | "office" | "the"))
+            .filter_map(|token| token.chars().next())
+            .collect()
+    }
+    fn token_prefix(query: &str, candidate: &str) -> bool {
+        fn token_matches(query: &str, candidate: &str) -> bool {
+            query == candidate
+                || (query.len() >= 3
+                    && (candidate.starts_with(query)
+                        || query
+                            .get(..query.len().saturating_sub(1))
+                            .is_some_and(|prefix| candidate.starts_with(prefix))
+                        || is_subsequence(query, candidate)))
+        }
+        let query = query.split_whitespace().collect::<Vec<_>>();
+        let candidate = candidate.split_whitespace().collect::<Vec<_>>();
+        query.len() == candidate.len() && query.iter().zip(candidate).all(|(query, candidate)| token_matches(query, candidate))
+    }
+    fn score(query: &str, candidate: &str, canonical: bool) -> Option<usize> {
+        let minimum = query.len().min(candidate.len());
+        match () {
+            | _ if query.is_empty() || candidate.is_empty() => None,
+            | _ if canonical && query == candidate => Some(100_000_usize.saturating_add(minimum)),
+            | _ if canonical && minimum >= 3 && query.starts_with(candidate) => Some(60_000_usize.saturating_add(minimum)),
+            | _ if canonical && query.len() >= 2 && query == acronym(candidate) => Some(55_000_usize.saturating_add(minimum)),
+            | _ if canonical && minimum >= 2 && is_subsequence(query, candidate) => Some(45_000_usize.saturating_add(minimum)),
+            | _ if query == candidate => Some(50_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 3 && candidate.starts_with(query) => Some(40_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 2 && candidate.ends_with(query) => Some(35_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 3 && token_prefix(query, candidate) => Some(30_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 3 && candidate.contains(query) => Some(20_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 3 && query.starts_with(candidate) => Some(10_000_usize.saturating_add(minimum)),
+            | _ if minimum >= 3 && query.contains(candidate) => Some(minimum),
+            | _ => None,
+        }
+    }
+    let query = normalize(&value);
+    data.into_iter()
+        .filter_map(|values| {
+            values.first().cloned().zip(
+                values
+                    .iter()
+                    .take(4)
+                    .enumerate()
+                    .filter_map(|(index, candidate)| score(&query, &normalize(candidate), index == 0))
+                    .max(),
+            )
+        })
+        .fold(None::<(String, usize)>, |best, current| match best {
+            | Some(best) if best.1 >= current.1 => Some(best),
+            | _ => Some(current),
+        })
+        .map(|(canonical, _)| canonical)
 }
-#[cfg(feature = "std")]
 pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
     let organization = Organization::load().into_iter().next()?;
     let items: Vec<Organization> = once(organization.clone())
@@ -1168,10 +1176,5 @@ pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
             vec![name, alternative_name]
         })
         .collect::<Vec<Vec<String>>>();
-    resolve_from_list_of_lists(value, data, "organization".to_string())
-}
-#[cfg(not(feature = "std"))]
-#[allow(dead_code)]
-pub(crate) fn resolve_from_organization_json(value: String) -> Option<String> {
-    Some(value)
+    resolve_from_list_of_lists(value, data)
 }

@@ -55,7 +55,7 @@ pub(crate) trait ValidationReportExt {
     fn checks(self, uri: Option<String>) -> CheckBatch;
 }
 /// Various check categories available for validating research activity data
-#[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, PartialEq, Serialize, VariantNames)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIs, EnumIter, PartialEq, Serialize, VariantNames)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum CheckCategory {

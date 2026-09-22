@@ -576,10 +576,7 @@ async fn test_merge_request_analysis_fails_status_for_oversized_supported_file()
     };
     assert!(report.failed());
     assert!(!report.requires_retry());
-    assert_eq!(
-        report.inputs.iter().filter(|input| matches!(input, review::Input::Failed { .. })).count(),
-        1
-    );
+    assert_eq!(report.inputs.iter().filter(|input| input.is_failed()).count(), 1);
     let statuses = state.statuses.lock().unwrap().clone();
     assert_eq!(statuses[0].get("state").and_then(serde_json::Value::as_str), Some("running"));
     assert_eq!(statuses[1].get("state").and_then(serde_json::Value::as_str), Some("failed"));
@@ -713,22 +710,8 @@ async fn test_merge_request_analysis_fetches_fork_files_and_publishes_one_report
     let review::MergeRequestAnalysisOutcome::Published(report) = outcome else {
         panic!("expected published analysis");
     };
-    assert_eq!(
-        report
-            .inputs
-            .iter()
-            .filter(|input| matches!(input, review::Input::Checked { .. }))
-            .count(),
-        3
-    );
-    assert_eq!(
-        report
-            .inputs
-            .iter()
-            .filter(|input| matches!(input, review::Input::Skipped { .. }))
-            .count(),
-        3
-    );
+    assert_eq!(report.inputs.iter().filter(|input| input.is_checked()).count(), 3);
+    assert_eq!(report.inputs.iter().filter(|input| input.is_skipped()).count(), 3);
     assert_eq!(report.citation_candidates.len(), 1);
     assert_eq!(state.file_queries.lock().unwrap().as_slice(), ["ref=abc123"]);
     let statuses = state.statuses.lock().unwrap().clone();

@@ -16,7 +16,7 @@ use acorn::{
             context::{AnalysisContext, AnalysisOptions, ExecutionExtension, ExecutionOptions, ReportExtension, ReportOptions},
             render::{Render, RenderContext},
             runtime::StaticAnalyzer,
-            service::{analyze_paths, AnalysisReport},
+            service::{analyze_paths, AnalysisReport, ExecutionStatus},
             tabular::checks_to_csv,
             vale::{Vale, ValeConfig},
         },
@@ -213,6 +213,14 @@ fn build_analysis_context(
 }
 fn collect(report: &AnalysisReport, options: &AnalysisContext) -> CheckBatch {
     report.skipped_categories.iter().for_each(|category| skip!("{} checks", category));
+    report.batches.iter().for_each(|batch| {
+        batch.categories.iter().for_each(|category| match &category.status {
+            | ExecutionStatus::Executed => {}
+            | ExecutionStatus::Skipped { reason } | ExecutionStatus::Unsupported { reason } => {
+                skip!("{} {} checks — {}", batch.standard, category.category, reason);
+            }
+        });
+    });
     report
         .batches
         .iter()

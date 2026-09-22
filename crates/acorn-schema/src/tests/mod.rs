@@ -145,6 +145,13 @@ fn test_fuzzy_matching_organizations() {
         Some("Research Accelerator Division".into())
     );
 }
+#[cfg(feature = "std")]
+#[test]
+fn test_fuzzy_matching_retains_nucleo_pattern_semantics() {
+    let values = || vec![vec!["Alpha Beta".to_string()], vec!["Beta Alpha".to_string()]];
+    assert_eq!(resolve_from_list_of_lists("^alpha".to_string(), values()), Some("Alpha Beta".to_string()));
+    assert_eq!(resolve_from_list_of_lists("alpha$".to_string(), values()), Some("Beta Alpha".to_string()));
+}
 #[test]
 fn test_fuzzy_matching_partners() {
     let name = "partners".to_string();

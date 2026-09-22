@@ -21,9 +21,10 @@ use serde::Serialize;
 use std::env;
 use std::fs::{create_dir_all, remove_dir_all, write};
 use std::path::PathBuf;
+use strum::EnumIs;
 
 /// One merge request analysis input
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq, Serialize)]
 pub enum Input {
     /// Supported input awaiting retrieval
     Pending {
@@ -110,9 +111,6 @@ impl Input {
             | Self::Pending { path } | Self::Checked { path, .. } | Self::Skipped { path, .. } | Self::Failed { path, .. } => path,
         }
     }
-    fn is_skipped(&self) -> bool {
-        matches!(self, Self::Skipped { .. })
-    }
     fn supported(path: &str) -> bool {
         match MimeType::from(path) {
             | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Text | MimeType::Yaml => true,
@@ -124,7 +122,7 @@ impl Input {
 impl MergeRequestAnalysisReport {
     /// Whether the final commit status must fail
     pub fn failed(&self) -> bool {
-        self.inputs.iter().any(|input| matches!(input, Input::Failed { .. })) || self.checks.iter().any(Check::is_failure)
+        self.inputs.iter().any(Input::is_failed) || self.checks.iter().any(Check::is_failure)
     }
     /// Whether a durable operation retry may recover an input failure
     pub fn requires_retry(&self) -> bool {
@@ -136,7 +134,7 @@ impl MergeRequestAnalysisReport {
         let checked_files = self
             .inputs
             .iter()
-            .filter(|input| matches!(input, Input::Checked { .. }))
+            .filter(|input| input.is_checked())
             .map(Input::path)
             .map(|path| format!("`{path}`"))
             .collect::<Vec<_>>();

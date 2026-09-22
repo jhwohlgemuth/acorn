@@ -300,16 +300,9 @@ pub fn format_phone_number(value: &str) -> Result<String, ValidationError> {
 /// assert_eq!(format_timestamp(invalid), invalid);
 /// ```
 pub fn format_timestamp(value: &str) -> String {
-    #[cfg(feature = "std")]
-    {
-        parse_rfc3339(value)
-            .map(|(timestamp, offset)| format!("{:.6}", timestamp.display_with_offset(offset)))
-            .unwrap_or_else(|| value.to_string())
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        value.to_string()
-    }
+    parse_rfc3339(value)
+        .map(|(timestamp, offset)| format!("{:.6}", timestamp.display_with_offset(offset)))
+        .unwrap_or_else(|| value.to_string())
 }
 /// Validate that at least one item in `values` satisfies `method`
 ///

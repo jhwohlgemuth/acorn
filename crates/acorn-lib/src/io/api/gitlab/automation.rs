@@ -575,7 +575,7 @@ impl RepositoryChangeSet {
                     content: &change.content,
                     encoding: "text",
                     file_path: &change.path,
-                    last_commit_id: matches!(change.kind, FileChangeKind::Update).then_some(self.base_revision.as_str()),
+                    last_commit_id: change.kind.is_update().then_some(self.base_revision.as_str()),
                 })
                 .collect(),
             branch,

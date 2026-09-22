@@ -530,7 +530,7 @@ impl ResearchActivity {
             .as_ref()
             .into_iter()
             .flat_map(|values| values.iter())
-            .filter(|date| matches!(&date.date_type, ActivityDateType::Issued))
+            .filter(|date| date.date_type.is_issued())
             .collect::<Vec<_>>();
         match dates.as_slice() {
             | [date] => date

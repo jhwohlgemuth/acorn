@@ -22,7 +22,6 @@ jsonc-parser = { workspace = true }
 quick-xml = { workspace = true, features = ["serialize"] }
 infer = { workspace = true, optional = true }
 ring = { version = "0.17.14", default-features = false, optional = true }
-rhai = { workspace = true, optional = true }
 schemars = { version = "1.2.1", features = ["derive"], default-features = false }
 secrecy = { workspace = true }
 serde = { workspace = true }
@@ -39,7 +38,6 @@ core = []
 alloc = ["core", "serde/alloc", "jiff/alloc"]
 digest = ["alloc", "dep:ring"]
 std = ["alloc", "digest", "jiff/std", "dep:anydoc", "dep:infer"]
-exec = ["std", "dep:rhai"]
 
 [lints]
 workspace = true

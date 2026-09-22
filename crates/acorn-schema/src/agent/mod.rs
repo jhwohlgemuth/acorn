@@ -21,7 +21,7 @@ use rust_embed::Embed;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::{EnumIter, IntoEnumIterator};
+use strum::{EnumIs, EnumIter, IntoEnumIterator};
 #[cfg(feature = "std")]
 use tera::{Context, Tera};
 #[cfg(feature = "std")]
@@ -299,7 +299,7 @@ pub enum Provider {
 ///
 /// IQ is a separate I-quant family that uses an importance matrix for reconstruction.
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default, Display, EnumIter, PartialEq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Display, EnumIs, EnumIter, PartialEq, Serialize, JsonSchema)]
 pub enum Quantization {
     /// Good default balance of quality and size (`Q4_K_M`), often the sweet spot for GGUF LLMs
     #[default]
@@ -546,9 +546,6 @@ pub struct ModelSelectors(Vec<ModelSelector>);
 #[derive(Embed)]
 #[folder = "assets/prompts/"]
 pub struct PromptTemplate;
-/// Struct for using and sharing prompt templates
-#[cfg(not(feature = "std"))]
-pub struct PromptTemplate;
 /// Prompt configuration
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -594,11 +591,7 @@ pub struct PromptTemplateConfiguration {
 #[builder(start_fn = init, on(String, into))]
 pub struct ProviderDetails {
     /// Supported authentication methods
-    #[cfg(feature = "std")]
     pub authentication: Option<Vec<AuthenticationScheme>>,
-    /// Supported authentication methods
-    #[cfg(not(feature = "std"))]
-    pub authentication: Option<Vec<()>>,
     /// Provider description
     pub description: Option<String>,
     /// Documentation URL
@@ -1310,6 +1303,12 @@ impl FromStr for Quantization {
     }
 }
 impl Quantization {
+    /// Return whether this is the `F8` quantization.
+    ///
+    /// This digit-preserving alias is provided because `EnumIs` derives `is_f_8` from the `F8` variant name.
+    pub const fn is_f8(&self) -> bool {
+        self.is_f_8()
+    }
     /// Detect a quantization tag in a GGUF filename.
     pub fn from_gguf_filename(filename: &str) -> Option<Self> {
         let filename = filename.to_ascii_uppercase();
@@ -1501,7 +1500,7 @@ impl Weights {
             .map(Quantization::from)
             .find(|candidate| {
                 Quantization::iter()
-                    .filter(|variant| !matches!(variant, Quantization::Other(_)))
+                    .filter(|variant| !variant.is_other())
                     .any(|variant| &variant == candidate)
             })
             .or_else(|| self.0.iter().find_map(|weight| weight.quantization.clone()));

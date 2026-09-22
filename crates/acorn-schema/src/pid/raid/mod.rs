@@ -21,6 +21,7 @@ use schemars::schema_for;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::EnumIs;
 
 /// Allowed values for access types
 #[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, Serialize)]
@@ -274,7 +275,7 @@ pub enum ObjectType {
     Service,
 }
 /// Organization role identifier
-#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Deserialize, Display, EnumIs, JsonSchema, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OrganizationRoleType {
     /// Lead research organization
@@ -375,7 +376,7 @@ pub enum RelatedRaidType {
     IsObsoletedBy,
 }
 /// Allowed values for title identifiers
-#[derive(Clone, Debug, Deserialize, Display, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Deserialize, Display, EnumIs, JsonSchema, Serialize)]
 pub enum TitleType {
     /// Title acronym
     #[display("acronym")]
@@ -1091,7 +1092,7 @@ impl<'a> Extractor<'a> {
     /// Return the primary title, falling back to the first non-empty title.
     pub fn title(&self) -> Option<String> {
         self.titles()
-            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Primary)))
+            .filter(|title| title.title_type.as_ref().is_some_and(|kind| kind.id.is_primary()))
             .find_map(|title| title.text.as_ref().filter(|value| !value.trim().is_empty()))
             .cloned()
             .or_else(|| {
@@ -1124,9 +1125,9 @@ impl<'a> Extractor<'a> {
             .flat_map(|record| {
                 let organizations = record.organization.as_deref().unwrap_or_default();
                 organizations.iter().filter(move |organization| {
-                    let is_funder = organization.role.iter().any(|role| matches!(role.id, OrganizationRoleType::Funder));
-                    let is_partner = (organizations.len() == 1 && organization.role.is_empty())
-                        || organization.role.iter().any(|role| !matches!(role.id, OrganizationRoleType::Funder));
+                    let is_funder = organization.role.iter().any(|role| role.id.is_funder());
+                    let is_partner =
+                        (organizations.len() == 1 && organization.role.is_empty()) || organization.role.iter().any(|role| !role.id.is_funder());
                     match sponsors {
                         | true => is_funder,
                         | false => is_partner,
@@ -1195,9 +1196,7 @@ impl From<&str> for ObjectType {
 }
 impl Organization {
     fn is_lead_research_organization(&self) -> bool {
-        self.role
-            .iter()
-            .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
+        self.role.iter().any(|role| role.id.is_lead_research_organization())
     }
 }
 impl From<&str> for OrganizationRoleType {

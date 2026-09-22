@@ -1217,11 +1217,8 @@ fn test_research_activity_raid_crosswalk_inference_is_explicit() {
     assert_eq!(metadata.date.as_ref().and_then(|date| date.start_date.as_deref()), Some("2026-09-17"));
     assert_eq!(metadata.identifier.as_ref().and_then(|identifier| identifier.version), Some(1));
     let organization = metadata.organization.as_ref().unwrap().first().unwrap();
-    assert!(organization.role.iter().any(|role| matches!(role.id, raid::OrganizationRoleType::Funder)));
-    assert!(organization
-        .role
-        .iter()
-        .any(|role| matches!(role.id, raid::OrganizationRoleType::LeadResearchOrganization)));
+    assert!(organization.role.iter().any(|role| role.id.is_funder()));
+    assert!(organization.role.iter().any(|role| role.id.is_lead_research_organization()));
     assert!(warnings
         .iter()
         .any(|warning| { warning.field == "date.startDate" && warning.loss_type == FieldLossType::Approximated }));

@@ -473,7 +473,7 @@ async fn export_as_format_crosswalk(
                             | Ok(checks) if checks.is_empty() => {}
                             | Ok(checks) => {
                                 let warning_count = checks.len();
-                                if !matches!(progress_type, ProgressType::Silent) {
+                                if !progress_type.is_silent() {
                                     info!("=> Crosswalk warnings ({} total):", checks.len().cyan().bold());
                                     for check in &checks {
                                         info!("  {check}");
@@ -543,7 +543,7 @@ async fn export_as_format_crosswalk(
                     match progress.await {
                         | Ok(_) => {
                             let all_warnings = collected_checks.lock().map(|g| g.clone()).unwrap_or_default();
-                            if !(all_warnings.is_empty() || matches!(progress_type, ProgressType::Silent)) {
+                            if !(all_warnings.is_empty() || progress_type.is_silent()) {
                                 info!("=> Crosswalk warnings ({} total):", all_warnings.len().cyan().bold());
                                 for check in &all_warnings {
                                     info!("  {check}");
@@ -610,7 +610,7 @@ pub async fn run(
     verbose: &Verbosity,
     offline: bool,
 ) -> ApiResult<()> {
-    match archive_format.is_some() && !matches!(format, FileFormat::Bag) {
+    match archive_format.is_some() && !format.is_bag() {
         | true => Err(eyre!("--archive-format is only supported for BagIt exports")),
         | false => {
             let is_silent = verbose.is_silent();

@@ -248,7 +248,7 @@ fn test_quantization_compact_aliases_from_str_map_to_canonical_values() {
 fn test_quantization_f8_aliases_deserialize_canonically() {
     ["F8", "f8", "FP8", "fp8", "Fp8", "fP8"].iter().for_each(|alias| {
         let decoded: Quantization = serde_json::from_str(&format!(r#""{alias}""#)).unwrap();
-        assert!(matches!(decoded, Quantization::F8));
+        assert!(decoded.is_f8());
         assert_eq!(serde_json::to_string(&decoded).unwrap(), r#""F8""#);
     });
 }

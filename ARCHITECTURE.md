@@ -19,7 +19,9 @@ ACORN product crates live under `crates/`; repository-only tooling and shared as
 acorn/
 ├── crates/
 │   ├── acorn-cli/      # Native CLI composition root and embedded presentation assets
+│   ├── acorn-cmd/      # Portable command specifications and bounded native execution
 │   ├── acorn-core/     # Portable errors, root values, validation primitives, and utilities
+│   ├── acorn-host/     # Feature-gated native filesystem, HTTP, source, and terminal adapters
 │   ├── acorn-lib/      # Analysis and host services not yet extracted
 │   ├── acorn-macros/   # Validation and command procedural macros
 │   ├── acorn-schema/   # Portable schemas, validation, crosswalks, and codecs
@@ -85,6 +87,10 @@ Host behavior already moved out of schema modules includes path/file `InputOutpu
 
 The remaining critical portability edges are agent source resolution, embedded template rendering, OpenCode CST/path state, presentation side effects, and future browser composition. The analyzer check/error/readability kernel is independently selectable; CI prevents its native and WASM graphs from acquiring host-only dependencies.
 
+### `acorn-host`
+
+`acorn-host` owns feature-gated native filesystem, configuration, HTTP, download, source, and terminal adapters. Source reads use one policy-aware implementation for paths, file URIs, and HTTP(S); `acorn-lib::io::Source` retains only application selection and materialization metadata. Plain and styled terminal labels share one textual definition so presentation features cannot change their wording.
+
 ### `acorn-wasm`
 
 `acorn-wasm` is the JavaScript adapter for portable ACORN behavior. Its initial API parses and validates supplied Research Activity JSON and calculates readability checks over supplied text. It owns `wasm-bindgen` DTO conversion and package generation without enabling native host services. Browser HTTP, storage, document, process, and persistence adapters remain deferred until concrete service workflows prove narrow consumer-owned ports.
@@ -125,8 +131,11 @@ Port traits belong to the portable domain or service that consumes them. `acorn-
 ## Cross-cutting rules
 
 - Portable functions accept data and return values or typed errors.
+- Feature selection may add or remove an explicit capability, but it must not change the result of a portable domain operation for the same input.
 - Filesystem, network, process, clock, entropy, database, terminal, and renderer effects stay in adapters.
 - String/byte codecs live with domain types; path and URL reads/writes live at host boundaries.
+- Classification remains a pure data operation; validation or execution that needs a runtime is a separate step.
+- Analysis reports distinguish executed categories with no findings from categories skipped by policy or unsupported by the selected standard.
 - `color-eyre` and `tracing` provide rich native diagnostics; portable packages own errors that do not require host reporting.
 - `rayon` is an optional native analysis implementation detail, not a requirement of portable analysis models.
 - Each feature or crate exposes only capabilities it implements; `std` availability must not silently select unrelated services in the final package graph.

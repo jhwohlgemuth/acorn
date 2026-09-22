@@ -6,4 +6,6 @@ mod download;
 mod fs;
 #[cfg(feature = "http")]
 mod http;
+#[cfg(feature = "source")]
+mod source;
 mod terminal;

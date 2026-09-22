@@ -118,7 +118,7 @@ impl RepositoryExt for Repository {
                 .map(|values| ControlledVocabulary::normalize("technology", values).into_values()),
             | None => match repositories
                 .iter()
-                .find(|repository| repository.is_git_lab())
+                .find(|repository| repository.is_gitlab())
                 .and_then(Repository::project_path)
                 .map(|path| options.with_identifier(path))
             {

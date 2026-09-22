@@ -25,6 +25,9 @@ pub enum SourceError {
     /// The location scheme is not supported by this adapter.
     #[error("unsupported source location: {0}")]
     Unsupported(String),
+    /// Runtime policy disabled remote source access.
+    #[error("remote source access is disabled while offline: {0}")]
+    Offline(String),
     /// Git is unavailable on this host.
     #[error("git executable is unavailable")]
     GitUnavailable,
@@ -37,10 +40,27 @@ pub enum SourceError {
         kind: &'static str,
     },
 }
+/// Runtime policy for opening a source.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SourcePolicy {
+    offline: bool,
+}
+impl SourcePolicy {
+    /// Create the default online source policy.
+    pub fn new() -> Self {
+        Self::default()
+    }
+    /// Enable or disable remote source access.
+    pub fn with_offline(mut self, offline: bool) -> Self {
+        self.offline = offline;
+        self
+    }
+}
 /// Read source bytes from a local path, file URI, or HTTP(S) location.
-pub async fn read_bytes(client: &HttpClient, location: &Location) -> Result<Vec<u8>, SourceError> {
+pub async fn read_bytes(client: &HttpClient, location: &Location, policy: SourcePolicy) -> Result<Vec<u8>, SourceError> {
     let raw: &str = location.into();
     match location.scheme() {
+        | Scheme::HTTP | Scheme::HTTPS if policy.offline => Err(SourceError::Offline(redact_url(raw))),
         | Scheme::HTTP | Scheme::HTTPS => client.get_bytes(raw).await.map_err(Into::into),
         | Scheme::File => match file_uri_to_path(raw) {
             | Ok(path) => read_local(path).await,
@@ -51,8 +71,8 @@ pub async fn read_bytes(client: &HttpClient, location: &Location) -> Result<Vec<
     }
 }
 /// Read UTF-8 source text from a local path, file URI, or HTTP(S) location.
-pub async fn read_text(client: &HttpClient, location: &Location) -> Result<String, SourceError> {
-    read_bytes(client, location)
+pub async fn read_text(client: &HttpClient, location: &Location, policy: SourcePolicy) -> Result<String, SourceError> {
+    read_bytes(client, location, policy)
         .await
         .and_then(|bytes| String::from_utf8(bytes).map_err(Into::into))
 }

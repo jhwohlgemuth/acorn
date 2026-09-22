@@ -385,6 +385,12 @@ impl Repository {
     pub fn is_local(&self) -> bool {
         self.location().is_local()
     }
+    /// Return whether this is a GitLab repository.
+    ///
+    /// This acronym-preserving alias is provided because `EnumIs` derives `is_git_lab` from the `GitLab` variant name.
+    pub const fn is_gitlab(&self) -> bool {
+        self.is_git_lab()
+    }
     /// Get repository location.
     pub fn location(&self) -> Location {
         match self.clone() {
@@ -526,7 +532,7 @@ mod tests {
     #[test]
     fn test_repository_gitlab_builder() {
         let repository = Repository::gitlab().location(Location::from("https://gitlab.com/group/project")).call();
-        assert!(repository.is_git_lab());
+        assert!(repository.is_gitlab());
         assert_eq!(repository.project_path().as_deref(), Some("group/project"));
     }
 }

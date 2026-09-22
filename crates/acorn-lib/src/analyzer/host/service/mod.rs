@@ -36,26 +36,28 @@ use async_trait::async_trait;
 use core::{future::Future, iter::once};
 use futures::future::{join_all, BoxFuture};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use strum::IntoEnumIterator;
+use strum::{EnumIs, IntoEnumIterator};
 use tracing::{debug, error};
 
 /// Native analysis operations over filesystem paths.
 #[async_trait]
 pub trait Analysis: SchemaCheck {
     /// Run analysis for a given category.
-    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        match category {
-            | CheckCategory::Link => match options {
-                | Some(options) if options.execution.common.offline || options.execution.extension.disable_website_checks => CheckBatch::empty(),
-                | _ => Self::check_links(paths, options).await,
+    async fn check(category: CheckCategory, paths: &[PathBuf], options: Option<&AnalysisContext>) -> CategoryChecks {
+        let status = Self::standard().execution_status(&category, options);
+        let checks = match status {
+            | ExecutionStatus::Skipped { .. } | ExecutionStatus::Unsupported { .. } => CheckBatch::empty(),
+            | ExecutionStatus::Executed => match category {
+                | CheckCategory::Link => Self::check_links(paths, options).await,
+                | CheckCategory::Fair => Self::check_fair(paths, options).await,
+                | CheckCategory::Prose => Self::check_prose(paths, options).await,
+                | CheckCategory::Quality => Self::check_quality(paths, options).await,
+                | CheckCategory::Readability => Self::check_readability(paths, options).await,
+                | CheckCategory::Schema => Self::check_schema(paths, options).await,
+                | CheckCategory::Crosswalk => CheckBatch::empty(),
             },
-            | CheckCategory::Fair => Self::check_fair(paths, options).await,
-            | CheckCategory::Prose => Self::check_prose(paths, options).await,
-            | CheckCategory::Quality => Self::check_quality(paths, options).await,
-            | CheckCategory::Readability => Self::check_readability(paths, options).await,
-            | CheckCategory::Schema => Self::check_schema(paths, options).await,
-            | CheckCategory::Crosswalk => CheckBatch::empty(),
-        }
+        };
+        CategoryChecks { category, checks, status }
     }
     /// Assess evidence of support for the FAIR principles.
     async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
@@ -146,6 +148,24 @@ pub struct CategoryChecks {
     pub category: CheckCategory,
     /// Structured check results.
     pub checks: CheckBatch,
+    /// Whether the category ran, was deliberately skipped, or is unsupported.
+    pub status: ExecutionStatus,
+}
+/// Execution state for one requested analysis category.
+#[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
+pub enum ExecutionStatus {
+    /// The analyzer executed the category, even if it produced no findings.
+    Executed,
+    /// Configuration or runtime policy deliberately prevented execution.
+    Skipped {
+        /// Human-readable explanation of the policy decision.
+        reason: String,
+    },
+    /// The selected metadata standard does not implement the category.
+    Unsupported {
+        /// Human-readable explanation of the capability gap.
+        reason: String,
+    },
 }
 /// Paths assigned to one analysis standard.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -174,7 +194,8 @@ impl AnalysisReport {
         let categories = CheckCategory::iter()
             .filter_map(|category| {
                 let checks = checks.iter().filter(|check| check.category == category).cloned().collect::<CheckBatch>();
-                (!checks.is_empty()).then_some(CategoryChecks { category, checks })
+                let status = ExecutionStatus::Executed;
+                (!checks.is_empty()).then_some(CategoryChecks { category, checks, status })
             })
             .collect();
         let batch = AnalysisBatch {
@@ -189,24 +210,40 @@ impl AnalysisReport {
     }
 }
 impl Standard {
-    fn unsupported(self, paths: &[PathBuf], categories: &[CheckCategory]) -> Vec<CategoryChecks> {
+    fn execution_status(self, category: &CheckCategory, options: Option<&AnalysisContext>) -> ExecutionStatus {
+        let supported = match self {
+            | Self::CitationFileFormat | Self::Document => {
+                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
+            }
+            | Self::Datacite | Self::Dcat | Self::Invenio | Self::ResearchActivityData => !category.is_crosswalk(),
+            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
+            | Self::Kitfile | Self::ModelKit => category.is_schema(),
+            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
+            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
+            | Self::DublinCore => false,
+        };
+        match supported {
+            | false => ExecutionStatus::Unsupported {
+                reason: format!("{self} does not support {category} checks"),
+            },
+            | true if category.is_link() && options.is_some_and(|options| options.execution.common.offline) => ExecutionStatus::Skipped {
+                reason: "offline mode disables network link checks".to_string(),
+            },
+            | true if category.is_link() && options.is_some_and(|options| options.execution.extension.disable_website_checks) => {
+                ExecutionStatus::Skipped {
+                    reason: "website checks are disabled".to_string(),
+                }
+            }
+            | true => ExecutionStatus::Executed,
+        }
+    }
+    fn unsupported(self, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
         categories
             .iter()
-            .filter(|category| **category == CheckCategory::Fair)
             .map(|category| CategoryChecks {
                 category: category.clone(),
-                checks: paths
-                    .iter()
-                    .map(|path| {
-                        check!(
-                            CheckCategory::Fair,
-                            false,
-                            severity: CheckSeverity::Suggestion,
-                            uri: path.file_name_with_parent(),
-                            message: format!("FAIR assessment is not supported for {self} metadata")
-                        )
-                    })
-                    .collect(),
+                checks: CheckBatch::empty(),
+                status: self.execution_status(category, None),
             })
             .collect()
     }
@@ -248,8 +285,9 @@ async fn analyze<T: Analysis + Send + Sync>(
 ) -> Vec<CategoryChecks> {
     correlate_link_evidence(
         join_all(categories.iter().cloned().map(|category| async move {
-            let checks = T::check(category.clone(), paths, Some(options))
-                .await
+            let result = T::check(category, paths, Some(options)).await;
+            let checks = result
+                .checks
                 .into_iter()
                 .map(|check| {
                     let document = check.uri.as_ref().and_then(|uri| documents.get(uri)).cloned();
@@ -259,7 +297,7 @@ async fn analyze<T: Analysis + Send + Sync>(
                     }
                 })
                 .collect();
-            CategoryChecks { category, checks }
+            CategoryChecks { checks, ..result }
         }))
         .await,
     )
@@ -287,7 +325,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::ResearchActivityData => analyze::<ResearchActivity>(&paths, options, &categories, &documents).await,
             | Standard::Raid => analyze::<raid::Metadata>(&paths, options, &categories, &documents).await,
             | Standard::Text => analyze::<Text>(&paths, options, &categories, &documents).await,
-            | Standard::DublinCore => standard.unsupported(&paths, &categories),
+            | Standard::DublinCore => standard.unsupported(&categories),
         };
         batches.push(AnalysisBatch { standard, paths, categories });
     }
@@ -483,6 +521,7 @@ fn correlate_link_evidence(categories: Vec<CategoryChecks>) -> Vec<CategoryCheck
         .into_iter()
         .map(|category| CategoryChecks {
             category: category.category,
+            status: category.status,
             checks: category
                 .checks
                 .into_iter()

@@ -100,7 +100,6 @@ dependencies = [
  "jiff",
  "jsonc-parser",
  "quick-xml 0.39.4",
- "rhai",
  "ring",
  "schemars 1.2.1",
  "secrecy",

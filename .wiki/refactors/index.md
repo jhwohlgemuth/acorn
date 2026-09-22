@@ -12,7 +12,7 @@
 
 ## Planned groups and independent work
 
-- [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to duplicated model parsing, gather output, JSONC policy, PID helpers, synchronization, TUI controls, API status calls, and test utilities.
+- [Workspace duplication consolidation](workspace-duplication-consolidation.md) - Assign one explicit owner to JSONC policy, PID helpers, model synchronization, TUI gather and controls, remote serve dispatch, Rhai check projection, and CLI test utilities.
 - [Portability](portability/) - Dependency-feature narrowing and measured macOS size work on top of the implemented portability matrix.
 - [Core refactors](core/) - Export, CLI, schema, path, interpolation, and binding boundaries.
 - [API](api/) - Shared API-client contracts that prepare `acorn-api`.

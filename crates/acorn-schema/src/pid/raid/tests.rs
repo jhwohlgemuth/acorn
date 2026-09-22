@@ -57,7 +57,7 @@ fn test_raid_vocabulary_conversions() {
         OrganizationRoleType::from("partner_organisation"),
         OrganizationRoleType::PartnerOrganization
     ));
-    assert!(matches!(OrganizationRoleType::from("unknown"), OrganizationRoleType::OtherOrganization));
+    assert!(OrganizationRoleType::from("unknown").is_other_organization());
     assert!(matches!(
         PositionType::try_from("principal investigator"),
         Ok(PositionType::PrincipalInvestigator)

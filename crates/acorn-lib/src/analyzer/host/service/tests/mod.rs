@@ -81,6 +81,27 @@ async fn test_analyze_paths_dispatches_every_standard() {
     }
 }
 #[tokio::test]
+async fn test_analyze_paths_distinguishes_empty_skipped_and_unsupported_categories() {
+    let options = AnalysisContext::init()
+        .analysis(AnalysisOptions::init().standard(Standard::Text).build())
+        .execution(
+            ExecutionOptions::init()
+                .common(CommonRuntime {
+                    offline: true,
+                    ..Default::default()
+                })
+                .build(),
+        )
+        .build();
+    let quality = <Text as Analysis>::check(CheckCategory::Quality, &[], Some(&options)).await;
+    let link = <Cff as Analysis>::check(CheckCategory::Link, &[], Some(&options)).await;
+    let fair = <Text as Analysis>::check(CheckCategory::Fair, &[], Some(&options)).await;
+    assert_eq!(quality.status, ExecutionStatus::Executed);
+    assert!(link.status.is_skipped());
+    assert!(fair.status.is_unsupported());
+    assert!(quality.checks.is_empty() && link.checks.is_empty() && fair.checks.is_empty());
+}
+#[tokio::test]
 async fn test_analyze_paths_preserves_standard_and_path_group_order() {
     let options = AnalysisContext::init()
         .analysis(
@@ -210,10 +231,12 @@ fn test_correlate_link_evidence_reuses_matching_result() {
         CategoryChecks {
             category: CheckCategory::Link,
             checks: CheckBatch::single(link),
+            status: ExecutionStatus::Executed,
         },
         CategoryChecks {
             category: CheckCategory::Fair,
             checks: CheckBatch::single(fair),
+            status: ExecutionStatus::Executed,
         },
     ]);
     let finding = categories[1].checks.iter().next().and_then(Check::fair_details);

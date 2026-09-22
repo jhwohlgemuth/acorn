@@ -47,7 +47,7 @@ use std::{
     io::{self, IsTerminal},
     path::PathBuf,
 };
-use strum::{IntoEnumIterator, VariantNames};
+use strum::{EnumIs, IntoEnumIterator, VariantNames};
 use tracing::warn;
 
 pub mod osti;
@@ -125,7 +125,7 @@ pub enum LifecycleState {
     Conflict,
 }
 /// Serializable gather record
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, EnumIs, Serialize)]
 #[serde(tag = "record", rename_all = "lowercase")]
 pub enum Record {
     /// Analysis check included in a gather report
@@ -1697,14 +1697,14 @@ impl Report {
                     .discoveries
                     .0
                     .iter()
-                    .filter(|record| matches!(record, Record::Discovery { .. }))
+                    .filter(|record| record.is_discovery())
                     .map(Record::serialize)
                     .collect::<Vec<_>>()
                     .join("\n");
                 let checks = self
                     .checks
                     .iter()
-                    .filter(|record| matches!(record, Record::Check { .. }))
+                    .filter(|record| record.is_check())
                     .map(Record::serialize)
                     .collect::<Vec<_>>()
                     .join("\n");

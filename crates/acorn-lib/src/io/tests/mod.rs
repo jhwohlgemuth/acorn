@@ -1476,14 +1476,14 @@ async fn test_read_source_rejects_remote_when_offline() {
     let result = Source::read("https://example.com/openapi.yaml", true).await;
     assert!(result.is_err());
     let why = result.unwrap_err().to_string();
-    assert!(why.contains("while offline"));
+    assert!(why.contains("disabled while offline"));
 }
 #[tokio::test]
 async fn test_read_source_rejects_unsupported_uri_scheme() {
     let result = Source::read("s3://example/openapi.yaml", false).await;
     assert!(result.is_err());
     let why = result.unwrap_err().to_string();
-    assert!(why.contains("Unsupported source URI scheme"));
+    assert!(why.contains("unsupported source location"));
 }
 #[test]
 fn test_remote_container_target_arguments() {
@@ -1729,6 +1729,18 @@ fn test_source_from_str_detects_local_paths() {
     let source = Source::from("meta-llama/Llama-2-7b-hf");
     assert!(source.is_remote());
     assert_eq!(source.name(), "meta-llama/Llama-2-7b-hf");
+    assert!(Source::from("oci://registry.example.org/models/qwen:v1").is_remote());
+    assert!(Source::from("s3://bucket/model.gguf").is_remote());
+    assert!(Source::from("ssh://builder/model.gguf").is_remote());
+    assert!(Source::parse("s3://bucket/model.gguf").is_unsupported());
+    assert!(Source::parse("ssh://builder/model.gguf").is_unsupported());
+}
+#[test]
+fn test_source_classification_is_independent_of_location_representation() {
+    let raw = "file:./models/qwen.gguf";
+    assert_eq!(Source::from(raw), Source::from(Location::Simple(raw.to_string())));
+    let raw = "https://example.org/model.gguf";
+    assert_eq!(Source::from(raw), Source::from(Location::from(raw)));
 }
 #[test]
 fn test_source_local_action_metadata() {

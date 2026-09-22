@@ -5,17 +5,11 @@ use crate::standard::datacite;
 use crate::validation::Validate;
 use acorn_core::prelude::alloc::{vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
-#[cfg(feature = "std")]
 use ammonia::clean;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_with::skip_serializing_none;
-
-#[cfg(not(feature = "std"))]
-fn clean(value: &str) -> String {
-    value.to_string()
-}
 
 /// Collection of HuWise datasets
 pub type Catalog = Vec<Dataset>;

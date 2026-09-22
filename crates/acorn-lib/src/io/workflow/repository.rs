@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Kind of repository mutation proposed by a workflow.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
 #[serde(rename_all = "kebab-case")]
 pub enum FileChangeKind {
     /// Create a new derived artifact.

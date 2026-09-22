@@ -19,7 +19,6 @@ use crate::util::constants::{
 };
 use crate::util::constants::{MAX_LENGTH_APPROACH, MAX_LENGTH_CAPABILIY, MAX_LENGTH_IMPACT, MAX_LENGTH_RESEARCH_AREA};
 use crate::validation::{Validate, ValidationReport};
-#[cfg(feature = "std")]
 use crate::vocabulary;
 use crate::{
     ClassificationLevel, ContactPoint, ControlledVocabulary, ImageObject, Keyword, MediaObject, OneOrMany, OrganizationType, Other, Status, Website,
@@ -660,7 +659,7 @@ impl From<&ResearchActivity> for Cff {
         let keywords = if meta.keywords.is_empty() { None } else { Some(meta.keywords) };
         let publication_identifiers = meta.doi.unwrap_or_default();
         let doi = match publication_identifiers.as_slice() {
-            | [single] if matches!(PublicationIdentifierType::from(single.as_str()), PublicationIdentifierType::Doi(_)) => Some(single.clone()),
+            | [single] if PublicationIdentifierType::from(single.as_str()).is_doi() => Some(single.clone()),
             | _ => None,
         };
         let identifiers = publication_identifiers
@@ -1354,7 +1353,7 @@ pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> Vali
     const CODE: &str = "meta.doi";
     value
         .iter()
-        .position(|identifier| matches!(PublicationIdentifierType::from(identifier.as_str()), PublicationIdentifierType::Unknown))
+        .position(|identifier| PublicationIdentifierType::from(identifier.as_str()).is_unknown())
         .map(|index| {
             validation_error_with_index(
                 CODE,
@@ -1373,14 +1372,9 @@ pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
         .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
-#[cfg(not(feature = "std"))]
-pub(crate) fn resolve_from_csv_asset(_name: String, value: String) -> Option<String> {
-    Some(value)
-}
-#[cfg(feature = "std")]
 pub(crate) fn resolve_from_csv_asset(name: String, value: String) -> Option<String> {
     let data = vocabulary::csv(&name);
-    super::resolve_from_list_of_lists(value, data, name)
+    super::resolve_from_list_of_lists(value, data)
 }
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
     let mut err = ValidationError::new(code).with_message(message);

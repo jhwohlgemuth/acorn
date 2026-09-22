@@ -189,7 +189,7 @@ pub enum RunnerStatus {
 /// Runner types for CI/CD pipelines
 ///
 /// Mostly for GitLab as GitHub only has two types: hosted (by GitHub) and self-hosted
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, EnumIs, Serialize, Deserialize)]
 pub enum RunnerType {
     /// Accessible to a specific group and its projects/subgroups
     #[default]

@@ -688,7 +688,7 @@ impl Import for raid::Metadata {
             .as_deref()
             .unwrap_or_default()
             .iter()
-            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Alternative)))
+            .filter(|title| title.title_type.as_ref().is_some_and(|kind| kind.id.is_alternative()))
             .skip(1)
             .map(|_| ConversionWarning::omitted(RAID_STANDARD, RAD, "title[Alternative]", "RAD stores one subtitle"));
         let subject_warnings = self.subject.as_deref().unwrap_or_default().iter().flat_map(|subject| {
@@ -745,7 +745,7 @@ impl Import for raid::Metadata {
                         .map(append_midnight_utc_suffix),
                 })
                 .collect::<Vec<_>>();
-            let is_funder = organization.role.iter().any(|role| matches!(role.id, OrganizationRoleType::Funder));
+            let is_funder = organization.role.iter().any(|role| role.id.is_funder());
             match name {
                 | Some(name) => {
                     let warnings = organization
@@ -887,7 +887,7 @@ impl Import for raid::Metadata {
         let titles = self.title.as_deref().unwrap_or_default();
         let primary = titles
             .iter()
-            .filter(|title| title.title_type.as_ref().is_some_and(|kind| matches!(kind.id, TitleType::Primary)))
+            .filter(|title| title.title_type.as_ref().is_some_and(|kind| kind.id.is_primary()))
             .collect::<Vec<_>>();
         match primary.as_slice() {
             | [title] => title
@@ -897,12 +897,7 @@ impl Import for raid::Metadata {
                 .map(|title| {
                     let subtitle = titles
                         .iter()
-                        .find(|candidate| {
-                            candidate
-                                .title_type
-                                .as_ref()
-                                .is_some_and(|kind| matches!(kind.id, TitleType::Alternative))
-                        })
+                        .find(|candidate| candidate.title_type.as_ref().is_some_and(|kind| kind.id.is_alternative()))
                         .and_then(|candidate| candidate.text.clone());
                     (title, subtitle)
                 }),
@@ -1146,12 +1141,12 @@ impl Export for ResearchActivity {
         let start_dates = dates
             .into_iter()
             .flat_map(|values| values.iter())
-            .filter(|date| matches!(date.date_type, ActivityDateType::StartDate))
+            .filter(|date| date.date_type.is_start_date())
             .collect::<Vec<_>>();
         let end_dates = dates
             .into_iter()
             .flat_map(|values| values.iter())
-            .filter(|date| matches!(date.date_type, ActivityDateType::EndDate))
+            .filter(|date| date.date_type.is_end_date())
             .collect::<Vec<_>>();
         let start = start_dates.first().and_then(|date| to_date(&date.date));
         let start = match start {
@@ -1244,12 +1239,7 @@ impl Export for ResearchActivity {
                     | None if options.allow_infer => organizations
                         .unwrap_or_default()
                         .iter()
-                        .find(|organization| {
-                            organization
-                                .role
-                                .iter()
-                                .any(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
-                        })
+                        .find(|organization| organization.role.iter().any(|role| role.id.is_lead_research_organization()))
                         .map(|organization| organization.id.clone())
                         .ok_or_else(|| CrosswalkError::MissingRequiredField("options.identifier.owner".to_string()))
                         .map(|ror| {
@@ -1409,7 +1399,7 @@ impl Export for ResearchActivity {
             let lead_count = organizations
                 .iter()
                 .flat_map(|organization| organization.role.iter())
-                .filter(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
+                .filter(|role| role.id.is_lead_research_organization())
                 .count();
             let lead_inference = match (
                 lead_count == 0 && options.allow_infer,
@@ -1448,7 +1438,7 @@ impl Export for ResearchActivity {
                 let lead_count = organizations
                     .iter()
                     .flat_map(|organization| organization.role.iter())
-                    .filter(|role| matches!(role.id, OrganizationRoleType::LeadResearchOrganization))
+                    .filter(|role| role.id.is_lead_research_organization())
                     .count();
                 match () {
                     | () if !organizations.is_empty() && lead_count == 0 => Err(CrosswalkError::MissingRequiredField(

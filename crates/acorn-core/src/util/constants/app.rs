@@ -28,8 +28,6 @@ pub const MAX_EXEC_MODULES: usize = 0;
 pub const MAX_EXEC_NETWORK_REQUESTS: usize = 8;
 /// Maximum operations allowed during one executable Rhai extension evaluation.
 pub const MAX_EXEC_OPERATIONS: u64 = 100_000;
-/// Maximum successful extensionless Rhai probes retained in memory.
-pub const MAX_EXEC_PROBE_CACHE_ENTRIES: usize = 64;
 /// Maximum string length produced by executable Rhai extensions.
 pub const MAX_EXEC_STRING_SIZE: usize = 64 * 1024;
 /// Maximum total bytes read or proposed by one extension evaluation.

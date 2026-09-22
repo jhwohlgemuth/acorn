@@ -340,7 +340,7 @@ pub enum Platform {
     Win64,
 }
 /// Progress indicator types for `with_progress`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, EnumIs)]
 pub enum ProgressType {
     /// Progress bar with spinner, count, and percentage indicator
     #[default]
@@ -436,7 +436,7 @@ impl ContainerTarget {
     }
     /// Validate that the runtime supports this target kind.
     pub fn validate_runtime(&self, runtime: &Executor) -> ApiResult<()> {
-        match (self, runtime.is_docker() || matches!(runtime, Executor::Podman)) {
+        match (self, runtime.is_docker() || runtime.is_podman()) {
             | (Self::Ssh(endpoint), false) => Err(eyre!("Remote target '{endpoint}' requires the docker or podman runtime, not {runtime}")),
             | (Self::Context(name), false) => Err(eyre!("Context target '{name}' requires the docker or podman runtime, not {runtime}")),
             | _ => Ok(()),
@@ -588,14 +588,10 @@ impl Executor {
     /// Validate configured runner executors for an optional container target.
     pub fn validate_runner_target(&self, runners: Option<&[config::RunnerDetails]>, target: Option<&ContainerTarget>) -> ApiResult<()> {
         let runtime_validation = target.map_or(Ok(()), |target| target.validate_runtime(self));
-        let invalid_runner = runners.and_then(|values| {
-            values
-                .iter()
-                .find(|runner| !(runner.executor.is_docker() || matches!(runner.executor, Executor::Podman)))
-        });
+        let invalid_runner = runners.and_then(|values| values.iter().find(|runner| !(runner.executor.is_docker() || runner.executor.is_podman())));
         match (runtime_validation, target, invalid_runner) {
             | (Err(why), _, _) => Err(why),
-            | (Ok(()), Some(target), Some(runner)) if !matches!(target, ContainerTarget::Local) => Err(eyre!(
+            | (Ok(()), Some(target), Some(runner)) if !target.is_local() => Err(eyre!(
                 "Remote target '{target}' requires docker/podman runner executors, not {}",
                 runner.executor
             )),
@@ -791,7 +787,7 @@ impl ProgressType {
         }
     }
     fn is_indeterminate(&self) -> bool {
-        matches!(self, ProgressType::Spinner)
+        self.is_spinner()
     }
 }
 impl core::str::FromStr for Remote {
@@ -925,7 +921,7 @@ pub fn create_progress_bar(count: usize, progress_type: ProgressType) -> Progres
     create_progress_bar_with_renderer(count, progress_type, &PROGRESS_RENDERER)
 }
 fn create_progress_bar_with_renderer(count: usize, progress_type: ProgressType, renderer: &MultiProgress) -> ProgressBar {
-    if matches!(progress_type, ProgressType::Silent) {
+    if progress_type.is_silent() {
         ProgressBar::hidden()
     } else {
         let progress = if progress_type.is_indeterminate() {
@@ -1891,7 +1887,7 @@ where
     let concurrency = buffer_size.unwrap_or(10).max(1);
     let count = items.len();
     let progress = create_progress_bar(count, progress_type);
-    if matches!(progress_type, ProgressType::Spinner) {
+    if progress_type.is_spinner() {
         progress.enable_steady_tick(Duration::from_millis(120));
     }
     let output = stream::iter(items)
@@ -1914,7 +1910,7 @@ where
         .into_iter()
         .collect::<ApiResult<Vec<_>>>();
 
-    if !matches!(progress_type, ProgressType::Silent) {
+    if !progress_type.is_silent() {
         finish_progress_bar(&progress, finish_message(count));
     }
     output

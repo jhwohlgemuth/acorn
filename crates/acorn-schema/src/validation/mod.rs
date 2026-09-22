@@ -558,7 +558,7 @@ pub mod rules {
             .map(|_| ())
             .map_err(|_| ValidationError::new("version").with_message("Provide valid semantic version"))
     }
-    /// Validate a four-digit year that is not in the future when a clock is available
+    /// Validate a four-digit year that is not in the future when a clock is available.
     /// ### Examples
     /// ```
     /// use acorn_schema::validation::rules;

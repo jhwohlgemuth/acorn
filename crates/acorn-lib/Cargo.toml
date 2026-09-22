@@ -166,6 +166,7 @@ agentic = ["std-core", "dep:axum", "dep:rmcp", "dep:tower"]
 analysis = [
   "acorn-host/fs",
   "acorn-host/http",
+  "acorn-host/source",
   "acorn-host/terminal",
   "dep:acorn-cmd",
   "analyzer",
@@ -197,7 +198,7 @@ grpc = [
 ]
 powerpoint = ["std-core"]
 needle = ["agentic", "dep:acorn-cmd"]
-exec = ["std", "acorn-core/exec", "dep:cap-std", "dep:rhai"]
+exec = ["std", "dep:cap-std", "dep:rhai"]
 std = [
   "std-core",
   "agentic",

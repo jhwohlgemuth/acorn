@@ -115,7 +115,7 @@ impl ArtifactCandidate {
                     .map(|identifier| identifier.value.as_str()),
             )
             .filter_map(|value| Repository::from_remote(value, domain))
-            .find(|repository| matches!(repository, Repository::GitLab { .. }))
+            .find(|repository| repository.is_gitlab())
     }
     fn merge_cff(self, cff: Cff) -> Self {
         let metadata = Self::from(cff);

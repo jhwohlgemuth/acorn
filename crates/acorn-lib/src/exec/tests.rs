@@ -496,9 +496,10 @@ fn infer_extensionless_valid_rhai_probe() {
     assert_eq!(MimeType::infer(VALID_SOURCE.as_bytes()), Some(MimeType::Rhai));
 }
 #[test]
-fn infer_invalid_entry_is_not_rhai() {
+fn infer_rhai_header_is_independent_of_compilation() {
     let source = b"// @acorn-exec-v0.2.0\nfn evaluate(a,b) {}";
-    assert_eq!(MimeType::infer(source), None);
+    assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
+    assert!(RhaiRuntime::validate_source(Path::new("invalid.rhai"), core::str::from_utf8(source).expect("UTF-8 source")).is_err());
 }
 #[test]
 fn inline_effectful_manifest_requires_explicit_configuration() {
