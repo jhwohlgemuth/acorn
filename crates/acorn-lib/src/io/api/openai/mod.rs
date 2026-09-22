@@ -48,7 +48,10 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::io::api::{ApiResult, Configuration, Endpoint, Fallback, Param, Params, RemoteResource, TextResponse};
+use crate::io::{
+    api::{ApiResult, Configuration, Endpoint, Fallback, IntoBody, Param, Params, RemoteResource, TextResponse},
+    http::{HttpResponse, ReqwestHttpService},
+};
 use crate::param;
 use crate::util::constants::app::DEFAULT_OPENAI_DOMAIN;
 use crate::util::constants::env::{OPENAI_API_KEY, OPENAI_SERVER_HOST};
@@ -56,6 +59,13 @@ use acorn_core::options::{ApiExtension, ApiOptions};
 use color_eyre::eyre::eyre;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+mod inference;
+
+pub use inference::{Client, InferenceError};
+
+const RESPONSE_SCHEMA_NAME: &str = "acorn_response";
 
 /// Raw OpenAI audio speech response payload.
 ///
@@ -69,10 +79,72 @@ pub type Options = ApiOptions<Extension, Param>;
 ///
 /// The OpenAI-compatible schema is broad and evolves quickly,
 /// so the baseline implementation preserves the full JSON document.
-pub type Response = serde_json::Value;
+pub type Response = Value;
 enum BodyMode {
     Empty,
     Required,
+}
+/// OpenAI-compatible endpoint shape selected for inference.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EndpointMode {
+    /// `POST /v1/chat/completions`.
+    ChatCompletions,
+    /// `POST /v1/responses`.
+    Responses,
+}
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ResponsesContent {
+    OutputText {
+        text: String,
+    },
+    Refusal {
+        refusal: String,
+    },
+    #[serde(other)]
+    Other,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ChatChoice {
+    finish_reason: Option<String>,
+    message: ChatMessageResponse,
+}
+#[derive(Clone, Debug, Serialize)]
+struct ChatCompletionRequest {
+    messages: Vec<ChatMessageRequest>,
+    model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<ChatResponseFormat>,
+    store: bool,
+    stream: bool,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ChatCompletionResponse {
+    choices: Vec<ChatChoice>,
+    id: String,
+    model: Option<String>,
+    usage: Option<ChatUsage>,
+}
+#[derive(Clone, Debug, Serialize)]
+struct ChatMessageRequest {
+    content: String,
+    role: &'static str,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ChatMessageResponse {
+    content: Option<String>,
+    refusal: Option<String>,
+}
+#[derive(Clone, Debug, Serialize)]
+struct ChatResponseFormat {
+    json_schema: JsonSchemaDefinition,
+    #[serde(rename = "type")]
+    kind: &'static str,
+}
+#[derive(Clone, Copy, Debug, Deserialize)]
+struct ChatUsage {
+    completion_tokens: Option<u64>,
+    prompt_tokens: Option<u64>,
 }
 /// OpenAI API error payload
 ///
@@ -100,6 +172,14 @@ pub struct ErrorResponse {
 /// OpenAI-specific API option defaults.
 #[derive(Clone, Debug, Default)]
 pub struct Extension;
+#[derive(Clone, Debug, Serialize)]
+struct JsonSchemaDefinition {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    name: &'static str,
+    schema: Value,
+    strict: bool,
+}
 /// OpenAI list models response
 ///
 /// Matches baseline fields from `#/components/schemas/ListModelsResponse`.
@@ -124,6 +204,90 @@ pub struct Model {
     /// Owning organization
     pub owned_by: String,
 }
+#[derive(Clone, Debug, Deserialize)]
+struct ProviderError {
+    code: Option<String>,
+    message: String,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ProviderErrorResponse {
+    error: ProviderError,
+    #[serde(skip)]
+    status: u16,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ResponsesIncompleteDetails {
+    reason: Option<String>,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ResponsesOutput {
+    #[serde(default)]
+    content: Vec<ResponsesContent>,
+}
+#[derive(Clone, Debug, Serialize)]
+struct ResponsesRequest {
+    input: String,
+    model: String,
+    store: bool,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<ResponsesText>,
+}
+#[derive(Clone, Debug, Deserialize)]
+struct ResponsesResponse {
+    error: Option<ProviderError>,
+    id: String,
+    incomplete_details: Option<ResponsesIncompleteDetails>,
+    model: Option<String>,
+    #[serde(default)]
+    output: Vec<ResponsesOutput>,
+    status: Option<String>,
+    usage: Option<ResponsesUsage>,
+}
+#[derive(Clone, Debug, Serialize)]
+struct ResponsesText {
+    format: JsonSchemaDefinition,
+}
+#[derive(Clone, Copy, Debug, Deserialize)]
+struct ResponsesUsage {
+    input_tokens: Option<u64>,
+    output_tokens: Option<u64>,
+}
+impl EndpointMode {
+    fn action(self) -> &'static str {
+        match self {
+            | Self::ChatCompletions => "chat-completion",
+            | Self::Responses => "response",
+        }
+    }
+    async fn invoke(self, options: &Options, loopback: bool, max_response_bytes: usize) -> ApiResult<HttpResponse> {
+        match prepare_request(options, self.action(), BodyMode::Required) {
+            | Err(why) => Err(why),
+            | Ok((endpoint, params)) => {
+                let body = serde_json::to_vec(&params.clone().into_body()).map_err(|why| eyre!(why));
+                let service = match loopback {
+                    | true => ReqwestHttpService::loopback(),
+                    | false => Ok(ReqwestHttpService::default()),
+                };
+                match (body, service) {
+                    | (Err(why), _) | (_, Err(why)) => Err(why),
+                    | (Ok(body), Ok(service)) => {
+                        endpoint
+                            .execute_resource(
+                                &service,
+                                self.action(),
+                                Some(params),
+                                Some(body),
+                                Some("application/json"),
+                                max_response_bytes,
+                            )
+                            .await
+                    }
+                }
+            }
+        }
+    }
+}
 impl ApiExtension for Extension {
     fn default_domain() -> String {
         String::from(DEFAULT_OPENAI_DOMAIN)
@@ -133,6 +297,16 @@ impl ApiExtension for Extension {
     }
     fn env_domain_var() -> &'static str {
         OPENAI_SERVER_HOST
+    }
+}
+impl From<Value> for JsonSchemaDefinition {
+    fn from(schema: Value) -> Self {
+        Self {
+            kind: "json_schema",
+            name: RESPONSE_SCHEMA_NAME,
+            schema,
+            strict: true,
+        }
     }
 }
 /// Create audio speech via `POST /audio/speech`.
@@ -171,25 +345,11 @@ async fn invoke<R>(options: &Options, action: &str, body_mode: BodyMode) -> ApiR
 where
     R: for<'de> Deserialize<'de>,
 {
-    let template = "openai::api";
-    match Endpoint::from_template(template).map(|e| e.with_domain(options.domain())) {
-        | Ok(endpoint) => match (body_mode, &options.body) {
-            | (BodyMode::Required, Some(value)) if !value.is_empty() => {
-                let params = Params::new()
-                    .with_auth(ExposeSecret::expose_secret(options.token()), None)
-                    .with(param!(Body, value.as_str()))
-                    .with_custom(options.params())
-                    .build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<R, Fallback<ErrorResponse>>(response)
-            }
-            | (BodyMode::Required, _) => Err(eyre!(format!("OpenAI {action} request body is required"))),
-            | (BodyMode::Empty, _) => {
-                let params = Params::from_config(options).with_custom(options.params()).build();
-                let response = endpoint.invoke(action, Some(params)).await;
-                endpoint.handle_or::<R, Fallback<ErrorResponse>>(response)
-            }
-        },
+    match prepare_request(options, action, body_mode) {
+        | Ok((endpoint, params)) => {
+            let response = endpoint.invoke(action, Some(params)).await;
+            endpoint.handle_or::<R, Fallback<ErrorResponse>>(response)
+        }
         | Err(why) => Err(why),
     }
 }
@@ -197,7 +357,26 @@ where
 pub async fn models(options: &Options) -> ApiResult<ListModelsResponse> {
     invoke(options, "models", BodyMode::Empty).await
 }
+fn prepare_request(options: &Options, action: &str, body_mode: BodyMode) -> ApiResult<(Endpoint, Vec<Param>)> {
+    Endpoint::from_template("openai::api")
+        .map(|endpoint| endpoint.with_domain(options.domain()))
+        .and_then(|endpoint| match (body_mode, &options.body) {
+            | (BodyMode::Required, Some(value)) if !value.is_empty() => Ok((
+                endpoint,
+                Params::new()
+                    .with_auth(ExposeSecret::expose_secret(options.token()), None)
+                    .with(param!(Body, value.as_str()))
+                    .with_custom(options.params())
+                    .build(),
+            )),
+            | (BodyMode::Required, _) => Err(eyre!(format!("OpenAI {action} request body is required"))),
+            | (BodyMode::Empty, _) => Ok((endpoint, Params::from_config(options).with_custom(options.params()).build())),
+        })
+}
 /// Create a response via `POST /responses`.
 pub async fn response(options: &Options) -> ApiResult<Response> {
     invoke(options, "response", BodyMode::Required).await
 }
+
+#[cfg(test)]
+mod tests;

@@ -2,7 +2,6 @@
 //!
 //! Interact with RESTful APIs, handling requests and responses, authentication, and data serialization.
 //! Also supports communicating with interfaces like large language model (LLM) interfaces like Ollama.
-#[cfg(feature = "agentic")]
 use crate::io::http::{HttpRequest, HttpService};
 use crate::{
     io::{
@@ -30,7 +29,6 @@ use color_eyre::eyre::{self, eyre};
 use core::{fmt, iter::once, marker::PhantomData};
 use derive_more::Display;
 use fluent_uri::{Uri, UriRef};
-#[cfg(feature = "agentic")]
 use http::header::CONTENT_TYPE;
 use http::{
     header::{HeaderName, HeaderValue},
@@ -564,6 +562,14 @@ impl Endpoint {
             ..Self::default()
         }
     }
+    fn is_loopback(&self) -> bool {
+        self.domain.eq_ignore_ascii_case("localhost")
+            || self
+                .domain
+                .trim_matches(['[', ']'])
+                .parse::<core::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback())
+    }
     /// Get the base URL for the API endpoint, constructed from scheme, domain, and port if not provided
     pub fn base(&self) -> String {
         let Self { domain, root, .. } = self;
@@ -591,7 +597,6 @@ impl Endpoint {
             .ok_or_else(|| eyre!("Resource '{name}' not found"))
     }
     /// Execute a configured resource through an injected HTTP service with an optional raw body.
-    #[cfg(feature = "agentic")]
     pub(crate) async fn execute_resource(
         &self,
         service: &impl HttpService,

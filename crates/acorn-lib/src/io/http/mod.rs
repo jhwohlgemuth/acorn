@@ -279,7 +279,7 @@ impl HttpService for ReqwestHttpService {
     }
 }
 impl ReqwestHttpService {
-    fn loopback() -> ApiResult<Self> {
+    pub(crate) fn loopback() -> ApiResult<Self> {
         build_native_client(host_http_policy(), false)
             .map(|client| Self { client })
             .map_err(|why| eyre!("Failed to construct loopback HTTP client — {why}"))
@@ -457,6 +457,13 @@ pub fn headers<'a>(values: impl IntoIterator<Item = (&'a str, &'a str)>) -> Head
         headers
     })
 }
+fn host_http_policy() -> HostHttpPolicy {
+    let policy = policy::shared_http_policy();
+    HostHttpPolicy::new()
+        .with_connect_timeout(policy.connect_timeout.unsigned_abs())
+        .with_timeout(policy.timeout.unsigned_abs())
+        .with_user_agent(ACORN_USER_AGENT)
+}
 async fn invoke_request(client: reqwest::Client, request: HttpRequest) -> ApiResult<HttpResponse> {
     let HttpRequest {
         body,
@@ -516,13 +523,6 @@ pub fn loopback_post(url: impl Into<String>) -> ApiResult<HttpRequestBuilder> {
 }
 fn no_redirect_client() -> ApiResult<reqwest::Client> {
     build_native_client(host_http_policy(), false).map_err(|_| eyre!("Failed to construct restricted HTTP client"))
-}
-fn host_http_policy() -> HostHttpPolicy {
-    let policy = policy::shared_http_policy();
-    HostHttpPolicy::new()
-        .with_connect_timeout(policy.connect_timeout.unsigned_abs())
-        .with_timeout(policy.timeout.unsigned_abs())
-        .with_user_agent(ACORN_USER_AGENT)
 }
 /// Utility method to employ best practices when making async HTTP PATCH requests.
 pub fn patch(url: impl Into<String>) -> HttpRequestBuilder {

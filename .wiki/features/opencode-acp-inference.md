@@ -13,7 +13,7 @@ priority: next
 # Project code boundaries
 
 - **Update:** `crates/acorn-schema/src/agent/`, `crates/acorn-lib/src/io/{api/openai,mcp}/`, `crates/acorn-lib/src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, prompt assets, and focused tests.
-- **Create:** the prompt, inference-port, ACP transport, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
+- **Create:** the prompt, inference-port, ACP transport, OpenAI inference adapter and contract tests, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
 - **Delete:** no current integration; remove the `doctor --fix` not-implemented path only when the shared planner is functional.
 
 # Dependencies
@@ -52,7 +52,8 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - `acorn_schema::agent::opencode::Config` already models OpenCode agents, models, permissions, commands, and configuration discovery. `io::sync::opencode` already owns configuration mutation and should remain the only writer.
 - `analyzer::Check` already records category, severity, URI, locator, context, message, and check-specific errors. `AnalysisReport` retains checks by standard, batch, and category, but there is no parallel `Fix` model or fix report.
 - `Check` is not currently a serialization contract and contains private, renderer-specific payloads. Inference should receive a normalized check reference DTO rather than serializing the internal check object or its entire source file.
-- `io::api::openai` already supports OpenAI-compatible `/responses` and `/chat/completions` endpoints, configurable domains, optional bearer tokens, and local llama-swap routers. Its baseline response type is raw `serde_json::Value`, so fix generation needs typed request/response mapping and capability-aware structured output.
+- `io::api::openai` preserves its raw endpoint functions and now also exposes a typed `InferenceBackend` client with explicitly selected Responses or Chat Completions mode, configured structured-output capability, bounded non-redirecting HTTP, secret-bearing authentication, typed refusals/provider failures, and loopback-only offline access. Private endpoint-specific DTOs map both wire formats into the shared result contract, and every requested structured result is parsed and JSON-Schema-validated locally.
+- The OpenAI adapter contract suite uses deterministic in-repository `/v1/responses` and `/v1/chat/completions` routes to prove equivalent normalized results, distinct structured-output request shapes, explicit capability/debug state without secret disclosure, fallback parsing, refusal/error mapping, timeout, malformed-response handling, authentication and transport preflight, and offline policy without external network access.
 - `acorn doctor` already accepts `--fix` and `--interactive`, but `--fix` currently returns `Autofix is not implemented yet`. Software diagnostics detect ACORN, Git, Node.js, npm, npx, Pandoc, and Vale, but expose installation state as a display-oriented table rather than structured findings.
 - Several deterministic remediation mechanisms already exist: `ResearchActivity::format_with` normalizes RAD metadata, Vale output carries action parameters and exact spans, Vale resolution can download its binary, and PDF export can install Chromium. These should become registered fix providers/executors instead of being reimplemented by an inference layer.
 - Official OpenAI documentation describes Structured Outputs as enforcing a supplied JSON Schema and exposing refusals programmatically, making it appropriate for a typed fix envelope when the selected endpoint and model support it ([OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs)). Compatibility servers may implement a smaller subset, so ACORN must still validate every returned fix locally.
@@ -148,7 +149,7 @@ crates/acorn-lib/src/
 │   │   ├── download.rs     # verified existing download integrations
 │   │   ├── package.rs      # fixed-vector package-manager execution
 │   │   └── registry.rs     # trusted recipe lookup
-│   └── api/openai.rs       # existing API plus typed inference adapter
+│   └── api/openai/         # existing API plus typed inference adapter and contract tests
 └── doctor/
     ├── mod.rs              # existing diagnostics and presentation
     └── finding.rs          # structured DoctorFinding conversion
@@ -159,7 +160,7 @@ crates/acorn-cli/src/
 └── commands/doctor/        # shared fix preview/apply lifecycle
 ```
 
-The first implementation need not create every leaf file. In particular, `agent/mod.rs`, `fix/mod.rs`, `io/acp/mod.rs`, and the existing `io/api/openai.rs` can hold the initial vertical slice. Split provider, planner, or adapter files only when a second implementation would otherwise mix unrelated responsibilities.
+The first implementation need not create every leaf file. In particular, `agent/mod.rs`, `fix/mod.rs`, `io/acp/mod.rs`, and the existing `io/api/openai/` module can hold the initial vertical slice. Split provider, planner, or adapter files only when a second implementation would otherwise mix unrelated responsibilities.
 
 The in-tree `agent` and `fix` roots are service boundaries intended to move to `acorn-service`. `io::acp`, process-backed doctor probes, and concrete fix executors are native adapters intended to move to `acorn-host`. OpenAI wire DTOs remain with `io::api::openai` until they move to `acorn-api`; the implementation of the service-owned inference port then belongs in the native composition layer. `acorn_schema::agent` retains only portable configuration, selectors, and metadata in the target architecture.
 
@@ -592,7 +593,7 @@ The smallest useful implementation should touch approximately these files:
 4. `crates/acorn-lib/src/lib.rs`: export the service and fix boundaries without pulling native process support into minimal builds.
 5. `crates/acorn-lib/src/io/acp/mod.rs` plus `installation.rs` and `opencode.rs` if warranted: add the process descriptor, preflight, client, permission policy, and ACP result mapping.
 6. `crates/acorn-lib/src/io/mod.rs` and workspace manifests: feature-gate ACP and its optional SDK/process dependencies.
-7. `crates/acorn-lib/src/io/api/openai.rs`: retain raw functions and add typed request/result mapping implementing the same inference port.
+7. `crates/acorn-lib/src/io/api/openai/`: retain raw functions and add typed request/result mapping implementing the same inference port.
 8. Focused test modules and fake ACP/HTTP executables: prove hydration, backend equivalence, process cleanup, local validation, and inability to deserialize executable actions.
 
 Do not add CLI apply behavior in this slice. Once suggestions are stable, adapt one deterministic document fix, then structure doctor findings and add one fake package recipe end to end before supporting real installation recipes.
@@ -809,6 +810,8 @@ Exit gate: installation preflight distinguishes missing, non-executable, version
 
 ## 4. Add the OpenAI-compatible adapter
 
+Delivered in the in-tree compatibility boundary. `io::api::openai::Client` implements the shared inference port while the raw public endpoint helpers remain available; endpoint-specific DTOs stay private pending the planned `acorn-api` extraction.
+
 - Extend `io::api::openai` with the narrow stable DTOs needed for Responses and Chat Completions while preserving its raw public functions and following the API response-DTO plan.
 - Map the two endpoint modes independently; Responses structured output uses its endpoint-specific text-format shape, while Chat Completions uses its own response-format shape.
 - Add explicit endpoint mode and capability configuration, secret handling, offline policy, typed refusals/errors, and local parsing/validation fallback.
@@ -868,7 +871,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 # Validation
 
-The prompt/inference foundation and fake ACP transport are validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; the fake ACP agent proves installation and protocol readiness, streaming, structured output capture, model selection, permission denial, timeout, and child-exit behavior. `make lint`, `make test` (1,841 passed and 14 skipped), `make check-wasm`, and the 10-test ACP-only suite pass. Minimal, alloc, ACP-only, agentic-only, and combined agentic/ACP feature checks pass, and the default dependency graph does not select the ACP SDK. The pinned ACP packages are Apache-2.0 licensed and add only the SDK-required `syn` 3 major-version duplicate; repository-wide dependency auditing remains red on pre-existing unused declarations, advisories, yanked crates, and license-policy findings unrelated to ACP. Real OpenCode interoperability, OpenAI-compatible, fix-domain, and CLI validations below remain open.
+The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapter are validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; the fake ACP agent proves installation and protocol readiness, streaming, structured output capture, model selection, permission denial, timeout, and child-exit behavior; and deterministic fake HTTP routes cover both OpenAI endpoint modes, endpoint-specific structured-output shapes, local JSON Schema validation, capability fallback, authentication, transport security, refusals, provider errors, malformed responses, timeouts, and offline policy. `make lint`, `make test` (1,851 passed and 14 skipped), `make check-wasm`, the 10-test ACP-only suite, and the 10-test OpenAI adapter suite pass. Minimal, alloc, ACP-only, agentic-only, combined agentic/ACP, analysis-only, and default feature checks pass; the no-default dependency graph selects neither the ACP SDK nor `jsonschema`. The pinned ACP packages are Apache-2.0 licensed and add only the SDK-required `syn` 3 major-version duplicate; repository-wide dependency auditing remains red on pre-existing unused declarations, advisories, yanked crates, and license-policy findings unrelated to ACP. `make doc` also remains red on pre-existing broken links in `acorn-schema`; the new OpenAI public surface passes the workspace missing-docs lint. Real OpenCode interoperability, fix-domain, executor, and CLI validations below remain open.
 
 1. Add snapshot or exact-value tests for all embedded prompts with representative configuration and data, plus missing-value, unknown-asset, invalid-frontmatter, collision, and unresolved-template failures.
 2. Add fix-domain tests for check/doctor correlation, grouping, serialization/schema round trips, confidence validation, source fingerprints, stale inputs, unsupported findings, duplicate actions, effect declarations, dependency/conflict planning, path confinement, and transport-free deterministic behavior. Prove inference JSON cannot deserialize into an executable command specification.
@@ -886,7 +889,7 @@ The prompt/inference foundation and fake ACP transport are validated: all embedd
 
 # Acceptance criteria
 
-The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, explicit registry authorization, and a fake-agent-covered ACP/OpenCode process adapter. The plan remains active until the OpenAI-compatible adapter, fix domain, executors, real interoperability, and CLI criteria below are satisfied.
+The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, explicit registry authorization, a fake-agent-covered ACP/OpenCode process adapter, and an explicit-mode OpenAI-compatible adapter covered through both HTTP endpoint shapes. The plan remains active until the fix domain, executors, real interoperability, and CLI criteria below are satisfied.
 
 - `AnalysisReport` and structured `DoctorReport` findings can be transformed into a grouped `FixReport` whose proposals retain their originating finding and target provenance.
 - Each model-generated fix references a supplied finding, includes a source fingerprint and expected original value where applicable, and passes local schema and semantic validation before it is exposed.
