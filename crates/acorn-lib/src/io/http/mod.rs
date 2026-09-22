@@ -341,8 +341,13 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
     let anonymous = request.allow_anonymous_fallback.then(|| anonymous_request(&request)).flatten();
     let result = execute_with_policy_attempts(client.clone(), request).await;
     match (result, anonymous) {
-        | (Ok(response), Some(request)) if matches!(response.status_code, 401 | 403) => {
-            let credential_status = response.status_code;
+        | (
+            Ok(HttpResponse {
+                status_code: credential_status @ (401 | 403),
+                ..
+            }),
+            Some(request),
+        ) => {
             warn!(
                 status_code = credential_status,
                 url = request.diagnostic_url(),
@@ -350,9 +355,12 @@ async fn execute_with_policy(client: reqwest::Client, request: HttpRequest) -> A
                 Label::using()
             );
             match execute_with_policy_attempts(client, request).await {
-                | Ok(response) if matches!(response.status_code, 401 | 403) => Err(eyre!(
+                | Ok(HttpResponse {
+                    status_code: anonymous_status @ (401 | 403),
+                    ..
+                }) => Err(eyre!(
                     "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed (HTTP {})",
-                    response.status_code
+                    anonymous_status
                 )),
                 | Err(why) => Err(eyre!(
                     "Configured HTTP credentials were rejected (HTTP {credential_status}); anonymous fallback also failed — {why}"

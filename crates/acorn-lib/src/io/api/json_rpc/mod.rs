@@ -1,4 +1,5 @@
 //! Typed operation registry and JSON-RPC 2.0 transport
+use crate::agent::{run_inference, InferenceBackend, InferenceRequest, InferenceResult};
 use crate::io::api::webhooks::store::OperationQueue;
 use crate::io::workflow::{RepositoryChangeSet, RepositoryInput, RepositoryWorkflowRegistry};
 use crate::io::ApiResult;
@@ -79,6 +80,8 @@ struct ErrorResponse {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationContext {
+    /// Whether inference handlers may run.
+    pub allow_inference: bool,
     /// Whether mutating handlers may run.
     pub allow_mutation: bool,
     /// Optional transport correlation identifier.
@@ -201,6 +204,7 @@ impl Dispatch {
 impl Default for InvocationContext {
     fn default() -> Self {
         Self {
+            allow_inference: false,
             allow_mutation: false,
             correlation_id: None,
             max_output_bytes: 1024 * 1024,
@@ -473,6 +477,26 @@ impl OperationRegistry {
             }
         }
     }
+    /// Register `acorn.inference.run` with an injected transport-neutral backend.
+    pub fn register_inference<B>(self, backend: B) -> ApiResult<Self>
+    where
+        B: InferenceBackend + 'static,
+    {
+        OperationDefinition::new::<InferenceRequest, InferenceResult>(
+            MethodName::from(["inference", "run"]),
+            OperationEffects {
+                inference: true,
+                ..OperationEffects::default()
+            },
+        )
+        .and_then(|definition| {
+            let backend = Arc::new(backend);
+            self.register(definition, move |request: InferenceRequest, _| {
+                let backend = Arc::clone(&backend);
+                async move { run_inference(backend.as_ref(), &request).await }
+            })
+        })
+    }
 }
 impl From<Value> for ParsedCall {
     fn from(value: Value) -> Self {
@@ -646,7 +670,7 @@ impl<'de> Deserialize<'de> for StrictValue {
 }
 fn policy_error(effects: &OperationEffects, context: &InvocationContext) -> Option<RpcError> {
     let requires_mutation = effects.destructive || effects.filesystem_write || effects.mutation;
-    let unavailable = effects.credentials || effects.inference || effects.process;
+    let unavailable = effects.credentials || effects.process || (effects.inference && !context.allow_inference);
     let mutation_denied = requires_mutation && !context.allow_mutation;
     let offline = effects.network_read && context.offline;
     match (unavailable, mutation_denied, offline) {

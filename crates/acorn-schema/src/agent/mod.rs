@@ -13,6 +13,8 @@ use acorn_core::validation::ValidationError;
 use acorn_core::{AcornError, AcornResult, Location};
 use bon::Builder;
 #[cfg(feature = "std")]
+use convert_case::{Case, Casing};
+#[cfg(feature = "std")]
 use core::str::from_utf8;
 use core::{convert::Infallible, fmt, str::FromStr};
 use derive_more::Display;
@@ -161,7 +163,7 @@ pub enum ModelResolutionReason {
     MissingIdentifier,
 }
 /// Prompt file assets embedded in this crate
-#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 pub enum PromptFileAsset {
     /// "Explain like I'm five" prompt template for generating simple explanations of complex topics
     Eli5,
@@ -423,18 +425,21 @@ pub struct CostTier {
 /// ### Notes
 /// - Opencode only supports `name`, `description`, `license`, `compatibility`, and `metadata`
 #[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Serialize, Deserialize, Validate)]
+#[derive(Builder, Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
 #[serde(rename_all = "kebab-case")]
 #[builder(start_fn = init)]
 pub struct FrontMatter {
     /// Name of the prompt
     #[builder(default = String::new())]
+    #[serde(default)]
+    #[validate(length(min = 1))]
     pub name: String,
     /// Short description of the prompt
     #[builder(default = String::new())]
+    #[serde(default)]
     pub description: String,
     /// Prompt configuration
-    pub config: Option<PromptTemplateConfiguration>,
+    pub config: Option<serde_json::Value>,
     /// SPDX license identifier for the prompt (could also specify path to LICENSE file)
     #[validate(custom(function = "validate_license"))]
     pub license: Option<OneOrMany<String>>,
@@ -443,15 +448,35 @@ pub struct FrontMatter {
     /// Model used to generate prompt
     ///
     /// Ideally, will be created from a `LargeLanguageModel` struct
-    pub model: Option<String>,
+    pub model: Option<serde_json::Value>,
     /// Additional metadata
     /// ### Note
     /// Value is serialized as a key-value map
-    pub metadata: Option<Vec<(String, String)>>,
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// List of tools that are pre-approved to run
     /// ### Note
     /// Value is serialized as a space-delimited string
+    #[serde(alias = "tools")]
     pub allowed_tools: Option<Vec<String>>,
+    /// Prompt input defaults and schema.
+    pub input: Option<serde_json::Value>,
+    /// Prompt output format and schema.
+    pub output: Option<PromptOutput>,
+    /// Prompt variant name.
+    pub variant: Option<String>,
+    /// Additional front matter fields retained during parsing.
+    #[builder(default)]
+    #[serde(default, flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+/// Prompt output declaration embedded in front matter.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct PromptOutput {
+    /// Declared output format.
+    pub format: Option<String>,
+    /// Declared output schema.
+    pub schema: Option<serde_json::Value>,
 }
 /// Token limits for context and output
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
@@ -761,6 +786,19 @@ impl MarkdownSupport for CostTier {
         .to_markdown()
         .trim_start()
         .to_string()
+    }
+}
+impl FrontMatter {
+    /// Return the prompt description from its canonical field or metadata map.
+    pub fn description(&self) -> Option<&str> {
+        Some(self.description.trim()).filter(|description| !description.is_empty()).or_else(|| {
+            self.metadata
+                .as_ref()
+                .and_then(|metadata| metadata.get("description"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|description| !description.is_empty())
+        })
     }
 }
 impl Default for FrontMatter {
@@ -1168,6 +1206,14 @@ impl From<String> for PromptFileAsset {
     }
 }
 #[cfg(feature = "std")]
+impl PromptFileAsset {
+    /// Load the embedded prompt asset as a UTF-8 string.
+    pub fn load(&self) -> AcornResult<String> {
+        let name = self.to_string();
+        PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
+    }
+}
+#[cfg(feature = "std")]
 impl PromptTemplate {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     pub fn from_asset(file_name: &str) -> Option<String> {
@@ -1189,13 +1235,29 @@ impl PromptTemplate {
     where
         T: Into<PromptFileAsset>,
     {
-        let name = asset.into().to_string();
-        Self::from_asset(&name)
-            .ok_or_else(|| schema_error!("Prompt template not found — {name}"))
-            .and_then(|template| {
+        asset
+            .into()
+            .load()
+            .and_then(|template| config.to_render_value().map(|value| (template, value)))
+            .and_then(|(template, value)| {
                 let mut context = Context::new();
-                context.insert("config", config);
+                context.insert("config", &value);
+                context.insert("data", &value);
                 Tera::one_off(&template, &context, false).map_err(|why| AcornError::new(why.to_string()))
+            })
+    }
+}
+#[cfg(feature = "std")]
+impl PromptTemplateConfiguration {
+    /// Serialize configuration with canonical snake-case keys for prompt rendering.
+    pub fn to_render_value(&self) -> AcornResult<serde_json::Value> {
+        serde_json::to_value(self)
+            .map_err(|why| AcornError::new(why.to_string()))
+            .and_then(|value| match value {
+                | serde_json::Value::Object(fields) => Ok(serde_json::Value::Object(
+                    fields.into_iter().map(|(key, value)| (key.to_case(Case::Snake), value)).collect(),
+                )),
+                | _ => Err(schema_error!("Prompt configuration must serialize as an object")),
             })
     }
 }

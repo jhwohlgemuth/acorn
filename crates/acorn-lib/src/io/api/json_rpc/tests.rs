@@ -1,6 +1,10 @@
 #![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
 use super::*;
+use crate::agent::{
+    HydratedPrompt, InMemoryBackend, InferenceFinishReason, InferencePermissionPolicy, InferenceProvenance, InferenceRequest, InferenceResult,
+};
 use crate::io::api;
+use acorn_schema::agent::{FrontMatter, PromptFileAsset};
 use axum::body::{to_bytes, Body};
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{Request, StatusCode};
@@ -35,6 +39,34 @@ fn service() -> http::RpcHttpService {
         api::Secret::from("secret".to_string()),
         InvocationContext::default(),
     )
+}
+fn inference_request() -> InferenceRequest {
+    InferenceRequest {
+        agent: None,
+        model: Some("test-model".to_string()),
+        permission_policy: InferencePermissionPolicy::DenyMutation,
+        prompt: HydratedPrompt {
+            asset: PromptFileAsset::Summarize,
+            body: "Summarize this source".to_string(),
+            metadata: FrontMatter::init().name("summarize".to_string()).build(),
+        },
+        response_schema: None,
+        timeout_ms: 1_000,
+    }
+}
+fn inference_result() -> InferenceResult {
+    InferenceResult {
+        finish_reason: InferenceFinishReason::Stop,
+        provenance: InferenceProvenance {
+            agent: None,
+            backend: "memory".to_string(),
+            model: Some("test-model".to_string()),
+            request_id: Some("registered-request".to_string()),
+        },
+        structured: None,
+        text: "registered result".to_string(),
+        usage: None,
+    }
 }
 #[tokio::test]
 async fn batch_preserves_order_and_omits_notifications() {
@@ -133,6 +165,29 @@ async fn invalid_documents_return_standard_errors() {
         let value: Value = serde_json::from_slice(response.body.as_deref().unwrap()).unwrap();
         assert_eq!(value["error"]["code"], code);
     }
+}
+#[tokio::test]
+async fn test_registered_inference_matches_direct_service_and_requires_authorization() {
+    let expected = inference_result();
+    let backend = InMemoryBackend::new(expected.clone());
+    let direct = crate::agent::run_inference(&backend, &inference_request()).await.unwrap();
+    let registry = OperationRegistry::default().register_inference(backend).unwrap();
+    let method = MethodName::from(["inference", "run"]);
+    let params = serde_json::to_value(inference_request()).unwrap();
+    let denied = registry.invoke(&method, params.clone(), InvocationContext::default()).await.unwrap_err();
+    assert_eq!(denied.code, POLICY_DENIED);
+    let registered = registry
+        .invoke(
+            &method,
+            params,
+            InvocationContext {
+                allow_inference: true,
+                ..InvocationContext::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(registered, serde_json::to_value(direct).unwrap());
 }
 #[test]
 fn method_names_are_validated() {

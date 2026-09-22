@@ -8,14 +8,14 @@ tools: []
 config:
   version: "{{ config.version | default(value="1.0.0") }}"
   temperature: "{{ config.temperature | default(value=0.1) }}"
-  maxOutputTokens: "{{ config["max-tokens"] | default(value=300) }}"
-  topK: "{{ config["top-k"] | default(value=10) }}"
-  stopSequences: "{{ config["stop-sequences"] | default(value=[]) }}"
+  maxOutputTokens: "{{ config.max_tokens | default(value=300) }}"
+  topK: "{{ config.top_k | default(value=10) }}"
+  stopSequences: "{{ config.stop_sequences | default(value=[]) }}"
 input:
   default:
-    text: "{{ config.text }}"
-    max-items: "{{ config["max-items"] | default(value=5) }}"
-    max-words: "{{ config["max-words"] | default(value=160) }}"
+    text: {{ data.text | json_encode }}
+    max-items: "{{ config.max_items | default(value=5) }}"
+    max-words: "{{ config.max_words | default(value=160) }}"
   schema:
     text:
       type: string
@@ -48,8 +48,8 @@ Extract the most important ideas, preserve factual meaning, and avoid adding cla
 2. Identify central claims, supporting evidence, and important caveats.
 3. Prioritize high-information content over examples and repetition.
 4. Use clear, accessible language for a general audience.
-5. Keep output under {{ config["max-words"] }} words.
-6. Limit key points to {{ config["max-items"] }} bullets.
+5. Keep output under {{ config.max_words }} words.
+6. Limit key points to {{ config.max_items }} bullets.
 7. Include up to 2 short verbatim quotes in quotation marks.
 8. If the text is ambiguous or incomplete, note uncertainty in Open Questions.
 9. Do not invent details, citations, or conclusions.
@@ -61,7 +61,7 @@ Return only the following Markdown structure:
 One to two sentences capturing the main takeaway.
 
 ## Key Points
-- Bullet list with at most {{ config["max-items"] }} bullets.
+- Bullet list with at most {{ config.max_items }} bullets.
 
 ## Open Questions
 - Bullet list of unresolved items from the source.
@@ -74,4 +74,4 @@ One to two sentences capturing the main takeaway.
 - Meets word and bullet limits.
 
 # Input
-{{ config.text }}
+{{ data.text }}

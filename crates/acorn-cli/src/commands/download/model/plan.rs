@@ -328,7 +328,11 @@ impl ModelDownloadPlan {
     }
     async fn harbor_metadata(&self, reference: &OciReference, resolution: &OciResolution) -> ApiResult<Option<HarborArtifact>> {
         match &self.registry_profile {
-            | Some(profile) if profile.kind == RegistryKind::Harbor => {
+            | Some(
+                profile @ RegistryProfile {
+                    kind: RegistryKind::Harbor, ..
+                },
+            ) => {
                 let selected = match reference.reference() {
                     | OciReferenceValue::Tag(value) | OciReferenceValue::Digest(value) => value,
                 };

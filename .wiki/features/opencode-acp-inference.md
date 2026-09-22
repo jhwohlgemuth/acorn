@@ -6,7 +6,8 @@ difficulty: high
 impact: high
 package: [workspace, acorn-lib, acorn-cli, acorn-schema, acorn-api, acorn-host, acorn-service]
 tags: [feature, roadmap, agentic, acp, opencode, openai-compatible, prompts, inference, checks, fixes]
-status: planned
+status: in-progress
+priority: next
 ---
 
 # Project code boundaries
@@ -43,8 +44,9 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - The existing `agentic` feature is enabled by default and currently selects the Axum/RMCP/Tower server stack. Adding an ACP client SDK to that feature would make an unrelated native process dependency part of default library builds unless ACP receives a separate capability feature.
 - `acorn_schema::agent::PromptTemplate` embeds six `.prompt` assets from `crates/acorn-schema/assets/prompts/` and renders them with Tera through `PromptTemplateConfiguration`.
 - `acorn_schema::agent` still combines portable configuration with embedded-asset and Tera hydration. Extending that module with inference services would conflict with the crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
-- Current prompt tests prove that known asset names can be loaded and that rendering returns the same success state for enum, string, and owned-string selectors. They do not assert that concrete input values appear in the rendered output or that unresolved variables are rejected.
-- The prompt assets mix nested `config.*`, kebab-case keys, and underscore variable names. Their frontmatter also contains fields and shapes not represented by the current `acorn_schema::agent::FrontMatter`, so ACP execution must not assume the current frontmatter type can parse every embedded asset.
+- The legacy prompt tests assert concrete substitution for `summarize` and selector compatibility. The in-progress foundation adds strict value-level hydration tests for all six embedded assets plus missing data, non-object data, reserved-key collisions, invalid frontmatter, unknown assets, and unresolved template syntax.
+- Built-in prompt expressions now use canonical snake-case `config.*` keys and caller-owned `data.*` values. `acorn::agent::PromptHydrator` returns a body and normalized metadata without exposing Tera or raw frontmatter to inference backends, while `PromptTemplate::render` remains compatible through one schema-owned configuration normalization method.
+- `acorn::agent` now defines the transport-neutral request, result, capability, provenance, usage, permission-policy, and backend contracts plus a deterministic in-memory backend. The shared operation registry can inject a backend for `acorn.inference.run`, and its invocation context denies the declared inference effect unless explicitly authorized.
 - `acorn_schema::agent::opencode::Config` already models OpenCode agents, models, permissions, commands, and configuration discovery. `io::sync::opencode` already owns configuration mutation and should remain the only writer.
 - `analyzer::Check` already records category, severity, URI, locator, context, message, and check-specific errors. `AnalysisReport` retains checks by standard, batch, and category, but there is no parallel `Fix` model or fix report.
 - `Check` is not currently a serialization contract and contains private, renderer-specific payloads. Inference should receive a normalized check reference DTO rather than serializing the internal check object or its entire source file.
@@ -866,6 +868,8 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 # Validation
 
+The prompt/inference foundation is validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; `make lint`, `make test` (1,840 passed, 14 skipped), minimal/alloc/analysis checks, and `make check-wasm` pass. ACP, OpenAI-compatible, fix-domain, and CLI validations below remain open.
+
 1. Add snapshot or exact-value tests for all embedded prompts with representative configuration and data, plus missing-value, unknown-asset, invalid-frontmatter, collision, and unresolved-template failures.
 2. Add fix-domain tests for check/doctor correlation, grouping, serialization/schema round trips, confidence validation, source fingerprints, stale inputs, unsupported findings, duplicate actions, effect declarations, dependency/conflict planning, path confinement, and transport-free deterministic behavior. Prove inference JSON cannot deserialize into an executable command specification.
 3. Add backend contract tests that run identical prompt and fix fixtures through fake ACP and fake OpenAI-compatible implementations and compare their normalized results.
@@ -881,6 +885,8 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 13. Regenerate CLI help and build documentation when the CLI surface lands.
 
 # Acceptance criteria
+
+The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, and explicit registry authorization. The plan remains active until the adapter, fix, executor, interoperability, and CLI criteria below are satisfied.
 
 - `AnalysisReport` and structured `DoctorReport` findings can be transformed into a grouped `FixReport` whose proposals retain their originating finding and target provenance.
 - Each model-generated fix references a supplied finding, includes a source fingerprint and expected original value where applicable, and passes local schema and semantic validation before it is exposed.

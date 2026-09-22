@@ -7,6 +7,8 @@
 #[cfg(any(feature = "std", feature = "analyzer"))]
 extern crate alloc;
 
+#[cfg(any(feature = "analysis", feature = "std"))]
+pub mod agent;
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
 #[cfg(feature = "doctor")]
