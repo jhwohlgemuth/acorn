@@ -84,6 +84,9 @@ extend the implemented portability matrix
 
 ### Scraping and Rhai exec
 
+- [Needle 3 migration](migrations/needle-3-upgrade.md) establishes versioned engine/weight asset validation before the shared packaging slice of [SLM sidecars](features/slm-sidecars.md). Independent evaluations do not depend on migration completion. Both serialize in the agent tools/sidecars lane and coordinate with OCI materialization without broadening generic GGUF inference policy.
+- [SLM sidecars](features/slm-sidecars.md) consumes [structured extraction inference](features/structured-extraction-inference.md) for Schemer gather integration and [canonical database](features/research-activity-database.md) for durable enrichment reconciliation. Tongue/Redact and proposal-only Title evaluation do not require those persistence/extraction integrations. Schemer additionally requires a supported upstream release.
+
 - The implemented [configured Rhai exec extensions](../docs/src/packages/exec.md) establish capability-free local CLI quality gates with typed `ExecutionResult<T>` outputs. Application configuration maps names relative to the project-root `.acorn/` directory to hooks, while an explicit `absolute: true` escape hatch is warned, hardened, and limited to local callers. Host inference recognizes valid extensionless Rhai through ABI-gated restricted compilation without authorizing unlisted scripts.
 - [Deterministic gather scraping](features/deterministic-gather-scraping.md) independently adds bounded HTML fetching and typed CSS extraction under existing HTTP/offline policy.
 - [Structured extraction inference](features/structured-extraction-inference.md) follows deterministic scraping and adds one explicit typed provider adapter before any generic registry is considered.
