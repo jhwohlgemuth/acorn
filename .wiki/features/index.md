@@ -8,7 +8,7 @@
 
 ## Planned
 
-- [Small language model (SLM) sidecars](slm-sidecars.md) - Add optional Tongue, Redact, Title enrichment, and release-gated Schemer alongside Needle.
+- [Small language model (SLM) sidecars](slm-sidecars.md) - Add optional Tongue, Redact, Title enrichment, and release-gated Schemer alongside Needle; evaluate semantic decisions separately before promotion.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
 - [Agent inference and verified-fix roadmap](opencode-acp-inference.md) - Register inference services while preserving official ACP transport, then stage prompt hydration, structured suggestions, and verified deterministic remediation.
