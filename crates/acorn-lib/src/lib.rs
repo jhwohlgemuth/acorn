@@ -2,12 +2,12 @@
 //!
 //! This crate provides ACORN services and host adapters. Portable primitives and
 //! schemas are owned by `acorn-core` and `acorn-schema`, respectively.
-#![cfg_attr(not(any(feature = "analysis", feature = "std")), no_std)]
+#![cfg_attr(not(any(feature = "acp", feature = "analysis", feature = "std")), no_std)]
 
-#[cfg(any(feature = "std", feature = "analyzer"))]
+#[cfg(any(feature = "acp", feature = "std", feature = "analyzer"))]
 extern crate alloc;
 
-#[cfg(any(feature = "analysis", feature = "std"))]
+#[cfg(any(feature = "acp", feature = "analysis", feature = "std"))]
 pub mod agent;
 #[cfg(feature = "analyzer")]
 pub mod analyzer;
@@ -18,6 +18,12 @@ pub mod error;
 pub mod exec;
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub mod io;
+#[cfg(all(feature = "acp", not(any(feature = "analysis", feature = "std"))))]
+/// Narrow I/O surface for builds that enable only the ACP adapter.
+pub mod io {
+    /// Agent Client Protocol process, readiness, and inference adapter.
+    pub mod acp;
+}
 pub mod util;
 
 pub use acorn_macros::{Validate, With};

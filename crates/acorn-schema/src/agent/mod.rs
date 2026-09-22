@@ -469,15 +469,6 @@ pub struct FrontMatter {
     #[serde(default, flatten)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
-/// Prompt output declaration embedded in front matter.
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct PromptOutput {
-    /// Declared output format.
-    pub format: Option<String>,
-    /// Declared output schema.
-    pub schema: Option<serde_json::Value>,
-}
 /// Token limits for context and output
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 pub struct LimitDetails {
@@ -564,6 +555,15 @@ pub struct ModelSelector(String);
 /// A normalized collection of model lookup values.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ModelSelectors(Vec<ModelSelector>);
+/// Prompt output declaration embedded in front matter.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct PromptOutput {
+    /// Declared output format.
+    pub format: Option<String>,
+    /// Declared output schema.
+    pub schema: Option<serde_json::Value>,
+}
 /// Struct for using and sharing prompt templates
 ///
 /// See <https://git.sr.ht/~pyrossh/rust-embed>
@@ -1110,6 +1110,10 @@ impl ModelSelector {
     /// Return the normalized selector value.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+    /// Return whether a candidate collection contains this selector.
+    pub fn contains<T: ToString>(&self, values: impl IntoIterator<Item = T>) -> bool {
+        values.into_iter().any(|value| value.to_string() == self.0)
     }
     /// Return the model name used for GGUF fallback repository discovery.
     pub fn fallback_search_name(&self) -> String {

@@ -51,6 +51,7 @@ unsafe_code = "forbid"
 broken-intra-doc-links = "forbid"
 
 [workspace.dependencies]
+agent-client-protocol = { version = "=2.2.0", default-features = false }
 anydoc = { version = "0.1.6", default-features = false }
 infer = { version = "0.22.0", default-features = false }
 pdf-inspector = { version = "0.1.7", default-features = false }

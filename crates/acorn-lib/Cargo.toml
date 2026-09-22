@@ -28,10 +28,11 @@ maintenance = { status = "actively-developed" }
 acorn-cmd = { version = "0.2.0", path = "../acorn-cmd", default-features = false, optional = true }
 acorn-core = { version = "0.2.0", path = "../acorn-core", default-features = false }
 acorn-host = { version = "0.2.0", path = "../acorn-host", default-features = false }
-acorn-schema = { version = "0.2.0", path = "../acorn-schema", default-features = false }
-ammonia = { version = "4.1.2", default-features = false, optional = true }
 acorn-macros = { version = "0.2.0", path = "../acorn-macros" }
+acorn-schema = { version = "0.2.0", path = "../acorn-schema", default-features = false }
+agent-client-protocol = { workspace = true, optional = true }
 aho-corasick = { version = "1.1.4", default-features = false }
+ammonia = { version = "4.1.2", default-features = false, optional = true }
 anydoc = { workspace = true, optional = true }
 arboard = { workspace = true, optional = true }
 ariadne = { version = "0.6.0", features = ["auto-color"], default-features = false, optional = true }
@@ -104,11 +105,12 @@ swhid = { workspace = true, features = ["git"], optional = true }
 sysinfo = { version = "0.38.2", features = ["network", "system"], default-features = false, optional = true}
 tar = { version = "0.4.45", default-features = false, optional = true }
 tera = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["io-std", "io-util", "net", "rt", "signal", "time"], optional = true }
+thiserror = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 tonic = { workspace = true, optional = true }
 tonic-prost = { workspace = true, optional = true }
-tracing = { workspace = true }
 tower = { workspace = true, optional = true, features = ["timeout", "util"] }
+tracing = { workspace = true }
 triomphe = { workspace = true }
 fluent-uri = { workspace = true }
 urlencoding = { version = "2.1.3", default-features = false}
@@ -150,12 +152,13 @@ name = "document"
 harness = false
 
 [features]
+acp = ["std-core", "dep:acorn-cmd", "dep:agent-client-protocol", "dep:thiserror", "dep:tokio", "tokio/rt", "tokio/time"]
 core = ["acorn-core/core", "acorn-schema/core"]
 alloc = ["core", "acorn-core/alloc", "acorn-schema/alloc", "serde/alloc", "jiff/alloc"]
 wasm = ["alloc", "acorn-schema/alloc"]
 analyzer = ["alloc"]
 std-core = ["alloc", "acorn-core/std", "acorn-schema/alloc", "jiff/std", "dep:color-eyre"]
-net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:lychee-lib", "dep:tokio", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
+net = ["std-core", "dep:reqwest", "dep:http", "dep:httpdate", "dep:lychee-lib", "dep:tokio", "tokio/io-std", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time", "dep:futures", "dep:async-trait", "dep:nanoid", "dep:rand", "dep:ring", "dep:rsa", "dep:glob", "dep:tower"]
 archive = ["std-core", "dep:flate2", "dep:zip", "dep:tar", "dep:zstd", "dep:sevenz-rust2"]
 template = ["std-core", "acorn-schema/std", "dep:tera", "dep:rust-embed", "dep:percy-dom", "dep:ammonia", "dep:anydoc", "dep:pdf-inspector"]
 progress = ["std-core", "dep:indicatif", "dep:console", "dep:owo-colors", "dep:comfy-table", "dep:similar"]

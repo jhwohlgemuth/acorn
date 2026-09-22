@@ -40,13 +40,15 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 
 # Current evidence
 
-- `crates/acorn-lib/src/io/mod.rs` already gates agent integrations behind the `agentic` feature. `io::mcp` is an implemented RMCP server with a typed `ToolRegistry`, stdio serving, runtime policy, and CLI integration; there is no ACP module or MCP client yet.
-- The existing `agentic` feature is enabled by default and currently selects the Axum/RMCP/Tower server stack. Adding an ACP client SDK to that feature would make an unrelated native process dependency part of default library builds unless ACP receives a separate capability feature.
+- `crates/acorn-lib/src/io/mod.rs` gates the new ACP client behind the independent, non-default `acp` feature. `io::mcp` remains the implemented RMCP server with a typed `ToolRegistry`, stdio serving, runtime policy, and CLI integration; there is no outbound MCP client yet.
+- The existing `agentic` feature remains enabled by default and selects the Axum/RMCP/Tower server stack. ACP instead pins `agent-client-protocol` 2.2.0 behind its separate capability feature, so default and portable library builds do not select the SDK or its subprocess dependencies.
 - `acorn_schema::agent::PromptTemplate` embeds six `.prompt` assets from `crates/acorn-schema/assets/prompts/` and renders them with Tera through `PromptTemplateConfiguration`.
 - `acorn_schema::agent` still combines portable configuration with embedded-asset and Tera hydration. Extending that module with inference services would conflict with the crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
 - The legacy prompt tests assert concrete substitution for `summarize` and selector compatibility. The in-progress foundation adds strict value-level hydration tests for all six embedded assets plus missing data, non-object data, reserved-key collisions, invalid frontmatter, unknown assets, and unresolved template syntax.
 - Built-in prompt expressions now use canonical snake-case `config.*` keys and caller-owned `data.*` values. `acorn::agent::PromptHydrator` returns a body and normalized metadata without exposing Tera or raw frontmatter to inference backends, while `PromptTemplate::render` remains compatible through one schema-owned configuration normalization method.
 - `acorn::agent` now defines the transport-neutral request, result, capability, provenance, usage, permission-policy, and backend contracts plus a deterministic in-memory backend. The shared operation registry can inject a backend for `acorn.inference.run`, and its invocation context denies the declared inference effect unless explicitly authorized.
+- `acorn::io::acp` now provides immutable agent launch data, reusable executable/version installation preflight, explicit protocol readiness, thin `opencode acp` defaults, and an `InferenceBackend` implementation using the official SDK. The adapter negotiates stable ACP v1, selects an advertised model, folds streamed text, denies permission requests, enforces offline and timeout policy, and preserves ACORN-owned result/error types.
+- The ACP contract suite compiles an in-repository fake executable and covers usable, missing, non-executable, failing, and timed-out version probes; two generic agent descriptors; protocol capability negotiation; streamed and structured output; unavailable models; permission denial; prompt timeout; and early child exit without requiring OpenCode, a model, credentials, or network access.
 - `acorn_schema::agent::opencode::Config` already models OpenCode agents, models, permissions, commands, and configuration discovery. `io::sync::opencode` already owns configuration mutation and should remain the only writer.
 - `analyzer::Check` already records category, severity, URI, locator, context, message, and check-specific errors. `AnalysisReport` retains checks by standard, batch, and category, but there is no parallel `Fix` model or fix report.
 - `Check` is not currently a serialization contract and contains private, renderer-specific payloads. Inference should receive a normalized check reference DTO rather than serializing the internal check object or its entire source file.
@@ -92,7 +94,7 @@ Use three readiness levels rather than one Boolean:
 2. `ProtocolReadiness`: an opt-in bounded ACP initialize/handshake succeeds and records negotiated capabilities and advertised authentication methods without sending a user prompt.
 3. `InferenceReadiness`: a separately authorized smoke request reaches a configured model. This may incur network use or cost and must not run as an ordinary doctor check.
 
-`AcpClient::infer` always requires installation and protocol initialization, but `acorn doctor` should not claim model/provider readiness merely because `opencode --version` succeeds. Likewise, an OpenAI-compatible `/models` response is not evidence that a model supports Structured Outputs; endpoint mode and structured-output support remain explicit configuration unless a provider-specific capability contract proves otherwise.
+`acp::Client::infer` always requires installation and protocol initialization, but `acorn doctor` should not claim model/provider readiness merely because `opencode --version` succeeds. Likewise, an OpenAI-compatible `/models` response is not evidence that a model supports Structured Outputs; endpoint mode and structured-output support remain explicit configuration unless a provider-specific capability contract proves otherwise.
 
 ## Relationship to other plans
 
@@ -267,7 +269,7 @@ Do not force ACP-only concepts such as permission request IDs or HTTP-only conce
 
 ```rust
 pub enum ConfiguredInferenceBackend {
-    Acp(AcpClient),
+    Acp(acp::Client),
     OpenAi(OpenAiInferenceClient),
 }
 
@@ -320,19 +322,17 @@ pub struct AgentProcessConfig {
     pub permission_policy: PermissionPolicy,
 }
 
-pub fn opencode_process(
-    executable: Option<PathBuf>,
-    working_directory: PathBuf,
-) -> AgentProcessConfig {
-    AgentProcessConfig {
-        agent_id: "opencode".to_owned(),
-        executable: executable.unwrap_or_else(|| PathBuf::from("opencode")),
-        acp_arguments: vec![OsString::from("acp")],
-        version_arguments: vec![OsString::from("--version")],
-        working_directory,
-        environment: BTreeMap::new(),
-        timeout: Duration::from_secs(120),
-        permission_policy: PermissionPolicy::DenyMutations,
+impl AgentProcessConfig {
+    pub fn opencode(
+        executable: Option<PathBuf>,
+        working_directory: PathBuf,
+    ) -> Self {
+        Self::builder()
+            .agent_id("opencode")
+            .executable(executable.unwrap_or_else(|| PathBuf::from("opencode")))
+            .working_directory(working_directory)
+            .acp_arguments(args!["acp"])
+            .build()
     }
 }
 ```
@@ -342,28 +342,28 @@ pub fn opencode_process(
 Installation checking is reusable and does not open an ACP session:
 
 ```rust
-pub fn check_installation(
-    config: &AgentProcessConfig,
-) -> ApiResult<AgentInstallation> {
-    resolve_executable(&config.executable)
+impl AgentProcessConfig {
+    pub fn check_installation(&self) -> ApiResult<AgentInstallation> {
+        resolve_executable(&self.executable)
         .and_then(|path| {
-            probe_version(&path, &config.version_arguments).map(|version| {
+            probe_version(&path, &self.version_arguments).map(|version| {
                 AgentInstallation {
-                    agent_id: config.agent_id.clone(),
+                    agent_id: self.agent_id.clone(),
                     executable: path,
                     version,
                 }
             })
         })
+    }
 }
 ```
 
-The production implementation should return the resolved absolute executable in `AgentInstallation`, use the repository's existing command discovery/version helpers where possible, and distinguish not found, not executable, probe failure, timeout, and unparsable version. `AcpClient::infer` calls this function even if the caller previously ran doctor.
+The production implementation should return the resolved absolute executable in `AgentInstallation`, use the repository's existing command discovery/version helpers where possible, and distinguish not found, not executable, probe failure, timeout, and unparsable version. `acp::Client::infer` calls this function even if the caller previously ran doctor.
 
 The ACP session implementation should read as a bounded lifecycle rather than a collection of OpenCode branches:
 
 ```rust
-impl InferenceBackend for AcpClient {
+impl InferenceBackend for acp::Client {
     fn infer<'a>(
         &'a self,
         request: &'a InferenceRequest,
@@ -700,7 +700,7 @@ Create `crates/acorn-lib/src/io/acp/mod.rs`, gated by a separate `acp` capabilit
 - an OpenCode constructor or thin adapter that supplies `opencode`, `acp`, and `--version` defaults without changing the shared transport;
 - ACP mapping from the shared `InferenceRequest`, `InferenceEvent`, and `InferenceResult` types;
 - `AgentInstallation`: agent identifier, resolved executable path, and detected version information from a successful preflight check;
-- `AcpClient`: the `InferenceBackend` implementation operating on an `AgentProcessConfig`.
+- `acp::Client`: the `InferenceBackend` implementation operating on an `AgentProcessConfig`.
 
 Implementation flow:
 
@@ -868,7 +868,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 # Validation
 
-The prompt/inference foundation is validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; `make lint`, `make test` (1,840 passed, 14 skipped), minimal/alloc/analysis checks, and `make check-wasm` pass. ACP, OpenAI-compatible, fix-domain, and CLI validations below remain open.
+The prompt/inference foundation and fake ACP transport are validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; the fake ACP agent proves installation and protocol readiness, streaming, structured output capture, model selection, permission denial, timeout, and child-exit behavior. `make lint`, `make test` (1,841 passed and 14 skipped), `make check-wasm`, and the 10-test ACP-only suite pass. Minimal, alloc, ACP-only, agentic-only, and combined agentic/ACP feature checks pass, and the default dependency graph does not select the ACP SDK. The pinned ACP packages are Apache-2.0 licensed and add only the SDK-required `syn` 3 major-version duplicate; repository-wide dependency auditing remains red on pre-existing unused declarations, advisories, yanked crates, and license-policy findings unrelated to ACP. Real OpenCode interoperability, OpenAI-compatible, fix-domain, and CLI validations below remain open.
 
 1. Add snapshot or exact-value tests for all embedded prompts with representative configuration and data, plus missing-value, unknown-asset, invalid-frontmatter, collision, and unresolved-template failures.
 2. Add fix-domain tests for check/doctor correlation, grouping, serialization/schema round trips, confidence validation, source fingerprints, stale inputs, unsupported findings, duplicate actions, effect declarations, dependency/conflict planning, path confinement, and transport-free deterministic behavior. Prove inference JSON cannot deserialize into an executable command specification.
@@ -886,7 +886,7 @@ The prompt/inference foundation is validated: all embedded assets hydrate throug
 
 # Acceptance criteria
 
-The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, and explicit registry authorization. The plan remains active until the adapter, fix, executor, interoperability, and CLI criteria below are satisfied.
+The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, explicit registry authorization, and a fake-agent-covered ACP/OpenCode process adapter. The plan remains active until the OpenAI-compatible adapter, fix domain, executors, real interoperability, and CLI criteria below are satisfied.
 
 - `AnalysisReport` and structured `DoctorReport` findings can be transformed into a grouped `FixReport` whose proposals retain their originating finding and target provenance.
 - Each model-generated fix references a supplied finding, includes a source fingerprint and expected original value where applicable, and passes local schema and semantic validation before it is exposed.

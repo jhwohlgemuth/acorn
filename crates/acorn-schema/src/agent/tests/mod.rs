@@ -186,6 +186,8 @@ fn test_model_list_rejects_empty_collections_for_each_projection() {
 fn test_model_selector_normalizes_values_and_fallback_search_names() {
     let selector = ModelSelector::new(" nvidia/llama-3.1-nemotron-ultra-253b ").unwrap();
     assert_eq!(selector.as_str(), "nvidia/llama-3.1-nemotron-ultra-253b");
+    assert!(selector.contains(["other/model", "nvidia/llama-3.1-nemotron-ultra-253b"]));
+    assert!(!selector.contains(["other/model"]));
     assert_eq!(selector.fallback_search_name(), "llama-3_1-nemotron-ultra-253b-v1");
     let selector = ModelSelector::new("nvidia/llama-3.3-nemotron-super-49b-v1.5").unwrap();
     assert_eq!(selector.fallback_search_name(), "llama-3_3-nemotron-super-49b-v1_5");

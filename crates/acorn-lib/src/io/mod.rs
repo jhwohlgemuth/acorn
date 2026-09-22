@@ -85,6 +85,8 @@ use std::{
 use strum::EnumIs;
 use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info, warn};
+#[cfg(feature = "acp")]
+pub mod acp;
 #[cfg(any(feature = "analysis", feature = "std"))]
 pub mod adapter;
 pub mod api;
@@ -119,11 +121,6 @@ pub mod sync;
 pub mod workflow;
 
 pub use email::EmailAddress;
-
-/// Read UTF-8 text and convert the host-owned filesystem error at this crate's boundary.
-pub(crate) fn read_file(path: impl AsRef<Path>) -> ApiResult<String> {
-    read_text(path).map_err(Into::into)
-}
 
 lazy_static! {
     static ref PROGRESS_RENDERER: MultiProgress = MultiProgress::new();
@@ -1538,6 +1535,10 @@ pub fn print_with_border<T: ToString>(text: impl ToString, title: Option<T>) {
 /// Returns the shared progress renderer used by ACORN I/O operations.
 pub fn progress_renderer() -> MultiProgress {
     PROGRESS_RENDERER.clone()
+}
+/// Read UTF-8 text and convert the host-owned filesystem error at this crate's boundary.
+pub(crate) fn read_file(path: impl AsRef<Path>) -> ApiResult<String> {
+    read_text(path).map_err(Into::into)
 }
 /// Read one bounded UTF-8 snapshot from a regular, non-symlink file.
 ///
