@@ -102,6 +102,3 @@ Return only the following Markdown structure:
 - Solutions (if included) are realistic and valuable
 - Balanced view: includes what's done well AND what's missing
 - Appropriate depth for the content's complexity
-
-# Input
-{{ data.text }}

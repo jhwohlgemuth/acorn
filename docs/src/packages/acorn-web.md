@@ -66,7 +66,7 @@ The WASM build exposes Rust APIs that operate on supplied in-memory values. It c
 | Validation | Research schema validation plus helpers for identifiers, dates and timestamps, URLs, semantic versions, geographic coordinates and polygons, language and country codes, phone numbers, and media extensions |
 | Hardware metadata | Architecture, accelerator, processor, memory, sensor, topology, vendor, and computing-resource models |
 | Portable domain APIs | `Location`, `Repository`, `Scheme`, `Release`, `AcornError`, and `AcornResult` |
-| Portable utilities | MIME and file-extension detection, Crockford Base32, constant-time byte comparison, glob matching, regex-to-glob conversion, frontmatter splitting, semantic versions, byte formatting, and string normalization |
+| Portable utilities | MIME and file-extension detection, ZON encoding/decoding, Crockford Base32, constant-time byte comparison, glob matching, regex-to-glob conversion, frontmatter splitting, semantic versions, byte formatting, and string normalization |
 | Reference data | Compile-time vocabularies used by portable schema and validation code |
 | Analyzer kernel | Check, error, Vale output, readability, and scoring models plus calculations over supplied text through the separate `analyzer` feature |
 

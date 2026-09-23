@@ -1,8 +1,9 @@
-use super::{HydratedPrompt, PromptContext};
+use super::{HydratedPrompt, PromptContext, PromptDataFormat};
 use crate::error::ApiResult;
 use acorn_core::prelude::{String, ToString};
-use acorn_core::util::{frontmatter_and_body, MarkdownSupport};
+use acorn_core::util::{frontmatter_and_body, longest_character_run, MarkdownSupport};
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
+use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Report};
 use core::marker::PhantomData;
@@ -28,18 +29,8 @@ struct Raw;
 pub(super) struct Rejected;
 #[derive(Debug)]
 pub(super) struct Rendered;
-impl PromptFileAssetExt for PromptFileAsset {
-    fn hydrate(self, prompt: Prompt<Rendered>) -> Result<HydratedPrompt, Prompt<Rejected>> {
-        prompt.into_parts().map(|(metadata, body)| HydratedPrompt { asset: self, body, metadata })
-    }
-}
-impl<State> Prompt<State> {
-    pub(super) fn new(content: String) -> Self {
-        Self { content, state: PhantomData }
-    }
-}
 impl Prompt<Raw> {
-    fn render<T>(self, prompt: &PromptContext<T>) -> Result<Prompt<Rendered>, Prompt<Rejected>>
+    fn render<T>(self, prompt: &PromptContext<T>, format: PromptDataFormat) -> Result<Prompt<Rendered>, Prompt<Rejected>>
     where
         T: Serialize,
     {
@@ -62,6 +53,12 @@ impl Prompt<Raw> {
                 context.insert("data", &data);
                 Tera::one_off(&self.content, &context, false)
                     .map_err(|why| Prompt::<Rejected>::new(format!("Failed to render prompt template — {why}")))
+                    .and_then(|content| {
+                        format
+                            .data_block(&data)
+                            .map(|input| format!("{}\n\n{input}", content.trim_end()))
+                            .map_err(Prompt::<Rejected>::new)
+                    })
             })
             .and_then(|content| Prompt::<Rendered>::new(content).validate())
     }
@@ -105,9 +102,43 @@ impl Prompt<Rendered> {
         }
     }
 }
+impl<State> Prompt<State> {
+    pub(super) fn new(content: String) -> Self {
+        Self { content, state: PhantomData }
+    }
+}
+impl PromptDataFormat {
+    fn data_block(self, data: &Value) -> Result<String, String> {
+        match self {
+            | Self::Json => serde_json::to_string_pretty(data)
+                .map(|encoded| ("JSON", "json", encoded))
+                .map_err(|why| format!("Failed to serialize prompt data as JSON — {why}")),
+            | Self::Zon => zon::encode(data)
+                .map(|encoded| ("ZON", "zon", encoded))
+                .map_err(|why| format!("Failed to serialize prompt data as ZON — {why}")),
+        }
+        .map(|(label, language, encoded)| {
+            // Isolate data from instructions; exceeding embedded runs prevents the payload from closing its Markdown block.
+            let fence = "`".repeat(longest_character_run(&encoded, '`').saturating_add(1).max(3));
+            format!("# Input Data ({label})\n\n{fence}{language}\n{encoded}\n{fence}")
+        })
+    }
+}
+impl PromptFileAssetExt for PromptFileAsset {
+    fn hydrate(self, prompt: Prompt<Rendered>) -> Result<HydratedPrompt, Prompt<Rejected>> {
+        prompt.into_parts().map(|(metadata, body)| HydratedPrompt { asset: self, body, metadata })
+    }
+}
 impl PromptHydrator {
     /// Render and validate one embedded prompt without process, filesystem, or network access.
     pub fn hydrate<T>(asset: PromptFileAsset, context: &PromptContext<T>) -> ApiResult<HydratedPrompt>
+    where
+        T: Serialize,
+    {
+        Self::hydrate_with_format(asset, context, PromptDataFormat::default())
+    }
+    /// Render and validate one embedded prompt using an explicit prompt-data format.
+    pub fn hydrate_with_format<T>(asset: PromptFileAsset, context: &PromptContext<T>, format: PromptDataFormat) -> ApiResult<HydratedPrompt>
     where
         T: Serialize,
     {
@@ -115,7 +146,7 @@ impl PromptHydrator {
             .load()
             .map_err(|why| eyre!(why))
             .map(Prompt::<Raw>::new)
-            .and_then(|prompt| prompt.render(context).map_err(Prompt::into_error))
+            .and_then(|prompt| prompt.render(context, format).map_err(Prompt::into_error))
             .and_then(|prompt| asset.hydrate(prompt).map_err(Prompt::into_error))
     }
 }

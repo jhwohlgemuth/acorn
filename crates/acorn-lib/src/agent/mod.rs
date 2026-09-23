@@ -41,6 +41,16 @@ pub enum InferencePermissionPolicy {
     /// Deny filesystem writes, commands, and other mutating tools.
     DenyMutation,
 }
+/// Serialization format used for the complete prompt input-data block.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PromptDataFormat {
+    /// Pretty-printed JSON, intended primarily for troubleshooting.
+    Json,
+    /// Canonical ZON, used by default for compact model-facing data.
+    #[default]
+    Zon,
+}
 /// Fully rendered prompt ready for an inference backend.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

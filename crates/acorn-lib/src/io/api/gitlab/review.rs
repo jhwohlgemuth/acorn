@@ -85,6 +85,20 @@ pub struct MergeRequestAnalysisReport {
 struct Workspace {
     root: PathBuf,
 }
+impl Input {
+    fn path(&self) -> &str {
+        match self {
+            | Self::Pending { path } | Self::Checked { path, .. } | Self::Skipped { path, .. } | Self::Failed { path, .. } => path,
+        }
+    }
+    fn supported(path: &str) -> bool {
+        match MimeType::from(path) {
+            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Text | MimeType::Yaml | MimeType::Zon => true,
+            | MimeType::Vendor(extension) => extension == "docx",
+            | _ => false,
+        }
+    }
+}
 impl From<&MergeRequestDiff> for Input {
     fn from(diff: &MergeRequestDiff) -> Self {
         let reason = if diff.deleted_file {
@@ -103,20 +117,6 @@ impl From<&MergeRequestDiff> for Input {
                 reason: reason.to_string(),
             },
         )
-    }
-}
-impl Input {
-    fn path(&self) -> &str {
-        match self {
-            | Self::Pending { path } | Self::Checked { path, .. } | Self::Skipped { path, .. } | Self::Failed { path, .. } => path,
-        }
-    }
-    fn supported(path: &str) -> bool {
-        match MimeType::from(path) {
-            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Text | MimeType::Yaml => true,
-            | MimeType::Vendor(extension) => extension == "docx",
-            | _ => false,
-        }
     }
 }
 impl MergeRequestAnalysisReport {
@@ -215,13 +215,6 @@ impl MergeRequestAnalysisReport {
         )
     }
 }
-impl Drop for Workspace {
-    fn drop(&mut self) {
-        if let Err(why) = remove_dir_all(&self.root) {
-            tracing::warn!("Failed to remove merge request analysis workspace {} — {why}", self.root.display());
-        }
-    }
-}
 impl Workspace {
     fn create(iid: u64, head_sha: &str) -> ApiResult<Self> {
         let short_sha = head_sha.chars().take(12).collect::<String>();
@@ -235,6 +228,13 @@ impl Workspace {
         write(&path, content)
             .map(|_| path.clone())
             .map_err(|why| eyre!("Failed to materialize merge request input {} — {why}", path.display()))
+    }
+}
+impl Drop for Workspace {
+    fn drop(&mut self) {
+        if let Err(why) = remove_dir_all(&self.root) {
+            tracing::warn!("Failed to remove merge request analysis workspace {} — {why}", self.root.display());
+        }
     }
 }
 /// Analyze one merge request head and publish its note and commit status

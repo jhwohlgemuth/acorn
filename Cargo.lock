@@ -310,6 +310,7 @@ dependencies = [
  "strum 0.28.0",
  "swhid",
  "tera",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "urlencoding",

@@ -25,8 +25,8 @@ workflow:
     repository-quality:
       paths:
         - "**/*.cff"
-        - "**/*.{json,jsonc,yaml,yml,md}"
-      formats: [cff, json, jsonc, markdown, yaml]
+        - "**/*.{json,jsonc,yaml,yml,md,zonf}"
+      formats: [cff, json, jsonc, markdown, yaml, zon]
       actions: [validate, format, link]
       outputs:
         mode: source-and-artifacts

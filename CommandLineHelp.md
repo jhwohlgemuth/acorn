@@ -187,7 +187,7 @@ Perform static analysis on research activity data and apply standardized best pr
    Only files matching at least one pattern will be processed
 * `--format <FORMAT>` — Force the file format used for standard input or clipboard text
 
-   Supported formats: cff, json, jsonc, markdown, text, yaml
+   Supported formats: cff, json, jsonc, markdown, text, yaml, zon
 * `-i`, `--ignore <LIST>` — Regular expression pattern(s) applied to absolute paths of files to exclude from checking
 
    Only applies to `--path` values that point to a directory
@@ -569,7 +569,7 @@ Export research activity data to a specific target
 
   Default value: `pdf`
 
-  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `markdown`, `powerpoint`, `yaml`
+  Possible values: `pdf`, `bag`, `cff`, `docx`, `json`, `markdown`, `powerpoint`, `yaml`, `zon`
 
 * `--archive-format <FORMAT>` — BagIt archive container format
 

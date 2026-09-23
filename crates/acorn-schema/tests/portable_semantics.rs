@@ -1,9 +1,17 @@
 //! Cross-feature contract tests for portable schema behavior
+use acorn_core::util::MimeType;
 use acorn_schema::{
     agent::{AuthenticationScheme, ProviderDetails},
     validation::{format_timestamp, rules},
-    ContactPoint,
+    ContactPoint, OneOrMany,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+struct CrosswalkRecord {
+    id: u8,
+    title: String,
+}
 
 #[test]
 fn contact_normalization_is_portable() {
@@ -14,6 +22,23 @@ fn contact_normalization_is_portable() {
         .format();
     assert_eq!(contact.organization, "Oak Ridge National Laboratory");
     assert_eq!(contact.telephone, "555.123.4567");
+}
+#[test]
+fn one_or_many_crosswalk_data_round_trips_zon() {
+    let values: OneOrMany<CrosswalkRecord> = vec![
+        CrosswalkRecord {
+            id: 1,
+            title: "First".to_string(),
+        },
+        CrosswalkRecord {
+            id: 2,
+            title: "Second".to_string(),
+        },
+    ]
+    .into();
+    let encoded = values.serialize(MimeType::Zon).expect("crosswalk data should serialize as ZON");
+    let decoded = OneOrMany::<CrosswalkRecord>::parse(&encoded, MimeType::Zon).expect("crosswalk ZON should parse");
+    assert_eq!(decoded, values);
 }
 #[test]
 fn provider_authentication_keeps_its_typed_wire_shape() {

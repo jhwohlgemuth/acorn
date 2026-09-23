@@ -30,7 +30,7 @@ acorn download --config /path/to/.acorn.jsonc
 
 ## Buckets
 
-After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, and recognized Markdown research activity files into the local `research_activities` table. Unrelated Markdown documentation is ignored. Each row has a portable NanoID and retains the typed RAD JSON plus provenance for the bucket, repository, relative path, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a repository-qualified RAD identifier always identifies the transferred activity.
+After a bucket transfer, ACORN ingests transferred JSON, JSONC, YAML, YML, ZONF, and recognized Markdown research activity files into the local `research_activities` table. Unrelated Markdown documentation is ignored. Each row has a portable NanoID and retains the typed RAD JSON plus provenance for the bucket, repository, relative path, and observation time. Exact DOI, RAiD, ISBN, and patent metadata identities are used when present; a repository-qualified RAD identifier always identifies the transferred activity.
 
 Repeated transfers are idempotent. A matching candidate gains missing fields and unique array values, while conflicting populated fields remain unchanged and are recorded as provenance. Filters and ignore rules apply before transfer, so only transferred RAD files are ingested.
 

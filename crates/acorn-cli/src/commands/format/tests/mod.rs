@@ -20,6 +20,7 @@ use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
+use acorn_schema::standard::zon;
 use alloc::sync::Arc;
 use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre::Result;
@@ -438,5 +439,35 @@ async fn test_format_with_changes() -> Result<()> {
     let formatted_content = fs::read_to_string(&dest_file)?;
     let parsed: serde_json::Value = serde_json::from_str(&formatted_content)?;
     assert!(parsed.is_object(), "Formatted file should be valid JSON");
+    Ok(())
+}
+#[tokio::test]
+async fn test_format_zonf_with_changes() -> Result<()> {
+    let temp_dir = temp_test_dir("format_zonf_with_changes");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/format/unresolved_changes/index.json");
+    let activity: ResearchActivity = serde_json::from_str(&fs::read_to_string(source)?)?;
+    let destination = temp_dir.join("index.zonf");
+    fs::write(&destination, zon::encode(&activity)?)?;
+    let result = run(
+        &Some(destination.clone()),
+        &None,
+        &None,
+        &None,
+        &None,
+        &None,
+        false,
+        false,
+        false,
+        &[],
+        &false,
+        Standard::ResearchActivityData,
+        1,
+        &Verbosity::new(0, 0),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Format ZON with changes should succeed");
+    assert!(zon::decode::<ResearchActivity>(&fs::read_to_string(destination)?).is_ok());
     Ok(())
 }

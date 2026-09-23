@@ -60,6 +60,16 @@ fn runtime() -> tokio::runtime::Runtime {
 }
 
 #[test]
+fn test_acp_inference_forwards_hydrated_zon_prompt_body() {
+    let fake = FakeAgent::compile();
+    let client = Client::new(fake.config("fake"));
+    let body = "Instructions\n\n# Input Data (ZON)\n\n```zon\ntext:ZON-PASSTHROUGH\n```";
+    let result = runtime()
+        .block_on(client.infer_checked(&request(body)))
+        .expect("forward hydrated ZON prompt");
+    assert_eq!(result.text, "zon prompt received");
+}
+#[test]
 fn test_acp_inference_rejects_offline_and_wrong_agent_without_starting() {
     let config = AgentProcessConfig::new("fake", "missing-agent", std::env::current_dir().expect("current directory"));
     let offline = runtime().block_on(Client::new(config.clone()).with_offline(true).infer_checked(&request("prompt")));

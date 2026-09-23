@@ -381,6 +381,10 @@ fn test_mimetype_text_inference_uses_supported_check_formats() {
     assert_eq!(MimeType::infer_from("{\n  // comment\n  \"title\": \"RAD\"\n}"), MimeType::Jsonc);
     assert_eq!(MimeType::infer_from(&markdown), MimeType::Markdown);
     assert_eq!(MimeType::infer_from("meta:\n  identifier: example\ntitle: Example\n"), MimeType::Yaml);
+    assert_eq!(
+        MimeType::infer_from("contact{email:researcher@example.org,name:Researcher}\nmeta{identifier:example}\ntitle:Example activity"),
+        MimeType::Zon
+    );
     assert_eq!(MimeType::infer_from("Note: ordinary prose"), MimeType::Text);
 }
 #[test]

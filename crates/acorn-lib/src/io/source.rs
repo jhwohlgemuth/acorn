@@ -274,12 +274,14 @@ impl TextOrigin {
             | (Self::Clipboard, MimeType::Jsonc) => "clipboard.jsonc",
             | (Self::Clipboard, MimeType::Markdown) => "clipboard.md",
             | (Self::Clipboard, MimeType::Yaml) => "clipboard.yaml",
+            | (Self::Clipboard, MimeType::Zon) => "clipboard.zonf",
             | (Self::Clipboard, _) => "clipboard.txt",
             | (Self::Stdin, MimeType::Cff) => "stdin.cff",
             | (Self::Stdin, MimeType::Json) => "stdin.json",
             | (Self::Stdin, MimeType::Jsonc) => "stdin.jsonc",
             | (Self::Stdin, MimeType::Markdown) => "stdin.md",
             | (Self::Stdin, MimeType::Yaml) => "stdin.yaml",
+            | (Self::Stdin, MimeType::Zon) => "stdin.zonf",
             | (Self::Stdin, _) => "stdin.txt",
         }
     }

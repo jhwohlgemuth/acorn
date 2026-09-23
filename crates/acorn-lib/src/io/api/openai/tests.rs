@@ -144,6 +144,33 @@ async fn test_capabilities_and_debug_keep_configuration_explicit_and_secret_free
     server.stop().await.expect("stop test server");
 }
 #[tokio::test]
+async fn test_endpoint_modes_forward_hydrated_prompt_body_verbatim() {
+    let (server, state) = server().await;
+    let body = "Instructions\n\n# Input Data (ZON)\n\n```zon\ntext:source\n```";
+    client(&server, EndpointMode::Responses)
+        .infer_checked(&request(body))
+        .await
+        .expect("responses inference");
+    client(&server, EndpointMode::ChatCompletions)
+        .infer_checked(&request(body))
+        .await
+        .expect("chat inference");
+    {
+        let requests = state.requests.lock().unwrap_or_else(PoisonError::into_inner);
+        let responses_body = requests
+            .iter()
+            .find_map(|(mode, request)| (*mode == EndpointMode::Responses).then_some(request))
+            .expect("responses request body");
+        let chat_body = requests
+            .iter()
+            .find_map(|(mode, request)| (*mode == EndpointMode::ChatCompletions).then_some(request))
+            .expect("chat request body");
+        assert_eq!(responses_body.get("input").and_then(Value::as_str), Some(body));
+        assert_eq!(chat_body.pointer("/messages/0/content").and_then(Value::as_str), Some(body));
+    }
+    server.stop().await.expect("stop test server");
+}
+#[tokio::test]
 async fn test_endpoint_modes_return_equivalent_normalized_results() {
     let (server, _) = server().await;
     let responses_result = client(&server, EndpointMode::Responses)

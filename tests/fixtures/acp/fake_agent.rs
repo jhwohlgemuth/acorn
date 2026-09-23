@@ -90,6 +90,13 @@ fn serve() {
                     r#"{"jsonrpc":"2.0","id":900,"method":"session/request_permission","params":{"sessionId":"fake-session","toolCall":{"toolCallId":"call-1"},"options":[{"optionId":"reject","name":"Reject","kind":"reject_once"}]}}"#,
                 );
             }
+            _ if line.contains("\"method\":\"session/prompt\"")
+                && line.contains("# Input Data (ZON)")
+                && line.contains(r#"```zon\ntext:ZON-PASSTHROUGH\n```"#) =>
+            {
+                send_chunk(&mut writer, "zon prompt received");
+                send(&mut writer, &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"stopReason":"end_turn"}}}}"#));
+            }
             _ if line.contains("\"method\":\"session/prompt\"") && line.contains("structured") => {
                 send_chunk(&mut writer, r#"{"answer":42}"#);
                 send(&mut writer, &format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"stopReason":"end_turn"}}}}"#));

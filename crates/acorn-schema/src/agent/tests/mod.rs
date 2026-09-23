@@ -305,6 +305,7 @@ fn test_render_accepts_prompt_asset_str_and_string_inputs() {
     assert!(from_enum.contains("under 42 words"));
     assert!(from_enum.contains("Limit key points to 3 bullets"));
     assert!(from_enum.contains("source text"));
+    assert_eq!(from_enum.matches("# Input Data (ZON)").count(), 1);
     all_known_assets().iter().for_each(|asset| {
         assert!(PromptTemplate::render(asset.clone(), &config).is_ok(), "prompt should render: {asset}");
     });

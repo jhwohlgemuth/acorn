@@ -58,6 +58,11 @@ impl Enrich<(Location, ResearchActivity)> for OutputEnrichment {
         })
     }
 }
+impl TrackingEnrichment {
+    fn maximum(&self) -> usize {
+        self.maximum.load(Ordering::SeqCst)
+    }
+}
 #[async_trait]
 impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
     type Output = ApiResult<EnrichmentResult<ResearchActivity>>;
@@ -79,11 +84,6 @@ impl Enrich<(Location, ResearchActivity)> for TrackingEnrichment {
             conflicts: Vec::new(),
             failures: Vec::new(),
         })
-    }
-}
-impl TrackingEnrichment {
-    fn maximum(&self) -> usize {
-        self.maximum.load(Ordering::SeqCst)
     }
 }
 fn options(common: CommonRuntime, extension: WorkflowExtension) -> Options {
@@ -312,6 +312,11 @@ fn test_repository_accepts_every_registered_flat_file_format() {
             format: Some(MimeType::Yaml),
             path: "metadata.yaml".to_string(),
         },
+        RepositoryFileInput {
+            content: "value:1".to_string(),
+            format: Some(MimeType::Zon),
+            path: "metadata.zonf".to_string(),
+        },
     ];
     let input = RepositoryInput {
         actions: vec![WorkflowAction::Format, WorkflowAction::Validate],
@@ -320,8 +325,8 @@ fn test_repository_accepts_every_registered_flat_file_format() {
         revision: "abc123".to_string(),
     };
     let result = RepositoryWorkflowRegistry::acorn().unwrap().process("repository-quality", input).unwrap();
-    assert_eq!(result.reports.len(), 6);
-    assert_eq!(result.reports.iter().map(|report| report.format.clone()).collect::<Vec<_>>().len(), 6);
+    assert_eq!(result.reports.len(), 7);
+    assert_eq!(result.reports.iter().map(|report| report.format.clone()).collect::<Vec<_>>().len(), 7);
 }
 #[test]
 fn test_repository_processes_supported_flat_files_deterministically() {

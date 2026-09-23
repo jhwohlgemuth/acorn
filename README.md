@@ -16,7 +16,7 @@
 [<img alt="AI Assisted" src="https://www.aihonestybadge.com/badges/ai-assisted.svg" height="20">](https://www.aihonestybadge.com)
 > Accessible Content Optimization for Research Needs
 
-:seedling: ACORN is a Rust CLI and library for validating research activity data (RAD), adding linked-data context, and exporting records as PDF, PowerPoint, CFF, Markdown, JSON, or YAML. Its source records are portable files that can be version controlled and processed locally.
+:seedling: ACORN is a Rust CLI and library for validating research activity data (RAD), adding linked-data context, and exporting records as PDF, PowerPoint, CFF, Markdown, JSON, YAML, or ZON. Its source records are portable files that can be version controlled and processed locally.
 
 ACORN is context-aware at the data and workflow level. It keeps project descriptions with their identifiers, provenance, and relationships so people and software can interpret records in context. That awareness can unlock a fuller understanding of the work by making documented connections and gaps visible.
 

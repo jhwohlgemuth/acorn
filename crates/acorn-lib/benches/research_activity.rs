@@ -8,9 +8,10 @@
 )]
 use acorn_core::util::MarkdownSupport;
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use core::hint::black_box;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 
 const VALID_PROJECT: &str = include_str!("../../../tests/fixtures/data/valid_project/index.json");
 
@@ -23,14 +24,29 @@ fn bench_deserialize_json(c: &mut Criterion) {
         });
     });
 }
-fn bench_validate(c: &mut Criterion) {
+fn bench_deserialize_zon(c: &mut Criterion) {
     let value: ResearchActivity = serde_json::from_str(VALID_PROJECT).expect("valid_project fixture should deserialize");
-    c.bench_function("research_activity.validate", |b| {
+    let encoded = zon::encode(&value).expect("valid_project fixture should serialize as ZON");
+    let mut group = c.benchmark_group("research_activity.deserialize_zon");
+    group.throughput(Throughput::Bytes(encoded.len() as u64));
+    group.bench_function("zon", |b| {
         b.iter(|| {
-            let result = core::hint::black_box(&value).validate();
+            let value = zon::decode::<ResearchActivity>(black_box(&encoded));
+            black_box(value)
+        });
+    });
+    group.finish();
+}
+fn bench_format(c: &mut Criterion) {
+    let value: ResearchActivity = serde_json::from_str(VALID_PROJECT).expect("valid_project fixture should deserialize");
+    let mut group = c.benchmark_group("research_activity.transform");
+    group.bench_function("format", |b| {
+        b.iter(|| {
+            let result = core::hint::black_box(value.clone()).format();
             black_box(result)
         });
     });
+    group.finish();
 }
 fn bench_serialize_json(c: &mut Criterion) {
     let value: ResearchActivity = serde_json::from_str(VALID_PROJECT).expect("valid_project fixture should deserialize");
@@ -38,6 +54,19 @@ fn bench_serialize_json(c: &mut Criterion) {
     group.bench_function("json", |b| {
         b.iter(|| {
             let result = serde_json::to_string(core::hint::black_box(&value));
+            black_box(result)
+        });
+    });
+    group.finish();
+}
+fn bench_serialize_zon(c: &mut Criterion) {
+    let value: ResearchActivity = serde_json::from_str(VALID_PROJECT).expect("valid_project fixture should deserialize");
+    let bytes = zon::encode(&value).expect("valid_project fixture should serialize as ZON").len();
+    let mut group = c.benchmark_group("research_activity.serialize_zon");
+    group.throughput(Throughput::Bytes(bytes as u64));
+    group.bench_function("zon", |b| {
+        b.iter(|| {
+            let result = zon::encode(black_box(&value));
             black_box(result)
         });
     });
@@ -54,22 +83,22 @@ fn bench_to_markdown(c: &mut Criterion) {
     });
     group.finish();
 }
-fn bench_format(c: &mut Criterion) {
+fn bench_validate(c: &mut Criterion) {
     let value: ResearchActivity = serde_json::from_str(VALID_PROJECT).expect("valid_project fixture should deserialize");
-    let mut group = c.benchmark_group("research_activity.transform");
-    group.bench_function("format", |b| {
+    c.bench_function("research_activity.validate", |b| {
         b.iter(|| {
-            let result = core::hint::black_box(value.clone()).format();
+            let result = core::hint::black_box(&value).validate();
             black_box(result)
         });
     });
-    group.finish();
 }
 criterion_group!(
     benches,
     bench_deserialize_json,
+    bench_deserialize_zon,
     bench_validate,
     bench_serialize_json,
+    bench_serialize_zon,
     bench_to_markdown,
     bench_format
 );

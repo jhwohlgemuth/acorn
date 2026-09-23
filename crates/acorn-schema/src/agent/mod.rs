@@ -4,10 +4,14 @@
 use crate::hardware::memory::Memory;
 use crate::oci;
 use crate::research_activity::aspect::data::Modality;
+#[cfg(feature = "std")]
+use crate::standard::zon;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
 use crate::validation::{is_partial_date, validate_license, IntoValidationReport, Validate, ValidationReport};
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
+#[cfg(feature = "std")]
+use acorn_core::util::longest_character_run;
 use acorn_core::util::{strip_suffixes, MarkdownSupport, SemanticVersion, StringInterpolation};
 use acorn_core::validation::ValidationError;
 use acorn_core::{AcornError, AcornResult, Location};
@@ -906,6 +910,51 @@ impl MarkdownSupport for Modalities {
         .to_string()
     }
 }
+impl ModelDetails {
+    /// Return a Hugging Face repository selector or explain why one cannot be resolved.
+    pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
+        let repository = self.weights.as_ref().and_then(|weights| {
+            weights.0.iter().find_map(|weight| {
+                let location = Location::from(weight.url.as_str());
+                location
+                    .host()
+                    .filter(|host| host.eq_ignore_ascii_case(DEFAULT_HUGGINGFACE_DOMAIN))
+                    .and_then(|_| location.path())
+                    .map(|path| path.trim_matches('/').to_string())
+                    .filter(|path| path.split('/').count() == 2)
+            })
+        });
+        let identifier = self
+            .id
+            .or(self.name)
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let selector = match (repository, self.open_weights, self.weights, identifier) {
+            | (Some(repository), _, _, _) => Ok(repository),
+            | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
+            | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
+            | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
+            | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
+            | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
+        };
+        selector.and_then(|value| ModelSelector::new(value).ok_or(ModelResolutionReason::MissingIdentifier))
+    }
+    /// Set the original model identifier for a resolved fallback
+    pub fn with_fallback(self, value: &str) -> Self {
+        Self {
+            fallback: Some(value.to_string()),
+            ..self
+        }
+    }
+    /// Set the identifier
+    pub fn with_id(self, value: &str) -> Self {
+        Self {
+            id: Some(value.to_string()),
+            ..self
+        }
+    }
+}
 impl MarkdownSupport for ModelDetails {
     fn to_markdown(&self) -> String {
         let lines = [
@@ -949,51 +998,6 @@ impl MarkdownSupport for ModelDetails {
             String::new()
         } else {
             lines.join("\n").to_string()
-        }
-    }
-}
-impl ModelDetails {
-    /// Return a Hugging Face repository selector or explain why one cannot be resolved.
-    pub fn selector(self) -> Result<ModelSelector, ModelResolutionReason> {
-        let repository = self.weights.as_ref().and_then(|weights| {
-            weights.0.iter().find_map(|weight| {
-                let location = Location::from(weight.url.as_str());
-                location
-                    .host()
-                    .filter(|host| host.eq_ignore_ascii_case(DEFAULT_HUGGINGFACE_DOMAIN))
-                    .and_then(|_| location.path())
-                    .map(|path| path.trim_matches('/').to_string())
-                    .filter(|path| path.split('/').count() == 2)
-            })
-        });
-        let identifier = self
-            .id
-            .or(self.name)
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let selector = match (repository, self.open_weights, self.weights, identifier) {
-            | (Some(repository), _, _, _) => Ok(repository),
-            | (None, None | Some(true), None, Some(identifier)) => Ok(identifier),
-            | (None, Some(false), _, _) => Err(ModelResolutionReason::NotOpen),
-            | (None, Some(true), None, _) => Err(ModelResolutionReason::NoOpenWeights),
-            | (None, _, Some(weights), _) if weights.0.is_empty() => Err(ModelResolutionReason::NoOpenWeights),
-            | (None, _, Some(_), _) => Err(ModelResolutionReason::NoHuggingFaceRepository),
-            | (None, _, None, None) => Err(ModelResolutionReason::MissingIdentifier),
-        };
-        selector.and_then(|value| ModelSelector::new(value).ok_or(ModelResolutionReason::MissingIdentifier))
-    }
-    /// Set the original model identifier for a resolved fallback
-    pub fn with_fallback(self, value: &str) -> Self {
-        Self {
-            fallback: Some(value.to_string()),
-            ..self
-        }
-    }
-    /// Set the identifier
-    pub fn with_id(self, value: &str) -> Self {
-        Self {
-            id: Some(value.to_string()),
-            ..self
         }
     }
 }
@@ -1090,16 +1094,6 @@ impl ModelList {
         })
     }
 }
-impl AsRef<str> for ModelSelector {
-    fn as_ref(&self) -> &str {
-        self.as_str()
-    }
-}
-impl fmt::Display for ModelSelector {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
 impl ModelSelector {
     /// Create a selector from a non-empty string after trimming whitespace.
     pub fn new(value: impl Into<String>) -> Option<Self> {
@@ -1128,19 +1122,14 @@ impl ModelSelector {
         }
     }
 }
-impl From<&[String]> for ModelSelectors {
-    fn from(values: &[String]) -> Self {
-        Self(values.iter().filter_map(|value| ModelSelector::new(value.clone())).collect())
+impl AsRef<str> for ModelSelector {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
-impl From<Vec<ModelSelector>> for ModelSelectors {
-    fn from(values: Vec<ModelSelector>) -> Self {
-        Self(values)
-    }
-}
-impl From<Vec<String>> for ModelSelectors {
-    fn from(values: Vec<String>) -> Self {
-        Self(values.into_iter().filter_map(ModelSelector::new).collect())
+impl fmt::Display for ModelSelector {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 impl ModelSelectors {
@@ -1164,6 +1153,21 @@ impl ModelSelectors {
         }
     }
 }
+impl From<&[String]> for ModelSelectors {
+    fn from(values: &[String]) -> Self {
+        Self(values.iter().filter_map(|value| ModelSelector::new(value.clone())).collect())
+    }
+}
+impl From<Vec<ModelSelector>> for ModelSelectors {
+    fn from(values: Vec<ModelSelector>) -> Self {
+        Self(values)
+    }
+}
+impl From<Vec<String>> for ModelSelectors {
+    fn from(values: Vec<String>) -> Self {
+        Self(values.into_iter().filter_map(ModelSelector::new).collect())
+    }
+}
 impl MarkdownSupport for OneOrMany<Benchmark> {
     fn to_markdown(&self) -> String {
         match self {
@@ -1174,6 +1178,14 @@ impl MarkdownSupport for OneOrMany<Benchmark> {
                 .collect::<Vec<_>>()
                 .join("\n"),
         }
+    }
+}
+#[cfg(feature = "std")]
+impl PromptFileAsset {
+    /// Load the embedded prompt asset as a UTF-8 string.
+    pub fn load(&self) -> AcornResult<String> {
+        let name = self.to_string();
+        PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
     }
 }
 impl fmt::Display for PromptFileAsset {
@@ -1210,14 +1222,6 @@ impl From<String> for PromptFileAsset {
     }
 }
 #[cfg(feature = "std")]
-impl PromptFileAsset {
-    /// Load the embedded prompt asset as a UTF-8 string.
-    pub fn load(&self) -> AcornResult<String> {
-        let name = self.to_string();
-        PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
-    }
-}
-#[cfg(feature = "std")]
 impl PromptTemplate {
     /// Reads a file from the asset folder and returns its contents as a UTF-8 string.
     pub fn from_asset(file_name: &str) -> Option<String> {
@@ -1247,7 +1251,14 @@ impl PromptTemplate {
                 let mut context = Context::new();
                 context.insert("config", &value);
                 context.insert("data", &value);
-                Tera::one_off(&template, &context, false).map_err(|why| AcornError::new(why.to_string()))
+                Tera::one_off(&template, &context, false)
+                    .map_err(|why| AcornError::new(why.to_string()))
+                    .and_then(|rendered| {
+                        zon::encode(&value).map_err(|why| AcornError::new(why.to_string())).map(|encoded| {
+                            let fence = "`".repeat(longest_character_run(&encoded, '`').saturating_add(1).max(3));
+                            format!("{}\n\n# Input Data (ZON)\n\n{fence}zon\n{encoded}\n{fence}", rendered.trim_end())
+                        })
+                    })
             })
     }
 }
@@ -1337,37 +1348,6 @@ impl MarkdownSupport for ProviderDetails {
         }
     }
 }
-impl From<&str> for Quantization {
-    fn from(value: &str) -> Self {
-        let normalized = value.to_ascii_uppercase();
-        match normalized.as_str() {
-            | "Q2_K" | "Q2K" => Self::Q2k,
-            | "Q3_K_S" | "Q3KS" => Self::Q3kS,
-            | "Q3_K_M" | "Q3KM" => Self::Q3kM,
-            | "Q3_K_L" | "Q3KL" => Self::Q3kL,
-            | "Q4_K_M" | "Q4KM" => Self::Q4kM,
-            | "Q5_K_M" | "Q5KM" => Self::Q5kM,
-            | "Q6_K" | "Q6K" => Self::Q6k,
-            | "Q8_0" | "Q80" => Self::Q8_0,
-            | "F16" => Self::F16,
-            | "BF16" => Self::BF16,
-            | "F8" | "FP8" => Self::F8,
-            | "IQ4_XS" | "IQ4XS" => Self::IQ4_XS,
-            | _ => Self::Other(value.to_string()),
-        }
-    }
-}
-impl From<String> for Quantization {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-impl FromStr for Quantization {
-    type Err = Infallible;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Self::from(value))
-    }
-}
 impl Quantization {
     /// Return whether this is the `F8` quantization.
     ///
@@ -1406,9 +1386,55 @@ impl<'de> Deserialize<'de> for Quantization {
         String::deserialize(deserializer).map(Self::from)
     }
 }
+impl From<&str> for Quantization {
+    fn from(value: &str) -> Self {
+        let normalized = value.to_ascii_uppercase();
+        match normalized.as_str() {
+            | "Q2_K" | "Q2K" => Self::Q2k,
+            | "Q3_K_S" | "Q3KS" => Self::Q3kS,
+            | "Q3_K_M" | "Q3KM" => Self::Q3kM,
+            | "Q3_K_L" | "Q3KL" => Self::Q3kL,
+            | "Q4_K_M" | "Q4KM" => Self::Q4kM,
+            | "Q5_K_M" | "Q5KM" => Self::Q5kM,
+            | "Q6_K" | "Q6K" => Self::Q6k,
+            | "Q8_0" | "Q80" => Self::Q8_0,
+            | "F16" => Self::F16,
+            | "BF16" => Self::BF16,
+            | "F8" | "FP8" => Self::F8,
+            | "IQ4_XS" | "IQ4XS" => Self::IQ4_XS,
+            | _ => Self::Other(value.to_string()),
+        }
+    }
+}
+impl From<String> for Quantization {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl FromStr for Quantization {
+    type Err = Infallible;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from(value))
+    }
+}
 impl From<ModelSelector> for String {
     fn from(selector: ModelSelector) -> Self {
         selector.0
+    }
+}
+impl Weight {
+    /// Parse persisted Hugging Face file metadata into grouping fields.
+    pub fn parse(self) -> Option<(String, String, String, Quantization, Option<u64>)> {
+        let prefix = format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/");
+        self.quantization.and_then(|quantization| {
+            self.url.strip_prefix(&prefix).and_then(|relative| {
+                relative.split_once("/resolve/").and_then(|(repository, remainder)| {
+                    remainder
+                        .split_once('/')
+                        .map(|(revision, path)| (repository.to_string(), revision.to_string(), path.to_string(), quantization, self.size))
+                })
+            })
+        })
     }
 }
 impl From<&str> for Weight {
@@ -1440,21 +1466,6 @@ impl MarkdownSupport for Weight {
         .to_markdown()
         .trim_start()
         .to_string()
-    }
-}
-impl Weight {
-    /// Parse persisted Hugging Face file metadata into grouping fields.
-    pub fn parse(self) -> Option<(String, String, String, Quantization, Option<u64>)> {
-        let prefix = format!("https://{DEFAULT_HUGGINGFACE_DOMAIN}/");
-        self.quantization.and_then(|quantization| {
-            self.url.strip_prefix(&prefix).and_then(|relative| {
-                relative.split_once("/resolve/").and_then(|(repository, remainder)| {
-                    remainder
-                        .split_once('/')
-                        .map(|(revision, path)| (repository.to_string(), revision.to_string(), path.to_string(), quantization, self.size))
-                })
-            })
-        })
     }
 }
 impl WeightGroups {
@@ -1497,20 +1508,6 @@ impl WeightGroups {
                 None
             }
         }
-    }
-}
-impl MarkdownSupport for Weights {
-    fn to_markdown(&self) -> String {
-        self.0
-            .iter()
-            .map(|value| format!("- Weight\n{}", value.to_markdown().with_additional_indent(2)))
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-}
-impl Validate for Weights {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        self.0.validate()
     }
 }
 impl Weights {
@@ -1588,6 +1585,20 @@ impl Weights {
     #[cfg(feature = "std")]
     pub fn serialize(self) -> AcornResult<String> {
         serde_json::to_string(&self).map_err(|why| schema_error!("Failed to serialize model weights — {why}"))
+    }
+}
+impl MarkdownSupport for Weights {
+    fn to_markdown(&self) -> String {
+        self.0
+            .iter()
+            .map(|value| format!("- Weight\n{}", value.to_markdown().with_additional_indent(2)))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+impl Validate for Weights {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        self.0.validate()
     }
 }
 fn deserialize_harness<'de, D>(deserializer: D) -> Result<Option<Harness>, D::Error>

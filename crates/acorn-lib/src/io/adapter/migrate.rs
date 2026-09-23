@@ -7,6 +7,7 @@ use crate::{
 use acorn_core::util::MimeType;
 use acorn_host::terminal::Label;
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::zon;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use std::path::PathBuf;
@@ -35,6 +36,7 @@ pub trait Migration: super::InputOutput {
                 | MimeType::Json => serde_json::from_str(&content).ok(),
                 | MimeType::Jsonc => jsonc_parse_value(&content).ok(),
                 | MimeType::Yaml => serde_norway::from_str(&content).ok(),
+                | MimeType::Zon => zon::decode_value(&content).ok(),
                 | _ => None,
             };
             value.as_ref().map(Self::field_migrations).unwrap_or_default()

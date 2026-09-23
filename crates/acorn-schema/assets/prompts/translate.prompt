@@ -66,6 +66,3 @@ Concise English rendering of the translated output.
 - Grammar and fluency are native-like for {{ data.language }}.
 - Formatting constraints honored.
 - No hallucinated details.
-
-# Input
-{{ data.text }}

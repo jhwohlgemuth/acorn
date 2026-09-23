@@ -10,6 +10,7 @@ use acorn::io::{jsonc_parse_value, FromPath};
 use acorn::io::{Executor, Platform, Remote};
 use acorn_core::util::MimeType;
 use acorn_schema::enrichment::Provider;
+use acorn_schema::standard::zon;
 use color_eyre::eyre::eyre;
 use jiff::SignedDuration;
 use serde_json;
@@ -18,17 +19,19 @@ use serde_norway;
 use std::path::Path;
 use strum::VariantNames;
 
-/// Infer the metadata standard from file content (JSON or YAML).
+/// Infer the metadata standard from JSON, YAML, or ZON content.
 ///
 /// Returns `ApiResult<Standard>` — the inferred standard based on
-/// the JSON/YAML object structure.
+/// the decoded object structure.
 pub(crate) fn infer_standard_from_content(path: &Path, content: &str, mime: &MimeType) -> ApiResult<Standard> {
     let root = match mime {
-        | MimeType::Json => {
-            serde_json::from_str::<Value>(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid JSON ({why})", path.display()))
+        | mime @ MimeType::Json => serde_json::from_str::<Value>(content)
+            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
+        | mime @ MimeType::Yaml => serde_norway::from_str::<Value>(content)
+            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display())),
+        | mime @ MimeType::Zon => {
+            zon::decode_value(content).map_err(|why| eyre!("Unable to infer source schema for {} — invalid {mime} ({why})", path.display()))
         }
-        | MimeType::Yaml => serde_norway::from_str::<Value>(content)
-            .map_err(|why| eyre!("Unable to infer source schema for {} — invalid YAML ({why})", path.display())),
         | _ => Err(eyre!("Unable to infer source schema for {} — unsupported file type", path.display())),
     };
     match root {
@@ -70,8 +73,9 @@ pub(crate) fn parse_check_format(s: &str) -> Result<MimeType, String> {
         | "markdown" | "md" => Ok(MimeType::Markdown),
         | "text" | "txt" => Ok(MimeType::Text),
         | "yaml" | "yml" => Ok(MimeType::Yaml),
+        | "zon" | "zonf" => Ok(MimeType::Zon),
         | _ => Err(format!(
-            "unknown check format '{s}' — expected one of: cff, json, jsonc, markdown, text, yaml"
+            "unknown check format '{s}' — expected one of: cff, json, jsonc, markdown, text, yaml, zon"
         )),
     }
 }

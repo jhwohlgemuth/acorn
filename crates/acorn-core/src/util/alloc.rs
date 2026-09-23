@@ -466,6 +466,12 @@ pub enum MimeType {
     /// See <https://yaml.org/>
     #[display("application/yaml")]
     Yaml,
+    /// Zero Overhead Notation (ZON)
+    ///
+    /// ZON encodes the JSON data model for compact LLM contexts.
+    /// See [`PromptHydrator`](https://docs.rs/acorn-lib/latest/acorn/agent/struct.PromptHydrator.html) for its model-facing use.
+    #[display("text/zonf")]
+    Zon,
     /// ZIP Archive
     ///
     /// See <https://en.wikipedia.org/wiki/ZIP_(file_format)>
@@ -596,117 +602,6 @@ where
         }
     }
 }
-#[cfg(feature = "std")]
-impl AsRef<std::ffi::OsStr> for MimeType {
-    fn as_ref(&self) -> &std::ffi::OsStr {
-        std::ffi::OsStr::new(self.file_type_ref())
-    }
-}
-impl From<&str> for MimeType {
-    /// Returns a `MimeType` value based on the file extension of the given file name.
-    ///
-    /// # Supported MIME types
-    ///
-    /// | File Extension | MIME Type |
-    /// | --- | --- |
-    /// | cff | application/yaml |
-    /// | csv | text/csv |
-    /// | jpg | image/jpeg |
-    /// | jpeg | image/jpeg |
-    /// | json | application/json |
-    /// | jsonc | application/jsonc |
-    /// | jsonld | application/ld+json |
-    /// | md | text/markdown |
-    /// | otf | font/otf |
-    /// | ttf | font/ttf |
-    /// | pdf | application/pdf |
-    /// | png | image/png |
-    /// | pt | application/vnd.pytorch.model |
-    /// | pth | application/vnd.pytorch.model |
-    /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
-    /// | rs | text/rust |
-    /// | svg | image/svg+xml |
-    /// | toml | application/toml |
-    /// | txt | text/plain |
-    /// | yaml | application/yaml |
-    /// | zip | application/zip |
-    fn from(value: &str) -> Self {
-        let name = value.to_lowercase();
-        match file_extension(name.clone()) {
-            | Some(value) => match value.as_str() {
-                | "cff" => MimeType::Cff,
-                | "csv" => MimeType::Csv,
-                | "doc" => MimeType::Doc,
-                | "docx" | "docm" => MimeType::Docx,
-                | "epub" => MimeType::Epub,
-                | "gguf" => MimeType::Gguf,
-                | "gz" => MimeType::Gzip,
-                | "jpg" | "jpeg" => MimeType::Jpeg,
-                | "json" => MimeType::Json,
-                | "jsonc" => MimeType::Jsonc,
-                | "jsonld" | "json-ld" => MimeType::LdJson,
-                | "md" | "markdown" => MimeType::Markdown,
-                | "onnx" => MimeType::Onnx,
-                | "odp" => MimeType::Odp,
-                | "ods" => MimeType::Ods,
-                | "odt" => MimeType::Odt,
-                | "otf" => MimeType::Otf,
-                | "ttf" => MimeType::Ttf,
-                | "parquet" => MimeType::Parquet,
-                | "pdf" => MimeType::Pdf,
-                | "png" => MimeType::Png,
-                | "pt" | "pth" => MimeType::Pytorch,
-                | "ppt" | "pps" | "pot" => MimeType::Ppt,
-                | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
-                | "prompt" => MimeType::Prompt,
-                | "rhai" => MimeType::Rhai,
-                | "rtf" => MimeType::Rtf,
-                | "rs" => MimeType::Rust,
-                | "safetensors" => MimeType::Safetensors,
-                | "7z" => MimeType::SevenZip,
-                | "spdx.json" => MimeType::Sbom,
-                | "svg" => MimeType::Svg,
-                | "tar" => MimeType::Tar,
-                | "toml" => MimeType::Toml,
-                | "txt" => MimeType::Text,
-                | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
-                | "yml" | "yaml" => MimeType::Yaml,
-                | "zst" | "tzst" => MimeType::Zstd,
-                | value => MimeType::Vendor(value.to_string()),
-            },
-            | None => MimeType::Unknown(name),
-        }
-    }
-}
-impl From<&String> for MimeType {
-    fn from(value: &String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
-    }
-}
-impl From<String> for MimeType {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
 impl MimeType {
     /// Infer a supported textual file type from in-memory content.
     pub fn infer_from(content: &str) -> Self {
@@ -715,6 +610,7 @@ impl MimeType {
             | false if detect_json(content) => Self::Jsonc,
             | false if is_research_activity_markdown(content) => Self::Markdown,
             | false if is_research_activity_yaml(content) => Self::Yaml,
+            | false if is_research_activity_zon(content) => Self::Zon,
             | false => Self::Text,
         }
     }
@@ -749,7 +645,7 @@ impl MimeType {
     }
     /// Return whether this MIME type is supported by repository automation.
     pub fn is_repository_file(&self) -> bool {
-        self.is_cff() || self.is_json() || self.is_jsonc() || self.is_markdown() || self.is_yaml()
+        self.is_cff() || self.is_json() || self.is_jsonc() || self.is_markdown() || self.is_yaml() || self.is_zon()
     }
     /// Returns the file type as a string
     /// ### Example
@@ -802,11 +698,125 @@ impl MimeType {
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
             | MimeType::Yaml => "yaml",
+            | MimeType::Zon => "zonf",
             | MimeType::Zip => "zip",
             | MimeType::Zstd => "tar.zst",
             | MimeType::Vendor(extension) => extension,
             | _ => "unknown-file-type",
         }
+    }
+}
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for MimeType {
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        std::ffi::OsStr::new(self.file_type_ref())
+    }
+}
+impl From<&str> for MimeType {
+    /// Returns a `MimeType` value based on the file extension of the given file name.
+    ///
+    /// # Supported MIME types
+    ///
+    /// | File Extension | MIME Type |
+    /// | --- | --- |
+    /// | cff | application/yaml |
+    /// | csv | text/csv |
+    /// | jpg | image/jpeg |
+    /// | jpeg | image/jpeg |
+    /// | json | application/json |
+    /// | jsonc | application/jsonc |
+    /// | jsonld | application/ld+json |
+    /// | md | text/markdown |
+    /// | otf | font/otf |
+    /// | ttf | font/ttf |
+    /// | pdf | application/pdf |
+    /// | png | image/png |
+    /// | pt | application/vnd.pytorch.model |
+    /// | pth | application/vnd.pytorch.model |
+    /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
+    /// | rs | text/rust |
+    /// | svg | image/svg+xml |
+    /// | toml | application/toml |
+    /// | txt | text/plain |
+    /// | yaml | application/yaml |
+    /// | zonf | text/zonf |
+    /// | zip | application/zip |
+    fn from(value: &str) -> Self {
+        let name = value.to_lowercase();
+        match file_extension(name.clone()) {
+            | Some(value) => match value.as_str() {
+                | "cff" => MimeType::Cff,
+                | "csv" => MimeType::Csv,
+                | "doc" => MimeType::Doc,
+                | "docx" | "docm" => MimeType::Docx,
+                | "epub" => MimeType::Epub,
+                | "gguf" => MimeType::Gguf,
+                | "gz" => MimeType::Gzip,
+                | "jpg" | "jpeg" => MimeType::Jpeg,
+                | "json" => MimeType::Json,
+                | "jsonc" => MimeType::Jsonc,
+                | "jsonld" | "json-ld" => MimeType::LdJson,
+                | "md" | "markdown" => MimeType::Markdown,
+                | "onnx" => MimeType::Onnx,
+                | "odp" => MimeType::Odp,
+                | "ods" => MimeType::Ods,
+                | "odt" => MimeType::Odt,
+                | "otf" => MimeType::Otf,
+                | "ttf" => MimeType::Ttf,
+                | "parquet" => MimeType::Parquet,
+                | "pdf" => MimeType::Pdf,
+                | "png" => MimeType::Png,
+                | "pt" | "pth" => MimeType::Pytorch,
+                | "ppt" | "pps" | "pot" => MimeType::Ppt,
+                | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
+                | "prompt" => MimeType::Prompt,
+                | "rhai" => MimeType::Rhai,
+                | "rtf" => MimeType::Rtf,
+                | "rs" => MimeType::Rust,
+                | "safetensors" => MimeType::Safetensors,
+                | "7z" => MimeType::SevenZip,
+                | "spdx.json" => MimeType::Sbom,
+                | "svg" => MimeType::Svg,
+                | "tar" => MimeType::Tar,
+                | "toml" => MimeType::Toml,
+                | "txt" => MimeType::Text,
+                | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
+                | "yml" | "yaml" => MimeType::Yaml,
+                | "zonf" => MimeType::Zon,
+                | "zst" | "tzst" => MimeType::Zstd,
+                | value => MimeType::Vendor(value.to_string()),
+            },
+            | None => MimeType::Unknown(name),
+        }
+    }
+}
+impl From<&String> for MimeType {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
+impl From<String> for MimeType {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
     }
 }
 impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
@@ -815,6 +825,74 @@ impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
             | Some(values) => values.to_markdown(),
             | None => "[]".to_string(),
         }
+    }
+}
+#[cfg(feature = "std")]
+impl StringConversion for PathBuf {
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        self.to_string_lossy().as_ref().normalized()
+    }
+    fn percent_encode(&self) -> String {
+        self.to_string_lossy().as_ref().percent_encode()
+    }
+    fn to_absolute_path(&self) -> String {
+        to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
+    }
+    fn to_cross_platform_path(&self) -> String {
+        cross_platform_path(self)
+    }
+}
+impl SemanticVersion {
+    /// Extract a canonical semantic version from the first line with the supplied prefix.
+    pub fn extract(source: impl AsRef<str>, prefix: &str) -> Option<Self> {
+        source
+            .as_ref()
+            .lines()
+            .find(|line| line.trim_start().starts_with(prefix))
+            .and_then(|line| line.trim().strip_prefix(prefix))
+            .and_then(|version| Self::parse_exact(version).ok())
+    }
+    /// Parse a canonical numeric semantic version with one to three components.
+    pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
+        let value = value.as_ref();
+        let parts = value.split('.').collect::<Vec<_>>();
+        let valid_component =
+            |part: &str| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()) && (part.len() == 1 || !part.starts_with('0'));
+        let parsed = match parts.as_slice() {
+            | [major] if valid_component(major) => major.parse::<u32>().ok().map(|major| (major, 0, 0)),
+            | [major, minor] if [major, minor].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .map(|(major, minor)| (major, minor, 0)),
+            | [major, minor, patch] if [major, minor, patch].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .zip(patch.parse::<u32>().ok())
+                .map(|((major, minor), patch)| (major, minor, patch)),
+            | _ => None,
+        };
+        parsed
+            .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
+            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version"))
+    }
+    /// Parse the numeric components of a semantic version string
+    pub fn from_string(value: impl AsRef<str>) -> Self {
+        Self::from(value.as_ref())
+    }
+    // TODO: Add support for resolve version globs (e.g., `1.2.*` or `1.*` or `*`)
+    /// Validate that this version satisfies a required minimum version.
+    pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
+        (*self >= minimum)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}")))
     }
 }
 impl Default for SemanticVersion {
@@ -869,56 +947,61 @@ impl PartialOrd<(u64, u64, u64)> for SemanticVersion {
         Some((u64::from(self.major), u64::from(self.minor), u64::from(self.patch)).cmp(other))
     }
 }
-impl SemanticVersion {
-    /// Extract a canonical semantic version from the first line with the supplied prefix.
-    pub fn extract(source: impl AsRef<str>, prefix: &str) -> Option<Self> {
-        source
-            .as_ref()
-            .lines()
-            .find(|line| line.trim_start().starts_with(prefix))
-            .and_then(|line| line.trim().strip_prefix(prefix))
-            .and_then(|version| Self::parse_exact(version).ok())
-    }
-    /// Parse a canonical numeric semantic version with one to three components.
-    pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
-        let value = value.as_ref();
-        let parts = value.split('.').collect::<Vec<_>>();
-        let valid_component =
-            |part: &str| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()) && (part.len() == 1 || !part.starts_with('0'));
-        let parsed = match parts.as_slice() {
-            | [major] if valid_component(major) => major.parse::<u32>().ok().map(|major| (major, 0, 0)),
-            | [major, minor] if [major, minor].iter().all(|part| valid_component(part)) => major
-                .parse::<u32>()
-                .ok()
-                .zip(minor.parse::<u32>().ok())
-                .map(|(major, minor)| (major, minor, 0)),
-            | [major, minor, patch] if [major, minor, patch].iter().all(|part| valid_component(part)) => major
-                .parse::<u32>()
-                .ok()
-                .zip(minor.parse::<u32>().ok())
-                .zip(patch.parse::<u32>().ok())
-                .map(|((major, minor), patch)| (major, minor, patch)),
-            | _ => None,
-        };
-        parsed
-            .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
-            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version"))
-    }
-    /// Parse the numeric components of a semantic version string
-    pub fn from_string(value: impl AsRef<str>) -> Self {
-        Self::from(value.as_ref())
-    }
-    // TODO: Add support for resolve version globs (e.g., `1.2.*` or `1.*` or `*`)
-    /// Validate that this version satisfies a required minimum version.
-    pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
-        (*self >= minimum)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}")))
-    }
-}
 impl MarkdownSupport for str {
     fn to_markdown(&self) -> String {
         self.to_string()
+    }
+}
+impl StringConversion for &str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self)
+    }
+}
+impl StringConversion for str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        file_name_with_parent(Path::new(self))
+    }
+    fn normalized(&self) -> String {
+        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
+    }
+    fn percent_encode(&self) -> String {
+        encode(self).into_owned()
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        to_absolute_path(Path::new(self))
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        (self.len() == 10 && DATE_TIME_PARSER.parse_date(self).is_ok()).then_some(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        cross_platform_path(Path::new(self))
     }
 }
 impl StringExt for str {
@@ -929,6 +1012,32 @@ impl StringExt for str {
 impl MarkdownSupport for String {
     fn to_markdown(&self) -> String {
         self.clone()
+    }
+}
+impl StringConversion for String {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self.as_str())
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self.as_str())
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self.as_str())
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self.as_str())
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self.as_str())
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self.as_str())
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self.as_str())
     }
 }
 impl StringExt for String {
@@ -974,6 +1083,18 @@ where
             .collect::<Vec<_>>()
     }
 }
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
+    fn to_markdown(&self) -> String {
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
+    }
+}
 impl StringExt for Vec<&str> {
     fn is_numeric(&self) -> bool {
         self.iter().any(|value| value.is_numeric())
@@ -991,18 +1112,6 @@ impl StringExt for Vec<String> {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .collect()
-    }
-}
-impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
-    fn to_markdown(&self) -> String {
-        if self.is_empty() {
-            "[]".to_string()
-        } else {
-            self.iter()
-                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
-                .collect::<Vec<String>>()
-                .join("")
-        }
     }
 }
 /// Decode a base32 Crockford string into a u128 value.
@@ -1090,6 +1199,13 @@ fn crockford_digit(value: char) -> Option<u128> {
     let byte = normalized as u8;
     CROCKFORD_BASE32_ALPHABET.iter().position(|&b| b == byte).map(|index| index as u128)
 }
+#[cfg(feature = "std")]
+fn cross_platform_path(path: &Path) -> String {
+    let value = path.display().to_string();
+    #[cfg(windows)]
+    let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
+    value
+}
 /// Try to parse text as JSON or JSONC and return `true` if successful, `false` otherwise
 pub fn detect_json(text: impl ToString) -> bool {
     let text = text.to_string();
@@ -1172,6 +1288,24 @@ where
         }
     } else {
         None
+    }
+}
+#[cfg(feature = "std")]
+fn file_name_with_parent(path: &Path) -> String {
+    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
+    match path.is_dir() {
+        | true => name,
+        | false => {
+            let parent_name = path
+                .parent()
+                .and_then(|value| value.file_name())
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
+            match parent_name.is_empty() {
+                | true => name,
+                | false => format!("{parent_name}/{name}"),
+            }
+        }
     }
 }
 /// Return fisrt key/value pair with key that matches pattern
@@ -1264,6 +1398,21 @@ fn is_research_activity_yaml(content: &str) -> bool {
         | Value::Object(fields) => is_research_activity_value(&fields),
         | _ => false,
     })
+}
+fn is_research_activity_zon(content: &str) -> bool {
+    ["contact", "meta", "sections", "title"]
+        .iter()
+        .filter(|field| {
+            content.lines().any(|line| {
+                line.trim_start().strip_prefix(**field).is_some_and(|suffix| match suffix.chars().next() {
+                    | Some('{') => suffix.ends_with('}'),
+                    | Some(':') => suffix.get(1..).is_some_and(|value| !value.is_empty() && value.trim_start() == value),
+                    | _ => false,
+                })
+            })
+        })
+        .count()
+        >= 2
 }
 #[cfg(feature = "std")]
 fn is_rhai_source(bytes: &[u8]) -> bool {
@@ -1435,31 +1584,7 @@ where
 {
     (if value == T::from(1) { "" } else { "s" }).to_string()
 }
-#[cfg(feature = "std")]
-fn cross_platform_path(path: &Path) -> String {
-    let value = path.display().to_string();
-    #[cfg(windows)]
-    let value = value.strip_prefix(r"\\?\").unwrap_or(&value).replace('/', "\\");
-    value
-}
-#[cfg(feature = "std")]
-fn file_name_with_parent(path: &Path) -> String {
-    let name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_string();
-    match path.is_dir() {
-        | true => name,
-        | false => {
-            let parent_name = path
-                .parent()
-                .and_then(|value| value.file_name())
-                .and_then(|value| value.to_str())
-                .unwrap_or_default();
-            match parent_name.is_empty() {
-                | true => name,
-                | false => format!("{parent_name}/{name}"),
-            }
-        }
-    }
-}
+
 #[cfg(feature = "std")]
 fn to_absolute_path(path: &Path) -> String {
     let result = canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
@@ -1485,106 +1610,6 @@ pub fn to_string(values: Vec<&str>) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
 }
 
-impl StringConversion for str {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(Path::new(self))
-    }
-    fn normalized(&self) -> String {
-        self.split_whitespace().collect::<Vec<_>>().join(" ").to_ascii_lowercase()
-    }
-    fn percent_encode(&self) -> String {
-        encode(self).into_owned()
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        to_absolute_path(Path::new(self))
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self)
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        (self.len() == 10 && DATE_TIME_PARSER.parse_date(self).is_ok()).then_some(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        cross_platform_path(Path::new(self))
-    }
-}
-impl StringConversion for String {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        <str as StringConversion>::file_name_with_parent(self.as_str())
-    }
-    fn normalized(&self) -> String {
-        <str as StringConversion>::normalized(self.as_str())
-    }
-    fn percent_encode(&self) -> String {
-        <str as StringConversion>::percent_encode(self.as_str())
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        <str as StringConversion>::to_absolute_path(self.as_str())
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <str as StringConversion>::to_ascii_alphanumeric(self.as_str())
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        <str as StringConversion>::to_complete_date(self.as_str())
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        <str as StringConversion>::to_cross_platform_path(self.as_str())
-    }
-}
-impl StringConversion for &str {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        <str as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <str as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <str as StringConversion>::percent_encode(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        <str as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <str as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        <str as StringConversion>::to_complete_date(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        <str as StringConversion>::to_cross_platform_path(self)
-    }
-}
-#[cfg(feature = "std")]
-impl StringConversion for PathBuf {
-    fn file_name_with_parent(&self) -> String {
-        file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        self.to_string_lossy().as_ref().normalized()
-    }
-    fn percent_encode(&self) -> String {
-        self.to_string_lossy().as_ref().percent_encode()
-    }
-    fn to_absolute_path(&self) -> String {
-        to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        to_ascii_alphanumeric(self.to_string_lossy().as_ref())
-    }
-    fn to_cross_platform_path(&self) -> String {
-        cross_platform_path(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "std")]
@@ -1593,30 +1618,6 @@ mod tests {
     use crate::prelude::alloc::{String, ToString};
     use crate::util::constants::app::EXEC_HEADER_PREFIX;
 
-    #[test]
-    fn test_mime_type_infers_rhai_from_abi_header() {
-        let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
-        assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
-    }
-    #[test]
-    fn test_semantic_version_extracts_prefixed_version() {
-        assert_eq!(
-            SemanticVersion::extract("// @acorn-exec-v0.2.0", EXEC_HEADER_PREFIX),
-            Some(SemanticVersion::init().major(0).minor(2).patch(0).build())
-        );
-    }
-    #[test]
-    fn test_string_ext_default_compaction_is_identity() {
-        let value = " value ".to_string();
-        assert_eq!(value.clone().trim_and_compact(), value);
-    }
-    #[test]
-    fn test_string_conversion_complete_date() {
-        assert_eq!("2024-02-29".to_complete_date(), Some("2024-02-29"));
-        assert_eq!("2023-02-29".to_complete_date(), None);
-        assert_eq!("2024-02".to_complete_date(), None);
-        assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
-    }
     #[test]
     fn test_checksum_from_parses_borrowed_and_owned_values() {
         let checksum = Checksum::from("SHA512:abc123");
@@ -1633,6 +1634,37 @@ mod tests {
             assert_eq!(checksum.algorithm, ChecksumAlgorithm::Sha256);
             assert_eq!(checksum.checksum_value, value);
         });
+    }
+    #[test]
+    fn test_mime_type_infers_rhai_from_abi_header() {
+        let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
+        assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
+    }
+    #[test]
+    fn test_mime_type_recognizes_only_canonical_zon_extension() {
+        assert_eq!(MimeType::from("activity.zonf"), MimeType::Zon);
+        assert_eq!(MimeType::Zon.file_type(), "zonf");
+        assert_eq!(MimeType::Zon.to_string(), "text/zonf");
+        assert_eq!(MimeType::from("activity.zon"), MimeType::Vendor("zon".to_string()));
+    }
+    #[test]
+    fn test_semantic_version_extracts_prefixed_version() {
+        assert_eq!(
+            SemanticVersion::extract("// @acorn-exec-v0.2.0", EXEC_HEADER_PREFIX),
+            Some(SemanticVersion::init().major(0).minor(2).patch(0).build())
+        );
+    }
+    #[test]
+    fn test_string_conversion_complete_date() {
+        assert_eq!("2024-02-29".to_complete_date(), Some("2024-02-29"));
+        assert_eq!("2023-02-29".to_complete_date(), None);
+        assert_eq!("2024-02".to_complete_date(), None);
+        assert_eq!("2024-02-29T00:00:00Z".to_complete_date(), None);
+    }
+    #[test]
+    fn test_string_ext_default_compaction_is_identity() {
+        let value = " value ".to_string();
+        assert_eq!(value.clone().trim_and_compact(), value);
     }
     #[test]
     fn test_string_ext_vectors_trim_compact_and_detect_numeric_values() {

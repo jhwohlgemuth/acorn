@@ -6,6 +6,7 @@ use acorn_core::{
     util::{MarkdownSupport, MimeType},
 };
 use acorn_host::fs::SafePath;
+use acorn_schema::standard::zon;
 use acorn_schema::{research_activity::ResearchActivity, standard::cff::Cff, validation::Validate};
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;
@@ -69,6 +70,13 @@ impl NormalizeRepositoryContent for MimeType {
                         .map(|content| (content, None))
                         .map_err(|why| eyre!("Failed to process {self} — {why}")),
                 },
+                | Self::Zon => match zon::decode::<ResearchActivity>(content) {
+                    | Ok(activity) => activity.normalize(self, actions),
+                    | Err(_) => zon::decode_value(content)
+                        .and_then(|value| zon::encode(&value))
+                        .map(|content| (content, None))
+                        .map_err(|why| eyre!("Failed to process {self} — {why}")),
+                },
                 | _ => Err(eyre!("Unsupported repository MIME type '{self}'")),
             },
         }
@@ -122,14 +130,6 @@ impl RepositoryFileInput {
         }
     }
 }
-impl fmt::Debug for RepositoryWorkflowRegistry {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("RepositoryWorkflowRegistry")
-            .field("names", &self.names())
-            .finish()
-    }
-}
 impl RepositoryWorkflowRegistry {
     /// Build the conservative built-in repository workflow registry.
     pub fn acorn() -> ApiResult<Self> {
@@ -166,6 +166,14 @@ impl RepositoryWorkflowRegistry {
                 Ok(Self { workflows })
             }
         }
+    }
+}
+impl fmt::Debug for RepositoryWorkflowRegistry {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RepositoryWorkflowRegistry")
+            .field("names", &self.names())
+            .finish()
     }
 }
 impl NormalizeResearchActivity for ResearchActivity {

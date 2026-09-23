@@ -1,9 +1,5 @@
 //! Allocation-free utility functions
 //!
-/// Returns `true` when both values are finite and `left` is greater than `right`.
-pub fn is_finite_and_greater_than(left: f64, right: f64) -> bool {
-    left.is_finite() && right.is_finite() && left > right
-}
 /// Returns `true` if `a` and `b` have the same length and equal contents, without short-circuiting on the first differing byte.
 pub fn constant_time_eq<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> bool {
     let (a, b) = (a.as_ref(), b.as_ref());
@@ -21,6 +17,23 @@ pub fn glob_matches(path: &str, pattern: &str) -> bool {
     }
     matches(path.as_bytes(), pattern.as_bytes())
 }
+/// Returns `true` when both values are finite and `left` is greater than `right`.
+pub fn is_finite_and_greater_than(left: f64, right: f64) -> bool {
+    left.is_finite() && right.is_finite() && left > right
+}
+/// Return the longest consecutive run of `character` in `value`.
+pub fn longest_character_run(value: &str, character: char) -> usize {
+    value
+        .chars()
+        .fold((0usize, 0usize), |(longest, current), value| {
+            let next = match value == character {
+                | true => current.saturating_add(1),
+                | false => 0,
+            };
+            (longest.max(next), next)
+        })
+        .0
+}
 /// Remove the first matching suffix from a string slice.
 pub fn strip_suffixes<'a>(values: &[&str], name: &'a str) -> &'a str {
     values.iter().find_map(|value| name.strip_suffix(value)).unwrap_or(name)
@@ -32,4 +45,16 @@ pub fn trim_unmatched_trailing_parentheses(value: &str) -> &str {
     let trailing = value.chars().rev().take_while(|character| *character == ')').count();
     let trim = closing.saturating_sub(opening).min(trailing);
     value.get(..value.len().saturating_sub(trim)).unwrap_or(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::longest_character_run;
+
+    #[test]
+    fn test_longest_character_run_counts_only_the_requested_character() {
+        assert_eq!(longest_character_run("a```b``", '`'), 3);
+        assert_eq!(longest_character_run("--a----b", '-'), 4);
+        assert_eq!(longest_character_run("plain", '`'), 0);
+    }
 }

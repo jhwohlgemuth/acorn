@@ -54,7 +54,9 @@ trait ExportHandler {
             let _request = request;
             let _from = from;
             let _to = to;
-            Err(eyre!("Crosswalk export is only supported for structured output formats (json, yaml)"))
+            Err(eyre!(
+                "Crosswalk export is only supported for structured output formats (json, yaml, zon)"
+            ))
         })
     }
 }
@@ -161,7 +163,7 @@ impl ExportRequest {
         match (self.target, &self.format) {
             | (Target::Updates, _) | (_, FileFormat::Docx) => Box::new(UpdatesExportHandler),
             | (_, FileFormat::Cff) => Box::new(CffExportHandler),
-            | (_, FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml) => Box::new(StructuredExportHandler),
+            | (_, FileFormat::Json | FileFormat::Markdown | FileFormat::Yaml | FileFormat::Zon) => Box::new(StructuredExportHandler),
             | (_, FileFormat::Bag) => Box::new(BagExportHandler),
             | (_, FileFormat::Pdf) => Box::new(PdfExportHandler),
             | (_, FileFormat::Powerpoint) => Box::new(PowerPointExportHandler),
@@ -303,7 +305,7 @@ impl ExportHandler for PowerPointExportHandler {
 impl ExportHandler for StructuredExportHandler {
     fn export<'a>(&'a self, request: ExportRequest) -> ApiFuture<'a> {
         Box::pin(async move {
-            let extension = request.format.to_string().to_lowercase();
+            let extension = MimeType::from(&request.format).file_type();
             export_as_format(
                 &request.path,
                 request.options,
@@ -317,7 +319,7 @@ impl ExportHandler for StructuredExportHandler {
     }
     fn crosswalk<'a>(&'a self, request: ExportRequest, from: Option<Standard>, to: Option<Standard>) -> ApiFuture<'a> {
         Box::pin(async move {
-            let extension = request.format.to_string().to_lowercase();
+            let extension = MimeType::from(&request.format).file_type();
             export_as_format_crosswalk(
                 &request.path,
                 request.options,

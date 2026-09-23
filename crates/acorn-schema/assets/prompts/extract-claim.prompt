@@ -92,6 +92,3 @@ Return valid JSON only, no markdown and no prose outside JSON.
 - Claims are distinct and non-redundant.
 - Confidence values are numeric and within [0.00, 1.00].
 - JSON is syntactically valid.
-
-# Input
-{{ data.text }}

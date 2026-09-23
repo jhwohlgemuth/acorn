@@ -11,6 +11,8 @@ use crate::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse,
 use crate::research_activity::output::Funding;
 use crate::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
 use crate::standard::text::Text;
+#[cfg(feature = "std")]
+use crate::standard::zon;
 use crate::types::{deserialize_one_or_many_strings, deserialize_optional_one_or_many, deserialize_optional_one_or_many_strings};
 use crate::util::constants::{DEFAULT_GRAPHIC_CAPTION, DEFAULT_GRAPHIC_HREF, MAX_LENGTH_SUBTITLE, MAX_LENGTH_TITLE};
 use crate::util::constants::{
@@ -736,40 +738,6 @@ impl MarkdownSupport for Research {
         )
     }
 }
-impl Default for ResearchActivity {
-    fn default() -> Self {
-        ResearchActivity::init().build()
-    }
-}
-impl Hash for ResearchActivity {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.meta.identifier.hash(state);
-    }
-}
-impl LinkedData for ResearchActivity {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityContext::default()),
-            research_activity_type: None,
-            meta: self.meta.with_context(),
-            contact: self.contact.with_context(),
-            ..self.clone().copy()
-        }
-    }
-}
-impl MarkdownSupport for ResearchActivity {
-    fn to_markdown(&self) -> String {
-        Document::from(self).to_markdown()
-    }
-    #[cfg(feature = "std")]
-    fn from_markdown(content: &str) -> Result<Self, String> {
-        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
-    }
-    #[cfg(not(feature = "std"))]
-    fn from_markdown(_content: &str) -> Result<Self, String> {
-        Err("Markdown parsing requires the std feature".to_string())
-    }
-}
 impl ResearchActivity {
     /// Return the first non-empty authored image URL.
     pub fn authored_image_url(&self) -> Option<String> {
@@ -833,6 +801,7 @@ impl ResearchActivity {
             | MimeType::Yaml => serde_json::to_value(self)
                 .map_err(|why| schema_error!("Failed to convert RAD to value for YAML serialization — {why}"))
                 .and_then(|value| serde_norway::to_string(&value).map_err(|why| schema_error!("Failed to serialize YAML RAD — {why}"))),
+            | MimeType::Zon => zon::encode(self).map_err(|why| schema_error!("Failed to serialize ZON RAD — {why}")),
             | _ => Err(schema_error!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
     }
@@ -923,6 +892,40 @@ impl ResearchActivity {
         }
     }
 }
+impl Default for ResearchActivity {
+    fn default() -> Self {
+        ResearchActivity::init().build()
+    }
+}
+impl Hash for ResearchActivity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.meta.identifier.hash(state);
+    }
+}
+impl LinkedData for ResearchActivity {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityContext::default()),
+            research_activity_type: None,
+            meta: self.meta.with_context(),
+            contact: self.contact.with_context(),
+            ..self.clone().copy()
+        }
+    }
+}
+impl MarkdownSupport for ResearchActivity {
+    fn to_markdown(&self) -> String {
+        Document::from(self).to_markdown()
+    }
+    #[cfg(feature = "std")]
+    fn from_markdown(content: &str) -> Result<Self, String> {
+        Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
+    }
+    #[cfg(not(feature = "std"))]
+    fn from_markdown(_content: &str) -> Result<Self, String> {
+        Err("Markdown parsing requires the std feature".to_string())
+    }
+}
 impl ToProse for ResearchActivity {
     fn to_prose(&self) -> String {
         let websites = self
@@ -963,20 +966,6 @@ impl Default for ResearchActivityContext {
             .contact(dcat("contactPoint"))
             .notes(schema_org("Text"))
             .build()
-    }
-}
-impl Default for ResearchActivityMetadata {
-    fn default() -> Self {
-        ResearchActivityMetadata::init().build()
-    }
-}
-impl LinkedData for ResearchActivityMetadata {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(ResearchActivityMetadataContext::default()),
-            metadata_type: None,
-            ..self.clone()
-        }
     }
 }
 impl ResearchActivityMetadata {
@@ -1036,6 +1025,20 @@ impl ResearchActivityMetadata {
             partners,
             funders,
             ..self
+        }
+    }
+}
+impl Default for ResearchActivityMetadata {
+    fn default() -> Self {
+        ResearchActivityMetadata::init().build()
+    }
+}
+impl LinkedData for ResearchActivityMetadata {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(ResearchActivityMetadataContext::default()),
+            metadata_type: None,
+            ..self.clone()
         }
     }
 }

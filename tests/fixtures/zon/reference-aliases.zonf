@@ -1,0 +1,4 @@
+@3:id,name,active,score,note
+1,'Alice',true,1e3,null
+2,Bob,F,2.5,nil
+3,"Chandra, D.",TRUE,0.125,none

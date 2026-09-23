@@ -26,6 +26,8 @@ use acorn::analyzer::{Check, CheckCategory, CheckSummary, Standard};
 use acorn::io::TextOrigin;
 use acorn::LocationExt;
 use acorn_core::util::MimeType;
+use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::zon;
 use acorn_schema::standard::{datacite, dcat, huwise, invenio};
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;
@@ -506,6 +508,11 @@ fn test_text_input_format_is_inferred_and_cleaned_up() {
             "stdin.md",
             Standard::ResearchActivityData,
         ),
+        (
+            zon::encode(&ResearchActivity::default()).expect("encode ZON fixture"),
+            "stdin.zonf",
+            Standard::ResearchActivityData,
+        ),
     ]
     .into_iter()
     .for_each(|(content, filename, standard)| {
@@ -526,6 +533,7 @@ fn test_text_input_format_is_inferred_and_cleaned_up() {
         (MimeType::Markdown, "clipboard.md"),
         (MimeType::Text, "clipboard.txt"),
         (MimeType::Yaml, "clipboard.yaml"),
+        (MimeType::Zon, "clipboard.zonf"),
     ]
     .into_iter()
     .for_each(|(format, filename)| {

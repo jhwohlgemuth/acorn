@@ -1,6 +1,6 @@
 # ACORN Schemas and Ontologies
 
-The research activity schema organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON/YAML form.
+The research activity schema organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON, YAML, and [ZON](zon.md) form.
 
 ## Context awareness
 
@@ -12,7 +12,7 @@ Commands use this context for different purposes. `acorn check` evaluates values
 
 RAD can begin as a draft and become stricter as it matures. Input may omit `meta.archive` and `meta.draft`; ACORN defaults them to `false` and `true`, respectively. Narrative `sections` may be omitted while `draft` is true, but a non-draft record must provide them.
 
-List-shaped metadata is also permissive at the authoring boundary. `keywords`, `technology`, and every optional metadata vector accept either one item or an array. ACORN normalizes a single item to a one-item array. For optional vectors, an omitted or `null` value means absent, while `[]` remains explicitly empty. Canonical JSON, YAML, and Markdown output uses arrays; empty `keywords` and `technology` fields are omitted.
+List-shaped metadata is also permissive at the authoring boundary. `keywords`, `technology`, and every optional metadata vector accept either one item or an array. ACORN normalizes a single item to a one-item array. For optional vectors, an omitted or `null` value means absent, while `[]` remains explicitly empty. Canonical JSON, YAML, ZON, and Markdown output uses arrays; empty `keywords` and `technology` fields are omitted.
 
 Context-aware operation does not mean that ACORN knows facts absent from its inputs or that it has consciousness. Missing or unsupported information remains missing until a person or a defined provider supplies it. This boundary lets context reveal documented connections and gaps without turning an inference into project data.
 

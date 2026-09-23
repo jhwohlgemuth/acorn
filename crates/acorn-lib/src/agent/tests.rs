@@ -4,6 +4,7 @@ use super::*;
 #[cfg(feature = "template")]
 use acorn_schema::agent::PromptTemplateConfiguration;
 use acorn_schema::agent::{FrontMatter, PromptFileAsset};
+use acorn_schema::standard::zon;
 use serde_json::json;
 
 #[cfg(feature = "template")]
@@ -56,6 +57,20 @@ fn result() -> InferenceResult {
             output_tokens: Some(1),
         }),
     }
+}
+#[cfg(feature = "template")]
+#[test]
+fn test_hydrate_appends_complete_zon_data_by_default() {
+    let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({"text": "source"}))).unwrap();
+    assert!(prompt.body.ends_with("# Input Data (ZON)\n\n```zon\ntext:source\n```"));
+    assert_eq!(prompt.body.matches("# Input Data").count(), 1);
+}
+#[cfg(feature = "template")]
+#[test]
+fn test_hydrate_expands_fence_around_backticks() {
+    let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({"text": "literal ``` marker"}))).unwrap();
+    assert!(prompt.body.contains("# Input Data (ZON)\n\n````zon\n"));
+    assert!(prompt.body.ends_with("\n````"));
 }
 #[cfg(feature = "template")]
 #[test]
@@ -124,7 +139,19 @@ fn test_hydrate_renders_every_embedded_prompt() {
 fn test_hydrate_renders_multiline_data_into_valid_frontmatter() {
     let source = "first line\n\"quoted\" second line";
     let prompt = PromptHydrator::hydrate(PromptFileAsset::Summarize, &context(json!({"text": source}))).unwrap();
-    assert!(prompt.body.contains(source));
+    let encoded = prompt
+        .body
+        .split_once("# Input Data (ZON)\n\n```zon\n")
+        .map(|(_, encoded)| encoded.trim_end_matches("\n```"))
+        .expect("prompt should contain one ZON data block");
+    assert_eq!(zon::decode_value(encoded).unwrap(), json!({"text": source}));
+}
+#[cfg(feature = "template")]
+#[test]
+fn test_hydrate_supports_pretty_json_for_troubleshooting() {
+    let prompt =
+        PromptHydrator::hydrate_with_format(PromptFileAsset::Summarize, &context(json!({"text": "source"})), PromptDataFormat::Json).unwrap();
+    assert!(prompt.body.ends_with("# Input Data (JSON)\n\n```json\n{\n  \"text\": \"source\"\n}\n```"));
 }
 #[tokio::test]
 async fn test_in_memory_backend_returns_deterministic_result() {

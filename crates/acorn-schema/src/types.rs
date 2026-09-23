@@ -3,11 +3,12 @@
 //! These types are re-exported from the crate root.
 use crate::graph::{node_from_label, node_name, node_parent};
 use crate::namespaces::{bibo, foaf, schema_org};
+use crate::standard::{self, zon};
 use crate::util::constants::app::DEFAULT_AFFILIATION;
 use crate::util::constants::MAX_LENGTH_IMAGE_CAPTION;
 use crate::validation::format_phone_number;
 use crate::validation::{has_image_extension, Each, Validate, ValidationReport};
-use crate::{research_activity, standard, vocabulary};
+use crate::{research_activity, vocabulary};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType};
 use alloc::collections::BTreeSet;
@@ -758,54 +759,6 @@ impl Validate for MediaObject {
         }
     }
 }
-impl<'a, T> IntoIterator for &'a OneOrMany<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-impl<T> Default for OneOrMany<T> {
-    fn default() -> Self {
-        Self::Many(Vec::new())
-    }
-}
-impl<T> Deref for OneOrMany<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-impl<T> Each for OneOrMany<T> {
-    type Item = T;
-    type Iter<'a>
-        = Iter<'a, T>
-    where
-        T: 'a;
-    fn each_iter(&self) -> Self::Iter<'_> {
-        self.iter()
-    }
-}
-impl<T> From<Vec<T>> for OneOrMany<T> {
-    fn from(values: Vec<T>) -> Self {
-        Self::Many(values)
-    }
-}
-impl<T> FromIterator<T> for OneOrMany<T> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self::Many(iter.into_iter().collect())
-    }
-}
-impl<T> IntoIterator for OneOrMany<T> {
-    type Item = T;
-    type IntoIter = alloc::vec::IntoIter<T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.into_vec().into_iter()
-    }
-}
 impl<T> OneOrMany<T> {
     /// Borrow the contained items as a slice.
     pub fn as_slice(&self) -> &[T] {
@@ -868,7 +821,7 @@ impl<T> OneOrMany<T> {
                 .map(OneOrMany::Many),
         }
     }
-    /// Parse a JSON or YAML string into one or many items.
+    /// Parse a JSON, YAML, or ZON string into one or many items.
     pub fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
     where
         T: DeserializeOwned,
@@ -876,10 +829,13 @@ impl<T> OneOrMany<T> {
         match mime {
             | MimeType::Json => serde_json::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
             | MimeType::Yaml => serde_norway::from_str(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
-            | _ => Err(standard::crosswalk::CrosswalkError::ParseFailed("Content must be JSON or YAML".into())),
+            | MimeType::Zon => zon::decode(content).map_err(|e| standard::crosswalk::CrosswalkError::ParseFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::ParseFailed(
+                "Content must be JSON, YAML, or ZON".into(),
+            )),
         }
     }
-    /// Serialize one or many items to a JSON or YAML string.
+    /// Serialize one or many items to a JSON, YAML, or ZON string.
     pub fn serialize(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
     where
         T: Serialize,
@@ -887,8 +843,59 @@ impl<T> OneOrMany<T> {
         match mime {
             | MimeType::Json => serde_json::to_string_pretty(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
             | MimeType::Yaml => serde_norway::to_string(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
-            | _ => Err(standard::crosswalk::CrosswalkError::SerializeFailed("Output must be JSON or YAML".into())),
+            | MimeType::Zon => zon::encode(self).map_err(|e| standard::crosswalk::CrosswalkError::SerializeFailed(e.to_string())),
+            | _ => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
+                "Output must be JSON, YAML, or ZON".into(),
+            )),
         }
+    }
+}
+impl<T> Default for OneOrMany<T> {
+    fn default() -> Self {
+        Self::Many(Vec::new())
+    }
+}
+impl<T> Deref for OneOrMany<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+impl<T> Each for OneOrMany<T> {
+    type Item = T;
+    type Iter<'a>
+        = Iter<'a, T>
+    where
+        T: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        self.iter()
+    }
+}
+impl<T> From<Vec<T>> for OneOrMany<T> {
+    fn from(values: Vec<T>) -> Self {
+        Self::Many(values)
+    }
+}
+impl<T> FromIterator<T> for OneOrMany<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self::Many(iter.into_iter().collect())
+    }
+}
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+impl<T> IntoIterator for OneOrMany<T> {
+    type Item = T;
+    type IntoIter = alloc::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_vec().into_iter()
     }
 }
 impl<T> Validate for OneOrMany<T>

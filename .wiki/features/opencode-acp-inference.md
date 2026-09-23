@@ -4,7 +4,7 @@ title: "Coordinate ACP inference and verified fixes"
 description: "Stage prompt hydration, interchangeable ACP/OpenAI-compatible inference, structured fix suggestions, and policy-governed deterministic remediation."
 difficulty: high
 impact: high
-package: [workspace, acorn-lib, acorn-cli, acorn-schema, acorn-api, acorn-host, acorn-service]
+package: [workspace, acorn-lib, acorn-cli, acorn-schema, acorn-api, acorn-host, acorn-service, acorn-tui]
 tags: [feature, roadmap, agentic, acp, opencode, openai-compatible, prompts, inference, checks, fixes]
 status: in-progress
 priority: next
@@ -12,9 +12,25 @@ priority: next
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/agent/`, `crates/acorn-lib/src/io/{api/openai,mcp}/`, `crates/acorn-lib/src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{serve,doctor}/`, CLI parsing/help, prompt assets, and focused tests.
+- **Update:** `crates/acorn-schema/src/agent/`, `crates/acorn-lib/src/io/{api/openai,mcp}/`, `crates/acorn-lib/src/doctor/`, the shared JSON-RPC operation registry, `crates/acorn-cli/src/commands/{check,doctor,serve}/`, CLI parsing/help, `crates/acorn-tui/src/{app.rs,export.rs,screens/doctor.rs}`, prompt assets, and focused tests.
 - **Create:** the prompt, inference-port, ACP transport, OpenAI inference adapter and contract tests, fix-domain, and service modules shown in this plan; place portable contracts in `acorn-schema`/`acorn-service`, provider protocol in `acorn-api`, and process/HTTP implementations in `acorn-host` after extraction.
 - **Delete:** no current integration; remove the `doctor --fix` not-implemented path only when the shared planner is functional.
+
+# Prepared implementation slices for phases 5–8
+
+Keep one integration owner across these slices. Each slice must land with its focused tests before the next slice takes the shared module indexes, manifests, operation registry, CLI roots, generated help, or doctor/TUI reporting files.
+
+| Slice | Atomic write set | Exit evidence |
+|---|---|---|
+| 5A. Proposal domain and references | Create `crates/acorn-lib/src/fix/` and update `crates/acorn-lib/src/lib.rs`, analyzer reference conversion, `crates/acorn-schema/src/agent/mod.rs`, prompt assets, and prompt snapshots. Do not touch executors or CLI roots. | Proposal schemas round-trip; normalized check references are bounded and fingerprinted; unknown fields, invalid confidence, unsafe targets, duplicate actions, and executable command fields are rejected. |
+| 5B. Suggestion service and registered operation | Update the fix service, backend contract tests, and `crates/acorn-lib/src/io/api/json_rpc/{mod.rs,tests.rs}`. Reuse the existing ACP and OpenAI fake transports without changing their wire contracts. | The same fixture yields an equivalent validated `FixReport` through both backends and an explicitly authorized `acorn.fixes.suggest` invocation; partial failures never alter checks. |
+| 6A. Trusted planning and structured doctor findings | Extend `crates/acorn-lib/src/fix/` with non-deserializable executable plans, policy, outcomes, and verifier contracts; replace display-only doctor collection with a structured report while retaining table and JSON views. | Pure planner tests cover dependencies, conflicts, Node/npm/npx coalescing, risk/effect ceilings, stale preconditions, and preview output. |
+| 6B. Native executors and curated recipes | Create the native fix adapter under `crates/acorn-lib/src/io/`, reuse `SafePath`, SHA-256 fingerprints, fixed-vector `acorn-cmd::CommandSpec`, existing RAD/Vale/Chromium operations, and isolated fake runners. | Temporary-directory document tests prove apply, verification, and rollback; fake package-manager tests prove approval, offline, elevation, timeout, redaction, and post-fix verification without changing the host. |
+| 7. Opt-in interoperability | Add separately gated OpenCode and OpenAI-compatible smoke tests using synthetic content and explicit endpoint/model configuration. Do not change default CI. | Both real adapters return a non-empty schema-valid fix result, reap processes, and leave source fixtures unchanged. |
+| 8A. Prompt and suggestion CLI | Update `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `commands/mod.rs`, add the prompt command module, and extend the check command only after the library contracts are stable. Wire the CLI explicitly to the non-default library `acp` feature. | Parse and integration tests cover dry-run, stdin/file data, default ZON prompt data, the `--prompt-data-format zon|json` troubleshooting override, backend selection, missing readiness, clean structured output, and suggestion-only behavior. |
+| 8B. Doctor/TUI integration and release surfaces | Update the doctor command, `crates/acorn-tui/src/{app.rs,export.rs,screens/doctor.rs}`, manifests, generated help, command documentation, and capability-scoped doctor tests. | `doctor --fix` previews and applies only policy-allowed deterministic plans; interactive selection uses the same structured report and planner; help and documentation are regenerated. |
+
+Shared integration locks are `crates/acorn-lib/src/{lib.rs,io/mod.rs,io/api/json_rpc/mod.rs}`, `crates/acorn-schema/src/agent/mod.rs`, workspace and crate manifests, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `crates/acorn-cli/src/commands/mod.rs`, `CommandLineHelp.md`, and the doctor/TUI report views. Do not split ownership of these files across simultaneous phase work.
 
 # Dependencies
 
@@ -32,6 +48,8 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - The first slice denies permission requests for mutating tools by default. Broader agent tasks require an explicit permission policy and are not silently enabled by inference APIs.
 - OpenCode remains responsible for provider credentials and its configured default model. ACORN may request an agent or model only when both the caller and negotiated ACP capabilities support it.
 - Prompt input is any `serde::Serialize` value. Built-in templates continue to support their current convenience fields such as text, language, and limits.
+- Prompt instructions remain Markdown. Hydration appends the complete `PromptContext.data` object exactly once as a fenced canonical ZON block by default; callers can explicitly select pretty JSON for troubleshooting. This serialization choice applies equally to ACP and OpenAI-compatible inference.
+- ZON is a serialization of the JSON data model, not an analysis `Standard`. The official ACP wire remains JSON-RPC/JSON; `PromptDataFormat` changes only the hydrated text content sent to the model.
 - The existing OpenCode configuration synchronization path remains separate from ACP execution. The ACP module may read resolved OpenCode settings but must not rewrite them during inference.
 - Inference-generated fixes are suggestion-only and can never become executable merely because a model returned them. Deterministic fixes from registered ACORN providers may be auto-applied only through an explicit policy and approval path.
 - ACP and OpenAI-compatible APIs share prompt, request, result, capability, and fix schemas. Their process, authentication, streaming, and wire concerns remain in separate adapters.
@@ -46,6 +64,7 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - `acorn_schema::agent` still combines portable configuration with embedded-asset and Tera hydration. Extending that module with inference services would conflict with the crate-boundary plan, which assigns portable agent models to `acorn-schema` and agentic orchestration to `acorn-service`.
 - The legacy prompt tests assert concrete substitution for `summarize` and selector compatibility. The in-progress foundation adds strict value-level hydration tests for all six embedded assets plus missing data, non-object data, reserved-key collisions, invalid frontmatter, unknown assets, and unresolved template syntax.
 - Built-in prompt expressions now use canonical snake-case `config.*` keys and caller-owned `data.*` values. `acorn::agent::PromptHydrator` returns a body and normalized metadata without exposing Tera or raw frontmatter to inference backends, while `PromptTemplate::render` remains compatible through one schema-owned configuration normalization method.
+- Prompt hydration now uses the portable `acorn_schema::standard::zon` codec. `PromptDataFormat::Zon` is the default, `PromptDataFormat::Json` provides deterministic pretty JSON, and a dynamically sized Markdown fence prevents input backticks from terminating the data block.
 - `acorn::agent` now defines the transport-neutral request, result, capability, provenance, usage, permission-policy, and backend contracts plus a deterministic in-memory backend. The shared operation registry can inject a backend for `acorn.inference.run`, and its invocation context denies the declared inference effect unless explicitly authorized.
 - `acorn::io::acp` now provides immutable agent launch data, reusable executable/version installation preflight, explicit protocol readiness, thin `opencode acp` defaults, and an `InferenceBackend` implementation using the official SDK. The adapter negotiates stable ACP v1, selects an advertised model, folds streamed text, denies permission requests, enforces offline and timeout policy, and preserves ACORN-owned result/error types.
 - The ACP contract suite compiles an in-repository fake executable and covers usable, missing, non-executable, failing, and timed-out version probes; two generic agent descriptors; protocol capability negotiation; streamed and structured output; unavailable models; permission denial; prompt timeout; and early child exit without requiring OpenCode, a model, credentials, or network access.
@@ -55,6 +74,7 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - `io::api::openai` preserves its raw endpoint functions and now also exposes a typed `InferenceBackend` client with explicitly selected Responses or Chat Completions mode, configured structured-output capability, bounded non-redirecting HTTP, secret-bearing authentication, typed refusals/provider failures, and loopback-only offline access. Private endpoint-specific DTOs map both wire formats into the shared result contract, and every requested structured result is parsed and JSON-Schema-validated locally.
 - The OpenAI adapter contract suite uses deterministic in-repository `/v1/responses` and `/v1/chat/completions` routes to prove equivalent normalized results, distinct structured-output request shapes, explicit capability/debug state without secret disclosure, fallback parsing, refusal/error mapping, timeout, malformed-response handling, authentication and transport preflight, and offline policy without external network access.
 - `acorn doctor` already accepts `--fix` and `--interactive`, but `--fix` currently returns `Autofix is not implemented yet`. Software diagnostics detect ACORN, Git, Node.js, npm, npx, Pandoc, and Vale, but expose installation state as a display-oriented table rather than structured findings.
+- `doctor --interactive` currently opens `acorn-tui`, whose `DoctorData` and JSON export duplicate the CLI's display-oriented diagnostic data. Phase 8 must make both interfaces views over the shared structured `DoctorReport` rather than adding a third report model.
 - Several deterministic remediation mechanisms already exist: `ResearchActivity::format_with` normalizes RAD metadata, Vale output carries action parameters and exact spans, Vale resolution can download its binary, and PDF export can install Chromium. These should become registered fix providers/executors instead of being reimplemented by an inference layer.
 - Official OpenAI documentation describes Structured Outputs as enforcing a supplied JSON Schema and exposing refusals programmatically, making it appropriate for a typed fix envelope when the selected endpoint and model support it ([OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs)). Compatibility servers may implement a smaller subset, so ACORN must still validate every returned fix locally.
 - The official ACP Rust SDK is the intended starting point for Rust clients. Its API now lives in the dedicated [`agentclientprotocol/rust-sdk`](https://github.com/agentclientprotocol/rust-sdk) repository, while wire compatibility remains negotiated through `protocolVersion`; the current stable wire protocol is version 1 ([ACP protocol repository](https://github.com/agentclientprotocol/agent-client-protocol)). Pin and test an SDK release rather than coding against an unversioned example.
@@ -203,6 +223,13 @@ pub struct HydratedPrompt {
 
 pub struct PromptHydrator;
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, Serialize)]
+pub enum PromptDataFormat {
+    Json,
+    #[default]
+    Zon,
+}
+
 impl PromptHydrator {
     pub fn hydrate<T>(
         asset: PromptFileAsset,
@@ -211,14 +238,20 @@ impl PromptHydrator {
     where
         T: Serialize,
     {
-        load_prompt_asset(&asset)
-            .and_then(|source| render_prompt_strict(&source, context))
-            .and_then(parse_hydrated_prompt)
+        Self::hydrate_with_format(asset, context, PromptDataFormat::Zon)
     }
+
+    pub fn hydrate_with_format<T>(
+        asset: PromptFileAsset,
+        context: &PromptContext<T>,
+        format: PromptDataFormat,
+    ) -> ApiResult<HydratedPrompt>
+    where
+        T: Serialize;
 }
 ```
 
-`render_prompt_strict` should be the one normalization point that creates the `config` and `data` namespaces and any temporary aliases required by existing assets. It should configure Tera to fail on missing values, then reject a rendered body that still contains `{{`, `{%`, or other unresolved syntax. `parse_hydrated_prompt` should deserialize normalized frontmatter separately from the body so transport code never receives raw prompt-file syntax.
+`render_prompt_strict` is the one normalization point that creates the `config` and `data` namespaces and any temporary aliases required by existing assets. It rejects a rendered body that still contains `{{`, `{%`, or other unresolved syntax, serializes the complete data object once, and appends `# Input Data (ZON)` or `# Input Data (JSON)` with a dynamically sized fenced block. `parse_hydrated_prompt` deserializes normalized frontmatter separately from the body so transport code never receives raw prompt-file syntax. ACP and OpenAI adapters forward the resulting body verbatim and do not parse or reserialize its fenced data.
 
 During the first in-tree slice, `PromptHydrator` may use the existing `PromptTemplate::get` asset access while all new parsing/rendering remains in `agent::prompt`. Keep `PromptTemplate::render` behavior covered but do not make the schema implementation depend back on the service. When the crate-boundary work relocates the embedded catalog to `acorn-service`, migrate callers to that owner and remove the old rendering surface from `acorn-lib`.
 
@@ -606,7 +639,8 @@ Add a transport-independent prompt document boundary instead of teaching the ACP
 2. Add a hydrator that loads a `PromptFileAsset`, renders it in strict mode, splits frontmatter from the body, and returns a typed `HydratedPrompt` containing the body plus normalized metadata needed by inference.
 3. Align the embedded asset variables and the schema representation. Preserve `PromptTemplate::render(asset, config)` behavior during the in-tree slice; migrate it to a facade wrapper only when asset ownership moves out of the schema implementation.
 4. Reject missing required values, non-object data where an object is required, reserved-key collisions, invalid rendered frontmatter, and any remaining Tera delimiters before an agent process starts.
-5. Keep hydration pure: it accepts values and returns a document or typed error without filesystem, process, network, or session side effects.
+5. Serialize the complete `data` object once at the end of the Markdown body. Default to canonical ZON and offer deterministic pretty JSON only through an explicit format selection; size the Markdown fence from the serialized content.
+6. Keep hydration pure: it accepts values and returns a document or typed error without filesystem, process, network, or session side effects.
 
 Do not expand the existing `FrontMatter` struct to mirror every dotprompt field in the first slice. Parse rendered YAML into a private raw value, extract and validate the stable fields inference needs (`name`, output format/schema, model hint, tools, and descriptive metadata), and preserve unconsumed keys in an `extra` map for forward compatibility. The normalized public `PromptMetadata` must not expose raw Tera syntax or imply that an unvalidated field is supported.
 
@@ -735,6 +769,7 @@ acorn prompt run summarize --data input.json
 acorn prompt run translate --data input.yaml --set language=French
 acorn prompt run summarize --data input.json --dry-run
 acorn prompt run summarize --data input.json --agent opencode
+acorn prompt run summarize --data input.json --prompt-data-format json --dry-run
 acorn check activity.json --suggest-fixes --backend acp --agent opencode
 acorn check activity.json --suggest-fixes --backend openai --model local-model
 ```
@@ -744,7 +779,8 @@ The final command spelling should be checked against the CLI vocabulary before i
 - select only known embedded `PromptFileAsset` values;
 - expose an agent selector whose first accepted value is `opencode` and whose dispatch boundary can later register verified Codex, Goose, or Pi adapters without changing prompt hydration or ACP result handling;
 - select ACP or OpenAI-compatible HTTP through an explicit backend option, with backend-specific readiness checks and no hidden fallback from one backend to another;
-- load JSON or YAML object data and permit stdin for text-oriented prompts;
+- load JSON, YAML, or `.zonf` object data and permit stdin for text-oriented prompts;
+- expose `--prompt-data-format zon|json`, defaulting to `zon`; this controls only the model-facing fenced data block and never changes ACP JSON-RPC framing or OpenAI-compatible HTTP request envelopes;
 - make `--dry-run` print the hydrated prompt without launching OpenCode;
 - check and report OpenCode installation readiness before inference, while allowing `--dry-run` to work without OpenCode installed;
 - reuse the same readiness check from `acorn doctor`, reporting OpenCode as required only for ACP-backed workflows rather than for unrelated ACORN commands;
@@ -763,6 +799,7 @@ The final command spelling should be checked against the CLI vocabulary before i
 | MCP server/client | Agent configuration, Tokio/process features, CLI roots, and tool policy overlap. | Keep RMCP as MCP's wire implementation and serialize manifests/module indexes through the priority lane. No automatic tool re-export between protocols. |
 | GitLab/webhooks | Repository workflows may request inference and fixes. | Permit only registered suggestion operations with bounded excerpts; webhook authorization cannot grant ACP tool permission or fix-application authority. |
 | Analyzer and doctor | Fix DTOs consume checks and diagnostics while those modules are evolving. | Normalize stable reference DTOs at one adapter and avoid changing check construction solely for inference. |
+| ZON serialization | Prompt data and RAD files share the portable codec, while transport envelopes remain JSON. | Reuse `acorn_schema::standard::zon`; do not introduce an ACP-specific codec or classify ZON as an analyzer standard. Serialize once in hydration and forward the body verbatim. |
 | Portability and crate extraction | Process, HTTP, Tera, and SDK dependencies are native. | Keep portable DTOs separate, gate adapters independently, and record future owning crates before implementation. |
 
 # Delivery sequence
@@ -782,10 +819,11 @@ Exit gate: ownership and feature tests show no new schema-to-host dependency, `a
 
 - Keep selectors/configuration under `acorn_schema::agent`; add render context and hydrated prompt types under the in-tree agent service boundary.
 - Reconcile asset variables and frontmatter with the schema contract.
+- Append the complete data object once using canonical ZON by default, with an explicit pretty-JSON option and collision-safe Markdown fencing.
 - Preserve the existing render entry point with regression coverage without introducing a schema-to-service dependency.
 - Add value-level and failure-path tests for every embedded prompt.
 
-Exit gate: all built-in assets render with representative data, contain the expected substituted values, contain no unresolved delimiters, and yield a non-empty body without any process or network access.
+Exit gate: all built-in assets render with representative data, contain the expected substituted values, contain no unresolved delimiters, and yield a non-empty body with exactly one complete ZON data block by default. The JSON override and embedded-backtick fence handling pass without any process or network access.
 
 ## 2. Establish the narrow inference contract
 
@@ -881,7 +919,7 @@ The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapt
 6. Add installation-preflight tests for an absent command, invalid explicit path, non-executable file where supported, failing version arguments, and a fake executable with a valid version response. Verify the same generic preflight works with at least two fake agent descriptors so the implementation is not accidentally coupled to the `opencode` binary name.
 7. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
 8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake package managers and isolated `PATH` values; never install software on the test host.
-9. Add CLI parsing, command, and doctor tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, invalid data, timeout, model/agent selection, and clean stdout.
+9. Add CLI parsing, command, doctor, and TUI tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, shared doctor export data, invalid data, timeout, model/agent selection, and clean stdout.
 10. Run focused tests for `acorn_schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
 11. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
 12. Run `make audit` or the repository's equivalent dependency policy checks after adding the ACP SDK.
@@ -897,6 +935,7 @@ The foundation now satisfies strict prompt hydration, legacy render compatibilit
 - Registered deterministic fixes can be previewed, policy-checked, explicitly applied, and verified through a shared planner/executor lifecycle.
 - Non-interactive auto-fix runs execute only safe reversible actions; network, elevation, package-manager, restart, or non-reversible effects require interactive selection and confirmation.
 - Doctor can represent missing Node.js, npm/npx, Git, Pandoc, Vale, OpenCode, and similar software as structured findings, then offer only curated platform/package-manager recipes or manual instructions.
+- CLI and TUI doctor views and exports consume the same structured `DoctorReport`; interactive selection submits plans through the same policy and executor path as `doctor --fix`.
 - A single Node.js remediation can satisfy dependent npm/npx findings without duplicate installations.
 - Model output cannot introduce package names, repositories, executables, or arguments into an executable action; host remediation resolves through trusted registered recipes.
 - Executors accept only `ExecutableFix` plans produced by trusted providers or recipe resolution, never a deserialized inference `FixAction` directly.
@@ -908,6 +947,7 @@ The foundation now satisfies strict prompt hydration, legacy render compatibilit
 - Shared ACP prompt, request, event, result, permission, installation, process-lifecycle, and session code contains no OpenCode-specific branching; OpenCode supplies a thin launch configuration.
 - Prompt selection, configuration, and normalized metadata reuse `acorn_schema::agent`; the in-tree agent service hydrates the existing embedded prompt assets without making ACP or HTTP adapters aware of Tera.
 - Callers can hydrate every built-in prompt with concrete serializable data, and missing required data fails before OpenCode is launched.
+- Every backend receives one complete canonical ZON prompt-data block by default; callers can select pretty JSON for troubleshooting without changing the official ACP JSON-RPC or OpenAI-compatible JSON wire formats.
 - Callers can check OpenCode readiness without opening a session, and every inference call verifies that a usable `opencode` executable is installed before attempting ACP startup.
 - Missing or unusable OpenCode installations produce an actionable typed error; dry-run prompt hydration remains available without OpenCode.
 - `acorn doctor` reports OpenCode installation and version readiness in the ACP capability check without failing unrelated capability checks.
@@ -932,7 +972,7 @@ After this plan's acceptance criteria pass, continue with the [MCP client](mcp-c
 
 # Deferred decisions
 
-- Whether the CLI should expose fix suggestions as `check --suggest-fixes`, `fix suggest`, or both through one shared service.
+- Whether a later release should add `fix suggest` as an alias or broader fix-lifecycle command. The first release uses `check --suggest-fixes` so analysis and suggestion share one `AnalysisReport` without duplicating check input options or rerunning analysis.
 - Whether non-fix prompt outputs should opt into schema validation. Fix envelopes always require it.
 - Which document action subset should be accepted from inference-generated suggestions. Deterministic providers may execute registered format-aware transforms, but generated text/structured edits remain review-only initially.
 - Which package managers and installation recipes are supported on each OS/architecture. Unsupported combinations return manual instructions rather than guessed commands.

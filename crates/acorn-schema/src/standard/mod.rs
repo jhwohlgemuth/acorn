@@ -22,6 +22,7 @@ pub mod ocp;
 #[cfg(all(test, feature = "std"))]
 mod tests;
 pub mod text;
+pub mod zon;
 
 /// How evidence supports a standards claim.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, Ord, PartialEq, PartialOrd, Serialize)]

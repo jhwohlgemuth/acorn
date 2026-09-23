@@ -226,6 +226,8 @@ pub enum FileFormat {
     Powerpoint,
     #[display("YAML")]
     Yaml,
+    #[display("ZON")]
+    Zon,
 }
 /// Structured output format for gathered identifiers.
 #[derive(Clone, Debug, Default, Display, ValueEnum)]
@@ -366,7 +368,7 @@ pub struct Check {
     pub(crate) filter: Vec<String>,
     /// Force the file format used for standard input or clipboard text
     ///
-    /// Supported formats: cff, json, jsonc, markdown, text, yaml
+    /// Supported formats: cff, json, jsonc, markdown, text, yaml, zon
     #[arg(long, value_name = "FORMAT", value_parser = parse_check_format, help_heading = "OPTIONS", conflicts_with_all = ["path", "branch", "commit", "filter", "ignore", "merge_request"])]
     pub(crate) format: Option<MimeType>,
     /// Regular expression pattern(s) applied to absolute paths of files to exclude from checking
@@ -1132,21 +1134,6 @@ pub(crate) struct Runner {
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
-/// Arguments for `acorn serve mcp`.
-#[derive(Clone, Debug, Args)]
-#[command(long_about = None)]
-pub(crate) struct ServeMcp {
-    /// Enable persistent mutating tools
-    #[arg(long, help_heading = "FLAGS")]
-    pub(crate) allow_mutation: bool,
-    #[command(flatten)]
-    pub(crate) target: RemoteTarget,
-    #[command(flatten)]
-    pub(crate) detach: DetachArgs,
-    /// Container runtime for detached execution
-    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
-    pub(crate) runtime: Option<Executor>,
-}
 /// Arguments for `acorn serve grpc`.
 #[derive(Clone, Debug, Args)]
 #[command(long_about = None)]
@@ -1170,6 +1157,21 @@ pub(crate) struct ServeGrpc {
     /// PEM-encoded TLS private key
     #[arg(long, value_name = "PATH", value_hint = ValueHint::FilePath, requires = "tls_cert", help_heading = "OPTIONS")]
     pub(crate) tls_key: Option<PathBuf>,
+}
+/// Arguments for `acorn serve mcp`.
+#[derive(Clone, Debug, Args)]
+#[command(long_about = None)]
+pub(crate) struct ServeMcp {
+    /// Enable persistent mutating tools
+    #[arg(long, help_heading = "FLAGS")]
+    pub(crate) allow_mutation: bool,
+    #[command(flatten)]
+    pub(crate) target: RemoteTarget,
+    #[command(flatten)]
+    pub(crate) detach: DetachArgs,
+    /// Container runtime for detached execution
+    #[arg(short = 'R', long, value_name = "RUNTIME", value_parser = parse_executor, help_heading = "OPTIONS")]
+    pub(crate) runtime: Option<Executor>,
 }
 /// Arguments for `acorn serve rpc`.
 #[derive(Clone, Debug, Args)]
@@ -1329,7 +1331,7 @@ impl From<SwhidKind> for CalculationKind {
 impl FileFormat {
     pub fn is_structured(&self) -> bool {
         match self {
-            | FileFormat::Cff | FileFormat::Json | FileFormat::Yaml => true,
+            | FileFormat::Cff | FileFormat::Json | FileFormat::Yaml | FileFormat::Zon => true,
             | _ => false,
         }
     }
@@ -1345,6 +1347,7 @@ impl From<&FileFormat> for MimeType {
             | FileFormat::Markdown => MimeType::Markdown,
             | FileFormat::Powerpoint => MimeType::Powerpoint,
             | FileFormat::Yaml => MimeType::Yaml,
+            | FileFormat::Zon => MimeType::Zon,
         }
     }
 }

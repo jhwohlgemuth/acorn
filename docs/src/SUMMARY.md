@@ -22,6 +22,7 @@
   - [Rooted in Category Theory](./concepts/category-theory.md)
   - [...But Is It Agentic?](./concepts/agentic.md)
     - [Intelligence in Depth layers](./concepts/agentic-layers.md)
+  - [ZON serialization](./concepts/zon.md)
 - [🐚 Command Line Reference](./cli-reference/README.md)
   - [Configuration](./cli-reference/configuration.md)
   - [Commands](./cli-reference/commands/README.md)

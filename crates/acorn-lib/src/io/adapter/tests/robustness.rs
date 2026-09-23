@@ -2,6 +2,7 @@ use super::super::*;
 use acorn_schema::agent::opencode;
 use acorn_schema::modelkit::kitfile::Kitfile;
 use acorn_schema::standard::text::{Document, Text};
+use acorn_schema::standard::zon;
 use std::fs::{read_to_string, write};
 use tempfile::tempdir;
 
@@ -52,14 +53,25 @@ fn test_opencode_adapter_rejects_unsupported_and_yaml_operations() {
     assert!(config.write_yaml(directory.path().join("config.yaml")).is_err());
 }
 #[test]
-fn test_research_activity_parse_accepts_json_jsonc_and_yaml() {
+fn test_research_activity_adapter_round_trips_zonf() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("activity.zonf");
+    let activity = ResearchActivity::default();
+    activity.write(&path).expect("RAD should write as ZON");
+    let decoded = ResearchActivity::read(path).expect("RAD should read as ZON");
+    assert_eq!(serde_json::to_value(decoded).unwrap(), serde_json::to_value(activity).unwrap());
+}
+#[test]
+fn test_research_activity_parse_accepts_json_jsonc_yaml_and_zon() {
     let value = ResearchActivity::default();
     let json = serde_json::to_string(&value).expect("RAD should serialize as JSON");
     let jsonc = json.replacen('{', "{\n// comment\n", 1);
     let yaml = serde_norway::to_string(&value).expect("RAD should serialize as YAML");
+    let zon = zon::encode(&value).expect("RAD should serialize as ZON");
     assert!(ResearchActivity::parse(&json).is_some());
     assert!(ResearchActivity::parse(&jsonc).is_some());
     assert!(ResearchActivity::parse(&yaml).is_some());
+    assert!(ResearchActivity::parse(&zon).is_some());
 }
 #[test]
 fn test_research_activity_parse_rejects_malformed_and_wrong_shaped_values() {

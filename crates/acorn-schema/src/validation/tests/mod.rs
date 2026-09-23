@@ -167,6 +167,13 @@ struct NewRules {
     uuid: String,
 }
 #[derive(Serialize, Validate)]
+struct NumericZonRules {
+    #[validate(numeric)]
+    numeric: String,
+    #[validate(zon)]
+    zon: String,
+}
+#[derive(Serialize, Validate)]
 struct OptionalRules<'a> {
     #[validate(optional(version))]
     version: String,
@@ -599,6 +606,25 @@ fn test_not_composes_scalar_rules_and_reports_values_at_stable_paths() {
             .and_then(|issue| issue.error.params.get("value"))
             .and_then(|value| value.as_str()),
         Some("https://example.org/item")
+    );
+}
+#[test]
+fn test_numeric_and_zon_rules_use_builtin_validation() {
+    assert!(NumericZonRules {
+        numeric: "1.25e-3".to_string(),
+        zon: "line\nbreak".to_string(),
+    }
+    .validate()
+    .is_ok());
+    let report = NumericZonRules {
+        numeric: "12x".to_string(),
+        zon: "invalid\u{0000}".to_string(),
+    }
+    .validate()
+    .expect_err("invalid numeric and ZON strings should fail");
+    assert_eq!(
+        report.iter().map(|issue| issue.error.code.as_str()).collect::<Vec<_>>(),
+        ["numeric", "zon"]
     );
 }
 #[test]

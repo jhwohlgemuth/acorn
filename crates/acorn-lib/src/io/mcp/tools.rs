@@ -30,6 +30,7 @@ enum CrosswalkFormat {
     #[default]
     Json,
     Yaml,
+    Zon,
 }
 #[cfg(feature = "analysis")]
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Serialize)]
@@ -213,6 +214,7 @@ impl CrosswalkFormat {
         match self {
             | Self::Json => MimeType::Json,
             | Self::Yaml => MimeType::Yaml,
+            | Self::Zon => MimeType::Zon,
         }
     }
 }
@@ -268,11 +270,6 @@ impl ToolCallContext {
             allow_mutation,
             max_output_bytes,
         }
-    }
-}
-impl fmt::Debug for ToolRegistry {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("ToolRegistry").field("definitions", &self.definitions()).finish()
     }
 }
 impl ToolRegistry {
@@ -495,6 +492,11 @@ impl ToolRegistry {
             .filter(|definition| predicate(definition))
             .cloned()
             .collect()
+    }
+}
+impl fmt::Debug for ToolRegistry {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("ToolRegistry").field("definitions", &self.definitions()).finish()
     }
 }
 impl UpdatesExportInput {

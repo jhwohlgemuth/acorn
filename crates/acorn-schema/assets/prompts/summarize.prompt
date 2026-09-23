@@ -72,6 +72,3 @@ One to two sentences capturing the main takeaway.
 - No hallucinated facts.
 - Concise and audience-appropriate.
 - Meets word and bullet limits.
-
-# Input
-{{ data.text }}

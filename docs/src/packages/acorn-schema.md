@@ -25,4 +25,6 @@ assert!(ror("01qz5mb56").is_ok());
 
 See the [`acorn-schema` API documentation](https://docs.rs/acorn-schema/latest/acorn_schema/) for the complete public surface and [Persistent identifier lifecycle](../concepts/persistent-identifiers.md) for identifier behavior.
 
+The alloc-capable `acorn_schema::standard::zon` module encodes and decodes the JSON data model without host I/O or an additional runtime dependency. See [ZON serialization](../concepts/zon.md) for the supported profile and file conventions.
+
 Local PID validation checks parsed structure and, for ISBNs, ISNIs, ORCIDs, and RORs, the implemented check digit. It does not confirm registration with an external authority.

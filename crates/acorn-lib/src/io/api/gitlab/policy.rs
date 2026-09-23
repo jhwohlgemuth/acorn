@@ -75,32 +75,6 @@ pub struct WorkflowPolicy {
     #[validate(length(min = 1), each(custom(function = "validate_path_pattern")))]
     paths: Vec<String>,
 }
-impl Default for DeploymentConfig {
-    fn default() -> Self {
-        let workflow = WorkflowPolicy {
-            actions: vec![WorkflowAction::Format, WorkflowAction::Link, WorkflowAction::Validate],
-            effects: vec![
-                WorkflowEffect::Branch,
-                WorkflowEffect::Commit,
-                WorkflowEffect::CommitStatus,
-                WorkflowEffect::CompletionComment,
-                WorkflowEffect::DraftMergeRequest,
-                WorkflowEffect::Label,
-                WorkflowEffect::Note,
-            ],
-            formats: vec![MimeType::Cff, MimeType::Json, MimeType::Jsonc, MimeType::Markdown, MimeType::Yaml],
-            outputs: WorkflowOutputs {
-                mode: WorkflowOutputMode::SourceAndArtifacts,
-            },
-            paths: vec!["**/*.cff".to_string(), "**/*.{json,jsonc,yaml,yml,md}".to_string()],
-        };
-        Self {
-            allow_forks: false,
-            destination: None,
-            workflows: BTreeMap::from([("repository-quality".to_string(), workflow)]),
-        }
-    }
-}
 impl DeploymentConfig {
     /// Parse and validate deployment policy from YAML.
     pub fn from_yaml(content: &str) -> ApiResult<Self> {
@@ -143,6 +117,39 @@ impl DeploymentConfig {
             | None if self.allow_forks => Err(eyre!("Fork workflow policy requires an explicit destination")),
             | _ => Ok(()),
         })
+    }
+}
+impl Default for DeploymentConfig {
+    fn default() -> Self {
+        let workflow = WorkflowPolicy {
+            actions: vec![WorkflowAction::Format, WorkflowAction::Link, WorkflowAction::Validate],
+            effects: vec![
+                WorkflowEffect::Branch,
+                WorkflowEffect::Commit,
+                WorkflowEffect::CommitStatus,
+                WorkflowEffect::CompletionComment,
+                WorkflowEffect::DraftMergeRequest,
+                WorkflowEffect::Label,
+                WorkflowEffect::Note,
+            ],
+            formats: vec![
+                MimeType::Cff,
+                MimeType::Json,
+                MimeType::Jsonc,
+                MimeType::Markdown,
+                MimeType::Yaml,
+                MimeType::Zon,
+            ],
+            outputs: WorkflowOutputs {
+                mode: WorkflowOutputMode::SourceAndArtifacts,
+            },
+            paths: vec!["**/*.cff".to_string(), "**/*.{json,jsonc,yaml,yml,md,zonf}".to_string()],
+        };
+        Self {
+            allow_forks: false,
+            destination: None,
+            workflows: BTreeMap::from([("repository-quality".to_string(), workflow)]),
+        }
     }
 }
 impl WorkflowPolicy {
@@ -224,7 +231,7 @@ fn validate_path_pattern(pattern: &str) -> Result<(), ValidationError> {
 fn validate_workflow_format(format: &MimeType) -> Result<(), ValidationError> {
     matches!(
         format,
-        MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml
+        MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon
     )
     .then_some(())
     .ok_or_else(|| ValidationError::new("format").with_message(format!("Unsupported repository workflow format `{format}`")))

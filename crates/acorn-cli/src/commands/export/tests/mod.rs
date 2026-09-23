@@ -28,6 +28,7 @@ use acorn_schema::research_activity::{
 };
 use acorn_schema::standard::datacite;
 use acorn_schema::standard::invenio;
+use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use acorn_schema::{ContactPoint, OneOrMany};
 use clap_verbosity_flag::Verbosity;
@@ -399,6 +400,47 @@ async fn test_export_crosswalk_infer_source_to_datacite() -> Result<()> {
     let output_content = read_to_string(output_dir.join("invenio.json"))?;
     let parsed: Vec<datacite::Record> = serde_json::from_str(&output_content)?;
     assert!(!parsed.is_empty(), "Expected at least one DataCite record in output");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_crosswalk_infers_zon_input_and_writes_zonf() -> Result<()> {
+    let temp_dir = temp_test_dir("export_crosswalk_zon");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = temp_dir.join("activity.zonf");
+    write(&source, zon::encode(&crosswalk_ready_activity())?)?;
+    let output = temp_dir.join("datacite");
+    create_dir_all(&output)?;
+    run(
+        &Some(output.clone()),
+        &Some(source),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Zon,
+        None,
+        &None,
+        &None,
+        &Some(Standard::Datacite),
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await?;
+    let encoded = read_to_string(output.join("activity.zonf"))?;
+    let record: OneOrMany<datacite::Record> = zon::decode(&encoded)?;
+    assert!(record.first().is_some_and(|record| record.validate_deposit_ready().is_ok()));
     Ok(())
 }
 #[tokio::test]
@@ -914,5 +956,48 @@ async fn test_export_yaml_format() -> Result<()> {
     assert!(result.is_ok(), "Export to YAML format should succeed");
     let yaml_file = test_data_dir.join("index.yaml");
     assert!(yaml_file.exists(), "YAML file should be created");
+    Ok(())
+}
+#[tokio::test]
+async fn test_export_zon_format_uses_zonf_extension() -> Result<()> {
+    let temp_dir = temp_test_dir("export_zon");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let source = fixture_path("data/valid_project/index.json");
+    let test_data_dir = temp_dir.join("data");
+    create_dir_all(&test_data_dir)?;
+    copy(&source, test_data_dir.join("index.json"))?;
+    let result = run(
+        &None,
+        &Some(test_data_dir.clone()),
+        &None,
+        &None,
+        &None,
+        &[],
+        &[],
+        false,
+        false,
+        &FileFormat::Zon,
+        None,
+        &None,
+        &None,
+        &None,
+        &false,
+        &false,
+        &false,
+        &[],
+        false,
+        false,
+        Target::FactSheet,
+        None,
+        TEST_THREADS,
+        &silent(),
+        OFFLINE,
+    )
+    .await;
+    assert!(result.is_ok(), "Export to ZON format should succeed");
+    let zon_file = test_data_dir.join("index.zonf");
+    assert!(zon_file.exists(), "ZON file should use the .zonf extension");
+    let encoded = read_to_string(zon_file)?;
+    assert!(zon::decode_value(&encoded).is_ok());
     Ok(())
 }

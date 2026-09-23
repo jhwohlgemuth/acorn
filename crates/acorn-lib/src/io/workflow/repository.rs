@@ -86,14 +86,6 @@ pub struct WorkflowFileReport {
     /// Repository-relative path.
     pub path: String,
 }
-impl From<FileChangeKind> for &'static str {
-    fn from(value: FileChangeKind) -> Self {
-        match value {
-            | FileChangeKind::Create => "create",
-            | FileChangeKind::Update => "update",
-        }
-    }
-}
 impl MarkdownSupport for RepositoryChangeSet {
     fn to_markdown(&self) -> String {
         self.files
@@ -111,8 +103,16 @@ impl RepositoryFileInput {
     pub fn format(&self) -> Option<MimeType> {
         let format = self.format.clone().unwrap_or_else(|| MimeType::from(self.path.as_str()));
         match format {
-            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml => Some(format),
+            | MimeType::Cff | MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon => Some(format),
             | _ => None,
+        }
+    }
+}
+impl From<FileChangeKind> for &'static str {
+    fn from(value: FileChangeKind) -> Self {
+        match value {
+            | FileChangeKind::Create => "create",
+            | FileChangeKind::Update => "update",
         }
     }
 }

@@ -34,6 +34,7 @@ use acorn_host::{
     fs::{file_checksum, file_uri_to_path, read_text},
     terminal::Label,
 };
+use acorn_schema::standard::zon;
 pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
@@ -173,6 +174,10 @@ pub trait InputOutput: Sized {
     }
     /// Read data from specified YAML file path
     fn read_yaml(path: PathBuf) -> ApiResult<Self>;
+    /// Read data from specified ZON file path
+    fn read_zon(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("ZON read not implemented for this type"))
+    }
     /// Normalize this value using optional filesystem context before workflow output.
     fn format_with(self, _context: Option<PathBuf>) -> Self {
         self
@@ -185,6 +190,7 @@ pub trait InputOutput: Sized {
         match mime {
             | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON data — {why}")),
             | MimeType::Cff | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML data — {why}")),
+            | MimeType::Zon => zon::encode(self).map_err(|why| eyre!("Failed to serialize ZON data — {why}")),
             | _ => Err(eyre!("Unsupported workflow serialization mime type: {mime:?}")),
         }
     }
@@ -206,6 +212,10 @@ pub trait InputOutput: Sized {
     }
     /// Write data as YAML to specified path
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()>;
+    /// Write data as ZON to specified path
+    fn write_zon(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("ZON write not implemented for this type"))
+    }
 }
 /// Convert filesystem paths to portable configuration strings.
 pub trait PathConversion: AsRef<Path> {
@@ -500,21 +510,6 @@ impl From<CstValue<'_>> for CstInputValue {
         }
     }
 }
-impl AsRef<str> for Executor {
-    fn as_ref(&self) -> &str {
-        match self {
-            | Executor::Apptainer => "apptainer",
-            | Executor::Docker => "docker",
-            | Executor::Podman => "podman",
-            | Executor::Sandbox => "sandbox",
-            | Executor::Shell => "shell",
-            | Executor::Ssh => "ssh",
-            | Executor::Kubernetes => "kubernetes",
-            | Executor::VirtualMachine => "virtual_machine",
-            | Executor::Other(value) => value.as_str(),
-        }
-    }
-}
 impl Executor {
     /// Returns the default configuration directory on host for GitLab runners based on the operating system.
     pub fn default_gitlab_runner_config_directory() -> &'static str {
@@ -593,6 +588,21 @@ impl Executor {
                 runner.executor
             )),
             | (Ok(()), _, _) => Ok(()),
+        }
+    }
+}
+impl AsRef<str> for Executor {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Executor::Apptainer => "apptainer",
+            | Executor::Docker => "docker",
+            | Executor::Podman => "podman",
+            | Executor::Sandbox => "sandbox",
+            | Executor::Shell => "shell",
+            | Executor::Ssh => "ssh",
+            | Executor::Kubernetes => "kubernetes",
+            | Executor::VirtualMachine => "virtual_machine",
+            | Executor::Other(value) => value.as_str(),
         }
     }
 }
@@ -787,6 +797,16 @@ impl ProgressType {
         self.is_spinner()
     }
 }
+impl Remote {
+    /// Return the validated SSH endpoint.
+    pub fn as_str(&self) -> &str {
+        (&self.0).into()
+    }
+    /// Return the canonical location for this validated SSH endpoint.
+    pub fn location(&self) -> &Location {
+        &self.0
+    }
+}
 impl core::str::FromStr for Remote {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -834,16 +854,6 @@ impl Serialize for Remote {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
-    }
-}
-impl Remote {
-    /// Return the validated SSH endpoint.
-    pub fn as_str(&self) -> &str {
-        (&self.0).into()
-    }
-    /// Return the canonical location for this validated SSH endpoint.
-    pub fn location(&self) -> &Location {
-        &self.0
     }
 }
 impl FromCommand for SemanticVersion {

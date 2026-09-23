@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a6fbf340250a9b71ad83586d2546b97a13c94704cfdc5fac7dfce4c428e25747 # shrinks to value = Array [String("[]")]
+cc f9c9197129143e9e4e004e93b39fdfcab8fac8e1528c88e6c9b84e511a02d267 # shrinks to value = Object {"0": String("'")}
+cc b0004166da7c760b2ab843d1df4facc5e406cbc3e6ca99e4894ea8ff64547ad8 # shrinks to value = Object {"[]": Null}
+cc 8251541f0f838b49a2ad6d792527e46afa0fbd6918db415594ff45b850e281a1 # shrinks to value = Array [Object {" ": Null}]
+cc adf7b9fa697a82611287d093d8ca4775958388d851942bc2f5c545efd3dee3da # shrinks to value = Object {"a": Array [String("@0")]}
+cc 9e6eba53e32bbb6eea6e75fb76b8908fe12fcacb4a98f747ae9e242cbc193fa0 # shrinks to value = Array [Object {"A": Object {}}]

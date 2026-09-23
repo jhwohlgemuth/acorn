@@ -222,7 +222,7 @@ pub const SKILL_FILENAME: &str = "SKILL.md";
 /// Embedded skill asset relative path inside the `skills/` embed root.
 pub const SKILL_PATH: &str = "acorn/SKILL.md";
 /// Supported research activity data filenames and extensions.
-pub const SUPPORTED_RAD_FILETYPES: [&str; 6] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown"];
+pub const SUPPORTED_RAD_FILETYPES: [&str; 7] = ["index.json", "jsonc", "yaml", "yml", "md", "markdown", "zonf"];
 /// Delay used to coalesce rapid filesystem notifications.
 pub const WATCH_DEBOUNCE_INTERVAL: SignedDuration = SignedDuration::from_millis(300);
 /// Maximum age of a claimed webhook operation before it is recoverable.

@@ -267,6 +267,7 @@ fn test_deployment_policy_accepts_declared_formats_and_brace_patterns() {
     let policy = config.workflow("repository-quality").unwrap();
     assert!(policy.accepts("metadata/CITATION.cff").unwrap());
     assert!(policy.accepts("metadata/activity.jsonc").unwrap());
+    assert!(policy.accepts("metadata/activity.zonf").unwrap());
     assert!(!policy.accepts("src/main.rs").unwrap());
 }
 #[test]

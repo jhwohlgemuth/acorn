@@ -8,6 +8,7 @@ use acorn_schema::agent::opencode;
 use acorn_schema::research_activity::Sections;
 use acorn_schema::standard::cff::IdentifierType;
 use acorn_schema::standard::text::Document;
+use acorn_schema::standard::zon;
 use std::fs::{read, write};
 use tempfile::tempdir;
 
@@ -144,7 +145,6 @@ fn test_migrate_allows_strict_read() {
     assert_eq!(identifier.value, "10013/epic.10033");
     assert_eq!(identifier.description.as_deref(), Some("Handle identifier"));
 }
-
 #[test]
 fn test_opencode_config_from_jsonc_file() {
     let config = opencode::Config::read(fixture_path("config/opencode.jsonc")).expect("JSONC fixture should load");
@@ -159,6 +159,7 @@ fn test_opencode_config_from_jsonc_file() {
 fn test_opencode_config_from_jsonc_rejects_invalid() {
     assert!(parse_jsonc_cst::<opencode::Config>(r#"{ model: invalid }"#).is_err());
 }
+
 #[test]
 fn test_opencode_config_from_jsonc_string() {
     let content = r#"{
@@ -335,4 +336,14 @@ fn test_text_try_from_path_uses_supported_extensions() {
     assert!(!result.content.is_empty());
     let directory = tempdir().expect("temporary directory should be created");
     assert!(Text::read(directory.path().join("text.pptx")).is_err());
+}
+#[test]
+fn test_zon_rad_read_preserves_multiple_eserde_errors() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let value: serde_json::Value = serde_json::from_slice(&read(fixture_path("malformed-rad.json")).unwrap()).unwrap();
+    let path = directory.path().join("malformed.zonf");
+    write(&path, zon::encode(&value).unwrap()).unwrap();
+    let error = ResearchActivity::read_zon(path).expect_err("malformed ZON RAD should fail");
+    let details = error.to_string();
+    assert!(details.lines().count() >= 2, "expected multiple schema errors: {details}");
 }

@@ -26,7 +26,7 @@
 //! | `range(min = ..., max = ...)` | Constrain an ordered numeric value. |
 //! | `contains(pattern = ...)` | Require a string or collection pattern. |
 //! | `date`, `timestamp`, `year` | Validate supported calendar representations. |
-//! | `email`, `json`, `url`, `nonempty`, `version` | Validate common scalar text. |
+//! | `email`, `json`, `numeric`, `url`, `nonempty`, `version`, `zon` | Validate common scalar text. |
 //! | `ark`, `arxiv`, `doi`, `handle`, `isbn`, `isni`, `orcid`, `patent`, `raid`, `ror`, `swhid` | Delegate persistent identifiers to canonical schema validators. |
 //! | `phone`, `commit`, `latitude`, `longitude`, `state`, `kebabcase`, `camelCase`, `snake_case` | Validate ACORN scalar shapes. |
 //! | `custom(function = "path")` | Call a synchronous scalar validator. |
@@ -410,6 +410,15 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("nonempty").with_message("Provide text containing a non-whitespace character"))
     }
+    /// Validate numeric-like text containing only number syntax characters.
+    pub fn numeric(value: &str) -> Result<(), ValidationError> {
+        (value.chars().any(|character| character.is_ascii_digit())
+            && value
+                .chars()
+                .all(|character| character.is_ascii_digit() || matches!(character, '+' | '-' | '.' | 'E' | 'e')))
+        .then_some(())
+        .ok_or_else(|| ValidationError::new("numeric").with_message("Provide numeric text"))
+    }
     /// Validate an ORCID with ACORN's canonical parser.
     pub fn orcid(value: &str) -> Result<(), ValidationError> {
         identifier(value.is_orcid(), "ORCiD")
@@ -581,6 +590,15 @@ pub mod rules {
             .then_some(())
             .ok_or_else(|| ValidationError::new("year").with_message("Provide valid ISO 8601 year (e.g., YYYY)"))
     }
+    /// Validate text that can be encoded as a ZON string.
+    pub fn zon(value: &str) -> Result<(), ValidationError> {
+        value
+            .chars()
+            .find(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+            .map_or(Ok(()), |character| {
+                Err(ValidationError::new("zon").with_message(format!("ZON cannot encode control character U+{:04X}", u32::from(character))))
+            })
+    }
 }
 /// Collection abstraction used by `#[validate(each(...))]`.
 pub trait Each {
@@ -645,14 +663,6 @@ impl<T, const N: usize> Each for [T; N] {
         self.iter()
     }
 }
-impl<T: Validate, const N: usize> Validate for [T; N] {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        validate_sequence(self.iter())
-    }
-    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
-        validate_sequence_async(self.iter())
-    }
-}
 impl<T> Each for [T] {
     type Item = T;
     type Iter<'a>
@@ -661,6 +671,14 @@ impl<T> Each for [T] {
         T: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.iter()
+    }
+}
+impl<T: Validate, const N: usize> Validate for [T; N] {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        validate_sequence(self.iter())
+    }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        validate_sequence_async(self.iter())
     }
 }
 impl<T: Validate + ?Sized> Validate for Box<T> {
@@ -774,27 +792,18 @@ impl IntoValidationReport for ValidationError {
         ValidationReport::from_error(path, self)
     }
 }
-impl fmt::Display for ValidationIssue {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.path.is_empty() {
-            | true => write!(formatter, "{}", self.error),
-            | false => write!(formatter, "{}: {}", self.path, self.error),
-        }
-    }
-}
 impl ValidationIssue {
     /// Create an issue at a structured path.
     pub fn new(path: impl Into<String>, error: ValidationError) -> Self {
         Self { path: path.into(), error }
     }
 }
-impl core::error::Error for ValidationReport {}
-impl fmt::Display for ValidationReport {
+impl fmt::Display for ValidationIssue {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.iter().enumerate().try_for_each(|(index, issue)| match index {
-            | 0 => write!(formatter, "{issue}"),
-            | _ => write!(formatter, "\n{issue}"),
-        })
+        match self.path.is_empty() {
+            | true => write!(formatter, "{}", self.error),
+            | false => write!(formatter, "{}: {}", self.path, self.error),
+        }
     }
 }
 impl ValidationReport {
@@ -858,6 +867,15 @@ impl ValidationReport {
             | true => Ok(()),
             | false => Err(self),
         }
+    }
+}
+impl core::error::Error for ValidationReport {}
+impl fmt::Display for ValidationReport {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.iter().enumerate().try_for_each(|(index, issue)| match index {
+            | 0 => write!(formatter, "{issue}"),
+            | _ => write!(formatter, "\n{issue}"),
+        })
     }
 }
 impl<T> Each for Vec<T> {

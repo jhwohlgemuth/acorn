@@ -16,6 +16,7 @@ use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::zon;
 use clap::{CommandFactory, Parser, ValueEnum};
 use futures::executor::block_on;
 use std::fs::{create_dir_all, write};
@@ -636,6 +637,30 @@ fn test_gather_lab_rejects_overlapping_organization_options() {
     .is_err());
 }
 #[test]
+fn test_grpc_server_arguments() {
+    let arguments = Arguments::try_parse_from([
+        "acorn",
+        "serve",
+        "grpc",
+        "--bind",
+        "127.0.0.1:50052",
+        "--tls-cert",
+        "server.pem",
+        "--tls-key",
+        "server.key",
+    ])
+    .expect("parse gRPC server");
+    assert!(matches!(
+        arguments.command,
+        Some(Commands::Serve {
+            command: Some(ServeCommands::Grpc(arguments))
+        }) if arguments.bind.to_string() == "127.0.0.1:50052"
+            && arguments.tls_cert.as_deref() == Some(Path::new("server.pem"))
+            && arguments.tls_key.as_deref() == Some(Path::new("server.key"))
+            && !arguments.allow_mutation
+    ));
+}
+#[test]
 fn test_ignore_sync_failure_requires_check_watch_mode() {
     let arguments = Arguments::try_parse_from(["acorn", "--watch", "check", "--ignore-sync-failure"]).expect("parse sync failure override");
     assert!(crate::commands::validate_watch_arguments(&arguments).is_ok());
@@ -928,28 +953,14 @@ fn test_resolve_paths_discovers_rad_markdown_and_ignores_readme() {
     assert!(!resolved.contains(&readme));
 }
 #[test]
-fn test_grpc_server_arguments() {
-    let arguments = Arguments::try_parse_from([
-        "acorn",
-        "serve",
-        "grpc",
-        "--bind",
-        "127.0.0.1:50052",
-        "--tls-cert",
-        "server.pem",
-        "--tls-key",
-        "server.key",
-    ])
-    .expect("parse gRPC server");
-    assert!(matches!(
-        arguments.command,
-        Some(Commands::Serve {
-            command: Some(ServeCommands::Grpc(arguments))
-        }) if arguments.bind.to_string() == "127.0.0.1:50052"
-            && arguments.tls_cert.as_deref() == Some(Path::new("server.pem"))
-            && arguments.tls_key.as_deref() == Some(Path::new("server.key"))
-            && !arguments.allow_mutation
-    ));
+fn test_resolve_paths_discovers_zonf_files() {
+    let root = temp_test_dir("resolve-zonf");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let zon = root.join("activity.zonf");
+    write(&zon, zon::encode(&ResearchActivity::default()).unwrap()).unwrap();
+    let resolved = block_on(resolve_paths(&Some(root), &CommandOptions::init().build())).unwrap();
+    assert!(resolved.contains(&zon));
 }
 #[test]
 fn test_rpc_server_arguments() {

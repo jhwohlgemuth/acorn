@@ -71,6 +71,3 @@ A 2-3 sentence explanation of the main idea using only simple words. Think like 
 - Accurate to the original meaning, but much simpler
 - Fun and engaging tone
 - No jargon or technical terms remain
-
-# Input
-{{ data.text }}

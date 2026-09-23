@@ -1277,12 +1277,14 @@ fn parse_rule(meta: &Meta, inside_each: bool) -> syn::Result<ValidationRule> {
             "kebabcase",
             "latitude",
             "longitude",
+            "numeric",
             "phone",
             "snake_case",
             "state",
             "uri",
             "unix_epoch",
             "uuid",
+            "zon",
         ];
         match path.get_ident() {
             | Some(ident) if supported_pid.iter().any(|rule| ident == rule) => Ok(ValidationRule::Pid(ident.clone(), parse_rule_options(meta)?)),

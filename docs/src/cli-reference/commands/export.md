@@ -4,9 +4,9 @@
 <p>Turn one RAD source into a shareable artifact with <code>acorn export &lt;PATH&gt; --format &lt;FORMAT&gt;</code>.</p>
 </blockquote>
 
-`acorn export` converts one RAD record or a directory of records into formats such as CFF, PDF, PowerPoint, Markdown, JSON, or YAML.
+`acorn export` converts one RAD record or a directory of records into formats such as CFF, PDF, PowerPoint, Markdown, JSON, YAML, or ZON.
 
-Markdown RAD is accepted as an input for the same RAD export targets as JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
+Markdown and `.zonf` RAD are accepted as inputs for the same RAD export targets as JSON and YAML. Exported Markdown uses YAML frontmatter with `schema: acorn/research-activity`; its generated `## ASPECT` section includes nested data and model details.
 
 The command creates each selected artifact from the same source record, so a project can maintain its data once and regenerate its public outputs when that data changes.
 
@@ -75,7 +75,7 @@ An explicit format that conflicts with an output suffix is rejected. `--archive-
 
 ## Standard crosswalks
 
-Use `--to` with JSON or YAML export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
+Use `--to` with JSON, YAML, or ZON export to convert metadata between DataCite, DCAT, InvenioRDM, and HuWise. ACORN can infer the source standard from recognizable fields, but `--from` is recommended for repeatable scripts and for records with an ambiguous shape.
 
 ```sh
 # Convert one DataCite JSON record to DCAT JSON
@@ -83,6 +83,9 @@ acorn export datacite.json --format json --from datacite --to dcat --output ./ex
 
 # Convert DCAT JSON to DataCite YAML
 acorn export dataset.json --format yaml --from dcat --to datacite --output ./export
+
+# Convert DataCite ZON to DCAT ZON; output uses .zonf
+acorn export datacite.zonf --format zon --from datacite --to dcat --output ./export
 
 # Preview a directory conversion without writing files
 acorn export ./metadata --format json --from invenio --to dcat --dry-run
@@ -99,7 +102,7 @@ The source and target may each be `datacite`, `dcat`, `invenio`, or `huwise`. Ev
 
 Crosswalk export has these constraints:
 
-- The input and output must be JSON or YAML. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
+- The input and output must be JSON, YAML, or ZON. PDF, PowerPoint, CFF, BagIt, and Markdown are not crosswalk targets.
 - A single object or an array of objects is accepted. Directory export writes one target file for each resolved source file.
 - Conversion can be lossy because the standards have different fields and cardinalities. Normal direct conversions report field-level crosswalk warnings when ACORN has a mapping for that pair.
 - Warning collection is currently limited to direct DataCite mappings and DCAT → DataCite. Routed conversions can lose metadata without a complete end-to-end warning report.
@@ -120,7 +123,7 @@ The generated `/path/to/project/CITATION.cff` includes the RAD title, contact in
 
 For CFF export:
 
-- The input must be RAD in JSON, JSONC, YAML, or canonical/legacy ACORN Markdown. Existing `.cff` input is skipped because it is already in the target format.
+- The input must be RAD in JSON, JSONC, YAML, ZON, or canonical/legacy ACORN Markdown. Existing `.cff` input is skipped because it is already in the target format.
 - The output is always named `CITATION.cff` and written beside its source RAD file. `--output` does not relocate CFF output.
 - ACORN generates at most one `CITATION.cff` per source directory. When several discovered RAD files share a directory, they resolve to the same output path and only one is exported.
 
