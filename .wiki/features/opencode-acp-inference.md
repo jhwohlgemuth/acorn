@@ -22,13 +22,13 @@ Keep one integration owner across these slices. Each slice must land with its fo
 
 | Slice | Atomic write set | Exit evidence |
 |---|---|---|
-| 5A. Proposal domain and references | Create `crates/acorn-lib/src/fix/` and update `crates/acorn-lib/src/lib.rs`, analyzer reference conversion, `crates/acorn-schema/src/agent/mod.rs`, prompt assets, and prompt snapshots. Do not touch executors or CLI roots. | Proposal schemas round-trip; normalized check references are bounded and fingerprinted; unknown fields, invalid confidence, unsafe targets, duplicate actions, and executable command fields are rejected. |
-| 5B. Suggestion service and registered operation | Update the fix service, backend contract tests, and `crates/acorn-lib/src/io/api/json_rpc/{mod.rs,tests.rs}`. Reuse the existing ACP and OpenAI fake transports without changing their wire contracts. | The same fixture yields an equivalent validated `FixReport` through both backends and an explicitly authorized `acorn.fixes.suggest` invocation; partial failures never alter checks. |
+| 5A. Proposal domain and references | Create `crates/acorn-lib/src/fix/` and update `crates/acorn-lib/src/lib.rs`, analyzer reference conversion, `crates/acorn-schema/src/agent/mod.rs`, prompt assets, and prompt snapshots. Do not touch executors or CLI roots. | Proposal schemas round-trip; normalized check references enforce the 32-finding, 4 KiB-per-excerpt, and 128 KiB-total defaults; unknown fields, invalid confidence, unsafe targets, duplicate actions, and executable command fields are rejected. |
+| 5B. Suggestion service and registered operation | Update the fix service, backend contract tests, and `crates/acorn-lib/src/io/api/json_rpc/{mod.rs,tests.rs}`. Reuse the existing ACP and OpenAI fake transports without changing their wire contracts. | The same fixture yields an equivalent validated `FixReport` through both backends and explicitly authorized `acorn.fixes.suggest` and `acorn.inference.readiness` invocations; partial failures never alter checks. |
 | 6A. Trusted planning and structured doctor findings | Extend `crates/acorn-lib/src/fix/` with non-deserializable executable plans, policy, outcomes, and verifier contracts; replace display-only doctor collection with a structured report while retaining table and JSON views. | Pure planner tests cover dependencies, conflicts, Node/npm/npx coalescing, risk/effect ceilings, stale preconditions, and preview output. |
-| 6B. Native executors and curated recipes | Create the native fix adapter under `crates/acorn-lib/src/io/`, reuse `SafePath`, SHA-256 fingerprints, fixed-vector `acorn-cmd::CommandSpec`, existing RAD/Vale/Chromium operations, and isolated fake runners. | Temporary-directory document tests prove apply, verification, and rollback; fake package-manager tests prove approval, offline, elevation, timeout, redaction, and post-fix verification without changing the host. |
-| 7. Opt-in interoperability | Add separately gated OpenCode and OpenAI-compatible smoke tests using synthetic content and explicit endpoint/model configuration. Do not change default CI. | Both real adapters return a non-empty schema-valid fix result, reap processes, and leave source fixtures unchanged. |
-| 8A. Prompt and suggestion CLI | Update `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `commands/mod.rs`, add the prompt command module, and extend the check command only after the library contracts are stable. Wire the CLI explicitly to the non-default library `acp` feature. | Parse and integration tests cover dry-run, stdin/file data, default ZON prompt data, the `--prompt-data-format zon|json` troubleshooting override, backend selection, missing readiness, clean structured output, and suggestion-only behavior. |
-| 8B. Doctor/TUI integration and release surfaces | Update the doctor command, `crates/acorn-tui/src/{app.rs,export.rs,screens/doctor.rs}`, manifests, generated help, command documentation, and capability-scoped doctor tests. | `doctor --fix` previews and applies only policy-allowed deterministic plans; interactive selection uses the same structured report and planner; help and documentation are regenerated. |
+| 6B. Native executors and curated recipes | Create the native fix adapter under `crates/acorn-lib/src/io/`, reuse `SafePath`, SHA-256 fingerprints, fixed-vector `acorn-cmd::CommandSpec`, existing RAD/Vale/Chromium operations, and isolated fake runners. Add only the trusted WinGet and Homebrew Node recipes defined below. | Temporary-directory document tests prove apply, verification, and rollback; fake WinGet, Homebrew, Vale, and Chromium runners prove approval, offline, elevation, timeout, redaction, and post-fix verification without changing the host. |
+| 7. Opt-in interoperability | Add separately gated OpenCode and OpenAI-compatible smoke tests using synthetic content and explicit endpoint/model configuration. Do not change default CI. | Tests run only through the named environment gates below; both real adapters return a non-empty schema-valid fix result, reap processes, and leave source fixtures unchanged. |
+| 8A. Prompt and suggestion CLI | Update `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `commands/mod.rs`, add `acorn prompt run`, and extend `acorn check --suggest-fixes` only after the library contracts are stable. Preserve the existing Needle-oriented `acorn infer` command and wire the CLI explicitly to the non-default library `acp` feature. | Parse and integration tests cover dry-run, stdin/file data, default ZON prompt data, the `--prompt-data-format zon|json` troubleshooting override, ACP-default/OpenAI-explicit backend selection, missing readiness, clean structured output, and suggestion-only behavior. |
+| 8B. Doctor/TUI integration and release surfaces | Update the doctor command, `crates/acorn-tui/src/{app.rs,export.rs,screens/doctor.rs}`, manifests, generated help, command documentation, and capability-scoped doctor tests. | `doctor --fix` previews and applies only safe reversible deterministic plans; `doctor --fix --interactive` can confirm registered installation recipes through the same structured report and planner; `doctor --interactive` remains report-only. Help and documentation are regenerated. |
 
 Shared integration locks are `crates/acorn-lib/src/{lib.rs,io/mod.rs,io/api/json_rpc/mod.rs}`, `crates/acorn-schema/src/agent/mod.rs`, workspace and crate manifests, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs}`, `crates/acorn-cli/src/commands/mod.rs`, `CommandLineHelp.md`, and the doctor/TUI report views. Do not split ownership of these files across simultaneous phase work.
 
@@ -55,6 +55,10 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - ACP and OpenAI-compatible APIs share prompt, request, result, capability, and fix schemas. Their process, authentication, streaming, and wire concerns remain in separate adapters.
 - Deterministic fixes produced by an analyzer take precedence over model-generated suggestions. Inference is used only where a check lacks a complete deterministic correction or the user explicitly requests alternatives.
 - The first release rejects ACP inference in offline mode because ACORN cannot prove that OpenCode's selected provider is local. Prompt hydration/dry-run remains available, and OpenAI-compatible HTTP is allowed offline only for an explicitly configured loopback endpoint. A later verified local-only agent descriptor may relax ACP policy without changing the request contract.
+- The in-tree completion does not create `acorn-api` or `acorn-service`. Keep contracts separable so those later extractions remain mechanical.
+- The existing `acorn infer` command remains the Needle tool-selection workflow. ACP prompt execution uses the separate `acorn prompt run` command.
+- Suggestion defaults are 32 findings per batch, 4 KiB per excerpt, and 128 KiB of total prompt context. Callers may lower these limits but cannot exceed them through a remote operation.
+- The first trusted package-manager recipes are Node through WinGet on Windows and Homebrew on macOS. Linux and other package managers, Git, Pandoc, and OpenCode remain manual. Vale and Chromium reuse their existing ACORN-owned installers.
 
 # Current evidence
 
@@ -79,6 +83,8 @@ Let ACORN hydrate embedded prompt templates with typed configuration and seriali
 - Official OpenAI documentation describes Structured Outputs as enforcing a supplied JSON Schema and exposing refusals programmatically, making it appropriate for a typed fix envelope when the selected endpoint and model support it ([OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs)). Compatibility servers may implement a smaller subset, so ACORN must still validate every returned fix locally.
 - The official ACP Rust SDK is the intended starting point for Rust clients. Its API now lives in the dedicated [`agentclientprotocol/rust-sdk`](https://github.com/agentclientprotocol/rust-sdk) repository, while wire compatibility remains negotiated through `protocolVersion`; the current stable wire protocol is version 1 ([ACP protocol repository](https://github.com/agentclientprotocol/agent-client-protocol)). Pin and test an SDK release rather than coding against an unversioned example.
 - OpenCode exposes an ACP-compatible subprocess over JSON-RPC on stdio through `opencode acp` and retains its built-in tools, MCP servers, project rules, agents, and permissions ([OpenCode ACP documentation](https://opencode.ai/docs/acp/)).
+- The current dirty-worktree baseline passes 39 focused `acorn-schema` agent tests, 17 focused `acorn-lib` agent tests, 11 ACP adapter tests, and 11 OpenAI-compatible adapter tests. Treat those changes as the implementation baseline; do not reset or overwrite them while completing phases 5-8.
+- WinGet publishes Node LTS as `OpenJS.NodeJS.LTS` and declares `node`, `npm`, and `npx` commands ([WinGet manifest](https://github.com/microsoft/winget-pkgs/blob/master/manifests/o/OpenJS/NodeJS/LTS/24.13.1/OpenJS.NodeJS.LTS.installer.yaml)). Homebrew publishes the stable `node` formula through `brew install node` ([Homebrew formula](https://formulae.brew.sh/formula/node)).
 
 # Architecture review and viability
 
@@ -94,7 +100,7 @@ Recommendation: proceed through prompt hydration, the narrow inference contract,
 | Shared inference contract | Viable if kept narrow | Share request/result/provenance and non-mutation intent; do not flatten ACP permissions or HTTP failures into a false common protocol. |
 | Fix suggestions | Viable and relatively low risk | Normalize checks into bounded DTOs, validate all model output locally, and keep generated proposals non-executable. |
 | Deterministic auto-fix | Viable after the proposal model stabilizes | Land document fixes before host package installation, and require policy, preview, verification, and trusted recipe resolution. |
-| Doctor package installation | Viable but highest operational risk | Support one verified OS/package-manager recipe at a time; tests use fake process runners and never mutate the developer or CI host. |
+| Doctor package installation | Viable but highest operational risk | Limit the first release to the verified WinGet and Homebrew Node recipes plus existing Vale/Chromium installers; tests use fake process runners and never mutate the developer or CI host. |
 | Crate extraction | Compatible only with revised ownership | Keep schema models, service orchestration, API protocol DTOs, and native adapters separable now so the in-progress crate split remains mechanical. |
 
 Primary delivery risks are bounded as follows:
@@ -455,7 +461,9 @@ pub struct Fix {
 }
 ```
 
-Validate confidence as a finite value from zero through one, require every finding ID to exist in the request batch, confine document targets to caller-approved roots, and compare source fingerprints before presenting an action as current. Unknown fields should fail rather than being ignored.
+Validate confidence as a finite value from zero through one, require every finding ID to exist in the request batch, confine document targets to caller-approved roots, and compare source fingerprints before presenting an action as current. Unknown fields should fail rather than being ignored. Assign request-local finding IDs after deterministic standard/category/input ordering, and compute each SHA-256 fingerprint from the canonical source identity plus the exact original value or excerpt used for the proposal.
+
+`FixOptions` defaults to at most 32 findings per inference batch, 4 KiB for each excerpt, and 128 KiB for the complete prompt context. Direct callers may lower the bounds. Registered operations reject larger values instead of silently truncating input. Batch diagnostics carry partial backend failures separately from finding-linked fixes so the service never invents a finding reference to represent a transport error.
 
 Executable types remain private to trusted planning and execution code and intentionally omit `Deserialize`:
 
@@ -540,6 +548,9 @@ impl RecipeRegistry {
             ("software.node.install", Some("winget")) => {
                 self.node_with_winget(platform)
             }
+            ("software.node.install", Some("homebrew")) => {
+                self.node_with_homebrew(platform)
+            }
             ("software.vale.install", _) => self.vale_with_existing_resolver(platform),
             _ => None,
         }
@@ -547,7 +558,9 @@ impl RecipeRegistry {
 }
 ```
 
-The concrete package identifier and flags in `node_with_winget` must be verified before implementation and remain compiled trusted data. If a platform/package-manager combination has no registered recipe, planning downgrades the proposal to manual instructions rather than guessing a command.
+The Windows recipe uses the compiled command vector `winget install --id OpenJS.NodeJS.LTS --exact --source winget`. Agreement flags may be added only after ACORN displays them in the exact preview and the user confirms license/source acceptance. The macOS recipe uses `brew install node`. Both declare network and package-manager mutation, limited rollback, and possible host configuration changes; WinGet also declares possible elevation. Post-install verification resolves and probes `node`, `npm`, and `npx` independently.
+
+No other package-manager command is trusted in this release. Linux, Git, Pandoc, OpenCode, and unsupported Windows/macOS configurations return manual instructions. Vale and Chromium continue through their existing ACORN-owned installers. If a platform/package-manager combination has no registered recipe, planning downgrades the proposal to manual instructions rather than guessing a command.
 
 ## Doctor integration example
 
@@ -596,6 +609,8 @@ run diagnostics
 ```
 
 When Node, npm, and npx are all absent, the planner should recognize npm and npx as postconditions of the Node recipe, select one installation, and retain three verification probes. Package installation is never selected by safe-only, non-interactive policy because its declared effects include network, package-manager mutation, possible elevation, and limited rollback.
+
+The CLI modes are fixed for this release: `doctor --fix` prints the plan and applies only safe reversible deterministic fixes; `doctor --fix --interactive` opens TUI selection and confirmation for registered installation recipes; `doctor --interactive` remains a report-only TUI. All three modes consume the same `DoctorReport`, planner, and outcome renderer.
 
 ## Check-to-fix orchestration example
 
@@ -762,32 +777,33 @@ Return raw version output plus an optional parsed semantic version rather than m
 
 ## CLI vertical slice
 
-After the library client is covered by a deterministic fake agent, add one CLI route for end-to-end use. Prefer a focused shape such as:
+After the library client is covered by a deterministic fake agent, add one CLI route for end-to-end use:
 
 ```text
 acorn prompt run summarize --data input.json
 acorn prompt run translate --data input.yaml --set language=French
 acorn prompt run summarize --data input.json --dry-run
-acorn prompt run summarize --data input.json --agent opencode
+acorn prompt run summarize --data input.json --backend acp --agent opencode
 acorn prompt run summarize --data input.json --prompt-data-format json --dry-run
 acorn check activity.json --suggest-fixes --backend acp --agent opencode
 acorn check activity.json --suggest-fixes --backend openai --model local-model
 ```
 
-The final command spelling should be checked against the CLI vocabulary before implementation. Regardless of spelling, the first CLI slice must:
+Keep the existing Needle-oriented `acorn infer` command unchanged. The first CLI slice must:
 
 - select only known embedded `PromptFileAsset` values;
 - expose an agent selector whose first accepted value is `opencode` and whose dispatch boundary can later register verified Codex, Goose, or Pi adapters without changing prompt hydration or ACP result handling;
-- select ACP or OpenAI-compatible HTTP through an explicit backend option, with backend-specific readiness checks and no hidden fallback from one backend to another;
-- load JSON, YAML, or `.zonf` object data and permit stdin for text-oriented prompts;
+- select ACP or OpenAI-compatible HTTP through `--backend acp|openai`, defaulting to ACP; require explicit `--backend openai` for HTTP inference, run backend-specific readiness checks, and never fall back between backends or OpenAI endpoint modes;
+- load JSON, YAML, or ZON object data from `--data <PATH|->`; when `--data` is omitted, read piped stdin and otherwise return a usage error;
+- merge repeated `--set KEY=VALUE` values into the prompt data object after file/stdin parsing, rejecting reserved keys and type conflicts;
 - expose `--prompt-data-format zon|json`, defaulting to `zon`; this controls only the model-facing fenced data block and never changes ACP JSON-RPC framing or OpenAI-compatible HTTP request envelopes;
-- make `--dry-run` print the hydrated prompt without launching OpenCode;
+- make `--dry-run` print the hydrated prompt without performing backend readiness, process, credential, or network work;
 - check and report OpenCode installation readiness before inference, while allowing `--dry-run` to work without OpenCode installed;
 - reuse the same readiness check from `acorn doctor`, reporting OpenCode as required only for ACP-backed workflows rather than for unrelated ACORN commands;
 - write inference content to stdout and diagnostics through `tracing` with `Label` styling;
-- accept explicit working-directory, agent, model, timeout, and non-mutating permission options without copying OpenCode credentials into ACORN arguments;
+- accept explicit working-directory, agent, model, timeout, OpenAI endpoint mode/base URL, and non-mutating permission options without copying provider credentials into ACORN arguments;
 - produce a useful error when OpenCode is absent or lacks a required negotiated capability;
-- render fix suggestions separately from checks, support a structured JSON `FixReport`, and never apply a suggestion unless a later explicitly authorized apply workflow is added;
+- extend `check --suggest-fixes` with backend/agent/model selection, batch/context limits, minimum confidence, and console or JSON fix output; render suggestions separately from checks and never apply them;
 - regenerate command help after the CLI contract is finalized.
 
 # Plan conflicts
@@ -861,6 +877,7 @@ Exit gate: the same hydrated prompt runs against deterministic fake `/responses`
 
 - Add `FindingReference`, `CheckReference`, `Fix`, serializable `FixAction`, `FixStatus`, `FixAutomation`, `FixRisk`, `FixEffects`, `FixProvenance`, `FixOptions`, and grouped `FixReport` proposal types. Defer `ExecutableFix`, planning, execution, rollback, and outcome types to step 6.
 - Add pure conversion from `AnalysisReport` to bounded serializable check references without exposing private renderer payloads or changing existing check constructors.
+- Sort references by standard, category, and source order before assigning request-local IDs. Enforce defaults of 32 findings per batch, 4 KiB per excerpt, and 128 KiB total context, then fingerprint the canonical source identity and exact original excerpt with SHA-256.
 - Add `IntoFixes` only for analyzers that already expose deterministic replacement data, plus report flattening and category/status summaries.
 - Add the `suggest-fixes.prompt` asset and generate or maintain its versioned JSON output schema from the proposal-only fix envelope.
 - Add local validation for finding IDs, targets, SHA-256 source fingerprints, finite confidence bounds, allowed action variants, and invented or duplicate targets.
@@ -869,7 +886,7 @@ Exit gate: the same hydrated prompt runs against deterministic fake `/responses`
 - Preserve deterministic analyzer corrections first and avoid sending already-resolved or unsupported check categories unless requested.
 - Limit transmitted content to normalized checks and required excerpts; never send whole repositories or unrelated files by default.
 - Treat partial backend failures as explicit rejected/unsupported fix records or batch diagnostics without changing the original checks.
-- Publish suggestion-only behavior through `acorn.fixes.suggest`; do not register deterministic or generated fix application as a remotely callable operation in this phase.
+- Publish suggestion-only behavior through `acorn.fixes.suggest` and finish the separately authorized `acorn.inference.readiness` registration. Do not register deterministic or generated fix application as a remotely callable operation in this phase.
 
 Exit gate: the same analysis fixture produces structurally equivalent validated fixes through fake ACP and fake OpenAI-compatible backends; unknown findings, stale fingerprints, out-of-scope paths, malformed actions, and invented targets are rejected; no proposal type can deserialize an executable command.
 
@@ -878,28 +895,28 @@ Exit gate: the same analysis fixture produces structurally equivalent validated 
 - Add the provider, planner, executor, verifier, policy, recipe-registry, preview, and outcome boundaries.
 - Add `DoctorReference`, structured `DoctorReport` findings, `ExecutableFix`, `FixPlan`, `FixOutcome`, and execution records now that the proposal contract is stable; retain existing doctor table and JSON outputs as views.
 - Adapt RAD formatting/context augmentation, supported Vale replacement actions, Vale download, and Chromium installation as the first trusted providers rather than duplicating their implementations.
-- Add structured doctor findings and curated installation recipes for supported platform/package-manager combinations. Model output may select or explain a registered recipe but may not create or alter its executable/arguments.
+- Add structured doctor findings, the fixed WinGet `OpenJS.NodeJS.LTS` recipe for Windows, and the fixed Homebrew `node` recipe for macOS. Reuse existing Vale and Chromium installers. All other software/platform combinations remain manual. Model output may select or explain a registered recipe but may not create or alter its executable/arguments.
 - Coalesce dependent software findings so one Node.js installation can satisfy Node, npm, and npx; reject conflicting plans.
-- Define CLI policy: non-interactive `doctor --fix` may apply only safe, reversible fixes; package installation and other network/elevation/non-reversible actions require explicit interactive selection and confirmation.
+- Define CLI policy: `doctor --fix` previews and may apply only safe reversible fixes; `doctor --fix --interactive` selects and confirms registered installation recipes in the TUI; `doctor --interactive` remains report-only.
 - Recheck fingerprints and preconditions immediately before execution, then rerun the source diagnostic/check and record the verified outcome.
 
-Exit gate: deterministic fixtures can preview, apply, verify, and where supported roll back document fixes; fake package-manager tests prove that Node/Vale installation recipes are selected, approved, invoked as fixed argument vectors, and verified without changing the test host.
+Exit gate: deterministic fixtures can preview, apply, verify, and where supported roll back document fixes; fake WinGet, Homebrew, Vale, and Chromium tests prove that recipes are selected, approved, invoked as fixed argument vectors, and verified without changing the test host.
 
 ## 7. Validate real interoperability
 
-- Add an opt-in smoke test that launches a real `opencode acp` process only when explicitly enabled.
+- Add an ignored smoke test that launches a real `opencode acp` process only when `ACORN_TEST_OPENCODE_ACP=1` is set.
 - Verify negotiated capabilities before asserting optional model, mode, or metadata behavior.
 - Test against a local/sandbox model configuration where practical so CI does not send repository data to an external provider.
-- Add a separately gated OpenAI-compatible smoke test that targets an explicitly configured endpoint and model; never run it from ordinary CI or infer credentials from test fixtures.
+- Add a separately ignored OpenAI-compatible smoke test that requires `ACORN_TEST_OPENAI_COMPATIBLE=1`, `ACORN_TEST_OPENAI_BASE_URL`, and `ACORN_TEST_OPENAI_MODEL`; read any bearer credential only from `OPENAI_API_KEY`. Never run it from ordinary CI or infer credentials from test fixtures.
 
 Exit gate: a hydrated prompt and one check-fix request produce non-empty, schema-valid results through OpenCode and through the configured OpenAI-compatible endpoint; the ACP process is reaped and neither route mutates source files.
 
 ## 8. Expose the CLI and reusable task hooks
 
-- Add the chosen prompt-run command, data loading, dry-run behavior, streaming/output formatting, and CLI tests.
+- Add `acorn prompt run <asset>` with `--data <PATH|->`, stdin fallback, repeated `--set KEY=VALUE`, `--backend acp|openai` defaulting to ACP, `--prompt-data-format zon|json`, agent/model/timeout/working-directory controls, explicit OpenAI endpoint mode/base URL, `--dry-run`, and JSON result output. Preserve `acorn infer` unchanged.
 - Wire the shared installation preflight into `acorn doctor` with capability-scoped pass, warning, and failure messaging.
-- Add explicit fix-suggestion CLI wiring after normal analysis, including backend/model/agent selection, structured output, batching controls, and suggestion-only messaging.
-- Complete `doctor --fix` and interactive selection over the shared fix planner, clearly separating safe automatic actions from confirmation-required installation recipes.
+- Add `check --suggest-fixes` after normal analysis, including backend/model/agent selection, the fixed batch/context ceilings, minimum confidence, console/JSON output, and suggestion-only messaging.
+- Complete the three doctor modes over the shared `DoctorReport` and planner: report-only interactive TUI, safe non-interactive fix, and interactive selection/confirmation.
 - Expose event and permission hooks from the library for later tasks such as structured extraction, gap analysis, teaching, translation, or explicitly authorized repository work.
 - Document the adapter checklist for a subsequent agent: verified ACP executable or bridge command, version probe, authentication/config ownership, capability differences, permission behavior, and an opt-in interoperability smoke test.
 - Keep application of inference-generated fixes, arbitrary commands, multi-turn sessions, resume/fork, attachments, MCP-over-ACP, and automatic tool approval out of the first release unless separately accepted.
@@ -909,7 +926,7 @@ Exit gate: a user can preview and run an embedded prompt, request structured fix
 
 # Validation
 
-The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapter are validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; the fake ACP agent proves installation and protocol readiness, streaming, structured output capture, model selection, permission denial, timeout, and child-exit behavior; and deterministic fake HTTP routes cover both OpenAI endpoint modes, endpoint-specific structured-output shapes, local JSON Schema validation, capability fallback, authentication, transport security, refusals, provider errors, malformed responses, timeouts, and offline policy. `make lint`, `make test` (1,851 passed and 14 skipped), `make check-wasm`, the 10-test ACP-only suite, and the 10-test OpenAI adapter suite pass. Minimal, alloc, ACP-only, agentic-only, combined agentic/ACP, analysis-only, and default feature checks pass; the no-default dependency graph selects neither the ACP SDK nor `jsonschema`. The pinned ACP packages are Apache-2.0 licensed and add only the SDK-required `syn` 3 major-version duplicate; repository-wide dependency auditing remains red on pre-existing unused declarations, advisories, yanked crates, and license-policy findings unrelated to ACP. `make doc` also remains red on pre-existing broken links in `acorn-schema`; the new OpenAI public surface passes the workspace missing-docs lint. Real OpenCode interoperability, fix-domain, executor, and CLI validations below remain open.
+The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapter are validated: all embedded assets hydrate through representative and failure-path tests; the in-memory backend produces the same typed result through direct and explicitly authorized registry invocation; the fake ACP agent proves installation and protocol readiness, streaming, structured output capture, model selection, permission denial, timeout, and child-exit behavior; and deterministic fake HTTP routes cover both OpenAI endpoint modes, endpoint-specific structured-output shapes, local JSON Schema validation, capability fallback, authentication, transport security, refusals, provider errors, malformed responses, timeouts, and offline policy. The recorded full foundation run includes `make lint`, `make test` (1,851 passed and 14 skipped), and `make check-wasm`. The current dirty-worktree baseline also passes 39 focused `acorn-schema` agent tests, 17 focused `acorn-lib` agent tests, 11 ACP tests, and 11 OpenAI adapter tests. Minimal, alloc, ACP-only, agentic-only, combined agentic/ACP, analysis-only, and default feature checks pass; the no-default dependency graph selects neither the ACP SDK nor `jsonschema`. The pinned ACP packages are Apache-2.0 licensed and add only the SDK-required `syn` 3 major-version duplicate; repository-wide dependency auditing remains red on pre-existing unused declarations, advisories, yanked crates, and license-policy findings unrelated to ACP. `make doc` also remains red on pre-existing broken links in `acorn-schema`; the new OpenAI public surface passes the workspace missing-docs lint. Real OpenCode interoperability, fix-domain, executor, and CLI validations below remain open.
 
 1. Add snapshot or exact-value tests for all embedded prompts with representative configuration and data, plus missing-value, unknown-asset, invalid-frontmatter, collision, and unresolved-template failures.
 2. Add fix-domain tests for check/doctor correlation, grouping, serialization/schema round trips, confidence validation, source fingerprints, stale inputs, unsupported findings, duplicate actions, effect declarations, dependency/conflict planning, path confinement, and transport-free deterministic behavior. Prove inference JSON cannot deserialize into an executable command specification.
@@ -918,7 +935,7 @@ The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapt
 5. Run the same inference and suggestion fixtures through the direct service, operation registry, JSON-RPC HTTP adapter, optional gRPC adapter, and ACP adapter; assert equivalent typed results while preserving transport-specific identifiers, streaming, cancellation, and errors.
 6. Add installation-preflight tests for an absent command, invalid explicit path, non-executable file where supported, failing version arguments, and a fake executable with a valid version response. Verify the same generic preflight works with at least two fake agent descriptors so the implementation is not accidentally coupled to the `opencode` binary name.
 7. Add HTTP tests for Responses and Chat Completions modes, custom base URLs, missing authentication, structured-output capability, JSON fallback validation, refusals, usage, rate/provider errors, timeouts, and offline rejection of remote endpoints.
-8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake package managers and isolated `PATH` values; never install software on the test host.
+8. Add executor tests for atomic document edits and rollback, fixed command/argument invocation, offline/network policy, approval/elevation gates, timeouts, non-zero exits, redaction, and mandatory post-fix verification. Use fake WinGet, Homebrew, Vale, and Chromium runners with isolated `PATH` values; never install software on the test host.
 9. Add CLI parsing, command, doctor, and TUI tests for file input, stdin, dry-run without OpenCode installed, missing OpenCode during ACP inference, unavailable API endpoints, capability-scoped doctor output, fix JSON output, safe-only non-interactive fixes, interactive install selection, declined approval, shared doctor export data, invalid data, timeout, model/agent selection, and clean stdout.
 10. Run focused tests for `acorn_schema::agent`, `agent`, `fix`, `analyzer`, `doctor`, `io::acp`, and `io::api::openai`, then `make lint` and `make test`.
 11. Run `cargo check -p acorn-lib --no-default-features`, the existing alloc and WASM checks, `cargo check -p acorn-lib --no-default-features --features acp`, and independent `agentic`/`acp`/combined feature checks. Inspect feature trees to prove the default library and portable builds do not select the ACP SDK or Tokio process support. Confirm the OpenAI-compatible client and host fix executors stay behind native capability boundaries.
@@ -930,6 +947,7 @@ The prompt/inference foundation, fake ACP transport, and OpenAI-compatible adapt
 The foundation now satisfies strict prompt hydration, legacy render compatibility, transport-neutral request/result serialization, deterministic no-I/O inference, explicit registry authorization, a fake-agent-covered ACP/OpenCode process adapter, and an explicit-mode OpenAI-compatible adapter covered through both HTTP endpoint shapes. The plan remains active until the fix domain, executors, real interoperability, and CLI criteria below are satisfied.
 
 - `AnalysisReport` and structured `DoctorReport` findings can be transformed into a grouped `FixReport` whose proposals retain their originating finding and target provenance.
+- Suggestion requests enforce the 32-finding, 4 KiB-per-excerpt, and 128 KiB-total defaults, use deterministic request-local IDs, and reject oversized remote requests rather than truncating them.
 - Each model-generated fix references a supplied finding, includes a source fingerprint and expected original value where applicable, and passes local schema and semantic validation before it is exposed.
 - Inference-generated fixes remain suggestions: they cannot grant mutating permissions, create executable commands, edit files, or mark findings resolved.
 - Registered deterministic fixes can be previewed, policy-checked, explicitly applied, and verified through a shared planner/executor lifecycle.
@@ -937,6 +955,7 @@ The foundation now satisfies strict prompt hydration, legacy render compatibilit
 - Doctor can represent missing Node.js, npm/npx, Git, Pandoc, Vale, OpenCode, and similar software as structured findings, then offer only curated platform/package-manager recipes or manual instructions.
 - CLI and TUI doctor views and exports consume the same structured `DoctorReport`; interactive selection submits plans through the same policy and executor path as `doctor --fix`.
 - A single Node.js remediation can satisfy dependent npm/npx findings without duplicate installations.
+- Windows Node remediation resolves only the compiled `OpenJS.NodeJS.LTS` WinGet recipe, macOS resolves only the compiled Homebrew `node` recipe, and all other package-manager cases remain manual.
 - Model output cannot introduce package names, repositories, executables, or arguments into an executable action; host remediation resolves through trusted registered recipes.
 - Executors accept only `ExecutableFix` plans produced by trusted providers or recipe resolution, never a deserialized inference `FixAction` directly.
 - Every executed fix rechecks preconditions and reruns its originating check/diagnostic. Execution without successful verification is not reported as resolved.
@@ -961,10 +980,16 @@ The foundation now satisfies strict prompt hydration, legacy render compatibilit
 - Inference denies mutating permission requests by default and never logs prompt data, credentials, or full environment values.
 - Timeout, cancellation, protocol failure, and child exit always close and reap the OpenCode process.
 - Tests do not require network access, OpenCode installation, or provider credentials; separately gated real-OpenCode and configured-API smoke tests cover interoperability.
+- Real smoke tests run only through `ACORN_TEST_OPENCODE_ACP=1` or `ACORN_TEST_OPENAI_COMPATIBLE=1` with explicit endpoint/model configuration.
 - Existing prompt rendering and OpenCode configuration synchronization remain compatible.
 - Minimal, alloc, and WASM builds do not resolve ACP or subprocess dependencies.
 - Host fix executors remain outside portable schema/analysis builds, and tests never install packages or modify the real host environment.
-- The CLI supports prompt preview, one-shot inference, structured fix suggestions, and policy-governed doctor auto-fix with stable output and documented diagnostics.
+- `acorn prompt run` supports prompt preview and one-shot inference without changing the existing `acorn infer` workflow; `check --suggest-fixes` returns suggestion-only console or JSON reports.
+- `doctor --fix`, `doctor --fix --interactive`, and `doctor --interactive` follow the fixed safe-auto, interactive-fix, and report-only policies defined above.
+
+# Completion handling
+
+Keep the plan, its index entry, dependency edge, evidence, and acceptance criteria synchronized while phases 5-8 remain active. After every acceptance criterion passes, delete this completed plan and remove its entries from the feature index, plan network, and parallel-execution guide. Durable behavior then belongs in code, tests, user documentation, and release history.
 
 # Next plan
 
@@ -975,7 +1000,7 @@ After this plan's acceptance criteria pass, continue with the [MCP client](mcp-c
 - Whether a later release should add `fix suggest` as an alias or broader fix-lifecycle command. The first release uses `check --suggest-fixes` so analysis and suggestion share one `AnalysisReport` without duplicating check input options or rerunning analysis.
 - Whether non-fix prompt outputs should opt into schema validation. Fix envelopes always require it.
 - Which document action subset should be accepted from inference-generated suggestions. Deterministic providers may execute registered format-aware transforms, but generated text/structured edits remain review-only initially.
-- Which package managers and installation recipes are supported on each OS/architecture. Unsupported combinations return manual instructions rather than guessed commands.
+- Whether a later release should add Linux or other package-manager recipes. This release is fixed to WinGet and Homebrew Node recipes plus the existing Vale and Chromium installers; unsupported combinations return manual instructions.
 - Whether fixes should receive durable identifiers across separate runs. The first suggestion workflow needs request-local correlation plus source fingerprints, not a new persistent check identity system.
 - Whether long-lived, resumed, or forked ACP sessions belong in the CLI, TUI, or a later service API.
 - Which Codex, Goose, and Pi executables provide ACP directly versus requiring maintained bridge processes, and the exact invocation/version probes for each. Verify these against their current primary documentation before adding an adapter.
