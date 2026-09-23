@@ -9,6 +9,7 @@
 
 ## Planned
 
+- [Azure Cosmos DB bucket downloads](azure-cosmos-buckets.md) - Treat a Cosmos DB for NoSQL container or logical partition as a read-only bucket source through the existing transfer pipeline.
 - [Deterministic gather scraping](deterministic-gather-scraping.md) - Extend gather with bounded HTTP fetching and typed CSS extraction without scripting or inference.
 - [Structured extraction inference](structured-extraction-inference.md) - Add typed, provenance-preserving inference fallback for incomplete deterministic gather extraction.
 - [ACP inference and verified fixes](opencode-acp-inference.md) - Finish bounded fix suggestions, trusted deterministic remediation, opt-in interoperability, and CLI/doctor/TUI integration on the implemented ACP and OpenAI inference foundation.
