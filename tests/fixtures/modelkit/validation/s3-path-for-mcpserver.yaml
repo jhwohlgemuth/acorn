@@ -1,5 +1,5 @@
 kitfile: |
-  manifestVersion: 1.0.0
+  manifestVersion: v1.0.0
   mcpServers:
     - name: filesystem
       path: s3://test-s3/key

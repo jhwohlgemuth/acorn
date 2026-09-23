@@ -1,5 +1,5 @@
 kitfile: |
-  manifestVersion: 1.0.0
+  manifestVersion: v1.0.0
   model:
     path: test-path
   code:

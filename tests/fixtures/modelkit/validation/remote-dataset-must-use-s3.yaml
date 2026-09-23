@@ -1,5 +1,5 @@
 kitfile: |
-  manifestVersion: 1.0.0
+  manifestVersion: v1.0.0
   datasets:
     - path: some/local/path
       remotePath: mybucket.s3.us-east-2.amazonaws.com

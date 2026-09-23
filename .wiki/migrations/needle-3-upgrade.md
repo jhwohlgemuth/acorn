@@ -1,7 +1,7 @@
 ---
 type: Plan
 title: "Needle 2 to Needle 3 upgrade"
-description: "Land the shared ModelKit v2 asset contract, then migrate the managed Needle sidecar to pinned Needle 3 engine and weight assets."
+description: "Use the landed, Kitfile-versioned ModelKit asset contract to migrate the managed Needle sidecar to pinned Needle 3 engine and weight assets."
 difficulty: high
 impact: high
 package: [workspace, acorn-lib, acorn-cli]
@@ -14,7 +14,7 @@ priority: next
 
 Make Needle 3 the supported default for ACORN's local tool-calling sidecar after compatibility and quality gates pass. Preserve policy-controlled tool dispatch and offline deployment, and establish explicit handling of older custom bundles. This is an engine, artifact, and protocol migration, not only a repository-name update.
 
-Begin with a small, independently reviewable ModelKit v2 slice. It supplies the runner-plus-assets contract needed by both Needle 3 and the first [SLM sidecars](../features/slm-sidecars.md), while the full engine migration remains behind its own quality gates.
+The small, independently reviewable ModelKit asset slice has landed. It supplies the runner-plus-assets contract needed by both Needle 3 and the first [SLM sidecars](../features/slm-sidecars.md), while the full engine migration remains behind its own quality gates.
 
 # Current evidence
 
@@ -24,9 +24,10 @@ Evidence checked on 2026-09-22; record immutable upstream revisions during imple
 - `io/sidecar/needle/assets.rs` pins executable checksums/sizes for Windows x86_64/ARM64, Linux x86_64/ARM64, and macOS ARM64. Its default download contains one runner per platform.
 - `io/sidecar/needle/process.rs` launches the runner with tools, tool index, serve, and port arguments; it does not pass a separate model path. Inspect shared command environment behavior before concluding how telemetry is currently controlled.
 - `io/api/needle.rs` sends an `input` request to `/complete`. `io/sidecar/needle/mod.rs` consumes function calls, checks confidence, dispatches through `ToolRegistry` with the offline context, and feeds serialized tool results into subsequent rounds.
-- `io/sidecar/mod.rs` currently accepts schema-version-1 sidecar manifests containing runner metadata and optional tools. `scripts/needle/create-oci-artifact.{sh,ps1}` and `docs/src/inference/needle.md` package this layout.
-- `ModelKitManifest::resolve` validates a safe runner path and SHA-256 but has no runner byte size, sidecar protocol identity, or named model assets. `ResolvedAssets` contains only `runner`, optional `tools`, and `root`; remote download assembly special-cases those two paths.
-- The current focused baseline is green: the four Needle sidecar tests and the CLI custom-location parser test passed on 2026-09-22 before this plan update.
+- `io/sidecar/mod.rs` now accepts one strict ModelKit sidecar manifest whose `manifestVersion` equals the pinned `acorn_schema::modelkit::kitfile::MANIFEST_VERSION` (`v1.0.0`), matching the official Kitfile spelling. This semantic version is independent of the OCI image manifest's required numeric `schemaVersion: 2`.
+- `ModelKitManifest::resolve` validates sidecar identity, protocol version, safe runner and asset paths, byte sizes, SHA-256 digests, unique names and paths, and symlink containment before making the runner executable. `ResolvedAssets` exposes every supporting file by deterministic asset name while retaining the runner, optional named tools asset, and materialization root.
+- Needle local, OCI, and remote custom locations share this validation contract. Remote download planning is runner-first and then asset-name ordered, validates metadata before transfer, and always enables checksum verification.
+- `scripts/needle/create-oci-artifact.{sh,ps1}` and `docs/src/inference/needle.md` emit and document the same contract. The focused 13-test sidecar suite, CLI custom-location parser test, formatting, lint, shell packaging checks, and full 1,885-test workspace suite passed on 2026-09-22.
 - [Needle 3's model card](https://huggingface.co/Cactus-Compute/needle3) describes a separate engine and `.cact` weights, schema-constrained tool calls, extraction, embeddings, and deployable depth variants. These capabilities require contract tests against the selected revision.
 
 # Reasons to upgrade
@@ -40,9 +41,9 @@ The model card advertises 8–29 MB deployment variants; actual selected artifac
 
 Grammar-constrained output and confidence already exist in ACORN's Needle 2 integration; do not present them as newly introduced benefits. The [upstream README](https://github.com/cactus-compute/needle) documents telemetry enabled by default and the opt-out environment variables `NEEDLE_TELEMETRY=0` and `DO_NOT_TRACK=1`. Set and verify these for the managed process. Apache-2.0 is the published Needle 3 model license; retain the pinned artifact's license and notices.
 
-# Immediate implementation slice: ModelKit v2
+# Landed shared ModelKit asset contract
 
-Update `crates/acorn-lib/src/io/sidecar/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, and their existing tests before changing a runner or default model. Preserve explicit schema-v1 deserialization and resolution, and add schema v2 with:
+`crates/acorn-lib/src/io/sidecar/mod.rs`, `crates/acorn-lib/src/io/sidecar/needle/assets.rs`, and their tests now define one strict manifest shape at the repository's pinned Kitfile semantic version with:
 
 - a required sidecar kind/protocol descriptor so a bundle cannot be started by the wrong adapter;
 - runner path, byte size, and SHA-256;
@@ -52,13 +53,13 @@ Update `crates/acorn-lib/src/io/sidecar/mod.rs`, `crates/acorn-lib/src/io/sideca
 
 The resolver rejects empty or duplicate names, absolute or escaping paths, missing files, size mismatches, and digest mismatches before making the runner executable. Remote download planning validates the same metadata before transfer and downloads every declared asset. Keep the shape narrowly sufficient for two known consumers: Needle 3 declares its model weights as a named asset, while SLM bundles declare their capability-specific model/runtime files. Do not add a provider registry, dynamic task dispatch, or generalized model graph.
 
-Focused tests must cover v1 compatibility, v2 round-trip, runner size, multiple named assets, duplicate names, unsafe paths, missing files, bad sizes, bad digests, platform mismatch, sidecar mismatch, and remote download-item construction. The slice exits when those tests, the existing Needle sidecar tests, formatting, lint, and `make test` pass. SLM runner packaging may begin after this contract lands; it does not wait for the rest of Needle 3.
+Focused tests cover semantic-version and legacy-shape rejection, round-trip serialization, runner size, multiple named assets, duplicate names and paths, unsafe paths, symlink escape, missing files, bad sizes, bad digests, platform mismatch, sidecar mismatch, and deterministic remote download-item construction. SLM runner packaging may now begin; it does not wait for the rest of Needle 3.
 
 # Remaining Needle 3 code boundaries
 
-- **Update after ModelKit v2:** `io/sidecar/needle/{assets,mod,process}.rs` and tests; `io/api/needle.rs` and `io/api/tests/needle.rs`; `util/constants/{app,oci}.rs` as needed; CLI download/infer/export consumers and CLI definitions where their contracts change; `scripts/needle/create-oci-artifact.{sh,ps1}`; `docs/src/inference/needle.md`; generated help if changed.
+- **Update for the Needle 3 engine:** `io/sidecar/needle/{assets,mod,process}.rs` and tests; `io/api/needle.rs` and `io/api/tests/needle.rs`; `util/constants/{app,oci}.rs` as needed; CLI download/infer/export consumers and CLI definitions where their contracts change; `scripts/needle/create-oci-artifact.{sh,ps1}`; `docs/src/inference/needle.md`; generated help if changed.
 - **Create:** Dedicated Needle 3 protocol/bundle fixtures under `tests/fixtures/needle/` and an explicit reproducible comparison harness under `scripts/needle/`.
-- **Delete:** None initially. Remove obsolete v2-only implementation only after migration behavior and rollback documentation are validated; do not delete user caches automatically.
+- **Delete:** None initially. Remove obsolete Needle-2-only implementation only after migration behavior and rollback documentation are validated; do not delete user caches automatically.
 
 Shared locks include `io/sidecar/mod.rs`, API/module roots if changed, CLI definitions/generated help, manifests, and OCI packaging contracts. Narrow each slice to exact files before implementation.
 
@@ -66,23 +67,23 @@ Shared locks include `io/sidecar/mod.rs`, API/module roots if changed, CLI defin
 
 - Lane: Agent tools and sidecars in the [parallel execution guide](../parallel-execution.md). Respect the existing RPC/ACP/MCP priority and shared integration locks.
 - Coordinate with [OCI interoperability](../features/oci-model-artifact-downloads.md): preserve its materialization boundary and distinguish explicit executable-sidecar `.cact` assets from its selected-GGUF inference policy.
-- Land the exact ModelKit v2 slice above before the packaging slice of [SLM sidecars](../features/slm-sidecars.md). SLM runner publication and the remaining Needle 3 engine migration may then proceed independently, subject to shared sidecar/manifest/CLI locks.
+- The shared ModelKit prerequisite above has landed. SLM runner publication and the remaining Needle 3 engine migration may proceed independently, subject to shared sidecar/manifest/CLI locks.
 - [Structured extraction inference](../features/structured-extraction-inference.md) owns any user-facing extraction adapter. Embedding/search features and fine-tuning are follow-on work, not prerequisites or migration acceptance requirements.
 
 # Recommendation and implementation slices
 
-1. Land the ModelKit v2 contract and compatibility tests above.
-2. Capture the Needle 2 baseline and pin a Needle 3 release/commit. Inventory real engines and weights, hashes, supported platforms, licenses, request/response examples, CLI flags, context limits, and failure codes. Verify all five currently supported host targets; do not infer artifact names from v2. Record download-size discrepancies rather than promising the headline range.
-3. Adopt ModelKit v2 for Needle's separate engine/weight assets. Namespace caches and retrieval indexes by engine/model revision, quantization/depth, protocol, and tool-catalog identity as applicable. Validate cached artifacts offline and stage downloads atomically.
+1. Use the landed ModelKit asset contract for all new Needle bundles; do not add a parallel ACORN manifest generation.
+2. Capture the Needle 2 baseline and pin a Needle 3 release/commit. Inventory real engines and weights, hashes, supported platforms, licenses, request/response examples, CLI flags, context limits, and failure codes. Verify all five currently supported host targets; do not infer artifact names from Needle 2. Record download-size discrepancies rather than promising the headline range.
+3. Package Needle's separate engine/weight assets through the named-asset contract. Namespace caches and retrieval indexes by engine/model revision, quantization/depth, protocol, and tool-catalog identity as applicable. Validate cached artifacts offline and stage downloads atomically.
 4. Update startup for the verified v3 flags and explicit model path. Enforce telemetry opt-out, private loopback, bounded startup/request times, cancellation, isolated session directories, and cleanup. Check process-tree behavior on Windows and Unix and prevent shared session files from colliding.
 5. Contract-test `/complete` and multi-round state against the pinned engine before adapting DTOs. Preserve response/refusal semantics, empty-call termination, sequential calls, tool-result handoff, output limits, and max rounds. Missing, non-finite, out-of-range, or insufficient confidence cannot authorize calls. Recalibrate the threshold from held-out data; do not assume the v2 value transfers. Schema correctness never bypasses tool permissions or argument validation.
-6. Update local/remote/OCI bundle scripts to include weights and required metadata. Read old manifest versions explicitly: preserve a v2 bundle only through a tested version-aware path, or reject it with an actionable migration diagnostic. Never interpret a v1 runner as v3 implicitly. Ship a documented conversion/repackaging path; reject mixed engine/weight generations. Keep a tested rollback procedure to the prior ACORN release and pinned v2 assets.
+6. Update local/remote/OCI bundles to include weights and required metadata. Reject unsupported or legacy manifest shapes with an actionable repackaging diagnostic; never infer a Needle generation from an unversioned runner. Reject mixed engine/weight generations and keep a tested rollback procedure to the prior ACORN release and pinned Needle 2 assets.
 7. Run side-by-side evaluations, then switch the default constants and docs only when exit gates pass. Preserve normal `infer`, download, and tool-export behavior wherever compatible. Explain any CLI or custom-bundle changes, regenerate help, and document the exact platform matrix and asset footprint.
 
 # Validation
 
 - Deterministic protocol fixtures cover valid calls, malformed arguments, unknown tools, off-topic/refused input, empty responses, multiple calls, missing/invalid confidence, oversized output, context overflow, tool errors, and round exhaustion.
-- Asset tests cover separate missing/corrupt engine and weights, incompatible revisions, old/new manifest versions, path traversal/symlink escape, unsupported platform, partial download recovery, offline cache hits/misses, and OCI/local parity.
+- Asset tests cover separate missing/corrupt engine and weights, incompatible revisions, unsupported/legacy manifest shapes, path traversal/symlink escape, unsupported platform, partial download recovery, offline cache hits/misses, and OCI/local parity.
 - Process tests verify flags/model path, telemetry environment, timeouts, cancellation, concurrent sessions, child cleanup, and no unexpected network during offline inference.
 - Compare both generations on the same held-out ACORN catalog/prompts: exact tool and argument match, unauthorized-call rejection, refusal quality, confidence/abstention behavior, multi-round completion, cold/warm latency, peak RAM, and total installed bytes. Define numeric regression tolerances before evaluating; require zero policy escapes and no unexplained correctness regressions. Keep measured results in durable inference documentation.
 - Run real-engine smoke tests on each claimed host target; mark untested targets explicitly instead of declaring parity. Ordinary unit tests remain offline and model-independent.
@@ -90,7 +91,7 @@ Shared locks include `io/sidecar/mod.rs`, API/module roots if changed, CLI defin
 
 # Acceptance criteria
 
-- [ ] ModelKit v2 validates sidecar identity, runner size/digest, and every named asset while schema-v1 bundles remain supported through an explicit compatibility path.
+- [x] The single Kitfile-versioned ModelKit manifest validates sidecar identity, runner size/digest, and every named asset; unsupported and legacy shapes fail closed.
 - [ ] Default Needle assets are an immutable, verified v3 engine/weight pair on every claimed platform.
 - [ ] Existing ACORN tool policy, confidence gating, result handoff, round limits, offline behavior, and process isolation pass regression tests.
 - [ ] Custom bundles carry all required assets, distinguish generations, and provide tested migration diagnostics and rollback instructions.

@@ -57,30 +57,45 @@ Create `needle-modelkit.json` with safe bundle-relative paths:
 
 ```json
 {
-  "schemaVersion": 1,
+  "manifestVersion": "v1.0.0",
   "sourceRevision": "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
   "platform": "linux-x86_64",
-  "runner": "needle",
-  "runnerSha256": "REPLACE_WITH_SHA256",
-  "tools": "tools.json"
+  "sidecar": {
+    "kind": "needle",
+    "protocolVersion": 1
+  },
+  "runner": {
+    "path": "needle",
+    "size": 14884256,
+    "sha256": "REPLACE_WITH_SHA256"
+  },
+  "assets": [
+    {
+      "name": "tools",
+      "path": "tools.json",
+      "size": 1234,
+      "sha256": "REPLACE_WITH_SHA256"
+    }
+  ],
+  "tools": "tools"
 }
 ```
 
-Use the exact platform value expected by the current host: `windows-x86_64`, `windows-arm64`, `linux-x86_64`, `linux-arm64`, or `macos-arm64`. The standalone runner already contains Needle's model; its published CLI does not accept separate tuned weights. ACORN validates the manifest, platform, runner checksum, exact tool catalog, and every relative path before starting the process.
+`manifestVersion` follows ACORN's pinned Kitfile manifest version; the outer OCI manifest retains the OCI-defined numeric `schemaVersion: 2`. Use the exact platform value expected by the current host: `windows-x86_64`, `windows-arm64`, `linux-x86_64`, `linux-arm64`, or `macos-arm64`. The standalone runner already contains Needle's model; its published CLI does not accept separate tuned weights. ACORN validates the manifest, sidecar protocol, platform, byte size, SHA-256 digest, exact tool catalog, and every relative path before starting the process.
 
 ```console
 acorn infer "Return the ACORN version" --custom-location ./needle-bundle
 ```
 
 The same directory can be supplied as a `file://` URI. An `https://` location may point to the
-manifest itself; ACORN downloads its safe relative runner and tools paths into the verified cache
-before starting Needle.
+manifest itself; ACORN downloads its safe relative runner and every declared asset into the verified
+cache before starting Needle.
 
 The session always regenerates its tool index from ACORN's current canonical catalog, so a stale bundled index cannot change the exposed tools.
 
 ## Publish an OCI-compatible ModelKit to Harbor
 
-The bundle can be published as an OCI artifact that preserves the same files. Install ACORN and [ORAS 1.3 or newer](https://oras.land/docs/installation/), authenticate to the private registry, and use the repository script for your shell. The scripts refuse to overwrite the output directory, export the exact active ACORN tool catalog, copy and hash the supplied runner, write `needle-modelkit.json`, push all three files, resolve the immutable manifest digest, and print the complete `--custom-location` value.
+The bundle can be published as an OCI artifact that preserves the same files. Install ACORN and [ORAS 1.3 or newer](https://oras.land/docs/installation/), authenticate to the private registry, and use the repository script for your shell. The scripts refuse to overwrite the output directory, export the exact active ACORN tool catalog, copy and hash the supplied runner and tools, write `needle-modelkit.json`, push all three files, resolve the immutable manifest digest, and print the complete `--custom-location` value.
 
 On Linux or macOS:
 
@@ -149,7 +164,7 @@ ACORN rejects tags for custom bundle pulls. It delegates authentication to ORAS-
 
 This layout is an ACORN Needle ModelKit carried by the OCI Distribution protocol; it is not a CNCF ModelPack and does not claim interchangeability with arbitrary KitOps manifests. If an organization also packages the directory with KitOps, retain `needle-modelkit.json` and the same root-relative file names, then verify that `oras pull` reconstructs that layout before relying on it.
 
-For production Harbor deployments, attach an SBOM and sign the digest with the organization's existing OCI signing policy. ACORN currently requires the digest and validates the runner checksum, but signature-policy enforcement remains a registry/deployment responsibility.
+For production Harbor deployments, attach an SBOM and sign the digest with the organization's existing OCI signing policy. ACORN currently requires the digest and validates every declared file size and checksum, but signature-policy enforcement remains a registry/deployment responsibility.
 
 For an air-gapped system, transfer the validated directory through the approved media process and use its local path with `--custom-location`; global `--offline` prevents registry or public download access.
 

@@ -28,7 +28,7 @@ fn test_document_adapter_round_trips_text_formats() {
 #[test]
 fn test_kitfile_adapter_round_trips_json_and_yaml() {
     let directory = tempdir().expect("temporary directory should be created");
-    let kitfile = Kitfile::parse("manifestVersion: 1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should parse");
+    let kitfile = Kitfile::parse("manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should parse");
     for extension in ["json", "yaml"] {
         let path = directory.path().join(format!("Kitfile.{extension}"));
         kitfile.write(&path).expect("Kitfile should write");

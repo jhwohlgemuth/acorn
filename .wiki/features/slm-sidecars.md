@@ -25,7 +25,7 @@ Use SLM as the vendor-neutral integration category, including classifiers and ex
 
 Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and immutable artifact revisions before publishing a release.
 
-- `crates/acorn-lib/src/io/sidecar/mod.rs` exposes a `Sized` lifecycle trait with an associated output and consuming string-input inference method. Its schema-version-1 ModelKit validates a runner and optional tools but does not inventory every required model asset or the runner byte size.
+- `crates/acorn-lib/src/io/sidecar/mod.rs` exposes a `Sized` lifecycle trait with an associated output and consuming string-input inference method. Its landed, Kitfile-versioned ModelKit manifest validates the runner and every named supporting asset, including paths, byte sizes, and SHA-256 digests.
 - `io/sidecar/needle/` already owns managed process startup and asset resolution. Reuse its lifecycle and download primitives without reusing its HTTP tool-execution protocol.
 - The official Desert Ant command-line target does not expose Tongue, Redact, or Title as runnable commands. ACORN therefore needs owned, thin SDK adapters rather than shelling out to an undocumented CLI contract.
 - [Desert Ant Core v3.3.0](https://github.com/Desert-Ant-Labs/desert-ant-core/tree/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750) is the integration baseline. Its source-available terms and every bundled or downloaded model license require explicit redistribution approval before release.
@@ -46,15 +46,15 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 
 # Exact implementation boundaries
 
-## Shared ModelKit v2 prerequisite
+## Landed shared ModelKit prerequisite
 
-The first implementation slice belongs to [Needle 3 migration](../migrations/needle-3-upgrade.md) and lands before SLM packaging. Extend the existing ModelKit contract without removing schema v1 support:
+The first implementation slice belonged to [Needle 3 migration](../migrations/needle-3-upgrade.md) and has landed before SLM packaging. It provides one strict manifest shape whose `manifestVersion` is the official `v1.0.0` Kitfile value:
 
-- add a sidecar kind/protocol descriptor;
-- require runner byte size as well as SHA-256;
-- add named supporting assets with safe relative path, byte size, and SHA-256;
-- resolve assets into a name-keyed collection while retaining the runner, optional tools, and materialization root;
-- reject duplicate names, absolute or escaping paths, missing assets, size mismatches, and digest mismatches.
+- a sidecar kind/protocol descriptor;
+- runner byte size as well as SHA-256;
+- named supporting assets with safe relative path, byte size, and SHA-256;
+- a name-keyed resolved collection alongside the runner, optional tools, and materialization root;
+- rejection of duplicate names, absolute or escaping paths, missing assets, size mismatches, and digest mismatches.
 
 This is a concrete two-consumer contract for Needle 3 and SLM assets, not a provider or runtime registry.
 
@@ -67,7 +67,7 @@ This is a concrete two-consumer contract for Needle 3 and SLM assets, not a prov
 
 ## Rust and CLI files
 
-- **Update:** `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, and `crates/acorn-lib/src/io/sidecar/mod.rs` to add an opt-in `slm` feature and wire the leaf module after ModelKit v2 lands.
+- **Update:** `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, and `crates/acorn-lib/src/io/sidecar/mod.rs` to add an opt-in `slm` feature and wire the leaf module against the landed ModelKit contract.
 - **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Keep capability-specific result types and validation explicit; do not introduce a registry or erase them behind `serde_json::Value`.
 - **Update:** the existing CLI inference/download command modules, CLI argument definitions, and dispatch roots to add the commands below. Regenerate `CommandLineHelp.md` once under the CLI integration lock.
 - **Create:** `tests/fixtures/slm/{language,redact,title}/` and `docs/src/inference/slm.md`; update `docs/src/SUMMARY.md`.
@@ -105,7 +105,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 
 # Implementation sequence and exit gates
 
-1. **Land ModelKit v2.** Add schema-v2 parsing, v1 compatibility, named-asset validation, and resolution tests. This is the only prerequisite shared with Needle 3.
+1. **Use the landed ModelKit contract.** Package every runner and supporting file through the single semantic-versioned manifest. This prerequisite is complete and is the only one shared with Needle 3.
 2. **Prove licensing and hosts.** Record approval for SDK/weight redistribution and provision the macOS ARM64 runner. Stop release work if either gate fails, while retaining local evaluation notes.
 3. **Build the runners.** Pin the SDK and model commits above, implement the one-request protocol, and add protocol-only fixture tests plus real-model smoke tests on every claimed platform.
 4. **Publish immutable artifacts.** Produce capability/platform artifacts, capture exact bytes/hashes/licenses, verify clean offline installation, then pin them in Rust.
@@ -130,14 +130,14 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 # Validation
 
 - Model-independent fixtures cover readiness and typed envelopes, malformed/oversized responses, request ID mismatch, Unicode and byte limits, timeouts, cancellation, concurrent sessions, startup failure, cleanup, stderr separation, and redacted diagnostics.
-- Asset tests cover v1/v2 manifests, duplicate or unsafe asset names, bad sizes/digests, partial downloads, unsupported targets, custom locations, offline cache hits/misses, and OCI/local parity.
+- Asset tests cover the supported semantic manifest version, unsupported and legacy shapes, duplicate or unsafe asset names, bad sizes/digests, partial downloads, unsupported targets, custom locations, offline cache hits/misses, and OCI/local parity.
 - Capability fixtures cover scientific abbreviations, ambiguous and mixed-language prose, expected contact PII, missed and false-positive redactions, UTF-8 span boundaries, malformed Title output, absent fields, subtitle limits, unsupported claims, and stale source fingerprints.
 - Measure cold/warm latency, total download, peak memory, and batch behavior on every claimed platform. Keep heavyweight real-model tests explicit and separate from ordinary offline unit tests.
 - Run formatting, lint, focused tests, `make test`, applicable feature/WASM checks, license/dependency checks, generated-help checks, and the GitLab Linux/macOS smoke jobs for implementation changes.
 
 # Acceptance criteria
 
-- [ ] ModelKit v2 validates the runner and every named asset while reading schema-v1 bundles through an explicit compatibility path.
+- [x] The single Kitfile-versioned ModelKit manifest validates the runner and every named asset; unsupported and legacy shapes fail closed.
 - [ ] Pinned, ACORN-owned Tongue, Redact, and Title runners implement the bounded one-request protocol and run offline on every advertised target.
 - [ ] Explicit library and CLI paths return typed results without using Needle's tool loop, mutating RAD records, or downloading during unrelated commands.
 - [ ] Legacy Needle inference parsing remains supported with a documented escape for reserved first tokens.

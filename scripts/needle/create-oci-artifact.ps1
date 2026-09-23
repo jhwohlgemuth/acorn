@@ -70,15 +70,35 @@ if ($registryReference.Contains('@')) {
 & $acornExecutable export --tools --output $BundleDirectory
 if ($LASTEXITCODE -ne 0) { throw "ACORN failed to export tools.json" }
 Copy-Item -LiteralPath $Runner -Destination (Join-Path $BundleDirectory $runnerName)
-$runnerSha256 = (Get-FileHash -LiteralPath (Join-Path $BundleDirectory $runnerName) -Algorithm SHA256).Hash.ToLowerInvariant()
+$runnerPath = Join-Path $BundleDirectory $runnerName
+$toolsPath = Join-Path $BundleDirectory "tools.json"
+$runnerSha256 = (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$runnerSize = (Get-Item -LiteralPath $runnerPath).Length
+$toolsSha256 = (Get-FileHash -LiteralPath $toolsPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$toolsSize = (Get-Item -LiteralPath $toolsPath).Length
 $manifest = [ordered]@{
-    schemaVersion = 1
+    manifestVersion = "v1.0.0"
     sourceRevision = $SourceRevision
     platform = $Platform
-    runner = $runnerName
-    runnerSha256 = $runnerSha256
-    tools = "tools.json"
-} | ConvertTo-Json
+    sidecar = [ordered]@{
+        kind = "needle"
+        protocolVersion = 1
+    }
+    runner = [ordered]@{
+        path = $runnerName
+        size = $runnerSize
+        sha256 = $runnerSha256
+    }
+    assets = @(
+        [ordered]@{
+            name = "tools"
+            path = "tools.json"
+            size = $toolsSize
+            sha256 = $toolsSha256
+        }
+    )
+    tools = "tools"
+} | ConvertTo-Json -Depth 4
 $manifestPath = Join-Path $BundleDirectory "needle-modelkit.json"
 [System.IO.File]::WriteAllText($manifestPath, $manifest, [System.Text.UTF8Encoding]::new($false))
 

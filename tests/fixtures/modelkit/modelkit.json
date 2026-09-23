@@ -1,5 +1,5 @@
 {
-  "manifestVersion": "1.0.0",
+  "manifestVersion": "v1.0.0",
   "package": {"name": "acorn-resolved-example", "version": "2.1.0", "description": "Complete resolved ModelKit fixture", "license": "MIT", "authors": ["Ada Lovelace", "Grace Hopper"]},
   "model": {
     "name": "acorn-model", "path": "model/acorn-q4.gguf", "license": "Apache-2.0", "framework": "llama.cpp", "format": "GGUF", "version": "2.0.0", "description": "Primary quantized model",

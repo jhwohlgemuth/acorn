@@ -933,7 +933,7 @@ fn test_oci_fake_oras_resolves_and_unpacks_modelkit_model_layer() {
     archive(source, Some(layer.clone()), MimeType::Gzip).unwrap();
     let layer_size = metadata(&layer).unwrap().len();
     let layer_digest = format!("sha256:{}", file_checksum(&layer, None).unwrap());
-    let config = r#"{"manifestVersion":"1.0.0","model":{"path":"model.gguf"}}"#;
+    let config = r#"{"manifestVersion":"v1.0.0","model":{"path":"model.gguf"}}"#;
     let config_size = config.len();
     let config_digest = format!(
         "sha256:{}",
@@ -1013,7 +1013,7 @@ fi
 #[cfg(unix)]
 #[test]
 fn test_oci_modelkit_rejects_model_free_package_at_command_policy_boundary() {
-    let config = modelkit::kitfile::Kitfile::from_resolved_json(br#"{"manifestVersion":"1.0.0","docs":[{"path":"README.md"}]}"#).unwrap();
+    let config = modelkit::kitfile::Kitfile::from_resolved_json(br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md"}]}"#).unwrap();
     let manifest = Manifest {
         schema_version: 2,
         media_type: OCI_IMAGE_MANIFEST.to_string(),
@@ -1039,7 +1039,7 @@ fn test_oci_modelkit_uses_public_schema_layer_identity_for_model_parts() {
     let mcp_digest = "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     let config = modelkit::kitfile::Kitfile::from_resolved_json(
         format!(
-            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{OCI_TEST_DIGEST}","parts":[{{"name":"projector","path":"mmproj-model.gguf","type":"projector","digest":"{part_digest}"}}]}},"mcpServers":[{{"name":"acorn","path":"acorn.mcpb","digest":"{mcp_digest}"}}]}}"#
+            r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{OCI_TEST_DIGEST}","parts":[{{"name":"projector","path":"mmproj-model.gguf","type":"projector","digest":"{part_digest}"}}]}},"mcpServers":[{{"name":"acorn","path":"acorn.mcpb","digest":"{mcp_digest}"}}]}}"#
         )
         .as_bytes(),
     )

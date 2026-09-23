@@ -34,7 +34,7 @@ fn test_create_mcp_upserts_kitfile_idempotently() {
     let kitfile = root.join("Kitfile.yaml");
     std::fs::create_dir_all(output.parent().expect("bundle parent")).expect("create bundle parent");
     write(&binary, b"test executable").expect("write executable");
-    write(&kitfile, "manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n").expect("write Kitfile");
+    write(&kitfile, "manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n").expect("write Kitfile");
     let arguments = arguments::CreateMcp {
         output: output.clone(),
         binary: Some(binary),

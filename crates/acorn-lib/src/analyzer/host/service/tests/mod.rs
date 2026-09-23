@@ -282,11 +282,11 @@ async fn test_flatten_checks_preserves_future_and_batch_order() {
 async fn test_kitfile_and_modelkit_use_schema_check_flow() {
     let directory = tempdir().unwrap();
     let cases = [
-        (Standard::Kitfile, "Kitfile", "manifestVersion: 1.0.0\npackage:\n  name: empty\n"),
+        (Standard::Kitfile, "Kitfile", "manifestVersion: v1.0.0\npackage:\n  name: empty\n"),
         (
             Standard::ModelKit,
             "modelkit.json",
-            r#"{"manifestVersion":"1.0.0","model":{"path":"model.gguf","digest":"invalid"}}"#,
+            r#"{"manifestVersion":"v1.0.0","model":{"path":"model.gguf","digest":"invalid"}}"#,
         ),
     ];
     for (standard, name, content) in cases {

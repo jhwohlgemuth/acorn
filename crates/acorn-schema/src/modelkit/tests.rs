@@ -51,16 +51,16 @@ fn upstream_validation_code(name: &str) -> Option<&'static str> {
 
 #[test]
 fn test_authoring_yaml_rejects_derived_and_unknown_fields() {
-    assert!(Kitfile::from_yaml(&format!("manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  digest: {DIGEST}\n")).is_err());
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  surprise: true\n").is_err());
-    assert!(Kitfile::from_resolved_json(br#"{"manifestVersion":"1.0.0","docs":[{"path":"README.md","extra":1}]}"#).is_err());
+    assert!(Kitfile::from_yaml(&format!("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  digest: {DIGEST}\n")).is_err());
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  surprise: true\n").is_err());
+    assert!(Kitfile::from_resolved_json(br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md","extra":1}]}"#).is_err());
 }
 #[test]
 fn test_codecs_reject_duplicate_keys_trailing_data_and_yaml_only_values() {
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\nmanifestVersion: 1.0.0\ndocs:\n  - path: README.md\n").is_err());
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\ndocs:\n  - path: README.md\n---\nmanifestVersion: 1.0.0\n").is_err());
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  parameters: !!binary SGVsbG8=\n").is_err());
-    assert!(Kitfile::from_resolved_json(br#"{"manifestVersion":"1.0.0","docs":[{"path":"README.md"}]} trailing"#).is_err());
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmanifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").is_err());
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n---\nmanifestVersion: v1.0.0\n").is_err());
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  parameters: !!binary SGVsbG8=\n").is_err());
+    assert!(Kitfile::from_resolved_json(br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md"}]} trailing"#).is_err());
 }
 #[test]
 fn test_complete_kitfile_and_modelkit_fixtures_validate() {
@@ -83,7 +83,7 @@ fn test_complete_kitfile_and_modelkit_fixtures_validate() {
 }
 #[test]
 fn test_full_authoring_kitfile_round_trips_without_layer_identity() {
-    let input = r#"manifestVersion: 1.0.0
+    let input = r#"manifestVersion: v1.0.0
 package:
   name: demo
   version: 2.0.0
@@ -142,7 +142,7 @@ mcpServers:
 fn test_layer_identity_is_validated_and_complete_independently() {
     let complete = Kitfile::from_resolved_json(
         format!(
-            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"docs":[{{"path":"README.md","digest":"{DIGEST}"}}]}}"#
+            r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"docs":[{{"path":"README.md","digest":"{DIGEST}"}}]}}"#
         )
         .as_bytes(),
     )
@@ -154,51 +154,51 @@ fn test_layer_identity_is_validated_and_complete_independently() {
             diff_ids: false
         }
     );
-    let incomplete = format!(r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"docs":[{{"path":"README.md"}}]}}"#);
+    let incomplete = format!(r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"docs":[{{"path":"README.md"}}]}}"#);
     assert!(Kitfile::from_resolved_json(incomplete.as_bytes()).is_err());
-    let malformed = br#"{"manifestVersion":"1.0.0","model":{"path":"model.gguf","digest":"bad"}}"#;
+    let malformed = br#"{"manifestVersion":"v1.0.0","model":{"path":"model.gguf","digest":"bad"}}"#;
     assert!(Kitfile::from_resolved_json(malformed).is_err());
 }
 #[test]
 fn test_mcp_identity_and_prompt_paths_cover_intentional_kitops_differences() {
     let mcp_identity = Kitfile::from_resolved_json(
         format!(
-            r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"mcpServers":[{{"name":"server","path":"server.mcpb"}}]}}"#
+            r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"mcpServers":[{{"name":"server","path":"server.mcpb"}}]}}"#
         )
         .as_bytes(),
     )
     .unwrap_err()
     .to_string();
     assert!(mcp_identity.contains("every local layer"));
-    let prompt_duplicate = Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: shared\nprompts:\n  - path: shared\n")
+    let prompt_duplicate = Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: shared\nprompts:\n  - path: shared\n")
         .unwrap_err()
         .to_string();
     assert!(prompt_duplicate.contains("use the same path shared"));
 }
 #[test]
 fn test_model_free_content_and_version_warning_are_supported() {
-    let kitfile = Kitfile::from_yaml("manifestVersion: 1.0\ndocs:\n  - path: README.md\n").unwrap();
+    let kitfile = Kitfile::from_yaml("manifestVersion: 1.0.0\ndocs:\n  - path: README.md\n").unwrap();
     assert!(kitfile.model.is_none());
-    assert_eq!(kitfile.warnings(), ["Unrecognized manifestVersion 1.0: treating Kitfile as 1.0.0"]);
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\npackage:\n  name: empty\n").is_err());
+    assert_eq!(kitfile.warnings(), ["Unrecognized manifestVersion 1.0.0: treating Kitfile as v1.0.0"]);
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\npackage:\n  name: empty\n").is_err());
 }
 #[test]
 fn test_model_metadata_and_remote_paths_use_field_validators() {
-    let invalid_version = Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  version: v1\n").unwrap_err();
+    let invalid_version = Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  version: v1\n").unwrap_err();
     assert!(invalid_version.to_string().contains("semantic version"));
-    let invalid_license = Kitfile::from_yaml("manifestVersion: 1.0.0\ncode:\n  - path: src\n    license: ' '\n").unwrap_err();
+    let invalid_license = Kitfile::from_yaml("manifestVersion: v1.0.0\ncode:\n  - path: src\n    license: ' '\n").unwrap_err();
     assert!(invalid_license.to_string().contains("SPDX license"));
     let invalid_remote =
-        Kitfile::from_yaml("manifestVersion: 1.0.0\ndatasets:\n  - path: data\n    remotePath: https://example.org/data\n").unwrap_err();
+        Kitfile::from_yaml("manifestVersion: v1.0.0\ndatasets:\n  - path: data\n    remotePath: https://example.org/data\n").unwrap_err();
     assert!(invalid_remote.to_string().contains("S3 URLs and ModelKit references"));
-    let custom_format = Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: model.bin\n  format: Custom\n").unwrap();
+    let custom_format = Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.bin\n  format: Custom\n").unwrap();
     assert_eq!(custom_format.model.unwrap().format, ModelFormat::Other("Custom".to_string()));
 }
 #[test]
 fn test_model_part_type_and_mcp_name_limits_match_kitops() {
     let long_kind = "a".repeat(65);
     let input = format!(
-        "manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  parts:\n    - path: part.gguf\n      type: {long_kind}\nmcpServers:\n  - path: first.zip\n  - name: same\n    path: one.mcpb\n  - name: same\n    path: two.mcpb\n"
+        "manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  parts:\n    - path: part.gguf\n      type: {long_kind}\nmcpServers:\n  - path: first.zip\n  - name: same\n    path: one.mcpb\n  - name: same\n    path: two.mcpb\n"
     );
     let error = Kitfile::from_yaml(&input).unwrap_err().to_string();
     assert!(error.contains("at most 64 bytes"));
@@ -209,7 +209,7 @@ fn test_model_part_type_and_mcp_name_limits_match_kitops() {
 #[test]
 fn test_parameters_use_json_values_and_deterministic_key_order() {
     let kitfile =
-        Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: model.gguf\n  parameters:\n    z: 0xFF\n    a: [true, null, 1.2e+3]\n").unwrap();
+        Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  parameters:\n    z: 0xFF\n    a: [true, null, 1.2e+3]\n").unwrap();
     let json = kitfile.to_resolved_json().unwrap();
     assert!(json.contains(r#""a":[true,null,1200.0]"#));
     assert!(json.contains(r#""z":255"#));
@@ -228,7 +228,7 @@ fn test_path_kinds_match_pinned_kitops_cases() {
 }
 #[test]
 fn test_path_remote_dataset_part_and_mcp_rules_are_aggregated() {
-    let input = r#"manifestVersion: 1.0.0
+    let input = r#"manifestVersion: v1.0.0
 model:
   path: /absolute/model.gguf
   parts:
@@ -264,12 +264,12 @@ mcpServers:
 }
 #[test]
 fn test_paths_are_cleaned_portably_for_duplicates_and_absolutes() {
-    let duplicate = Kitfile::from_yaml("manifestVersion: 1.0.0\ndocs:\n  - path: docs/../README.md\n  - path: README.md\n").unwrap_err();
+    let duplicate = Kitfile::from_yaml("manifestVersion: v1.0.0\ndocs:\n  - path: docs/../README.md\n  - path: README.md\n").unwrap_err();
     assert!(duplicate.to_string().contains("same path"));
-    let windows = Kitfile::from_yaml("manifestVersion: 1.0.0\ncode:\n  - path: 'C:\\\\models\\\\run.py'\n").unwrap_err();
+    let windows = Kitfile::from_yaml("manifestVersion: v1.0.0\ncode:\n  - path: 'C:\\\\models\\\\run.py'\n").unwrap_err();
     assert!(windows.to_string().contains("Absolute paths"));
     let sibling = Kitfile::from_yaml(
-        "manifestVersion: 1.0.0\ndatasets:\n  - path: data/base\n    remotePath: registry.example.org/org/data:latest\ncode:\n  - path: data/sibling\n",
+        "manifestVersion: v1.0.0\ndatasets:\n  - path: data/base\n    remotePath: registry.example.org/org/data:latest\ncode:\n  - path: data/sibling\n",
     );
     assert!(sibling.is_ok());
 }
@@ -335,18 +335,18 @@ fn test_remote_path_kinds_are_restricted_by_content_role() {
         "mcpServers:\n  - name: remote\n    path: registry.example.org/org/server:latest",
     ];
     invalid.into_iter().for_each(|body| {
-        assert!(Kitfile::from_yaml(&format!("manifestVersion: 1.0.0\n{body}\n")).is_err(), "{body}");
+        assert!(Kitfile::from_yaml(&format!("manifestVersion: v1.0.0\n{body}\n")).is_err(), "{body}");
     });
-    assert!(Kitfile::from_yaml("manifestVersion: 1.0.0\nmodel:\n  path: registry.example.org/org/model:latest\n").is_ok());
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: registry.example.org/org/model:latest\n").is_ok());
     let remote_dataset = Kitfile::from_yaml(
-        "manifestVersion: 1.0.0\ndatasets:\n  - path: data\n    remotePath: registry.example.org/org/data:latest\n    remoteHash: ignored\n",
+        "manifestVersion: v1.0.0\ndatasets:\n  - path: data\n    remotePath: registry.example.org/org/data:latest\n    remoteHash: ignored\n",
     )
     .unwrap();
     assert_eq!(remote_dataset.warnings().len(), 1);
 }
 #[test]
 fn test_resolved_json_preserves_identity_and_yaml_projection_removes_it() {
-    let input = format!(r#"{{"manifestVersion":"1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}","diffId":"{DIFF_ID}"}}}}"#);
+    let input = format!(r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}","diffId":"{DIFF_ID}"}}}}"#);
     let parsed = Kitfile::from_resolved_json(input.as_bytes()).unwrap();
     assert_eq!(parsed.model.as_ref().unwrap().layer.digest.as_deref(), Some(DIGEST));
     let json = parsed.to_resolved_json().unwrap();

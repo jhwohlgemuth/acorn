@@ -34,6 +34,15 @@ if ! command -v "${oras_bin}" >/dev/null 2>&1; then
     echo "ORAS executable is unavailable: ${oras_bin}" >&2
     exit 1
 fi
+if command -v sha256sum >/dev/null 2>&1; then
+    checksum() { sha256sum "$1" | awk '{print $1}'; }
+elif command -v shasum >/dev/null 2>&1; then
+    checksum() { shasum -a 256 "$1" | awk '{print $1}'; }
+else
+    echo "A SHA-256 utility (sha256sum or shasum) is required" >&2
+    exit 1
+fi
+file_size() { wc -c < "$1" | tr -d '[:space:]'; }
 if [ "${#source_revision}" -ne 40 ] || printf '%s' "${source_revision}" | grep -Eq '[^0-9a-fA-F]'; then
     echo "NEEDLE_SOURCE_REVISION must be a 40-character hexadecimal revision" >&2
     exit 1
@@ -73,23 +82,34 @@ esac
 
 "${acorn_bin}" export --tools --output "${bundle}"
 cp "${runner}" "${bundle}/${runner_name}"
-if command -v sha256sum >/dev/null 2>&1; then
-    runner_sha256="$(sha256sum "${bundle}/${runner_name}" | awk '{print $1}')"
-elif command -v shasum >/dev/null 2>&1; then
-    runner_sha256="$(shasum -a 256 "${bundle}/${runner_name}" | awk '{print $1}')"
-else
-    echo "A SHA-256 utility (sha256sum or shasum) is required" >&2
-    exit 1
-fi
+runner_sha256="$(checksum "${bundle}/${runner_name}")"
+runner_size="$(file_size "${bundle}/${runner_name}")"
+tools_sha256="$(checksum "${bundle}/tools.json")"
+tools_size="$(file_size "${bundle}/tools.json")"
 
 printf '%s\n' \
     '{' \
-    '  "schemaVersion": 1,' \
+    '  "manifestVersion": "v1.0.0",' \
     "  \"sourceRevision\": \"${source_revision}\"," \
     "  \"platform\": \"${platform}\"," \
-    "  \"runner\": \"${runner_name}\"," \
-    "  \"runnerSha256\": \"${runner_sha256}\"," \
-    '  "tools": "tools.json"' \
+    '  "sidecar": {' \
+    '    "kind": "needle",' \
+    '    "protocolVersion": 1' \
+    '  },' \
+    '  "runner": {' \
+    "    \"path\": \"${runner_name}\"," \
+    "    \"size\": ${runner_size}," \
+    "    \"sha256\": \"${runner_sha256}\"" \
+    '  },' \
+    '  "assets": [' \
+    '    {' \
+    '      "name": "tools",' \
+    '      "path": "tools.json",' \
+    "      \"size\": ${tools_size}," \
+    "      \"sha256\": \"${tools_sha256}\"" \
+    '    }' \
+    '  ],' \
+    '  "tools": "tools"' \
     '}' > "${bundle}/needle-modelkit.json"
 
 (

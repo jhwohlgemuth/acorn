@@ -837,9 +837,9 @@ fn test_source_text_formats_array_values_as_markdown_list() {
 }
 #[test]
 fn test_standard_detection_distinguishes_kitfile_and_modelkit() {
-    let kitfile = serde_json::json!({"manifestVersion": "1.0.0", "docs": [{"path": "README.md"}]});
+    let kitfile = serde_json::json!({"manifestVersion": "v1.0.0", "docs": [{"path": "README.md"}]});
     let modelkit = serde_json::json!({
-        "manifestVersion": "1.0.0",
+        "manifestVersion": "v1.0.0",
         "docs": [{"path": "README.md", "digest": "sha256:fixture"}]
     });
     assert_eq!(Standard::from(kitfile.as_object().unwrap()), Standard::Kitfile);

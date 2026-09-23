@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 /// Kitfile manifest version supported by the pinned KitOps contract.
-pub const MANIFEST_VERSION: &str = "1.0.0";
+pub const MANIFEST_VERSION: &str = "v1.0.0";
 /// Arbitrary metadata constrained to the JSON data model.
 pub type Parameters = Value;
 type PathState = (BTreeMap<String, Vec<String>>, BTreeSet<String>, Vec<(String, ValidationError)>);
