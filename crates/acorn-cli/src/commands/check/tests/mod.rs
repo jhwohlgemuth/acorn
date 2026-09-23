@@ -154,6 +154,42 @@ async fn test_check_invenio_standard() -> Result<()> {
     run_standard_check("schema/invenio-single.json", Standard::Invenio).await
 }
 #[tokio::test]
+async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<()> {
+    for fixture in ["modelkit/Kitfile", "modelkit/modelkit.json"] {
+        let path = Some(fixture_path(fixture));
+        let result = run(
+            &path,
+            &false,
+            &None,
+            &None,
+            &[],
+            &[],
+            SKIP_PROSE,
+            &true,
+            &false,
+            &false,
+            &false,
+            &false,
+            &false,
+            &false,
+            &false,
+            &Standard::default(),
+            &ReadabilityType::FKGL,
+            &Verbosity::new(0, 1),
+            OFFLINE,
+            None,
+            false,
+            SignedDuration::from_secs(1),
+            &None,
+            &None,
+            &None,
+        )
+        .await;
+        assert!(result.is_ok(), "Check should detect {fixture}: {result:?}");
+    }
+    Ok(())
+}
+#[tokio::test]
 async fn test_check_remote_project() -> Result<()> {
     let content = read(fixture_path("data/valid_project/index.json"))?;
     let (url, server) = spawn_source_server(content);

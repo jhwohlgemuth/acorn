@@ -10,7 +10,9 @@
 // returns Err during `try_parse_from` as a signal to display version info.
 use crate::cli::arguments::osti::DoeLab;
 use crate::cli::arguments::SyncTarget;
-use crate::cli::{resolve_paths, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands};
+use crate::cli::{
+    resolve_paths, resolve_paths_including, Arguments, CommandOptions, Commands, CreateCommands, DownloadCommands, ImportCommands, ServeCommands,
+};
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::filter_ignored_with_root;
 use acorn::util::constants::env::CHROME_PATH;
@@ -961,6 +963,22 @@ fn test_resolve_paths_discovers_zonf_files() {
     write(&zon, zon::encode(&ResearchActivity::default()).unwrap()).unwrap();
     let resolved = block_on(resolve_paths(&Some(root), &CommandOptions::init().build())).unwrap();
     assert!(resolved.contains(&zon));
+}
+#[test]
+fn test_resolve_paths_including_discovers_named_files() {
+    let root = temp_test_dir("resolve-named");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let json = root.join("activity.json");
+    let kitfile = root.join("Kitfile");
+    let text = root.join("notes.txt");
+    write(&json, "{}").unwrap();
+    write(&kitfile, "manifestVersion: v1.0.0\n").unwrap();
+    write(&text, "notes").unwrap();
+    let resolved = block_on(resolve_paths_including(&Some(root), &CommandOptions::init().build(), &["Kitfile"])).unwrap();
+    assert!(resolved.contains(&json));
+    assert!(resolved.contains(&kitfile));
+    assert!(!resolved.contains(&text));
 }
 #[test]
 fn test_rpc_server_arguments() {

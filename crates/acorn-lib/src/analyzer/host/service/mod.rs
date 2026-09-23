@@ -14,7 +14,7 @@ use crate::{
     check, check_err, check_ok,
     io::{
         document::{DocumentIndex, MarkdownParser, SourceDocument},
-        read_file, InputOutput,
+        read_file, FromPath, InputOutput,
     },
     util::StringConversion,
 };
@@ -235,6 +235,35 @@ impl Standard {
                 }
             }
             | true => ExecutionStatus::Executed,
+        }
+    }
+    fn from_path(path: &Path) -> Self {
+        let file_name = path.file_name().and_then(|value| value.to_str());
+        let mime = MimeType::from_path(path);
+        if file_name == Some("Kitfile") {
+            Self::Kitfile
+        } else if file_name.is_some_and(|value| value.eq_ignore_ascii_case("modelkit.json")) {
+            Self::ModelKit
+        } else {
+            match mime {
+                | MimeType::Cff => Self::CitationFileFormat,
+                | MimeType::Docx | MimeType::Pdf => Self::Document,
+                | MimeType::Json => read_file(path)
+                    .ok()
+                    .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
+                    .and_then(|value| value.as_object().map(Self::from))
+                    .filter(|standard| *standard == Self::ModelKit)
+                    .unwrap_or(Self::ResearchActivityData),
+                | MimeType::Markdown if read_file(path).is_ok_and(ResearchActivity::is_markdown) => Self::ResearchActivityData,
+                | MimeType::Text | MimeType::Markdown => Self::Text,
+                | MimeType::Yaml => read_file(path)
+                    .ok()
+                    .and_then(|content| serde_norway::from_str::<serde_json::Value>(&content).ok())
+                    .and_then(|value| value.as_object().map(Self::from))
+                    .filter(|standard| *standard == Self::Kitfile)
+                    .unwrap_or(Self::ResearchActivityData),
+                | _ => Self::ResearchActivityData,
+            }
         }
     }
     fn unsupported(self, categories: &[CheckCategory]) -> Vec<CategoryChecks> {
@@ -486,17 +515,11 @@ where
         .collect::<Vec<Check>>()
         .into()
 }
-/// Classify paths by explicit standard or by file type for the default RAD mode
+/// Classify paths by explicit standard or by file type and packaging metadata in the default RAD mode.
 pub fn classify_paths(paths: &[PathBuf], standard: Standard) -> Vec<StandardPaths> {
     paths.iter().cloned().fold(Vec::<StandardPaths>::new(), |mut groups, path| {
         let selected = if standard == Standard::ResearchActivityData {
-            match MimeType::from(path.display().to_string()) {
-                | MimeType::Cff => Standard::CitationFileFormat,
-                | MimeType::Docx | MimeType::Pdf => Standard::Document,
-                | MimeType::Markdown if read_file(&path).is_ok_and(ResearchActivity::is_markdown) => Standard::ResearchActivityData,
-                | MimeType::Text | MimeType::Markdown => Standard::Text,
-                | _ => Standard::ResearchActivityData,
-            }
+            Standard::from_path(&path)
         } else {
             standard
         };

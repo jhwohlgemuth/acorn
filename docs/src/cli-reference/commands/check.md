@@ -18,6 +18,10 @@ acorn check path/to/project/index.zonf
 # Check a Citation File Format file
 acorn check path/to/project/CITATION.cff
 
+# Check a KitOps authoring file or resolved ModelKit configuration
+acorn check path/to/model/Kitfile
+acorn check path/to/model/modelkit.json
+
 # Check prose, readability, and links extracted from a PDF
 acorn check path/to/report.pdf
 
@@ -57,6 +61,12 @@ cat activity.zonf | acorn check --format zon --standard rads
 The aliases `md`, `txt`, `yml`, and `zonf` are accepted. `--format` applies only to piped standard input and clipboard content and conflicts with filesystem, Git, filter, and merge-request selectors. ZON selects the input serialization only; check reports retain their existing output formats.
 
 An explicit filesystem selection or `--paste` takes precedence over piped standard input. Empty implicit standard input preserves the existing behavior of checking the current directory. Clipboard input must contain non-whitespace text, and clipboard or standard-input checks cannot be combined with `--watch`.
+
+## Checking Kitfiles and ModelKits
+
+ACORN recognizes files named `Kitfile` as KitOps authoring YAML and resolved ModelKit JSON by its layer identity fields. A file named `modelkit.json` is treated as a ModelKit even when malformed, so validation errors use the correct schema. Directory and Git-change discovery include `Kitfile` alongside supported JSON files.
+
+Kitfile and ModelKit checks validate their schema and modeled values. Use `--standard kitfile` or `--standard modelkit` when a file uses an unconventional name or its content is too malformed for automatic detection.
 
 ## Checking PDF documents
 

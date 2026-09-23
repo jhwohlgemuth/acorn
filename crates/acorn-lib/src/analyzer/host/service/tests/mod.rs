@@ -165,6 +165,37 @@ fn test_classify_paths_applies_explicit_standard_to_every_path() {
     );
 }
 #[test]
+fn test_classify_paths_detects_kitfile_and_modelkit() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let kitfile = directory.path().join("Kitfile");
+    let modelkit = directory.path().join("resolved.json");
+    let named_modelkit = directory.path().join("modelkit.json");
+    write(&kitfile, "manifestVersion: v1.0.0\npackage:\n  name: fixture\n").expect("Kitfile should be written");
+    write(
+        &modelkit,
+        r#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md","digest":"sha256:fixture","diffId":"sha256:fixture"}]}"#,
+    )
+    .expect("ModelKit should be written");
+    write(&named_modelkit, "{").expect("malformed named ModelKit should be written");
+    let groups = classify_paths(
+        &[kitfile.clone(), modelkit.clone(), named_modelkit.clone()],
+        Standard::ResearchActivityData,
+    );
+    assert_eq!(
+        groups,
+        vec![
+            StandardPaths {
+                standard: Standard::Kitfile,
+                paths: vec![kitfile],
+            },
+            StandardPaths {
+                standard: Standard::ModelKit,
+                paths: vec![modelkit, named_modelkit],
+            },
+        ]
+    );
+}
+#[test]
 fn test_classify_paths_preserves_mixed_path_order() {
     let groups = classify_paths(
         &[

@@ -1,5 +1,5 @@
 use crate::{
-    cli::{resolve_paths, CommandOptions, WatchOptions},
+    cli::{resolve_paths_including, CommandOptions, WatchOptions},
     commands::{
         preflight,
         watch::{self, Prepared},
@@ -106,12 +106,16 @@ impl PrepareLocation for Location {
                         .map_err(|why| eyre!("Materialize remote check source at {} — {why}", path.display()))
                 })
             }
-            | _ if scheme.is_file() => resolve_paths(&Some(self.uri_as_path()), options).await.and_then(|paths| {
-                Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
-            }),
-            | Location::Simple(value) if scheme.is_unsupported() => resolve_paths(&Some(PathBuf::from(value)), options).await.and_then(|paths| {
-                Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
-            }),
+            | _ if scheme.is_file() => resolve_paths_including(&Some(self.uri_as_path()), options, &["Kitfile"])
+                .await
+                .and_then(|paths| {
+                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
+                }),
+            | Location::Simple(value) if scheme.is_unsupported() => resolve_paths_including(&Some(PathBuf::from(value)), options, &["Kitfile"])
+                .await
+                .and_then(|paths| {
+                    Fingerprint::from_files(paths.clone()).map(|fingerprint| Prepared::new(Input { paths, temporary: None }, fingerprint))
+                }),
             | Location::Detailed { uri, .. } => Err(eyre!("Unsupported check source URI scheme — {uri}")),
             | Location::Simple(value) => Err(eyre!("Unsupported check source — {value}")),
         }

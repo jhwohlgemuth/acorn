@@ -17,7 +17,7 @@ use clap_verbosity_flag::Verbosity;
 use color_eyre::eyre;
 use jiff::SignedDuration;
 use parse::parse_watch_duration;
-use std::path::PathBuf;
+use std::{fs::read_to_string, path::PathBuf};
 pub mod arguments;
 pub mod parse;
 
@@ -556,14 +556,19 @@ pub struct WatchOptions {
 /// If the options include a filter regex, only matching files are returned.
 /// If the options include an ignore regex, it is applied to the files returned.
 pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> ApiResult<Vec<PathBuf>> {
-    let extensions = Some(vec![
+    resolve_paths_including(path, options, &[]).await
+}
+/// Resolve supported paths while also accepting exact extensionless file names.
+pub(crate) async fn resolve_paths_including(path: &Option<PathBuf>, options: &CommandOptions, file_names: &[&str]) -> ApiResult<Vec<PathBuf>> {
+    let supported_extensions = vec![
         MimeType::Json,
         MimeType::Jsonc,
         MimeType::Markdown,
         MimeType::Pdf,
         MimeType::Yaml,
         MimeType::Zon,
-    ]);
+    ];
+    let extensions = file_names.is_empty().then(|| supported_extensions.clone());
     let CommandOptions {
         branch,
         commit,
@@ -597,9 +602,13 @@ pub async fn resolve_paths(path: &Option<PathBuf>, options: &CommandOptions) -> 
     let files = files
         .into_iter()
         .filter(|candidate| {
-            MimeType::from_path(candidate) != MimeType::Markdown
-                || is_exact
-                || std::fs::read_to_string(candidate).is_ok_and(ResearchActivity::is_markdown)
+            let mime = MimeType::from_path(candidate);
+            let supported_name = candidate
+                .file_name()
+                .and_then(|value| value.to_str())
+                .is_some_and(|name| file_names.contains(&name));
+            let supported_file = is_exact || supported_name || supported_extensions.contains(&mime);
+            supported_file && (mime != MimeType::Markdown || is_exact || read_to_string(candidate).is_ok_and(ResearchActivity::is_markdown))
         })
         .collect::<Vec<_>>();
     match regex_join(&patterns) {
