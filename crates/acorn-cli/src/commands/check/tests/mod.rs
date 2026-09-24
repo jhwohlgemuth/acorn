@@ -164,7 +164,7 @@ async fn test_check_kitfile_and_modelkit_without_standard_override() -> Result<(
             &None,
             &[],
             &[],
-            SKIP_PROSE,
+            &[CheckCategory::Prose, CheckCategory::Quality],
             &true,
             &false,
             &false,

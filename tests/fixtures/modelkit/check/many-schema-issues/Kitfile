@@ -1,0 +1,20 @@
+manifestVersion: v1.0.0
+package:
+  version: invalid-package-version
+  license: not a license
+model:
+  path: /absolute/model.gguf
+  version: invalid-model-version
+  parts:
+    - path: model/../shared
+      type: contains a space
+code:
+  - path: shared
+    license: not a license
+datasets:
+  - path: data
+    remotePath: s3://example.invalid/data
+prompts:
+  - path: s3://example.invalid/prompt
+mcpServers:
+  - path: server.zip

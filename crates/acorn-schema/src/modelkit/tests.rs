@@ -56,6 +56,19 @@ fn test_authoring_yaml_rejects_derived_and_unknown_fields() {
     assert!(Kitfile::from_resolved_json(br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md","extra":1}]}"#).is_err());
 }
 #[test]
+fn test_blank_placeholder_paths_do_not_count_as_content() {
+    let placeholders = [
+        "manifestVersion: v1.0.0\nmodel: {}\n",
+        "manifestVersion: v1.0.0\ncode:\n  - {}\n",
+        "manifestVersion: v1.0.0\ndocs:\n  - path: '   '\n",
+    ];
+    placeholders.into_iter().for_each(|input| {
+        let error = Kitfile::from_yaml(input).unwrap_err().to_string();
+        assert!(error.contains("content") || error.contains("path"), "{error}");
+    });
+    assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  parts:\n    - path: model.part\n").is_ok());
+}
+#[test]
 fn test_codecs_reject_duplicate_keys_trailing_data_and_yaml_only_values() {
     assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\nmanifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").is_err());
     assert!(Kitfile::from_yaml("manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n---\nmanifestVersion: v1.0.0\n").is_err());
@@ -154,6 +167,7 @@ fn test_layer_identity_is_validated_and_complete_independently() {
             diff_ids: false
         }
     );
+    assert!(complete.warnings().iter().any(|warning| warning.contains("omit diffId")));
     let incomplete = format!(r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}"}},"docs":[{{"path":"README.md"}}]}}"#);
     assert!(Kitfile::from_resolved_json(incomplete.as_bytes()).is_err());
     let malformed = br#"{"manifestVersion":"v1.0.0","model":{"path":"model.gguf","digest":"bad"}}"#;
@@ -169,7 +183,7 @@ fn test_mcp_identity_and_prompt_paths_cover_intentional_kitops_differences() {
     )
     .unwrap_err()
     .to_string();
-    assert!(mcp_identity.contains("every local layer"));
+    assert!(mcp_identity.contains("compressed digest"));
     let prompt_duplicate = Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: shared\nprompts:\n  - path: shared\n")
         .unwrap_err()
         .to_string();
@@ -191,6 +205,12 @@ fn test_model_metadata_and_remote_paths_use_field_validators() {
     let invalid_remote =
         Kitfile::from_yaml("manifestVersion: v1.0.0\ndatasets:\n  - path: data\n    remotePath: https://example.org/data\n").unwrap_err();
     assert!(invalid_remote.to_string().contains("S3 URLs and ModelKit references"));
+    let blank_remote_hash =
+        Kitfile::from_yaml("manifestVersion: v1.0.0\ndatasets:\n  - path: data\n    remotePath: s3://example/data\n    remoteHash: '   '\n")
+            .unwrap_err();
+    assert!(blank_remote_hash.to_string().contains("remoteHash cannot be blank"));
+    let blank_remote_path = Kitfile::from_yaml("manifestVersion: v1.0.0\ndatasets:\n  - path: data\n    remotePath: '   '\n").unwrap_err();
+    assert!(blank_remote_path.to_string().contains("S3 URLs and ModelKit references"));
     let custom_format = Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.bin\n  format: Custom\n").unwrap();
     assert_eq!(custom_format.model.unwrap().format, ModelFormat::Other("Custom".to_string()));
 }
@@ -210,7 +230,7 @@ fn test_model_part_type_and_mcp_name_limits_match_kitops() {
 fn test_parameters_use_json_values_and_deterministic_key_order() {
     let kitfile =
         Kitfile::from_yaml("manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  parameters:\n    z: 0xFF\n    a: [true, null, 1.2e+3]\n").unwrap();
-    let json = kitfile.to_resolved_json().unwrap();
+    let json = serde_json::to_string(&kitfile).unwrap();
     assert!(json.contains(r#""a":[true,null,1200.0]"#));
     assert!(json.contains(r#""z":255"#));
     assert!(json.find(r#""a""#) < json.find(r#""z""#));
@@ -281,13 +301,7 @@ fn test_pinned_kitops_fixtures_match_authoring_and_resolved_codecs() {
         let parameters = serde_norway::from_str::<ParameterFixture>(&read_to_string(&path).unwrap()).unwrap();
         let parsed = Kitfile::from_yaml(&parameters.kitfile_yaml).unwrap();
         if !parameters.kitfile_json.is_empty() {
-            assert_eq!(parsed.to_resolved_json().unwrap(), parameters.kitfile_json, "{}", path.display());
-            assert_eq!(
-                Kitfile::from_resolved_json(parameters.kitfile_json.as_bytes()).unwrap(),
-                parsed,
-                "{}",
-                path.display()
-            );
+            assert_eq!(serde_json::to_string(&parsed).unwrap(), parameters.kitfile_json, "{}", path.display());
         }
         assert_eq!(Kitfile::from_yaml(&parsed.to_yaml().unwrap()).unwrap(), parsed, "{}", path.display());
     });
@@ -354,6 +368,22 @@ fn test_resolved_json_preserves_identity_and_yaml_projection_removes_it() {
     let yaml = parsed.to_yaml().unwrap();
     assert!(!yaml.contains("digest"));
     assert!(!yaml.contains("diffId"));
+}
+#[test]
+fn test_resolved_json_requires_digests_but_treats_diff_ids_as_advisory() {
+    let missing = br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md"}]}"#;
+    let error = Kitfile::from_resolved_json(missing).unwrap_err().to_string();
+    assert!(error.contains("compressed digest"));
+    let diff_id_only = format!(r#"{{"manifestVersion":"v1.0.0","docs":[{{"path":"README.md","diffId":"{DIFF_ID}"}}]}}"#);
+    assert!(Kitfile::from_resolved_json(diff_id_only.as_bytes()).is_err());
+    let partial_diff_ids = format!(
+        r#"{{"manifestVersion":"v1.0.0","model":{{"path":"model.gguf","digest":"{DIGEST}","diffId":"{DIFF_ID}"}},"docs":[{{"path":"README.md","digest":"{DIGEST}"}}]}}"#
+    );
+    let parsed = Kitfile::from_resolved_json(partial_diff_ids.as_bytes()).unwrap();
+    assert!(parsed.warnings().iter().any(|warning| warning.contains("omit diffId")));
+
+    let authoring = Kitfile::from_yaml("manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").unwrap();
+    assert!(authoring.to_resolved_json().is_err());
 }
 #[test]
 fn test_schema_contains_both_wire_identity_fields() {

@@ -1,0 +1,38 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> !!! OFFLINE ACORN is running in offline mode
+
+[00] Warning: Quality — quality-issues/Kitfile
+    Referenced content path does not exist: src
+
+[01] Warning: Quality — quality-issues/Kitfile
+    MCP bundle is not a valid ZIP archive: invalid Zip archive: Could not find EOCD
+
+[02] Warning: Quality — quality-issues/Kitfile
+    Referenced content path does not exist: model/missing.gguf
+
+╭─────────────────────────┬───────╮
+│                         ┆ Count │
+╞═════════════════════════╪═══════╡
+│ Schema items found      ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Link items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Prose items found       ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Quality items found     ┆ 3     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Fair items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Readability items found ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Crosswalk items found   ┆ 0     │
+╰─────────────────────────┴───────╯
+0,warning,quality,quality-issues/Kitfile,model.path,Referenced content path does not exist: model/missing.gguf,"",
+1,warning,quality,quality-issues/Kitfile,code[0].path,Referenced content path does not exist: src,"",
+2,warning,quality,quality-issues/Kitfile,mcpServers[0].path,MCP bundle is not a valid ZIP archive: invalid Zip archive: Could not find EOCD,"",
+stderr:

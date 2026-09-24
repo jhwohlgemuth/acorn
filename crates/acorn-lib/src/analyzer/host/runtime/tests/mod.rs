@@ -12,7 +12,8 @@ use crate::{
         host::{
             context::{ExecutionExtension, ExecutionOptions},
             runtime::{
-                check_schema_path, collect_validation_checks, vale_package_url, LinkEvidence, LinkOutcome, StaticAnalyzer, StaticAnalyzerConfig,
+                check_schema_path, collect_validation_checks, vale_package_url, ContentPaths, KitfileStandard, LinkEvidence, LinkOutcome,
+                ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
             },
             service::Analysis,
             tabular::checks_to_dataframe,
@@ -31,6 +32,7 @@ use acorn_core::{
 };
 use acorn_host::fs::make_executable;
 use acorn_schema::{
+    modelkit::kitfile::Kitfile,
     standard::{cff::Cff, crosswalk::ConversionWarning},
     validation::{Validate, ValidationReport},
     OneOrMany,
@@ -40,11 +42,15 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use jiff::SignedDuration;
 use serde_json::Value;
 use std::{
-    fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write},
+    fs::{create_dir_all, read_to_string, remove_dir_all, remove_file, write, File},
+    io::Write,
     path::PathBuf,
 };
+use tempfile::tempdir;
+use zip::{write::SimpleFileOptions, ZipWriter};
 
 static VALIDATION_CALLS: AtomicUsize = AtomicUsize::new(0);
+const MODELKIT_DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 #[derive(Validate)]
 struct ArrayParamModel {
     #[validate(length(min = 3))]
@@ -122,6 +128,22 @@ fn prose_check(source: &str, content: &str, analyzed: &str, item: ValeOutputItem
         .with_data(analyzed.to_string())
         .resolve_locator(&document);
     (check, document)
+}
+fn write_mcp_bundle(path: &PathBuf, include_entry_point: bool) {
+    let mut archive = ZipWriter::new(File::create(path).expect("MCP bundle should be created"));
+    archive
+        .start_file("manifest.json", SimpleFileOptions::default())
+        .expect("MCP manifest entry should be created");
+    archive
+        .write_all(br#"{"manifest_version":"0.3","name":"demo","version":"1.0.0","server":{"type":"node","entry_point":"server.js"}}"#)
+        .expect("MCP manifest should be written");
+    if include_entry_point {
+        archive
+            .start_file("server.js", SimpleFileOptions::default())
+            .expect("MCP server entry should be created");
+        archive.write_all(b"console.log('ready');").expect("MCP server entry should be written");
+    }
+    archive.finish().expect("MCP bundle should be finalized");
 }
 #[tokio::test]
 async fn test_cff_check_quality_returns_ok_for_readable_file() {
@@ -325,6 +347,68 @@ fn test_conversion_warnings_use_into_checks_trait() {
     assert_eq!(checks.as_slice()[0].uri.as_deref(), Some("record.json"));
     assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("attributes.publisher"));
 }
+#[test]
+fn test_kitfile_content_paths_preserves_section_order_and_remote_filtering() {
+    let kitfile = Kitfile::from_yaml(
+        "manifestVersion: v1.0.0\nmodel:\n  path: model.gguf\n  parts:\n    - path: model.part\ncode:\n  - path: src\ndatasets:\n  - path: local-data\n  - path: remote-data\n    remotePath: registry.example.org/org/data:latest\n  - path: later-local-data\ndocs:\n  - path: README.md\nprompts:\n  - path: prompt.md\nmcpServers:\n  - name: demo\n    path: server.mcpb\n",
+    )
+    .expect("Kitfile should be valid");
+    assert_eq!(
+        ContentPaths::new(&kitfile).iter().collect::<Vec<_>>(),
+        vec![
+            ("model.path".to_string(), "model.gguf", false),
+            ("model.parts[0].path".to_string(), "model.part", false),
+            ("code[0].path".to_string(), "src", false),
+            ("datasets[0].path".to_string(), "local-data", false),
+            ("datasets[2].path".to_string(), "later-local-data", false),
+            ("docs[0].path".to_string(), "README.md", false),
+            ("prompts[0].path".to_string(), "prompt.md", false),
+            ("mcpServers[0].path".to_string(), "server.mcpb", true),
+        ]
+    );
+}
+#[tokio::test]
+async fn test_kitfile_quality_checks_content_and_mcp_bundle_readiness() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let kitfile_path = directory.path().join("Kitfile");
+    let bundle_path = directory.path().join("server.mcpb");
+    write(directory.path().join("README.md"), "ready").expect("documentation should be written");
+    write_mcp_bundle(&bundle_path, true);
+    write(
+        &kitfile_path,
+        "manifestVersion: v1.0.0\ndocs:\n  - path: README.md\nmcpServers:\n  - name: demo\n    path: server.mcpb\n",
+    )
+    .expect("Kitfile should be written");
+    let checks = KitfileStandard::check_quality(core::slice::from_ref(&kitfile_path), None).await;
+    assert_eq!(checks.len(), 1);
+    assert!(checks.as_slice()[0].success);
+    write_mcp_bundle(&bundle_path, false);
+    let checks = KitfileStandard::check_quality(core::slice::from_ref(&kitfile_path), None).await;
+    assert!(checks.iter().any(|check| check.message.contains("entry_point is missing")));
+    write(
+        &kitfile_path,
+        "manifestVersion: v1.0.0\ndocs:\n  - path: missing.md\n  - path: ../escape.md\n",
+    )
+    .expect("Kitfile should be updated");
+    let checks = KitfileStandard::check_quality(core::slice::from_ref(&kitfile_path), None).await;
+    assert!(checks.iter().any(|check| check.message.contains("does not exist")));
+    assert!(checks.iter().any(|check| check.message.contains("not safe for packaging")));
+}
+#[cfg(unix)]
+#[tokio::test]
+async fn test_kitfile_quality_rejects_symlinks_outside_its_root() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempdir().expect("temporary directory should be created");
+    let outside = tempdir().expect("outside directory should be created");
+    let kitfile_path = directory.path().join("Kitfile");
+    write(outside.path().join("README.md"), "outside").expect("outside file should be written");
+    symlink(outside.path().join("README.md"), directory.path().join("README.md")).expect("symlink should be created");
+    write(&kitfile_path, "manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should be written");
+
+    let checks = KitfileStandard::check_quality(core::slice::from_ref(&kitfile_path), None).await;
+    assert!(checks.iter().any(|check| check.message.contains("outside the Kitfile directory")));
+}
 #[tokio::test]
 async fn test_link_evidence_policy_suppresses_pending_and_retains_observed_outcomes() {
     let pending = LinkEvidence::pending(
@@ -350,6 +434,19 @@ async fn test_link_evidence_reports_missing_url_without_network() {
     assert_eq!(checks.len(), 1);
     assert_eq!(checks.as_slice()[0].message, "Missing URL");
     assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("url"));
+}
+#[tokio::test]
+async fn test_modelkit_quality_warns_for_missing_diff_ids_without_requiring_unpacked_content() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let path = directory.path().join("modelkit.json");
+    write(
+        &path,
+        format!(r#"{{"manifestVersion":"v1.0.0","docs":[{{"path":"README.md","digest":"{MODELKIT_DIGEST}"}}]}}"#),
+    )
+    .expect("ModelKit config should be written");
+    let checks = ModelKitStandard::check_quality(core::slice::from_ref(&path), None).await;
+    assert_eq!(checks.len(), 1);
+    assert!(checks.as_slice()[0].message.contains("omit diffId"));
 }
 #[test]
 fn test_parse_vale_output() {
@@ -1173,6 +1270,26 @@ fn test_validator_query_selects_indexed_array_value() {
         panic!("expected indexed YAML value to resolve uniquely");
     };
     assert_eq!(&content[span.0], "second phrase");
+}
+#[test]
+fn test_validator_query_uses_source_path_override() {
+    let mut params: HashMap<String, Value> = HashMap::new();
+    params.insert("source_path".to_string(), serde_json::json!("mcpServers[0].path"));
+    params.insert("value".to_string(), serde_json::json!("server.zip"));
+    let issue = ValidatorIssue::init()
+        .code(ErrorCode::Other)
+        .maybe_path(Some("mcpServers[0].name".to_string()))
+        .message("MCP server must have a name")
+        .params(params)
+        .build();
+    let content = "mcpServers:\n  - path: server.zip\n";
+    let document = SourceDocument::init().content(content).format("text").source("Kitfile").build();
+    let index = DocumentIndex::new(document);
+    let matched = index.resolve(&issue.query());
+    let DocumentMatch::Unique(span) = matched else {
+        panic!("expected source path override to resolve the MCP bundle path");
+    };
+    assert_eq!(&content[span.0], "server.zip");
 }
 #[test]
 fn test_with_context_and_with_uri_preserve_severity() {

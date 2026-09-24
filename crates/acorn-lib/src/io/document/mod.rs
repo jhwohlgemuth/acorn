@@ -202,7 +202,7 @@ impl SourceDocument {
     }
     fn is_yaml(&self) -> bool {
         let mime = MimeType::from(self.source.as_str());
-        mime.is_yaml() || mime.is_cff()
+        mime.is_yaml() || mime.is_cff() || Path::new(&self.source).file_name().is_some_and(|name| name == "Kitfile")
     }
     /// Create an unloaded document source at a local location.
     pub fn at(location: impl Into<PathBuf>) -> Self {

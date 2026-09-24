@@ -29,11 +29,16 @@ fn test_document_adapter_round_trips_text_formats() {
 fn test_kitfile_adapter_round_trips_json_and_yaml() {
     let directory = tempdir().expect("temporary directory should be created");
     let kitfile = Kitfile::parse("manifestVersion: v1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should parse");
-    for extension in ["json", "yaml"] {
-        let path = directory.path().join(format!("Kitfile.{extension}"));
-        kitfile.write(&path).expect("Kitfile should write");
-        assert_eq!(Kitfile::read(path).expect("Kitfile should read"), kitfile);
-    }
+    let yaml_path = directory.path().join("Kitfile.yaml");
+    kitfile.write(&yaml_path).expect("Kitfile YAML should write");
+    assert_eq!(Kitfile::read(yaml_path).expect("Kitfile YAML should read"), kitfile);
+    let modelkit = Kitfile::from_resolved_json(
+        br#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md","digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}]}"#,
+    )
+    .expect("ModelKit config should parse");
+    let json_path = directory.path().join("modelkit.json");
+    modelkit.write(&json_path).expect("ModelKit JSON should write");
+    assert_eq!(Kitfile::read(json_path).expect("ModelKit JSON should read"), modelkit);
 }
 #[test]
 fn test_opencode_adapter_errors_include_source_path() {

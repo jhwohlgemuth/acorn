@@ -1,0 +1,98 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> !!! OFFLINE ACORN is running in offline mode
+
+[00] Error: datasets[0].remoteHash
+    ╭─[ many-schema-issues/Kitfile:16:17 ]
+    │
+ 16 │     remotePath: s3://example.invalid/data
+    │                 ────────────┬────────────  
+    │                             ╰────────────── remoteHash is required for S3 dataset paths
+────╯
+[01] Error: mcpServers[0].name
+    ╭─[ many-schema-issues/Kitfile:20:11 ]
+    │
+ 20 │   - path: server.zip
+    │           ─────┬────  
+    │                ╰────── MCP server must have a name
+────╯
+[02] Error: mcpServers[0].path
+    ╭─[ many-schema-issues/Kitfile:20:11 ]
+    │
+ 20 │   - path: server.zip
+    │           ─────┬────  
+    │                ╰────── MCP server path must point to a single .mcpb file
+────╯
+[03] Error: model.parts[0].path
+   ╭─[ many-schema-issues/Kitfile:9:13 ]
+   │
+ 9 │     - path: model/../shared
+   │             ───────┬───────  
+   │                    ╰───────── modelpart  and code layer 0 use the same path shared
+───╯
+[04] Error: model.parts[0].type
+    ╭─[ many-schema-issues/Kitfile:10:13 ]
+    │
+ 10 │       type: contains a space
+    │             ────────┬───────  
+    │                     ╰───────── Model part type must be alphanumeric with dots, dashes, and underscores
+────╯
+[05] Error: model.path
+   ╭─[ many-schema-issues/Kitfile:6:9 ]
+   │
+ 6 │   path: /absolute/model.gguf
+   │         ──────────┬─────────  
+   │                   ╰─────────── Absolute paths are not supported (/absolute/model.gguf)
+───╯
+[06] Error: model.version
+   ╭─[ many-schema-issues/Kitfile:7:12 ]
+   │
+ 7 │   version: invalid-model-version
+   │            ──────────┬──────────  
+   │                      ╰──────────── Provide valid semantic version
+───╯
+[07] Error: package.version
+   ╭─[ many-schema-issues/Kitfile:3:12 ]
+   │
+ 3 │   version: invalid-package-version
+   │            ───────────┬───────────  
+   │                       ╰───────────── Provide valid semantic version
+───╯
+[08] Error: prompts[0].path
+    ╭─[ many-schema-issues/Kitfile:18:11 ]
+    │
+ 18 │   - path: s3://example.invalid/prompt
+    │           ─────────────┬─────────────  
+    │                        ╰─────────────── Path kind is not permitted for this Kitfile field
+────╯
+╭─────────────────────────┬───────╮
+│                         ┆ Count │
+╞═════════════════════════╪═══════╡
+│ Schema items found      ┆ 9     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Link items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Prose items found       ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Quality items found     ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Fair items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Readability items found ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Crosswalk items found   ┆ 0     │
+╰─────────────────────────┴───────╯
+0,error,schema,many-schema-issues/Kitfile,package.version,Provide valid semantic version,package.version,
+1,error,schema,many-schema-issues/Kitfile,model.version,Provide valid semantic version,model.version,
+2,error,schema,many-schema-issues/Kitfile,datasets[0].remoteHash,remoteHash is required for S3 dataset paths,datasets[0].remoteHash,
+3,error,schema,many-schema-issues/Kitfile,mcpServers[0].name,MCP server must have a name,mcpServers[0].name,
+4,error,schema,many-schema-issues/Kitfile,mcpServers[0].path,MCP server path must point to a single .mcpb file,mcpServers[0].path,
+5,error,schema,many-schema-issues/Kitfile,model.parts[0].path,modelpart  and code layer 0 use the same path shared,model.parts[0].path,
+6,error,schema,many-schema-issues/Kitfile,model.parts[0].type,"Model part type must be alphanumeric with dots, dashes, and underscores",model.parts[0].type,
+7,error,schema,many-schema-issues/Kitfile,model.path,Absolute paths are not supported (/absolute/model.gguf),model.path,
+8,error,schema,many-schema-issues/Kitfile,prompts[0].path,Path kind is not permitted for this Kitfile field,prompts[0].path,
+stderr:

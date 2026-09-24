@@ -217,7 +217,7 @@ impl Standard {
             }
             | Self::Datacite | Self::Dcat | Self::Invenio | Self::ResearchActivityData => !category.is_crosswalk(),
             | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
-            | Self::Kitfile | Self::ModelKit => category.is_schema(),
+            | Self::Kitfile | Self::ModelKit => category.is_schema() || category.is_quality(),
             | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
             | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
             | Self::DublinCore => false,

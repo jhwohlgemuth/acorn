@@ -209,7 +209,8 @@ impl DocumentTarget for ValidatorIssue {
     #[cfg(any(feature = "analysis", feature = "std"))]
     fn query(&self) -> DocumentQuery {
         let locator = self.locator();
-        let query = DocumentQuery::new().with_path(DocumentPath::parse(&locator));
+        let source_path = self.params.get("source_path").and_then(Value::as_str).unwrap_or(&locator);
+        let query = DocumentQuery::new().with_path(DocumentPath::parse(source_path));
         let value = match self.params.get("value") {
             | Some(Value::Array(values)) => self
                 .params

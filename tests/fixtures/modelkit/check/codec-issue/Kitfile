@@ -1,0 +1,4 @@
+manifestVersion: v1.0.0
+model:
+  path: model.gguf
+unexpected: true

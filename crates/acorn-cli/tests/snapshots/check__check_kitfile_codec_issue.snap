@@ -1,0 +1,30 @@
+---
+source: crates/acorn-cli/tests/check.rs
+expression: normalized_process(&args)
+---
+status: 0
+stdout:
+=> !!! OFFLINE ACORN is running in offline mode
+
+[00] Error: Deserialization error
+    Unknown Kitfile field 'root.unexpected'
+
+╭─────────────────────────┬───────╮
+│                         ┆ Count │
+╞═════════════════════════╪═══════╡
+│ Schema items found      ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Link items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Prose items found       ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Quality items found     ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Fair items found        ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Readability items found ┆ 0     │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+│ Crosswalk items found   ┆ 0     │
+╰─────────────────────────┴───────╯
+0,error,schema,codec-issue/Kitfile,"","",Unknown Kitfile field 'root.unexpected',
+stderr:

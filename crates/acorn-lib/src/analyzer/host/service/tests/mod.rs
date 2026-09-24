@@ -310,6 +310,35 @@ async fn test_flatten_checks_preserves_future_and_batch_order() {
     );
 }
 #[tokio::test]
+async fn test_kitfile_and_modelkit_quality_checks_execute() {
+    let directory = tempdir().expect("temporary directory should be created");
+    let kitfile = directory.path().join("Kitfile");
+    write(directory.path().join("README.md"), "ready").expect("documentation should be written");
+    write(&kitfile, "manifestVersion: 1.0.0\ndocs:\n  - path: README.md\n").expect("Kitfile should be written");
+    let kitfile_options = AnalysisContext::init()
+        .analysis(AnalysisOptions::init().standard(Standard::Kitfile).build())
+        .build();
+    let kitfile_report = analyze_paths(&[kitfile], &kitfile_options).await;
+    assert!(kitfile_report
+        .checks()
+        .iter()
+        .any(|check| check.category == CheckCategory::Quality && check.message.contains("manifestVersion")));
+    let modelkit = directory.path().join("modelkit.json");
+    write(
+        &modelkit,
+        r#"{"manifestVersion":"v1.0.0","docs":[{"path":"README.md","digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}]}"#,
+    )
+    .expect("ModelKit should be written");
+    let modelkit_options = AnalysisContext::init()
+        .analysis(AnalysisOptions::init().standard(Standard::ModelKit).build())
+        .build();
+    let modelkit_report = analyze_paths(&[modelkit], &modelkit_options).await;
+    assert!(modelkit_report
+        .checks()
+        .iter()
+        .any(|check| check.category == CheckCategory::Quality && check.message.contains("diffId")));
+}
+#[tokio::test]
 async fn test_kitfile_and_modelkit_use_schema_check_flow() {
     let directory = tempdir().unwrap();
     let cases = [

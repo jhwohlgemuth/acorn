@@ -142,6 +142,41 @@ fn test_check_fair_output_contract() {
     assert!(!terse.contains("Overall"));
 }
 #[test]
+fn test_check_kitfile_fixtures() {
+    let fixtures = [
+        (
+            "check_kitfile_codec_issue",
+            "modelkit/check/codec-issue/Kitfile",
+            "fair,link,prose,quality,readability",
+        ),
+        (
+            "check_kitfile_many_schema_issues",
+            "modelkit/check/many-schema-issues/Kitfile",
+            "fair,link,prose,quality,readability",
+        ),
+        (
+            "check_kitfile_one_schema_issue",
+            "modelkit/check/one-schema-issue/Kitfile",
+            "fair,link,prose,quality,readability",
+        ),
+        (
+            "check_kitfile_quality_issues",
+            "modelkit/check/quality-issues/Kitfile",
+            "fair,link,prose,readability,schema",
+        ),
+    ];
+    fixtures.into_iter().for_each(|(name, path, skip)| {
+        let args = [
+            "--offline".to_string(),
+            "check".to_string(),
+            fixture(path).to_string_lossy().to_string(),
+            "--skip".to_string(),
+            skip.to_string(),
+        ];
+        insta::assert_snapshot!(name, normalized_process(&args));
+    });
+}
+#[test]
 fn test_check_validation_compatibility_snapshots() {
     macro_rules! args {
         ($($value:expr),+ $(,)?) => {

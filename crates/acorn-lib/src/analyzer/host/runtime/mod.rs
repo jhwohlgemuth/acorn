@@ -39,11 +39,11 @@ use acorn_core::{
     Location, Repository,
 };
 use acorn_host::{
-    fs::{file_checksum, make_executable},
+    fs::{file_checksum, make_executable, SafePath},
     terminal::Label,
 };
 use acorn_schema::{
-    modelkit::kitfile::Kitfile,
+    modelkit::kitfile::{Kitfile, ModelKitError},
     pid::{raid, Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID},
     research_activity::ResearchActivity,
     standard::{
@@ -55,6 +55,7 @@ use acorn_schema::{
     validation::Validate,
     Organization, ProgrammingLanguage, Website,
 };
+use alloc::collections::BTreeSet;
 use async_trait::async_trait;
 #[cfg(feature = "analysis")]
 use bat::PrettyPrinter;
@@ -68,6 +69,7 @@ use lychee_lib::{CacheStatus, Response, Status};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs::{create_dir_all, remove_file, write, File},
+    io::{ErrorKind as IoErrorKind, Read},
     path::{Path, PathBuf},
 };
 use tar::Archive;
@@ -75,6 +77,7 @@ use tar::Archive;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 use which::which;
+use zip::ZipArchive;
 
 macro_rules! impl_schema_check {
     ($($schema:ty),+ $(,)?) => {
@@ -150,6 +153,15 @@ impl_schema_check!(
     huwise::Dataset,
     ResearchActivity
 );
+trait KitfileSchemaCheck {
+    fn check_schema_path(path: PathBuf, document: ApiResult<Self>) -> BoxFuture<'static, CheckBatch>
+    where
+        Self: Sized;
+}
+#[derive(Clone, Copy)]
+struct ContentPaths<'a> {
+    kitfile: &'a Kitfile,
+}
 pub(super) struct KitfileStandard;
 #[derive(Clone, Debug)]
 pub(crate) struct LinkEvidence {
@@ -168,6 +180,84 @@ pub(crate) struct LinkOutcome {
     success: bool,
 }
 pub(super) struct ModelKitStandard;
+impl<'a> ContentPaths<'a> {
+    fn new(kitfile: &'a Kitfile) -> Self {
+        Self { kitfile }
+    }
+    fn iter(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        self.model()
+            .chain(self.code())
+            .chain(self.datasets())
+            .chain(self.docs())
+            .chain(self.prompts())
+            .chain(self.mcp_servers())
+    }
+    fn model(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        self.kitfile.model.iter().flat_map(|model| {
+            let primary = (!model.path.trim().is_empty() && Location::from(&model.path).is_path())
+                .then(|| ("model.path".to_string(), model.path.as_str(), false));
+            let parts = Self::indexed("model.parts", model.parts.iter().enumerate(), |part| part.path.as_str(), false);
+            primary.into_iter().chain(parts)
+        })
+    }
+    fn code(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        Self::indexed("code", self.kitfile.code.iter().enumerate(), |layer| layer.path.as_str(), false)
+    }
+    fn datasets(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        Self::indexed(
+            "datasets",
+            self.kitfile
+                .datasets
+                .iter()
+                .enumerate()
+                .filter(|(_, layer)| layer.remote_path.trim().is_empty()),
+            |layer| layer.path.as_str(),
+            false,
+        )
+    }
+    fn docs(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        Self::indexed("docs", self.kitfile.docs.iter().enumerate(), |layer| layer.path.as_str(), false)
+    }
+    fn prompts(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        Self::indexed("prompts", self.kitfile.prompts.iter().enumerate(), |layer| layer.path.as_str(), false)
+    }
+    fn mcp_servers(self) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        Self::indexed(
+            "mcpServers",
+            self.kitfile.mcp_servers.iter().enumerate(),
+            |layer| layer.path.as_str(),
+            true,
+        )
+    }
+    fn indexed<T: 'a>(
+        section: &'static str,
+        values: impl Iterator<Item = (usize, &'a T)> + 'a,
+        path: impl Fn(&'a T) -> &'a str + 'a,
+        mcp_bundle: bool,
+    ) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
+        values.map(move |(index, value)| (format!("{section}[{index}].path"), path(value), mcp_bundle))
+    }
+}
+impl KitfileSchemaCheck for Kitfile {
+    fn check_schema_path(path: PathBuf, document: ApiResult<Self>) -> BoxFuture<'static, CheckBatch> {
+        async move {
+            let uri = Some(path.file_name_with_parent());
+            match document {
+                | Ok(data) => collect_validation_checks(&data)
+                    .await
+                    .into_iter()
+                    .map(|issue| issue.with_uri(uri.clone()))
+                    .collect(),
+                | Err(why) => match why.downcast::<ModelKitError>() {
+                    | Ok(ModelKitError::Validation(report)) => report.checks(uri),
+                    | Ok(why) => CheckBatch::schema_parse_failure_checks(why, uri),
+                    | Err(why) => CheckBatch::schema_parse_failure_checks(why, uri),
+                },
+            }
+        }
+        .boxed()
+    }
+}
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for Cff {
@@ -624,6 +714,16 @@ impl Analysis for invenio::Record {
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for KitfileStandard {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .par_iter()
+            .flat_map(|path| match Kitfile::read_yaml(path.to_path_buf()) {
+                | Ok(data) => modelkit_quality_checks(path, &data, true),
+                | Err(_) => Vec::new(),
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
@@ -633,7 +733,7 @@ impl Analysis for KitfileStandard {
 }
 impl SchemaCheck for KitfileStandard {
     fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
-        Some(check_schema_path(path.clone(), Kitfile::read_yaml(path.to_path_buf())).boxed())
+        Some(Kitfile::check_schema_path(path.clone(), Kitfile::read_yaml(path.to_path_buf())))
     }
 }
 impl LinkEvidence {
@@ -700,6 +800,16 @@ impl LinkOutcome {
 #[cfg(feature = "analysis")]
 #[async_trait]
 impl Analysis for ModelKitStandard {
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        paths
+            .par_iter()
+            .flat_map(|path| match Kitfile::read_json(path.to_path_buf()) {
+                | Ok(data) => modelkit_quality_checks(path, &data, false),
+                | Err(_) => Vec::new(),
+            })
+            .collect::<Vec<_>>()
+            .into()
+    }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
@@ -709,8 +819,171 @@ impl Analysis for ModelKitStandard {
 }
 impl SchemaCheck for ModelKitStandard {
     fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
-        Some(check_schema_path(path.clone(), Kitfile::read_json(path.to_path_buf())).boxed())
+        Some(Kitfile::check_schema_path(path.clone(), Kitfile::read_json(path.to_path_buf())))
     }
+}
+fn inspect_mcp_archive_entries(archive: &mut ZipArchive<File>) -> Result<BTreeSet<PathBuf>, String> {
+    (0..archive.len())
+        .try_fold(
+            (BTreeSet::<PathBuf>::new(), BTreeSet::<PathBuf>::new()),
+            |(mut entries, mut files), index| {
+                archive
+                    .by_index(index)
+                    .map_err(|why| format!("Cannot inspect MCP bundle entry {index}: {why}"))
+                    .and_then(|entry| {
+                        let name = entry.name().to_string();
+                        SafePath::new(&name)
+                            .map_err(|why| format!("MCP bundle contains an unsafe entry {name}: {why}"))
+                            .and_then(|safe| {
+                                let normalized = safe.into_path_buf();
+                                match (entries.insert(normalized.clone()), entry.is_dir()) {
+                                    | (false, _) => Err(format!("MCP bundle contains a duplicate entry: {}", normalized.display())),
+                                    | (true, true) => Ok((entries, files)),
+                                    | (true, false) => {
+                                        files.insert(normalized);
+                                        Ok((entries, files))
+                                    }
+                                }
+                            })
+                    })
+            },
+        )
+        .and_then(
+            |(entries, files)| match (entries.is_empty(), files.contains(Path::new("manifest.json"))) {
+                | (true, _) => Err("MCP bundle is empty".to_string()),
+                | (false, false) => Err("MCP bundle requires manifest.json at the archive root".to_string()),
+                | (false, true) => Ok(files),
+            },
+        )
+}
+fn inspect_mcp_bundle(path: &Path) -> Result<(), String> {
+    File::open(path)
+        .map_err(|why| format!("Cannot open MCP bundle: {why}"))
+        .and_then(|file| ZipArchive::new(file).map_err(|why| format!("MCP bundle is not a valid ZIP archive: {why}")))
+        .and_then(|mut archive| {
+            inspect_mcp_archive_entries(&mut archive)
+                .and_then(|files| read_mcp_manifest(&mut archive).map(|manifest| (files, manifest)))
+                .and_then(|(files, manifest)| validate_mcp_manifest(&manifest, &files))
+        })
+}
+fn kitfile_packaging_checks(path: &Path, value: &Kitfile) -> Vec<Check> {
+    let uri = path.to_path_buf().file_name_with_parent();
+    let root = path.parent().unwrap_or_else(|| Path::new("."));
+    root.canonicalize().map_or_else(
+        |why| {
+            vec![check!(
+                CheckCategory::Quality,
+                false,
+                severity: CheckSeverity::Warning,
+                message: format!("Cannot inspect Kitfile content directory: {why}"),
+                uri: uri.clone()
+            )]
+        },
+        |canonical_root| {
+            ContentPaths::new(value)
+                .iter()
+                .filter_map(|(locator, content_path, mcp_bundle)| {
+                    SafePath::new(content_path)
+                        .map_err(|why| format!("Content path is not safe for packaging ({content_path}): {why}"))
+                        .and_then(|safe| {
+                            let target = canonical_root.join(safe.as_path());
+                            target.canonicalize().map_err(|why| match why.kind() {
+                                | IoErrorKind::NotFound => format!("Referenced content path does not exist: {content_path}"),
+                                | _ => format!("Cannot inspect referenced content path {content_path}: {why}"),
+                            })
+                        })
+                        .and_then(|target| match target.starts_with(&canonical_root) {
+                            | false => Err(format!("Content path resolves outside the Kitfile directory: {content_path}")),
+                            | true if mcp_bundle => inspect_mcp_bundle(&target).map(|()| target),
+                            | true => Ok(target),
+                        })
+                        .err()
+                        .map(|message| {
+                            check!(
+                                CheckCategory::Quality,
+                                false,
+                                severity: CheckSeverity::Warning,
+                                locator: locator,
+                                message: message,
+                                uri: uri.clone()
+                            )
+                        })
+                })
+                .collect()
+        },
+    )
+}
+fn mcp_manifest_string<'a>(object: &'a serde_json::Map<String, serde_json::Value>, key: &str, path: &str) -> Result<&'a str, String> {
+    object
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| format!("MCP bundle manifest requires a non-empty {path}"))
+}
+fn modelkit_quality_checks(path: &Path, value: &Kitfile, inspect_packaging: bool) -> Vec<Check> {
+    let uri = path.to_path_buf().file_name_with_parent();
+    let checks = value
+        .warnings()
+        .into_iter()
+        .map(|message| {
+            check!(
+                CheckCategory::Quality,
+                false,
+                severity: CheckSeverity::Warning,
+                message: message,
+                uri: uri.clone()
+            )
+        })
+        .chain(inspect_packaging.then(|| kitfile_packaging_checks(path, value)).into_iter().flatten())
+        .collect::<Vec<_>>();
+    match checks.is_empty() {
+        | true => vec![check_ok!(CheckCategory::Quality, uri: uri)],
+        | false => checks,
+    }
+}
+fn read_mcp_manifest(archive: &mut ZipArchive<File>) -> Result<serde_json::Value, String> {
+    const MAX_MCP_MANIFEST_BYTES: u64 = 1_048_576;
+    archive
+        .by_name("manifest.json")
+        .map_err(|why| format!("Cannot read MCP bundle manifest.json: {why}"))
+        .and_then(|manifest_file| {
+            let mut manifest = String::new();
+            manifest_file
+                .take(MAX_MCP_MANIFEST_BYTES + 1)
+                .read_to_string(&mut manifest)
+                .map_err(|why| format!("MCP bundle manifest.json is not valid UTF-8: {why}"))
+                .and_then(|_| match manifest.len() as u64 > MAX_MCP_MANIFEST_BYTES {
+                    | true => Err("MCP bundle manifest.json exceeds 1 MiB".to_string()),
+                    | false => serde_json::from_str(&manifest).map_err(|why| format!("MCP bundle manifest.json is invalid JSON: {why}")),
+                })
+        })
+}
+fn validate_mcp_manifest(manifest: &serde_json::Value, files: &BTreeSet<PathBuf>) -> Result<(), String> {
+    manifest
+        .as_object()
+        .ok_or_else(|| "MCP bundle manifest.json must contain a JSON object".to_string())
+        .and_then(|object| {
+            mcp_manifest_string(object, "manifest_version", "manifest_version")
+                .and_then(|_| mcp_manifest_string(object, "name", "name"))
+                .and_then(|_| mcp_manifest_string(object, "version", "version"))
+                .and_then(|_| {
+                    object
+                        .get("server")
+                        .and_then(serde_json::Value::as_object)
+                        .ok_or_else(|| "MCP bundle manifest requires a server object".to_string())
+                })
+                .and_then(|server| {
+                    mcp_manifest_string(server, "type", "server.type").and_then(|_| mcp_manifest_string(server, "entry_point", "server.entry_point"))
+                })
+                .and_then(|entry_point| SafePath::new(entry_point).map_err(|why| format!("MCP bundle server.entry_point is unsafe: {why}")))
+                .and_then(|entry_point| match files.contains(entry_point.as_path()) {
+                    | true => Ok(()),
+                    | false => Err(format!(
+                        "MCP bundle server.entry_point is missing from the archive: {}",
+                        entry_point.as_path().display()
+                    )),
+                })
+        })
 }
 #[cfg(feature = "analysis")]
 #[async_trait]

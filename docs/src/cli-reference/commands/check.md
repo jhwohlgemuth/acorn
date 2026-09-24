@@ -66,7 +66,13 @@ An explicit filesystem selection or `--paste` takes precedence over piped standa
 
 ACORN recognizes files named `Kitfile` as KitOps authoring YAML and resolved ModelKit JSON by its layer identity fields. A file named `modelkit.json` is treated as a ModelKit even when malformed, so validation errors use the correct schema. Directory and Git-change discovery include `Kitfile` alongside supported JSON files.
 
-Kitfile and ModelKit checks validate their schema and modeled values. Use `--standard kitfile` or `--standard modelkit` when a file uses an unconventional name or its content is too malformed for automatic detection.
+Kitfile and ModelKit checks reject unknown fields, duplicate keys, empty content placeholders, blank content paths, invalid path kinds, path collisions, malformed layer digests, and other modeled-value errors. Resolved ModelKit JSON must include a compressed `digest` for every local layer. An uncompressed `diffId` remains optional, but missing values are reported as quality warnings because ACORN cannot verify uncompressed layer integrity without them.
+
+For an authoring `Kitfile`, quality checks also verify that every local content path exists, cannot traverse or resolve outside the Kitfile directory, and is ready to package. Referenced `.mcpb` files must be valid ZIP archives with a root `manifest.json`, required manifest identity and server fields, and an in-archive `server.entry_point`. Remote model and dataset references are not treated as local files.
+
+Compatibility conditions remain warnings rather than schema errors: an unrecognized `manifestVersion`, a `remoteHash` ignored for a ModelKit dataset reference, and missing resolved `diffId` values. A standalone `modelkit.json` does not contain its OCI manifest, so `acorn check` can validate its structure and layer identity fields but cannot cross-check its config or layer descriptors against a registry manifest. ACORN performs those descriptor checks when downloading a ModelKit artifact.
+
+Use `--standard kitfile` or `--standard modelkit` when a file uses an unconventional name or its content is too malformed for automatic detection. Use `--skip quality` to run format and schema validation without package-readiness or compatibility warnings.
 
 ## Checking PDF documents
 

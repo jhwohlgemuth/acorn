@@ -1,0 +1,9 @@
+manifestVersion: v1.0.0
+model:
+  name: missing-model
+  path: model/missing.gguf
+code:
+  - path: src
+mcpServers:
+  - name: broken-server
+    path: broken.mcpb

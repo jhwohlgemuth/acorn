@@ -16,7 +16,8 @@ use serde_json::Value;
 pub const MANIFEST_VERSION: &str = "v1.0.0";
 /// Arbitrary metadata constrained to the JSON data model.
 pub type Parameters = Value;
-type PathState = (BTreeMap<String, Vec<String>>, BTreeSet<String>, Vec<(String, ValidationError)>);
+type PathSource = (String, String, String);
+type PathState = (BTreeMap<String, Vec<PathSource>>, BTreeSet<String>, Vec<(String, ValidationError)>);
 /// Model serialization format with a typed GGUF case and forward-compatible fallback.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ModelFormat {
@@ -436,7 +437,7 @@ impl Kitfile {
             .and_then(|value| {
                 serde_json::from_value::<Self>(value).map_err(|why| ModelKitError::Codec(format!("Invalid ModelKit config JSON — {why}")))
             })
-            .and_then(Self::validated)
+            .and_then(|kitfile| kitfile.validate_resolved().map(|()| kitfile).map_err(ModelKitError::Validation))
     }
     /// Serialize an authoring Kitfile YAML document without resolved layer identity.
     pub fn to_yaml(&self) -> Result<String, ModelKitError> {
@@ -444,19 +445,44 @@ impl Kitfile {
     }
     /// Serialize resolved ModelKit OCI configuration JSON with layer identity.
     pub fn to_resolved_json(&self) -> Result<String, ModelKitError> {
-        serde_json::to_string(self).map_err(|why| ModelKitError::Codec(format!("Failed to encode ModelKit config JSON — {why}")))
+        self.validate_resolved()
+            .map_err(ModelKitError::Validation)
+            .and_then(|()| serde_json::to_string(self).map_err(|why| ModelKitError::Codec(format!("Failed to encode ModelKit config JSON — {why}"))))
     }
     /// Return whether this Kitfile contains no model or auxiliary content layers.
     pub fn is_empty(&self) -> bool {
-        self.model.is_none()
-            && self.code.is_empty()
-            && self.datasets.is_empty()
-            && self.docs.is_empty()
-            && self.prompts.is_empty()
-            && self.mcp_servers.is_empty()
+        let model_empty = self.model.as_ref().is_none_or(|model| {
+            let primary_empty = model.path.trim().is_empty();
+            let parts_empty = model.parts.iter().all(|part| part.path.trim().is_empty());
+            primary_empty && parts_empty
+        });
+        let code_empty = self.code.iter().all(|value| value.path.trim().is_empty());
+        let datasets_empty = self.datasets.iter().all(|value| value.path.trim().is_empty());
+        let docs_empty = self.docs.iter().all(|value| value.path.trim().is_empty());
+        let prompts_empty = self.prompts.iter().all(|value| value.path.trim().is_empty());
+        let mcp_servers_empty = self.mcp_servers.iter().all(|value| value.path.trim().is_empty());
+        model_empty && code_empty && datasets_empty && docs_empty && prompts_empty && mcp_servers_empty
     }
     fn validated(self) -> Result<Self, ModelKitError> {
         self.validate().map(|()| self).map_err(ModelKitError::Validation)
+    }
+    fn validate_resolved(&self) -> Result<(), ValidationReport> {
+        let resolved = report(
+            self.local_layers()
+                .into_iter()
+                .filter(|(_, layer)| layer.digest.is_none())
+                .map(|(path, _)| {
+                    (
+                        format!("{path}.digest"),
+                        ValidationError::new("required_resolved_digest").with_message("Resolved ModelKit local layers require a compressed digest"),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        );
+        ValidationReport::new()
+            .merge("", self.validate().err().unwrap_or_default())
+            .merge("", resolved.err().unwrap_or_default())
+            .finish()
     }
     fn as_authoring(&self) -> Self {
         Self {
@@ -471,19 +497,21 @@ impl Kitfile {
     }
     /// Compatibility warnings that do not make the Kitfile invalid.
     pub fn warnings(&self) -> Vec<String> {
-        let version = match self.manifest_version.as_str() {
+        let mut warnings = match self.manifest_version.as_str() {
             | MANIFEST_VERSION => Vec::new(),
             | version => vec![format!("Unrecognized manifestVersion {version}: treating Kitfile as {MANIFEST_VERSION}")],
         };
-        version
-            .into_iter()
-            .chain(
-                self.datasets
-                    .iter()
-                    .filter(|dataset| !dataset.remote_hash.is_empty() && Location::from(&dataset.remote_path).is_oci_reference())
-                    .map(|dataset| format!("remoteHash is ignored for ModelKit references in datasets ({})", dataset.path)),
-            )
-            .collect()
+        warnings.extend(
+            self.datasets
+                .iter()
+                .filter(|dataset| !dataset.remote_hash.trim().is_empty() && Location::from(&dataset.remote_path).is_oci_reference())
+                .map(|dataset| format!("remoteHash is ignored for ModelKit references in datasets ({})", dataset.path)),
+        );
+        let layers = self.local_layers();
+        if !layers.is_empty() && layers.iter().all(|(_, layer)| layer.digest.is_some()) && layers.iter().any(|(_, layer)| layer.diff_id.is_none()) {
+            warnings.push("One or more resolved local layers omit diffId; uncompressed layer integrity cannot be verified".to_string());
+        }
+        warnings
     }
     /// Check compressed and uncompressed layer identity independently.
     pub fn layer_info_completeness(&self) -> Result<LayerInfoCompleteness, ValidationReport> {
@@ -491,24 +519,15 @@ impl Kitfile {
         let digest_values = layers.iter().map(|(_, layer)| layer.digest.is_some()).collect::<Vec<_>>();
         let diff_id_values = layers.iter().map(|(_, layer)| layer.diff_id.is_some()).collect::<Vec<_>>();
         let digest_mixed = digest_values.iter().any(|value| *value) && digest_values.iter().any(|value| !*value);
-        let diff_id_mixed = diff_id_values.iter().any(|value| *value) && diff_id_values.iter().any(|value| !*value);
-        let issues = [
-            digest_mixed.then(|| {
+        let issues = digest_mixed
+            .then(|| {
                 (
                     "layerInfo.digest",
                     ValidationError::new("incomplete_layer_info").with_message("Resolved layer digests must be present on every local layer"),
                 )
-            }),
-            diff_id_mixed.then(|| {
-                (
-                    "layerInfo.diffId",
-                    ValidationError::new("incomplete_layer_info").with_message("Resolved layer diffIds must be present on every local layer"),
-                )
-            }),
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+            })
+            .into_iter()
+            .collect::<Vec<_>>();
         report(issues).map(|()| LayerInfoCompleteness {
             digests: !digest_values.iter().any(|value| !*value),
             diff_ids: !diff_id_values.iter().any(|value| !*value),
@@ -529,7 +548,7 @@ impl Kitfile {
             .datasets
             .iter()
             .enumerate()
-            .filter(|(_, value)| value.remote_path.is_empty())
+            .filter(|(_, value)| value.remote_path.trim().is_empty())
             .map(|(index, value)| (format!("datasets[{index}]"), &value.layer));
         let code = self
             .code
@@ -565,79 +584,96 @@ impl Kitfile {
             })
             .collect::<Vec<_>>();
         let (paths, remote_paths, issues) = self.path_issues(initial);
-        let duplicate_issues = paths.iter().filter(|(_, sources)| sources.len() > 1).map(|(path, sources)| {
-            (
-                path.clone(),
-                ValidationError::new("duplicate_path").with_message(format!("{} use the same path {path}", sources.join(" and "))),
-            )
+        let duplicate_issues = paths.iter().filter(|(_, sources)| sources.len() > 1).filter_map(|(path, sources)| {
+            sources.first().map(|(field, _, value)| {
+                let descriptions = sources.iter().map(|(_, source, _)| source.as_str()).join(" and ");
+                (
+                    field.clone(),
+                    located_error("duplicate_path", format!("{descriptions} use the same path {path}"), field, value),
+                )
+            })
         });
         let collision_issues = paths.iter().flat_map(|(path, sources)| {
             remote_paths
                 .iter()
                 .filter(move |remote| path != *remote && path.strip_prefix(remote.as_str()).is_some_and(|rest| rest.starts_with('/')))
-                .map(move |_| {
-                    let source = sources.first().map_or("layer", String::as_str);
-                    (
-                        path.clone(),
-                        ValidationError::new("remote_dataset_collision")
-                            .with_message(format!("{source} uses a path ({path}) that is within the path for a remote dataset")),
-                    )
+                .filter_map(move |_| {
+                    sources.first().map(|(field, source, value)| {
+                        (
+                            field.clone(),
+                            located_error(
+                                "remote_dataset_collision",
+                                format!("{source} uses a path ({path}) that is within the path for a remote dataset"),
+                                field,
+                                value,
+                            ),
+                        )
+                    })
                 })
         });
-        let completeness_issues = self
-            .layer_info_completeness()
-            .err()
-            .into_iter()
-            .flat_map(ValidationReport::into_issues)
-            .map(|value| (value.path, value.error));
         report(
             issues
                 .into_iter()
                 .chain(duplicate_issues)
                 .chain(collision_issues)
-                .chain(completeness_issues)
                 .sorted_by(|left, right| (&left.0, &left.1.code, &left.1.message).cmp(&(&right.0, &right.1.code, &right.1.message)))
                 .collect::<Vec<_>>(),
         )
     }
     fn path_issues(&self, initial: Vec<(String, ValidationError)>) -> PathState {
-        let model = self
-            .model
-            .iter()
-            .map(|value| ("model.path".to_string(), value.path.as_str(), format!("model {}", value.name), true));
+        let model = self.model.iter().map(|value| {
+            (
+                "model.path".to_string(),
+                value.path.as_str(),
+                format!("model {}", value.name),
+                value.parts.is_empty(),
+                true,
+            )
+        });
         let parts = self.model.iter().flat_map(|model| {
             model.parts.iter().enumerate().map(|(index, value)| {
                 (
                     format!("model.parts[{index}].path"),
                     value.path.as_str(),
                     format!("modelpart {}", value.name),
+                    true,
                     false,
                 )
             })
         });
-        let code = self
-            .code
-            .iter()
-            .enumerate()
-            .map(|(index, value)| (format!("code[{index}].path"), value.path.as_str(), format!("code layer {index}"), false));
+        let code = self.code.iter().enumerate().map(|(index, value)| {
+            (
+                format!("code[{index}].path"),
+                value.path.as_str(),
+                format!("code layer {index}"),
+                true,
+                false,
+            )
+        });
         let datasets = self.datasets.iter().enumerate().map(|(index, value)| {
             (
                 format!("datasets[{index}].path"),
                 value.path.as_str(),
                 format!("dataset layer {index}"),
+                true,
                 false,
             )
         });
-        let docs = self
-            .docs
-            .iter()
-            .enumerate()
-            .map(|(index, value)| (format!("docs[{index}].path"), value.path.as_str(), format!("docs layer {index}"), false));
+        let docs = self.docs.iter().enumerate().map(|(index, value)| {
+            (
+                format!("docs[{index}].path"),
+                value.path.as_str(),
+                format!("docs layer {index}"),
+                true,
+                false,
+            )
+        });
         let prompts = self.prompts.iter().enumerate().map(|(index, value)| {
             (
                 format!("prompts[{index}].path"),
                 value.path.as_str(),
                 format!("prompt layer {index}"),
+                true,
                 false,
             )
         });
@@ -646,6 +682,7 @@ impl Kitfile {
                 format!("mcpServers[{index}].path"),
                 value.path.as_str(),
                 format!("mcpServer layer {index}"),
+                true,
                 false,
             )
         });
@@ -656,11 +693,13 @@ impl Kitfile {
             .chain(docs)
             .chain(prompts)
             .chain(mcp)
-            .map(|(field, value, source, allow_modelkit)| validate_path(&field, value, source, allow_modelkit))
+            .map(|(field, value, source, required, allow_modelkit)| validate_path(&field, value, source, required, allow_modelkit))
             .fold(
-                (BTreeMap::<String, Vec<String>>::new(), initial),
+                (BTreeMap::<String, Vec<PathSource>>::new(), initial),
                 |(mut paths, mut issues), (path, source, found)| {
-                    paths.entry(path).or_default().push(source);
+                    if let Some(path) = path {
+                        paths.entry(path).or_default().push(source);
+                    }
                     issues.extend(found);
                     (paths, issues)
                 },
@@ -668,7 +707,7 @@ impl Kitfile {
         let remote_paths = self
             .datasets
             .iter()
-            .filter(|value| Location::from(&value.remote_path).is_oci_reference())
+            .filter(|value| !value.path.trim().is_empty() && Location::from(&value.remote_path).is_oci_reference())
             .map(|value| Location::from(&value.path).normalize())
             .collect::<BTreeSet<_>>();
         let part_issues = self.model.iter().flat_map(|model| {
@@ -678,14 +717,18 @@ impl Kitfile {
                     (!(part.kind.is_empty() || valid_part_kind(&part.kind))).then(|| {
                         (
                             path.clone(),
-                            ValidationError::new("model_part_type")
-                                .with_message("Model part type must be alphanumeric with dots, dashes, and underscores"),
+                            located_error(
+                                "model_part_type",
+                                "Model part type must be alphanumeric with dots, dashes, and underscores",
+                                &path,
+                                &part.kind,
+                            ),
                         )
                     }),
                     (!(part.kind.is_empty() || part.kind.len() <= 64)).then(|| {
                         (
-                            path,
-                            ValidationError::new("model_part_type_length").with_message("Model part type must be at most 64 bytes"),
+                            path.clone(),
+                            located_error("model_part_type_length", "Model part type must be at most 64 bytes", &path, &part.kind),
                         )
                     }),
                 ]
@@ -706,21 +749,22 @@ impl Kitfile {
                     .is_some_and(|values| values.iter().any(|prior| prior.name == value.name));
             [
                 (!value.path.ends_with(".mcpb")).then(|| {
+                    let path = format!("mcpServers[{index}].path");
                     (
-                        format!("mcpServers[{index}].path"),
-                        ValidationError::new("mcp_bundle").with_message("MCP server path must point to a single .mcpb file"),
+                        path.clone(),
+                        located_error("mcp_bundle", "MCP server path must point to a single .mcpb file", &path, &value.path),
                     )
                 }),
                 value.name.is_empty().then(|| {
-                    (
-                        format!("mcpServers[{index}].name"),
-                        ValidationError::new("required").with_message("MCP server must have a name"),
-                    )
+                    let path = format!("mcpServers[{index}].name");
+                    let source_path = format!("mcpServers[{index}].path");
+                    (path, located_error("required", "MCP server must have a name", &source_path, &value.path))
                 }),
                 duplicate.then(|| {
+                    let path = format!("mcpServers[{index}].name");
                     (
-                        format!("mcpServers[{index}].name"),
-                        ValidationError::new("duplicate_name").with_message(format!("Duplicate MCP server name {}", value.name)),
+                        path.clone(),
+                        located_error("duplicate_name", format!("Duplicate MCP server name {}", value.name), &path, &value.name),
                     )
                 }),
             ]
@@ -758,6 +802,12 @@ fn known(values: &serde_json::Map<String, Value>, path: &str, allowed: &[&str]) 
         .keys()
         .find(|key| !allowed.contains(&key.as_str()))
         .map_or(Ok(()), |key| Err(ModelKitError::Codec(format!("Unknown Kitfile field '{path}.{key}'"))))
+}
+fn located_error(code: impl Into<String>, message: impl Into<String>, source_path: &str, value: &str) -> ValidationError {
+    let mut error = ValidationError::new(code).with_message(message);
+    error.add_param("source_path".into(), source_path);
+    error.add_param("value".into(), value);
+    error
 }
 fn normalize_authoring_scalars(value: Value) -> Value {
     match value {
@@ -867,40 +917,90 @@ fn validate_package_shape(root: &serde_json::Map<String, Value>) -> Result<(), M
         object(value, "package").and_then(|package| known(package, "package", &["name", "version", "description", "license", "authors"]))
     })
 }
-fn validate_path(field: &str, value: &str, source: String, allow_modelkit: bool) -> (String, String, Vec<(String, ValidationError)>) {
-    let location = Location::from(value);
-    let absolute = location.is_absolute().then(|| {
-        (
-            field.to_string(),
-            ValidationError::new("absolute_path").with_message(format!("Absolute paths are not supported ({value})")),
-        )
-    });
-    let permitted = location.is_path() || (allow_modelkit && location.is_oci_reference());
-    let path_kind = (!permitted).then(|| {
-        (
-            field.to_string(),
-            ValidationError::new("path_kind").with_message("Path kind is not permitted for this Kitfile field"),
-        )
-    });
-    (location.normalize(), source, [absolute, path_kind].into_iter().flatten().collect())
+fn validate_path(
+    field: &str,
+    value: &str,
+    source: String,
+    required: bool,
+    allow_modelkit: bool,
+) -> (Option<String>, PathSource, Vec<(String, ValidationError)>) {
+    let path_source = (field.to_string(), source, value.to_string());
+    let missing = value.is_empty();
+    let blank = !missing && value.trim().is_empty();
+    match missing || blank {
+        | true => {
+            let issues = (required || blank)
+                .then(|| (field.to_string(), located_error("required", "Content path cannot be blank", field, value)))
+                .into_iter()
+                .collect();
+            (None, path_source, issues)
+        }
+        | false => {
+            let location = Location::from(value);
+            let absolute = location.is_absolute().then(|| {
+                (
+                    field.to_string(),
+                    located_error("absolute_path", format!("Absolute paths are not supported ({value})"), field, value),
+                )
+            });
+            let permitted = location.is_path() || (allow_modelkit && location.is_oci_reference());
+            let path_kind = (!permitted).then(|| {
+                (
+                    field.to_string(),
+                    located_error("path_kind", "Path kind is not permitted for this Kitfile field", field, value),
+                )
+            });
+            (
+                Some(location.normalize()),
+                path_source,
+                [absolute, path_kind].into_iter().flatten().collect(),
+            )
+        }
+    }
 }
 fn validate_remote_dataset(index: usize, value: &Dataset) -> Vec<(String, ValidationError)> {
     let remote = Location::from(&value.remote_path);
-    match (value.remote_path.is_empty(), remote.is_s3(), value.remote_hash.is_empty()) {
-        | (true, _, false) => vec![(
-            format!("datasets[{index}].remoteHash"),
-            ValidationError::new("remote_hash").with_message("Remote hash is only applicable when remotePath is set"),
-        )],
-        | (false, true, true) => vec![(
-            format!("datasets[{index}].remoteHash"),
-            ValidationError::new("required").with_message("remoteHash is required for S3 dataset paths"),
-        )],
+    let remote_path_present = !value.remote_path.trim().is_empty();
+    let remote_hash_present = !value.remote_hash.trim().is_empty();
+    match (value.remote_hash.is_empty(), remote_path_present, remote.is_s3(), remote_hash_present) {
+        | (false, _, _, false) => {
+            let path = format!("datasets[{index}].remoteHash");
+            vec![(
+                path.clone(),
+                located_error("remote_hash", "remoteHash cannot be blank", &path, &value.remote_hash),
+            )]
+        }
+        | (_, false, _, true) => {
+            let path = format!("datasets[{index}].remoteHash");
+            vec![(
+                path.clone(),
+                located_error(
+                    "remote_hash",
+                    "Remote hash is only applicable when remotePath is set",
+                    &path,
+                    &value.remote_hash,
+                ),
+            )]
+        }
+        | (_, true, true, false) => {
+            let path = format!("datasets[{index}].remoteHash");
+            let source_path = format!("datasets[{index}].remotePath");
+            vec![(
+                path,
+                located_error(
+                    "required",
+                    "remoteHash is required for S3 dataset paths",
+                    &source_path,
+                    &value.remote_path,
+                ),
+            )]
+        }
         | _ => Vec::new(),
     }
 }
 fn validate_remote_path(value: &str) -> Result<(), ValidationError> {
     let location = Location::from(value);
-    match value.is_empty() || location.is_s3() || location.is_oci_reference() {
+    match value.is_empty() || (!value.trim().is_empty() && (location.is_s3() || location.is_oci_reference())) {
         | true => Ok(()),
         | false => {
             Err(ValidationError::new("remote_path").with_message("Only S3 URLs and ModelKit references are supported for remote dataset paths"))
