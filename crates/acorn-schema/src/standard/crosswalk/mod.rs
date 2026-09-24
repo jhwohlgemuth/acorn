@@ -39,6 +39,9 @@
 //! in the [`extractors`] and [`builders`] submodules.
 use acorn_core::prelude::alloc::{format, String, Vec};
 use core::fmt;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 
 pub mod mapping;
 mod research_activity;
@@ -109,6 +112,20 @@ enum CrosswalkSchema {
     Rad,
     RadOutput,
     Raid,
+}
+/// Metadata standards exposed by the shared schema-crosswalk interface.
+#[derive(Clone, Copy, Debug, Deserialize, Display, EnumString, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum CrosswalkStandard {
+    /// DataCite metadata.
+    Datacite,
+    /// Data Catalog Vocabulary metadata.
+    Dcat,
+    /// HuWise metadata.
+    Huwise,
+    /// InvenioRDM metadata.
+    Invenio,
 }
 /// Type of data loss during conversion
 #[derive(Clone, Debug, PartialEq, Eq)]

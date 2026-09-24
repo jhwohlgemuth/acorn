@@ -129,13 +129,6 @@ mod args_macro {
         assert_eq!(result, vec![OsString::from("--version")]);
     }
     #[test]
-    fn test_spread_vec() {
-        let extra = vec!["--gpus".to_string(), "all".to_string()];
-        let result = args!["run", "--detach", ..extra, "image"];
-        let expected: Vec<OsString> = ["run", "--detach", "--gpus", "all", "image"].map(OsString::from).to_vec();
-        assert_eq!(result, expected);
-    }
-    #[test]
     fn test_spread_and_trailing_comma() {
         let extra = vec!["-v"];
         let result = args!["cmd", ..extra, "arg",];
@@ -157,6 +150,13 @@ mod args_macro {
         assert_eq!(result, expected);
     }
     #[test]
+    fn test_spread_vec() {
+        let extra = vec!["--gpus".to_string(), "all".to_string()];
+        let result = args!["run", "--detach", ..extra, "image"];
+        let expected: Vec<OsString> = ["run", "--detach", "--gpus", "all", "image"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
+    #[test]
     fn test_str_refs() {
         let a = "hello";
         let b = "world";
@@ -168,13 +168,6 @@ mod args_macro {
     fn test_trailing_comma() {
         let result = args!["a", "b",];
         let expected: Vec<OsString> = ["a", "b"].map(OsString::from).to_vec();
-        assert_eq!(result, expected);
-    }
-    #[test]
-    fn test_with_variables() {
-        let name = "test".to_string();
-        let result = args!["--name", name, "--verbose"];
-        let expected: Vec<OsString> = ["--name", "test", "--verbose"].map(OsString::from).to_vec();
         assert_eq!(result, expected);
     }
     #[test]
@@ -190,6 +183,12 @@ mod args_macro {
         assert_eq!(result, expected);
     }
     #[test]
+    fn test_tuple_trailing_comma() {
+        let result = args![("--name", "Bill"),];
+        let expected: Vec<OsString> = ["--name", "Bill"].map(OsString::from).to_vec();
+        assert_eq!(result, expected);
+    }
+    #[test]
     fn test_tuple_with_variables() {
         let key = "--name";
         let value = "Bill".to_string();
@@ -198,15 +197,31 @@ mod args_macro {
         assert_eq!(result, expected);
     }
     #[test]
-    fn test_tuple_trailing_comma() {
-        let result = args![("--name", "Bill"),];
-        let expected: Vec<OsString> = ["--name", "Bill"].map(OsString::from).to_vec();
+    fn test_with_variables() {
+        let name = "test".to_string();
+        let result = args!["--name", name, "--verbose"];
+        let expected: Vec<OsString> = ["--name", "test", "--verbose"].map(OsString::from).to_vec();
         assert_eq!(result, expected);
     }
 }
 mod cmd_macro {
     use super::*;
 
+    #[test]
+    fn test_command_spec_checked_output_rejects_failure() {
+        let result = CommandSpec::new(exit_bin()).args(exit_args(42)).checked_output();
+        assert!(result.is_err());
+    }
+    #[cfg(unix)]
+    #[test]
+    fn test_command_spec_timeout_is_bounded() {
+        let started = std::time::Instant::now();
+        let result = CommandSpec::new("sh")
+            .args(["-c", "(sleep 2; echo late) & wait"])
+            .output_with_timeout(core::time::Duration::from_millis(50));
+        assert_eq!(result.expect_err("command should time out").kind(), std::io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < core::time::Duration::from_secs(1));
+    }
     #[cfg(feature = "shell-lint")]
     #[test]
     fn test_configured_shell_lint_min_severity() {
@@ -251,179 +266,6 @@ mod cmd_macro {
     fn test_error() {
         assert!(cmd!("not-a-real-command-xyz", ["arg"]).is_err());
         assert!(cmd!(sh "not-a-real-command-xyz arg").is_err());
-    }
-    #[test]
-    fn test_output() {
-        let output = cmd!(sh sh_echo("sh-output")).expect("sh string");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "sh-output");
-        let output = cmd!(sh sh_echo("one two three")).expect("sh multi-arg");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "one two three");
-        let name = "world";
-        let output = cmd!(sh sh_echo(&format!("hello-{name}"))).expect("sh format!");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello-world");
-        let output = if cfg!(unix) {
-            cmd!("echo", ["hello"]).expect("array literal")
-        } else {
-            cmd!("cmd", ["/c", "echo", "hello"]).expect("array literal")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello");
-        let args = echo_args("world");
-        let output = cmd!(echo_bin(), args).expect("args variable");
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "world");
-        let output = if cfg!(unix) {
-            cmd!("echo" "cli-style").expect("cli-style")
-        } else {
-            cmd!("cmd" "/c" "echo" "cli-style").expect("cli-style")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "cli-style");
-        let output = cmd!(stderr_bin(), stderr_args("oops")).expect("stderr");
-        if cfg!(unix) {
-            assert_eq!(output.stderr(), "oops");
-        } else {
-            assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
-        }
-        let output = cmd!(exit_bin(), exit_args(42)).expect("exit code");
-        assert!(!output.status.success());
-    }
-    #[test]
-    fn test_output_with_child_environment() {
-        const KEY: &str = "ACORN_CMD_CHILD_ENV_TEST";
-        let inherited = std::env::var_os(KEY);
-        let output = if cfg!(unix) {
-            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; env: [(KEY, "hello world")]).expect("environment output")
-        } else {
-            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; env: [(KEY, "hello world")]).expect("environment output")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello world");
-        let current_dir = std::env::current_dir().expect("current directory");
-        let output = if cfg!(unix) {
-            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; dir: current_dir, env: [(KEY, "hello from directory")])
-                .expect("directory environment output")
-        } else {
-            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; dir: current_dir, env: [(KEY, "hello from directory")])
-                .expect("directory environment output")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello from directory");
-        assert_eq!(std::env::var_os(KEY), inherited);
-    }
-    #[test]
-    fn test_sh_literal_splat_output() {
-        let args = ["hello", "world"];
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {args...}").expect("array splat")
-        } else {
-            cmd!(sh "cmd /c echo {args...}").expect("array splat")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello world");
-        let args = vec!["vector".to_string(), "splat".to_string()];
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {args...}").expect("vector splat")
-        } else {
-            cmd!(sh "cmd /c echo {args...}").expect("vector splat")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "vector splat");
-        let arg1: Option<&str> = Some("optional");
-        let arg2: Option<&str> = None;
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {arg1...} {arg2...}").expect("option splat")
-        } else {
-            cmd!(sh "cmd /c echo {arg1...} {arg2...}").expect("option splat")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "optional");
-    }
-    #[test]
-    fn test_sh_literal_splat_empty_iterable() {
-        let args: Option<&str> = None;
-        let output = if cfg!(unix) {
-            cmd!(sh "true {args...}").expect("empty splat")
-        } else {
-            cmd!(sh "cmd /c rem {args...}").expect("empty splat")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "");
-    }
-    #[test]
-    fn test_sh_literal_splat_status_try_and_dir() {
-        let args = ["status"];
-        let status = if cfg!(unix) {
-            cmd!(sh status "echo {args...}").expect("splat status")
-        } else {
-            cmd!(sh status "cmd /c echo {args...}").expect("splat status")
-        };
-        assert!(status.success());
-        let args = ["try"];
-        let value = if cfg!(unix) {
-            cmd!(try sh "echo {args...}").expect("splat try")
-        } else {
-            cmd!(try sh "cmd /c echo {args...}").expect("splat try")
-        };
-        assert_eq!(value, "try");
-        let cwd = std::env::current_dir().expect("current directory");
-        let args = ["dir"];
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {args...}"; dir: cwd).expect("splat dir")
-        } else {
-            cmd!(sh "cmd /c echo {args...}"; dir: cwd).expect("splat dir")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "dir");
-    }
-    #[test]
-    fn test_sh_literal_splat_single_quotes_are_literal() {
-        let output = if cfg!(unix) {
-            cmd!(sh "echo '{args...}'").expect("quoted splat")
-        } else {
-            cmd!(sh "cmd /c echo '{args...}'").expect("quoted splat")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "{args...}");
-    }
-    #[test]
-    fn test_sh_literal_var_output() {
-        let msg = "hello";
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {msg}").expect("single var")
-        } else {
-            cmd!(sh "cmd /c echo {msg}").expect("single var")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "hello");
-        let name = "acorn".to_string();
-        let output = if cfg!(unix) {
-            cmd!(sh "echo {name}").expect("var String")
-        } else {
-            cmd!(sh "cmd /c echo {name}").expect("var String")
-        };
-        assert!(output.status.success());
-        assert_eq!(output.stdout(), "acorn");
-    }
-    #[test]
-    fn test_sh_literal_var_status_and_try() {
-        let msg = "status-check";
-        let status = if cfg!(unix) {
-            cmd!(sh status "echo {msg}").expect("single var")
-        } else {
-            cmd!(sh status "cmd /c echo {msg}").expect("single var")
-        };
-        assert!(status.success());
-        let msg = "try-check";
-        let value = if cfg!(unix) {
-            cmd!(try sh "echo {msg}").expect("try var")
-        } else {
-            cmd!(try sh "cmd /c echo {msg}").expect("try var")
-        };
-        assert_eq!(value, "try-check");
     }
     #[test]
     fn test_literal_direct_exec_basic() {
@@ -490,6 +332,179 @@ mod cmd_macro {
         assert!(output.status.success());
         assert_eq!(output.stdout(), "Hello Alice Bob");
     }
+    #[test]
+    fn test_output() {
+        let output = cmd!(sh sh_echo("sh-output")).expect("sh string");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "sh-output");
+        let output = cmd!(sh sh_echo("one two three")).expect("sh multi-arg");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "one two three");
+        let name = "world";
+        let output = cmd!(sh sh_echo(&format!("hello-{name}"))).expect("sh format!");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello-world");
+        let output = if cfg!(unix) {
+            cmd!("echo", ["hello"]).expect("array literal")
+        } else {
+            cmd!("cmd", ["/c", "echo", "hello"]).expect("array literal")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello");
+        let args = echo_args("world");
+        let output = cmd!(echo_bin(), args).expect("args variable");
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "world");
+        let output = if cfg!(unix) {
+            cmd!("echo" "cli-style").expect("cli-style")
+        } else {
+            cmd!("cmd" "/c" "echo" "cli-style").expect("cli-style")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "cli-style");
+        let output = cmd!(stderr_bin(), stderr_args("oops")).expect("stderr");
+        if cfg!(unix) {
+            assert_eq!(output.stderr(), "oops");
+        } else {
+            assert!(output.stderr().contains("oops") || output.stdout().contains("oops"));
+        }
+        let output = cmd!(exit_bin(), exit_args(42)).expect("exit code");
+        assert!(!output.status.success());
+    }
+    #[test]
+    fn test_output_with_child_environment() {
+        const KEY: &str = "ACORN_CMD_CHILD_ENV_TEST";
+        let inherited = std::env::var_os(KEY);
+        let output = if cfg!(unix) {
+            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; env: [(KEY, "hello world")]).expect("environment output")
+        } else {
+            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; env: [(KEY, "hello world")]).expect("environment output")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello world");
+        let current_dir = std::env::current_dir().expect("current directory");
+        let output = if cfg!(unix) {
+            cmd!("sh", ["-c", "printf %s \"$ACORN_CMD_CHILD_ENV_TEST\""]; dir: current_dir, env: [(KEY, "hello from directory")])
+                .expect("directory environment output")
+        } else {
+            cmd!("cmd", ["/c", "echo", "%ACORN_CMD_CHILD_ENV_TEST%"]; dir: current_dir, env: [(KEY, "hello from directory")])
+                .expect("directory environment output")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello from directory");
+        assert_eq!(std::env::var_os(KEY), inherited);
+    }
+    #[test]
+    fn test_sh_literal_splat_empty_iterable() {
+        let args: Option<&str> = None;
+        let output = if cfg!(unix) {
+            cmd!(sh "true {args...}").expect("empty splat")
+        } else {
+            cmd!(sh "cmd /c rem {args...}").expect("empty splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "");
+    }
+    #[test]
+    fn test_sh_literal_splat_output() {
+        let args = ["hello", "world"];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}").expect("array splat")
+        } else {
+            cmd!(sh "cmd /c echo {args...}").expect("array splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello world");
+        let args = vec!["vector".to_string(), "splat".to_string()];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}").expect("vector splat")
+        } else {
+            cmd!(sh "cmd /c echo {args...}").expect("vector splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "vector splat");
+        let arg1: Option<&str> = Some("optional");
+        let arg2: Option<&str> = None;
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {arg1...} {arg2...}").expect("option splat")
+        } else {
+            cmd!(sh "cmd /c echo {arg1...} {arg2...}").expect("option splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "optional");
+    }
+    #[test]
+    fn test_sh_literal_splat_single_quotes_are_literal() {
+        let output = if cfg!(unix) {
+            cmd!(sh "echo '{args...}'").expect("quoted splat")
+        } else {
+            cmd!(sh "cmd /c echo '{args...}'").expect("quoted splat")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "{args...}");
+    }
+    #[test]
+    fn test_sh_literal_splat_status_try_and_dir() {
+        let args = ["status"];
+        let status = if cfg!(unix) {
+            cmd!(sh status "echo {args...}").expect("splat status")
+        } else {
+            cmd!(sh status "cmd /c echo {args...}").expect("splat status")
+        };
+        assert!(status.success());
+        let args = ["try"];
+        let value = if cfg!(unix) {
+            cmd!(try sh "echo {args...}").expect("splat try")
+        } else {
+            cmd!(try sh "cmd /c echo {args...}").expect("splat try")
+        };
+        assert_eq!(value, "try");
+        let cwd = std::env::current_dir().expect("current directory");
+        let args = ["dir"];
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {args...}"; dir: cwd).expect("splat dir")
+        } else {
+            cmd!(sh "cmd /c echo {args...}"; dir: cwd).expect("splat dir")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "dir");
+    }
+    #[test]
+    fn test_sh_literal_var_output() {
+        let msg = "hello";
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {msg}").expect("single var")
+        } else {
+            cmd!(sh "cmd /c echo {msg}").expect("single var")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "hello");
+        let name = "acorn".to_string();
+        let output = if cfg!(unix) {
+            cmd!(sh "echo {name}").expect("var String")
+        } else {
+            cmd!(sh "cmd /c echo {name}").expect("var String")
+        };
+        assert!(output.status.success());
+        assert_eq!(output.stdout(), "acorn");
+    }
+    #[test]
+    fn test_sh_literal_var_status_and_try() {
+        let msg = "status-check";
+        let status = if cfg!(unix) {
+            cmd!(sh status "echo {msg}").expect("single var")
+        } else {
+            cmd!(sh status "cmd /c echo {msg}").expect("single var")
+        };
+        assert!(status.success());
+        let msg = "try-check";
+        let value = if cfg!(unix) {
+            cmd!(try sh "echo {msg}").expect("try var")
+        } else {
+            cmd!(try sh "cmd /c echo {msg}").expect("try var")
+        };
+        assert_eq!(value, "try-check");
+    }
     #[cfg(feature = "shell-lint")]
     #[test]
     fn test_shell_lint_blocks_invalid_bash() {
@@ -549,6 +564,15 @@ mod cmd_macro {
         }
     }
     #[test]
+    fn test_spawn_with_environment() {
+        let arguments = match cfg!(unix) {
+            | true => vec!["-c", "test \"$ACORN_CMD_TEST_ENV\" = configured"],
+            | false => vec!["/c", "if \"%ACORN_CMD_TEST_ENV%\"==\"configured\" (exit /b 0) else (exit /b 1)"],
+        };
+        let mut child = cmd!(spawn exit_bin(), arguments; env: [("ACORN_CMD_TEST_ENV", "configured")]).expect("spawn child");
+        assert!(child.wait().expect("child status").success());
+    }
+    #[test]
     fn test_status() {
         let status = cmd!(sh status sh_echo("sh-status")).expect("sh string");
         assert!(status.success());
@@ -572,20 +596,5 @@ mod cmd_macro {
         assert!(status.success());
         let status = cmd!(status exit_bin(), exit_args(42)).expect("exit code");
         assert!(!status.success());
-    }
-    #[test]
-    fn test_command_spec_checked_output_rejects_failure() {
-        let result = CommandSpec::new(exit_bin()).args(exit_args(42)).checked_output();
-        assert!(result.is_err());
-    }
-    #[cfg(unix)]
-    #[test]
-    fn test_command_spec_timeout_is_bounded() {
-        let started = std::time::Instant::now();
-        let result = CommandSpec::new("sh")
-            .args(["-c", "(sleep 2; echo late) & wait"])
-            .output_with_timeout(core::time::Duration::from_millis(50));
-        assert_eq!(result.expect_err("command should time out").kind(), std::io::ErrorKind::TimedOut);
-        assert!(started.elapsed() < core::time::Duration::from_secs(1));
     }
 }

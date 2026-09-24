@@ -6,7 +6,9 @@ use acorn::{
             schema::{ActivityRow, Table},
             Database, Operations,
         },
-        print_with_border, sidecar, slice_path, InputOutput,
+        print_with_border,
+        sidecar::{needle::Needle, SidecarAssets},
+        slice_path, InputOutput,
     },
     util::{
         constants::app::{DEFAULT_CONFIG_FILENAMES, DISPLAY_PATH_CHARACTER_COUNT},
@@ -26,11 +28,72 @@ use std::path::PathBuf;
 use tracing::{error, warn};
 
 pub mod model;
-/// Download or verify the pinned Needle runner and print its cache path.
+fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> {
+    let RuntimeOptions { common, extension, output } = options;
+    let CommonRuntime { quiet, .. } = common;
+    let BucketExtension {
+        database_path,
+        no_local_database,
+        ..
+    } = extension;
+    if let Some(path) = output {
+        if !*no_local_database {
+            log_activity("download", path.to_absolute_path(), database_path, true);
+        }
+    }
+    match quiet {
+        | true => Ok(()),
+        | false => {
+            print_result(total, output.as_ref());
+            Ok(())
+        }
+    }
+}
+pub(crate) fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<PathBuf>, success: bool) {
+    let database = Database::<Table>::from_path(database_path.clone());
+    let activity = ActivityRow::init()
+        .command(command)
+        .executed_at(Timestamp::now())
+        .user_path(path)
+        .success(success)
+        .build();
+    if let Err(why) = database.insert(activity) {
+        error!("=> {} Save {command} activity — {why}", Label::fail());
+    }
+}
+/// Download or verify the pinned Needle 3 engine, model, and license, then print the engine path.
 pub async fn needle(verbose: &Verbosity, offline: bool) -> Result<(), Report> {
-    sidecar::needle::assets::resolve(None, offline, verbose.is_silent())
+    Needle::resolve_assets(None, offline, verbose.is_silent())
         .await
         .map(|assets| println!("{}", assets.runner.display()))
+}
+pub(crate) fn print_result(total: usize, output: Option<&PathBuf>) {
+    let dest = output
+        .map(|path| slice_path(path, DISPLAY_PATH_CHARACTER_COUNT * 3))
+        .unwrap_or_else(|| ".".to_string());
+    let dest_styled = dest.cyan().to_string();
+    let message = match total {
+        | 0 => format!(
+            "{} No items matched — 0 processed to {}",
+            format!("{}CAUTION", Label::CAUTION).yellow(),
+            dest_styled
+        ),
+        | n => format!(
+            "{} Downloaded {} item{} to {}",
+            Label::pass(),
+            n.to_string().green().bold(),
+            suffix(n),
+            dest_styled
+        ),
+    };
+    print_with_border(message, Some("Download complete"));
+    if total == 0 {
+        eprintln!(
+            "  {} {}",
+            "hint:".dimmed(),
+            "no files passed --filter/--ignore or bucket was empty; try without --filter or check .acorn.json buckets".dimmed()
+        );
+    }
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
@@ -120,67 +183,6 @@ pub async fn run(
                 }
             }
         }
-    }
-}
-fn finish_transfer(total: usize, options: &BucketOptions) -> Result<(), Report> {
-    let RuntimeOptions { common, extension, output } = options;
-    let CommonRuntime { quiet, .. } = common;
-    let BucketExtension {
-        database_path,
-        no_local_database,
-        ..
-    } = extension;
-    if let Some(path) = output {
-        if !*no_local_database {
-            log_activity("download", path.to_absolute_path(), database_path, true);
-        }
-    }
-    match quiet {
-        | true => Ok(()),
-        | false => {
-            print_result(total, output.as_ref());
-            Ok(())
-        }
-    }
-}
-pub(crate) fn log_activity(command: &str, path: impl Into<String>, database_path: &Option<PathBuf>, success: bool) {
-    let database = Database::<Table>::from_path(database_path.clone());
-    let activity = ActivityRow::init()
-        .command(command)
-        .executed_at(Timestamp::now())
-        .user_path(path)
-        .success(success)
-        .build();
-    if let Err(why) = database.insert(activity) {
-        error!("=> {} Save {command} activity — {why}", Label::fail());
-    }
-}
-pub(crate) fn print_result(total: usize, output: Option<&PathBuf>) {
-    let dest = output
-        .map(|path| slice_path(path, DISPLAY_PATH_CHARACTER_COUNT * 3))
-        .unwrap_or_else(|| ".".to_string());
-    let dest_styled = dest.cyan().to_string();
-    let message = match total {
-        | 0 => format!(
-            "{} No items matched — 0 processed to {}",
-            format!("{}CAUTION", Label::CAUTION).yellow(),
-            dest_styled
-        ),
-        | n => format!(
-            "{} Downloaded {} item{} to {}",
-            Label::pass(),
-            n.to_string().green().bold(),
-            suffix(n),
-            dest_styled
-        ),
-    };
-    print_with_border(message, Some("Download complete"));
-    if total == 0 {
-        eprintln!(
-            "  {} {}",
-            "hint:".dimmed(),
-            "no files passed --filter/--ignore or bucket was empty; try without --filter or check .acorn.json buckets".dimmed()
-        );
     }
 }
 #[cfg(test)]

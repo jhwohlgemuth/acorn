@@ -217,6 +217,11 @@ pub trait InputOutput: Sized {
         Err(eyre!("ZON write not implemented for this type"))
     }
 }
+/// Parse a value from a source representation with structured errors.
+pub trait Parse<T>: Sized {
+    /// Parse the supplied source into this value.
+    fn parse(value: T) -> ApiResult<Self>;
+}
 /// Convert filesystem paths to portable configuration strings.
 pub trait PathConversion: AsRef<Path> {
     /// Borrow this value as a filesystem path.
@@ -510,6 +515,21 @@ impl From<CstValue<'_>> for CstInputValue {
         }
     }
 }
+impl AsRef<str> for Executor {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Executor::Apptainer => "apptainer",
+            | Executor::Docker => "docker",
+            | Executor::Podman => "podman",
+            | Executor::Sandbox => "sandbox",
+            | Executor::Shell => "shell",
+            | Executor::Ssh => "ssh",
+            | Executor::Kubernetes => "kubernetes",
+            | Executor::VirtualMachine => "virtual_machine",
+            | Executor::Other(value) => value.as_str(),
+        }
+    }
+}
 impl Executor {
     /// Returns the default configuration directory on host for GitLab runners based on the operating system.
     pub fn default_gitlab_runner_config_directory() -> &'static str {
@@ -588,21 +608,6 @@ impl Executor {
                 runner.executor
             )),
             | (Ok(()), _, _) => Ok(()),
-        }
-    }
-}
-impl AsRef<str> for Executor {
-    fn as_ref(&self) -> &str {
-        match self {
-            | Executor::Apptainer => "apptainer",
-            | Executor::Docker => "docker",
-            | Executor::Podman => "podman",
-            | Executor::Sandbox => "sandbox",
-            | Executor::Shell => "shell",
-            | Executor::Ssh => "ssh",
-            | Executor::Kubernetes => "kubernetes",
-            | Executor::VirtualMachine => "virtual_machine",
-            | Executor::Other(value) => value.as_str(),
         }
     }
 }
@@ -797,16 +802,6 @@ impl ProgressType {
         self.is_spinner()
     }
 }
-impl Remote {
-    /// Return the validated SSH endpoint.
-    pub fn as_str(&self) -> &str {
-        (&self.0).into()
-    }
-    /// Return the canonical location for this validated SSH endpoint.
-    pub fn location(&self) -> &Location {
-        &self.0
-    }
-}
 impl core::str::FromStr for Remote {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -835,17 +830,19 @@ impl core::str::FromStr for Remote {
         })
     }
 }
-impl<'de> Deserialize<'de> for Remote {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
-    }
-}
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+impl Remote {
+    /// Return the validated SSH endpoint.
+    pub fn as_str(&self) -> &str {
+        (&self.0).into()
+    }
+    /// Return the canonical location for this validated SSH endpoint.
+    pub fn location(&self) -> &Location {
+        &self.0
     }
 }
 impl Serialize for Remote {
@@ -854,6 +851,14 @@ impl Serialize for Remote {
         S: serde::Serializer,
     {
         serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for Remote {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| value.parse().map_err(serde::de::Error::custom))
     }
 }
 impl FromCommand for SemanticVersion {

@@ -1,0 +1,58 @@
+{
+  "engines": [
+    {
+      "os": "linux",
+      "architecture": "aarch64",
+      "platform": "linux-arm64",
+      "executable": "needle",
+      "size": 1166664,
+      "sha256": "b8d20caa7b8412c5900e05cf23d7a30dd84b7b89357d5408df30246ea9c808a6"
+    },
+    {
+      "os": "linux",
+      "architecture": "x86_64",
+      "platform": "linux-x86_64",
+      "executable": "needle",
+      "size": 1246880,
+      "sha256": "5eb163c5ed33bd914c103ef8eba2134c7bb2d97bafafdd69f410a4a3100e8c37"
+    },
+    {
+      "os": "macos",
+      "architecture": "aarch64",
+      "platform": "macos-arm64",
+      "executable": "needle",
+      "size": 824744,
+      "sha256": "bfcc14c38a7ebf670bf7ade3849b617d268120dc4cc75d3aa12c88bc7c0ba75c"
+    },
+    {
+      "os": "windows",
+      "architecture": "aarch64",
+      "platform": "windows-arm64",
+      "executable": "needle.exe",
+      "size": 1105408,
+      "sha256": "7211171111709a769bc2e858fd9967635a9571fad23fba57f369703f902ad618"
+    },
+    {
+      "os": "windows",
+      "architecture": "x86_64",
+      "platform": "windows-x86_64",
+      "executable": "needle.exe",
+      "size": 1276928,
+      "sha256": "8dfa55f2a1280f4c7f2b9d7396ca2d3d4580ccc05c3bb3da62101b405323b062"
+    }
+  ],
+  "supporting": [
+    {
+      "name": "license",
+      "path": "LICENSE",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "model",
+      "path": "needle3.cact",
+      "size": 35335380,
+      "sha256": "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38"
+    }
+  ]
+}

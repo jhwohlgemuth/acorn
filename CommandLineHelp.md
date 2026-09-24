@@ -424,7 +424,7 @@ Download research activity data from buckets or model weights for local inferenc
 ###### **Subcommands:**
 
 * `model` — Download model weights for use with ACORN research harnesses and local inference
-* `needle` — Download and verify the pinned standalone Needle engine for this platform
+* `needle` — Download and verify the pinned Needle 3 engine, model, and license for this platform
 
 ###### **Arguments:**
 
@@ -521,7 +521,7 @@ Download model weights for use with ACORN research harnesses and local inference
 
 ## `acorn-cli download needle`
 
-Download and verify the pinned standalone Needle engine for this platform
+Download and verify the pinned Needle 3 engine, model, and license for this platform
 
 **Usage:** `acorn-cli download needle`
 

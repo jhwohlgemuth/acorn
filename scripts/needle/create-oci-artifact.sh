@@ -2,24 +2,24 @@
 set -eu
 
 usage() {
-    echo "Usage: $0 RUNNER REGISTRY_REFERENCE [BUNDLE_DIRECTORY] [PLATFORM]" >&2
-    echo "Example: $0 ./needle harbor.example.org/research/needle:modelkit ./needle-modelkit linux-x86_64" >&2
+    echo "Usage: $0 SOURCE_DIRECTORY REGISTRY_REFERENCE [BUNDLE_DIRECTORY] [PLATFORM]" >&2
+    echo "Example: $0 ./needle3 harbor.example.org/research/needle:modelkit ./needle-modelkit linux-x86_64" >&2
 }
 
-runner="${1:-}"
+source_directory="${1:-}"
 reference="${2:-}"
 bundle="${3:-needle-modelkit}"
 platform="${4:-}"
 acorn_bin="${ACORN_BIN:-acorn}"
 oras_bin="${ORAS_BIN:-oras}"
-source_revision="${NEEDLE_SOURCE_REVISION:-98fbd955b0347e78059be0c253cc1ffa09b87bc7}"
+source_revision="${NEEDLE_SOURCE_REVISION:-b274efcb211a9eef48c9a88da4b43bd569696a39}"
 
-if [ -z "${runner}" ] || [ -z "${reference}" ]; then
+if [ -z "${source_directory}" ] || [ -z "${reference}" ]; then
     usage
     exit 2
 fi
-if [ ! -f "${runner}" ]; then
-    echo "Needle runner does not exist: ${runner}" >&2
+if [ ! -d "${source_directory}" ]; then
+    echo "Needle 3 source directory does not exist: ${source_directory}" >&2
     exit 1
 fi
 if [ -e "${bundle}" ]; then
@@ -71,6 +71,15 @@ case "${platform}" in
         exit 1
         ;;
 esac
+runner="${source_directory}/${runner_name}"
+model="${source_directory}/needle3.cact"
+license="${source_directory}/LICENSE"
+for required_file in "${runner}" "${model}" "${license}"; do
+    if [ ! -f "${required_file}" ]; then
+        echo "Needle 3 bundle input does not exist: ${required_file}" >&2
+        exit 1
+    fi
+done
 
 registry_reference="${reference#oci://}"
 case "${registry_reference}" in
@@ -82,6 +91,12 @@ esac
 
 "${acorn_bin}" export --tools --output "${bundle}"
 cp "${runner}" "${bundle}/${runner_name}"
+cp "${model}" "${bundle}/needle3.cact"
+cp "${license}" "${bundle}/LICENSE"
+license_sha256="$(checksum "${bundle}/LICENSE")"
+license_size="$(file_size "${bundle}/LICENSE")"
+model_sha256="$(checksum "${bundle}/needle3.cact")"
+model_size="$(file_size "${bundle}/needle3.cact")"
 runner_sha256="$(checksum "${bundle}/${runner_name}")"
 runner_size="$(file_size "${bundle}/${runner_name}")"
 tools_sha256="$(checksum "${bundle}/tools.json")"
@@ -94,7 +109,7 @@ printf '%s\n' \
     "  \"platform\": \"${platform}\"," \
     '  "sidecar": {' \
     '    "kind": "needle",' \
-    '    "protocolVersion": 1' \
+    '    "protocolVersion": 2' \
     '  },' \
     '  "runner": {' \
     "    \"path\": \"${runner_name}\"," \
@@ -102,6 +117,18 @@ printf '%s\n' \
     "    \"sha256\": \"${runner_sha256}\"" \
     '  },' \
     '  "assets": [' \
+    '    {' \
+    '      "name": "license",' \
+    '      "path": "LICENSE",' \
+    "      \"size\": ${license_size}," \
+    "      \"sha256\": \"${license_sha256}\"" \
+    '    },' \
+    '    {' \
+    '      "name": "model",' \
+    '      "path": "needle3.cact",' \
+    "      \"size\": ${model_size}," \
+    "      \"sha256\": \"${model_sha256}\"" \
+    '    },' \
     '    {' \
     '      "name": "tools",' \
     '      "path": "tools.json",' \
@@ -115,11 +142,13 @@ printf '%s\n' \
 (
     cd "${bundle}"
     set -- push \
-        --artifact-type application/vnd.acorn.needle.modelkit.v1 \
+        --artifact-type application/vnd.acorn.needle.modelkit.v2 \
         "${registry_reference}" \
-        needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v1+json \
+        needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v2+json \
+        LICENSE:text/plain \
+        needle3.cact:application/vnd.acorn.needle.model.v3 \
         tools.json:application/json \
-        "${runner_name}:application/vnd.acorn.needle.runner"
+        "${runner_name}:application/vnd.acorn.needle.runner.v3"
     if [ -n "${ORAS_REGISTRY_CONFIG:-}" ]; then set -- "$@" --registry-config "${ORAS_REGISTRY_CONFIG}"; fi
     if [ -n "${ORAS_CA_FILE:-}" ]; then set -- "$@" --ca-file "${ORAS_CA_FILE}"; fi
     if [ "${ORAS_PLAIN_HTTP:-0}" = "1" ]; then set -- "$@" --plain-http; fi

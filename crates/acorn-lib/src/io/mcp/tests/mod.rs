@@ -103,14 +103,19 @@ fn test_catalog_is_deterministic_and_shared() {
     let definitions = registry.definitions();
     let needle = registry.needle_tools();
     assert_eq!(definitions.len(), if cfg!(feature = "analysis") { 9 } else { 8 });
-    assert_eq!(definitions.len(), needle.len());
+    assert_eq!(definitions.len(), needle.len() + 1);
     assert!(definitions
         .windows(2)
         .all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(left, right)| left.name < right.name)));
-    definitions.iter().zip(needle).for_each(|(definition, projected)| {
-        assert_eq!(definition.name, projected.name);
-        assert_eq!(definition.description, projected.description);
-        assert_eq!(definition.input_schema, projected.parameters);
+    assert!(!needle.iter().any(|tool| tool.name == "acorn.apply_logbook_graduation"));
+    needle.iter().for_each(|projected| {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.name == projected.name)
+            .expect("canonical definition");
+        assert!(definition.exposure.needle);
+        assert!(!projected.description.is_empty());
+        assert!(projected.parameters.is_object());
     });
 }
 #[cfg(feature = "analysis")]

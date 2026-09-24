@@ -1,6 +1,7 @@
 //! Portable data contracts for ACORN agent tools
-use acorn_core::prelude::alloc::{format, String, ToString};
+use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::{AcornError, AcornResult};
+use core::fmt;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,6 +16,9 @@ pub struct NeedleToolDefinition {
     pub description: String,
     /// JSON Schema for tool arguments.
     pub parameters: Value,
+    /// Case-insensitive routing expressions that require this tool when matched.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub triggers: Vec<String>,
 }
 /// Serializable definition of a callable ACORN tool.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -74,7 +78,26 @@ impl From<ToolDefinition> for NeedleToolDefinition {
             name: definition.name,
             description: definition.description,
             parameters: definition.input_schema,
+            triggers: Vec::new(),
         }
+    }
+}
+impl fmt::Display for ToolDefinition {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description = match self.name.as_str() {
+            | "acorn.check_research_activity_data" | "acorn.validate_research_activity_data" =>
+                "Validate an explicitly supplied, complete ACORN research activity JSON object. Never synthesize activity JSON from prose and never use this tool to modify or persist data.",
+            | "acorn.export_research_activity_data" =>
+                "Serialize an explicitly supplied, complete ACORN research activity JSON object. Do not use for unrelated information or synthesize activity JSON from prose.",
+            | "acorn.export_research_activity_updates" =>
+                "Render updates from an explicitly supplied, complete ACORN research activity JSON object at or after a supplied RFC 3339 timestamp.",
+            | "acorn.format_and_enrich_research_activity_data" =>
+                "Normalize an explicitly supplied, complete ACORN research activity JSON object and enrich it using configured metadata providers.",
+            | "acorn.propose_logbook_graduation" =>
+                "Propose reviewable changes from an explicitly supplied, complete ACORN research activity JSON object. This tool cannot apply, persist, or directly modify data.",
+            | _ => &self.description,
+        };
+        formatter.write_str(description)
     }
 }
 impl ToolDefinition {
@@ -93,6 +116,13 @@ impl ToolDefinition {
                 open_world: false,
             },
             exposure: ToolExposure { needle: true, mcp: true },
+        }
+    }
+    /// Return Needle routing expressions for this tool.
+    pub fn needle_triggers(&self) -> Vec<String> {
+        match self.name.as_str() {
+            | "acorn.version" => vec!["acorn.*version".to_string(), "version.*acorn".to_string()],
+            | _ => Vec::new(),
         }
     }
     /// Validate the portable name, description, schemas, and effect metadata

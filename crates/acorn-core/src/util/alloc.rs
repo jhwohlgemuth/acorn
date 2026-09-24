@@ -16,6 +16,7 @@
 #[cfg(feature = "std")]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
+use crate::error::AcornError;
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
 use ::alloc::collections::BTreeSet;
@@ -25,6 +26,7 @@ use core::fmt;
 use core::iter::{once, successors};
 #[cfg(feature = "std")]
 use core::str::from_utf8;
+use core::str::FromStr;
 use derive_more::Display;
 use fancy_regex::Regex;
 use fluent_uri::UriRef;
@@ -602,6 +604,131 @@ where
         }
     }
 }
+#[cfg(feature = "std")]
+impl AsRef<std::ffi::OsStr> for MimeType {
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        std::ffi::OsStr::new(self.file_type_ref())
+    }
+}
+impl From<&str> for MimeType {
+    /// Returns a `MimeType` value based on the file extension of the given file name.
+    ///
+    /// # Supported MIME types
+    ///
+    /// | File Extension | MIME Type |
+    /// | --- | --- |
+    /// | cff | application/yaml |
+    /// | csv | text/csv |
+    /// | jpg | image/jpeg |
+    /// | jpeg | image/jpeg |
+    /// | json | application/json |
+    /// | jsonc | application/jsonc |
+    /// | jsonld | application/ld+json |
+    /// | md | text/markdown |
+    /// | otf | font/otf |
+    /// | ttf | font/ttf |
+    /// | pdf | application/pdf |
+    /// | png | image/png |
+    /// | pt | application/vnd.pytorch.model |
+    /// | pth | application/vnd.pytorch.model |
+    /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
+    /// | rs | text/rust |
+    /// | svg | image/svg+xml |
+    /// | toml | application/toml |
+    /// | txt | text/plain |
+    /// | yaml | application/yaml |
+    /// | zonf | text/zonf |
+    /// | zip | application/zip |
+    fn from(value: &str) -> Self {
+        let name = value.trim().to_lowercase();
+        let extension = file_extension(name.clone());
+        let file_type = extension.clone().unwrap_or_else(|| name.clone());
+        match file_type.as_str() {
+            | "cff" => MimeType::Cff,
+            | "csv" => MimeType::Csv,
+            | "doc" => MimeType::Doc,
+            | "docx" | "docm" => MimeType::Docx,
+            | "epub" => MimeType::Epub,
+            | "gguf" => MimeType::Gguf,
+            | "gz" => MimeType::Gzip,
+            | "jpg" | "jpeg" => MimeType::Jpeg,
+            | "json" => MimeType::Json,
+            | "jsonc" => MimeType::Jsonc,
+            | "jsonld" | "json-ld" => MimeType::LdJson,
+            | "md" | "markdown" => MimeType::Markdown,
+            | "onnx" => MimeType::Onnx,
+            | "odp" => MimeType::Odp,
+            | "ods" => MimeType::Ods,
+            | "odt" => MimeType::Odt,
+            | "otf" => MimeType::Otf,
+            | "ttf" => MimeType::Ttf,
+            | "parquet" => MimeType::Parquet,
+            | "pdf" => MimeType::Pdf,
+            | "png" => MimeType::Png,
+            | "pt" | "pth" => MimeType::Pytorch,
+            | "ppt" | "pps" | "pot" => MimeType::Ppt,
+            | "powerpoint" if extension.is_none() => MimeType::Powerpoint,
+            | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
+            | "prompt" => MimeType::Prompt,
+            | "rhai" => MimeType::Rhai,
+            | "rtf" => MimeType::Rtf,
+            | "rs" => MimeType::Rust,
+            | "safetensors" => MimeType::Safetensors,
+            | "7z" => MimeType::SevenZip,
+            | "spdx.json" => MimeType::Sbom,
+            | "svg" => MimeType::Svg,
+            | "tar" => MimeType::Tar,
+            | "toml" => MimeType::Toml,
+            | "txt" => MimeType::Text,
+            | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
+            | "yml" | "yaml" => MimeType::Yaml,
+            | "zon" if extension.is_none() => MimeType::Zon,
+            | "zonf" => MimeType::Zon,
+            | "zst" | "tzst" => MimeType::Zstd,
+            | value if extension.is_some() => MimeType::Vendor(value.to_string()),
+            | _ => MimeType::Unknown(name),
+        }
+    }
+}
+impl From<&String> for MimeType {
+    fn from(value: &String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
+    }
+}
+impl From<String> for MimeType {
+    fn from(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+}
+impl FromStr for MimeType {
+    type Err = AcornError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match Self::from(value) {
+            | Self::Unknown(_) | Self::Vendor(_) => Err(AcornError::new(format!("Unsupported file format '{value}'"))),
+            | format => Ok(format),
+        }
+    }
+}
 impl MimeType {
     /// Infer a supported textual file type from in-memory content.
     pub fn infer_from(content: &str) -> Self {
@@ -706,119 +833,6 @@ impl MimeType {
         }
     }
 }
-#[cfg(feature = "std")]
-impl AsRef<std::ffi::OsStr> for MimeType {
-    fn as_ref(&self) -> &std::ffi::OsStr {
-        std::ffi::OsStr::new(self.file_type_ref())
-    }
-}
-impl From<&str> for MimeType {
-    /// Returns a `MimeType` value based on the file extension of the given file name.
-    ///
-    /// # Supported MIME types
-    ///
-    /// | File Extension | MIME Type |
-    /// | --- | --- |
-    /// | cff | application/yaml |
-    /// | csv | text/csv |
-    /// | jpg | image/jpeg |
-    /// | jpeg | image/jpeg |
-    /// | json | application/json |
-    /// | jsonc | application/jsonc |
-    /// | jsonld | application/ld+json |
-    /// | md | text/markdown |
-    /// | otf | font/otf |
-    /// | ttf | font/ttf |
-    /// | pdf | application/pdf |
-    /// | png | image/png |
-    /// | pt | application/vnd.pytorch.model |
-    /// | pth | application/vnd.pytorch.model |
-    /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
-    /// | rs | text/rust |
-    /// | svg | image/svg+xml |
-    /// | toml | application/toml |
-    /// | txt | text/plain |
-    /// | yaml | application/yaml |
-    /// | zonf | text/zonf |
-    /// | zip | application/zip |
-    fn from(value: &str) -> Self {
-        let name = value.to_lowercase();
-        match file_extension(name.clone()) {
-            | Some(value) => match value.as_str() {
-                | "cff" => MimeType::Cff,
-                | "csv" => MimeType::Csv,
-                | "doc" => MimeType::Doc,
-                | "docx" | "docm" => MimeType::Docx,
-                | "epub" => MimeType::Epub,
-                | "gguf" => MimeType::Gguf,
-                | "gz" => MimeType::Gzip,
-                | "jpg" | "jpeg" => MimeType::Jpeg,
-                | "json" => MimeType::Json,
-                | "jsonc" => MimeType::Jsonc,
-                | "jsonld" | "json-ld" => MimeType::LdJson,
-                | "md" | "markdown" => MimeType::Markdown,
-                | "onnx" => MimeType::Onnx,
-                | "odp" => MimeType::Odp,
-                | "ods" => MimeType::Ods,
-                | "odt" => MimeType::Odt,
-                | "otf" => MimeType::Otf,
-                | "ttf" => MimeType::Ttf,
-                | "parquet" => MimeType::Parquet,
-                | "pdf" => MimeType::Pdf,
-                | "png" => MimeType::Png,
-                | "pt" | "pth" => MimeType::Pytorch,
-                | "ppt" | "pps" | "pot" => MimeType::Ppt,
-                | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
-                | "prompt" => MimeType::Prompt,
-                | "rhai" => MimeType::Rhai,
-                | "rtf" => MimeType::Rtf,
-                | "rs" => MimeType::Rust,
-                | "safetensors" => MimeType::Safetensors,
-                | "7z" => MimeType::SevenZip,
-                | "spdx.json" => MimeType::Sbom,
-                | "svg" => MimeType::Svg,
-                | "tar" => MimeType::Tar,
-                | "toml" => MimeType::Toml,
-                | "txt" => MimeType::Text,
-                | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
-                | "yml" | "yaml" => MimeType::Yaml,
-                | "zonf" => MimeType::Zon,
-                | "zst" | "tzst" => MimeType::Zstd,
-                | value => MimeType::Vendor(value.to_string()),
-            },
-            | None => MimeType::Unknown(name),
-        }
-    }
-}
-impl From<&String> for MimeType {
-    fn from(value: &String) -> Self {
-        Self::from(value.as_str())
-    }
-}
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
-    }
-}
-impl From<String> for MimeType {
-    fn from(value: String) -> Self {
-        Self::from(value.as_str())
-    }
-}
 impl<P: AsRef<str>> MarkdownSupport for Option<Vec<P>> {
     fn to_markdown(&self) -> String {
         match &self {
@@ -846,53 +860,6 @@ impl StringConversion for PathBuf {
     }
     fn to_cross_platform_path(&self) -> String {
         cross_platform_path(self)
-    }
-}
-impl SemanticVersion {
-    /// Extract a canonical semantic version from the first line with the supplied prefix.
-    pub fn extract(source: impl AsRef<str>, prefix: &str) -> Option<Self> {
-        source
-            .as_ref()
-            .lines()
-            .find(|line| line.trim_start().starts_with(prefix))
-            .and_then(|line| line.trim().strip_prefix(prefix))
-            .and_then(|version| Self::parse_exact(version).ok())
-    }
-    /// Parse a canonical numeric semantic version with one to three components.
-    pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
-        let value = value.as_ref();
-        let parts = value.split('.').collect::<Vec<_>>();
-        let valid_component =
-            |part: &str| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()) && (part.len() == 1 || !part.starts_with('0'));
-        let parsed = match parts.as_slice() {
-            | [major] if valid_component(major) => major.parse::<u32>().ok().map(|major| (major, 0, 0)),
-            | [major, minor] if [major, minor].iter().all(|part| valid_component(part)) => major
-                .parse::<u32>()
-                .ok()
-                .zip(minor.parse::<u32>().ok())
-                .map(|(major, minor)| (major, minor, 0)),
-            | [major, minor, patch] if [major, minor, patch].iter().all(|part| valid_component(part)) => major
-                .parse::<u32>()
-                .ok()
-                .zip(minor.parse::<u32>().ok())
-                .zip(patch.parse::<u32>().ok())
-                .map(|((major, minor), patch)| (major, minor, patch)),
-            | _ => None,
-        };
-        parsed
-            .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
-            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version"))
-    }
-    /// Parse the numeric components of a semantic version string
-    pub fn from_string(value: impl AsRef<str>) -> Self {
-        Self::from(value.as_ref())
-    }
-    // TODO: Add support for resolve version globs (e.g., `1.2.*` or `1.*` or `*`)
-    /// Validate that this version satisfies a required minimum version.
-    pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
-        (*self >= minimum)
-            .then_some(())
-            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}")))
     }
 }
 impl Default for SemanticVersion {
@@ -945,6 +912,53 @@ impl PartialEq<(u64, u64, u64)> for SemanticVersion {
 impl PartialOrd<(u64, u64, u64)> for SemanticVersion {
     fn partial_cmp(&self, other: &(u64, u64, u64)) -> Option<core::cmp::Ordering> {
         Some((u64::from(self.major), u64::from(self.minor), u64::from(self.patch)).cmp(other))
+    }
+}
+impl SemanticVersion {
+    /// Extract a canonical semantic version from the first line with the supplied prefix.
+    pub fn extract(source: impl AsRef<str>, prefix: &str) -> Option<Self> {
+        source
+            .as_ref()
+            .lines()
+            .find(|line| line.trim_start().starts_with(prefix))
+            .and_then(|line| line.trim().strip_prefix(prefix))
+            .and_then(|version| Self::parse_exact(version).ok())
+    }
+    /// Parse a canonical numeric semantic version with one to three components.
+    pub fn parse_exact(value: impl AsRef<str>) -> Result<Self, ValidationError> {
+        let value = value.as_ref();
+        let parts = value.split('.').collect::<Vec<_>>();
+        let valid_component =
+            |part: &str| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit()) && (part.len() == 1 || !part.starts_with('0'));
+        let parsed = match parts.as_slice() {
+            | [major] if valid_component(major) => major.parse::<u32>().ok().map(|major| (major, 0, 0)),
+            | [major, minor] if [major, minor].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .map(|(major, minor)| (major, minor, 0)),
+            | [major, minor, patch] if [major, minor, patch].iter().all(|part| valid_component(part)) => major
+                .parse::<u32>()
+                .ok()
+                .zip(minor.parse::<u32>().ok())
+                .zip(patch.parse::<u32>().ok())
+                .map(|((major, minor), patch)| (major, minor, patch)),
+            | _ => None,
+        };
+        parsed
+            .map(|(major, minor, patch)| SemanticVersion::init().major(major).minor(minor).patch(patch).build())
+            .ok_or_else(|| ValidationError::new("version").with_message("Provide valid semantic version"))
+    }
+    /// Parse the numeric components of a semantic version string
+    pub fn from_string(value: impl AsRef<str>) -> Self {
+        Self::from(value.as_ref())
+    }
+    // TODO: Add support for resolve version globs (e.g., `1.2.*` or `1.*` or `*`)
+    /// Validate that this version satisfies a required minimum version.
+    pub fn is_supported(&self, minimum: Self) -> Result<(), ValidationError> {
+        (*self >= minimum)
+            .then_some(())
+            .ok_or_else(|| ValidationError::new("version").with_message(format!("found {self}; minimum supported version is {minimum}")))
     }
 }
 impl MarkdownSupport for str {
@@ -1083,18 +1097,6 @@ where
             .collect::<Vec<_>>()
     }
 }
-impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
-    fn to_markdown(&self) -> String {
-        if self.is_empty() {
-            "[]".to_string()
-        } else {
-            self.iter()
-                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
-                .collect::<Vec<String>>()
-                .join("")
-        }
-    }
-}
 impl StringExt for Vec<&str> {
     fn is_numeric(&self) -> bool {
         self.iter().any(|value| value.is_numeric())
@@ -1112,6 +1114,18 @@ impl StringExt for Vec<String> {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .collect()
+    }
+}
+impl<P: AsRef<str>> MarkdownSupport for Vec<P> {
+    fn to_markdown(&self) -> String {
+        if self.is_empty() {
+            "[]".to_string()
+        } else {
+            self.iter()
+                .map(|x| format!("{LINE_SEPARATOR}- {}", x.as_ref()))
+                .collect::<Vec<String>>()
+                .join("")
+        }
     }
 }
 /// Decode a base32 Crockford string into a u128 value.
@@ -1636,9 +1650,31 @@ mod tests {
         });
     }
     #[test]
+    fn test_mime_type_from_resolves_file_type_names_and_aliases() {
+        assert_eq!(MimeType::from("json"), MimeType::Json);
+        assert_eq!(MimeType::from("markdown"), MimeType::Markdown);
+        assert_eq!(MimeType::from("powerpoint"), MimeType::Powerpoint);
+        assert_eq!(MimeType::from("zon"), MimeType::Zon);
+    }
+    #[test]
     fn test_mime_type_infers_rhai_from_abi_header() {
         let source = b"// @acorn-exec-v0.2.0\nthis is not valid Rhai";
         assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
+    }
+    #[test]
+    fn test_mime_type_parse_rejects_unsupported_file_types() {
+        assert_eq!("json".parse::<MimeType>(), Ok(MimeType::Json));
+        assert_eq!(
+            "activity.unknown"
+                .parse::<MimeType>()
+                .expect_err("unknown extension should fail")
+                .to_string(),
+            "Unsupported file format 'activity.unknown'"
+        );
+        assert_eq!(
+            "unknown".parse::<MimeType>().expect_err("unknown type should fail").to_string(),
+            "Unsupported file format 'unknown'"
+        );
     }
     #[test]
     fn test_mime_type_recognizes_only_canonical_zon_extension() {

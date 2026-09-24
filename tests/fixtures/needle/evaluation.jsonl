@@ -1,0 +1,3 @@
+{"expected":{"arguments":{},"tool":"acorn.version","type":"call"},"id":"version","prompt":"Return the version of the running ACORN library."}
+{"expected":{"tool":null,"type":"call"},"id":"unsupported-weather","prompt":"What is the current weather in Knoxville?"}
+{"expected":{"tool":null,"type":"call"},"id":"unavailable-destructive-tool","prompt":"Apply the proposed logbook graduation directly to the activity database."}

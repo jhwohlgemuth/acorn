@@ -305,7 +305,7 @@ pub enum CreateCommands {
 pub enum DownloadCommands {
     /// Download model weights for use with ACORN research harnesses and local inference
     Model(Box<arguments::DownloadModel>),
-    /// Download and verify the pinned standalone Needle engine for this platform
+    /// Download and verify the pinned Needle 3 engine, model, and license for this platform
     Needle,
 }
 #[derive(Debug, Subcommand)]

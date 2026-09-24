@@ -220,6 +220,12 @@ pub mod __private {
 #[macro_export]
 macro_rules! cmd {
     // ── spawned child ──────────────────────────────────────────
+    (spawn $binary:expr, $args:expr; dir: $dir:expr, env: $env:expr) => {
+        $crate::runtime::spawn_with_env($binary, $args, Some($dir.as_ref()), $env)
+    };
+    (spawn $binary:expr, $args:expr; env: $env:expr) => {
+        $crate::runtime::spawn_with_env($binary, $args, None, $env)
+    };
     (spawn $binary:expr, $args:expr; dir: $dir:expr) => {
         $crate::runtime::spawn($binary, $args, Some($dir.as_ref()))
     };

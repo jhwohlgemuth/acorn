@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Runner,
+    [string]$SourceDirectory,
     [Parameter(Mandatory = $true)]
     [string]$Reference,
     [string]$BundleDirectory = "needle-modelkit",
@@ -9,7 +9,7 @@ param(
     [string]$Platform,
     [string]$Acorn = "acorn",
     [string]$Oras = "oras",
-    [string]$SourceRevision = "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+    [string]$SourceRevision = "b274efcb211a9eef48c9a88da4b43bd569696a39",
     [string]$RegistryConfig,
     [string]$CaFile,
     [switch]$PlainHttp
@@ -18,8 +18,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path -LiteralPath $Runner -PathType Leaf)) {
-    throw "Needle runner does not exist: $Runner"
+if (-not (Test-Path -LiteralPath $SourceDirectory -PathType Container)) {
+    throw "Needle 3 source directory does not exist: $SourceDirectory"
 }
 if (Test-Path -LiteralPath $BundleDirectory) {
     throw "Refusing to overwrite bundle path: $BundleDirectory"
@@ -62,6 +62,14 @@ if ($Platform -notin $supportedPlatforms) {
 }
 
 $runnerName = if ($Platform.StartsWith("windows-")) { "needle.exe" } else { "needle" }
+$runnerSource = Join-Path $SourceDirectory $runnerName
+$modelSource = Join-Path $SourceDirectory "needle3.cact"
+$licenseSource = Join-Path $SourceDirectory "LICENSE"
+foreach ($requiredFile in @($runnerSource, $modelSource, $licenseSource)) {
+    if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
+        throw "Needle 3 bundle input does not exist: $requiredFile"
+    }
+}
 $registryReference = $Reference -replace '^oci://', ''
 if ($registryReference.Contains('@')) {
     throw "Publish to a tag, not an existing digest: $Reference"
@@ -69,9 +77,17 @@ if ($registryReference.Contains('@')) {
 
 & $acornExecutable export --tools --output $BundleDirectory
 if ($LASTEXITCODE -ne 0) { throw "ACORN failed to export tools.json" }
-Copy-Item -LiteralPath $Runner -Destination (Join-Path $BundleDirectory $runnerName)
+Copy-Item -LiteralPath $runnerSource -Destination (Join-Path $BundleDirectory $runnerName)
+Copy-Item -LiteralPath $modelSource -Destination (Join-Path $BundleDirectory "needle3.cact")
+Copy-Item -LiteralPath $licenseSource -Destination (Join-Path $BundleDirectory "LICENSE")
+$licensePath = Join-Path $BundleDirectory "LICENSE"
+$modelPath = Join-Path $BundleDirectory "needle3.cact"
 $runnerPath = Join-Path $BundleDirectory $runnerName
 $toolsPath = Join-Path $BundleDirectory "tools.json"
+$licenseSha256 = (Get-FileHash -LiteralPath $licensePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$licenseSize = (Get-Item -LiteralPath $licensePath).Length
+$modelSha256 = (Get-FileHash -LiteralPath $modelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$modelSize = (Get-Item -LiteralPath $modelPath).Length
 $runnerSha256 = (Get-FileHash -LiteralPath $runnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $runnerSize = (Get-Item -LiteralPath $runnerPath).Length
 $toolsSha256 = (Get-FileHash -LiteralPath $toolsPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -82,7 +98,7 @@ $manifest = [ordered]@{
     platform = $Platform
     sidecar = [ordered]@{
         kind = "needle"
-        protocolVersion = 1
+        protocolVersion = 2
     }
     runner = [ordered]@{
         path = $runnerName
@@ -90,6 +106,18 @@ $manifest = [ordered]@{
         sha256 = $runnerSha256
     }
     assets = @(
+        [ordered]@{
+            name = "license"
+            path = "LICENSE"
+            size = $licenseSize
+            sha256 = $licenseSha256
+        },
+        [ordered]@{
+            name = "model"
+            path = "needle3.cact"
+            size = $modelSize
+            sha256 = $modelSha256
+        },
         [ordered]@{
             name = "tools"
             path = "tools.json"
@@ -110,11 +138,13 @@ if ($PlainHttp) { $transportArguments += "--plain-http" }
 Push-Location $BundleDirectory
 try {
     & $orasExecutable push `
-        --artifact-type application/vnd.acorn.needle.modelkit.v1 `
+        --artifact-type application/vnd.acorn.needle.modelkit.v2 `
         $registryReference `
-        "needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v1+json" `
+        "needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v2+json" `
+        "LICENSE:text/plain" `
+        "needle3.cact:application/vnd.acorn.needle.model.v3" `
         "tools.json:application/json" `
-        "${runnerName}:application/vnd.acorn.needle.runner" `
+        "${runnerName}:application/vnd.acorn.needle.runner.v3" `
         @transportArguments
     if ($LASTEXITCODE -ne 0) { throw "ORAS failed to push the Needle artifact" }
 } finally {

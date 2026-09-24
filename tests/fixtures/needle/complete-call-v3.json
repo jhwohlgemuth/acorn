@@ -1,0 +1,23 @@
+{
+  "type": "call",
+  "success": true,
+  "error": null,
+  "error_code": null,
+  "reason": null,
+  "function_calls": [
+    {
+      "name": "acorn.version",
+      "arguments": {}
+    }
+  ],
+  "suppressed_calls": [],
+  "reasoning": "version requested",
+  "confidence": 0.94,
+  "prefill_tps": 4300.0,
+  "decode_tps": 850.0,
+  "peak_ram_mb": 91.3,
+  "validation": {
+    "ungrounded": [],
+    "negation": false
+  }
+}

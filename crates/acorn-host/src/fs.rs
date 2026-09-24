@@ -11,6 +11,8 @@ use std::{
 };
 use thiserror::Error;
 
+/// Compatibility name for consumers that prefer the explicit type name.
+pub type TemporaryDirectory = TempDir;
 /// Failure from a native filesystem operation.
 #[derive(Debug, Error)]
 pub enum FsError {
@@ -39,6 +41,14 @@ pub enum FsError {
 /// A normalized, non-empty relative path without traversal components.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct SafePath(PathBuf);
+/// A uniquely named temporary directory removed when dropped.
+#[derive(Debug)]
+pub struct TempDir(PathBuf);
+impl AsRef<Path> for SafePath {
+    fn as_ref(&self) -> &Path {
+        self.as_path()
+    }
+}
 impl SafePath {
     /// Normalize and validate a relative path.
     pub fn new(path: impl AsRef<Path>) -> Result<Self, FsError> {
@@ -84,14 +94,16 @@ impl SafePath {
             .map(|()| root.join(&self.0))
     }
 }
-impl AsRef<Path> for SafePath {
+impl AsRef<Path> for TempDir {
     fn as_ref(&self) -> &Path {
-        self.as_path()
+        self.path()
     }
 }
-/// A uniquely named temporary directory removed when dropped.
-#[derive(Debug)]
-pub struct TempDir(PathBuf);
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = remove_dir_all(&self.0);
+    }
+}
 impl TempDir {
     /// Create a temporary directory with `namespace` in its name.
     pub fn create(namespace: &str) -> Result<Self, FsError> {
@@ -104,26 +116,6 @@ impl TempDir {
     pub fn path(&self) -> &Path {
         &self.0
     }
-}
-impl AsRef<Path> for TempDir {
-    fn as_ref(&self) -> &Path {
-        self.path()
-    }
-}
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = remove_dir_all(&self.0);
-    }
-}
-/// Compatibility name for consumers that prefer the explicit type name.
-pub type TemporaryDirectory = TempDir;
-/// Read a UTF-8 file completely.
-pub fn read_text(path: impl AsRef<Path>) -> Result<String, FsError> {
-    let path = path.as_ref();
-    read_to_string(path).map_err(|source| FsError::Io {
-        path: path.to_path_buf(),
-        source,
-    })
 }
 /// Calculate a file checksum, using SHA-256 when no algorithm is supplied.
 pub fn file_checksum(path: impl AsRef<Path>, algorithm: Option<&'static Algorithm>) -> Result<Checksum, FsError> {
@@ -183,11 +175,16 @@ pub fn make_executable(path: impl AsRef<Path>) -> Result<(), FsError> {
         })
         .and_then(|metadata| {
             let mut permissions = metadata.permissions();
-            permissions.set_mode(permissions.mode() | 0o111);
-            set_permissions(path, permissions).map_err(|source| FsError::Io {
-                path: path.to_path_buf(),
-                source,
-            })
+            match permissions.mode() & 0o100 {
+                | mode if mode != 0 => Ok(()),
+                | _ => {
+                    permissions.set_mode(permissions.mode() | 0o111);
+                    set_permissions(path, permissions).map_err(|source| FsError::Io {
+                        path: path.to_path_buf(),
+                        source,
+                    })
+                }
+            }
         })
 }
 /// Confirm that a Windows executable path exists.
@@ -197,5 +194,13 @@ pub fn make_executable(path: impl AsRef<Path>) -> Result<(), FsError> {
     path.is_file().then_some(()).ok_or_else(|| FsError::Io {
         path: path.to_path_buf(),
         source: std::io::Error::new(std::io::ErrorKind::NotFound, "executable does not exist"),
+    })
+}
+/// Read a UTF-8 file completely.
+pub fn read_text(path: impl AsRef<Path>) -> Result<String, FsError> {
+    let path = path.as_ref();
+    read_to_string(path).map_err(|source| FsError::Io {
+        path: path.to_path_buf(),
+        source,
     })
 }

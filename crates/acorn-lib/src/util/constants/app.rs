@@ -173,10 +173,10 @@ pub const MCPB_MANIFEST_VERSION: &str = "0.3";
 pub const MCPB_SPEC_REVISION: &str = "70fe3b34cd6dff1b3bba046638edc72a6467a4fb";
 /// Hidden marker used to find the bot-authored merge request analysis note
 pub const MERGE_REQUEST_REPORT_MARKER: &str = "<!-- acorn:merge-request-analysis -->";
-/// Official Hugging Face repository containing Needle 2 standalone runners.
-pub const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle2";
-/// Immutable upstream Needle 2 revision used by default acquisition.
-pub const NEEDLE_REVISION: &str = "98fbd955b0347e78059be0c253cc1ffa09b87bc7";
+/// Official Hugging Face repository containing Needle 3 engines and weights.
+pub const NEEDLE_REPOSITORY: &str = "Cactus-Compute/needle3";
+/// Immutable upstream Needle 3 artifact revision used by default acquisition.
+pub const NEEDLE_REVISION: &str = "b274efcb211a9eef48c9a88da4b43bd569696a39";
 /// Maximum number of online synchronization attempts.
 pub const ONLINE_SYNC_ATTEMPTS: usize = 3;
 /// OpenAlex work fields used for research-output enrichment.

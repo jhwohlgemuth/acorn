@@ -25,7 +25,7 @@ Use SLM as the vendor-neutral integration category, including classifiers and ex
 
 Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and immutable artifact revisions before publishing a release.
 
-- `crates/acorn-lib/src/io/sidecar/mod.rs` exposes a `Sized` lifecycle trait with an associated output and consuming string-input inference method. Its landed, Kitfile-versioned ModelKit manifest validates the runner and every named supporting asset, including paths, byte sizes, and SHA-256 digests.
+- `crates/acorn-lib/src/io/sidecar/mod.rs` separates the complete shared contract into `SidecarAssets` and `Sidecar`. The asset trait owns the typed pinned manifest and runner asset, stable kind/protocol identity, target selection, cache root, ModelKit validation, and verified acquisition; the runtime trait adds typed input/output, verified-asset startup, and required consuming inference. Its landed, Kitfile-versioned ModelKit manifest validates the runner and every named supporting asset, including paths, byte sizes, and SHA-256 digests.
 - `io/sidecar/needle/` already owns managed process startup and asset resolution. Reuse its lifecycle and download primitives without reusing its HTTP tool-execution protocol.
 - The official Desert Ant command-line target does not expose Tongue, Redact, or Title as runnable commands. ACORN therefore needs owned, thin SDK adapters rather than shelling out to an undocumented CLI contract.
 - [Desert Ant Core v3.3.0](https://github.com/Desert-Ant-Labs/desert-ant-core/tree/0711f8907188ca1ee85b2a0fa37ad7aa64b9a750) is the integration baseline. Its source-available terms and every bundled or downloaded model license require explicit redistribution approval before release.
@@ -46,7 +46,7 @@ Evidence checked on 2026-09-22. Recheck upstream availability, licenses, and imm
 
 # Exact implementation boundaries
 
-## Landed shared ModelKit prerequisite
+## Landed shared sidecar and ModelKit prerequisite
 
 The first implementation slice belonged to [Needle 3 migration](../migrations/needle-3-upgrade.md) and has landed before SLM packaging. It provides one strict manifest shape whose `manifestVersion` is the official `v1.0.0` Kitfile value:
 
@@ -58,6 +58,14 @@ The first implementation slice belonged to [Needle 3 migration](../migrations/ne
 
 This is a concrete two-consumer contract for Needle 3 and SLM assets, not a provider or runtime registry.
 
+The Rust interface makes each extension phase explicit:
+
+- `SidecarAssets` declares the pinned `AssetManifest` and `EngineAsset`, `KIND`, `PROTOCOL_VERSION`, cache-root, target-selection, and manifest-loading methods, plus sidecar-specific official, local/remote, OCI, and ModelKit resolution hooks. Its default `resolve_assets` implementation provides common source and offline-policy dispatch without constructing a runtime.
+- `SidecarAssets::resolve_modelkit` composes the implementation's ModelKit validation with `ModelKitManifest::resolve_for::<S>`, binding resolution to the sidecar's declared identity and protocol rather than repeating string and integer literals.
+- `Sidecar` declares typed `Input` and `Output`, supplies the common `start` orchestration, requires `start_with_assets` for process initialization, and requires `infer`; unsupported inference cannot be hidden behind an optional default.
+
+Every new sidecar implements both traits in its leaf module. Capability-specific manifest checks, process protocols, validation, and result types stay concrete. Shared code remains limited to identity, verified asset acquisition, and lifecycle sequencing; do not add a dynamic registry or erase requests and results behind `serde_json::Value`.
+
 ## Owned runner and artifact files
 
 - **Create:** `scripts/slm/runner/Package.swift`, `scripts/slm/runner/Package.resolved`, shared protocol/process helpers under `scripts/slm/runner/Sources/SlmProtocol/`, and `TongueRunner`, `RedactRunner`, and `TitleRunner` executable targets.
@@ -67,8 +75,8 @@ This is a concrete two-consumer contract for Needle 3 and SLM assets, not a prov
 
 ## Rust and CLI files
 
-- **Update:** `crates/acorn-lib/Cargo.toml`, `crates/acorn-lib/src/io/mod.rs`, and `crates/acorn-lib/src/io/sidecar/mod.rs` to add an opt-in `slm` feature and wire the leaf module against the landed ModelKit contract.
-- **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Keep capability-specific result types and validation explicit; do not introduce a registry or erase them behind `serde_json::Value`.
+- **Update:** `crates/acorn-lib/Cargo.toml` and `crates/acorn-lib/src/io/mod.rs` to add an opt-in `slm` feature and expose the existing sidecar module for either `needle` or `slm`. Extend `crates/acorn-lib/src/io/sidecar/mod.rs` only when a second concrete implementation proves another lifecycle primitive is shared.
+- **Create:** `crates/acorn-lib/src/io/sidecar/slm/{mod,assets,process,protocol,language,redact,title}.rs` with concrete `LanguageSidecar`, `RedactSidecar`, and `TitleSidecar` implementations. Each sidecar implements `SidecarAssets` for acquisition and `Sidecar` for its typed request, result, and process lifecycle. Keep capability-specific result types and validation explicit; do not introduce a registry or erase them behind `serde_json::Value`.
 - **Update:** the existing CLI inference/download command modules, CLI argument definitions, and dispatch roots to add the commands below. Regenerate `CommandLineHelp.md` once under the CLI integration lock.
 - **Create:** `tests/fixtures/slm/{language,redact,title}/` and `docs/src/inference/slm.md`; update `docs/src/SUMMARY.md`.
 - **Delete:** none.
@@ -105,7 +113,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 
 # Implementation sequence and exit gates
 
-1. **Use the landed ModelKit contract.** Package every runner and supporting file through the single semantic-versioned manifest. This prerequisite is complete and is the only one shared with Needle 3.
+1. **Use the landed sidecar contracts.** Implement `SidecarAssets` and `Sidecar` for every capability, and package every runner and supporting file through the single semantic-versioned manifest. This prerequisite is complete and is the only lifecycle and asset boundary shared with Needle 3.
 2. **Prove licensing and hosts.** Record approval for SDK/weight redistribution and provision the macOS ARM64 runner. Stop release work if either gate fails, while retaining local evaluation notes.
 3. **Build the runners.** Pin the SDK and model commits above, implement the one-request protocol, and add protocol-only fixture tests plus real-model smoke tests on every claimed platform.
 4. **Publish immutable artifacts.** Produce capability/platform artifacts, capture exact bytes/hashes/licenses, verify clean offline installation, then pin them in Rust.
@@ -129,6 +137,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 
 # Validation
 
+- Compile-time contract tests assert that every concrete adapter declares typed input/output, stable identity/protocol values, asset resolution, verified-asset startup, and required inference.
 - Model-independent fixtures cover readiness and typed envelopes, malformed/oversized responses, request ID mismatch, Unicode and byte limits, timeouts, cancellation, concurrent sessions, startup failure, cleanup, stderr separation, and redacted diagnostics.
 - Asset tests cover the supported semantic manifest version, unsupported and legacy shapes, duplicate or unsafe asset names, bad sizes/digests, partial downloads, unsupported targets, custom locations, offline cache hits/misses, and OCI/local parity.
 - Capability fixtures cover scientific abbreviations, ambiguous and mixed-language prose, expected contact PII, missed and false-positive redactions, UTF-8 span boundaries, malformed Title output, absent fields, subtitle limits, unsupported claims, and stale source fingerprints.
@@ -138,6 +147,7 @@ Preserve `acorn infer <PROMPT>` as the legacy Needle form. Because `needle`, `la
 # Acceptance criteria
 
 - [x] The single Kitfile-versioned ModelKit manifest validates the runner and every named asset; unsupported and legacy shapes fail closed.
+- [x] Shared `SidecarAssets` and `Sidecar` contracts separate acquisition from typed runtime startup and inference without introducing a registry.
 - [ ] Pinned, ACORN-owned Tongue, Redact, and Title runners implement the bounded one-request protocol and run offline on every advertised target.
 - [ ] Explicit library and CLI paths return typed results without using Needle's tool loop, mutating RAD records, or downloading during unrelated commands.
 - [ ] Legacy Needle inference parsing remains supported with a documented escape for reserved first tokens.

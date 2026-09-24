@@ -1,8 +1,8 @@
 # Needle sidecar
 
-ACORN integrates the [Cactus Compute Needle 2](https://github.com/cactus-compute/needle) standalone runner as a managed local subprocess. Needle is used for compact tool selection; ACORN owns downloading, verification, process cleanup, confidence policy, bounded tool execution, and result handling.
+ACORN integrates the [Cactus Compute Needle 3](https://github.com/cactus-compute/needle) engine and `needle3.cact` model as a managed local subprocess. Needle selects tools; ACORN owns asset verification, process cleanup, execution policy, bounded tool dispatch, and result handling.
 
-Needle's standalone interface is native rather than OpenAI-compatible. ACORN starts its documented local server and sends `POST /complete` requests through the loopback-only `acorn::io::api` client. The client rejects non-loopback hosts, unexpected schemes, oversized responses, and endpoints without an explicit port.
+The integration is pinned to upstream revision `b274efcb211a9eef48c9a88da4b43bd569696a39`. ACORN uses Needle's native loopback-only `POST /complete` API, sets `NEEDLE_TELEMETRY=0` and `DO_NOT_TRACK=1`, and rejects unexpected schemes, non-loopback hosts, missing ports, and oversized responses.
 
 ## Run inference
 
@@ -10,19 +10,19 @@ Needle's standalone interface is native rather than OpenAI-compatible. ACORN sta
 acorn infer "Return the running ACORN version"
 ```
 
-The first online run downloads the runner for the current supported platform from the immutable Needle revision pinned by ACORN. It verifies both the published byte length and SHA-256 before execution and caches the result outside the repository. Later runs can reuse that exact binary with global `--offline`:
-
-Download and verify the engine without starting inference:
+The first online run downloads the engine for the current platform, the model, and its Apache-2.0 license. ACORN verifies the published byte length and SHA-256 of every file before execution and caches them outside the repository. Download and verify the bundle without starting inference:
 
 ```console
 acorn download needle
 ```
 
+The command prints the engine path. The adjacent cache directory also contains `needle3.cact` and `LICENSE`. Once cached, the bundle works offline:
+
 ```console
 acorn --offline infer "Return the running ACORN version"
 ```
 
-Tool calls execute only when Needle supplies a confidence at or above the default `0.8` threshold. Both controls are configurable:
+ACORN executes calls only when Needle returns a successful `call` response with finite calibrated confidence at or above the configured threshold. Calls are rejected when Needle reports negation, ungrounded arguments, an unknown response type, or a failed response. `suppressed_calls` remain diagnostic and are never executed.
 
 ```console
 acorn infer "Validate this research activity" \
@@ -30,46 +30,79 @@ acorn infer "Validate this research activity" \
   --max-rounds 4
 ```
 
-ACORN does not commit or distribute Needle binaries in its source repository. Keeping upstream executables in the verified cache avoids repository bloat, platform ambiguity, and accidental redistribution of stale artifacts.
+The managed process uses a 20-layer model depth, a 4,096-token output cap, and input-overflow failure. ACORN does not commit or distribute Needle assets in its source repository.
+
+## Pinned assets
+
+The common model and license are:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `needle3.cact` | 35,335,380 | `c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38` |
+| `LICENSE` | 11,358 | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+
+Supported engines are:
+
+| Platform | File | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| `windows-x86_64` | `needle.exe` | 1,276,928 | `8dfa55f2a1280f4c7f2b9d7396ca2d3d4580ccc05c3bb3da62101b405323b062` |
+| `windows-arm64` | `needle.exe` | 1,105,408 | `7211171111709a769bc2e858fd9967635a9571fad23fba57f369703f902ad618` |
+| `linux-x86_64` | `needle` | 1,246,880 | `5eb163c5ed33bd914c103ef8eba2134c7bb2d97bafafdd69f410a4a3100e8c37` |
+| `linux-arm64` | `needle` | 1,166,664 | `b8d20caa7b8412c5900e05cf23d7a30dd84b7b89357d5408df30246ea9c808a6` |
+| `macos-arm64` | `needle` | 824,744 | `bfcc14c38a7ebf670bf7ade3849b617d268120dc4cc75d3aa12c88bc7c0ba75c` |
 
 ## Export `tools.json`
 
-Generate the exact deterministic catalog given to Needle:
+Generate the deterministic catalog given to Needle:
 
 ```console
 acorn export --tools --output ./bundle
 ```
 
-This atomically creates `./bundle/tools.json` and refuses to overwrite an existing catalog. Use `--dry-run` to preview the destination. Each entry contains Needle's native `name`, `description`, and JSON Schema `parameters` fields.
+This atomically creates `./bundle/tools.json` and refuses to overwrite an existing catalog. Use `--dry-run` to preview the destination. The Needle catalog is capped at 32 KiB and uses compact input projections for large research-activity arguments. ACORN parses those projected JSON strings into the same typed values used by the canonical handlers. Destructive graduation application is excluded from Needle exposure.
 
 ## Use a local ModelKit
 
-Custom assets are disabled unless `--custom-location` is present. A local bundle is a directory with this layout:
+Custom assets are disabled unless `--custom-location` is present. A Needle 3 bundle has this layout:
 
 ```text
 needle-bundle/
+├── LICENSE
 ├── needle-modelkit.json
+├── needle3.cact
 ├── tools.json
 └── needle             # needle.exe on Windows
 ```
 
-Create `needle-modelkit.json` with safe bundle-relative paths:
+The manifest uses ACORN's `v1.0.0` ModelKit shape and Needle sidecar protocol 2:
 
 ```json
 {
   "manifestVersion": "v1.0.0",
-  "sourceRevision": "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+  "sourceRevision": "b274efcb211a9eef48c9a88da4b43bd569696a39",
   "platform": "linux-x86_64",
   "sidecar": {
     "kind": "needle",
-    "protocolVersion": 1
+    "protocolVersion": 2
   },
   "runner": {
     "path": "needle",
-    "size": 14884256,
-    "sha256": "REPLACE_WITH_SHA256"
+    "size": 1246880,
+    "sha256": "5eb163c5ed33bd914c103ef8eba2134c7bb2d97bafafdd69f410a4a3100e8c37"
   },
   "assets": [
+    {
+      "name": "license",
+      "path": "LICENSE",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "model",
+      "path": "needle3.cact",
+      "size": 35335380,
+      "sha256": "c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38"
+    },
     {
       "name": "tools",
       "path": "tools.json",
@@ -81,95 +114,166 @@ Create `needle-modelkit.json` with safe bundle-relative paths:
 }
 ```
 
-`manifestVersion` follows ACORN's pinned Kitfile manifest version; the outer OCI manifest retains the OCI-defined numeric `schemaVersion: 2`. Use the exact platform value expected by the current host: `windows-x86_64`, `windows-arm64`, `linux-x86_64`, `linux-arm64`, or `macos-arm64`. The standalone runner already contains Needle's model; its published CLI does not accept separate tuned weights. ACORN validates the manifest, sidecar protocol, platform, byte size, SHA-256 digest, exact tool catalog, and every relative path before starting the process.
+Use the exact host platform shown in the pinned-assets table. ACORN validates the manifest, protocol, platform, named model and license assets, file sizes, SHA-256 digests, exact tool catalog, and safe relative paths before starting the process. Protocol 1 Needle 2 bundles are rejected with repackaging guidance.
+
+This is a hard cutover: the current release has no Needle 2 selector. Roll back by reinstalling the prior ACORN release and using its pinned Needle 2 bundle. ACORN does not delete the prior release's cache, so that rollback remains available unless an operator removes it.
 
 ```console
 acorn infer "Return the ACORN version" --custom-location ./needle-bundle
 ```
 
-The same directory can be supplied as a `file://` URI. An `https://` location may point to the
-manifest itself; ACORN downloads its safe relative runner and every declared asset into the verified
-cache before starting Needle.
+The same directory can be supplied as a `file://` URI. An `https://` location may point to the manifest itself; ACORN downloads its safe relative files into the verified cache. The session regenerates its tool index from the current engine, model, protocol, and catalog identity, so a stale bundled index cannot change the exposed tools.
 
-The session always regenerates its tool index from ACORN's current canonical catalog, so a stale bundled index cannot change the exposed tools.
+## Save and publish an OCI ModelKit to Harbor
 
-## Publish an OCI-compatible ModelKit to Harbor
+Install ACORN and [ORAS 1.3 or newer](https://oras.land/docs/installation/). Harbor implements the OCI Distribution API, so ORAS can publish the ModelKit without a Harbor-specific client.
 
-The bundle can be published as an OCI artifact that preserves the same files. Install ACORN and [ORAS 1.3 or newer](https://oras.land/docs/installation/), authenticate to the private registry, and use the repository script for your shell. The scripts refuse to overwrite the output directory, export the exact active ACORN tool catalog, copy and hash the supplied runner and tools, write `needle-modelkit.json`, push all three files, resolve the immutable manifest digest, and print the complete `--custom-location` value.
+### Build and publish in one step
+
+The repository scripts copy and hash the required Needle 3 files, export `tools.json`, write the manifest, publish the artifact, resolve its immutable digest, and print the complete `--custom-location` value.
 
 On Linux or macOS:
 
 ```console
-oras login harbor.example.org
-runner="$(acorn download needle)"
+oras login example.ornl.gov
+engine="$(acorn download needle)"
 sh scripts/needle/create-oci-artifact.sh \
-  "$runner" \
-  harbor.example.org/research/needle:modelkit-2026-09 \
+  "$(dirname "$engine")" \
+  example.ornl.gov/research-enablement/needle:modelkit-2026-09 \
   ./needle-modelkit
 ```
 
 On Windows PowerShell:
 
 ```powershell
-oras login harbor.example.org
-$runner = acorn download needle | Select-Object -Last 1
+oras login example.ornl.gov
+$engine = acorn download needle | Select-Object -Last 1
 ./scripts/needle/create-oci-artifact.ps1 `
-  -Runner $runner `
-  -Reference harbor.example.org/research/needle:modelkit-2026-09 `
+  -SourceDirectory (Split-Path $engine) `
+  -Reference example.ornl.gov/research-enablement/needle:modelkit-2026-09 `
   -BundleDirectory ./needle-modelkit
 ```
 
-Pass `PLATFORM` as the fourth shell argument or `-Platform` in PowerShell when building for a host other than the machine running the script. Supported values are `windows-x86_64`, `windows-arm64`, `linux-x86_64`, `linux-arm64`, and `macos-arm64`; the supplied runner must actually match that platform. Override `ACORN_BIN`, `ORAS_BIN`, or `NEEDLE_SOURCE_REVISION` for the shell script, or use the corresponding PowerShell parameters.
+Pass `PLATFORM` as the fourth shell argument or `-Platform` in PowerShell when packaging for another host. The source directory must contain the matching engine, `needle3.cact`, and `LICENSE`. Override `ACORN_BIN`, `ORAS_BIN`, or `NEEDLE_SOURCE_REVISION` for the shell script, or use the corresponding PowerShell parameters.
 
-For publication to Harbor with a private certificate authority, set `ORAS_CA_FILE` for the shell script or pass `-CaFile` in PowerShell. `ORAS_REGISTRY_CONFIG`/`-RegistryConfig` selects a non-default credential file for the script. Development-only HTTP registries require `ORAS_PLAIN_HTTP=1` or `-PlainHttp`; do not use plaintext transport for production credentials. These settings affect publication only: ACORN's subsequent pull uses ORAS's default credential store and the system trust store, so perform `oras login` without a custom config and install a private Harbor CA into the host trust store before using `--custom-location`.
+For a private certificate authority, set `ORAS_CA_FILE` or pass `-CaFile`. `ORAS_REGISTRY_CONFIG`/`-RegistryConfig` selects a non-default credential file. Development-only HTTP registries require `ORAS_PLAIN_HTTP=1` or `-PlainHttp`; do not use plaintext transport for production credentials.
 
-The final output resembles:
+### Save an OCI layout before publishing
 
-```text
-Bundle: ./needle-modelkit
-Custom location: oci://harbor.example.org/research/needle@sha256:0123...
-Run: acorn infer "Return the ACORN version" --custom-location oci://harbor.example.org/research/needle@sha256:0123...
-```
-
-Keep the local bundle to test the same content without a registry:
+Start with the validated directory described in [Use a local ModelKit](#use-a-local-modelkit). Run ORAS from inside that directory so the OCI layer titles remain plain file names:
 
 ```console
-acorn infer "Return the ACORN version" --custom-location ./needle-modelkit
-```
-
-### Manual publication
-
-To inspect or reproduce the script manually, first create `tools.json` and the manifest using the local ModelKit instructions above. Then push the three files with ORAS:
-
-```console
-oras login harbor.example.org
-
-oras push harbor.example.org/research/needle:modelkit-2026-09 \
-  --artifact-type application/vnd.acorn.needle.modelkit.v1 \
-  needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v1+json \
+(cd ./needle-modelkit && oras push --oci-layout ../needle-modelkit.oci:local \
+  --artifact-type application/vnd.acorn.needle.modelkit.v2 \
+  needle-modelkit.json:application/vnd.acorn.needle.modelkit.manifest.v2+json \
+  LICENSE:text/plain \
+  needle3.cact:application/vnd.acorn.needle.model.v3 \
   tools.json:application/json \
-  needle:application/vnd.acorn.needle.runner
+  needle:application/vnd.acorn.needle.runner.v3)
 
-oras resolve harbor.example.org/research/needle:modelkit-2026-09
+oras resolve --oci-layout ./needle-modelkit.oci:local
 ```
 
-Run with the immutable digest printed by `oras resolve`, never the mutable publication tag. The scripts use `oras resolve --full-reference` to avoid manually reconstructing the repository name:
+The `local` tag exists only inside the OCI layout. To store the layout as one transferable file, archive its contents and verify that ORAS resolves the same manifest digest:
 
 ```console
-acorn infer "Validate this" \
-  --custom-location oci://harbor.example.org/research/needle@sha256:REPLACE_WITH_MANIFEST_DIGEST
+tar -cf needle-modelkit.oci.tar -C needle-modelkit.oci .
+oras resolve --oci-layout ./needle-modelkit.oci.tar:local
 ```
 
-ACORN rejects tags for custom bundle pulls. It delegates authentication to ORAS-compatible credential configuration, pulls into a staging directory, publishes the cache entry atomically, then applies the same local ModelKit validation. A custom-location failure never falls back to the public runner.
+Use the materialized `./needle-modelkit` directory with a local ACORN command. ACORN does not treat the OCI layout or its tar archive as a local ModelKit directory:
 
-This layout is an ACORN Needle ModelKit carried by the OCI Distribution protocol; it is not a CNCF ModelPack and does not claim interchangeability with arbitrary KitOps manifests. If an organization also packages the directory with KitOps, retain `needle-modelkit.json` and the same root-relative file names, then verify that `oras pull` reconstructs that layout before relying on it.
+```console
+acorn --offline infer "Return the ACORN version" --custom-location ./needle-modelkit
+```
 
-For production Harbor deployments, attach an SBOM and sign the digest with the organization's existing OCI signing policy. ACORN currently requires the digest and validates every declared file size and checksum, but signature-policy enforcement remains a registry/deployment responsibility.
+### Push a saved layout to Harbor
 
-For an air-gapped system, transfer the validated directory through the approved media process and use its local path with `--custom-location`; global `--offline` prevents registry or public download access.
+Authenticate, copy the saved artifact, and resolve the registry reference:
+
+```console
+oras login example.ornl.gov
+
+oras cp --from-oci-layout ./needle-modelkit.oci.tar:local example.ornl.gov/research-enablement/needle:modelkit
+
+oras resolve --full-reference example.ornl.gov/research-enablement/needle:modelkit
+```
+
+### Use the published bundle with ACORN
+
+Resolve the publication tag before downloading or running the bundle. ACORN and ORAS both accept the resulting immutable repository and digest reference.
+
+#### Download and run locally
+
+`acorn download needle` retrieves ACORN's pinned public bundle. Use ORAS to download a bundle published to a private registry:
+
+```console
+reference="$(oras resolve --full-reference example.ornl.gov/research-enablement/needle:modelkit)"
+
+oras pull --output ./needle-modelkit-pulled "${reference}"
+
+acorn --offline infer "Return the ACORN version" \
+  --custom-location ./needle-modelkit-pulled
+```
+
+ORAS reconstructs `needle-modelkit.json`, the engine, model, license, and `tools.json` in the output directory. ACORN validates those files before starting Needle.
+
+#### Run directly from Harbor
+
+Prefix the resolved reference with `oci://` and pass it to `--custom-location`:
+
+```console
+reference="$(oras resolve --full-reference example.ornl.gov/research-enablement/needle:modelkit)"
+
+acorn infer "Return the ACORN version" \
+  --custom-location "oci://${reference}"
+```
+
+On PowerShell:
+
+```powershell
+$reference = oras resolve --full-reference example.ornl.gov/research-enablement/needle:modelkit
+
+acorn infer "Return the ACORN version" --custom-location "oci://$reference"
+```
+
+ACORN requires the digest reference because tags can move. It uses the registry credentials saved by `oras login`. A custom-location failure never falls back to the public bundle.
+
+#### Run from an HTTPS manifest
+
+ACORN can also download a manifest and its relative files from an HTTPS location:
+
+```console
+acorn infer "Return the ACORN version" --custom-location https://example.ornl.gov/needle/needle-modelkit.json
+```
+
+The URL must point to `needle-modelkit.json`. The engine, model, license, and tool catalog must be available at the relative paths declared in that manifest. A Harbor repository URL does not expose this static directory shape; use its digest-pinned `oci://` reference instead.
+
+For air-gapped systems, transfer the validated directory through the approved media process and use its local path with `--custom-location`; global `--offline` prevents registry and public downloads.
+
+## Compare Needle generations
+
+The checked-in harness runs the same held-out JSONL prompts against explicit Needle 2 and Needle 3 assets, with telemetry disabled for both:
+
+```console
+python3 scripts/needle/compare-generations.py \
+  --v2-runner /path/to/needle2 \
+  --v3-runner /path/to/needle3 \
+  --v3-model /path/to/needle3.cact \
+  --tools /path/to/tools.json
+```
+
+It records exact native response/tool/argument matches, effective outcomes after ACORN's confidence and argument-validation policy, refusals, confidence, native peak RAM, installed bytes, and cold/warm wall time in `target/needle-generation-comparison.json`. The default exit gates allow no policy-level accuracy regression or policy escapes, cap latency at 1.5 times the Needle 2 baseline and Needle 3 peak memory at 128 MiB, and require zero Needle 3 process failures. Override the numeric limits explicitly when conducting a new evaluation; retain the resulting report with release evidence rather than presenting upstream benchmark claims as ACORN measurements.
+
+The 2026-09-23 macOS ARM64 migration smoke used three prompts with one cold and one warm repetition:
+
+| Generation | Raw exact match | Policy outcome match | Cold / warm mean | Peak RAM | Installed assets |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Needle 2 | 66.67% | 66.67% | 576 / 470 ms | 33.7 MB | 14,610,568 bytes |
+| Needle 3 | 33.33% | 100% | 307 / 304 ms | 108.4 MB | 36,171,482 bytes |
+
+Needle 3 proposed calls for the two negative prompts, but ACORN rejected both: one was below the confidence threshold and the other failed typed `activity_json` validation. The run had zero policy escapes or process failures and passed the documented gates. This is migration smoke evidence, not a general benchmark. Only macOS ARM64 received a real-engine smoke in this change; the other pinned platform artifacts remain subject to their release-host smoke jobs.
 
 ## MCP relationship
 
-`acorn serve mcp` exposes the canonical ACORN registry over MCP stdio. `tools/list` and Needle's `tools.json` are generated from the same names, descriptions, schemas, and exposure metadata. `tools/call` and Needle-selected calls reach the same dispatcher and handlers.
-
-MCP is the interoperability surface for an external host or agent. Needle is the local inference implementation that decides whether to call a tool. Neither protocol bypasses ACORN's allowlist, and neither exposes arbitrary shell execution or recursive Needle inference.
+`acorn serve mcp` exposes the canonical ACORN registry and its full schemas over MCP stdio. Needle's `tools.json` retains the same safe tool names, dispatcher, and handlers, while using narrower routing descriptions and compact inference-oriented input schemas where needed. MCP is the interoperability surface for an external host or agent; Needle is the local tool selector. Neither exposes arbitrary shell execution or recursive Needle inference.

@@ -1,8 +1,10 @@
 //! Research activity Markdown document indexing.
 use super::{DocumentEntry, DocumentParser, SourceDocument};
+use crate::{error::ApiResult, io::Parse};
 use acorn_core::prelude::{format, Vec};
 use acorn_core::util::MarkdownSupport;
 use acorn_schema::research_activity::ResearchActivity;
+use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 
 pub(crate) struct MarkdownParser;
@@ -137,6 +139,21 @@ impl MarkdownParser {
                 displayed.decode_markdown_text(),
                 start.saturating_add(relative)..start.saturating_add(relative).saturating_add(displayed.len()),
             )
+        })
+    }
+}
+impl Parse<&str> for ResearchActivity {
+    fn parse(content: &str) -> ApiResult<Self> {
+        eserde::json::from_str::<Self>(content).map_err(|errors| {
+            let details = errors
+                .iter()
+                .map(|error| {
+                    let path = error.path().map_or_else(|| "root".to_string(), ToString::to_string);
+                    format!("{path}: {}", error.message())
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            eyre!("Invalid research activity JSON — {details}")
         })
     }
 }

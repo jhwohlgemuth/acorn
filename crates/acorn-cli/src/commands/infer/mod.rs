@@ -15,11 +15,10 @@ pub async fn run(prompt: &str, custom_location: Option<&str>, threshold: f64, ma
     };
     match configured {
         | Ok(sidecar) => match sidecar.infer(prompt.to_string()).await {
-            | Some(Ok(result)) => serde_json::to_string_pretty(&result)
+            | Ok(result) => serde_json::to_string_pretty(&result)
                 .map_err(|why| eyre!("Failed to serialize Needle inference result — {why}"))
                 .map(|json| write_stdout(format!("{json}\n"))),
-            | Some(Err(why)) => Err(why),
-            | None => Err(eyre!("Needle sidecar does not support inference")),
+            | Err(why) => Err(why),
         },
         | Err(why) => Err(why),
     }
